@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en-NZ">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Scaffold Field" />
+    <title>Scaffold Field App</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/assets/css/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Scaffolding Company MVP</p>
+          <h1>Scaffold Field App</h1>
+        </div>
+        <div class="topbar-actions">
+          <button id="installButton" class="ghost hidden" type="button">Install App</button>
+          <button id="logoutButton" class="ghost hidden" type="button">Log out</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section id="statusBanner" class="status-banner">Checking app status...</section>
+
+        <section id="loginView" class="card view active">
+          <h2>Sign in</h2>
+          <p class="muted">Use the demo accounts below to explore the worker and supervisor flows.</p>
+
+          <div class="demo-box">
+            <p><strong>Worker:</strong> worker@example.com / Passw0rd!</p>
+            <p><strong>Supervisor:</strong> supervisor@example.com / Passw0rd!</p>
+          </div>
+
+          <form id="loginForm" class="form-grid">
+            <label>
+              Email
+              <input id="emailInput" type="email" value="worker@example.com" required />
+            </label>
+            <label>
+              Password
+              <input id="passwordInput" type="password" value="Passw0rd!" required />
+            </label>
+            <button type="submit">Sign in</button>
+          </form>
+        </section>
+
+        <section id="workerView" class="view hidden">
+          <div class="grid two-col">
+            <article class="card">
+              <h2>Today</h2>
+              <div id="workerSummary" class="summary-list"></div>
+            </article>
+
+            <article class="card">
+              <h2>Quick actions</h2>
+              <div class="button-stack">
+                <button data-tab-target="attendanceTab" type="button">Open check in / check out</button>
+                <button data-tab-target="taskTab" type="button">Open task log</button>
+                <button data-tab-target="historyTab" type="button">Open my history</button>
+              </div>
+            </article>
+          </div>
+
+          <div class="tabs">
+            <button class="tab active" data-tab-target="attendanceTab" type="button">Attendance</button>
+            <button class="tab" data-tab-target="taskTab" type="button">Task Log</button>
+            <button class="tab" data-tab-target="historyTab" type="button">History</button>
+          </div>
+
+          <section id="attendanceTab" class="tab-panel active">
+            <article class="card">
+              <h2>Check in / check out</h2>
+              <form id="attendanceForm" class="form-grid">
+                <label>
+                  Site
+                  <select id="attendanceSite" required></select>
+                </label>
+                <label>
+                  Notes
+                  <textarea id="attendanceNotes" rows="4" placeholder="Example: unloading scaffold tubes, setting base plates, final site clean-up"></textarea>
+                </label>
+                <div class="split-actions">
+                  <button id="captureLocationButton" type="button" class="secondary">Capture current location</button>
+                  <button id="saveAttendanceDraftButton" type="button" class="ghost">Save draft</button>
+                </div>
+                <div id="locationPreview" class="preview-box">No location captured yet.</div>
+                <label>
+                  Optional site photo
+                  <input id="attendancePhoto" type="file" accept="image/*" capture="environment" />
+                </label>
+                <div id="attendancePhotoPreview" class="photo-preview hidden"></div>
+                <div class="split-actions">
+                  <button id="checkInButton" type="button">Check in</button>
+                  <button id="checkOutButton" type="button" class="secondary">Check out</button>
+                </div>
+              </form>
+            </article>
+          </section>
+
+          <section id="taskTab" class="tab-panel hidden">
+            <article class="card">
+              <h2>Daily task log</h2>
+              <form id="taskForm" class="form-grid">
+                <label>
+                  Site
+                  <select id="taskSite" required></select>
+                </label>
+                <label>
+                  Work date
+                  <input id="taskDate" type="date" required />
+                </label>
+                <label>
+                  Hours worked
+                  <input id="taskHours" type="number" step="0.25" min="0" max="24" placeholder="8" />
+                </label>
+                <label>
+                  What was done
+                  <textarea id="taskSummary" rows="5" placeholder="Describe the work completed at the site."></textarea>
+                </label>
+                <label>
+                  Safety notes
+                  <textarea id="taskSafety" rows="3" placeholder="Example: edge protection checked, tagged area remained clear"></textarea>
+                </label>
+                <label>
+                  Optional progress photo
+                  <input id="taskPhoto" type="file" accept="image/*" capture="environment" />
+                </label>
+                <div id="taskPhotoPreview" class="photo-preview hidden"></div>
+                <div class="split-actions">
+                  <button id="saveTaskDraftButton" type="button" class="ghost">Save draft</button>
+                  <button id="submitTaskButton" type="submit">Submit task log</button>
+                </div>
+              </form>
+            </article>
+          </section>
+
+          <section id="historyTab" class="tab-panel hidden">
+            <article class="card">
+              <div class="section-heading">
+                <h2>My history</h2>
+                <button id="refreshHistoryButton" type="button" class="ghost">Refresh</button>
+              </div>
+              <div id="historyList" class="records-list"></div>
+            </article>
+          </section>
+        </section>
+
+        <section id="supervisorView" class="view hidden">
+          <div class="grid two-col">
+            <article class="card">
+              <h2>Supervisor overview</h2>
+              <div id="supervisorSummary" class="summary-list"></div>
+            </article>
+            <article class="card">
+              <h2>Notes</h2>
+              <p class="muted">
+                This localhost version is frontend-only. Approvals and records are stored in the browser for demo purposes.
+              </p>
+            </article>
+          </div>
+
+          <article class="card">
+            <div class="section-heading">
+              <h2>Pending approvals</h2>
+              <button id="refreshSupervisorButton" type="button" class="ghost">Refresh</button>
+            </div>
+            <div id="pendingApprovalsList" class="records-list"></div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <template id="recordTemplate">
+      <article class="record-card">
+        <div class="record-header">
+          <div>
+            <h3 class="record-title"></h3>
+            <p class="record-meta"></p>
+          </div>
+          <span class="badge"></span>
+        </div>
+        <p class="record-detail"></p>
+        <div class="record-extra"></div>
+        <div class="record-actions hidden"></div>
+      </article>
+    </template>
+
+    <script type="module" src="/assets/js/app.js"></script>
+  </body>
+</html>
