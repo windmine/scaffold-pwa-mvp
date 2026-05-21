@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'scaffold-pwa-v1';
+const CACHE_VERSION = 'leader-field-v2';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -6,6 +6,7 @@ const APP_SHELL = [
   '/manifest.webmanifest',
   '/assets/css/styles.css',
   '/assets/js/app.js',
+  '/assets/js/api-client.js',
   '/assets/js/db.js',
   '/assets/js/mock-api.js',
   '/assets/js/utils.js',

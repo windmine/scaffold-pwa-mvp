@@ -1,21 +1,40 @@
 import {
   initializeMockData,
-  login,
-  getSession,
-  clearSession,
-  getSites,
+  getSites as getLocalSites,
   saveDraft,
   getDraft,
   clearDraft,
   createAttendanceRecord,
-  createTaskLog,
-  flushQueue,
-  getWorkerRecords,
+  createTaskLog as createLocalTaskLog,
+  flushQueueWith,
+  getWorkerRecords as getLocalWorkerRecords,
   getPendingApprovals,
-  decideRecord,
+  getReviewedApprovals,
+  getTaskLogRecords,
+  decideRecord as decideLocalRecord,
   getLastSyncAt
 } from './mock-api.js';
-import { fileToDataUrl, formatDateTime, todayDateInput, uuid, escapeHtml } from './utils.js';
+import {
+  login as backendLogin,
+  register as backendRegister,
+  getSession as getBackendSession,
+  getCurrentUser,
+  getUsers as getBackendUsers,
+  createUser as createBackendUser,
+  getSites as getBackendSites,
+  createSite as createBackendSite,
+  uploadPhoto,
+  createAttendance as createBackendAttendance,
+  getMyRecords as getBackendMyAttendanceRecords,
+  createTaskLog as createBackendTaskLog,
+  getMyTaskLogs as getBackendMyTaskLogs,
+  getSupervisorRecords as getBackendSupervisorRecords,
+  exportSupervisorRecordsCsv,
+  getSupervisorTaskLogs as getBackendSupervisorTaskLogs,
+  decideRecord as decideBackendRecord,
+  logout as clearBackendSession
+} from './api-client.js';
+import { dataUrlToBlob, fileToDataUrl, formatDateTime, todayDateInput, uuid, escapeHtml } from './utils.js';
 
 const state = {
   user: null,
@@ -23,6 +42,8 @@ const state = {
   installPrompt: null,
   attendanceLocation: null,
   attendancePhotoDataUrl: '',
+  attendancePhotoFile: null,
+  taskPhotoFile: null,
   taskPhotoDataUrl: ''
 };
 
@@ -36,6 +57,10 @@ const els = {
   loginForm: document.getElementById('loginForm'),
   emailInput: document.getElementById('emailInput'),
   passwordInput: document.getElementById('passwordInput'),
+  registerForm: document.getElementById('registerForm'),
+  registerNameInput: document.getElementById('registerNameInput'),
+  registerEmailInput: document.getElementById('registerEmailInput'),
+  registerPasswordInput: document.getElementById('registerPasswordInput'),
   attendanceSite: document.getElementById('attendanceSite'),
   attendanceNotes: document.getElementById('attendanceNotes'),
   attendancePhoto: document.getElementById('attendancePhoto'),
@@ -59,25 +84,80 @@ const els = {
   saveTaskDraftButton: document.getElementById('saveTaskDraftButton'),
   supervisorSummary: document.getElementById('supervisorSummary'),
   pendingApprovalsList: document.getElementById('pendingApprovalsList'),
+  reviewedApprovalsList: document.getElementById('reviewedApprovalsList'),
+  supervisorTaskLogsList: document.getElementById('supervisorTaskLogsList'),
+  exportAttendanceButton: document.getElementById('exportAttendanceButton'),
+  staffUserForm: document.getElementById('staffUserForm'),
+  staffNameInput: document.getElementById('staffNameInput'),
+  staffEmailInput: document.getElementById('staffEmailInput'),
+  staffPasswordInput: document.getElementById('staffPasswordInput'),
+  staffRoleSelect: document.getElementById('staffRoleSelect'),
+  staffUsersList: document.getElementById('staffUsersList'),
+  siteForm: document.getElementById('siteForm'),
+  siteNameInput: document.getElementById('siteNameInput'),
+  siteAddressInput: document.getElementById('siteAddressInput'),
+  siteLatitudeInput: document.getElementById('siteLatitudeInput'),
+  siteLongitudeInput: document.getElementById('siteLongitudeInput'),
+  siteRadiusInput: document.getElementById('siteRadiusInput'),
+  supervisorSitesList: document.getElementById('supervisorSitesList'),
   refreshSupervisorButton: document.getElementById('refreshSupervisorButton'),
   recordTemplate: document.getElementById('recordTemplate')
 };
 
 async function init() {
   await initializeMockData();
-  state.sites = await getSites();
+  state.sites = await loadSites();
   fillSiteSelects();
-  state.user = getSession();
+  const authRestoreMessage = await restoreBackendSession();
   els.taskDate.value = todayDateInput();
   await restoreDrafts();
   bindEvents();
   await syncQueueIfPossible(false);
   renderApp();
+  if (authRestoreMessage) {
+    renderStatusBanner(authRestoreMessage, !navigator.onLine);
+  }
   registerServiceWorker();
+}
+
+async function loadSites() {
+  try {
+    const sites = await getBackendSites();
+    if (sites.length) return sites;
+  } catch {
+    // Use local demo sites when the backend is unavailable or before seed data exists.
+  }
+
+  return await getLocalSites();
+}
+
+async function restoreBackendSession() {
+  const cachedUser = getBackendSession();
+  if (!cachedUser) return '';
+
+  state.user = cachedUser;
+
+  try {
+    state.user = await getCurrentUser();
+    return '';
+  } catch (error) {
+    if (!navigator.onLine) {
+      return 'Using your saved sign-in while offline. Some backend features will sync when you reconnect.';
+    }
+
+    if (error.status === 401 || error.status === 403) {
+      clearBackendSession();
+      state.user = null;
+      return 'Your saved backend session expired. Please sign in again.';
+    }
+
+    return error.message;
+  }
 }
 
 function bindEvents() {
   els.loginForm.addEventListener('submit', handleLogin);
+  els.registerForm.addEventListener('submit', handleRegister);
   els.logoutButton.addEventListener('click', handleLogout);
   els.captureLocationButton.addEventListener('click', handleCaptureLocation);
   els.saveAttendanceDraftButton.addEventListener('click', persistAttendanceDraft);
@@ -89,6 +169,9 @@ function bindEvents() {
   els.saveTaskDraftButton.addEventListener('click', persistTaskDraft);
   els.refreshHistoryButton.addEventListener('click', renderHistory);
   els.refreshSupervisorButton.addEventListener('click', renderSupervisorPanel);
+  els.exportAttendanceButton.addEventListener('click', handleExportAttendance);
+  els.staffUserForm.addEventListener('submit', handleStaffUserCreate);
+  els.siteForm.addEventListener('submit', handleSiteCreate);
   els.installButton.addEventListener('click', handleInstall);
 
   document.querySelectorAll('[data-tab-target]').forEach((button) => {
@@ -123,6 +206,10 @@ function fillSiteSelects() {
 
   els.attendanceSite.innerHTML = options;
   els.taskSite.innerHTML = options;
+}
+
+function findSiteByFormValue(siteId) {
+  return state.sites.find((item) => String(item.id) === String(siteId));
 }
 
 async function restoreDrafts() {
@@ -212,7 +299,24 @@ async function refreshStatusBannerForSession() {
 async function handleLogin(event) {
   event.preventDefault();
   try {
-    state.user = await login(els.emailInput.value.trim(), els.passwordInput.value);
+    renderStatusBanner('Signing in with the backend...');
+    state.user = await backendLogin(els.emailInput.value.trim(), els.passwordInput.value);
+    renderApp();
+  } catch (error) {
+    renderStatusBanner(error.message, false);
+  }
+}
+
+async function handleRegister(event) {
+  event.preventDefault();
+  try {
+    renderStatusBanner('Creating staff account...');
+    state.user = await backendRegister(
+      els.registerNameInput.value.trim(),
+      els.registerEmailInput.value.trim(),
+      els.registerPasswordInput.value
+    );
+    els.registerForm.reset();
     renderApp();
   } catch (error) {
     renderStatusBanner(error.message, false);
@@ -220,7 +324,7 @@ async function handleLogin(event) {
 }
 
 function handleLogout() {
-  clearSession();
+  clearBackendSession();
   state.user = null;
   renderApp();
 }
@@ -272,6 +376,7 @@ function renderLocationPreview() {
 
 async function handleAttendancePhotoChange(event) {
   const file = event.target.files?.[0];
+  state.attendancePhotoFile = file || null;
   state.attendancePhotoDataUrl = file ? await fileToDataUrl(file) : '';
   renderPhotoPreview(els.attendancePhotoPreview, state.attendancePhotoDataUrl, 'Attendance photo');
   await persistAttendanceDraft();
@@ -279,6 +384,7 @@ async function handleAttendancePhotoChange(event) {
 
 async function handleTaskPhotoChange(event) {
   const file = event.target.files?.[0];
+  state.taskPhotoFile = file || null;
   state.taskPhotoDataUrl = file ? await fileToDataUrl(file) : '';
   renderPhotoPreview(els.taskPhotoPreview, state.taskPhotoDataUrl, 'Task photo');
   await persistTaskDraft();
@@ -316,6 +422,131 @@ async function persistTaskDraft() {
   renderStatusBanner('Task log draft saved on this device.');
 }
 
+function getBackendSiteId(siteId) {
+  if (!siteId) return null;
+
+  const directId = Number(siteId);
+  return Number.isInteger(directId) ? directId : null;
+}
+
+function toBackendAttendancePayload(record) {
+  return {
+    record_type: record.action,
+    latitude: record.location.latitude,
+    longitude: record.location.longitude,
+    accuracy: record.location.accuracy,
+    site_id: getBackendSiteId(record.siteId),
+    note: record.notes || null,
+    photo_url: record.photoUrl || null
+  };
+}
+
+function fromBackendAttendanceRecord(record) {
+  const site = state.sites.find((item) => getBackendSiteId(item.id) === record.site_id);
+
+  return {
+    id: record.id,
+    backendRecordId: record.id,
+    type: 'attendance',
+    userId: record.worker_id,
+    userName: record.worker_name || `Worker ${record.worker_id}`,
+    siteId: record.site_id,
+    siteName: record.site_name || site?.name || (record.site_id ? `Site ${record.site_id}` : 'Unassigned site'),
+    action: record.record_type,
+    notes: record.note || '',
+    photoDataUrl: '',
+    photoUrl: record.photo_url || '',
+    location: {
+      latitude: record.latitude,
+      longitude: record.longitude,
+      accuracy: record.accuracy
+    },
+    createdAt: record.created_at,
+    syncStatus: 'synced',
+    status: record.status || 'pending',
+    source: 'backend'
+  };
+}
+
+function toBackendTaskLogPayload(record) {
+  return {
+    description: record.summary,
+    site_id: getBackendSiteId(record.siteId),
+    work_date: record.workDate || null,
+    hours_worked: record.hoursWorked ? Number(record.hoursWorked) : null,
+    safety_notes: record.safetyNotes || null,
+    photo_url: record.photoUrl || null
+  };
+}
+
+function photoFilenameFor(record, file) {
+  if (file?.name) return file.name;
+  const extension = record.photoDataUrl?.match(/^data:image\/([a-z0-9+.-]+);base64,/i)?.[1] || 'jpg';
+  return `${record.type || 'record'}-${record.id || uuid()}.${extension.replace('jpeg', 'jpg')}`;
+}
+
+async function uploadRecordPhoto(record, file = null) {
+  if (record.photoUrl) return record.photoUrl;
+
+  const source = file || (record.photoDataUrl ? dataUrlToBlob(record.photoDataUrl) : null);
+  if (!source) return null;
+
+  const uploaded = await uploadPhoto(source, photoFilenameFor(record, file));
+  record.photoUrl = uploaded.url;
+  return record.photoUrl;
+}
+
+function fromBackendTaskLogRecord(record) {
+  const site = state.sites.find((item) => getBackendSiteId(item.id) === record.site_id);
+
+  return {
+    id: `task-${record.id}`,
+    backendRecordId: record.id,
+    type: 'task',
+    userId: record.worker_id,
+    userName: record.worker_name || `Worker ${record.worker_id}`,
+    siteId: record.site_id,
+    siteName: record.site_name || site?.name || (record.site_id ? `Site ${record.site_id}` : 'Unassigned site'),
+    workDate: record.work_date || '',
+    hoursWorked: record.hours_worked == null ? '' : String(record.hours_worked),
+    summary: record.description || '',
+    safetyNotes: record.safety_notes || '',
+    photoDataUrl: '',
+    photoUrl: record.photo_url || '',
+    createdAt: record.created_at,
+    syncStatus: 'synced',
+    status: record.status || 'logged',
+    source: 'backend'
+  };
+}
+
+async function getWorkerHistoryRecords() {
+  try {
+    const [attendanceRecords, taskLogs, localRecords] = await Promise.all([
+      getBackendMyAttendanceRecords(),
+      getBackendMyTaskLogs(),
+      getLocalWorkerRecords(state.user.id)
+    ]);
+
+    const queuedLocalRecords = localRecords.filter((record) => record.syncStatus === 'queued');
+    return attendanceRecords
+      .map(fromBackendAttendanceRecord)
+      .concat(taskLogs.map(fromBackendTaskLogRecord), queuedLocalRecords)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      clearBackendSession();
+      state.user = null;
+      renderApp();
+      renderStatusBanner('Your backend session expired. Please sign in again.');
+      return [];
+    }
+
+    renderStatusBanner('Backend history is unreachable. Showing records saved on this device only.', true);
+    return await getLocalWorkerRecords(state.user.id);
+  }
+}
+
 async function submitAttendance(action) {
   if (!state.user) return;
   if (!els.attendanceSite.value) {
@@ -327,9 +558,15 @@ async function submitAttendance(action) {
     return;
   }
 
-  const site = state.sites.find((item) => item.id === els.attendanceSite.value);
-  await createAttendanceRecord({
+  const site = findSiteByFormValue(els.attendanceSite.value);
+  if (!site) {
+    renderStatusBanner('Please select a valid site first.');
+    return;
+  }
+
+  const localRecord = {
     id: uuid(),
+    type: 'attendance',
     userId: state.user.id,
     userName: state.user.fullName,
     siteId: site.id,
@@ -339,17 +576,42 @@ async function submitAttendance(action) {
     photoDataUrl: state.attendancePhotoDataUrl,
     location: state.attendanceLocation,
     createdAt: new Date().toISOString()
-  });
+  };
+
+  let successMessage = `${action === 'check_in' ? 'Check in' : 'Check out'} saved offline and queued for later sync.`;
+  let offlineStatus = true;
+
+  if (navigator.onLine) {
+    try {
+      await uploadRecordPhoto(localRecord, state.attendancePhotoFile);
+      const backendRecord = await createBackendAttendance(toBackendAttendancePayload(localRecord));
+      localRecord.syncStatus = 'synced';
+      localRecord.backendRecordId = backendRecord.id;
+      localRecord.status = backendRecord.status || 'pending';
+      localRecord.syncedAt = new Date().toISOString();
+      successMessage = `${action === 'check_in' ? 'Check in' : 'Check out'} saved to the backend and marked ready for supervisor review.`;
+      offlineStatus = false;
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        renderStatusBanner('Your backend session expired. Please sign in again.');
+        return;
+      }
+
+      localRecord.syncStatus = 'queued';
+      localRecord.syncError = error.message || 'Backend sync failed';
+      successMessage = `${action === 'check_in' ? 'Check in' : 'Check out'} saved locally. Backend sync will retry when you reconnect.`;
+      offlineStatus = true;
+    }
+  } else {
+    localRecord.syncStatus = 'queued';
+  }
+
+  await createAttendanceRecord(localRecord);
 
   await clearDraft('attendance-form');
   resetAttendanceForm();
   await syncQueueIfPossible(true);
-  renderStatusBanner(
-    navigator.onLine
-      ? `${action === 'check_in' ? 'Check in' : 'Check out'} saved locally and marked ready for supervisor review.`
-      : `${action === 'check_in' ? 'Check in' : 'Check out'} saved offline and queued for later sync.`,
-    !navigator.onLine
-  );
+  renderStatusBanner(successMessage, offlineStatus);
   renderWorkerSummary();
   renderHistory();
 }
@@ -359,6 +621,7 @@ function resetAttendanceForm() {
   els.attendanceNotes.value = '';
   els.attendancePhoto.value = '';
   state.attendancePhotoDataUrl = '';
+  state.attendancePhotoFile = null;
   state.attendanceLocation = null;
   renderLocationPreview();
   renderPhotoPreview(els.attendancePhotoPreview, '', '');
@@ -372,9 +635,15 @@ async function handleTaskSubmit(event) {
     return;
   }
 
-  const site = state.sites.find((item) => item.id === els.taskSite.value);
-  await createTaskLog({
+  const site = findSiteByFormValue(els.taskSite.value);
+  if (!site) {
+    renderStatusBanner('Please select a valid site first.');
+    return;
+  }
+
+  const localRecord = {
     id: uuid(),
+    type: 'task',
     userId: state.user.id,
     userName: state.user.fullName,
     siteId: site.id,
@@ -385,17 +654,42 @@ async function handleTaskSubmit(event) {
     safetyNotes: els.taskSafety.value.trim(),
     photoDataUrl: state.taskPhotoDataUrl,
     createdAt: new Date().toISOString()
-  });
+  };
+
+  let successMessage = 'Task log saved offline and queued for later sync.';
+  let offlineStatus = true;
+
+  if (navigator.onLine) {
+    try {
+      await uploadRecordPhoto(localRecord, state.taskPhotoFile);
+      const backendLog = await createBackendTaskLog(toBackendTaskLogPayload(localRecord));
+      localRecord.syncStatus = 'synced';
+      localRecord.backendRecordId = backendLog.id;
+      localRecord.status = backendLog.status || 'logged';
+      localRecord.syncedAt = new Date().toISOString();
+      successMessage = 'Task log saved to the backend.';
+      offlineStatus = false;
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        renderStatusBanner('Your backend session expired. Please sign in again.');
+        return;
+      }
+
+      localRecord.syncStatus = 'queued';
+      localRecord.syncError = error.message || 'Backend sync failed';
+      successMessage = 'Task log saved locally. Backend sync will retry when you reconnect.';
+      offlineStatus = true;
+    }
+  } else {
+    localRecord.syncStatus = 'queued';
+  }
+
+  await createLocalTaskLog(localRecord);
 
   await clearDraft('task-form');
   resetTaskForm();
   await syncQueueIfPossible(true);
-  renderStatusBanner(
-    navigator.onLine
-      ? 'Task log saved locally and marked ready for supervisor review.'
-      : 'Task log saved offline and queued for later sync.',
-    !navigator.onLine
-  );
+  renderStatusBanner(successMessage, offlineStatus);
   renderWorkerSummary();
   renderHistory();
 }
@@ -408,12 +702,13 @@ function resetTaskForm() {
   els.taskSafety.value = '';
   els.taskPhoto.value = '';
   state.taskPhotoDataUrl = '';
+  state.taskPhotoFile = null;
   renderPhotoPreview(els.taskPhotoPreview, '', '');
 }
 
 async function renderWorkerSummary() {
   if (!state.user) return;
-  const records = await getWorkerRecords(state.user.id);
+  const records = await getWorkerHistoryRecords();
   const today = new Date().toISOString().slice(0, 10);
   const todayRecords = records.filter((record) => record.createdAt.slice(0, 10) === today || record.workDate === today);
   const queuedCount = records.filter((record) => record.syncStatus === 'queued').length;
@@ -427,17 +722,188 @@ async function renderWorkerSummary() {
 
 async function renderHistory() {
   if (!state.user) return;
-  const records = await getWorkerRecords(state.user.id);
+  const records = await getWorkerHistoryRecords();
   renderRecordsList(els.historyList, records, false);
 }
 
 async function renderSupervisorPanel() {
-  const pending = await getPendingApprovals();
+  let pending;
+  let reviewed;
+  let taskLogs;
+  let usingBackend = false;
+
+  try {
+    const [attendanceRecords, backendTaskLogs] = await Promise.all([
+      getBackendSupervisorRecords(),
+      getBackendSupervisorTaskLogs()
+    ]);
+    const records = attendanceRecords.map(fromBackendAttendanceRecord);
+    pending = records.filter((record) => record.status === 'pending');
+    reviewed = records.filter((record) => record.status === 'approved' || record.status === 'rejected');
+    taskLogs = backendTaskLogs.map(fromBackendTaskLogRecord);
+    usingBackend = true;
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      clearBackendSession();
+      state.user = null;
+      renderApp();
+      renderStatusBanner('Your backend session expired. Please sign in again.');
+      return;
+    }
+
+    pending = await getPendingApprovals();
+    reviewed = await getReviewedApprovals();
+    taskLogs = await getTaskLogRecords();
+    renderStatusBanner('Backend approvals are unreachable. Showing records saved on this device only.', true);
+  }
+
   els.supervisorSummary.innerHTML = `
     <div class="summary-item"><span>Signed in as</span><strong>${escapeHtml(state.user.fullName)}</strong></div>
     <div class="summary-item"><span>Pending approvals</span><strong>${pending.length}</strong></div>
+    <div class="summary-item"><span>Reviewed records</span><strong>${reviewed.length}</strong></div>
+    <div class="summary-item"><span>Task logs</span><strong>${taskLogs.length}</strong></div>
+    <div class="summary-item"><span>Source</span><strong>${usingBackend ? 'Backend' : 'This device'}</strong></div>
   `;
   renderRecordsList(els.pendingApprovalsList, pending, true);
+  renderRecordsList(els.reviewedApprovalsList, reviewed, false);
+  renderRecordsList(els.supervisorTaskLogsList, taskLogs, false);
+  renderSupervisorSites();
+  await renderStaffUsers();
+}
+
+function renderSupervisorSites() {
+  els.supervisorSitesList.innerHTML = '';
+
+  if (!state.sites.length) {
+    els.supervisorSitesList.innerHTML = '<div class="empty-state">No sites found yet.</div>';
+    return;
+  }
+
+  state.sites.forEach((site) => {
+    const node = document.createElement('article');
+    node.className = 'record-card';
+    node.innerHTML = `
+      <div class="record-header">
+        <div>
+          <h3 class="record-title">${escapeHtml(site.name)}</h3>
+          <p class="record-meta">${escapeHtml(site.address || 'No address added')}</p>
+        </div>
+        <span class="badge synced">${escapeHtml(site.allowed_radius_m || site.allowedRadiusM || 100)}m</span>
+      </div>
+      <p class="record-detail">Lat ${escapeHtml(site.latitude ?? '-')}, Lng ${escapeHtml(site.longitude ?? '-')}</p>
+    `;
+    els.supervisorSitesList.appendChild(node);
+  });
+}
+
+async function renderStaffUsers() {
+  try {
+    const users = await getBackendUsers();
+    els.staffUsersList.innerHTML = '';
+
+    if (!users.length) {
+      els.staffUsersList.innerHTML = '<div class="empty-state">No users found yet.</div>';
+      return;
+    }
+
+    users.forEach((user) => {
+      const node = document.createElement('article');
+      node.className = 'record-card';
+      node.innerHTML = `
+        <div class="record-header">
+          <div>
+            <h3 class="record-title">${escapeHtml(user.name)}</h3>
+            <p class="record-meta">${escapeHtml(user.email)}</p>
+          </div>
+          <span class="badge synced">${escapeHtml(user.role)}</span>
+        </div>
+      `;
+      els.staffUsersList.appendChild(node);
+    });
+  } catch (error) {
+    els.staffUsersList.innerHTML = '<div class="empty-state">Staff users are unavailable.</div>';
+    renderStatusBanner(error.message || 'Could not load staff users.', true);
+  }
+}
+
+async function handleSiteCreate(event) {
+  event.preventDefault();
+
+  const latitude = Number(els.siteLatitudeInput.value);
+  const longitude = Number(els.siteLongitudeInput.value);
+  const allowedRadius = Number(els.siteRadiusInput.value);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || !Number.isFinite(allowedRadius)) {
+    renderStatusBanner('Site latitude, longitude, and radius must be valid numbers.', true);
+    return;
+  }
+
+  try {
+    await createBackendSite({
+      name: els.siteNameInput.value.trim(),
+      address: els.siteAddressInput.value.trim() || null,
+      latitude,
+      longitude,
+      allowed_radius_m: allowedRadius
+    });
+    els.siteForm.reset();
+    els.siteRadiusInput.value = '100';
+    state.sites = await loadSites();
+    fillSiteSelects();
+    renderSupervisorSites();
+    renderStatusBanner('Site created and added to worker forms.');
+  } catch (error) {
+    renderStatusBanner(error.message || 'Could not create site.', true);
+  }
+}
+
+async function handleStaffUserCreate(event) {
+  event.preventDefault();
+  try {
+    await createBackendUser({
+      name: els.staffNameInput.value.trim(),
+      email: els.staffEmailInput.value.trim(),
+      password: els.staffPasswordInput.value,
+      role: els.staffRoleSelect.value
+    });
+    els.staffUserForm.reset();
+    renderStatusBanner('Staff user created.');
+    await renderStaffUsers();
+  } catch (error) {
+    renderStatusBanner(error.message || 'Could not create staff user.', true);
+  }
+}
+
+async function handleExportAttendance() {
+  try {
+    const blob = await exportSupervisorRecordsCsv();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `leader-attendance-${todayDateInput()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    renderStatusBanner('Attendance CSV exported.');
+  } catch (error) {
+    renderStatusBanner(error.message || 'Could not export attendance CSV.', true);
+  }
+}
+
+async function handleSupervisorDecision(record, decision) {
+  try {
+    if (record.backendRecordId) {
+      await decideBackendRecord(record.backendRecordId, decision);
+    } else {
+      await decideLocalRecord(record.id, decision);
+    }
+
+    renderStatusBanner(`Record ${decision}.`);
+    await renderSupervisorPanel();
+  } catch (error) {
+    renderStatusBanner(error.message || `Could not mark record as ${decision}.`, true);
+  }
 }
 
 function renderRecordsList(container, records, showActions) {
@@ -466,10 +932,11 @@ function renderRecordsList(container, records, showActions) {
     badge.className = `badge ${record.status} ${record.syncStatus}`;
 
     const extra = node.querySelector('.record-extra');
+    const photoSrc = record.photoDataUrl || record.photoUrl || '';
     extra.innerHTML = `
       ${record.type === 'attendance' && record.location ? `<p><strong>Location:</strong> ${record.location.latitude}, ${record.location.longitude} (${record.location.accuracy}m)</p>` : ''}
       ${record.hoursWorked ? `<p><strong>Hours:</strong> ${escapeHtml(record.hoursWorked)}</p>` : ''}
-      ${record.photoDataUrl ? `<img src="${record.photoDataUrl}" alt="Record photo" />` : ''}
+      ${photoSrc ? `<img src="${escapeHtml(photoSrc)}" alt="Record photo" />` : ''}
     `;
 
     const actions = node.querySelector('.record-actions');
@@ -479,9 +946,7 @@ function renderRecordsList(container, records, showActions) {
       approveButton.type = 'button';
       approveButton.textContent = 'Approve';
       approveButton.addEventListener('click', async () => {
-        await decideRecord(record.id, 'approved');
-        renderSupervisorPanel();
-        if (state.user?.role === 'worker') renderHistory();
+        await handleSupervisorDecision(record, 'approved');
       });
 
       const rejectButton = document.createElement('button');
@@ -489,8 +954,7 @@ function renderRecordsList(container, records, showActions) {
       rejectButton.textContent = 'Reject';
       rejectButton.className = 'secondary';
       rejectButton.addEventListener('click', async () => {
-        await decideRecord(record.id, 'rejected');
-        renderSupervisorPanel();
+        await handleSupervisorDecision(record, 'rejected');
       });
 
       actions.append(approveButton, rejectButton);
@@ -513,9 +977,26 @@ function activateTab(targetId) {
 }
 
 async function syncQueueIfPossible(showMessage) {
-  const result = await flushQueue();
+  const result = await flushQueueWith(async (record) => {
+    if (record.type === 'attendance') {
+      await uploadRecordPhoto(record);
+      return await createBackendAttendance(toBackendAttendancePayload(record));
+    }
+
+    if (record.type === 'task') {
+      await uploadRecordPhoto(record);
+      return await createBackendTaskLog(toBackendTaskLogPayload(record));
+    }
+
+    throw new Error('Unsupported queued record type.');
+  });
+
   if (showMessage && result.flushed) {
-    renderStatusBanner(`${result.flushed} queued record${result.flushed === 1 ? '' : 's'} synced locally.`);
+    renderStatusBanner(`${result.flushed} queued record${result.flushed === 1 ? '' : 's'} synced.`);
+  }
+
+  if (showMessage && result.failed) {
+    renderStatusBanner(`${result.failed} queued record${result.failed === 1 ? '' : 's'} could not sync yet.`, true);
   }
 }
 

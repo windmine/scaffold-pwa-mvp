@@ -3,12 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Offline | Scaffold Field App</title>
+    <title>Offline | Leader Field Operations</title>
     <style>
+      :root {
+        --dark: #111111;
+        --red: #d71920;
+        --safety: #f5c400;
+        --line: #d7dde5;
+      }
       body {
         font-family: Arial, Helvetica, sans-serif;
-        background: #f8fafc;
-        color: #0f172a;
+        background: #eceff3;
+        color: var(--dark);
         margin: 0;
         padding: 24px;
       }
@@ -16,17 +22,26 @@
         max-width: 520px;
         margin: 48px auto;
         background: white;
-        border: 1px solid #dbe3ef;
-        border-radius: 18px;
+        border: 1px solid var(--line);
+        border-top: 5px solid var(--red);
+        border-radius: 8px;
         padding: 24px;
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        box-shadow: 0 16px 34px rgba(17, 17, 17, 0.12);
       }
       h1 { margin-top: 0; }
+      .eyebrow {
+        color: var(--red);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 0.78rem;
+      }
       p { line-height: 1.55; }
     </style>
   </head>
   <body>
     <div class="card">
+      <p class="eyebrow">Leader Scaffolding</p>
       <h1>You are offline</h1>
       <p>
         The app shell is still available. If you were already using the app, your draft forms and queued records stay on this device.

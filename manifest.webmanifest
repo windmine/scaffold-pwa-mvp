@@ -1,12 +1,12 @@
 {
-  "name": "Scaffold Field App",
-  "short_name": "Scaffold",
-  "description": "Worker attendance, task logs, and supervisor approvals for a scaffolding company.",
+  "name": "Leader Field Operations",
+  "short_name": "Leader Field",
+  "description": "Worker attendance, task logs, and supervisor approvals for Leader Scaffolding.",
   "start_url": "/index.html",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#111111",
+  "theme_color": "#111111",
   "icons": [
     {
       "src": "/assets/icons/icon-192.png",

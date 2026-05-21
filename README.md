@@ -17,7 +17,7 @@ Database: SQLite for local development
 Auth: JWT bearer token login
 ```
 
-The frontend can still use browser storage and IndexedDB for offline behaviour. The backend is used to store real attendance records and allow worker/supervisor data to be shared across devices.
+The frontend still uses browser storage and IndexedDB for offline drafts and queued records. When online, login, sites, attendance, task logs, photo uploads, worker history, and supervisor review all use the FastAPI backend so data can be shared across devices.
 
 ---
 
@@ -26,6 +26,7 @@ The frontend can still use browser storage and IndexedDB for offline behaviour. 
 ### Worker
 
 - Login with demo worker account
+- Create a new staff account
 - Capture GPS location
 - Check in
 - Check out
@@ -33,14 +34,19 @@ The frontend can still use browser storage and IndexedDB for offline behaviour. 
 - Add optional notes/photos
 - Save drafts offline
 - Sync queued records when online
-- View own records
+- View synced attendance and task-log history across devices
 
 ### Supervisor
 
 - Login with demo supervisor account
+- Create worker or supervisor users
+- View staff users
+- Create and view job/site locations
 - View pending attendance records
 - Approve records
 - Reject records
+- View approved/rejected attendance records
+- View worker task logs
 
 ### Backend
 
@@ -48,6 +54,8 @@ The frontend can still use browser storage and IndexedDB for offline behaviour. 
 - SQLite local database
 - JWT bearer token authentication
 - Worker/supervisor role separation
+- Backend-managed site list
+- Image upload and static image serving
 - Swagger API documentation
 - Phone testing over local Wi-Fi
 
@@ -102,16 +110,20 @@ scaffold-pwa-mvp/
 
   backend/
     app/
-      __init__.py
+      _init__.py
       main.py
       database.py
       models.py
       auth.py
+    uploads/
     geo_management.db
-    requirements.txt
+
+  src/
+    App.jsx
+    main.jsx
 ```
 
-`geo_management.db` is generated automatically when the backend starts.
+`geo_management.db`, `backend/uploads/`, and `__pycache__/` are runtime-generated and ignored by Git.
 
 ---
 
@@ -157,23 +169,25 @@ Run the frontend for phone testing:
 npm run dev:phone
 ```
 
-The frontend normally runs at:
+The frontend normally runs with a local HTTPS certificate at:
 
 ```text
-http://127.0.0.1:5173
+https://127.0.0.1:5173
 ```
 
 For phone testing, use your computer's local IP address:
 
 ```text
-http://YOUR_COMPUTER_IP:5173
+https://YOUR_COMPUTER_IP:5173
 ```
 
 Example:
 
 ```text
-http://192.168.1.25:5173
+https://192.168.1.25:5173
 ```
+
+Your browser or phone may warn about the local development certificate. Accept it for local testing so geolocation and same-origin backend proxying work correctly.
 
 ---
 
@@ -210,6 +224,26 @@ Save dependencies:
 ```powershell
 pip freeze > requirements.txt
 ```
+
+---
+
+## Environment Setup
+
+From the project root, copy the sample environment file before running the backend:
+
+```powershell
+copy .env.example .env
+```
+
+For local development, the defaults work out of the box. Before sharing or deploying the app, change:
+
+```text
+GEO_SECRET_KEY
+CORS_ORIGINS
+DATABASE_URL
+```
+
+For phone testing, add your Vite URL to `CORS_ORIGINS` if you call FastAPI directly from the phone. When using the current Vite `/api` proxy, the frontend can usually stay on the same origin.
 
 ---
 
@@ -264,6 +298,25 @@ This creates:
 ```text
 worker@example.com / Passw0rd!
 supervisor@example.com / Passw0rd!
+```
+
+---
+
+## Smoke Test
+
+With the backend running, run the zero-dependency smoke test from the project root:
+
+```powershell
+python backend\smoke_test.py
+```
+
+The script seeds demo data, logs in as worker and supervisor, creates attendance and task-log records, checks validation failures, and approves the smoke attendance record.
+
+To point it at another backend URL:
+
+```powershell
+$env:API_BASE_URL="http://127.0.0.1:8000"
+python backend\smoke_test.py
 ```
 
 ---
@@ -420,16 +473,16 @@ Look for:
 IPv4 Address
 ```
 
-Open the frontend on your phone:
+Open the frontend on your phone. The current Vite config uses local HTTPS:
 
 ```text
-http://YOUR_COMPUTER_IP:5173
+https://YOUR_COMPUTER_IP:5173
 ```
 
 Example:
 
 ```text
-http://192.168.1.25:5173
+https://192.168.1.25:5173
 ```
 
 The phone and computer must be connected to the same Wi-Fi network.
@@ -438,44 +491,34 @@ The phone and computer must be connected to the same Wi-Fi network.
 
 ## Frontend API Base URL
 
-When testing on your computer, the frontend can call:
+When the frontend is served over HTTPS, the app calls the backend through the Vite same-origin proxy:
 
 ```js
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "/api";
 ```
 
-When testing on your phone, do not use `127.0.0.1` or `localhost`. Use your computer's Wi-Fi IP address:
+Vite forwards `/api/*` to:
 
-```js
-const API_BASE = "http://192.168.1.25:8000";
+```text
+http://127.0.0.1:8000/*
 ```
 
-Replace `192.168.1.25` with your actual computer IP.
+This avoids iOS mixed-content blocking when the phone opens the PWA over HTTPS.
 
 ---
 
 ## CORS Setup
 
-If the phone frontend cannot call the backend, update the CORS origins in:
+If the phone frontend cannot call the backend directly, update `CORS_ORIGINS` in:
 
 ```text
-backend/app/main.py
+.env
 ```
 
 Example:
 
-```python
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://192.168.1.25:5173",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+```text
+CORS_ORIGINS=https://localhost:5173,https://127.0.0.1:5173,https://192.168.1.25:5173
 ```
 
 Replace `192.168.1.25` with your actual computer IP.
@@ -511,12 +554,15 @@ This allows the PWA to continue working even when field workers have weak or no 
 ```text
 GET /health
 POST /dev/seed
+GET /sites
+POST /photo-uploads
 ```
 
 ### Authentication
 
 ```text
 POST /auth/login
+POST /auth/register
 GET /auth/me
 ```
 
@@ -526,12 +572,20 @@ GET /auth/me
 POST /attendance
 GET /my-records
 POST /task-logs
+GET /my-task-logs
 ```
 
 ### Supervisor
 
 ```text
 GET /supervisor/pending-records
+GET /supervisor/records
+GET /supervisor/records?status=approved
+GET /supervisor/records/export.csv
+GET /supervisor/task-logs
+POST /supervisor/sites
+GET /supervisor/users
+POST /supervisor/users
 POST /supervisor/records/{record_id}/decision
 ```
 
@@ -615,19 +669,20 @@ Check these points:
 2. Frontend is running with `npm run dev:phone`.
 3. Backend is running with `--host 0.0.0.0`.
 4. Windows Firewall allows Node.js and Python.
-5. Frontend uses the computer IP, not `localhost`.
-6. CORS includes the phone testing frontend URL.
+5. Frontend is opened with the computer IP, not `localhost`.
+6. The Vite `/api` proxy is active after restarting the frontend dev server.
+7. CORS includes the phone testing frontend URL if you call FastAPI directly.
 
-Wrong for phone testing:
+Wrong for iOS phone testing:
 
 ```js
 const API_BASE = "http://127.0.0.1:8000";
 ```
 
-Correct for phone testing:
+Correct when using the Vite HTTPS frontend:
 
 ```js
-const API_BASE = "http://192.168.1.25:8000";
+const API_BASE = "/api";
 ```
 
 ---
@@ -636,16 +691,14 @@ const API_BASE = "http://192.168.1.25:8000";
 
 Recommended next steps:
 
-1. Connect frontend login to the real backend.
-2. Connect check-in/check-out to the backend.
-3. Keep IndexedDB as the offline queue.
-4. Add real photo upload API.
-5. Move from SQLite to PostgreSQL.
-6. Add admin management for users and sites.
-7. Deploy backend to a cloud service.
-8. Deploy frontend as a production PWA.
-9. Add stronger production security.
-10. Add reporting/export features.
+1. Move from SQLite to PostgreSQL.
+2. Add edit/deactivate controls for users and sites.
+3. Deploy backend to a cloud service.
+4. Deploy frontend as a production PWA.
+5. Add stronger production security.
+6. Add reporting/export features.
+7. Add audit logs for supervisor decisions.
+8. Add production file storage for uploaded photos.
 
 ---
 

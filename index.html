@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#111111" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Scaffold Field" />
-    <title>Scaffold Field App</title>
+    <meta name="apple-mobile-web-app-title" content="Leader Field" />
+    <title>Leader Field Operations</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
     <link rel="stylesheet" href="/assets/css/styles.css" />
@@ -14,9 +14,12 @@
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <div>
-          <p class="eyebrow">Scaffolding Company MVP</p>
-          <h1>Scaffold Field App</h1>
+        <div class="brand-lockup">
+          <div class="brand-mark" aria-hidden="true">LS</div>
+          <div>
+            <p class="eyebrow">Leader Scaffolding</p>
+            <h1>Field Operations</h1>
+          </div>
         </div>
         <div class="topbar-actions">
           <button id="installButton" class="ghost hidden" type="button">Install App</button>
@@ -46,6 +49,25 @@
               <input id="passwordInput" type="password" value="Passw0rd!" required />
             </label>
             <button type="submit">Sign in</button>
+          </form>
+
+          <div class="form-divider"></div>
+
+          <h3>Create staff account</h3>
+          <form id="registerForm" class="form-grid">
+            <label>
+              Name
+              <input id="registerNameInput" type="text" autocomplete="name" required />
+            </label>
+            <label>
+              Email
+              <input id="registerEmailInput" type="email" autocomplete="email" required />
+            </label>
+            <label>
+              Password
+              <input id="registerPasswordInput" type="password" minlength="8" autocomplete="new-password" required />
+            </label>
+            <button type="submit" class="secondary">Create account</button>
           </form>
         </section>
 
@@ -155,11 +177,14 @@
             <article class="card">
               <h2>Supervisor overview</h2>
               <div id="supervisorSummary" class="summary-list"></div>
+              <div class="card-actions">
+                <button id="exportAttendanceButton" type="button" class="secondary">Export attendance CSV</button>
+              </div>
             </article>
             <article class="card">
               <h2>Notes</h2>
               <p class="muted">
-                This localhost version is frontend-only. Approvals and records are stored in the browser for demo purposes.
+                Sign-in, attendance, task logs, history, and approvals use the FastAPI backend when online.
               </p>
             </article>
           </div>
@@ -170,6 +195,79 @@
               <button id="refreshSupervisorButton" type="button" class="ghost">Refresh</button>
             </div>
             <div id="pendingApprovalsList" class="records-list"></div>
+          </article>
+
+          <article class="card">
+            <div class="section-heading">
+              <h2>Reviewed records</h2>
+            </div>
+            <div id="reviewedApprovalsList" class="records-list"></div>
+          </article>
+
+          <article class="card">
+            <div class="section-heading">
+              <h2>Worker task logs</h2>
+            </div>
+            <div id="supervisorTaskLogsList" class="records-list"></div>
+          </article>
+
+          <article class="card">
+            <div class="section-heading">
+              <h2>Sites</h2>
+            </div>
+            <form id="siteForm" class="form-grid">
+              <label>
+                Site name
+                <input id="siteNameInput" type="text" required />
+              </label>
+              <label>
+                Address
+                <input id="siteAddressInput" type="text" />
+              </label>
+              <label>
+                Latitude
+                <input id="siteLatitudeInput" type="number" step="0.000001" min="-90" max="90" required />
+              </label>
+              <label>
+                Longitude
+                <input id="siteLongitudeInput" type="number" step="0.000001" min="-180" max="180" required />
+              </label>
+              <label>
+                Allowed radius metres
+                <input id="siteRadiusInput" type="number" min="10" max="5000" value="100" required />
+              </label>
+              <button type="submit">Create site</button>
+            </form>
+            <div id="supervisorSitesList" class="records-list staff-users-list"></div>
+          </article>
+
+          <article class="card">
+            <div class="section-heading">
+              <h2>Staff users</h2>
+            </div>
+            <form id="staffUserForm" class="form-grid">
+              <label>
+                Name
+                <input id="staffNameInput" type="text" autocomplete="name" required />
+              </label>
+              <label>
+                Email
+                <input id="staffEmailInput" type="email" autocomplete="email" required />
+              </label>
+              <label>
+                Password
+                <input id="staffPasswordInput" type="password" minlength="8" autocomplete="new-password" required />
+              </label>
+              <label>
+                Role
+                <select id="staffRoleSelect">
+                  <option value="worker">Worker</option>
+                  <option value="supervisor">Supervisor</option>
+                </select>
+              </label>
+              <button type="submit">Create user</button>
+            </form>
+            <div id="staffUsersList" class="records-list staff-users-list"></div>
           </article>
         </section>
       </main>

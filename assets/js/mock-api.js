@@ -104,6 +104,7 @@ export async function clearDraft(key) {
 }
 
 export async function createAttendanceRecord(payload) {
+  const syncStatus = payload.syncStatus || (navigator.onLine ? 'synced' : 'queued');
   const record = {
     id: payload.id || uuid(),
     type: 'attendance',
@@ -114,20 +115,25 @@ export async function createAttendanceRecord(payload) {
     action: payload.action,
     notes: payload.notes || '',
     photoDataUrl: payload.photoDataUrl || '',
+    photoUrl: payload.photoUrl || '',
     location: payload.location || null,
     createdAt: payload.createdAt || new Date().toISOString(),
-    syncStatus: navigator.onLine ? 'synced' : 'queued',
-    status: 'pending'
+    syncStatus,
+    syncError: payload.syncError || '',
+    syncedAt: payload.syncedAt || '',
+    backendRecordId: payload.backendRecordId || null,
+    status: payload.status || 'pending'
   };
 
   await put('records', record);
-  if (!navigator.onLine) {
+  if (syncStatus === 'queued') {
     await put('queue', { id: record.id, kind: 'attendance', createdAt: record.createdAt });
   }
   return record;
 }
 
 export async function createTaskLog(payload) {
+  const syncStatus = payload.syncStatus || (navigator.onLine ? 'synced' : 'queued');
   const record = {
     id: payload.id || uuid(),
     type: 'task',
@@ -140,13 +146,17 @@ export async function createTaskLog(payload) {
     summary: payload.summary || '',
     safetyNotes: payload.safetyNotes || '',
     photoDataUrl: payload.photoDataUrl || '',
+    photoUrl: payload.photoUrl || '',
     createdAt: payload.createdAt || new Date().toISOString(),
-    syncStatus: navigator.onLine ? 'synced' : 'queued',
-    status: 'pending'
+    syncStatus,
+    syncError: payload.syncError || '',
+    syncedAt: payload.syncedAt || '',
+    backendRecordId: payload.backendRecordId || null,
+    status: payload.status || 'logged'
   };
 
   await put('records', record);
-  if (!navigator.onLine) {
+  if (syncStatus === 'queued') {
     await put('queue', { id: record.id, kind: 'task', createdAt: record.createdAt });
   }
   return record;
@@ -173,6 +183,47 @@ export async function flushQueue() {
   return { flushed };
 }
 
+export async function flushQueueWith(syncRecord) {
+  if (!navigator.onLine) return { flushed: 0, failed: 0 };
+
+  const queueItems = await getAll('queue');
+  let flushed = 0;
+  let failed = 0;
+
+  for (const item of queueItems) {
+    const record = await get('records', item.id);
+    if (!record) {
+      await remove('queue', item.id);
+      continue;
+    }
+
+    try {
+      const syncedRecord = await syncRecord(record, item);
+      record.syncStatus = 'synced';
+      record.syncError = '';
+      record.syncedAt = new Date().toISOString();
+
+      if (syncedRecord?.id) {
+        record.backendRecordId = syncedRecord.id;
+      }
+      if (syncedRecord?.status) {
+        record.status = syncedRecord.status;
+      }
+
+      await put('records', record);
+      await remove('queue', item.id);
+      flushed += 1;
+    } catch (error) {
+      record.syncError = error.message || 'Sync failed';
+      await put('records', record);
+      failed += 1;
+    }
+  }
+
+  await put('settings', { key: 'lastSyncAt', value: new Date().toISOString() });
+  return { flushed, failed };
+}
+
 export async function getLastSyncAt() {
   const item = await get('settings', 'lastSyncAt');
   return item?.value || null;
@@ -189,6 +240,20 @@ export async function getPendingApprovals() {
   const records = await getAll('records');
   return records
     .filter((record) => record.status === 'pending')
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+export async function getReviewedApprovals() {
+  const records = await getAll('records');
+  return records
+    .filter((record) => record.status === 'approved' || record.status === 'rejected')
+    .sort((a, b) => new Date(b.reviewedAt || b.createdAt) - new Date(a.reviewedAt || a.createdAt));
+}
+
+export async function getTaskLogRecords() {
+  const records = await getAll('records');
+  return records
+    .filter((record) => record.type === 'task')
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 

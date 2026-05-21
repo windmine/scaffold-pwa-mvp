@@ -58,6 +58,9 @@ class TaskLog(SQLModel, table=True):
     site_id: Optional[int] = Field(default=None, index=True)
 
     description: str
+    work_date: Optional[str] = None
+    hours_worked: Optional[float] = None
+    safety_notes: Optional[str] = None
     photo_url: Optional[str] = None
 
     created_at: datetime = Field(

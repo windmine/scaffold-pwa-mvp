@@ -32,3 +32,16 @@ export function fileToDataUrl(file) {
     reader.readAsDataURL(file);
   });
 }
+
+export function dataUrlToBlob(dataUrl) {
+  const [header, payload] = String(dataUrl || '').split(',');
+  const contentType = header.match(/data:(.*?);base64/)?.[1] || 'application/octet-stream';
+  const binary = atob(payload || '');
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return new Blob([bytes], { type: contentType });
+}

@@ -6,11 +6,21 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+.env
+backend/.env
+!.env.example
+!backend/.env.example
 
 node_modules
 dist
 dist-ssr
 *.local
+
+# Backend runtime data
+__pycache__/
+*.py[cod]
+backend/geo_management.db
+backend/uploads/
 
 # Editor directories and files
 .vscode/*
