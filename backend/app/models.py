@@ -39,6 +39,8 @@ class AttendanceRecord(SQLModel, table=True):
     latitude: float
     longitude: float
     accuracy: Optional[float] = None
+    distance_from_site_m: Optional[float] = None
+    within_site_radius: Optional[bool] = None
 
     note: Optional[str] = None
     photo_url: Optional[str] = None

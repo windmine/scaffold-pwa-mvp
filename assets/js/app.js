@@ -44,7 +44,13 @@ const state = {
   attendancePhotoDataUrl: '',
   attendancePhotoFile: null,
   taskPhotoFile: null,
-  taskPhotoDataUrl: ''
+  taskPhotoDataUrl: '',
+  historyRecords: [],
+  supervisorRecords: {
+    pending: [],
+    reviewed: [],
+    taskLogs: []
+  }
 };
 
 const els = {
@@ -63,6 +69,7 @@ const els = {
   registerPasswordInput: document.getElementById('registerPasswordInput'),
   attendanceSite: document.getElementById('attendanceSite'),
   attendanceNotes: document.getElementById('attendanceNotes'),
+  attendanceDetails: document.getElementById('attendanceDetails'),
   attendancePhoto: document.getElementById('attendancePhoto'),
   attendancePhotoPreview: document.getElementById('attendancePhotoPreview'),
   locationPreview: document.getElementById('locationPreview'),
@@ -73,6 +80,12 @@ const els = {
   workerSummary: document.getElementById('workerSummary'),
   historyList: document.getElementById('historyList'),
   refreshHistoryButton: document.getElementById('refreshHistoryButton'),
+  historySearchInput: document.getElementById('historySearchInput'),
+  historyTypeFilter: document.getElementById('historyTypeFilter'),
+  historyStatusFilter: document.getElementById('historyStatusFilter'),
+  historyDateFilter: document.getElementById('historyDateFilter'),
+  historyResultCount: document.getElementById('historyResultCount'),
+  clearHistoryFiltersButton: document.getElementById('clearHistoryFiltersButton'),
   taskForm: document.getElementById('taskForm'),
   taskSite: document.getElementById('taskSite'),
   taskDate: document.getElementById('taskDate'),
@@ -86,6 +99,17 @@ const els = {
   pendingApprovalsList: document.getElementById('pendingApprovalsList'),
   reviewedApprovalsList: document.getElementById('reviewedApprovalsList'),
   supervisorTaskLogsList: document.getElementById('supervisorTaskLogsList'),
+  supervisorSearchInput: document.getElementById('supervisorSearchInput'),
+  supervisorTypeFilter: document.getElementById('supervisorTypeFilter'),
+  supervisorStatusFilter: document.getElementById('supervisorStatusFilter'),
+  supervisorDateFilter: document.getElementById('supervisorDateFilter'),
+  supervisorResultCount: document.getElementById('supervisorResultCount'),
+  pendingApprovalsCount: document.getElementById('pendingApprovalsCount'),
+  reviewedApprovalsCount: document.getElementById('reviewedApprovalsCount'),
+  supervisorTaskLogsCount: document.getElementById('supervisorTaskLogsCount'),
+  supervisorSitesCount: document.getElementById('supervisorSitesCount'),
+  staffUsersCount: document.getElementById('staffUsersCount'),
+  clearSupervisorFiltersButton: document.getElementById('clearSupervisorFiltersButton'),
   exportAttendanceButton: document.getElementById('exportAttendanceButton'),
   staffUserForm: document.getElementById('staffUserForm'),
   staffNameInput: document.getElementById('staffNameInput'),
@@ -168,7 +192,27 @@ function bindEvents() {
   els.taskForm.addEventListener('submit', handleTaskSubmit);
   els.saveTaskDraftButton.addEventListener('click', persistTaskDraft);
   els.refreshHistoryButton.addEventListener('click', renderHistory);
+  [
+    els.historySearchInput,
+    els.historyTypeFilter,
+    els.historyStatusFilter,
+    els.historyDateFilter
+  ].forEach((element) => {
+    element.addEventListener('input', renderFilteredHistory);
+    element.addEventListener('change', renderFilteredHistory);
+  });
+  els.clearHistoryFiltersButton.addEventListener('click', clearHistoryFilters);
   els.refreshSupervisorButton.addEventListener('click', renderSupervisorPanel);
+  [
+    els.supervisorSearchInput,
+    els.supervisorTypeFilter,
+    els.supervisorStatusFilter,
+    els.supervisorDateFilter
+  ].forEach((element) => {
+    element.addEventListener('input', renderFilteredSupervisorLists);
+    element.addEventListener('change', renderFilteredSupervisorLists);
+  });
+  els.clearSupervisorFiltersButton.addEventListener('click', clearSupervisorFilters);
   els.exportAttendanceButton.addEventListener('click', handleExportAttendance);
   els.staffUserForm.addEventListener('submit', handleStaffUserCreate);
   els.siteForm.addEventListener('submit', handleSiteCreate);
@@ -219,6 +263,7 @@ async function restoreDrafts() {
     els.attendanceNotes.value = attendanceDraft.notes || '';
     state.attendanceLocation = attendanceDraft.location || null;
     state.attendancePhotoDataUrl = attendanceDraft.photoDataUrl || '';
+    els.attendanceDetails.open = Boolean(attendanceDraft.notes || attendanceDraft.photoDataUrl);
     renderLocationPreview();
     renderPhotoPreview(els.attendancePhotoPreview, state.attendancePhotoDataUrl, 'Attendance draft photo');
   }
@@ -429,6 +474,44 @@ function getBackendSiteId(siteId) {
   return Number.isInteger(directId) ? directId : null;
 }
 
+function distanceBetweenCoordinatesM(startLatitude, startLongitude, endLatitude, endLongitude) {
+  const earthRadiusM = 6371000;
+  const startLat = startLatitude * Math.PI / 180;
+  const endLat = endLatitude * Math.PI / 180;
+  const deltaLat = (endLatitude - startLatitude) * Math.PI / 180;
+  const deltaLon = (endLongitude - startLongitude) * Math.PI / 180;
+  const a = (
+    Math.sin(deltaLat / 2) ** 2
+    + Math.cos(startLat) * Math.cos(endLat) * Math.sin(deltaLon / 2) ** 2
+  );
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusM * c;
+}
+
+function getSiteDistanceCheck(site, location) {
+  if (!site || !location || site.latitude == null || site.longitude == null) {
+    return {
+      distanceFromSiteM: null,
+      withinSiteRadius: null
+    };
+  }
+
+  const allowedRadius = Number(site.allowed_radius_m || site.allowedRadiusM || 100);
+  const distanceFromSiteM = Math.round(
+    distanceBetweenCoordinatesM(
+      Number(site.latitude),
+      Number(site.longitude),
+      Number(location.latitude),
+      Number(location.longitude)
+    )
+  );
+
+  return {
+    distanceFromSiteM,
+    withinSiteRadius: distanceFromSiteM <= allowedRadius
+  };
+}
+
 function toBackendAttendancePayload(record) {
   return {
     record_type: record.action,
@@ -461,6 +544,8 @@ function fromBackendAttendanceRecord(record) {
       longitude: record.longitude,
       accuracy: record.accuracy
     },
+    distanceFromSiteM: record.distance_from_site_m,
+    withinSiteRadius: record.within_site_radius,
     createdAt: record.created_at,
     syncStatus: 'synced',
     status: record.status || 'pending',
@@ -577,6 +662,7 @@ async function submitAttendance(action) {
     location: state.attendanceLocation,
     createdAt: new Date().toISOString()
   };
+  Object.assign(localRecord, getSiteDistanceCheck(site, localRecord.location));
 
   let successMessage = `${action === 'check_in' ? 'Check in' : 'Check out'} saved offline and queued for later sync.`;
   let offlineStatus = true;
@@ -588,6 +674,8 @@ async function submitAttendance(action) {
       localRecord.syncStatus = 'synced';
       localRecord.backendRecordId = backendRecord.id;
       localRecord.status = backendRecord.status || 'pending';
+      localRecord.distanceFromSiteM = backendRecord.distance_from_site_m;
+      localRecord.withinSiteRadius = backendRecord.within_site_radius;
       localRecord.syncedAt = new Date().toISOString();
       successMessage = `${action === 'check_in' ? 'Check in' : 'Check out'} saved to the backend and marked ready for supervisor review.`;
       offlineStatus = false;
@@ -712,18 +800,89 @@ async function renderWorkerSummary() {
   const today = new Date().toISOString().slice(0, 10);
   const todayRecords = records.filter((record) => record.createdAt.slice(0, 10) === today || record.workDate === today);
   const queuedCount = records.filter((record) => record.syncStatus === 'queued').length;
+  const latestCheckIn = records.find((record) => record.type === 'attendance' && record.action === 'check_in');
+  const latestCheckOut = records.find((record) => record.type === 'attendance' && record.action === 'check_out');
 
   els.workerSummary.innerHTML = `
     <div class="summary-item"><span>Signed in as</span><strong>${escapeHtml(state.user.fullName)}</strong></div>
     <div class="summary-item"><span>Entries today</span><strong>${todayRecords.length}</strong></div>
+    <div class="summary-item"><span>Last check in</span><strong>${latestCheckIn ? formatDateTime(latestCheckIn.createdAt) : '-'}</strong></div>
+    <div class="summary-item"><span>Last check out</span><strong>${latestCheckOut ? formatDateTime(latestCheckOut.createdAt) : '-'}</strong></div>
     <div class="summary-item"><span>Queued offline</span><strong>${queuedCount}</strong></div>
   `;
 }
 
+function getRecordDate(record) {
+  return record.workDate || record.createdAt?.slice(0, 10) || '';
+}
+
+function recordSearchText(record) {
+  return [
+    record.type,
+    record.action,
+    record.status,
+    record.syncStatus,
+    record.withinSiteRadius === true ? 'inside site radius' : '',
+    record.withinSiteRadius === false ? 'outside site radius' : '',
+    record.distanceFromSiteM,
+    record.userName,
+    record.siteName,
+    record.notes,
+    record.summary,
+    record.safetyNotes,
+    record.workDate,
+    record.hoursWorked
+  ].join(' ').toLowerCase();
+}
+
+function filterRecords(records, filters) {
+  const query = filters.query.trim().toLowerCase();
+
+  return records.filter((record) => {
+    if (filters.type && record.type !== filters.type) return false;
+    if (filters.date && getRecordDate(record) !== filters.date) return false;
+    if (filters.status && record.status !== filters.status && record.syncStatus !== filters.status) return false;
+    if (query && !recordSearchText(record).includes(query)) return false;
+    return true;
+  });
+}
+
+function getHistoryFilters() {
+  return {
+    query: els.historySearchInput.value,
+    type: els.historyTypeFilter.value,
+    status: els.historyStatusFilter.value,
+    date: els.historyDateFilter.value
+  };
+}
+
+function getSupervisorFilters() {
+  return {
+    query: els.supervisorSearchInput.value,
+    type: els.supervisorTypeFilter.value,
+    status: els.supervisorStatusFilter.value,
+    date: els.supervisorDateFilter.value
+  };
+}
+
 async function renderHistory() {
   if (!state.user) return;
-  const records = await getWorkerHistoryRecords();
-  renderRecordsList(els.historyList, records, false);
+  state.historyRecords = await getWorkerHistoryRecords();
+  renderFilteredHistory();
+}
+
+function renderFilteredHistory() {
+  const filteredRecords = filterRecords(state.historyRecords, getHistoryFilters());
+  els.historyResultCount.textContent = `${filteredRecords.length} of ${state.historyRecords.length} records`;
+  renderRecordsList(els.historyList, filteredRecords, false);
+}
+
+function clearHistoryFilters() {
+  els.historySearchInput.value = '';
+  els.historyTypeFilter.value = '';
+  els.historyStatusFilter.value = '';
+  els.historyDateFilter.value = '';
+  renderFilteredHistory();
 }
 
 async function renderSupervisorPanel() {
@@ -764,15 +923,41 @@ async function renderSupervisorPanel() {
     <div class="summary-item"><span>Task logs</span><strong>${taskLogs.length}</strong></div>
     <div class="summary-item"><span>Source</span><strong>${usingBackend ? 'Backend' : 'This device'}</strong></div>
   `;
-  renderRecordsList(els.pendingApprovalsList, pending, true);
-  renderRecordsList(els.reviewedApprovalsList, reviewed, false);
-  renderRecordsList(els.supervisorTaskLogsList, taskLogs, false);
+  state.supervisorRecords = { pending, reviewed, taskLogs };
+  renderFilteredSupervisorLists();
   renderSupervisorSites();
   await renderStaffUsers();
 }
 
+function renderFilteredSupervisorLists() {
+  const { pending, reviewed, taskLogs } = state.supervisorRecords;
+  const filters = getSupervisorFilters();
+  const filteredPending = filterRecords(pending, filters);
+  const filteredReviewed = filterRecords(reviewed, filters);
+  const filteredTaskLogs = filterRecords(taskLogs, filters);
+  const total = pending.length + reviewed.length + taskLogs.length;
+  const filteredTotal = filteredPending.length + filteredReviewed.length + filteredTaskLogs.length;
+
+  els.supervisorResultCount.textContent = `${filteredTotal}/${total}`;
+  els.pendingApprovalsCount.textContent = `${filteredPending.length}/${pending.length}`;
+  els.reviewedApprovalsCount.textContent = `${filteredReviewed.length}/${reviewed.length}`;
+  els.supervisorTaskLogsCount.textContent = `${filteredTaskLogs.length}/${taskLogs.length}`;
+  renderRecordsList(els.pendingApprovalsList, filteredPending, true);
+  renderRecordsList(els.reviewedApprovalsList, filteredReviewed, false);
+  renderRecordsList(els.supervisorTaskLogsList, filteredTaskLogs, false);
+}
+
+function clearSupervisorFilters() {
+  els.supervisorSearchInput.value = '';
+  els.supervisorTypeFilter.value = '';
+  els.supervisorStatusFilter.value = '';
+  els.supervisorDateFilter.value = '';
+  renderFilteredSupervisorLists();
+}
+
 function renderSupervisorSites() {
   els.supervisorSitesList.innerHTML = '';
+  els.supervisorSitesCount.textContent = String(state.sites.length);
 
   if (!state.sites.length) {
     els.supervisorSitesList.innerHTML = '<div class="empty-state">No sites found yet.</div>';
@@ -802,10 +987,12 @@ async function renderStaffUsers() {
     els.staffUsersList.innerHTML = '';
 
     if (!users.length) {
+      els.staffUsersCount.textContent = '0';
       els.staffUsersList.innerHTML = '<div class="empty-state">No users found yet.</div>';
       return;
     }
 
+    els.staffUsersCount.textContent = String(users.length);
     users.forEach((user) => {
       const node = document.createElement('article');
       node.className = 'record-card';
@@ -821,6 +1008,7 @@ async function renderStaffUsers() {
       els.staffUsersList.appendChild(node);
     });
   } catch (error) {
+    els.staffUsersCount.textContent = '-';
     els.staffUsersList.innerHTML = '<div class="empty-state">Staff users are unavailable.</div>';
     renderStatusBanner(error.message || 'Could not load staff users.', true);
   }
@@ -915,6 +1103,13 @@ function renderRecordsList(container, records, showActions) {
 
   records.forEach((record) => {
     const node = els.recordTemplate.content.firstElementChild.cloneNode(true);
+    node.classList.add(
+      record.type === 'task'
+        ? 'record-task'
+        : record.action === 'check_out'
+          ? 'record-check-out'
+          : 'record-check-in'
+    );
     const title = record.type === 'attendance'
       ? `${record.action === 'check_in' ? 'Check in' : 'Check out'} - ${record.siteName}`
       : `Task log - ${record.siteName}`;
@@ -927,15 +1122,20 @@ function renderRecordsList(container, records, showActions) {
     node.querySelector('.record-detail').textContent = detail;
 
     const badge = node.querySelector('.badge');
-    const badgeText = `${record.status}  |  ${record.syncStatus}`;
+    const badgeText = record.status || record.syncStatus || 'record';
     badge.textContent = badgeText;
     badge.className = `badge ${record.status} ${record.syncStatus}`;
+    badge.title = record.syncStatus ? `Sync: ${record.syncStatus}` : '';
 
     const extra = node.querySelector('.record-extra');
     const photoSrc = record.photoDataUrl || record.photoUrl || '';
+    const hasSiteDistance = record.type === 'attendance' && record.distanceFromSiteM != null;
     extra.innerHTML = `
+      <p><strong>Type:</strong> ${record.type === 'attendance' ? escapeHtml(record.action === 'check_in' ? 'Check in' : 'Check out') : 'Task log'}</p>
       ${record.type === 'attendance' && record.location ? `<p><strong>Location:</strong> ${record.location.latitude}, ${record.location.longitude} (${record.location.accuracy}m)</p>` : ''}
+      ${hasSiteDistance ? `<p><strong>Site radius:</strong> <span class="${record.withinSiteRadius ? 'site-inside' : 'site-outside'}">${record.withinSiteRadius ? 'Inside' : 'Outside'} - ${escapeHtml(record.distanceFromSiteM)}m from site</span></p>` : ''}
       ${record.hoursWorked ? `<p><strong>Hours:</strong> ${escapeHtml(record.hoursWorked)}</p>` : ''}
+      ${record.syncStatus ? `<p><strong>Sync:</strong> ${escapeHtml(record.syncStatus)}</p>` : ''}
       ${photoSrc ? `<img src="${escapeHtml(photoSrc)}" alt="Record photo" />` : ''}
     `;
 

@@ -180,6 +180,64 @@ button:disabled {
   box-shadow: var(--shadow);
 }
 
+.fold-card {
+  padding: 0;
+  overflow: clip;
+}
+
+.fold-card > summary {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 900;
+  list-style: none;
+}
+
+.fold-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fold-card > summary::after {
+  content: '+';
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-contrast);
+  font-weight: 900;
+}
+
+.fold-card[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.fold-card[open] > summary::after {
+  content: '-';
+  background: var(--brand-red);
+}
+
+.fold-content {
+  padding: 16px 18px 18px;
+}
+
+.fold-count {
+  margin-left: auto;
+  border-radius: 999px;
+  padding: 0.26rem 0.56rem;
+  background: #e8edf3;
+  color: #263241;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
 .card > h2:first-child,
 .card > h3:first-child,
 .section-heading h2 {
@@ -207,6 +265,25 @@ button:disabled {
   height: 1px;
   margin: 20px 0;
   background: var(--line);
+}
+
+.optional-details {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-quiet);
+}
+
+.optional-details summary {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.optional-details .form-grid {
+  padding: 0 12px 12px;
 }
 
 label {
@@ -283,11 +360,31 @@ textarea {
 
 .button-stack,
 .card-actions,
+.filter-bar,
 .split-actions,
 .tabs {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.filter-bar {
+  align-items: end;
+  margin: 14px 0 8px;
+}
+
+.filter-bar label {
+  flex: 1 1 160px;
+}
+
+.filter-bar button {
+  flex: 0 0 auto;
+}
+
+.list-count {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-weight: 800;
 }
 
 .card-actions {
@@ -304,6 +401,11 @@ textarea {
 
 .split-actions button {
   flex: 1 1 160px;
+}
+
+.primary-actions button {
+  min-height: 54px;
+  font-size: 1.02rem;
 }
 
 .tabs {
@@ -371,6 +473,14 @@ textarea {
   background: #fcfdff;
 }
 
+.record-check-out {
+  border-left-color: var(--primary);
+}
+
+.record-task {
+  border-left-color: var(--safety);
+}
+
 .record-title {
   margin: 0 0 4px;
 }
@@ -385,6 +495,28 @@ textarea {
 .record-detail {
   color: var(--text);
   margin-top: 10px;
+}
+
+.record-extra {
+  margin-top: 12px;
+}
+
+.record-extra p {
+  margin: 0 0 6px;
+  line-height: 1.45;
+}
+
+.site-inside,
+.site-outside {
+  font-weight: 900;
+}
+
+.site-inside {
+  color: var(--success);
+}
+
+.site-outside {
+  color: var(--danger);
 }
 
 .badge {
@@ -454,8 +586,48 @@ textarea {
     padding: 14px 10px 28px;
   }
 
+  #workerView.active {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #workerView .tabs {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    margin: 0 0 10px;
+    padding: 4px;
+    box-shadow: none;
+  }
+
+  #workerView .tab {
+    min-width: 0;
+    min-height: 38px;
+    padding: 0.45rem 0.3rem;
+    font-size: 0.9rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  #workerView .tab-panel {
+    order: 3;
+  }
+
+  #workerView .worker-dashboard {
+    order: 1;
+  }
+
+  #workerView .tabs {
+    order: 2;
+  }
+
   .two-col {
     grid-template-columns: 1fr;
+  }
+
+  .desktop-actions {
+    display: none;
   }
 
   .topbar,
@@ -475,14 +647,42 @@ textarea {
   }
 
   .topbar-actions button,
-  .button-stack button,
   .split-actions button,
   .record-actions button {
     width: 100%;
   }
 
+  .filter-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .filter-bar label,
+  .filter-bar button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .filter-bar label:first-child,
+  .filter-bar button {
+    grid-column: 1 / -1;
+  }
+
   .card {
     padding: 15px;
+  }
+
+  .fold-card {
+    padding: 0;
+  }
+
+  .fold-card > summary {
+    min-height: 48px;
+    padding: 12px 14px;
+  }
+
+  .fold-content {
+    padding: 14px;
   }
 
   .summary-item {

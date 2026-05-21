@@ -72,13 +72,13 @@
         </section>
 
         <section id="workerView" class="view hidden">
-          <div class="grid two-col">
+          <div class="grid two-col worker-dashboard">
             <article class="card">
               <h2>Today</h2>
               <div id="workerSummary" class="summary-list"></div>
             </article>
 
-            <article class="card">
+            <article class="card desktop-actions">
               <h2>Quick actions</h2>
               <div class="button-stack">
                 <button data-tab-target="attendanceTab" type="button">Open check in / check out</button>
@@ -89,8 +89,8 @@
           </div>
 
           <div class="tabs">
-            <button class="tab active" data-tab-target="attendanceTab" type="button">Attendance</button>
-            <button class="tab" data-tab-target="taskTab" type="button">Task Log</button>
+            <button class="tab active" data-tab-target="attendanceTab" type="button">Check</button>
+            <button class="tab" data-tab-target="taskTab" type="button">Log</button>
             <button class="tab" data-tab-target="historyTab" type="button">History</button>
           </div>
 
@@ -102,24 +102,29 @@
                   Site
                   <select id="attendanceSite" required></select>
                 </label>
-                <label>
-                  Notes
-                  <textarea id="attendanceNotes" rows="4" placeholder="Example: unloading scaffold tubes, setting base plates, final site clean-up"></textarea>
-                </label>
                 <div class="split-actions">
                   <button id="captureLocationButton" type="button" class="secondary">Capture current location</button>
                   <button id="saveAttendanceDraftButton" type="button" class="ghost">Save draft</button>
                 </div>
                 <div id="locationPreview" class="preview-box">No location captured yet.</div>
-                <label>
-                  Optional site photo
-                  <input id="attendancePhoto" type="file" accept="image/*" capture="environment" />
-                </label>
-                <div id="attendancePhotoPreview" class="photo-preview hidden"></div>
-                <div class="split-actions">
+                <div class="split-actions primary-actions">
                   <button id="checkInButton" type="button">Check in</button>
                   <button id="checkOutButton" type="button" class="secondary">Check out</button>
                 </div>
+                <details id="attendanceDetails" class="optional-details">
+                  <summary>Notes and photo</summary>
+                  <div class="form-grid">
+                    <label>
+                      Notes
+                      <textarea id="attendanceNotes" rows="4" placeholder="Example: unloading scaffold tubes, setting base plates, final site clean-up"></textarea>
+                    </label>
+                    <label>
+                      Optional site photo
+                      <input id="attendancePhoto" type="file" accept="image/*" capture="environment" />
+                    </label>
+                    <div id="attendancePhotoPreview" class="photo-preview hidden"></div>
+                  </div>
+                </details>
               </form>
             </article>
           </section>
@@ -167,6 +172,38 @@
                 <h2>My history</h2>
                 <button id="refreshHistoryButton" type="button" class="ghost">Refresh</button>
               </div>
+              <form id="historyFilterForm" class="filter-bar">
+                <label>
+                  Find
+                  <input id="historySearchInput" type="search" placeholder="Site, note, task, status" />
+                </label>
+                <label>
+                  Type
+                  <select id="historyTypeFilter">
+                    <option value="">All</option>
+                    <option value="attendance">Check in/out</option>
+                    <option value="task">Task logs</option>
+                  </select>
+                </label>
+                <label>
+                  Status
+                  <select id="historyStatusFilter">
+                    <option value="">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="queued">Queued</option>
+                    <option value="synced">Synced</option>
+                    <option value="logged">Logged</option>
+                  </select>
+                </label>
+                <label>
+                  Date
+                  <input id="historyDateFilter" type="date" />
+                </label>
+                <button id="clearHistoryFiltersButton" type="button" class="ghost">Clear</button>
+              </form>
+              <p id="historyResultCount" class="list-count"></p>
               <div id="historyList" class="records-list"></div>
             </article>
           </section>
@@ -189,86 +226,142 @@
             </article>
           </div>
 
-          <article class="card">
-            <div class="section-heading">
-              <h2>Pending approvals</h2>
-              <button id="refreshSupervisorButton" type="button" class="ghost">Refresh</button>
+          <details class="card fold-card" open>
+            <summary>
+              <span>Find records</span>
+              <span id="supervisorResultCount" class="fold-count">0 records</span>
+            </summary>
+            <div class="fold-content">
+              <div class="section-heading">
+                <h2>Filters</h2>
+                <button id="refreshSupervisorButton" type="button" class="ghost">Refresh</button>
+              </div>
+              <form id="supervisorFilterForm" class="filter-bar">
+                <label>
+                  Find
+                  <input id="supervisorSearchInput" type="search" placeholder="Worker, site, note, task" />
+                </label>
+                <label>
+                  Type
+                  <select id="supervisorTypeFilter">
+                    <option value="">All</option>
+                    <option value="attendance">Check in/out</option>
+                    <option value="task">Task logs</option>
+                  </select>
+                </label>
+                <label>
+                  Status
+                  <select id="supervisorStatusFilter">
+                    <option value="">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="logged">Logged</option>
+                  </select>
+                </label>
+                <label>
+                  Date
+                  <input id="supervisorDateFilter" type="date" />
+                </label>
+                <button id="clearSupervisorFiltersButton" type="button" class="ghost">Clear</button>
+              </form>
             </div>
-            <div id="pendingApprovalsList" class="records-list"></div>
-          </article>
+          </details>
 
-          <article class="card">
-            <div class="section-heading">
-              <h2>Reviewed records</h2>
+          <details class="card fold-card" open>
+            <summary>
+              <span>Pending approvals</span>
+              <span id="pendingApprovalsCount" class="fold-count">0</span>
+            </summary>
+            <div class="fold-content">
+              <div id="pendingApprovalsList" class="records-list"></div>
             </div>
-            <div id="reviewedApprovalsList" class="records-list"></div>
-          </article>
+          </details>
 
-          <article class="card">
-            <div class="section-heading">
-              <h2>Worker task logs</h2>
+          <details class="card fold-card">
+            <summary>
+              <span>Reviewed records</span>
+              <span id="reviewedApprovalsCount" class="fold-count">0</span>
+            </summary>
+            <div class="fold-content">
+              <div id="reviewedApprovalsList" class="records-list"></div>
             </div>
-            <div id="supervisorTaskLogsList" class="records-list"></div>
-          </article>
+          </details>
 
-          <article class="card">
-            <div class="section-heading">
-              <h2>Sites</h2>
+          <details class="card fold-card">
+            <summary>
+              <span>Worker task logs</span>
+              <span id="supervisorTaskLogsCount" class="fold-count">0</span>
+            </summary>
+            <div class="fold-content">
+              <div id="supervisorTaskLogsList" class="records-list"></div>
             </div>
-            <form id="siteForm" class="form-grid">
-              <label>
-                Site name
-                <input id="siteNameInput" type="text" required />
-              </label>
-              <label>
-                Address
-                <input id="siteAddressInput" type="text" />
-              </label>
-              <label>
-                Latitude
-                <input id="siteLatitudeInput" type="number" step="0.000001" min="-90" max="90" required />
-              </label>
-              <label>
-                Longitude
-                <input id="siteLongitudeInput" type="number" step="0.000001" min="-180" max="180" required />
-              </label>
-              <label>
-                Allowed radius metres
-                <input id="siteRadiusInput" type="number" min="10" max="5000" value="100" required />
-              </label>
-              <button type="submit">Create site</button>
-            </form>
-            <div id="supervisorSitesList" class="records-list staff-users-list"></div>
-          </article>
+          </details>
 
-          <article class="card">
-            <div class="section-heading">
-              <h2>Staff users</h2>
+          <details class="card fold-card">
+            <summary>
+              <span>Sites</span>
+              <span id="supervisorSitesCount" class="fold-count">0</span>
+            </summary>
+            <div class="fold-content">
+              <form id="siteForm" class="form-grid">
+                <label>
+                  Site name
+                  <input id="siteNameInput" type="text" required />
+                </label>
+                <label>
+                  Address
+                  <input id="siteAddressInput" type="text" />
+                </label>
+                <label>
+                  Latitude
+                  <input id="siteLatitudeInput" type="number" step="0.000001" min="-90" max="90" required />
+                </label>
+                <label>
+                  Longitude
+                  <input id="siteLongitudeInput" type="number" step="0.000001" min="-180" max="180" required />
+                </label>
+                <label>
+                  Allowed radius metres
+                  <input id="siteRadiusInput" type="number" min="10" max="5000" value="100" required />
+                </label>
+                <button type="submit">Create site</button>
+              </form>
+              <div id="supervisorSitesList" class="records-list staff-users-list"></div>
             </div>
-            <form id="staffUserForm" class="form-grid">
-              <label>
-                Name
-                <input id="staffNameInput" type="text" autocomplete="name" required />
-              </label>
-              <label>
-                Email
-                <input id="staffEmailInput" type="email" autocomplete="email" required />
-              </label>
-              <label>
-                Password
-                <input id="staffPasswordInput" type="password" minlength="8" autocomplete="new-password" required />
-              </label>
-              <label>
-                Role
-                <select id="staffRoleSelect">
-                  <option value="worker">Worker</option>
-                  <option value="supervisor">Supervisor</option>
-                </select>
-              </label>
-              <button type="submit">Create user</button>
-            </form>
-            <div id="staffUsersList" class="records-list staff-users-list"></div>
-          </article>
+          </details>
+
+          <details class="card fold-card">
+            <summary>
+              <span>Staff users</span>
+              <span id="staffUsersCount" class="fold-count">0</span>
+            </summary>
+            <div class="fold-content">
+              <form id="staffUserForm" class="form-grid">
+                <label>
+                  Name
+                  <input id="staffNameInput" type="text" autocomplete="name" required />
+                </label>
+                <label>
+                  Email
+                  <input id="staffEmailInput" type="email" autocomplete="email" required />
+                </label>
+                <label>
+                  Password
+                  <input id="staffPasswordInput" type="password" minlength="8" autocomplete="new-password" required />
+                </label>
+                <label>
+                  Role
+                  <select id="staffRoleSelect">
+                    <option value="worker">Worker</option>
+                    <option value="supervisor">Supervisor</option>
+                  </select>
+                </label>
+                <button type="submit">Create user</button>
+              </form>
+              <div id="staffUsersList" class="records-list staff-users-list"></div>
+            </div>
+          </details>
         </section>
       </main>
     </div>
