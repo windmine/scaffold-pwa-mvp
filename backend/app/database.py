@@ -13,6 +13,14 @@ def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
 
     with engine.begin() as connection:
+        user_columns = {
+            row[1]
+            for row in connection.exec_driver_sql("PRAGMA table_info(user)")
+        }
+
+        if "status" not in user_columns:
+            connection.exec_driver_sql("ALTER TABLE user ADD COLUMN status VARCHAR DEFAULT 'active'")
+
         task_log_columns = {
             row[1]
             for row in connection.exec_driver_sql("PRAGMA table_info(tasklog)")
@@ -24,6 +32,8 @@ def create_db_and_tables():
             connection.exec_driver_sql("ALTER TABLE tasklog ADD COLUMN hours_worked FLOAT")
         if "safety_notes" not in task_log_columns:
             connection.exec_driver_sql("ALTER TABLE tasklog ADD COLUMN safety_notes VARCHAR")
+        if "photo_urls" not in task_log_columns:
+            connection.exec_driver_sql("ALTER TABLE tasklog ADD COLUMN photo_urls VARCHAR")
 
         attendance_columns = {
             row[1]

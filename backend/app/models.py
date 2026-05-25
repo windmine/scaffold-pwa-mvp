@@ -13,6 +13,7 @@ class User(SQLModel, table=True):
 
     # "worker" or "supervisor"
     role: str = Field(default="worker")
+    status: str = Field(default="active", index=True)
 
 
 class Site(SQLModel, table=True):
@@ -64,6 +65,23 @@ class TaskLog(SQLModel, table=True):
     hours_worked: Optional[float] = None
     safety_notes: Optional[str] = None
     photo_url: Optional[str] = None
+    photo_urls: Optional[str] = None
+
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+
+class TaskTemplate(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    worker_id: int = Field(index=True)
+    site_id: Optional[int] = Field(default=None, index=True)
+
+    name: str
+    description: str
+    hours_worked: Optional[float] = None
+    safety_notes: Optional[str] = None
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)

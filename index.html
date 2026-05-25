@@ -132,6 +132,23 @@
           <section id="taskTab" class="tab-panel hidden">
             <article class="card">
               <h2>Daily task log</h2>
+              <div class="template-tools">
+                <label>
+                  Template
+                  <select id="taskTemplateSelect">
+                    <option value="">No template selected</option>
+                  </select>
+                </label>
+                <div class="split-actions">
+                  <button id="applyTaskTemplateButton" type="button" class="secondary">Apply template</button>
+                  <button id="deleteTaskTemplateButton" type="button" class="ghost">Delete template</button>
+                </div>
+                <label>
+                  New template name
+                  <input id="taskTemplateNameInput" type="text" placeholder="Example: Base scaffold install" />
+                </label>
+                <button id="saveTaskTemplateButton" type="button" class="ghost">Save current log as template</button>
+              </div>
               <form id="taskForm" class="form-grid">
                 <label>
                   Site
@@ -154,8 +171,8 @@
                   <textarea id="taskSafety" rows="3" placeholder="Example: edge protection checked, tagged area remained clear"></textarea>
                 </label>
                 <label>
-                  Optional progress photo
-                  <input id="taskPhoto" type="file" accept="image/*" capture="environment" />
+                  Progress photos
+                  <input id="taskPhoto" type="file" accept="image/*" multiple />
                 </label>
                 <div id="taskPhotoPreview" class="photo-preview hidden"></div>
                 <div class="split-actions">
@@ -204,6 +221,13 @@
                 <button id="clearHistoryFiltersButton" type="button" class="ghost">Clear</button>
               </form>
               <p id="historyResultCount" class="list-count"></p>
+              <div id="workerEditPanel" class="edit-panel hidden">
+                <div class="section-heading">
+                  <h2 id="workerEditPanelTitle">Edit</h2>
+                  <button id="cancelWorkerEditButton" type="button" class="ghost">Cancel</button>
+                </div>
+                <form id="workerEditPanelForm" class="form-grid"></form>
+              </div>
               <div id="historyList" class="records-list"></div>
             </article>
           </section>
@@ -278,6 +302,14 @@
             </div>
           </details>
 
+          <article id="supervisorEditPanel" class="card edit-panel hidden">
+            <div class="section-heading">
+              <h2 id="editPanelTitle">Edit</h2>
+              <button id="cancelEditButton" type="button" class="ghost">Cancel</button>
+            </div>
+            <form id="editPanelForm" class="form-grid"></form>
+          </article>
+
           <details class="card fold-card">
             <summary>
               <span>Reviewed records</span>
@@ -327,6 +359,12 @@
                 </label>
                 <button type="submit">Create site</button>
               </form>
+              <form class="filter-bar compact-filter">
+                <label>
+                  Find site
+                  <input id="siteSearchInput" type="search" placeholder="Name, address, radius" />
+                </label>
+              </form>
               <div id="supervisorSitesList" class="records-list staff-users-list"></div>
             </div>
           </details>
@@ -359,11 +397,32 @@
                 </label>
                 <button type="submit">Create user</button>
               </form>
+              <form class="filter-bar compact-filter">
+                <label>
+                  Find user
+                  <input id="staffSearchInput" type="search" placeholder="Name, email, role, status" />
+                </label>
+              </form>
               <div id="staffUsersList" class="records-list staff-users-list"></div>
             </div>
           </details>
         </section>
       </main>
+    </div>
+
+    <div id="photoViewer" class="photo-viewer hidden" role="dialog" aria-modal="true" aria-label="Photo viewer">
+      <div class="photo-viewer-backdrop" data-photo-viewer-close></div>
+      <div class="photo-viewer-panel">
+        <div class="photo-viewer-toolbar">
+          <p id="photoViewerCaption">Photo</p>
+          <button id="closePhotoViewerButton" type="button" class="ghost">Close</button>
+        </div>
+        <img id="photoViewerImage" src="" alt="Expanded record photo" />
+        <div class="photo-viewer-actions">
+          <button id="previousPhotoButton" type="button" class="ghost">Previous</button>
+          <button id="nextPhotoButton" type="button" class="ghost">Next</button>
+        </div>
+      </div>
     </div>
 
     <template id="recordTemplate">

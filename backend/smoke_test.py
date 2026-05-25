@@ -66,13 +66,67 @@ def main():
 
         worker_token = worker_login["access_token"]
         supervisor_token = supervisor_login["access_token"]
+        now = datetime.now(timezone.utc)
+        timestamp = now.strftime("%Y%m%d%H%M%S%f")
+
+        smoke_user = assert_status(
+            "create resignable worker",
+            request(
+                "POST",
+                "/supervisor/users",
+                {
+                    "name": f"Smoke Worker {timestamp}",
+                    "email": f"smoke-worker-{timestamp}@example.com",
+                    "password": "Passw0rd!",
+                    "role": "worker",
+                },
+                supervisor_token,
+            ),
+            200,
+        )
+        assert_status(
+            "mark worker resigned",
+            request(
+                "POST",
+                f"/supervisor/users/{smoke_user['id']}/status",
+                {"status": "resigned", "confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
+        assert_status(
+            "resigned worker cannot login",
+            request(
+                "POST",
+                "/auth/login",
+                {"email": smoke_user["email"], "password": "Passw0rd!"},
+            ),
+            403,
+        )
+        assert_status(
+            "reactivate worker",
+            request(
+                "POST",
+                f"/supervisor/users/{smoke_user['id']}/status",
+                {"status": "active", "confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
+        assert_status(
+            "reactivated worker can login",
+            request(
+                "POST",
+                "/auth/login",
+                {"email": smoke_user["email"], "password": "Passw0rd!"},
+            ),
+            200,
+        )
 
         sites = assert_status("sites list", request("GET", "/sites"), 200)
         if not sites:
             raise AssertionError("sites list: expected at least one site")
 
-        now = datetime.now(timezone.utc)
-        timestamp = now.strftime("%Y%m%d%H%M%S%f")
         site = assert_status(
             "create supervisor site",
             request(
@@ -89,6 +143,54 @@ def main():
             ),
             200,
         )
+        site = assert_status(
+            "update supervisor site",
+            request(
+                "PATCH",
+                f"/supervisor/sites/{site['id']}",
+                {"allowed_radius_m": 120, "confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
+        template = assert_status(
+            "create task template",
+            request(
+                "POST",
+                "/task-templates",
+                {
+                    "name": f"Smoke Template {timestamp}",
+                    "description": "Repeat scaffold bay install",
+                    "site_id": site["id"],
+                    "hours_worked": 1,
+                    "safety_notes": "Check tags and exclusion zone",
+                },
+                worker_token,
+            ),
+            200,
+        )
+        templates = assert_status(
+            "list task templates",
+            request("GET", "/task-templates", token=worker_token),
+            200,
+        )
+        if not any(item["id"] == template["id"] for item in templates):
+            raise AssertionError("list task templates: created template not found")
+        template = assert_status(
+            "update task template",
+            request(
+                "PATCH",
+                f"/task-templates/{template['id']}",
+                {
+                    "name": f"Updated Smoke Template {timestamp}",
+                    "hours_worked": 1.5,
+                },
+                worker_token,
+            ),
+            200,
+        )
+        if template["hours_worked"] != 1.5:
+            raise AssertionError("update task template: expected updated hours")
         attendance = assert_status(
             "create attendance",
             request(
@@ -104,6 +206,54 @@ def main():
                 },
                 worker_token,
             ),
+            200,
+        )
+        if attendance["within_site_radius"] is not True:
+            raise AssertionError("create attendance: expected location to be inside site radius")
+        if attendance["distance_from_site_m"] is None:
+            raise AssertionError("create attendance: expected distance from site")
+        attendance = assert_status(
+            "worker update pending attendance",
+            request(
+                "PATCH",
+                f"/my-records/{attendance['id']}",
+                {"note": f"worker updated smoke test {timestamp}", "accuracy": 15},
+                worker_token,
+            ),
+            200,
+        )
+        if attendance["note"] != f"worker updated smoke test {timestamp}":
+            raise AssertionError("worker update pending attendance: expected updated note")
+        attendance = assert_status(
+            "update attendance record",
+            request(
+                "PATCH",
+                f"/supervisor/records/{attendance['id']}",
+                {"note": f"updated smoke test {timestamp}", "confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
+        delete_attendance = assert_status(
+            "create deletable attendance",
+            request(
+                "POST",
+                "/attendance",
+                {
+                    "record_type": "check_out",
+                    "latitude": site["latitude"],
+                    "longitude": site["longitude"],
+                    "accuracy": 20,
+                    "site_id": site["id"],
+                    "note": f"delete smoke test {timestamp}",
+                },
+                worker_token,
+            ),
+            200,
+        )
+        assert_status(
+            "delete pending attendance",
+            request("DELETE", f"/my-records/{delete_attendance['id']}", token=worker_token),
             200,
         )
         assert_status(
@@ -131,7 +281,7 @@ def main():
             ),
             400,
         )
-        assert_status(
+        task_log = assert_status(
             "create task log",
             request(
                 "POST",
@@ -141,9 +291,48 @@ def main():
                     "site_id": site["id"],
                     "hours_worked": 1,
                     "work_date": now.date().isoformat(),
+                    "photo_urls": [
+                        "/uploads/smoke-task-1.jpg",
+                        "/uploads/smoke-task-2.jpg",
+                    ],
                 },
                 worker_token,
             ),
+            200,
+        )
+        if len(task_log["photo_urls"]) != 2:
+            raise AssertionError("create task log: expected two task photos")
+        assert_status(
+            "worker cannot update task log",
+            request(
+                "PATCH",
+                f"/my-task-logs/{task_log['id']}",
+                {
+                    "description": f"Worker-updated task log {timestamp}",
+                    "hours_worked": 1.1,
+                },
+                worker_token,
+            ),
+            403,
+        )
+        assert_status(
+            "update task log",
+            request(
+                "PATCH",
+                f"/supervisor/task-logs/{task_log['id']}",
+                {"hours_worked": 1.25, "confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
+        assert_status(
+            "worker cannot delete task log",
+            request("DELETE", f"/my-task-logs/{task_log['id']}", token=worker_token),
+            403,
+        )
+        assert_status(
+            "delete task template",
+            request("DELETE", f"/task-templates/{template['id']}", token=worker_token),
             200,
         )
         assert_status(
@@ -157,6 +346,19 @@ def main():
             422,
         )
         assert_status(
+            "reject too many task photos",
+            request(
+                "POST",
+                "/task-logs",
+                {
+                    "description": "too many photos",
+                    "photo_urls": [f"/uploads/photo-{index}.jpg" for index in range(9)],
+                },
+                worker_token,
+            ),
+            400,
+        )
+        assert_status(
             "supervisor approve attendance",
             request(
                 "POST",
@@ -165,6 +367,21 @@ def main():
                 supervisor_token,
             ),
             200,
+        )
+        assert_status(
+            "worker cannot update approved attendance",
+            request(
+                "PATCH",
+                f"/my-records/{attendance['id']}",
+                {"note": "late worker edit should fail"},
+                worker_token,
+            ),
+            400,
+        )
+        assert_status(
+            "worker cannot delete approved attendance",
+            request("DELETE", f"/my-records/{attendance['id']}", token=worker_token),
+            400,
         )
         csv_body = assert_status(
             "export attendance csv",

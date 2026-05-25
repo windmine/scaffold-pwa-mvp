@@ -286,6 +286,16 @@ button:disabled {
   padding: 0 12px 12px;
 }
 
+.template-tools {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-quiet);
+}
+
 label {
   display: grid;
   gap: 7px;
@@ -387,6 +397,28 @@ textarea {
   font-weight: 800;
 }
 
+.compact-filter {
+  margin-top: 16px;
+}
+
+.compact-filter label {
+  flex-basis: 100%;
+}
+
+.edit-panel {
+  border-left: 5px solid var(--safety);
+}
+
+.edit-warning {
+  padding: 10px 12px;
+  border: 1px solid #f0d46b;
+  border-left: 5px solid var(--safety);
+  border-radius: var(--radius);
+  background: #fff7d6;
+  color: #4f3b00;
+  font-weight: 800;
+}
+
 .card-actions {
   margin-top: 14px;
 }
@@ -438,14 +470,102 @@ textarea {
 
 .photo-preview {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 8px;
 }
 
-.photo-preview img,
-.record-extra img {
+.record-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.photo-thumb {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  line-height: 0;
+  border-radius: var(--radius);
+}
+
+.photo-thumb:hover {
+  background: transparent;
+}
+
+.photo-thumb:focus-visible {
+  outline: 3px solid rgba(245, 196, 0, 0.8);
+  outline-offset: 2px;
+}
+
+.photo-thumb img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
   max-width: 100%;
   border-radius: var(--radius);
   border: 1px solid var(--line);
+}
+
+.photo-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.photo-viewer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(17, 17, 17, 0.78);
+}
+
+.photo-viewer-panel {
+  position: relative;
+  z-index: 1;
+  width: min(980px, 100%);
+  max-height: min(92vh, 900px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+}
+
+.photo-viewer-toolbar,
+.photo-viewer-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.photo-viewer-toolbar p {
+  margin: 0;
+  min-width: 0;
+  font-weight: 900;
+}
+
+.photo-viewer img {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: var(--radius);
+  background: #111111;
+}
+
+.photo-viewer-actions button {
+  flex: 1 1 120px;
+}
+
+body.viewer-open {
+  overflow: hidden;
 }
 
 .section-heading,

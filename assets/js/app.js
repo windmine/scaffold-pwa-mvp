@@ -21,20 +21,31 @@ import {
   getCurrentUser,
   getUsers as getBackendUsers,
   createUser as createBackendUser,
+  updateUserStatus as updateBackendUserStatus,
   getSites as getBackendSites,
   createSite as createBackendSite,
+  updateSite as updateBackendSite,
   uploadPhoto,
   createAttendance as createBackendAttendance,
   getMyRecords as getBackendMyAttendanceRecords,
+  updateMyRecord as updateBackendMyRecord,
+  deleteMyRecord as deleteBackendMyRecord,
   createTaskLog as createBackendTaskLog,
   getMyTaskLogs as getBackendMyTaskLogs,
+  getTaskTemplates as getBackendTaskTemplates,
+  createTaskTemplate as createBackendTaskTemplate,
+  deleteTaskTemplate as deleteBackendTaskTemplate,
   getSupervisorRecords as getBackendSupervisorRecords,
   exportSupervisorRecordsCsv,
   getSupervisorTaskLogs as getBackendSupervisorTaskLogs,
   decideRecord as decideBackendRecord,
+  updateSupervisorRecord as updateBackendSupervisorRecord,
+  updateSupervisorTaskLog as updateBackendSupervisorTaskLog,
   logout as clearBackendSession
 } from './api-client.js';
-import { dataUrlToBlob, fileToDataUrl, formatDateTime, todayDateInput, uuid, escapeHtml } from './utils.js';
+import { dataUrlToBlob, dateInputValue, fileToDataUrl, formatDateTime, todayDateInput, uuid, escapeHtml } from './utils.js';
+
+const MAX_TASK_LOG_PHOTOS = 8;
 
 const state = {
   user: null,
@@ -43,9 +54,16 @@ const state = {
   attendanceLocation: null,
   attendancePhotoDataUrl: '',
   attendancePhotoFile: null,
-  taskPhotoFile: null,
-  taskPhotoDataUrl: '',
+  taskPhotoFiles: [],
+  taskPhotoDataUrls: [],
+  taskTemplates: [],
   historyRecords: [],
+  staffUsers: [],
+  photoViewer: {
+    sources: [],
+    index: 0,
+    title: ''
+  },
   supervisorRecords: {
     pending: [],
     reviewed: [],
@@ -95,10 +113,23 @@ const els = {
   taskPhoto: document.getElementById('taskPhoto'),
   taskPhotoPreview: document.getElementById('taskPhotoPreview'),
   saveTaskDraftButton: document.getElementById('saveTaskDraftButton'),
+  taskTemplateSelect: document.getElementById('taskTemplateSelect'),
+  taskTemplateNameInput: document.getElementById('taskTemplateNameInput'),
+  applyTaskTemplateButton: document.getElementById('applyTaskTemplateButton'),
+  saveTaskTemplateButton: document.getElementById('saveTaskTemplateButton'),
+  deleteTaskTemplateButton: document.getElementById('deleteTaskTemplateButton'),
+  workerEditPanel: document.getElementById('workerEditPanel'),
+  workerEditPanelTitle: document.getElementById('workerEditPanelTitle'),
+  workerEditPanelForm: document.getElementById('workerEditPanelForm'),
+  cancelWorkerEditButton: document.getElementById('cancelWorkerEditButton'),
   supervisorSummary: document.getElementById('supervisorSummary'),
   pendingApprovalsList: document.getElementById('pendingApprovalsList'),
   reviewedApprovalsList: document.getElementById('reviewedApprovalsList'),
   supervisorTaskLogsList: document.getElementById('supervisorTaskLogsList'),
+  supervisorEditPanel: document.getElementById('supervisorEditPanel'),
+  editPanelTitle: document.getElementById('editPanelTitle'),
+  editPanelForm: document.getElementById('editPanelForm'),
+  cancelEditButton: document.getElementById('cancelEditButton'),
   supervisorSearchInput: document.getElementById('supervisorSearchInput'),
   supervisorTypeFilter: document.getElementById('supervisorTypeFilter'),
   supervisorStatusFilter: document.getElementById('supervisorStatusFilter'),
@@ -123,8 +154,16 @@ const els = {
   siteLatitudeInput: document.getElementById('siteLatitudeInput'),
   siteLongitudeInput: document.getElementById('siteLongitudeInput'),
   siteRadiusInput: document.getElementById('siteRadiusInput'),
+  siteSearchInput: document.getElementById('siteSearchInput'),
   supervisorSitesList: document.getElementById('supervisorSitesList'),
+  staffSearchInput: document.getElementById('staffSearchInput'),
   refreshSupervisorButton: document.getElementById('refreshSupervisorButton'),
+  photoViewer: document.getElementById('photoViewer'),
+  photoViewerImage: document.getElementById('photoViewerImage'),
+  photoViewerCaption: document.getElementById('photoViewerCaption'),
+  closePhotoViewerButton: document.getElementById('closePhotoViewerButton'),
+  previousPhotoButton: document.getElementById('previousPhotoButton'),
+  nextPhotoButton: document.getElementById('nextPhotoButton'),
   recordTemplate: document.getElementById('recordTemplate')
 };
 
@@ -191,6 +230,10 @@ function bindEvents() {
   els.taskPhoto.addEventListener('change', handleTaskPhotoChange);
   els.taskForm.addEventListener('submit', handleTaskSubmit);
   els.saveTaskDraftButton.addEventListener('click', persistTaskDraft);
+  els.applyTaskTemplateButton.addEventListener('click', applySelectedTaskTemplate);
+  els.saveTaskTemplateButton.addEventListener('click', saveCurrentTaskTemplate);
+  els.deleteTaskTemplateButton.addEventListener('click', deleteSelectedTaskTemplate);
+  els.cancelWorkerEditButton.addEventListener('click', () => closeEditPanel('worker'));
   els.refreshHistoryButton.addEventListener('click', renderHistory);
   [
     els.historySearchInput,
@@ -216,6 +259,18 @@ function bindEvents() {
   els.exportAttendanceButton.addEventListener('click', handleExportAttendance);
   els.staffUserForm.addEventListener('submit', handleStaffUserCreate);
   els.siteForm.addEventListener('submit', handleSiteCreate);
+  els.siteSearchInput.addEventListener('input', renderSupervisorSites);
+  els.staffSearchInput.addEventListener('input', renderFilteredStaffUsers);
+  els.cancelEditButton.addEventListener('click', closeEditPanel);
+  els.closePhotoViewerButton.addEventListener('click', closePhotoViewer);
+  els.previousPhotoButton.addEventListener('click', () => stepPhotoViewer(-1));
+  els.nextPhotoButton.addEventListener('click', () => stepPhotoViewer(1));
+  els.photoViewer.addEventListener('click', (event) => {
+    if (event.target.matches('[data-photo-viewer-close]')) {
+      closePhotoViewer();
+    }
+  });
+  document.addEventListener('keydown', handlePhotoViewerKeydown);
   els.installButton.addEventListener('click', handleInstall);
 
   document.querySelectorAll('[data-tab-target]').forEach((button) => {
@@ -275,8 +330,8 @@ async function restoreDrafts() {
     els.taskHours.value = taskDraft.hoursWorked || '';
     els.taskSummary.value = taskDraft.summary || '';
     els.taskSafety.value = taskDraft.safetyNotes || '';
-    state.taskPhotoDataUrl = taskDraft.photoDataUrl || '';
-    renderPhotoPreview(els.taskPhotoPreview, state.taskPhotoDataUrl, 'Task draft photo');
+    state.taskPhotoDataUrls = taskDraft.photoDataUrls || (taskDraft.photoDataUrl ? [taskDraft.photoDataUrl] : []);
+    renderPhotoPreviews(els.taskPhotoPreview, state.taskPhotoDataUrls, 'Task draft photo');
   }
 }
 
@@ -290,6 +345,7 @@ function renderApp() {
 
   if (state.user.role === 'worker') {
     showView('worker');
+    refreshTaskTemplates();
     renderWorkerSummary();
     renderHistory();
   } else {
@@ -428,21 +484,95 @@ async function handleAttendancePhotoChange(event) {
 }
 
 async function handleTaskPhotoChange(event) {
-  const file = event.target.files?.[0];
-  state.taskPhotoFile = file || null;
-  state.taskPhotoDataUrl = file ? await fileToDataUrl(file) : '';
-  renderPhotoPreview(els.taskPhotoPreview, state.taskPhotoDataUrl, 'Task photo');
+  const selectedFiles = Array.from(event.target.files || []);
+  const files = selectedFiles.slice(0, MAX_TASK_LOG_PHOTOS);
+  state.taskPhotoFiles = files;
+  state.taskPhotoDataUrls = await Promise.all(files.map((file) => fileToDataUrl(file)));
+  renderPhotoPreviews(els.taskPhotoPreview, state.taskPhotoDataUrls, 'Task photo');
   await persistTaskDraft();
+  if (selectedFiles.length > MAX_TASK_LOG_PHOTOS) {
+    renderStatusBanner(`Task logs can include up to ${MAX_TASK_LOG_PHOTOS} photos. The first ${MAX_TASK_LOG_PHOTOS} were kept.`, true);
+  }
 }
 
 function renderPhotoPreview(container, dataUrl, alt) {
-  if (!dataUrl) {
+  renderPhotoPreviews(container, dataUrl ? [dataUrl] : [], alt);
+}
+
+function renderPhotoPreviews(container, dataUrls, alt) {
+  const urls = Array.isArray(dataUrls) ? dataUrls.filter(Boolean) : [];
+  if (!urls.length) {
     container.classList.add('hidden');
     container.innerHTML = '';
     return;
   }
   container.classList.remove('hidden');
-  container.innerHTML = `<img src="${dataUrl}" alt="${escapeHtml(alt)}" />`;
+  container.innerHTML = urls
+    .map((dataUrl, index) => `
+      <button class="photo-thumb" type="button" data-photo-index="${index}">
+        <img src="${dataUrl}" alt="${escapeHtml(`${alt} ${index + 1}`)}" />
+      </button>
+    `)
+    .join('');
+  container.querySelectorAll('.photo-thumb').forEach((button) => {
+    button.addEventListener('click', () => {
+      openPhotoViewer(urls, Number(button.dataset.photoIndex || 0), alt);
+    });
+  });
+}
+
+function openPhotoViewer(sources, index = 0, title = 'Photo') {
+  const cleanSources = Array.isArray(sources) ? sources.filter(Boolean) : [];
+  if (!cleanSources.length) return;
+
+  state.photoViewer = {
+    sources: cleanSources,
+    index: Math.min(Math.max(index, 0), cleanSources.length - 1),
+    title
+  };
+  renderPhotoViewer();
+  els.photoViewer.classList.remove('hidden');
+  document.body.classList.add('viewer-open');
+  els.closePhotoViewerButton.focus();
+}
+
+function closePhotoViewer() {
+  els.photoViewer.classList.add('hidden');
+  document.body.classList.remove('viewer-open');
+  els.photoViewerImage.src = '';
+}
+
+function renderPhotoViewer() {
+  const { sources, index, title } = state.photoViewer;
+  const count = sources.length;
+
+  els.photoViewerImage.src = sources[index] || '';
+  els.photoViewerImage.alt = `${title} ${index + 1}`;
+  els.photoViewerCaption.textContent = count > 1
+    ? `${title} ${index + 1} of ${count}`
+    : title;
+  els.previousPhotoButton.disabled = count < 2;
+  els.nextPhotoButton.disabled = count < 2;
+}
+
+function stepPhotoViewer(direction) {
+  const count = state.photoViewer.sources.length;
+  if (count < 2) return;
+
+  state.photoViewer.index = (state.photoViewer.index + direction + count) % count;
+  renderPhotoViewer();
+}
+
+function handlePhotoViewerKeydown(event) {
+  if (els.photoViewer.classList.contains('hidden')) return;
+
+  if (event.key === 'Escape') {
+    closePhotoViewer();
+  } else if (event.key === 'ArrowLeft') {
+    stepPhotoViewer(-1);
+  } else if (event.key === 'ArrowRight') {
+    stepPhotoViewer(1);
+  }
 }
 
 async function persistAttendanceDraft() {
@@ -462,7 +592,8 @@ async function persistTaskDraft() {
     hoursWorked: els.taskHours.value,
     summary: els.taskSummary.value,
     safetyNotes: els.taskSafety.value,
-    photoDataUrl: state.taskPhotoDataUrl
+    photoDataUrl: state.taskPhotoDataUrls[0] || '',
+    photoDataUrls: state.taskPhotoDataUrls
   });
   renderStatusBanner('Task log draft saved on this device.');
 }
@@ -554,31 +685,75 @@ function fromBackendAttendanceRecord(record) {
 }
 
 function toBackendTaskLogPayload(record) {
+  const photoUrls = normaliseRecordPhotoUrls(record);
+
   return {
     description: record.summary,
     site_id: getBackendSiteId(record.siteId),
     work_date: record.workDate || null,
     hours_worked: record.hoursWorked ? Number(record.hoursWorked) : null,
     safety_notes: record.safetyNotes || null,
-    photo_url: record.photoUrl || null
+    photo_url: photoUrls[0] || null,
+    photo_urls: photoUrls
   };
 }
 
-function photoFilenameFor(record, file) {
+function normaliseRecordPhotoUrls(record) {
+  const urls = Array.isArray(record.photoUrls) ? [...record.photoUrls] : [];
+  if (record.photoUrl && !urls.includes(record.photoUrl)) {
+    urls.unshift(record.photoUrl);
+  }
+  return urls.filter(Boolean);
+}
+
+function photoFilenameFor(record, file, index = 0, dataUrl = '') {
   if (file?.name) return file.name;
-  const extension = record.photoDataUrl?.match(/^data:image\/([a-z0-9+.-]+);base64,/i)?.[1] || 'jpg';
-  return `${record.type || 'record'}-${record.id || uuid()}.${extension.replace('jpeg', 'jpg')}`;
+  const extension = (dataUrl || record.photoDataUrl || '').match(/^data:image\/([a-z0-9+.-]+);base64,/i)?.[1] || 'jpg';
+  const suffix = index ? `-${index + 1}` : '';
+  return `${record.type || 'record'}-${record.id || uuid()}${suffix}.${extension.replace('jpeg', 'jpg')}`;
+}
+
+async function uploadRecordPhotos(record, files = []) {
+  const existingUrls = normaliseRecordPhotoUrls(record);
+  if (existingUrls.length) {
+    record.photoUrls = existingUrls;
+    record.photoUrl = existingUrls[0];
+    return existingUrls;
+  }
+
+  const fileList = Array.from(files || []);
+  const dataUrls = Array.isArray(record.photoDataUrls)
+    ? record.photoDataUrls.filter(Boolean)
+    : (record.photoDataUrl ? [record.photoDataUrl] : []);
+
+  const sources = fileList.length
+    ? fileList.map((file, index) => ({
+      source: file,
+      file,
+      dataUrl: dataUrls[index] || ''
+    }))
+    : dataUrls.map((dataUrl) => ({
+      source: dataUrlToBlob(dataUrl),
+      file: null,
+      dataUrl
+    }));
+
+  if (!sources.length) return [];
+
+  const uploadedUrls = [];
+  for (const [index, item] of sources.entries()) {
+    const uploaded = await uploadPhoto(item.source, photoFilenameFor(record, item.file, index, item.dataUrl));
+    uploadedUrls.push(uploaded.url);
+  }
+
+  record.photoUrls = uploadedUrls;
+  record.photoUrl = uploadedUrls[0] || '';
+  return uploadedUrls;
 }
 
 async function uploadRecordPhoto(record, file = null) {
-  if (record.photoUrl) return record.photoUrl;
-
-  const source = file || (record.photoDataUrl ? dataUrlToBlob(record.photoDataUrl) : null);
-  if (!source) return null;
-
-  const uploaded = await uploadPhoto(source, photoFilenameFor(record, file));
-  record.photoUrl = uploaded.url;
-  return record.photoUrl;
+  const urls = await uploadRecordPhotos(record, file ? [file] : []);
+  return urls[0] || null;
 }
 
 function fromBackendTaskLogRecord(record) {
@@ -597,7 +772,9 @@ function fromBackendTaskLogRecord(record) {
     summary: record.description || '',
     safetyNotes: record.safety_notes || '',
     photoDataUrl: '',
+    photoDataUrls: [],
     photoUrl: record.photo_url || '',
+    photoUrls: record.photo_urls || (record.photo_url ? [record.photo_url] : []),
     createdAt: record.created_at,
     syncStatus: 'synced',
     status: record.status || 'logged',
@@ -740,7 +917,9 @@ async function handleTaskSubmit(event) {
     hoursWorked: els.taskHours.value,
     summary: els.taskSummary.value.trim(),
     safetyNotes: els.taskSafety.value.trim(),
-    photoDataUrl: state.taskPhotoDataUrl,
+    photoDataUrl: state.taskPhotoDataUrls[0] || '',
+    photoDataUrls: state.taskPhotoDataUrls,
+    photoUrls: [],
     createdAt: new Date().toISOString()
   };
 
@@ -749,11 +928,13 @@ async function handleTaskSubmit(event) {
 
   if (navigator.onLine) {
     try {
-      await uploadRecordPhoto(localRecord, state.taskPhotoFile);
+      await uploadRecordPhotos(localRecord, state.taskPhotoFiles);
       const backendLog = await createBackendTaskLog(toBackendTaskLogPayload(localRecord));
       localRecord.syncStatus = 'synced';
       localRecord.backendRecordId = backendLog.id;
       localRecord.status = backendLog.status || 'logged';
+      localRecord.photoUrls = backendLog.photo_urls || localRecord.photoUrls;
+      localRecord.photoUrl = backendLog.photo_url || localRecord.photoUrl;
       localRecord.syncedAt = new Date().toISOString();
       successMessage = 'Task log saved to the backend.';
       offlineStatus = false;
@@ -789,16 +970,106 @@ function resetTaskForm() {
   els.taskSummary.value = '';
   els.taskSafety.value = '';
   els.taskPhoto.value = '';
-  state.taskPhotoDataUrl = '';
-  state.taskPhotoFile = null;
-  renderPhotoPreview(els.taskPhotoPreview, '', '');
+  state.taskPhotoDataUrls = [];
+  state.taskPhotoFiles = [];
+  renderPhotoPreviews(els.taskPhotoPreview, [], 'Task photo');
+}
+
+async function refreshTaskTemplates() {
+  if (!state.user || state.user.role !== 'worker') return;
+
+  try {
+    state.taskTemplates = await getBackendTaskTemplates();
+    renderTaskTemplateOptions();
+  } catch {
+    state.taskTemplates = [];
+    renderTaskTemplateOptions();
+  }
+}
+
+function renderTaskTemplateOptions() {
+  const selectedValue = els.taskTemplateSelect.value;
+  const options = ['<option value="">No template selected</option>']
+    .concat(
+      state.taskTemplates.map((template) => (
+        `<option value="${template.id}">${escapeHtml(template.name)}${template.site_name ? ` - ${escapeHtml(template.site_name)}` : ''}</option>`
+      ))
+    )
+    .join('');
+
+  els.taskTemplateSelect.innerHTML = options;
+  els.taskTemplateSelect.value = state.taskTemplates.some((template) => String(template.id) === selectedValue)
+    ? selectedValue
+    : '';
+}
+
+function selectedTaskTemplate() {
+  return state.taskTemplates.find((template) => String(template.id) === String(els.taskTemplateSelect.value));
+}
+
+async function applySelectedTaskTemplate() {
+  const template = selectedTaskTemplate();
+  if (!template) {
+    renderStatusBanner('Choose a task template first.', true);
+    return;
+  }
+
+  els.taskSite.value = template.site_id || '';
+  els.taskHours.value = template.hours_worked ?? '';
+  els.taskSummary.value = template.description || '';
+  els.taskSafety.value = template.safety_notes || '';
+  await persistTaskDraft();
+  renderStatusBanner(`Template "${template.name}" applied.`);
+}
+
+async function saveCurrentTaskTemplate() {
+  const name = els.taskTemplateNameInput.value.trim();
+  const summary = els.taskSummary.value.trim();
+
+  if (!name || !summary) {
+    renderStatusBanner('Template name and task summary are required.', true);
+    return;
+  }
+
+  try {
+    await createBackendTaskTemplate({
+      name,
+      site_id: getBackendSiteId(els.taskSite.value),
+      description: summary,
+      hours_worked: els.taskHours.value ? Number(els.taskHours.value) : null,
+      safety_notes: els.taskSafety.value.trim() || null
+    });
+    els.taskTemplateNameInput.value = '';
+    await refreshTaskTemplates();
+    renderStatusBanner('Task template saved.');
+  } catch (error) {
+    renderStatusBanner(error.message || 'Could not save task template.', true);
+  }
+}
+
+async function deleteSelectedTaskTemplate() {
+  const template = selectedTaskTemplate();
+  if (!template) {
+    renderStatusBanner('Choose a task template to delete.', true);
+    return;
+  }
+
+  if (!window.confirm(`Delete template "${template.name}"?`)) return;
+
+  try {
+    await deleteBackendTaskTemplate(template.id);
+    await refreshTaskTemplates();
+    renderStatusBanner('Task template deleted.');
+  } catch (error) {
+    renderStatusBanner(error.message || 'Could not delete task template.', true);
+  }
 }
 
 async function renderWorkerSummary() {
   if (!state.user) return;
   const records = await getWorkerHistoryRecords();
-  const today = new Date().toISOString().slice(0, 10);
-  const todayRecords = records.filter((record) => record.createdAt.slice(0, 10) === today || record.workDate === today);
+  const today = todayDateInput();
+  const todayRecords = records.filter((record) => getRecordDate(record) === today);
   const queuedCount = records.filter((record) => record.syncStatus === 'queued').length;
   const latestCheckIn = records.find((record) => record.type === 'attendance' && record.action === 'check_in');
   const latestCheckOut = records.find((record) => record.type === 'attendance' && record.action === 'check_out');
@@ -813,7 +1084,7 @@ async function renderWorkerSummary() {
 }
 
 function getRecordDate(record) {
-  return record.workDate || record.createdAt?.slice(0, 10) || '';
+  return record.workDate || dateInputValue(record.createdAt);
 }
 
 function recordSearchText(record) {
@@ -874,7 +1145,9 @@ async function renderHistory() {
 function renderFilteredHistory() {
   const filteredRecords = filterRecords(state.historyRecords, getHistoryFilters());
   els.historyResultCount.textContent = `${filteredRecords.length} of ${state.historyRecords.length} records`;
-  renderRecordsList(els.historyList, filteredRecords, false);
+  renderRecordsList(els.historyList, filteredRecords, {
+    showWorkerActions: true
+  });
 }
 
 function clearHistoryFilters() {
@@ -942,9 +1215,16 @@ function renderFilteredSupervisorLists() {
   els.pendingApprovalsCount.textContent = `${filteredPending.length}/${pending.length}`;
   els.reviewedApprovalsCount.textContent = `${filteredReviewed.length}/${reviewed.length}`;
   els.supervisorTaskLogsCount.textContent = `${filteredTaskLogs.length}/${taskLogs.length}`;
-  renderRecordsList(els.pendingApprovalsList, filteredPending, true);
-  renderRecordsList(els.reviewedApprovalsList, filteredReviewed, false);
-  renderRecordsList(els.supervisorTaskLogsList, filteredTaskLogs, false);
+  renderRecordsList(els.pendingApprovalsList, filteredPending, {
+    showDecisionActions: true,
+    showEditActions: true
+  });
+  renderRecordsList(els.reviewedApprovalsList, filteredReviewed, {
+    showEditActions: true
+  });
+  renderRecordsList(els.supervisorTaskLogsList, filteredTaskLogs, {
+    showEditActions: true
+  });
 }
 
 function clearSupervisorFilters() {
@@ -957,61 +1237,108 @@ function clearSupervisorFilters() {
 
 function renderSupervisorSites() {
   els.supervisorSitesList.innerHTML = '';
-  els.supervisorSitesCount.textContent = String(state.sites.length);
+  const query = els.siteSearchInput.value.trim().toLowerCase();
+  const sites = state.sites.filter((site) => {
+    const text = [
+      site.id,
+      site.name,
+      site.address,
+      site.latitude,
+      site.longitude,
+      site.allowed_radius_m || site.allowedRadiusM
+    ].join(' ').toLowerCase();
+    return !query || text.includes(query);
+  });
+  els.supervisorSitesCount.textContent = query ? `${sites.length}/${state.sites.length}` : String(state.sites.length);
 
-  if (!state.sites.length) {
+  if (!sites.length) {
     els.supervisorSitesList.innerHTML = '<div class="empty-state">No sites found yet.</div>';
     return;
   }
 
-  state.sites.forEach((site) => {
+  sites.forEach((site) => {
     const node = document.createElement('article');
     node.className = 'record-card';
     node.innerHTML = `
       <div class="record-header">
         <div>
           <h3 class="record-title">${escapeHtml(site.name)}</h3>
-          <p class="record-meta">${escapeHtml(site.address || 'No address added')}</p>
+          <p class="record-meta">ID ${escapeHtml(site.id)} | ${escapeHtml(site.address || 'No address added')}</p>
         </div>
         <span class="badge synced">${escapeHtml(site.allowed_radius_m || site.allowedRadiusM || 100)}m</span>
       </div>
       <p class="record-detail">Lat ${escapeHtml(site.latitude ?? '-')}, Lng ${escapeHtml(site.longitude ?? '-')}</p>
+      <div class="record-actions"></div>
     `;
+    const actions = node.querySelector('.record-actions');
+    const editButton = document.createElement('button');
+    editButton.type = 'button';
+    editButton.className = 'ghost';
+    editButton.textContent = 'Edit site';
+    editButton.addEventListener('click', async () => {
+      await handleSiteEdit(site);
+    });
+    actions.append(editButton);
     els.supervisorSitesList.appendChild(node);
   });
 }
 
 async function renderStaffUsers() {
   try {
-    const users = await getBackendUsers();
-    els.staffUsersList.innerHTML = '';
-
-    if (!users.length) {
-      els.staffUsersCount.textContent = '0';
-      els.staffUsersList.innerHTML = '<div class="empty-state">No users found yet.</div>';
-      return;
-    }
-
-    els.staffUsersCount.textContent = String(users.length);
-    users.forEach((user) => {
-      const node = document.createElement('article');
-      node.className = 'record-card';
-      node.innerHTML = `
-        <div class="record-header">
-          <div>
-            <h3 class="record-title">${escapeHtml(user.name)}</h3>
-            <p class="record-meta">${escapeHtml(user.email)}</p>
-          </div>
-          <span class="badge synced">${escapeHtml(user.role)}</span>
-        </div>
-      `;
-      els.staffUsersList.appendChild(node);
-    });
+    state.staffUsers = await getBackendUsers();
+    renderFilteredStaffUsers();
   } catch (error) {
     els.staffUsersCount.textContent = '-';
     els.staffUsersList.innerHTML = '<div class="empty-state">Staff users are unavailable.</div>';
     renderStatusBanner(error.message || 'Could not load staff users.', true);
   }
+}
+
+function renderFilteredStaffUsers() {
+  const query = els.staffSearchInput.value.trim().toLowerCase();
+  const users = state.staffUsers.filter((user) => {
+    const text = [
+      user.id,
+      user.name,
+      user.email,
+      user.role,
+      user.status || 'active'
+    ].join(' ').toLowerCase();
+    return !query || text.includes(query);
+  });
+  els.staffUsersList.innerHTML = '';
+  els.staffUsersCount.textContent = query ? `${users.length}/${state.staffUsers.length}` : String(state.staffUsers.length);
+
+  if (!users.length) {
+    els.staffUsersList.innerHTML = '<div class="empty-state">No users found yet.</div>';
+    return;
+  }
+
+  users.forEach((user) => {
+    const node = document.createElement('article');
+    node.className = 'record-card';
+    const status = user.status || 'active';
+    node.innerHTML = `
+      <div class="record-header">
+        <div>
+          <h3 class="record-title">${escapeHtml(user.name)}</h3>
+          <p class="record-meta">ID ${escapeHtml(user.id)} | ${escapeHtml(user.email)}</p>
+        </div>
+        <span class="badge ${status === 'active' ? 'synced' : 'rejected'}">${escapeHtml(status === 'active' ? user.role : 'resigned worker')}</span>
+      </div>
+      <div class="record-actions"></div>
+    `;
+    const actions = node.querySelector('.record-actions');
+    const statusButton = document.createElement('button');
+    statusButton.type = 'button';
+    statusButton.className = status === 'active' ? 'secondary' : '';
+    statusButton.textContent = status === 'active' ? 'Mark resigned' : 'Reactivate';
+    statusButton.addEventListener('click', async () => {
+      await handleUserStatusChange(user, status === 'active' ? 'resigned' : 'active');
+    });
+    actions.append(statusButton);
+    els.staffUsersList.appendChild(node);
+  });
 }
 
 async function handleSiteCreate(event) {
@@ -1043,6 +1370,140 @@ async function handleSiteCreate(event) {
   } catch (error) {
     renderStatusBanner(error.message || 'Could not create site.', true);
   }
+}
+
+async function handleUserStatusChange(user, status) {
+  const label = status === 'resigned' ? 'mark this worker resigned' : 'reactivate this worker';
+  if (!window.confirm(`Double check: ${label}? Their previous records will stay attached to this account.`)) return;
+
+  try {
+    await updateBackendUserStatus(user.id, status);
+    renderStatusBanner(status === 'resigned' ? 'Worker marked resigned.' : 'Worker reactivated.');
+    await renderStaffUsers();
+  } catch (error) {
+    renderStatusBanner(error.message || 'Could not update worker status.', true);
+  }
+}
+
+function getEditPanel(scope = 'supervisor') {
+  if (scope === 'worker') {
+    return {
+      panel: els.workerEditPanel,
+      title: els.workerEditPanelTitle,
+      form: els.workerEditPanelForm
+    };
+  }
+
+  return {
+    panel: els.supervisorEditPanel,
+    title: els.editPanelTitle,
+    form: els.editPanelForm
+  };
+}
+
+function closeEditPanel(scope = 'supervisor') {
+  const target = getEditPanel(scope);
+  target.panel.classList.add('hidden');
+  target.form.innerHTML = '';
+}
+
+function showEditPanel(title, fields, submitLabel, onSubmit, scope = 'supervisor') {
+  const target = getEditPanel(scope);
+  target.title.textContent = title;
+  target.form.innerHTML = fields.map((field) => {
+    if (field.type === 'select') {
+      return `
+        <label>
+          ${escapeHtml(field.label)}
+          <select id="${field.id}">
+            ${field.options.map((option) => `<option value="${escapeHtml(option.value)}"${String(option.value) === String(field.value) ? ' selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+          </select>
+        </label>
+      `;
+    }
+
+    if (field.type === 'textarea') {
+      return `
+        <label>
+          ${escapeHtml(field.label)}
+          <textarea id="${field.id}" rows="${field.rows || 3}">${escapeHtml(field.value || '')}</textarea>
+        </label>
+      `;
+    }
+
+    return `
+      <label>
+        ${escapeHtml(field.label)}
+        <input id="${field.id}" type="${field.type || 'text'}" value="${escapeHtml(field.value ?? '')}" ${field.step ? `step="${escapeHtml(field.step)}"` : ''} ${field.min != null ? `min="${escapeHtml(field.min)}"` : ''} ${field.max != null ? `max="${escapeHtml(field.max)}"` : ''} />
+      </label>
+    `;
+  }).join('') + `
+    <div class="edit-warning">Double check before saving. This changes backend records.</div>
+    <div class="split-actions">
+      <button type="submit">${escapeHtml(submitLabel)}</button>
+      <button id="${scope}SecondaryCancelEditButton" type="button" class="ghost">Cancel</button>
+    </div>
+  `;
+  target.panel.classList.remove('hidden');
+  target.panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  target.form.onsubmit = async (event) => {
+    event.preventDefault();
+    await onSubmit();
+  };
+  document.getElementById(`${scope}SecondaryCancelEditButton`).addEventListener('click', () => closeEditPanel(scope));
+}
+
+function editValue(id) {
+  return document.getElementById(id).value.trim();
+}
+
+function editNumber(id) {
+  const value = editValue(id);
+  return value === '' ? null : Number(value);
+}
+
+function siteSelectOptions() {
+  return [
+    { value: '', label: 'No site' },
+    ...state.sites.map((site) => ({
+      value: site.id,
+      label: `${site.name} (#${site.id})`
+    }))
+  ];
+}
+
+async function handleSiteEdit(site) {
+  showEditPanel(
+    `Edit site: ${site.name}`,
+    [
+      { id: 'editSiteName', label: 'Site name', value: site.name },
+      { id: 'editSiteAddress', label: 'Address', value: site.address || '' },
+      { id: 'editSiteLatitude', label: 'Latitude', type: 'number', step: '0.000001', min: -90, max: 90, value: site.latitude },
+      { id: 'editSiteLongitude', label: 'Longitude', type: 'number', step: '0.000001', min: -180, max: 180, value: site.longitude },
+      { id: 'editSiteRadius', label: 'Allowed radius metres', type: 'number', min: 10, max: 5000, value: site.allowed_radius_m || site.allowedRadiusM || 100 }
+    ],
+    'Save site',
+    async () => {
+      if (!window.confirm(`Double check: save changes to site "${site.name}"?`)) return;
+      try {
+        await updateBackendSite(site.id, {
+          name: editValue('editSiteName'),
+          address: editValue('editSiteAddress') || null,
+          latitude: editNumber('editSiteLatitude'),
+          longitude: editNumber('editSiteLongitude'),
+          allowed_radius_m: editNumber('editSiteRadius')
+        });
+        closeEditPanel();
+        state.sites = await loadSites();
+        fillSiteSelects();
+        renderSupervisorSites();
+        renderStatusBanner('Site updated.');
+      } catch (error) {
+        renderStatusBanner(error.message || 'Could not update site.', true);
+      }
+    }
+  );
 }
 
 async function handleStaffUserCreate(event) {
@@ -1079,6 +1540,169 @@ async function handleExportAttendance() {
   }
 }
 
+function canWorkerEditRecord(record) {
+  if (!record.backendRecordId) return false;
+  return record.type === 'attendance' && record.status === 'pending';
+}
+
+async function handleWorkerEditRecord(record) {
+  if (!canWorkerEditRecord(record)) {
+    renderStatusBanner('This record cannot be edited here.', true);
+    return;
+  }
+
+  showEditPanel(
+    `Edit pending attendance: ${record.siteName}`,
+    [
+      {
+        id: 'workerEditAttendanceType',
+        label: 'Type',
+        type: 'select',
+        value: record.action || 'check_in',
+        options: [
+          { value: 'check_in', label: 'Check in' },
+          { value: 'check_out', label: 'Check out' }
+        ]
+      },
+      { id: 'workerEditAttendanceSiteId', label: 'Site', type: 'select', value: record.siteId || '', options: siteSelectOptions() },
+      { id: 'workerEditAttendanceLatitude', label: 'Latitude', type: 'number', step: '0.000001', min: -90, max: 90, value: record.location?.latitude || '' },
+      { id: 'workerEditAttendanceLongitude', label: 'Longitude', type: 'number', step: '0.000001', min: -180, max: 180, value: record.location?.longitude || '' },
+      { id: 'workerEditAttendanceAccuracy', label: 'Accuracy metres', type: 'number', min: 0, value: record.location?.accuracy || '' },
+      { id: 'workerEditAttendanceNote', label: 'Notes', type: 'textarea', rows: 4, value: record.notes || '' }
+    ],
+    'Save attendance',
+    async () => {
+      if (!window.confirm('Save changes to this pending check-in/check-out?')) return;
+      try {
+        await updateBackendMyRecord(record.backendRecordId, {
+          record_type: editValue('workerEditAttendanceType'),
+          site_id: editNumber('workerEditAttendanceSiteId'),
+          latitude: editNumber('workerEditAttendanceLatitude'),
+          longitude: editNumber('workerEditAttendanceLongitude'),
+          accuracy: editNumber('workerEditAttendanceAccuracy'),
+          note: editValue('workerEditAttendanceNote') || null
+        });
+        closeEditPanel('worker');
+        renderStatusBanner('Pending attendance updated.');
+        await renderHistory();
+        await renderWorkerSummary();
+      } catch (error) {
+        renderStatusBanner(error.message || 'Could not update attendance.', true);
+      }
+    },
+    'worker'
+  );
+}
+
+async function handleWorkerDeleteRecord(record) {
+  if (!canWorkerEditRecord(record)) {
+    renderStatusBanner('This record cannot be deleted here.', true);
+    return;
+  }
+
+  if (!window.confirm('Delete this pending check-in/check-out?')) return;
+
+  try {
+    await deleteBackendMyRecord(record.backendRecordId);
+    renderStatusBanner('Attendance deleted.');
+    await renderHistory();
+    await renderWorkerSummary();
+  } catch (error) {
+    renderStatusBanner(error.message || 'Could not delete record.', true);
+  }
+}
+
+async function handleSupervisorEditRecord(record) {
+  if (!record.backendRecordId) {
+    renderStatusBanner('Only backend records can be adjusted by a supervisor.', true);
+    return;
+  }
+
+  if (record.type === 'task') {
+    showEditPanel(
+      `Edit task log: ${record.siteName}`,
+      [
+        { id: 'editTaskSiteId', label: 'Site', type: 'select', value: record.siteId || '', options: siteSelectOptions() },
+        { id: 'editTaskWorkDate', label: 'Work date', type: 'date', value: record.workDate || '' },
+        { id: 'editTaskHours', label: 'Hours worked', type: 'number', step: '0.25', min: 0, max: 24, value: record.hoursWorked || '' },
+        { id: 'editTaskDescription', label: 'Task summary', type: 'textarea', rows: 4, value: record.summary || '' },
+        { id: 'editTaskSafety', label: 'Safety notes', type: 'textarea', rows: 3, value: record.safetyNotes || '' }
+      ],
+      'Save task log',
+      async () => {
+        if (!window.confirm('Double check: save changes to this task log?')) return;
+        try {
+          await updateBackendSupervisorTaskLog(record.backendRecordId, {
+            site_id: editNumber('editTaskSiteId'),
+            work_date: editValue('editTaskWorkDate') || null,
+            hours_worked: editNumber('editTaskHours'),
+            description: editValue('editTaskDescription'),
+            safety_notes: editValue('editTaskSafety') || null
+          });
+          closeEditPanel();
+          renderStatusBanner('Task log updated.');
+          await renderSupervisorPanel();
+        } catch (error) {
+          renderStatusBanner(error.message || 'Could not update task log.', true);
+        }
+      }
+    );
+    return;
+  }
+
+  showEditPanel(
+    `Edit attendance: ${record.siteName}`,
+    [
+      {
+        id: 'editAttendanceType',
+        label: 'Type',
+        type: 'select',
+        value: record.action || 'check_in',
+        options: [
+          { value: 'check_in', label: 'Check in' },
+          { value: 'check_out', label: 'Check out' }
+        ]
+      },
+      { id: 'editAttendanceSiteId', label: 'Site', type: 'select', value: record.siteId || '', options: siteSelectOptions() },
+      { id: 'editAttendanceLatitude', label: 'Latitude', type: 'number', step: '0.000001', min: -90, max: 90, value: record.location?.latitude || '' },
+      { id: 'editAttendanceLongitude', label: 'Longitude', type: 'number', step: '0.000001', min: -180, max: 180, value: record.location?.longitude || '' },
+      { id: 'editAttendanceAccuracy', label: 'Accuracy metres', type: 'number', min: 0, value: record.location?.accuracy || '' },
+      {
+        id: 'editAttendanceStatus',
+        label: 'Status',
+        type: 'select',
+        value: record.status || 'pending',
+        options: [
+          { value: 'pending', label: 'Pending' },
+          { value: 'approved', label: 'Approved' },
+          { value: 'rejected', label: 'Rejected' }
+        ]
+      },
+      { id: 'editAttendanceNote', label: 'Notes', type: 'textarea', rows: 4, value: record.notes || '' }
+    ],
+    'Save attendance',
+    async () => {
+      if (!window.confirm('Double check: save changes to this check-in/check-out record?')) return;
+      try {
+        await updateBackendSupervisorRecord(record.backendRecordId, {
+          record_type: editValue('editAttendanceType'),
+          site_id: editNumber('editAttendanceSiteId'),
+          latitude: editNumber('editAttendanceLatitude'),
+          longitude: editNumber('editAttendanceLongitude'),
+          accuracy: editNumber('editAttendanceAccuracy'),
+          note: editValue('editAttendanceNote') || null,
+          status: editValue('editAttendanceStatus')
+        });
+        closeEditPanel();
+        renderStatusBanner('Attendance record updated.');
+        await renderSupervisorPanel();
+      } catch (error) {
+        renderStatusBanner(error.message || 'Could not update attendance record.', true);
+      }
+    }
+  );
+}
+
 async function handleSupervisorDecision(record, decision) {
   try {
     if (record.backendRecordId) {
@@ -1094,7 +1718,10 @@ async function handleSupervisorDecision(record, decision) {
   }
 }
 
-function renderRecordsList(container, records, showActions) {
+function renderRecordsList(container, records, options = {}) {
+  const showDecisionActions = typeof options === 'boolean' ? options : Boolean(options.showDecisionActions);
+  const showEditActions = typeof options === 'object' && Boolean(options.showEditActions);
+  const showWorkerActions = typeof options === 'object' && Boolean(options.showWorkerActions);
   container.innerHTML = '';
   if (!records.length) {
     container.innerHTML = '<div class="empty-state">No records found yet.</div>';
@@ -1128,7 +1755,9 @@ function renderRecordsList(container, records, showActions) {
     badge.title = record.syncStatus ? `Sync: ${record.syncStatus}` : '';
 
     const extra = node.querySelector('.record-extra');
-    const photoSrc = record.photoDataUrl || record.photoUrl || '';
+    const photoSources = (Array.isArray(record.photoDataUrls) && record.photoDataUrls.length)
+      ? record.photoDataUrls
+      : (normaliseRecordPhotoUrls(record).length ? normaliseRecordPhotoUrls(record) : (record.photoDataUrl ? [record.photoDataUrl] : []));
     const hasSiteDistance = record.type === 'attendance' && record.distanceFromSiteM != null;
     extra.innerHTML = `
       <p><strong>Type:</strong> ${record.type === 'attendance' ? escapeHtml(record.action === 'check_in' ? 'Check in' : 'Check out') : 'Task log'}</p>
@@ -1136,12 +1765,55 @@ function renderRecordsList(container, records, showActions) {
       ${hasSiteDistance ? `<p><strong>Site radius:</strong> <span class="${record.withinSiteRadius ? 'site-inside' : 'site-outside'}">${record.withinSiteRadius ? 'Inside' : 'Outside'} - ${escapeHtml(record.distanceFromSiteM)}m from site</span></p>` : ''}
       ${record.hoursWorked ? `<p><strong>Hours:</strong> ${escapeHtml(record.hoursWorked)}</p>` : ''}
       ${record.syncStatus ? `<p><strong>Sync:</strong> ${escapeHtml(record.syncStatus)}</p>` : ''}
-      ${photoSrc ? `<img src="${escapeHtml(photoSrc)}" alt="Record photo" />` : ''}
+      ${photoSources.length ? `<div class="record-photos">${photoSources.map((photoSrc, index) => `
+        <button class="photo-thumb" type="button" data-photo-index="${index}">
+          <img src="${escapeHtml(photoSrc)}" alt="Record photo ${index + 1}" />
+        </button>
+      `).join('')}</div>` : ''}
     `;
+    extra.querySelectorAll('.photo-thumb').forEach((button) => {
+      button.addEventListener('click', () => {
+        openPhotoViewer(photoSources, Number(button.dataset.photoIndex || 0), title);
+      });
+    });
 
     const actions = node.querySelector('.record-actions');
-    if (showActions) {
+    if (showDecisionActions || showEditActions || showWorkerActions) {
       actions.classList.remove('hidden');
+    }
+
+    if (showWorkerActions && canWorkerEditRecord(record)) {
+      const editButton = document.createElement('button');
+      editButton.type = 'button';
+      editButton.className = 'ghost';
+      editButton.textContent = 'Edit';
+      editButton.addEventListener('click', async () => {
+        await handleWorkerEditRecord(record);
+      });
+
+      const deleteButton = document.createElement('button');
+      deleteButton.type = 'button';
+      deleteButton.className = 'secondary';
+      deleteButton.textContent = 'Delete';
+      deleteButton.addEventListener('click', async () => {
+        await handleWorkerDeleteRecord(record);
+      });
+
+      actions.append(editButton, deleteButton);
+    }
+
+    if (showEditActions) {
+      const editButton = document.createElement('button');
+      editButton.type = 'button';
+      editButton.className = 'ghost';
+      editButton.textContent = 'Edit';
+      editButton.addEventListener('click', async () => {
+        await handleSupervisorEditRecord(record);
+      });
+      actions.append(editButton);
+    }
+
+    if (showDecisionActions) {
       const approveButton = document.createElement('button');
       approveButton.type = 'button';
       approveButton.textContent = 'Approve';
@@ -1184,7 +1856,7 @@ async function syncQueueIfPossible(showMessage) {
     }
 
     if (record.type === 'task') {
-      await uploadRecordPhoto(record);
+      await uploadRecordPhotos(record);
       return await createBackendTaskLog(toBackendTaskLogPayload(record));
     }
 

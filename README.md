@@ -1,67 +1,75 @@
-# Geo Attendance PWA MVP
+# Leader Field Operations
 
-A Progressive Web App (PWA) MVP for field-worker attendance and task tracking.
+Mobile-first geo-attendance and field task logging MVP for Leader Scaffolding-style operations.
 
-The app supports worker login, GPS check-in/check-out, daily task logs, optional photos, offline draft saving, a simple offline queue, and supervisor approval. The project started as a frontend-only PWA prototype and now includes a basic FastAPI backend for real multi-device testing.
+This project lets field workers check in/out from a phone with location data, submit daily task logs with progress photos, and review their own synced history. Supervisors can manage sites and staff, review attendance, approve or reject check-ins, adjust backend records with double-check confirmation, and export attendance data.
 
----
-
-## Current Status
-
-This project currently has two parts:
+## Current Version
 
 ```text
-Frontend: Vite PWA
+Frontend: Vite-served PWA-style static app
 Backend: FastAPI REST API
 Database: SQLite for local development
-Auth: JWT bearer token login
+Auth: JWT bearer tokens
+Uploads: Local backend/uploads folder
+Primary UI files: index.html, assets/css/styles.css, assets/js/app.js
 ```
 
-The frontend still uses browser storage and IndexedDB for offline drafts and queued records. When online, login, sites, attendance, task logs, photo uploads, worker history, and supervisor review all use the FastAPI backend so data can be shared across devices.
+The app started as a frontend-only prototype. It now uses the FastAPI backend for login, sites, attendance, task logs, task templates, photo uploads, staff users, supervisor review, and cross-device history sync.
 
----
+`src/App.jsx` is not the current production UI path. The active app is `index.html` plus the modules in `assets/js/`.
 
 ## Features
 
 ### Worker
 
-- Login with demo worker account
-- Create a new staff account
-- Capture GPS location
-- Check in
-- Check out
-- Submit task logs
-- Add optional notes/photos
-- Save drafts offline
-- Sync queued records when online
-- View synced attendance and task-log history across devices
+- Sign in with a backend account.
+- Register a new staff account.
+- Select a job/site.
+- Capture browser geolocation.
+- Check in and check out with GPS coordinates, accuracy, site radius result, notes, and optional attendance photo.
+- Edit or delete own pending attendance before supervisor approval.
+- Submit task logs with work date, hours, task summary, safety notes, and up to 8 progress photos.
+- Save and apply reusable task-log templates for repetitive work.
+- View local and backend-synced attendance/task history.
+- Search/filter history by text, type, status, and local calendar date.
+- Click any uploaded photo thumbnail to open a floating zoom viewer with previous/next controls.
+- Save offline drafts and queue offline records for later sync.
+
+Worker restrictions:
+
+- Workers cannot edit or delete submitted task logs.
+- Workers cannot edit or delete attendance after it is approved or rejected.
+- Resigned workers cannot sign in.
 
 ### Supervisor
 
-- Login with demo supervisor account
-- Create worker or supervisor users
-- View staff users
-- Create and view job/site locations
-- View pending attendance records
-- Approve records
-- Reject records
-- View approved/rejected attendance records
-- View worker task logs
+- Sign in with a supervisor account.
+- View pending, approved, and rejected attendance.
+- View worker task logs and attached photo galleries.
+- Approve or reject pending attendance.
+- Adjust attendance records with double-check confirmation.
+- Adjust submitted task logs with double-check confirmation.
+- Create and edit sites, including allowed check-in radius.
+- Search sites.
+- Create worker/supervisor users.
+- View and search staff users.
+- Mark workers resigned so they cannot sign in.
+- Reactivate resigned workers without losing previous records.
+- Export attendance records to CSV.
 
-### Backend
+### PWA / Mobile UX
 
-- FastAPI REST API
-- SQLite local database
-- JWT bearer token authentication
-- Worker/supervisor role separation
-- Backend-managed site list
-- Image upload and static image serving
-- Swagger API documentation
-- Phone testing over local Wi-Fi
-
----
+- Vite HTTPS dev server for geolocation-friendly phone testing.
+- Same-origin `/api` proxy to avoid iOS mixed-content blocking.
+- Service worker app shell cache.
+- Offline page.
+- IndexedDB drafts and queue.
+- Mobile-first layout with folded supervisor sections.
 
 ## Demo Accounts
+
+Seed demo data first with `POST /dev/seed`.
 
 ```text
 Worker
@@ -73,109 +81,196 @@ Email: supervisor@example.com
 Password: Passw0rd!
 ```
 
-Demo accounts are created by running the backend seed endpoint:
-
-```text
-POST /dev/seed
-```
-
----
-
 ## Project Structure
 
 ```text
 scaffold-pwa-mvp/
-  index.html
+  index.html                  Active frontend shell
   offline.html
   manifest.webmanifest
   sw.js
-  README.md
-  package.json
   vite.config.js
+  package.json
+  README.md
+  .env.example
 
   assets/
     css/
-      styles.css
+      styles.css              Active UI styles
     js/
-      app.js
-      db.js
-      mock-api.js
+      app.js                  Active frontend app logic
+      api-client.js           FastAPI client
+      db.js                   IndexedDB wrapper
+      mock-api.js             Offline/local fallback data
       utils.js
-      api-client.js
     icons/
-      icon-192.png
-      icon-512.png
-      maskable-512.png
-      apple-touch-icon.png
 
   backend/
     app/
-      _init__.py
-      main.py
-      database.py
-      models.py
-      auth.py
-    uploads/
-    geo_management.db
+      main.py                 FastAPI routes
+      models.py               SQLModel tables
+      database.py             Engine and lightweight SQLite migrations
+      auth.py                 Password/JWT helpers
+      config.py               Environment loading
+    smoke_test.py             Backend smoke/regression script
+    uploads/                  Runtime uploaded files
+    geo_management.db         Runtime SQLite DB
 
   src/
-    App.jsx
+    App.jsx                   Legacy React path, not current active UI
     main.jsx
 ```
 
-`geo_management.db`, `backend/uploads/`, and `__pycache__/` are runtime-generated and ignored by Git.
+Runtime/generated paths:
 
----
+```text
+backend/geo_management.db
+backend/uploads/
+backend/app/__pycache__/
+dist/
+node_modules/
+```
 
 ## Requirements
 
-### Frontend
-
-- Node.js
-- npm
-
-### Backend
-
+- Node.js and npm
 - Python 3.11 recommended
-- Conda recommended
-- FastAPI
-- Uvicorn
-- SQLModel
-- Passlib
-- bcrypt
-- python-jose
-- python-multipart
+- FastAPI backend dependencies from `requirements.txt`
+- A phone and development computer on the same Wi-Fi for real mobile testing
 
----
+## Environment
+
+Copy the sample environment file:
+
+```powershell
+copy .env.example .env
+```
+
+Important values:
+
+```text
+GEO_SECRET_KEY=change-this-dev-secret
+DATABASE_URL=sqlite:///./geo_management.db
+CORS_ORIGINS=http://localhost:5173,https://localhost:5173,http://127.0.0.1:5173,https://127.0.0.1:5173
+UPLOAD_DIR=uploads
+MAX_UPLOAD_BYTES=5242880
+```
+
+For phone testing, add your computer IP frontend URL to `CORS_ORIGINS` if you call FastAPI directly:
+
+```text
+CORS_ORIGINS=https://localhost:5173,https://127.0.0.1:5173,https://192.168.1.25:5173
+```
+
+When using the Vite `/api` proxy, the frontend usually stays same-origin and does not need direct phone-to-FastAPI CORS.
+
+## Backend Setup
+
+From the project root:
+
+```powershell
+cd C:\Users\12273\Documents\GitHub\scaffold-pwa-mvp
+```
+
+Create and activate a Python environment:
+
+```powershell
+conda create -n geo-backend python=3.11
+conda activate geo-backend
+```
+
+Install dependencies:
+
+```powershell
+pip install -r requirements.txt
+```
+
+If bcrypt/passlib gives login errors, use the known compatible bcrypt pin:
+
+```powershell
+python -m pip uninstall -y bcrypt passlib
+python -m pip install "passlib[bcrypt]==1.7.4" "bcrypt==4.0.1"
+```
+
+Run the backend:
+
+```powershell
+cd backend
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Health check:
+
+```text
+http://127.0.0.1:8000/health
+```
+
+Swagger docs:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Seed demo accounts and demo sites:
+
+```text
+POST /dev/seed
+```
 
 ## Frontend Setup
 
 From the project root:
 
 ```powershell
-cd C:\Users\12273\Documents\GitHub\scaffold-pwa-mvp
 npm install
 ```
 
-Run the frontend on the computer:
+Run on the computer:
 
 ```powershell
 npm run dev
 ```
 
-Run the frontend for phone testing:
+Run for phone testing:
 
 ```powershell
 npm run dev:phone
 ```
 
-The frontend normally runs with a local HTTPS certificate at:
+The frontend uses a local HTTPS dev certificate:
 
 ```text
 https://127.0.0.1:5173
 ```
 
-For phone testing, use your computer's local IP address:
+The browser may warn about the local certificate. Accept it for local testing so geolocation and PWA behavior work.
+
+## Phone Testing
+
+Run two terminals.
+
+Terminal 1:
+
+```powershell
+cd C:\Users\12273\Documents\GitHub\scaffold-pwa-mvp\backend
+conda activate geo-backend
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Terminal 2:
+
+```powershell
+cd C:\Users\12273\Documents\GitHub\scaffold-pwa-mvp
+npm run dev:phone
+```
+
+Find your computer IP:
+
+```powershell
+ipconfig
+```
+
+Open this on the phone:
 
 ```text
 https://YOUR_COMPUTER_IP:5173
@@ -187,149 +282,151 @@ Example:
 https://192.168.1.25:5173
 ```
 
-Your browser or phone may warn about the local development certificate. Accept it for local testing so geolocation and same-origin backend proxying work correctly.
+Phone checklist:
 
----
+- Phone and computer are on the same Wi-Fi.
+- Backend is running with `--host 0.0.0.0`.
+- Frontend is running with `npm run dev:phone`.
+- Windows Firewall allows Node.js and Python.
+- Open the computer IP address, not `localhost`.
+- Accept the local HTTPS certificate warning.
 
-## Backend Setup
+## Key Workflows
 
-Go to the backend folder:
+### Worker Attendance
 
-```powershell
-cd C:\Users\12273\Documents\GitHub\scaffold-pwa-mvp\backend
-```
+1. Sign in as a worker.
+2. Select a site.
+3. Capture location.
+4. Add optional notes/photo.
+5. Check in or check out.
+6. History shows the backend-synced record and whether it was inside the site radius.
+7. Pending attendance can be edited or deleted until supervisor approval/rejection.
 
-Create and activate the conda environment:
+### Worker Task Log
 
-```powershell
-conda create -n geo-backend python=3.11
-conda activate geo-backend
-```
+1. Select a site.
+2. Set work date and hours.
+3. Enter task summary and optional safety notes.
+4. Select one or more progress photos from the phone photo picker.
+5. Submit task log.
+6. Task logs become locked for the worker after submission.
+7. Photos can be opened in the floating photo viewer.
 
-Install backend packages:
+### Task Templates
 
-```powershell
-pip install fastapi uvicorn sqlmodel passlib[bcrypt] python-jose[cryptography] python-multipart
-```
+1. Fill in common task log fields.
+2. Enter a template name.
+3. Save the current log as a template.
+4. Reuse it later from the task template dropdown.
 
-If you get bcrypt/passlib errors, use pinned versions:
-
-```powershell
-python -m pip uninstall -y bcrypt passlib
-python -m pip install "passlib[bcrypt]==1.7.4" "bcrypt==4.0.1"
-```
-
-Save dependencies:
-
-```powershell
-pip freeze > requirements.txt
-```
-
----
-
-## Environment Setup
-
-From the project root, copy the sample environment file before running the backend:
-
-```powershell
-copy .env.example .env
-```
-
-For local development, the defaults work out of the box. Before sharing or deploying the app, change:
+Templates store:
 
 ```text
-GEO_SECRET_KEY
-CORS_ORIGINS
-DATABASE_URL
+name
+site
+description
+hours
+safety notes
 ```
 
-For phone testing, add your Vite URL to `CORS_ORIGINS` if you call FastAPI directly from the phone. When using the current Vite `/api` proxy, the frontend can usually stay on the same origin.
+Photos are not stored in templates.
 
----
+### Supervisor Review
 
-## Run the Backend
+1. Sign in as supervisor.
+2. Review pending attendance.
+3. Check worker, site, timestamp, location, site radius, notes, and photo.
+4. Approve or reject.
+5. Use edit controls only after double-check confirmation.
+6. Export CSV when needed.
 
-From the `backend` folder:
+## API Summary
 
-```powershell
-conda activate geo-backend
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Backend health check:
+### General
 
 ```text
-http://127.0.0.1:8000/health
-```
-
-API documentation:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-If the backend starts correctly, the health endpoint should return:
-
-```json
-{
-  "status": "ok",
-  "message": "Geo backend is running"
-}
-```
-
----
-
-## Create Demo Data
-
-Open the Swagger API docs:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-Run:
-
-```text
+GET  /health
 POST /dev/seed
+GET  /sites
+POST /photo-uploads
 ```
 
-This creates:
-
-```text
-worker@example.com / Passw0rd!
-supervisor@example.com / Passw0rd!
-```
-
----
-
-## Smoke Test
-
-With the backend running, run the zero-dependency smoke test from the project root:
-
-```powershell
-python backend\smoke_test.py
-```
-
-The script seeds demo data, logs in as worker and supervisor, creates attendance and task-log records, checks validation failures, and approves the smoke attendance record.
-
-To point it at another backend URL:
-
-```powershell
-$env:API_BASE_URL="http://127.0.0.1:8000"
-python backend\smoke_test.py
-```
-
----
-
-## Login Test
-
-In Swagger UI, run:
+### Auth
 
 ```text
 POST /auth/login
+POST /auth/register
+GET  /auth/me
 ```
 
-Example request:
+### Worker Attendance
+
+```text
+POST   /attendance
+GET    /my-records
+PATCH  /my-records/{record_id}
+DELETE /my-records/{record_id}
+```
+
+Rules:
+
+- `PATCH /my-records/{record_id}` and `DELETE /my-records/{record_id}` only work for the owning worker.
+- Worker edits/deletes only work while attendance status is `pending`.
+- Approved/rejected attendance is locked for workers.
+
+### Worker Task Logs
+
+```text
+POST   /task-logs
+GET    /my-task-logs
+PATCH  /my-task-logs/{log_id}
+DELETE /my-task-logs/{log_id}
+```
+
+Rules:
+
+- Workers can create and view their task logs.
+- Worker update/delete endpoints intentionally return `403` for submitted logs.
+- Task logs support `photo_urls` with up to 8 uploaded image URLs.
+- `photo_url` remains for compatibility and points to the first task photo when present.
+
+### Worker Task Templates
+
+```text
+GET    /task-templates
+POST   /task-templates
+PATCH  /task-templates/{template_id}
+DELETE /task-templates/{template_id}
+```
+
+### Supervisor
+
+```text
+GET   /supervisor/users
+POST  /supervisor/users
+POST  /supervisor/users/{user_id}/status
+
+POST  /supervisor/sites
+PATCH /supervisor/sites/{site_id}
+
+GET   /supervisor/pending-records
+GET   /supervisor/records
+GET   /supervisor/records?status=approved
+GET   /supervisor/records?status=rejected
+GET   /supervisor/records/export.csv
+PATCH /supervisor/records/{record_id}
+POST  /supervisor/records/{record_id}/decision
+
+GET   /supervisor/task-logs
+PATCH /supervisor/task-logs/{log_id}
+```
+
+Supervisor edit routes require `confirmed: true` in the request body.
+
+## Example Requests
+
+### Login
 
 ```json
 {
@@ -338,44 +435,7 @@ Example request:
 }
 ```
 
-Example response:
-
-```json
-{
-  "access_token": "your_token_here",
-  "token_type": "bearer",
-  "user": {
-    "id": 1,
-    "email": "worker@example.com",
-    "name": "Demo Worker",
-    "role": "worker"
-  }
-}
-```
-
-Copy the `access_token`.
-
-Then click **Authorize** in Swagger UI and paste the token.
-
-If the authorization popup uses bearer authentication, paste only the token:
-
-```text
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-If your Swagger UI still asks for username/password/client ID/client secret, use `POST /auth/login` manually and copy the token from the response instead.
-
----
-
-## Attendance API Test
-
-After logging in as a worker, test:
-
-```text
-POST /attendance
-```
-
-Example request:
+### Attendance
 
 ```json
 {
@@ -384,240 +444,131 @@ Example request:
   "longitude": 174.7633,
   "accuracy": 12,
   "site_id": 1,
-  "note": "Test check-in from backend",
+  "note": "Arrived on site",
   "photo_url": null
 }
 ```
 
-Then check the worker's records:
-
-```text
-GET /my-records
-```
-
----
-
-## Supervisor Approval Test
-
-Login as supervisor:
+### Task Log With Multiple Photos
 
 ```json
 {
-  "email": "supervisor@example.com",
-  "password": "Passw0rd!"
+  "description": "Installed scaffold bay and checked tags.",
+  "site_id": 1,
+  "work_date": "2026-05-25",
+  "hours_worked": 7.5,
+  "safety_notes": "Exclusion zone kept clear.",
+  "photo_urls": [
+    "/uploads/task-photo-1.jpg",
+    "/uploads/task-photo-2.jpg"
+  ]
 }
 ```
 
-Use the supervisor token in Swagger UI.
-
-View pending records:
-
-```text
-GET /supervisor/pending-records
-```
-
-Approve or reject a record:
-
-```text
-POST /supervisor/records/{record_id}/decision
-```
-
-Approve example:
+### Supervisor Attendance Edit
 
 ```json
 {
+  "note": "Corrected after review",
   "status": "approved",
-  "comment": "Approved"
+  "confirmed": true
 }
 ```
 
-Reject example:
+### User Resign / Reactivate
 
 ```json
 {
-  "status": "rejected",
-  "comment": "Location is unclear"
+  "status": "resigned",
+  "confirmed": true
 }
 ```
 
----
+```json
+{
+  "status": "active",
+  "confirmed": true
+}
+```
 
-## Phone Testing
+## Validation
 
-Phone testing needs two terminals.
-
-### Terminal 1: Backend
+With backend running:
 
 ```powershell
-cd C:\Users\12273\Documents\GitHub\scaffold-pwa-mvp\backend
-conda activate geo-backend
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python backend\smoke_test.py
 ```
 
-### Terminal 2: Frontend
+Frontend checks:
 
 ```powershell
-cd C:\Users\12273\Documents\GitHub\scaffold-pwa-mvp
-npm run dev:phone
+npm run lint
+npm run build
 ```
 
-Find your computer IP address:
+Backend import check:
 
 ```powershell
-ipconfig
+python -m compileall backend\app backend\smoke_test.py
 ```
 
-Look for:
+The smoke test covers:
 
-```text
-IPv4 Address
-```
+- Health and seed data.
+- Worker/supervisor login.
+- Resigned worker cannot login.
+- Reactivation keeps the user usable.
+- Site create/update.
+- Task template create/list/update/delete.
+- Attendance create/update/delete while pending.
+- Attendance lock after approval.
+- Site distance/radius calculation.
+- Task log create with multiple photos.
+- Worker cannot update/delete submitted task logs.
+- Validation failures.
+- Supervisor task-log adjustment.
+- CSV export.
 
-Open the frontend on your phone. The current Vite config uses local HTTPS:
+## Offline Behavior
 
-```text
-https://YOUR_COMPUTER_IP:5173
-```
-
-Example:
-
-```text
-https://192.168.1.25:5173
-```
-
-The phone and computer must be connected to the same Wi-Fi network.
-
----
-
-## Frontend API Base URL
-
-When the frontend is served over HTTPS, the app calls the backend through the Vite same-origin proxy:
-
-```js
-const API_BASE = "/api";
-```
-
-Vite forwards `/api/*` to:
-
-```text
-http://127.0.0.1:8000/*
-```
-
-This avoids iOS mixed-content blocking when the phone opens the PWA over HTTPS.
-
----
-
-## CORS Setup
-
-If the phone frontend cannot call the backend directly, update `CORS_ORIGINS` in:
-
-```text
-.env
-```
-
-Example:
-
-```text
-CORS_ORIGINS=https://localhost:5173,https://127.0.0.1:5173,https://192.168.1.25:5173
-```
-
-Replace `192.168.1.25` with your actual computer IP.
-
----
-
-## Offline Mode Design
-
-The frontend should keep IndexedDB for offline use.
-
-Recommended behaviour:
+The frontend uses IndexedDB for drafts and queued records.
 
 ```text
 Online:
-  Send check-in/check-out/task-log records directly to FastAPI.
+  Send attendance and task logs to FastAPI.
 
 Offline:
-  Save records into IndexedDB with queued status.
+  Save drafts and queued records locally.
 
 Back online:
-  Send queued records to FastAPI.
-  If the backend accepts them, mark them as synced.
+  Flush queued records to FastAPI.
 ```
 
-This allows the PWA to continue working even when field workers have weak or no internet connection.
+Current offline behavior is suitable for MVP testing, but production conflict handling still needs more work.
 
----
+## Date Filtering
 
-## Main API Endpoints
+History date filters use the user's local calendar date. For example, in New Zealand time, searching `2026-05-20` returns records shown on 20 May 2026 locally, not a UTC noon-to-noon window.
 
-### General
+## Photo Behavior
 
-```text
-GET /health
-POST /dev/seed
-GET /sites
-POST /photo-uploads
-```
-
-### Authentication
-
-```text
-POST /auth/login
-POST /auth/register
-GET /auth/me
-```
-
-### Worker
-
-```text
-POST /attendance
-GET /my-records
-POST /task-logs
-GET /my-task-logs
-```
-
-### Supervisor
-
-```text
-GET /supervisor/pending-records
-GET /supervisor/records
-GET /supervisor/records?status=approved
-GET /supervisor/records/export.csv
-GET /supervisor/task-logs
-POST /supervisor/sites
-GET /supervisor/users
-POST /supervisor/users
-POST /supervisor/records/{record_id}/decision
-```
-
----
+- Attendance supports one optional photo.
+- Task logs support up to 8 progress photos.
+- Uploaded photos are served from `/uploads/...`.
+- Thumbnails open in a floating photo viewer.
+- Multi-photo task logs support previous/next navigation in the viewer.
+- Current storage is local filesystem storage under `backend/uploads/`.
 
 ## Common Problems
 
-### `vite not recognized`
-
-Run this from the project root:
+### `vite` is not recognized
 
 ```powershell
 npm install
-```
-
-If it still fails:
-
-```powershell
-npm install -D vite @vitejs/plugin-react
-```
-
-Then run:
-
-```powershell
 npm run dev:phone
 ```
 
----
-
-### Backend uses the wrong Python version
-
-Check Python path:
+### Backend uses the wrong Python
 
 ```powershell
 where python
@@ -625,101 +576,80 @@ python --version
 python -m pip -V
 ```
 
-It should point to the `geo-backend` conda environment and use Python 3.11.
-
-If not, activate the environment:
+Activate the environment:
 
 ```powershell
 conda activate geo-backend
 ```
 
-Or run Uvicorn through conda:
+### bcrypt / passlib login error
 
-```powershell
-conda run -n geo-backend python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
----
-
-### bcrypt / passlib error
-
-If you see errors such as:
-
-```text
-module 'bcrypt' has no attribute '__about__'
-password cannot be longer than 72 bytes
-```
-
-Use the pinned versions:
+If password verification fails with bcrypt/passlib errors:
 
 ```powershell
 python -m pip uninstall -y bcrypt passlib
 python -m pip install "passlib[bcrypt]==1.7.4" "bcrypt==4.0.1"
 ```
 
-Restart the backend after reinstalling.
+Restart the backend after changing packages.
 
----
+### iPhone cannot login or call backend
 
-### Phone cannot access frontend or backend
+Use the HTTPS Vite URL and same-origin proxy:
 
-Check these points:
-
-1. Phone and computer are on the same Wi-Fi.
-2. Frontend is running with `npm run dev:phone`.
-3. Backend is running with `--host 0.0.0.0`.
-4. Windows Firewall allows Node.js and Python.
-5. Frontend is opened with the computer IP, not `localhost`.
-6. The Vite `/api` proxy is active after restarting the frontend dev server.
-7. CORS includes the phone testing frontend URL if you call FastAPI directly.
-
-Wrong for iOS phone testing:
-
-```js
-const API_BASE = "http://127.0.0.1:8000";
+```text
+https://YOUR_COMPUTER_IP:5173
 ```
 
-Correct when using the Vite HTTPS frontend:
+Do not hardcode the phone frontend to:
 
-```js
-const API_BASE = "/api";
+```text
+http://127.0.0.1:8000
 ```
 
----
+On a phone, `127.0.0.1` means the phone itself, not your computer. The current frontend chooses `/api` on HTTPS so Vite can proxy requests to FastAPI.
 
-## Development Roadmap
+### Phone cannot open the app
 
-Recommended next steps:
+Check:
 
-1. Move from SQLite to PostgreSQL.
-2. Add edit/deactivate controls for users and sites.
-3. Deploy backend to a cloud service.
-4. Deploy frontend as a production PWA.
-5. Add stronger production security.
-6. Add reporting/export features.
-7. Add audit logs for supervisor decisions.
-8. Add production file storage for uploaded photos.
+- Same Wi-Fi.
+- Correct computer IP.
+- `npm run dev:phone` is running.
+- Backend uses `--host 0.0.0.0`.
+- Firewall allows Node.js and Python.
+- Local certificate warning has been accepted.
 
----
+## Production Gaps
 
-## Production Notes
+Before real production use, improve:
 
-Before using this as a real production system, improve:
+- Real database migrations instead of lightweight SQLite `ALTER TABLE` startup checks.
+- PostgreSQL or another managed production database.
+- Production HTTPS deployment.
+- Strong secret management.
+- Refresh token/session strategy.
+- Rate limiting.
+- Audit log table for supervisor changes.
+- Stronger file storage for photos, such as S3-compatible object storage.
+- Backup and restore plan.
+- More automated frontend and backend tests.
+- Better offline conflict resolution.
+- Production monitoring and error logging.
 
-- Secret key management with environment variables
-- HTTPS deployment
-- PostgreSQL database
-- Password policy
-- Refresh tokens or safer session handling
-- File/photo storage
-- User management
-- Permission checks
-- Audit logs
-- Backup strategy
-- Error logging
-- Rate limiting
+## Roadmap
 
----
+Useful next features:
+
+- Map view for attendance and sites.
+- Geofence warning before submit.
+- Shift/schedule module.
+- Leave requests.
+- Photo requirement rules per site/job.
+- Excel export.
+- Audit trail UI.
+- Bulk staff import.
+- Production deployment scripts.
 
 ## License
 

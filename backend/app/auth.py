@@ -71,6 +71,12 @@ def get_current_user(
             detail="User not found"
         )
 
+    if (user.status or "active") != "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This account is resigned and cannot sign in"
+        )
+
     return user
 
 

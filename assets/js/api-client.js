@@ -44,7 +44,8 @@ function normalizeUser(user) {
     email: user.email,
     name: user.name || user.fullName || user.email,
     fullName: user.fullName || user.name || user.email,
-    role: user.role
+    role: user.role,
+    status: user.status || "active"
   };
 }
 
@@ -151,6 +152,13 @@ export async function createUser(user) {
   });
 }
 
+export async function updateUserStatus(userId, status) {
+  return await apiFetch(`/supervisor/users/${userId}/status`, {
+    method: "POST",
+    body: JSON.stringify({ status, confirmed: true })
+  });
+}
+
 export async function getSites() {
   return await apiFetch("/sites");
 }
@@ -159,6 +167,13 @@ export async function createSite(site) {
   return await apiFetch("/supervisor/sites", {
     method: "POST",
     body: JSON.stringify(site)
+  });
+}
+
+export async function updateSite(siteId, site) {
+  return await apiFetch(`/supervisor/sites/${siteId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ ...site, confirmed: true })
   });
 }
 
@@ -206,6 +221,19 @@ export async function getMyRecords() {
   return await apiFetch("/my-records");
 }
 
+export async function updateMyRecord(recordId, record) {
+  return await apiFetch(`/my-records/${recordId}`, {
+    method: "PATCH",
+    body: JSON.stringify(record)
+  });
+}
+
+export async function deleteMyRecord(recordId) {
+  return await apiFetch(`/my-records/${recordId}`, {
+    method: "DELETE"
+  });
+}
+
 export async function createTaskLog(log) {
   return await apiFetch("/task-logs", {
     method: "POST",
@@ -215,6 +243,43 @@ export async function createTaskLog(log) {
 
 export async function getMyTaskLogs() {
   return await apiFetch("/my-task-logs");
+}
+
+export async function updateMyTaskLog(logId, log) {
+  return await apiFetch(`/my-task-logs/${logId}`, {
+    method: "PATCH",
+    body: JSON.stringify(log)
+  });
+}
+
+export async function deleteMyTaskLog(logId) {
+  return await apiFetch(`/my-task-logs/${logId}`, {
+    method: "DELETE"
+  });
+}
+
+export async function getTaskTemplates() {
+  return await apiFetch("/task-templates");
+}
+
+export async function createTaskTemplate(template) {
+  return await apiFetch("/task-templates", {
+    method: "POST",
+    body: JSON.stringify(template)
+  });
+}
+
+export async function updateTaskTemplate(templateId, template) {
+  return await apiFetch(`/task-templates/${templateId}`, {
+    method: "PATCH",
+    body: JSON.stringify(template)
+  });
+}
+
+export async function deleteTaskTemplate(templateId) {
+  return await apiFetch(`/task-templates/${templateId}`, {
+    method: "DELETE"
+  });
 }
 
 export async function getPendingRecords() {
@@ -264,5 +329,19 @@ export async function decideRecord(recordId, status) {
   return await apiFetch(`/supervisor/records/${recordId}/decision`, {
     method: "POST",
     body: JSON.stringify({ status })
+  });
+}
+
+export async function updateSupervisorRecord(recordId, record) {
+  return await apiFetch(`/supervisor/records/${recordId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ ...record, confirmed: true })
+  });
+}
+
+export async function updateSupervisorTaskLog(logId, log) {
+  return await apiFetch(`/supervisor/task-logs/${logId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ ...log, confirmed: true })
   });
 }

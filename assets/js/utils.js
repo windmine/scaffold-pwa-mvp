@@ -3,7 +3,19 @@ export function uuid() {
 }
 
 export function todayDateInput() {
-  return new Date().toISOString().slice(0, 10);
+  return dateInputValue(new Date());
+}
+
+export function dateInputValue(value) {
+  if (!value) return '';
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export function formatDateTime(value) {

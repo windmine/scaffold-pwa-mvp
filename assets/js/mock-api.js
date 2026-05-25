@@ -117,6 +117,8 @@ export async function createAttendanceRecord(payload) {
     photoDataUrl: payload.photoDataUrl || '',
     photoUrl: payload.photoUrl || '',
     location: payload.location || null,
+    distanceFromSiteM: payload.distanceFromSiteM ?? null,
+    withinSiteRadius: payload.withinSiteRadius ?? null,
     createdAt: payload.createdAt || new Date().toISOString(),
     syncStatus,
     syncError: payload.syncError || '',
@@ -146,7 +148,9 @@ export async function createTaskLog(payload) {
     summary: payload.summary || '',
     safetyNotes: payload.safetyNotes || '',
     photoDataUrl: payload.photoDataUrl || '',
+    photoDataUrls: payload.photoDataUrls || (payload.photoDataUrl ? [payload.photoDataUrl] : []),
     photoUrl: payload.photoUrl || '',
+    photoUrls: payload.photoUrls || (payload.photoUrl ? [payload.photoUrl] : []),
     createdAt: payload.createdAt || new Date().toISOString(),
     syncStatus,
     syncError: payload.syncError || '',
@@ -208,6 +212,12 @@ export async function flushQueueWith(syncRecord) {
       }
       if (syncedRecord?.status) {
         record.status = syncedRecord.status;
+      }
+      if (syncedRecord?.distance_from_site_m != null) {
+        record.distanceFromSiteM = syncedRecord.distance_from_site_m;
+      }
+      if (syncedRecord?.within_site_radius != null) {
+        record.withinSiteRadius = syncedRecord.within_site_radius;
       }
 
       await put('records', record);
