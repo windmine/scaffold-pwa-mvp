@@ -2,7 +2,7 @@
 
 Mobile-first geo-attendance and field task logging MVP for Leader Scaffolding-style operations.
 
-This project lets field workers check in/out from a phone with location data, submit daily task logs with progress photos, and review their own synced history. Supervisors can manage sites and staff, review attendance, approve or reject check-ins, adjust backend records with double-check confirmation, and export attendance data.
+This project lets field workers check in/out from a phone with location data, submit daily task logs and custom work forms with progress photos, and review their own synced history. Supervisors can manage sites, staff, reusable work forms, attendance review, backend record adjustments with double-check confirmation, and CSV exports.
 
 ## Current Version
 
@@ -15,7 +15,7 @@ Uploads: Local backend/uploads folder
 Primary UI files: index.html, assets/css/styles.css, assets/js/app.js
 ```
 
-The app started as a frontend-only prototype. It now uses the FastAPI backend for login, sites, attendance, task logs, task templates, photo uploads, staff users, supervisor review, and cross-device history sync.
+The app started as a frontend-only prototype. It now uses the FastAPI backend for login, sites, attendance, task logs, task templates, dynamic work forms, photo uploads, staff users, supervisor review, and cross-device history sync.
 
 `src/App.jsx` is not the current production UI path. The active app is `index.html` plus the modules in `assets/js/`.
 
@@ -31,6 +31,8 @@ The app started as a frontend-only prototype. It now uses the FastAPI backend fo
 - Edit or delete own pending attendance before supervisor approval.
 - Submit task logs with work date, hours, task summary, safety notes, and up to 8 progress photos.
 - Save and apply reusable task-log templates for repetitive work.
+- Choose supervisor-created work forms, such as daywork, inspection, and tool deduction forms.
+- Submit work forms with typed fields, handwritten signatures, site/work date, and up to 8 photos.
 - View local and backend-synced attendance/task history.
 - Search/filter history by text, type, status, and local calendar date.
 - Click any uploaded photo thumbnail to open a floating zoom viewer with previous/next controls.
@@ -47,16 +49,20 @@ Worker restrictions:
 - Sign in with a supervisor account.
 - View pending, approved, and rejected attendance.
 - View worker task logs and attached photo galleries.
+- Create, edit, and archive worker-facing work forms.
+- View worker work-form submissions and attached photo galleries.
 - Approve or reject pending attendance.
 - Adjust attendance records with double-check confirmation.
 - Adjust submitted task logs with double-check confirmation.
 - Create and edit sites, including allowed check-in radius.
 - Search sites.
 - Create worker/supervisor users.
+- Edit staff name, email, role, status, or reset password with double-check confirmation.
 - View and search staff users.
 - Mark workers resigned so they cannot sign in.
 - Reactivate resigned workers without losing previous records.
 - Export attendance records to CSV.
+- Export task logs to CSV.
 
 ### PWA / Mobile UX
 
@@ -298,10 +304,11 @@ Phone checklist:
 1. Sign in as a worker.
 2. Select a site.
 3. Capture location.
-4. Add optional notes/photo.
-5. Check in or check out.
-6. History shows the backend-synced record and whether it was inside the site radius.
-7. Pending attendance can be edited or deleted until supervisor approval/rejection.
+4. Check the live site-radius preview before submitting.
+5. Add optional notes/photo.
+6. Check in or check out.
+7. History shows the backend-synced record and whether it was inside the site radius.
+8. Pending attendance can be edited or deleted until supervisor approval/rejection.
 
 ### Worker Task Log
 
@@ -331,6 +338,48 @@ safety notes
 ```
 
 Photos are not stored in templates.
+
+### Worker Work Forms
+
+1. Choose a work form from the task/log area.
+2. Select a site and work date.
+3. Fill in the form fields.
+4. Select optional photos from the phone photo picker.
+5. Submit the form.
+6. The submission appears in worker history and the supervisor form-submissions section.
+
+Built-in seeded examples:
+
+```text
+Daywork log form
+Inspection form
+Tool deduction form
+```
+
+### Supervisor Form Builder
+
+1. Sign in as supervisor.
+2. Open the Work forms section.
+3. Enter the form name and optional description.
+4. Add one field per line in this format:
+
+```text
+type|Label|required|Option A,Option B
+```
+
+Examples:
+
+```text
+text|Work area|required
+select|Result|required|Pass,Fail,N/A
+textarea|Notes
+checkbox|Follow up required
+number|Quantity|required
+date|Inspection date
+signature|Worker signature|required
+```
+
+Supported field types are `text`, `textarea`, `number`, `date`, `select`, `checkbox`, and `signature`. A required `signature` field shows a touch-friendly signature pad and stores the handwritten signature as an uploaded PNG. Supervisors can edit form definitions or archive forms to remove them from the worker form chooser without deleting historical submissions.
 
 ### Supervisor Review
 
@@ -400,11 +449,26 @@ PATCH  /task-templates/{template_id}
 DELETE /task-templates/{template_id}
 ```
 
+### Worker Work Forms
+
+```text
+GET  /work-forms
+POST /form-submissions
+GET  /my-form-submissions
+```
+
+Rules:
+
+- Workers only see active work forms.
+- Form submissions support typed answers and up to 8 uploaded image URLs.
+- Submitted forms are visible in worker history and supervisor review.
+
 ### Supervisor
 
 ```text
 GET   /supervisor/users
 POST  /supervisor/users
+PATCH /supervisor/users/{user_id}
 POST  /supervisor/users/{user_id}/status
 
 POST  /supervisor/sites
@@ -419,10 +483,15 @@ PATCH /supervisor/records/{record_id}
 POST  /supervisor/records/{record_id}/decision
 
 GET   /supervisor/task-logs
+GET   /supervisor/task-logs/export.csv
 PATCH /supervisor/task-logs/{log_id}
+
+GET   /supervisor/form-submissions
+POST  /supervisor/work-forms
+PATCH /supervisor/work-forms/{form_id}
 ```
 
-Supervisor edit routes require `confirmed: true` in the request body.
+Supervisor edit/archive routes require `confirmed: true` in the request body.
 
 ## Example Requests
 
@@ -461,6 +530,41 @@ Supervisor edit routes require `confirmed: true` in the request body.
   "photo_urls": [
     "/uploads/task-photo-1.jpg",
     "/uploads/task-photo-2.jpg"
+  ]
+}
+```
+
+### Work Form Submission
+
+```json
+{
+  "form_id": 1,
+  "site_id": 1,
+  "work_date": "2026-05-25",
+  "answers": {
+    "inspection_area": "North bay",
+    "inspection_result": "Pass",
+    "issues_found": "",
+    "follow_up_required": false,
+    "worker_signature": "/uploads/signature-demo-worker.png"
+  },
+  "photo_urls": [
+    "/uploads/form-photo-1.jpg"
+  ]
+}
+```
+
+### Supervisor Work Form
+
+```json
+{
+  "name": "Site inspection",
+  "description": "Daily scaffold inspection checklist",
+  "fields": [
+    { "id": "area", "label": "Area", "type": "text", "required": true },
+    { "id": "result", "label": "Result", "type": "select", "required": true, "options": ["Pass", "Fail"] },
+    { "id": "notes", "label": "Notes", "type": "textarea", "required": false },
+    { "id": "worker_signature", "label": "Worker signature", "type": "signature", "required": true }
   ]
 }
 ```
@@ -518,16 +622,22 @@ The smoke test covers:
 - Worker/supervisor login.
 - Resigned worker cannot login.
 - Reactivation keeps the user usable.
+- Staff user editing and self-demotion protections.
 - Site create/update.
+- Work form create/list/archive.
+- Work form submission and validation.
 - Task template create/list/update/delete.
 - Attendance create/update/delete while pending.
 - Attendance lock after approval.
 - Site distance/radius calculation.
 - Task log create with multiple photos.
 - Worker cannot update/delete submitted task logs.
+- Worker/supervisor role boundaries.
+- Cross-worker ownership boundaries.
 - Validation failures.
 - Supervisor task-log adjustment.
 - CSV export.
+- Task-log CSV export.
 
 ## Offline Behavior
 
@@ -535,7 +645,7 @@ The frontend uses IndexedDB for drafts and queued records.
 
 ```text
 Online:
-  Send attendance and task logs to FastAPI.
+  Send attendance, task logs, and work forms to FastAPI.
 
 Offline:
   Save drafts and queued records locally.
@@ -553,7 +663,7 @@ History date filters use the user's local calendar date. For example, in New Zea
 ## Photo Behavior
 
 - Attendance supports one optional photo.
-- Task logs support up to 8 progress photos.
+- Task logs and work forms support up to 8 progress photos.
 - Uploaded photos are served from `/uploads/...`.
 - Thumbnails open in a floating photo viewer.
 - Multi-photo task logs support previous/next navigation in the viewer.

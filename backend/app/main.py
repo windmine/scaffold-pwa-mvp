@@ -16,7 +16,7 @@ from sqlmodel import Session, select
 
 from app.config import CORS_ORIGINS, MAX_UPLOAD_BYTES, UPLOAD_DIR
 from app.database import create_db_and_tables, get_session
-from app.models import User, Site, AttendanceRecord, TaskLog, TaskTemplate
+from app.models import User, Site, AttendanceRecord, TaskLog, TaskTemplate, WorkForm, WorkFormSubmission
 from app.auth import (
     hash_password,
     verify_password,
@@ -67,10 +67,48 @@ DEMO_SITES = [
     },
 ]
 
+DEMO_WORK_FORMS = [
+    {
+        "name": "Daywork log form",
+        "description": "Daily work summary for site activity.",
+        "fields": [
+            {"id": "work_completed", "label": "Work completed", "type": "textarea", "required": True},
+            {"id": "hours_worked", "label": "Hours worked", "type": "number", "required": True},
+            {"id": "materials_used", "label": "Materials used", "type": "textarea", "required": False},
+            {"id": "safety_notes", "label": "Safety notes", "type": "textarea", "required": False},
+            {"id": "worker_signature", "label": "Worker signature", "type": "signature", "required": True},
+        ],
+    },
+    {
+        "name": "Inspection form",
+        "description": "Basic scaffold/site inspection checklist.",
+        "fields": [
+            {"id": "inspection_area", "label": "Inspection area", "type": "text", "required": True},
+            {"id": "inspection_result", "label": "Inspection result", "type": "select", "required": True, "options": ["Pass", "Fail", "Needs action"]},
+            {"id": "issues_found", "label": "Issues found", "type": "textarea", "required": False},
+            {"id": "follow_up_required", "label": "Follow up required", "type": "checkbox", "required": False},
+        ],
+    },
+    {
+        "name": "Tool deduction form",
+        "description": "Record missing/damaged tools or deductions.",
+        "fields": [
+            {"id": "tool_name", "label": "Tool name", "type": "text", "required": True},
+            {"id": "quantity", "label": "Quantity", "type": "number", "required": True},
+            {"id": "reason", "label": "Reason", "type": "select", "required": True, "options": ["Lost", "Damaged", "Returned incomplete", "Other"]},
+            {"id": "notes", "label": "Notes", "type": "textarea", "required": False},
+        ],
+    },
+]
+
 VALID_ROLES = {"worker", "supervisor"}
 VALID_USER_STATUSES = {"active", "resigned"}
 VALID_ATTENDANCE_STATUSES = {"pending", "approved", "rejected"}
 MAX_TASK_LOG_PHOTOS = 8
+VALID_WORK_FORM_STATUSES = {"active", "archived"}
+VALID_WORK_FORM_FIELD_TYPES = {"text", "textarea", "number", "date", "select", "checkbox", "signature"}
+MAX_WORK_FORM_FIELDS = 30
+MAX_WORK_FORM_PHOTOS = 8
 
 
 class LoginRequest(BaseModel):
@@ -89,6 +127,15 @@ class UserCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     password: str = Field(min_length=8, max_length=72)
     role: str = Field(default="worker", max_length=40)
+
+
+class UserUpdateRequest(BaseModel):
+    email: Optional[str] = Field(default=None, min_length=3, max_length=320)
+    name: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    password: Optional[str] = Field(default=None, min_length=8, max_length=72)
+    role: Optional[str] = Field(default=None, max_length=40)
+    status: Optional[str] = Field(default=None, max_length=40)
+    confirmed: bool = False
 
 
 class UserStatusRequest(BaseModel):
@@ -170,6 +217,36 @@ class TaskTemplateUpdate(BaseModel):
     site_id: Optional[int] = Field(default=None, ge=1)
     hours_worked: Optional[float] = Field(default=None, ge=0, le=24)
     safety_notes: Optional[str] = Field(default=None, max_length=1500)
+
+
+class WorkFormField(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
+    label: str = Field(min_length=1, max_length=160)
+    type: str = Field(max_length=40)
+    required: bool = False
+    options: list[str] = Field(default_factory=list)
+
+
+class WorkFormCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    description: Optional[str] = Field(default=None, max_length=500)
+    fields: list[WorkFormField] = Field(min_length=1, max_length=MAX_WORK_FORM_FIELDS)
+
+
+class WorkFormUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=160)
+    description: Optional[str] = Field(default=None, max_length=500)
+    fields: Optional[list[WorkFormField]] = Field(default=None, min_length=1, max_length=MAX_WORK_FORM_FIELDS)
+    status: Optional[str] = Field(default=None, max_length=40)
+    confirmed: bool = False
+
+
+class WorkFormSubmissionCreate(BaseModel):
+    form_id: int = Field(ge=1)
+    site_id: Optional[int] = Field(default=None, ge=1)
+    work_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    answers: dict = Field(default_factory=dict)
+    photo_urls: list[str] = Field(default_factory=list)
 
 
 class ApprovalRequest(BaseModel):
@@ -263,6 +340,68 @@ def task_template_response(template: TaskTemplate, session: Session):
         "hours_worked": template.hours_worked,
         "safety_notes": template.safety_notes,
         "created_at": format_datetime(template.created_at),
+    }
+
+
+def parse_json_list(value: Optional[str]):
+    if not value:
+        return []
+
+    try:
+        loaded = json.loads(value)
+    except json.JSONDecodeError:
+        return []
+
+    return loaded if isinstance(loaded, list) else []
+
+
+def parse_json_object(value: Optional[str]):
+    if not value:
+        return {}
+
+    try:
+        loaded = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def work_form_fields(form: WorkForm):
+    return parse_json_list(form.fields_json)
+
+
+def work_form_response(form: WorkForm):
+    return {
+        "id": form.id,
+        "name": form.name,
+        "description": form.description,
+        "fields": work_form_fields(form),
+        "status": form.status,
+        "created_by": form.created_by,
+        "created_at": format_datetime(form.created_at),
+    }
+
+
+def work_form_submission_response(submission: WorkFormSubmission, session: Session):
+    form = session.get(WorkForm, submission.form_id)
+    worker = session.get(User, submission.worker_id)
+    site = session.get(Site, submission.site_id) if submission.site_id else None
+
+    return {
+        "id": submission.id,
+        "form_id": submission.form_id,
+        "form_name": form.name if form else f"Form {submission.form_id}",
+        "fields": work_form_fields(form) if form else [],
+        "worker_id": submission.worker_id,
+        "worker_name": worker.name if worker else f"Worker {submission.worker_id}",
+        "site_id": submission.site_id,
+        "site_name": site.name if site else None,
+        "work_date": submission.work_date,
+        "answers": parse_json_object(submission.answers_json),
+        "photo_urls": parse_json_list(submission.photo_urls),
+        "status": "submitted",
+        "created_at": format_datetime(submission.created_at),
     }
 
 
@@ -390,6 +529,100 @@ def normalize_task_photo_urls(
     for url in urls:
         validate_photo_url(url)
 
+    return urls
+
+
+def normalize_work_form_fields(fields: list[WorkFormField]):
+    normalized_fields = []
+    seen_ids = set()
+
+    if len(fields) > MAX_WORK_FORM_FIELDS:
+        raise HTTPException(status_code=400, detail=f"Forms can include up to {MAX_WORK_FORM_FIELDS} fields")
+
+    for field in fields:
+        field_id = field.id.strip().lower().replace(" ", "_")
+        label = field.label.strip()
+        field_type = field.type.strip().lower()
+
+        if not field_id:
+            raise HTTPException(status_code=400, detail="Field id is required")
+        if field_id in seen_ids:
+            raise HTTPException(status_code=400, detail=f"Duplicate field id: {field_id}")
+        if not label:
+            raise HTTPException(status_code=400, detail="Field label is required")
+        if field_type not in VALID_WORK_FORM_FIELD_TYPES:
+            raise HTTPException(status_code=400, detail="Unsupported field type")
+
+        options = [
+            option.strip()
+            for option in (field.options or [])
+            if option and option.strip()
+        ]
+        if field_type == "select" and not options:
+            raise HTTPException(status_code=400, detail=f"Select field '{label}' needs options")
+
+        normalized_fields.append({
+            "id": field_id,
+            "label": label,
+            "type": field_type,
+            "required": field.required,
+            "options": options,
+        })
+        seen_ids.add(field_id)
+
+    return normalized_fields
+
+
+def validate_work_form_answers(form: WorkForm, answers: dict):
+    fields = work_form_fields(form)
+    normalized_answers = {}
+
+    for field in fields:
+        field_id = field.get("id")
+        field_label = field.get("label") or field_id
+        field_type = field.get("type")
+        required = bool(field.get("required"))
+        raw_value = answers.get(field_id)
+
+        if field_type == "checkbox":
+            value = bool(raw_value)
+        elif raw_value is None:
+            value = ""
+        else:
+            value = str(raw_value).strip()
+
+        if required and (value == "" or value is False):
+            raise HTTPException(status_code=400, detail=f"{field_label} is required")
+
+        if field_type == "signature" and value:
+            validate_photo_url(value)
+
+        if field_type == "number" and value != "":
+            try:
+                value = float(value)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"{field_label} must be a number")
+
+        if field_type == "select" and value:
+            options = field.get("options") or []
+            if value not in options:
+                raise HTTPException(status_code=400, detail=f"{field_label} has an invalid option")
+
+        normalized_answers[field_id] = value
+
+    return normalized_answers
+
+
+def normalize_work_form_photo_urls(photo_urls: list[str]):
+    if len(photo_urls) > MAX_WORK_FORM_PHOTOS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Form submissions can include up to {MAX_WORK_FORM_PHOTOS} photos"
+        )
+
+    urls = [url for url in photo_urls if url]
+    for url in urls:
+        validate_photo_url(url)
     return urls
 
 
@@ -530,6 +763,26 @@ def seed_demo_data(session: Session = Depends(get_session)):
             site = Site(**site_data)
 
         session.add(site)
+
+    for form_data in DEMO_WORK_FORMS:
+        form = session.exec(
+            select(WorkForm).where(WorkForm.name == form_data["name"])
+        ).first()
+        fields_json = json.dumps(form_data["fields"])
+
+        if form:
+            form.description = form_data["description"]
+            form.fields_json = fields_json
+            form.status = "active"
+        else:
+            form = WorkForm(
+                name=form_data["name"],
+                description=form_data["description"],
+                fields_json=fields_json,
+                status="active"
+            )
+
+        session.add(form)
 
     session.commit()
 
@@ -722,6 +975,68 @@ def create_user(
         password=data.password,
         role=data.role
     )
+
+    return user_response(user)
+
+
+@app.patch("/supervisor/users/{user_id}")
+def update_user(
+    user_id: int,
+    data: UserUpdateRequest,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    require_confirmed(data.confirmed)
+    user = session.get(User, user_id)
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    fields = data.model_fields_set
+
+    if "email" in fields and data.email is not None:
+        email = data.email.strip().lower()
+        if "@" not in email:
+            raise HTTPException(status_code=400, detail="Enter a valid email address")
+        existing = session.exec(
+            select(User).where(User.email == email)
+        ).first()
+        if existing and existing.id != user.id:
+            raise HTTPException(status_code=409, detail="A user with this email already exists")
+        if user.id == supervisor.id and email != user.email:
+            raise HTTPException(status_code=400, detail="Sign out and use another supervisor to change your own email")
+        user.email = email
+
+    if "name" in fields and data.name is not None:
+        name = data.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Name is required")
+        user.name = name
+
+    if "role" in fields and data.role is not None:
+        role = data.role.strip().lower()
+        if role not in VALID_ROLES:
+            raise HTTPException(status_code=400, detail="Role must be worker or supervisor")
+        if user.id == supervisor.id and role != "supervisor":
+            raise HTTPException(status_code=400, detail="You cannot remove your own supervisor role")
+        user.role = role
+
+    if "status" in fields and data.status is not None:
+        status = data.status.strip().lower()
+        if status not in VALID_USER_STATUSES:
+            raise HTTPException(status_code=400, detail="status must be active or resigned")
+        if user.id == supervisor.id and status != "active":
+            raise HTTPException(status_code=400, detail="You cannot resign your own supervisor account")
+        user.status = status
+
+    if "password" in fields and data.password:
+        if len(data.password.encode("utf-8")) > 72:
+            raise HTTPException(status_code=400, detail="Password must be 72 bytes or shorter")
+        user.password_hash = hash_password(data.password)
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
 
     return user_response(user)
 
@@ -1068,6 +1383,162 @@ def delete_task_template(
     return {"message": "Task template deleted"}
 
 
+@app.get("/work-forms")
+def get_work_forms(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    statement = select(WorkForm).order_by(WorkForm.name)
+    if user.role == "worker":
+        statement = statement.where(WorkForm.status == "active")
+
+    forms = session.exec(statement).all()
+
+    return [
+        work_form_response(form)
+        for form in forms
+    ]
+
+
+@app.post("/supervisor/work-forms")
+def create_work_form(
+    data: WorkFormCreate,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    name = data.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Form name is required")
+
+    existing = session.exec(
+        select(WorkForm).where(WorkForm.name == name)
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="A form with this name already exists")
+
+    form = WorkForm(
+        name=name,
+        description=data.description.strip() if data.description else None,
+        fields_json=json.dumps(normalize_work_form_fields(data.fields)),
+        status="active",
+        created_by=supervisor.id
+    )
+    session.add(form)
+    session.commit()
+    session.refresh(form)
+
+    return work_form_response(form)
+
+
+@app.patch("/supervisor/work-forms/{form_id}")
+def update_work_form(
+    form_id: int,
+    data: WorkFormUpdate,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    require_confirmed(data.confirmed)
+    form = session.get(WorkForm, form_id)
+
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    fields = data.model_fields_set
+
+    if "name" in fields and data.name is not None:
+        name = data.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Form name is required")
+        existing = session.exec(
+            select(WorkForm).where(WorkForm.name == name)
+        ).first()
+        if existing and existing.id != form.id:
+            raise HTTPException(status_code=409, detail="A form with this name already exists")
+        form.name = name
+
+    if "description" in fields:
+        form.description = data.description.strip() if data.description else None
+
+    if "fields" in fields and data.fields is not None:
+        form.fields_json = json.dumps(normalize_work_form_fields(data.fields))
+
+    if "status" in fields and data.status is not None:
+        status = data.status.strip().lower()
+        if status not in VALID_WORK_FORM_STATUSES:
+            raise HTTPException(status_code=400, detail="status must be active or archived")
+        form.status = status
+
+    session.add(form)
+    session.commit()
+    session.refresh(form)
+
+    return work_form_response(form)
+
+
+@app.post("/form-submissions")
+def create_work_form_submission(
+    data: WorkFormSubmissionCreate,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    if user.role != "worker":
+        raise HTTPException(status_code=403, detail="Worker only")
+
+    form = session.get(WorkForm, data.form_id)
+    if not form or form.status != "active":
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    ensure_site_exists(session, data.site_id)
+    answers = validate_work_form_answers(form, data.answers)
+    photo_urls = normalize_work_form_photo_urls(data.photo_urls)
+
+    submission = WorkFormSubmission(
+        form_id=form.id,
+        worker_id=user.id,
+        site_id=data.site_id,
+        work_date=data.work_date,
+        answers_json=json.dumps(answers),
+        photo_urls=json.dumps(photo_urls) if photo_urls else None
+    )
+    session.add(submission)
+    session.commit()
+    session.refresh(submission)
+
+    return work_form_submission_response(submission, session)
+
+
+@app.get("/my-form-submissions")
+def get_my_form_submissions(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    records = session.exec(
+        select(WorkFormSubmission)
+        .where(WorkFormSubmission.worker_id == user.id)
+        .order_by(WorkFormSubmission.created_at.desc())
+    ).all()
+
+    return [
+        work_form_submission_response(record, session)
+        for record in records
+    ]
+
+
+@app.get("/supervisor/form-submissions")
+def get_supervisor_form_submissions(
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    records = session.exec(
+        select(WorkFormSubmission).order_by(WorkFormSubmission.created_at.desc())
+    ).all()
+
+    return [
+        work_form_submission_response(record, session)
+        for record in records
+    ]
+
+
 @app.get("/supervisor/pending-records")
 def get_pending_records(
     supervisor: User = Depends(require_supervisor),
@@ -1226,6 +1697,55 @@ def get_supervisor_task_logs(
         task_log_response(record, session)
         for record in records
     ]
+
+
+@app.get("/supervisor/task-logs/export.csv")
+def export_supervisor_task_logs_csv(
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    records = session.exec(
+        select(TaskLog).order_by(TaskLog.created_at.desc())
+    ).all()
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "id",
+        "worker_id",
+        "worker_name",
+        "site_id",
+        "site_name",
+        "work_date",
+        "hours_worked",
+        "description",
+        "safety_notes",
+        "photo_urls",
+        "created_at",
+    ])
+
+    for record in records:
+        item = task_log_response(record, session)
+        writer.writerow([
+            item["id"],
+            item["worker_id"],
+            item["worker_name"],
+            item["site_id"],
+            item["site_name"],
+            item["work_date"],
+            item["hours_worked"],
+            item["description"],
+            item["safety_notes"],
+            "; ".join(item["photo_urls"]),
+            item["created_at"],
+        ])
+
+    return Response(
+        output.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": 'attachment; filename="task-logs.csv"'
+        }
+    )
 
 
 @app.patch("/supervisor/task-logs/{log_id}")

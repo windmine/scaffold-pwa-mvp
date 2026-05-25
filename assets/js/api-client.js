@@ -152,6 +152,13 @@ export async function createUser(user) {
   });
 }
 
+export async function updateUser(userId, user) {
+  return await apiFetch(`/supervisor/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ ...user, confirmed: true })
+  });
+}
+
 export async function updateUserStatus(userId, status) {
   return await apiFetch(`/supervisor/users/${userId}/status`, {
     method: "POST",
@@ -282,6 +289,39 @@ export async function deleteTaskTemplate(templateId) {
   });
 }
 
+export async function getWorkForms() {
+  return await apiFetch("/work-forms");
+}
+
+export async function createWorkForm(form) {
+  return await apiFetch("/supervisor/work-forms", {
+    method: "POST",
+    body: JSON.stringify(form)
+  });
+}
+
+export async function updateWorkForm(formId, form) {
+  return await apiFetch(`/supervisor/work-forms/${formId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ ...form, confirmed: true })
+  });
+}
+
+export async function createFormSubmission(submission) {
+  return await apiFetch("/form-submissions", {
+    method: "POST",
+    body: JSON.stringify(submission)
+  });
+}
+
+export async function getMyFormSubmissions() {
+  return await apiFetch("/my-form-submissions");
+}
+
+export async function getSupervisorFormSubmissions() {
+  return await apiFetch("/supervisor/form-submissions");
+}
+
 export async function getPendingRecords() {
   return await apiFetch("/supervisor/pending-records");
 }
@@ -323,6 +363,35 @@ export async function exportSupervisorRecordsCsv(status = "") {
 
 export async function getSupervisorTaskLogs() {
   return await apiFetch("/supervisor/task-logs");
+}
+
+export async function exportSupervisorTaskLogsCsv() {
+  const token = getToken();
+  const headers = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/supervisor/task-logs/export.csv`, {
+      headers
+    });
+  } catch (error) {
+    throw new ApiError("Task-log CSV export failed. Check that FastAPI is running.", {
+      cause: error
+    });
+  }
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new ApiError(error.detail || "Task-log CSV export failed", {
+      status: res.status
+    });
+  }
+
+  return await res.blob();
 }
 
 export async function decideRecord(recordId, status) {

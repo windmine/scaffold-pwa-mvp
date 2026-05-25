@@ -21,6 +21,7 @@ import {
   getCurrentUser,
   getUsers as getBackendUsers,
   createUser as createBackendUser,
+  updateUser as updateBackendUser,
   updateUserStatus as updateBackendUserStatus,
   getSites as getBackendSites,
   createSite as createBackendSite,
@@ -35,9 +36,16 @@ import {
   getTaskTemplates as getBackendTaskTemplates,
   createTaskTemplate as createBackendTaskTemplate,
   deleteTaskTemplate as deleteBackendTaskTemplate,
+  getWorkForms as getBackendWorkForms,
+  createWorkForm as createBackendWorkForm,
+  updateWorkForm as updateBackendWorkForm,
+  createFormSubmission as createBackendFormSubmission,
+  getMyFormSubmissions as getBackendMyFormSubmissions,
+  getSupervisorFormSubmissions as getBackendSupervisorFormSubmissions,
   getSupervisorRecords as getBackendSupervisorRecords,
   exportSupervisorRecordsCsv,
   getSupervisorTaskLogs as getBackendSupervisorTaskLogs,
+  exportSupervisorTaskLogsCsv,
   decideRecord as decideBackendRecord,
   updateSupervisorRecord as updateBackendSupervisorRecord,
   updateSupervisorTaskLog as updateBackendSupervisorTaskLog,
@@ -56,6 +64,12 @@ const state = {
   attendancePhotoFile: null,
   taskPhotoFiles: [],
   taskPhotoDataUrls: [],
+  workForms: [],
+  workFormPhotoFiles: [],
+  workFormPhotoDataUrls: [],
+  submittingAttendance: false,
+  submittingTask: false,
+  submittingWorkForm: false,
   taskTemplates: [],
   historyRecords: [],
   staffUsers: [],
@@ -67,7 +81,8 @@ const state = {
   supervisorRecords: {
     pending: [],
     reviewed: [],
-    taskLogs: []
+    taskLogs: [],
+    formSubmissions: []
   }
 };
 
@@ -113,6 +128,15 @@ const els = {
   taskPhoto: document.getElementById('taskPhoto'),
   taskPhotoPreview: document.getElementById('taskPhotoPreview'),
   saveTaskDraftButton: document.getElementById('saveTaskDraftButton'),
+  submitTaskButton: document.getElementById('submitTaskButton'),
+  workFormSubmissionForm: document.getElementById('workFormSubmissionForm'),
+  workFormSelect: document.getElementById('workFormSelect'),
+  workFormSite: document.getElementById('workFormSite'),
+  workFormDate: document.getElementById('workFormDate'),
+  workFormFields: document.getElementById('workFormFields'),
+  workFormPhotos: document.getElementById('workFormPhotos'),
+  workFormPhotoPreview: document.getElementById('workFormPhotoPreview'),
+  submitWorkFormButton: document.getElementById('submitWorkFormButton'),
   taskTemplateSelect: document.getElementById('taskTemplateSelect'),
   taskTemplateNameInput: document.getElementById('taskTemplateNameInput'),
   applyTaskTemplateButton: document.getElementById('applyTaskTemplateButton'),
@@ -138,10 +162,13 @@ const els = {
   pendingApprovalsCount: document.getElementById('pendingApprovalsCount'),
   reviewedApprovalsCount: document.getElementById('reviewedApprovalsCount'),
   supervisorTaskLogsCount: document.getElementById('supervisorTaskLogsCount'),
+  workFormsCount: document.getElementById('workFormsCount'),
+  formSubmissionsCount: document.getElementById('formSubmissionsCount'),
   supervisorSitesCount: document.getElementById('supervisorSitesCount'),
   staffUsersCount: document.getElementById('staffUsersCount'),
   clearSupervisorFiltersButton: document.getElementById('clearSupervisorFiltersButton'),
   exportAttendanceButton: document.getElementById('exportAttendanceButton'),
+  exportTaskLogsButton: document.getElementById('exportTaskLogsButton'),
   staffUserForm: document.getElementById('staffUserForm'),
   staffNameInput: document.getElementById('staffNameInput'),
   staffEmailInput: document.getElementById('staffEmailInput'),
@@ -157,6 +184,12 @@ const els = {
   siteSearchInput: document.getElementById('siteSearchInput'),
   supervisorSitesList: document.getElementById('supervisorSitesList'),
   staffSearchInput: document.getElementById('staffSearchInput'),
+  workFormBuilderForm: document.getElementById('workFormBuilderForm'),
+  workFormNameInput: document.getElementById('workFormNameInput'),
+  workFormDescriptionInput: document.getElementById('workFormDescriptionInput'),
+  workFormFieldsInput: document.getElementById('workFormFieldsInput'),
+  workFormsList: document.getElementById('workFormsList'),
+  formSubmissionsList: document.getElementById('formSubmissionsList'),
   refreshSupervisorButton: document.getElementById('refreshSupervisorButton'),
   photoViewer: document.getElementById('photoViewer'),
   photoViewerImage: document.getElementById('photoViewerImage'),
@@ -173,6 +206,7 @@ async function init() {
   fillSiteSelects();
   const authRestoreMessage = await restoreBackendSession();
   els.taskDate.value = todayDateInput();
+  els.workFormDate.value = todayDateInput();
   await restoreDrafts();
   bindEvents();
   await syncQueueIfPossible(false);
@@ -223,6 +257,7 @@ function bindEvents() {
   els.registerForm.addEventListener('submit', handleRegister);
   els.logoutButton.addEventListener('click', handleLogout);
   els.captureLocationButton.addEventListener('click', handleCaptureLocation);
+  els.attendanceSite.addEventListener('change', renderLocationPreview);
   els.saveAttendanceDraftButton.addEventListener('click', persistAttendanceDraft);
   els.checkInButton.addEventListener('click', () => submitAttendance('check_in'));
   els.checkOutButton.addEventListener('click', () => submitAttendance('check_out'));
@@ -230,6 +265,9 @@ function bindEvents() {
   els.taskPhoto.addEventListener('change', handleTaskPhotoChange);
   els.taskForm.addEventListener('submit', handleTaskSubmit);
   els.saveTaskDraftButton.addEventListener('click', persistTaskDraft);
+  els.workFormSubmissionForm.addEventListener('submit', handleWorkFormSubmit);
+  els.workFormSelect.addEventListener('change', renderSelectedWorkForm);
+  els.workFormPhotos.addEventListener('change', handleWorkFormPhotoChange);
   els.applyTaskTemplateButton.addEventListener('click', applySelectedTaskTemplate);
   els.saveTaskTemplateButton.addEventListener('click', saveCurrentTaskTemplate);
   els.deleteTaskTemplateButton.addEventListener('click', deleteSelectedTaskTemplate);
@@ -257,8 +295,10 @@ function bindEvents() {
   });
   els.clearSupervisorFiltersButton.addEventListener('click', clearSupervisorFilters);
   els.exportAttendanceButton.addEventListener('click', handleExportAttendance);
+  els.exportTaskLogsButton.addEventListener('click', handleExportTaskLogs);
   els.staffUserForm.addEventListener('submit', handleStaffUserCreate);
   els.siteForm.addEventListener('submit', handleSiteCreate);
+  els.workFormBuilderForm.addEventListener('submit', handleWorkFormCreate);
   els.siteSearchInput.addEventListener('input', renderSupervisorSites);
   els.staffSearchInput.addEventListener('input', renderFilteredStaffUsers);
   els.cancelEditButton.addEventListener('click', closeEditPanel);
@@ -305,6 +345,7 @@ function fillSiteSelects() {
 
   els.attendanceSite.innerHTML = options;
   els.taskSite.innerHTML = options;
+  els.workFormSite.innerHTML = options;
 }
 
 function findSiteByFormValue(siteId) {
@@ -346,6 +387,7 @@ function renderApp() {
   if (state.user.role === 'worker') {
     showView('worker');
     refreshTaskTemplates();
+    refreshWorkForms();
     renderWorkerSummary();
     renderHistory();
   } else {
@@ -462,17 +504,48 @@ async function handleCaptureLocation() {
 
 function renderLocationPreview() {
   if (!state.attendanceLocation) {
-    els.locationPreview.textContent = 'No location captured yet.';
+    els.locationPreview.innerHTML = els.attendanceSite.value
+      ? 'No location captured yet.'
+      : 'Select a site and capture your current location.';
     return;
   }
+
   const loc = state.attendanceLocation;
+  const site = findSiteByFormValue(els.attendanceSite.value);
+  const siteCheck = getSiteDistanceCheck(site, loc);
+  const allowedRadius = site ? Number(site.allowed_radius_m || site.allowedRadiusM || 100) : null;
+  const radiusMessage = site && siteCheck.distanceFromSiteM != null
+    ? `
+      <br />
+      <strong>Site radius:</strong>
+      <span class="${siteCheck.withinSiteRadius ? 'site-inside' : 'site-outside'}">
+        ${siteCheck.withinSiteRadius ? 'Inside' : 'Outside'} - ${siteCheck.distanceFromSiteM}m from ${escapeHtml(site.name)} (${allowedRadius}m allowed)
+      </span>
+    `
+    : '<br /><strong>Site radius:</strong> Select a site to check distance before submitting.';
+
   els.locationPreview.innerHTML = `
     <strong>Captured location</strong><br />
     Latitude: ${loc.latitude}<br />
     Longitude: ${loc.longitude}<br />
     Accuracy: ${loc.accuracy}m<br />
     Time: ${formatDateTime(loc.capturedAt)}
+    ${radiusMessage}
   `;
+}
+
+function setAttendanceSubmitting(isSubmitting) {
+  state.submittingAttendance = isSubmitting;
+  els.checkInButton.disabled = isSubmitting;
+  els.checkOutButton.disabled = isSubmitting;
+  els.captureLocationButton.disabled = isSubmitting;
+  els.saveAttendanceDraftButton.disabled = isSubmitting;
+}
+
+function setTaskSubmitting(isSubmitting) {
+  state.submittingTask = isSubmitting;
+  els.submitTaskButton.disabled = isSubmitting;
+  els.saveTaskDraftButton.disabled = isSubmitting;
 }
 
 async function handleAttendancePhotoChange(event) {
@@ -782,18 +855,74 @@ function fromBackendTaskLogRecord(record) {
   };
 }
 
+function formAnswerSummary(record) {
+  const answers = record.answers || {};
+  const fields = record.fields || [];
+  const entries = fields.length
+    ? fields.map((field) => [field.label || field.id, answers[field.id], field.type])
+    : Object.entries(answers).map(([label, value]) => [label, value, '']);
+
+  return entries
+    .filter(([, value]) => value !== '' && value != null && value !== false)
+    .map(([label, value, type]) => `${label}: ${type === 'signature' ? 'Signed' : value === true ? 'Yes' : value}`)
+    .join(' | ');
+}
+
+function signatureImageSources(record) {
+  const answers = record.answers || {};
+  return (record.fields || [])
+    .filter((field) => field.type === 'signature' && answers[field.id])
+    .map((field) => ({
+      label: field.label || 'Signature',
+      src: answers[field.id]
+    }));
+}
+
+function fromBackendFormSubmissionRecord(record) {
+  const site = state.sites.find((item) => getBackendSiteId(item.id) === record.site_id);
+
+  return {
+    id: `form-${record.id}`,
+    backendRecordId: record.id,
+    type: 'form',
+    formId: record.form_id,
+    formName: record.form_name || `Form ${record.form_id}`,
+    fields: record.fields || [],
+    answers: record.answers || {},
+    userId: record.worker_id,
+    userName: record.worker_name || `Worker ${record.worker_id}`,
+    siteId: record.site_id,
+    siteName: record.site_name || site?.name || (record.site_id ? `Site ${record.site_id}` : 'Unassigned site'),
+    workDate: record.work_date || '',
+    summary: '',
+    safetyNotes: '',
+    photoDataUrls: [],
+    photoUrl: record.photo_urls?.[0] || '',
+    photoUrls: record.photo_urls || [],
+    createdAt: record.created_at,
+    syncStatus: 'synced',
+    status: record.status || 'submitted',
+    source: 'backend'
+  };
+}
+
 async function getWorkerHistoryRecords() {
   try {
-    const [attendanceRecords, taskLogs, localRecords] = await Promise.all([
+    const [attendanceRecords, taskLogs, formSubmissions, localRecords] = await Promise.all([
       getBackendMyAttendanceRecords(),
       getBackendMyTaskLogs(),
+      getBackendMyFormSubmissions(),
       getLocalWorkerRecords(state.user.id)
     ]);
 
     const queuedLocalRecords = localRecords.filter((record) => record.syncStatus === 'queued');
     return attendanceRecords
       .map(fromBackendAttendanceRecord)
-      .concat(taskLogs.map(fromBackendTaskLogRecord), queuedLocalRecords)
+      .concat(
+        taskLogs.map(fromBackendTaskLogRecord),
+        formSubmissions.map(fromBackendFormSubmissionRecord),
+        queuedLocalRecords
+      )
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   } catch (error) {
     if (error.status === 401 || error.status === 403) {
@@ -826,59 +955,66 @@ async function submitAttendance(action) {
     return;
   }
 
-  const localRecord = {
-    id: uuid(),
-    type: 'attendance',
-    userId: state.user.id,
-    userName: state.user.fullName,
-    siteId: site.id,
-    siteName: site.name,
-    action,
-    notes: els.attendanceNotes.value.trim(),
-    photoDataUrl: state.attendancePhotoDataUrl,
-    location: state.attendanceLocation,
-    createdAt: new Date().toISOString()
-  };
-  Object.assign(localRecord, getSiteDistanceCheck(site, localRecord.location));
+  if (state.submittingAttendance) return;
+  setAttendanceSubmitting(true);
 
-  let successMessage = `${action === 'check_in' ? 'Check in' : 'Check out'} saved offline and queued for later sync.`;
-  let offlineStatus = true;
+  try {
+    const localRecord = {
+      id: uuid(),
+      type: 'attendance',
+      userId: state.user.id,
+      userName: state.user.fullName,
+      siteId: site.id,
+      siteName: site.name,
+      action,
+      notes: els.attendanceNotes.value.trim(),
+      photoDataUrl: state.attendancePhotoDataUrl,
+      location: state.attendanceLocation,
+      createdAt: new Date().toISOString()
+    };
+    Object.assign(localRecord, getSiteDistanceCheck(site, localRecord.location));
 
-  if (navigator.onLine) {
-    try {
-      await uploadRecordPhoto(localRecord, state.attendancePhotoFile);
-      const backendRecord = await createBackendAttendance(toBackendAttendancePayload(localRecord));
-      localRecord.syncStatus = 'synced';
-      localRecord.backendRecordId = backendRecord.id;
-      localRecord.status = backendRecord.status || 'pending';
-      localRecord.distanceFromSiteM = backendRecord.distance_from_site_m;
-      localRecord.withinSiteRadius = backendRecord.within_site_radius;
-      localRecord.syncedAt = new Date().toISOString();
-      successMessage = `${action === 'check_in' ? 'Check in' : 'Check out'} saved to the backend and marked ready for supervisor review.`;
-      offlineStatus = false;
-    } catch (error) {
-      if (error.status === 401 || error.status === 403) {
-        renderStatusBanner('Your backend session expired. Please sign in again.');
-        return;
+    let successMessage = `${action === 'check_in' ? 'Check in' : 'Check out'} saved offline and queued for later sync.`;
+    let offlineStatus = true;
+
+    if (navigator.onLine) {
+      try {
+        await uploadRecordPhoto(localRecord, state.attendancePhotoFile);
+        const backendRecord = await createBackendAttendance(toBackendAttendancePayload(localRecord));
+        localRecord.syncStatus = 'synced';
+        localRecord.backendRecordId = backendRecord.id;
+        localRecord.status = backendRecord.status || 'pending';
+        localRecord.distanceFromSiteM = backendRecord.distance_from_site_m;
+        localRecord.withinSiteRadius = backendRecord.within_site_radius;
+        localRecord.syncedAt = new Date().toISOString();
+        successMessage = `${action === 'check_in' ? 'Check in' : 'Check out'} saved to the backend and marked ready for supervisor review.`;
+        offlineStatus = false;
+      } catch (error) {
+        if (error.status === 401 || error.status === 403) {
+          renderStatusBanner('Your backend session expired. Please sign in again.');
+          return;
+        }
+
+        localRecord.syncStatus = 'queued';
+        localRecord.syncError = error.message || 'Backend sync failed';
+        successMessage = `${action === 'check_in' ? 'Check in' : 'Check out'} saved locally. Backend sync will retry when you reconnect.`;
+        offlineStatus = true;
       }
-
+    } else {
       localRecord.syncStatus = 'queued';
-      localRecord.syncError = error.message || 'Backend sync failed';
-      successMessage = `${action === 'check_in' ? 'Check in' : 'Check out'} saved locally. Backend sync will retry when you reconnect.`;
-      offlineStatus = true;
     }
-  } else {
-    localRecord.syncStatus = 'queued';
+
+    await createAttendanceRecord(localRecord);
+
+    await clearDraft('attendance-form');
+    resetAttendanceForm();
+    await syncQueueIfPossible(true);
+    renderStatusBanner(successMessage, offlineStatus);
+    renderWorkerSummary();
+    renderHistory();
+  } finally {
+    setAttendanceSubmitting(false);
   }
-
-  await createAttendanceRecord(localRecord);
-
-  await clearDraft('attendance-form');
-  resetAttendanceForm();
-  await syncQueueIfPossible(true);
-  renderStatusBanner(successMessage, offlineStatus);
-  renderWorkerSummary();
-  renderHistory();
 }
 
 function resetAttendanceForm() {
@@ -906,61 +1042,68 @@ async function handleTaskSubmit(event) {
     return;
   }
 
-  const localRecord = {
-    id: uuid(),
-    type: 'task',
-    userId: state.user.id,
-    userName: state.user.fullName,
-    siteId: site.id,
-    siteName: site.name,
-    workDate: els.taskDate.value,
-    hoursWorked: els.taskHours.value,
-    summary: els.taskSummary.value.trim(),
-    safetyNotes: els.taskSafety.value.trim(),
-    photoDataUrl: state.taskPhotoDataUrls[0] || '',
-    photoDataUrls: state.taskPhotoDataUrls,
-    photoUrls: [],
-    createdAt: new Date().toISOString()
-  };
+  if (state.submittingTask) return;
+  setTaskSubmitting(true);
 
-  let successMessage = 'Task log saved offline and queued for later sync.';
-  let offlineStatus = true;
+  try {
+    const localRecord = {
+      id: uuid(),
+      type: 'task',
+      userId: state.user.id,
+      userName: state.user.fullName,
+      siteId: site.id,
+      siteName: site.name,
+      workDate: els.taskDate.value,
+      hoursWorked: els.taskHours.value,
+      summary: els.taskSummary.value.trim(),
+      safetyNotes: els.taskSafety.value.trim(),
+      photoDataUrl: state.taskPhotoDataUrls[0] || '',
+      photoDataUrls: state.taskPhotoDataUrls,
+      photoUrls: [],
+      createdAt: new Date().toISOString()
+    };
 
-  if (navigator.onLine) {
-    try {
-      await uploadRecordPhotos(localRecord, state.taskPhotoFiles);
-      const backendLog = await createBackendTaskLog(toBackendTaskLogPayload(localRecord));
-      localRecord.syncStatus = 'synced';
-      localRecord.backendRecordId = backendLog.id;
-      localRecord.status = backendLog.status || 'logged';
-      localRecord.photoUrls = backendLog.photo_urls || localRecord.photoUrls;
-      localRecord.photoUrl = backendLog.photo_url || localRecord.photoUrl;
-      localRecord.syncedAt = new Date().toISOString();
-      successMessage = 'Task log saved to the backend.';
-      offlineStatus = false;
-    } catch (error) {
-      if (error.status === 401 || error.status === 403) {
-        renderStatusBanner('Your backend session expired. Please sign in again.');
-        return;
+    let successMessage = 'Task log saved offline and queued for later sync.';
+    let offlineStatus = true;
+
+    if (navigator.onLine) {
+      try {
+        await uploadRecordPhotos(localRecord, state.taskPhotoFiles);
+        const backendLog = await createBackendTaskLog(toBackendTaskLogPayload(localRecord));
+        localRecord.syncStatus = 'synced';
+        localRecord.backendRecordId = backendLog.id;
+        localRecord.status = backendLog.status || 'logged';
+        localRecord.photoUrls = backendLog.photo_urls || localRecord.photoUrls;
+        localRecord.photoUrl = backendLog.photo_url || localRecord.photoUrl;
+        localRecord.syncedAt = new Date().toISOString();
+        successMessage = 'Task log saved to the backend.';
+        offlineStatus = false;
+      } catch (error) {
+        if (error.status === 401 || error.status === 403) {
+          renderStatusBanner('Your backend session expired. Please sign in again.');
+          return;
+        }
+
+        localRecord.syncStatus = 'queued';
+        localRecord.syncError = error.message || 'Backend sync failed';
+        successMessage = 'Task log saved locally. Backend sync will retry when you reconnect.';
+        offlineStatus = true;
       }
-
+    } else {
       localRecord.syncStatus = 'queued';
-      localRecord.syncError = error.message || 'Backend sync failed';
-      successMessage = 'Task log saved locally. Backend sync will retry when you reconnect.';
-      offlineStatus = true;
     }
-  } else {
-    localRecord.syncStatus = 'queued';
+
+    await createLocalTaskLog(localRecord);
+
+    await clearDraft('task-form');
+    resetTaskForm();
+    await syncQueueIfPossible(true);
+    renderStatusBanner(successMessage, offlineStatus);
+    renderWorkerSummary();
+    renderHistory();
+  } finally {
+    setTaskSubmitting(false);
   }
-
-  await createLocalTaskLog(localRecord);
-
-  await clearDraft('task-form');
-  resetTaskForm();
-  await syncQueueIfPossible(true);
-  renderStatusBanner(successMessage, offlineStatus);
-  renderWorkerSummary();
-  renderHistory();
 }
 
 function resetTaskForm() {
@@ -973,6 +1116,278 @@ function resetTaskForm() {
   state.taskPhotoDataUrls = [];
   state.taskPhotoFiles = [];
   renderPhotoPreviews(els.taskPhotoPreview, [], 'Task photo');
+}
+
+async function refreshWorkForms() {
+  if (!state.user) return;
+
+  try {
+    state.workForms = await getBackendWorkForms();
+    renderWorkFormOptions();
+    renderSelectedWorkForm();
+    if (state.user.role === 'supervisor') {
+      renderWorkFormsList();
+    }
+  } catch (error) {
+    state.workForms = [];
+    renderWorkFormOptions();
+    if (state.user.role === 'worker') {
+      renderStatusBanner(error.message || 'Could not load work forms.', true);
+    }
+  }
+}
+
+function renderWorkFormOptions() {
+  const selectedValue = els.workFormSelect.value;
+  const options = ['<option value="">Select a form</option>']
+    .concat(
+      state.workForms
+        .filter((form) => form.status === 'active')
+        .map((form) => `<option value="${form.id}">${escapeHtml(form.name)}</option>`)
+    )
+    .join('');
+
+  els.workFormSelect.innerHTML = options;
+  els.workFormSelect.value = state.workForms.some((form) => String(form.id) === selectedValue && form.status === 'active')
+    ? selectedValue
+    : '';
+}
+
+function selectedWorkForm() {
+  return state.workForms.find((form) => String(form.id) === String(els.workFormSelect.value));
+}
+
+function fieldInputId(field) {
+  return `workFormField_${field.id}`;
+}
+
+function renderSelectedWorkForm() {
+  const form = selectedWorkForm();
+
+  if (!form) {
+    els.workFormFields.innerHTML = '<div class="empty-state">Select a form to show its fields.</div>';
+    return;
+  }
+
+  els.workFormFields.innerHTML = (form.fields || []).map((field) => {
+    const required = field.required ? ' required' : '';
+    const label = `${field.label}${field.required ? ' *' : ''}`;
+
+    if (field.type === 'textarea') {
+      return `
+        <label>
+          ${escapeHtml(label)}
+          <textarea id="${fieldInputId(field)}" rows="4"${required}></textarea>
+        </label>
+      `;
+    }
+
+    if (field.type === 'select') {
+      return `
+        <label>
+          ${escapeHtml(label)}
+          <select id="${fieldInputId(field)}"${required}>
+            <option value="">Select</option>
+            ${(field.options || []).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join('')}
+          </select>
+        </label>
+      `;
+    }
+
+    if (field.type === 'checkbox') {
+      return `
+        <label class="checkbox-field">
+          <input id="${fieldInputId(field)}" type="checkbox" />
+          <span>${escapeHtml(label)}</span>
+        </label>
+      `;
+    }
+
+    if (field.type === 'signature') {
+      return `
+        <div class="signature-field" data-signature-field="${escapeHtml(field.id)}" data-signature-required="${field.required ? 'true' : 'false'}">
+          <div class="signature-toolbar">
+            <strong>${escapeHtml(label)}</strong>
+            <button type="button" class="ghost" data-signature-clear="${escapeHtml(field.id)}">Clear</button>
+          </div>
+          <canvas id="${fieldInputId(field)}" class="signature-canvas" width="720" height="220" data-signature-canvas="${escapeHtml(field.id)}" aria-label="${escapeHtml(label)}"></canvas>
+          <p class="muted">Write your signature inside the box.</p>
+        </div>
+      `;
+    }
+
+    const inputType = field.type === 'number' || field.type === 'date' ? field.type : 'text';
+    const step = field.type === 'number' ? ' step="0.01"' : '';
+    return `
+      <label>
+        ${escapeHtml(label)}
+        <input id="${fieldInputId(field)}" type="${inputType}"${step}${required} />
+      </label>
+    `;
+  }).join('');
+  setupSignaturePads();
+}
+
+function resetSignatureCanvas(canvas) {
+  const context = canvas.getContext('2d');
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.strokeStyle = '#111111';
+  context.lineWidth = 4;
+  context.lineCap = 'round';
+  context.lineJoin = 'round';
+  canvas.dataset.signed = 'false';
+}
+
+function signaturePoint(canvas, event) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left) * (canvas.width / rect.width),
+    y: (event.clientY - rect.top) * (canvas.height / rect.height)
+  };
+}
+
+function setupSignaturePads() {
+  els.workFormFields.querySelectorAll('[data-signature-canvas]').forEach((canvas) => {
+    resetSignatureCanvas(canvas);
+    let drawing = false;
+    let lastPoint = null;
+
+    canvas.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      drawing = true;
+      lastPoint = signaturePoint(canvas, event);
+      canvas.setPointerCapture?.(event.pointerId);
+    });
+
+    canvas.addEventListener('pointermove', (event) => {
+      if (!drawing || !lastPoint) return;
+      event.preventDefault();
+      const point = signaturePoint(canvas, event);
+      const context = canvas.getContext('2d');
+      context.beginPath();
+      context.moveTo(lastPoint.x, lastPoint.y);
+      context.lineTo(point.x, point.y);
+      context.stroke();
+      canvas.dataset.signed = 'true';
+      lastPoint = point;
+    });
+
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach((eventName) => {
+      canvas.addEventListener(eventName, () => {
+        drawing = false;
+        lastPoint = null;
+      });
+    });
+  });
+
+  els.workFormFields.querySelectorAll('[data-signature-clear]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const canvas = Array.from(els.workFormFields.querySelectorAll('[data-signature-canvas]'))
+        .find((item) => item.dataset.signatureCanvas === button.dataset.signatureClear);
+      if (canvas) resetSignatureCanvas(canvas);
+    });
+  });
+}
+
+async function uploadSignatureAnswer(form, field) {
+  const canvas = document.getElementById(fieldInputId(field));
+  if (!canvas || canvas.dataset.signed !== 'true') {
+    if (field.required) {
+      throw new Error(`${field.label} is required.`);
+    }
+    return '';
+  }
+
+  const dataUrl = canvas.toDataURL('image/png');
+  const uploaded = await uploadPhoto(
+    dataUrlToBlob(dataUrl),
+    `signature-${state.user.id}-${form.id}-${field.id}-${Date.now()}.png`
+  );
+  return uploaded.url;
+}
+
+async function collectWorkFormAnswers(form) {
+  const answers = {};
+
+  for (const field of form.fields || []) {
+    const input = document.getElementById(fieldInputId(field));
+    if (field.type === 'signature') {
+      answers[field.id] = await uploadSignatureAnswer(form, field);
+      continue;
+    }
+    if (!input) continue;
+    answers[field.id] = field.type === 'checkbox' ? input.checked : input.value;
+  }
+
+  return answers;
+}
+
+async function handleWorkFormPhotoChange(event) {
+  const selectedFiles = Array.from(event.target.files || []);
+  const files = selectedFiles.slice(0, MAX_TASK_LOG_PHOTOS);
+  state.workFormPhotoFiles = files;
+  state.workFormPhotoDataUrls = await Promise.all(files.map((file) => fileToDataUrl(file)));
+  renderPhotoPreviews(els.workFormPhotoPreview, state.workFormPhotoDataUrls, 'Form photo');
+
+  if (selectedFiles.length > MAX_TASK_LOG_PHOTOS) {
+    renderStatusBanner(`Form submissions can include up to ${MAX_TASK_LOG_PHOTOS} photos. The first ${MAX_TASK_LOG_PHOTOS} were kept.`, true);
+  }
+}
+
+function setWorkFormSubmitting(isSubmitting) {
+  state.submittingWorkForm = isSubmitting;
+  els.submitWorkFormButton.disabled = isSubmitting;
+}
+
+async function handleWorkFormSubmit(event) {
+  event.preventDefault();
+  if (!state.user || state.submittingWorkForm) return;
+
+  const form = selectedWorkForm();
+  if (!form) {
+    renderStatusBanner('Choose a form first.', true);
+    return;
+  }
+
+  setWorkFormSubmitting(true);
+  try {
+    const localRecord = {
+      id: uuid(),
+      type: 'form',
+      formId: form.id,
+      formName: form.name,
+      siteId: getBackendSiteId(els.workFormSite.value),
+      workDate: els.workFormDate.value || null,
+      answers: await collectWorkFormAnswers(form),
+      photoDataUrls: state.workFormPhotoDataUrls,
+      photoUrls: [],
+      createdAt: new Date().toISOString()
+    };
+
+    await uploadRecordPhotos(localRecord, state.workFormPhotoFiles);
+    await createBackendFormSubmission({
+      form_id: form.id,
+      site_id: localRecord.siteId,
+      work_date: localRecord.workDate,
+      answers: localRecord.answers,
+      photo_urls: localRecord.photoUrls
+    });
+
+    els.workFormSubmissionForm.reset();
+    els.workFormDate.value = todayDateInput();
+    state.workFormPhotoFiles = [];
+    state.workFormPhotoDataUrls = [];
+    renderPhotoPreviews(els.workFormPhotoPreview, [], 'Form photo');
+    renderSelectedWorkForm();
+    renderStatusBanner('Form submitted.');
+    await renderHistory();
+  } catch (error) {
+    renderStatusBanner(error.message || 'Could not submit form.', true);
+  } finally {
+    setWorkFormSubmitting(false);
+  }
 }
 
 async function refreshTaskTemplates() {
@@ -1098,11 +1513,13 @@ function recordSearchText(record) {
     record.distanceFromSiteM,
     record.userName,
     record.siteName,
+    record.formName,
     record.notes,
     record.summary,
     record.safetyNotes,
     record.workDate,
-    record.hoursWorked
+    record.hoursWorked,
+    formAnswerSummary(record)
   ].join(' ').toLowerCase();
 }
 
@@ -1162,17 +1579,20 @@ async function renderSupervisorPanel() {
   let pending;
   let reviewed;
   let taskLogs;
+  let formSubmissions;
   let usingBackend = false;
 
   try {
-    const [attendanceRecords, backendTaskLogs] = await Promise.all([
+    const [attendanceRecords, backendTaskLogs, backendFormSubmissions] = await Promise.all([
       getBackendSupervisorRecords(),
-      getBackendSupervisorTaskLogs()
+      getBackendSupervisorTaskLogs(),
+      getBackendSupervisorFormSubmissions()
     ]);
     const records = attendanceRecords.map(fromBackendAttendanceRecord);
     pending = records.filter((record) => record.status === 'pending');
     reviewed = records.filter((record) => record.status === 'approved' || record.status === 'rejected');
     taskLogs = backendTaskLogs.map(fromBackendTaskLogRecord);
+    formSubmissions = backendFormSubmissions.map(fromBackendFormSubmissionRecord);
     usingBackend = true;
   } catch (error) {
     if (error.status === 401 || error.status === 403) {
@@ -1186,6 +1606,7 @@ async function renderSupervisorPanel() {
     pending = await getPendingApprovals();
     reviewed = await getReviewedApprovals();
     taskLogs = await getTaskLogRecords();
+    formSubmissions = [];
     renderStatusBanner('Backend approvals are unreachable. Showing records saved on this device only.', true);
   }
 
@@ -1194,27 +1615,31 @@ async function renderSupervisorPanel() {
     <div class="summary-item"><span>Pending approvals</span><strong>${pending.length}</strong></div>
     <div class="summary-item"><span>Reviewed records</span><strong>${reviewed.length}</strong></div>
     <div class="summary-item"><span>Task logs</span><strong>${taskLogs.length}</strong></div>
+    <div class="summary-item"><span>Form submissions</span><strong>${formSubmissions.length}</strong></div>
     <div class="summary-item"><span>Source</span><strong>${usingBackend ? 'Backend' : 'This device'}</strong></div>
   `;
-  state.supervisorRecords = { pending, reviewed, taskLogs };
+  state.supervisorRecords = { pending, reviewed, taskLogs, formSubmissions };
   renderFilteredSupervisorLists();
   renderSupervisorSites();
+  await refreshWorkForms();
   await renderStaffUsers();
 }
 
 function renderFilteredSupervisorLists() {
-  const { pending, reviewed, taskLogs } = state.supervisorRecords;
+  const { pending, reviewed, taskLogs, formSubmissions } = state.supervisorRecords;
   const filters = getSupervisorFilters();
   const filteredPending = filterRecords(pending, filters);
   const filteredReviewed = filterRecords(reviewed, filters);
   const filteredTaskLogs = filterRecords(taskLogs, filters);
-  const total = pending.length + reviewed.length + taskLogs.length;
-  const filteredTotal = filteredPending.length + filteredReviewed.length + filteredTaskLogs.length;
+  const filteredFormSubmissions = filterRecords(formSubmissions, filters);
+  const total = pending.length + reviewed.length + taskLogs.length + formSubmissions.length;
+  const filteredTotal = filteredPending.length + filteredReviewed.length + filteredTaskLogs.length + filteredFormSubmissions.length;
 
   els.supervisorResultCount.textContent = `${filteredTotal}/${total}`;
   els.pendingApprovalsCount.textContent = `${filteredPending.length}/${pending.length}`;
   els.reviewedApprovalsCount.textContent = `${filteredReviewed.length}/${reviewed.length}`;
   els.supervisorTaskLogsCount.textContent = `${filteredTaskLogs.length}/${taskLogs.length}`;
+  els.formSubmissionsCount.textContent = `${filteredFormSubmissions.length}/${formSubmissions.length}`;
   renderRecordsList(els.pendingApprovalsList, filteredPending, {
     showDecisionActions: true,
     showEditActions: true
@@ -1225,6 +1650,7 @@ function renderFilteredSupervisorLists() {
   renderRecordsList(els.supervisorTaskLogsList, filteredTaskLogs, {
     showEditActions: true
   });
+  renderRecordsList(els.formSubmissionsList, filteredFormSubmissions);
 }
 
 function clearSupervisorFilters() {
@@ -1329,6 +1755,14 @@ function renderFilteredStaffUsers() {
       <div class="record-actions"></div>
     `;
     const actions = node.querySelector('.record-actions');
+    const editButton = document.createElement('button');
+    editButton.type = 'button';
+    editButton.className = 'ghost';
+    editButton.textContent = 'Edit user';
+    editButton.addEventListener('click', async () => {
+      await handleStaffUserEdit(user);
+    });
+
     const statusButton = document.createElement('button');
     statusButton.type = 'button';
     statusButton.className = status === 'active' ? 'secondary' : '';
@@ -1336,8 +1770,164 @@ function renderFilteredStaffUsers() {
     statusButton.addEventListener('click', async () => {
       await handleUserStatusChange(user, status === 'active' ? 'resigned' : 'active');
     });
-    actions.append(statusButton);
+    actions.append(editButton, statusButton);
     els.staffUsersList.appendChild(node);
+  });
+}
+
+function parseWorkFormFieldsInput(value) {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      const [typeRaw, labelRaw, requiredRaw = '', optionsRaw = ''] = line.split('|').map((part) => part.trim());
+      const label = labelRaw || `Field ${index + 1}`;
+      const id = label
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '') || `field_${index + 1}`;
+
+      return {
+        id,
+        label,
+        type: (typeRaw || 'text').toLowerCase(),
+        required: requiredRaw.toLowerCase() === 'required',
+        options: optionsRaw
+          ? optionsRaw.split(',').map((option) => option.trim()).filter(Boolean)
+          : []
+      };
+    });
+}
+
+function serialiseWorkFormFields(fields = []) {
+  return fields.map((field) => {
+    const parts = [field.type || 'text', field.label || field.id || 'Field'];
+    const options = field.options || [];
+
+    if (field.required || options.length) {
+      parts.push(field.required ? 'required' : '');
+    }
+    if (options.length) {
+      parts.push(options.join(','));
+    }
+
+    return parts.join('|');
+  }).join('\n');
+}
+
+async function handleWorkFormCreate(event) {
+  event.preventDefault();
+
+  const fields = parseWorkFormFieldsInput(els.workFormFieldsInput.value);
+  if (!fields.length) {
+    renderStatusBanner('Add at least one form field.', true);
+    return;
+  }
+
+  try {
+    await createBackendWorkForm({
+      name: els.workFormNameInput.value.trim(),
+      description: els.workFormDescriptionInput.value.trim() || null,
+      fields
+    });
+    els.workFormBuilderForm.reset();
+    renderStatusBanner('Work form created.');
+    await refreshWorkForms();
+  } catch (error) {
+    renderStatusBanner(error.message || 'Could not create work form.', true);
+  }
+}
+
+async function handleWorkFormEdit(form) {
+  showEditPanel(
+    `Edit work form: ${form.name}`,
+    [
+      { id: 'editWorkFormName', label: 'Form name', value: form.name },
+      { id: 'editWorkFormDescription', label: 'Description', value: form.description || '' },
+      {
+        id: 'editWorkFormFields',
+        label: 'Fields',
+        type: 'textarea',
+        rows: 7,
+        value: serialiseWorkFormFields(form.fields || [])
+      }
+    ],
+    'Save form',
+    async () => {
+      if (!window.confirm(`Double check: save changes to form "${form.name}"?`)) return;
+      const fields = parseWorkFormFieldsInput(editValue('editWorkFormFields'));
+      if (!fields.length) {
+        renderStatusBanner('Add at least one form field.', true);
+        return;
+      }
+
+      try {
+        await updateBackendWorkForm(form.id, {
+          name: editValue('editWorkFormName'),
+          description: editValue('editWorkFormDescription') || null,
+          fields
+        });
+        closeEditPanel();
+        renderStatusBanner('Work form updated.');
+        await refreshWorkForms();
+      } catch (error) {
+        renderStatusBanner(error.message || 'Could not update work form.', true);
+      }
+    }
+  );
+}
+
+function renderWorkFormsList() {
+  els.workFormsList.innerHTML = '';
+  els.workFormsCount.textContent = String(state.workForms.length);
+
+  if (!state.workForms.length) {
+    els.workFormsList.innerHTML = '<div class="empty-state">No forms found yet.</div>';
+    return;
+  }
+
+  state.workForms.forEach((form) => {
+    const node = document.createElement('article');
+    node.className = 'record-card record-form';
+    node.innerHTML = `
+      <div class="record-header">
+        <div>
+          <h3 class="record-title">${escapeHtml(form.name)}</h3>
+          <p class="record-meta">${escapeHtml(form.description || 'No description')}</p>
+        </div>
+        <span class="badge ${form.status === 'active' ? 'synced' : 'rejected'}">${escapeHtml(form.status)}</span>
+      </div>
+      <p class="record-detail">${escapeHtml((form.fields || []).map((field) => field.label).join(' | '))}</p>
+      <div class="record-actions"></div>
+    `;
+
+    const editButton = document.createElement('button');
+    editButton.type = 'button';
+    editButton.className = 'ghost';
+    editButton.textContent = 'Edit';
+    editButton.addEventListener('click', async () => {
+      await handleWorkFormEdit(form);
+    });
+
+    const statusButton = document.createElement('button');
+    statusButton.type = 'button';
+    statusButton.className = form.status === 'active' ? 'secondary' : '';
+    statusButton.textContent = form.status === 'active' ? 'Archive' : 'Activate';
+    statusButton.addEventListener('click', async () => {
+      const nextStatus = form.status === 'active' ? 'archived' : 'active';
+      if (!window.confirm(`Double check: ${nextStatus === 'archived' ? 'archive' : 'activate'} "${form.name}"?`)) return;
+      try {
+        await updateBackendWorkForm(form.id, { status: nextStatus });
+        renderStatusBanner(nextStatus === 'active' ? 'Work form activated.' : 'Work form archived.');
+        await refreshWorkForms();
+      } catch (error) {
+        renderStatusBanner(error.message || 'Could not update work form.', true);
+      }
+    });
+
+    node.querySelector('.record-actions').append(editButton, statusButton);
+    els.workFormsList.appendChild(node);
   });
 }
 
@@ -1383,6 +1973,71 @@ async function handleUserStatusChange(user, status) {
   } catch (error) {
     renderStatusBanner(error.message || 'Could not update worker status.', true);
   }
+}
+
+async function handleStaffUserEdit(user) {
+  showEditPanel(
+    `Edit user: ${user.name}`,
+    [
+      { id: 'editUserName', label: 'Name', value: user.name || '' },
+      { id: 'editUserEmail', label: 'Email', type: 'email', value: user.email || '' },
+      {
+        id: 'editUserRole',
+        label: 'Role',
+        type: 'select',
+        value: user.role || 'worker',
+        options: [
+          { value: 'worker', label: 'Worker' },
+          { value: 'supervisor', label: 'Supervisor' }
+        ]
+      },
+      {
+        id: 'editUserStatus',
+        label: 'Status',
+        type: 'select',
+        value: user.status || 'active',
+        options: [
+          { value: 'active', label: 'Active' },
+          { value: 'resigned', label: 'Resigned' }
+        ]
+      },
+      { id: 'editUserPassword', label: 'New password (optional)', type: 'password', value: '' }
+    ],
+    'Save user',
+    async () => {
+      if (!window.confirm(`Double check: save changes to user "${user.email}"?`)) return;
+
+      const newPassword = editValue('editUserPassword');
+      const payload = {
+        name: editValue('editUserName'),
+        email: editValue('editUserEmail'),
+        role: editValue('editUserRole'),
+        status: editValue('editUserStatus')
+      };
+
+      if (newPassword) {
+        payload.password = newPassword;
+      }
+
+      try {
+        const updated = await updateBackendUser(user.id, payload);
+        if (state.user?.id === updated.id) {
+          state.user = {
+            ...state.user,
+            name: updated.name,
+            fullName: updated.name,
+            role: updated.role,
+            status: updated.status
+          };
+        }
+        closeEditPanel();
+        renderStatusBanner('Staff user updated.');
+        await renderStaffUsers();
+      } catch (error) {
+        renderStatusBanner(error.message || 'Could not update staff user.', true);
+      }
+    }
+  );
 }
 
 function getEditPanel(scope = 'supervisor') {
@@ -1537,6 +2192,23 @@ async function handleExportAttendance() {
     renderStatusBanner('Attendance CSV exported.');
   } catch (error) {
     renderStatusBanner(error.message || 'Could not export attendance CSV.', true);
+  }
+}
+
+async function handleExportTaskLogs() {
+  try {
+    const blob = await exportSupervisorTaskLogsCsv();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `leader-task-logs-${todayDateInput()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    renderStatusBanner('Task logs CSV exported.');
+  } catch (error) {
+    renderStatusBanner(error.message || 'Could not export task logs CSV.', true);
   }
 }
 
@@ -1731,7 +2403,9 @@ function renderRecordsList(container, records, options = {}) {
   records.forEach((record) => {
     const node = els.recordTemplate.content.firstElementChild.cloneNode(true);
     node.classList.add(
-      record.type === 'task'
+      record.type === 'form'
+        ? 'record-form'
+        : record.type === 'task'
         ? 'record-task'
         : record.action === 'check_out'
           ? 'record-check-out'
@@ -1739,10 +2413,14 @@ function renderRecordsList(container, records, options = {}) {
     );
     const title = record.type === 'attendance'
       ? `${record.action === 'check_in' ? 'Check in' : 'Check out'} - ${record.siteName}`
-      : `Task log - ${record.siteName}`;
+      : record.type === 'form'
+        ? `${record.formName} - ${record.siteName}`
+        : `Task log - ${record.siteName}`;
     const detail = record.type === 'attendance'
       ? record.notes || 'No notes added.'
-      : `${record.summary || 'No summary provided.'}${record.safetyNotes ? ` Safety: ${record.safetyNotes}` : ''}`;
+      : record.type === 'form'
+        ? formAnswerSummary(record) || 'No answers provided.'
+        : `${record.summary || 'No summary provided.'}${record.safetyNotes ? ` Safety: ${record.safetyNotes}` : ''}`;
 
     node.querySelector('.record-title').textContent = title;
     node.querySelector('.record-meta').textContent = `${record.userName || 'Worker'}  |  ${formatDateTime(record.createdAt)}${record.workDate ? `  |  Work date: ${record.workDate}` : ''}`;
@@ -1758,13 +2436,20 @@ function renderRecordsList(container, records, options = {}) {
     const photoSources = (Array.isArray(record.photoDataUrls) && record.photoDataUrls.length)
       ? record.photoDataUrls
       : (normaliseRecordPhotoUrls(record).length ? normaliseRecordPhotoUrls(record) : (record.photoDataUrl ? [record.photoDataUrl] : []));
+    const signatureSources = signatureImageSources(record);
     const hasSiteDistance = record.type === 'attendance' && record.distanceFromSiteM != null;
     extra.innerHTML = `
-      <p><strong>Type:</strong> ${record.type === 'attendance' ? escapeHtml(record.action === 'check_in' ? 'Check in' : 'Check out') : 'Task log'}</p>
+      <p><strong>Type:</strong> ${record.type === 'attendance' ? escapeHtml(record.action === 'check_in' ? 'Check in' : 'Check out') : record.type === 'form' ? 'Form submission' : 'Task log'}</p>
       ${record.type === 'attendance' && record.location ? `<p><strong>Location:</strong> ${record.location.latitude}, ${record.location.longitude} (${record.location.accuracy}m)</p>` : ''}
       ${hasSiteDistance ? `<p><strong>Site radius:</strong> <span class="${record.withinSiteRadius ? 'site-inside' : 'site-outside'}">${record.withinSiteRadius ? 'Inside' : 'Outside'} - ${escapeHtml(record.distanceFromSiteM)}m from site</span></p>` : ''}
       ${record.hoursWorked ? `<p><strong>Hours:</strong> ${escapeHtml(record.hoursWorked)}</p>` : ''}
+      ${record.type === 'form' ? `<p><strong>Form:</strong> ${escapeHtml(record.formName)}</p>` : ''}
       ${record.syncStatus ? `<p><strong>Sync:</strong> ${escapeHtml(record.syncStatus)}</p>` : ''}
+      ${signatureSources.length ? `<div class="record-signatures">${signatureSources.map((signature, index) => `
+        <button class="photo-thumb" type="button" data-signature-index="${index}">
+          <img src="${escapeHtml(signature.src)}" alt="${escapeHtml(signature.label)}" />
+        </button>
+      `).join('')}</div>` : ''}
       ${photoSources.length ? `<div class="record-photos">${photoSources.map((photoSrc, index) => `
         <button class="photo-thumb" type="button" data-photo-index="${index}">
           <img src="${escapeHtml(photoSrc)}" alt="Record photo ${index + 1}" />
@@ -1774,6 +2459,11 @@ function renderRecordsList(container, records, options = {}) {
     extra.querySelectorAll('.photo-thumb').forEach((button) => {
       button.addEventListener('click', () => {
         openPhotoViewer(photoSources, Number(button.dataset.photoIndex || 0), title);
+      });
+    });
+    extra.querySelectorAll('[data-signature-index]').forEach((button) => {
+      button.addEventListener('click', () => {
+        openPhotoViewer(signatureSources.map((signature) => signature.src), Number(button.dataset.signatureIndex || 0), `${title} signature`);
       });
     });
 

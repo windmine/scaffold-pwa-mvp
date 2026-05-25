@@ -131,6 +131,33 @@
 
           <section id="taskTab" class="tab-panel hidden">
             <article class="card">
+              <h2>Work forms</h2>
+              <form id="workFormSubmissionForm" class="form-grid">
+                <label>
+                  Form
+                  <select id="workFormSelect" required>
+                    <option value="">Select a form</option>
+                  </select>
+                </label>
+                <label>
+                  Site
+                  <select id="workFormSite"></select>
+                </label>
+                <label>
+                  Work date
+                  <input id="workFormDate" type="date" />
+                </label>
+                <div id="workFormFields" class="dynamic-fields"></div>
+                <label>
+                  Photos
+                  <input id="workFormPhotos" type="file" accept="image/*" multiple />
+                </label>
+                <div id="workFormPhotoPreview" class="photo-preview hidden"></div>
+                <button id="submitWorkFormButton" type="submit">Submit form</button>
+              </form>
+            </article>
+
+            <article class="card">
               <h2>Daily task log</h2>
               <div class="template-tools">
                 <label>
@@ -200,6 +227,7 @@
                     <option value="">All</option>
                     <option value="attendance">Check in/out</option>
                     <option value="task">Task logs</option>
+                    <option value="form">Forms</option>
                   </select>
                 </label>
                 <label>
@@ -212,6 +240,7 @@
                     <option value="queued">Queued</option>
                     <option value="synced">Synced</option>
                     <option value="logged">Logged</option>
+                    <option value="submitted">Submitted</option>
                   </select>
                 </label>
                 <label>
@@ -271,6 +300,7 @@
                     <option value="">All</option>
                     <option value="attendance">Check in/out</option>
                     <option value="task">Task logs</option>
+                    <option value="form">Forms</option>
                   </select>
                 </label>
                 <label>
@@ -281,6 +311,7 @@
                     <option value="approved">Approved</option>
                     <option value="rejected">Rejected</option>
                     <option value="logged">Logged</option>
+                    <option value="submitted">Submitted</option>
                   </select>
                 </label>
                 <label>
@@ -326,7 +357,43 @@
               <span id="supervisorTaskLogsCount" class="fold-count">0</span>
             </summary>
             <div class="fold-content">
+              <button id="exportTaskLogsButton" type="button" class="ghost">Export task logs CSV</button>
               <div id="supervisorTaskLogsList" class="records-list"></div>
+            </div>
+          </details>
+
+          <details class="card fold-card">
+            <summary>
+              <span>Work forms</span>
+              <span id="workFormsCount" class="fold-count">0</span>
+            </summary>
+            <div class="fold-content">
+              <form id="workFormBuilderForm" class="form-grid">
+                <label>
+                  Form name
+                  <input id="workFormNameInput" type="text" placeholder="Inspection form" required />
+                </label>
+                <label>
+                  Description
+                  <input id="workFormDescriptionInput" type="text" />
+                </label>
+                <label>
+                  Fields
+                  <textarea id="workFormFieldsInput" rows="6" placeholder="text|Area|required&#10;select|Result|required|Pass,Fail,N/A&#10;textarea|Notes&#10;signature|Worker signature|required"></textarea>
+                </label>
+                <button type="submit">Create form</button>
+              </form>
+              <div id="workFormsList" class="records-list staff-users-list"></div>
+            </div>
+          </details>
+
+          <details class="card fold-card">
+            <summary>
+              <span>Form submissions</span>
+              <span id="formSubmissionsCount" class="fold-count">0</span>
+            </summary>
+            <div class="fold-content">
+              <div id="formSubmissionsList" class="records-list"></div>
             </div>
           </details>
 

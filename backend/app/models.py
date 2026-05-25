@@ -86,3 +86,33 @@ class TaskTemplate(SQLModel, table=True):
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
+
+
+class WorkForm(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    name: str = Field(index=True)
+    description: Optional[str] = None
+    fields_json: str
+    status: str = Field(default="active", index=True)
+    created_by: Optional[int] = Field(default=None, index=True)
+
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+
+class WorkFormSubmission(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    form_id: int = Field(index=True)
+    worker_id: int = Field(index=True)
+    site_id: Optional[int] = Field(default=None, index=True)
+
+    work_date: Optional[str] = None
+    answers_json: str
+    photo_urls: Optional[str] = None
+
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )

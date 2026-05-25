@@ -228,6 +228,10 @@ button:disabled {
   padding: 16px 18px 18px;
 }
 
+.fold-content > button + .records-list {
+  margin-top: 12px;
+}
+
 .fold-count {
   margin-left: auto;
   border-radius: 999px;
@@ -257,6 +261,11 @@ button:disabled {
 }
 
 .form-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.dynamic-fields {
   display: grid;
   gap: 14px;
 }
@@ -324,6 +333,49 @@ button:focus-visible {
 
 textarea {
   resize: vertical;
+}
+
+.checkbox-field {
+  min-height: 46px;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
+}
+
+.checkbox-field input {
+  width: auto;
+  min-height: 0;
+}
+
+.signature-field {
+  display: grid;
+  gap: 8px;
+}
+
+.signature-toolbar {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.signature-toolbar button {
+  min-height: 38px;
+  padding: 0.45rem 0.8rem;
+}
+
+.signature-canvas {
+  width: 100%;
+  height: 150px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: #ffffff;
+  touch-action: none;
+}
+
+.signature-field .muted {
+  margin: 0;
 }
 
 .demo-box,
@@ -481,6 +533,19 @@ textarea {
   margin-top: 10px;
 }
 
+.record-signatures {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.record-signatures .photo-thumb img {
+  aspect-ratio: 3 / 1;
+  object-fit: contain;
+  background: #ffffff;
+}
+
 .photo-thumb {
   min-height: 0;
   padding: 0;
@@ -599,6 +664,10 @@ body.viewer-open {
 
 .record-task {
   border-left-color: var(--safety);
+}
+
+.record-form {
+  border-left-color: var(--success);
 }
 
 .record-title {

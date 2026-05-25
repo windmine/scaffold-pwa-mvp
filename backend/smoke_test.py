@@ -69,6 +69,36 @@ def main():
         now = datetime.now(timezone.utc)
         timestamp = now.strftime("%Y%m%d%H%M%S%f")
 
+        assert_status(
+            "worker cannot list supervisor users",
+            request("GET", "/supervisor/users", token=worker_token),
+            403,
+        )
+        assert_status(
+            "supervisor cannot create attendance",
+            request(
+                "POST",
+                "/attendance",
+                {
+                    "record_type": "check_in",
+                    "latitude": -36.8485,
+                    "longitude": 174.7633,
+                },
+                supervisor_token,
+            ),
+            403,
+        )
+        assert_status(
+            "supervisor cannot remove own role",
+            request(
+                "PATCH",
+                f"/supervisor/users/{supervisor_login['user']['id']}",
+                {"role": "worker", "confirmed": True},
+                supervisor_token,
+            ),
+            400,
+        )
+
         smoke_user = assert_status(
             "create resignable worker",
             request(
@@ -79,6 +109,21 @@ def main():
                     "email": f"smoke-worker-{timestamp}@example.com",
                     "password": "Passw0rd!",
                     "role": "worker",
+                },
+                supervisor_token,
+            ),
+            200,
+        )
+        smoke_user = assert_status(
+            "update staff user",
+            request(
+                "PATCH",
+                f"/supervisor/users/{smoke_user['id']}",
+                {
+                    "name": f"Smoke Worker Updated {timestamp}",
+                    "role": "worker",
+                    "status": "active",
+                    "confirmed": True,
                 },
                 supervisor_token,
             ),
@@ -113,7 +158,7 @@ def main():
             ),
             200,
         )
-        assert_status(
+        smoke_user_login = assert_status(
             "reactivated worker can login",
             request(
                 "POST",
@@ -122,6 +167,7 @@ def main():
             ),
             200,
         )
+        smoke_worker_token = smoke_user_login["access_token"]
 
         sites = assert_status("sites list", request("GET", "/sites"), 200)
         if not sites:
@@ -152,6 +198,156 @@ def main():
                 supervisor_token,
             ),
             200,
+        )
+        forms = assert_status(
+            "list worker work forms",
+            request("GET", "/work-forms", token=worker_token),
+            200,
+        )
+        if not any(form["name"] == "Inspection form" for form in forms):
+            raise AssertionError("list worker work forms: expected seeded inspection form")
+        smoke_form = assert_status(
+            "create supervisor work form",
+            request(
+                "POST",
+                "/supervisor/work-forms",
+                {
+                    "name": f"Smoke Form {timestamp}",
+                    "description": "Smoke-test dynamic form",
+                    "fields": [
+                        {"id": "area", "label": "Area", "type": "text", "required": True},
+                        {"id": "result", "label": "Result", "type": "select", "required": True, "options": ["Pass", "Fail"]},
+                        {"id": "notes", "label": "Notes", "type": "textarea", "required": False},
+                        {"id": "worker_signature", "label": "Worker signature", "type": "signature", "required": True},
+                    ],
+                },
+                supervisor_token,
+            ),
+            200,
+        )
+        form_submission = assert_status(
+            "submit work form",
+            request(
+                "POST",
+                "/form-submissions",
+                {
+                    "form_id": smoke_form["id"],
+                    "site_id": site["id"],
+                    "work_date": now.date().isoformat(),
+                    "answers": {
+                        "area": "North bay",
+                        "result": "Pass",
+                        "notes": "All clear",
+                        "worker_signature": "/uploads/signature-smoke.png",
+                    },
+                    "photo_urls": ["/uploads/form-smoke-1.jpg"],
+                },
+                worker_token,
+            ),
+            200,
+        )
+        if form_submission["answers"]["result"] != "Pass":
+            raise AssertionError("submit work form: expected saved answer")
+        supervisor_form_submissions = assert_status(
+            "list supervisor form submissions",
+            request("GET", "/supervisor/form-submissions", token=supervisor_token),
+            200,
+        )
+        if not any(item["id"] == form_submission["id"] for item in supervisor_form_submissions):
+            raise AssertionError("list supervisor form submissions: created submission not found")
+        assert_status(
+            "reject required form answer missing",
+            request(
+                "POST",
+                "/form-submissions",
+                {
+                    "form_id": smoke_form["id"],
+                    "answers": {"result": "Pass"},
+                },
+                worker_token,
+            ),
+            400,
+        )
+        assert_status(
+            "reject invalid form signature",
+            request(
+                "POST",
+                "/form-submissions",
+                {
+                    "form_id": smoke_form["id"],
+                    "answers": {
+                        "area": "North bay",
+                        "result": "Pass",
+                        "worker_signature": "Someone Else",
+                    },
+                },
+                worker_token,
+            ),
+            400,
+        )
+        assert_status(
+            "archive work form",
+            request(
+                "PATCH",
+                f"/supervisor/work-forms/{smoke_form['id']}",
+                {"status": "archived", "confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
+        assert_status(
+            "worker cannot submit archived form",
+            request(
+                "POST",
+                "/form-submissions",
+                {
+                    "form_id": smoke_form["id"],
+                    "answers": {"area": "North bay", "result": "Pass"},
+                },
+                worker_token,
+            ),
+            404,
+        )
+        other_worker_attendance = assert_status(
+            "create other worker attendance",
+            request(
+                "POST",
+                "/attendance",
+                {
+                    "record_type": "check_in",
+                    "latitude": site["latitude"],
+                    "longitude": site["longitude"],
+                    "accuracy": 20,
+                    "site_id": site["id"],
+                    "note": f"other worker smoke test {timestamp}",
+                },
+                smoke_worker_token,
+            ),
+            200,
+        )
+        assert_status(
+            "worker cannot delete another worker attendance",
+            request("DELETE", f"/my-records/{other_worker_attendance['id']}", token=worker_token),
+            404,
+        )
+        other_worker_template = assert_status(
+            "create other worker template",
+            request(
+                "POST",
+                "/task-templates",
+                {
+                    "name": f"Other Smoke Template {timestamp}",
+                    "description": "Private worker template",
+                    "site_id": site["id"],
+                },
+                smoke_worker_token,
+            ),
+            200,
+        )
+        assert_status(
+            "worker cannot delete another worker template",
+            request("DELETE", f"/task-templates/{other_worker_template['id']}", token=worker_token),
+            404,
         )
         template = assert_status(
             "create task template",
@@ -390,6 +586,13 @@ def main():
         )
         if "record_type" not in csv_body or "worker_name" not in csv_body:
             raise AssertionError("export attendance csv: missing expected CSV headers")
+        task_csv_body = assert_status(
+            "export task logs csv",
+            request("GET", "/supervisor/task-logs/export.csv", token=supervisor_token),
+            200,
+        )
+        if "hours_worked" not in task_csv_body or "photo_urls" not in task_csv_body:
+            raise AssertionError("export task logs csv: missing expected CSV headers")
 
     except URLError as error:
         print(f"Could not reach {BASE_URL}: {error}", file=sys.stderr)
