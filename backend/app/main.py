@@ -1,22 +1,35 @@
-import csv
 import json
-import math
-from io import StringIO
-from datetime import timezone
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
 
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.config import CORS_ORIGINS, MAX_UPLOAD_BYTES, UPLOAD_DIR
 from app.database import create_db_and_tables, get_session
-from app.models import User, Site, AttendanceRecord, TaskLog, TaskTemplate, WorkForm, WorkFormSubmission
+from app.models import User, Site, WorkForm
+from app.schemas import (
+    ApprovalRequest,
+    AttendanceCreate,
+    AttendanceUpdateRequest,
+    LoginRequest,
+    RegisterRequest,
+    SiteCreateRequest,
+    SiteUpdateRequest,
+    TaskLogCreate,
+    TaskLogUpdateRequest,
+    TaskTemplateCreate,
+    TaskTemplateUpdate,
+    UserCreateRequest,
+    UserStatusRequest,
+    UserUpdateRequest,
+    WorkFormCreate,
+    WorkFormSubmissionCreate,
+    WorkFormUpdate,
+)
 from app.auth import (
     hash_password,
     verify_password,
@@ -24,6 +37,12 @@ from app.auth import (
     get_current_user,
     require_supervisor
 )
+from app.use_cases import attendance as attendance_use_cases
+from app.use_cases import staff_site_admin as staff_site_admin_use_cases
+from app.use_cases import supervisor_review as supervisor_review_use_cases
+from app.use_cases import task_logs as task_log_use_cases
+from app.use_cases import work_forms as work_form_use_cases
+from app.use_cases.common import upload_url, user_response
 
 
 app = FastAPI(title="Geo Management Backend")
@@ -100,589 +119,6 @@ DEMO_WORK_FORMS = [
         ],
     },
 ]
-
-VALID_ROLES = {"worker", "supervisor"}
-VALID_USER_STATUSES = {"active", "resigned"}
-VALID_ATTENDANCE_STATUSES = {"pending", "approved", "rejected"}
-MAX_TASK_LOG_PHOTOS = 8
-VALID_WORK_FORM_STATUSES = {"active", "archived"}
-VALID_WORK_FORM_FIELD_TYPES = {"text", "textarea", "number", "date", "select", "checkbox", "signature"}
-MAX_WORK_FORM_FIELDS = 30
-MAX_WORK_FORM_PHOTOS = 8
-
-
-class LoginRequest(BaseModel):
-    email: str = Field(min_length=3, max_length=320)
-    password: str = Field(min_length=1, max_length=72)
-
-
-class RegisterRequest(BaseModel):
-    email: str = Field(min_length=3, max_length=320)
-    name: str = Field(min_length=1, max_length=120)
-    password: str = Field(min_length=8, max_length=72)
-
-
-class UserCreateRequest(BaseModel):
-    email: str = Field(min_length=3, max_length=320)
-    name: str = Field(min_length=1, max_length=120)
-    password: str = Field(min_length=8, max_length=72)
-    role: str = Field(default="worker", max_length=40)
-
-
-class UserUpdateRequest(BaseModel):
-    email: Optional[str] = Field(default=None, min_length=3, max_length=320)
-    name: Optional[str] = Field(default=None, min_length=1, max_length=120)
-    password: Optional[str] = Field(default=None, min_length=8, max_length=72)
-    role: Optional[str] = Field(default=None, max_length=40)
-    status: Optional[str] = Field(default=None, max_length=40)
-    confirmed: bool = False
-
-
-class UserStatusRequest(BaseModel):
-    status: str = Field(max_length=40)
-    confirmed: bool = False
-
-
-class SiteCreateRequest(BaseModel):
-    name: str = Field(min_length=1, max_length=160)
-    address: Optional[str] = Field(default=None, max_length=300)
-    latitude: float = Field(ge=-90, le=90)
-    longitude: float = Field(ge=-180, le=180)
-    allowed_radius_m: int = Field(default=100, ge=10, le=5000)
-
-
-class SiteUpdateRequest(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=160)
-    address: Optional[str] = Field(default=None, max_length=300)
-    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
-    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
-    allowed_radius_m: Optional[int] = Field(default=None, ge=10, le=5000)
-    confirmed: bool = False
-
-
-class AttendanceCreate(BaseModel):
-    record_type: str
-    latitude: float = Field(ge=-90, le=90)
-    longitude: float = Field(ge=-180, le=180)
-    accuracy: Optional[float] = Field(default=None, ge=0)
-    site_id: Optional[int] = Field(default=None, ge=1)
-    note: Optional[str] = Field(default=None, max_length=1000)
-    photo_url: Optional[str] = Field(default=None, max_length=500)
-
-
-class AttendanceUpdateRequest(BaseModel):
-    record_type: Optional[str] = Field(default=None, max_length=40)
-    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
-    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
-    accuracy: Optional[float] = Field(default=None, ge=0)
-    site_id: Optional[int] = Field(default=None, ge=1)
-    note: Optional[str] = Field(default=None, max_length=1000)
-    photo_url: Optional[str] = Field(default=None, max_length=500)
-    status: Optional[str] = Field(default=None, max_length=40)
-    confirmed: bool = False
-
-
-class TaskLogCreate(BaseModel):
-    description: str = Field(min_length=1, max_length=3000)
-    site_id: Optional[int] = Field(default=None, ge=1)
-    work_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
-    hours_worked: Optional[float] = Field(default=None, ge=0, le=24)
-    safety_notes: Optional[str] = Field(default=None, max_length=1500)
-    photo_url: Optional[str] = Field(default=None, max_length=500)
-    photo_urls: list[str] = Field(default_factory=list)
-
-
-class TaskLogUpdateRequest(BaseModel):
-    description: Optional[str] = Field(default=None, min_length=1, max_length=3000)
-    site_id: Optional[int] = Field(default=None, ge=1)
-    work_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
-    hours_worked: Optional[float] = Field(default=None, ge=0, le=24)
-    safety_notes: Optional[str] = Field(default=None, max_length=1500)
-    photo_url: Optional[str] = Field(default=None, max_length=500)
-    photo_urls: Optional[list[str]] = None
-    confirmed: bool = False
-
-
-class TaskTemplateCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=160)
-    description: str = Field(min_length=1, max_length=3000)
-    site_id: Optional[int] = Field(default=None, ge=1)
-    hours_worked: Optional[float] = Field(default=None, ge=0, le=24)
-    safety_notes: Optional[str] = Field(default=None, max_length=1500)
-
-
-class TaskTemplateUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=160)
-    description: Optional[str] = Field(default=None, min_length=1, max_length=3000)
-    site_id: Optional[int] = Field(default=None, ge=1)
-    hours_worked: Optional[float] = Field(default=None, ge=0, le=24)
-    safety_notes: Optional[str] = Field(default=None, max_length=1500)
-
-
-class WorkFormField(BaseModel):
-    id: str = Field(min_length=1, max_length=80)
-    label: str = Field(min_length=1, max_length=160)
-    type: str = Field(max_length=40)
-    required: bool = False
-    options: list[str] = Field(default_factory=list)
-
-
-class WorkFormCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=160)
-    description: Optional[str] = Field(default=None, max_length=500)
-    fields: list[WorkFormField] = Field(min_length=1, max_length=MAX_WORK_FORM_FIELDS)
-
-
-class WorkFormUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=160)
-    description: Optional[str] = Field(default=None, max_length=500)
-    fields: Optional[list[WorkFormField]] = Field(default=None, min_length=1, max_length=MAX_WORK_FORM_FIELDS)
-    status: Optional[str] = Field(default=None, max_length=40)
-    confirmed: bool = False
-
-
-class WorkFormSubmissionCreate(BaseModel):
-    form_id: int = Field(ge=1)
-    site_id: Optional[int] = Field(default=None, ge=1)
-    work_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
-    answers: dict = Field(default_factory=dict)
-    photo_urls: list[str] = Field(default_factory=list)
-
-
-class ApprovalRequest(BaseModel):
-    status: str = Field(max_length=40)
-    comment: Optional[str] = Field(default=None, max_length=1000)
-
-
-def format_datetime(value):
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def attendance_record_response(record: AttendanceRecord, session: Session):
-    worker = session.get(User, record.worker_id)
-    site = session.get(Site, record.site_id) if record.site_id else None
-
-    return {
-        "id": record.id,
-        "worker_id": record.worker_id,
-        "worker_name": worker.name if worker else f"Worker {record.worker_id}",
-        "site_id": record.site_id,
-        "site_name": site.name if site else None,
-        "record_type": record.record_type,
-        "latitude": record.latitude,
-        "longitude": record.longitude,
-        "accuracy": record.accuracy,
-        "distance_from_site_m": record.distance_from_site_m,
-        "within_site_radius": record.within_site_radius,
-        "note": record.note,
-        "photo_url": record.photo_url,
-        "status": record.status,
-        "created_at": format_datetime(record.created_at),
-    }
-
-
-def task_log_photo_urls(log: TaskLog):
-    urls = []
-
-    if log.photo_urls:
-        try:
-            loaded = json.loads(log.photo_urls)
-            if isinstance(loaded, list):
-                urls = [
-                    item
-                    for item in loaded
-                    if isinstance(item, str) and item
-                ]
-        except json.JSONDecodeError:
-            urls = []
-
-    if log.photo_url and log.photo_url not in urls:
-        urls.insert(0, log.photo_url)
-
-    return urls
-
-
-def task_log_response(log: TaskLog, session: Session):
-    worker = session.get(User, log.worker_id)
-    site = session.get(Site, log.site_id) if log.site_id else None
-    photo_urls = task_log_photo_urls(log)
-
-    return {
-        "id": log.id,
-        "worker_id": log.worker_id,
-        "worker_name": worker.name if worker else f"Worker {log.worker_id}",
-        "site_id": log.site_id,
-        "site_name": site.name if site else None,
-        "description": log.description,
-        "work_date": log.work_date,
-        "hours_worked": log.hours_worked,
-        "safety_notes": log.safety_notes,
-        "photo_url": photo_urls[0] if photo_urls else None,
-        "photo_urls": photo_urls,
-        "status": "logged",
-        "created_at": format_datetime(log.created_at),
-    }
-
-
-def task_template_response(template: TaskTemplate, session: Session):
-    site = session.get(Site, template.site_id) if template.site_id else None
-
-    return {
-        "id": template.id,
-        "worker_id": template.worker_id,
-        "site_id": template.site_id,
-        "site_name": site.name if site else None,
-        "name": template.name,
-        "description": template.description,
-        "hours_worked": template.hours_worked,
-        "safety_notes": template.safety_notes,
-        "created_at": format_datetime(template.created_at),
-    }
-
-
-def parse_json_list(value: Optional[str]):
-    if not value:
-        return []
-
-    try:
-        loaded = json.loads(value)
-    except json.JSONDecodeError:
-        return []
-
-    return loaded if isinstance(loaded, list) else []
-
-
-def parse_json_object(value: Optional[str]):
-    if not value:
-        return {}
-
-    try:
-        loaded = json.loads(value)
-    except json.JSONDecodeError:
-        return {}
-
-    return loaded if isinstance(loaded, dict) else {}
-
-
-def work_form_fields(form: WorkForm):
-    return parse_json_list(form.fields_json)
-
-
-def work_form_response(form: WorkForm):
-    return {
-        "id": form.id,
-        "name": form.name,
-        "description": form.description,
-        "fields": work_form_fields(form),
-        "status": form.status,
-        "created_by": form.created_by,
-        "created_at": format_datetime(form.created_at),
-    }
-
-
-def work_form_submission_response(submission: WorkFormSubmission, session: Session):
-    form = session.get(WorkForm, submission.form_id)
-    worker = session.get(User, submission.worker_id)
-    site = session.get(Site, submission.site_id) if submission.site_id else None
-
-    return {
-        "id": submission.id,
-        "form_id": submission.form_id,
-        "form_name": form.name if form else f"Form {submission.form_id}",
-        "fields": work_form_fields(form) if form else [],
-        "worker_id": submission.worker_id,
-        "worker_name": worker.name if worker else f"Worker {submission.worker_id}",
-        "site_id": submission.site_id,
-        "site_name": site.name if site else None,
-        "work_date": submission.work_date,
-        "answers": parse_json_object(submission.answers_json),
-        "photo_urls": parse_json_list(submission.photo_urls),
-        "status": "submitted",
-        "created_at": format_datetime(submission.created_at),
-    }
-
-
-def site_response(site: Site):
-    return {
-        "id": site.id,
-        "name": site.name,
-        "address": site.address,
-        "latitude": site.latitude,
-        "longitude": site.longitude,
-        "allowed_radius_m": site.allowed_radius_m,
-    }
-
-
-def upload_url(filename: str):
-    return f"/uploads/{filename}"
-
-
-def user_response(user: User):
-    return {
-        "id": user.id,
-        "email": user.email,
-        "name": user.name,
-        "role": user.role,
-        "status": user.status or "active",
-    }
-
-
-def validate_user_input(email: str, name: str, password: str, role: str):
-    email = email.strip().lower()
-    name = name.strip()
-    role = role.strip().lower()
-
-    if "@" not in email or "." not in email:
-        raise HTTPException(status_code=400, detail="Enter a valid email address")
-    if not name:
-        raise HTTPException(status_code=400, detail="Name is required")
-    if len(password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
-    if len(password.encode("utf-8")) > 72:
-        raise HTTPException(status_code=400, detail="Password must be 72 bytes or shorter")
-    if role not in VALID_ROLES:
-        raise HTTPException(status_code=400, detail="Role must be worker or supervisor")
-
-    return email, name, role
-
-
-def require_confirmed(confirmed: bool):
-    if not confirmed:
-        raise HTTPException(status_code=400, detail="Double check required before saving this change")
-
-
-def ensure_site_exists(session: Session, site_id: Optional[int]):
-    if site_id is None:
-        return None
-
-    site = session.get(Site, site_id)
-
-    if not site:
-        raise HTTPException(status_code=400, detail="Site not found")
-
-    return site
-
-
-def distance_between_coordinates_m(
-    start_latitude: float,
-    start_longitude: float,
-    end_latitude: float,
-    end_longitude: float
-):
-    earth_radius_m = 6371000
-    start_lat = math.radians(start_latitude)
-    end_lat = math.radians(end_latitude)
-    delta_lat = math.radians(end_latitude - start_latitude)
-    delta_lon = math.radians(end_longitude - start_longitude)
-    a = (
-        math.sin(delta_lat / 2) ** 2
-        + math.cos(start_lat) * math.cos(end_lat) * math.sin(delta_lon / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return earth_radius_m * c
-
-
-def site_distance_check(site: Optional[Site], latitude: float, longitude: float):
-    if site is None:
-        return None, None
-
-    distance = round(
-        distance_between_coordinates_m(
-            site.latitude,
-            site.longitude,
-            latitude,
-            longitude
-        ),
-        1
-    )
-
-    return distance, distance <= site.allowed_radius_m
-
-
-def validate_photo_url(photo_url: Optional[str]):
-    if photo_url and len(photo_url) > 500:
-        raise HTTPException(status_code=400, detail="Photo URL is too long")
-    if photo_url and not photo_url.startswith("/uploads/"):
-        raise HTTPException(status_code=400, detail="Photo URL must come from /photo-uploads")
-
-
-def normalize_task_photo_urls(
-    photo_url: Optional[str] = None,
-    photo_urls: Optional[list[str]] = None
-):
-    urls = []
-
-    if photo_urls:
-        urls.extend([url for url in photo_urls if url])
-    if photo_url and photo_url not in urls:
-        urls.insert(0, photo_url)
-
-    if len(urls) > MAX_TASK_LOG_PHOTOS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Task logs can include up to {MAX_TASK_LOG_PHOTOS} photos"
-        )
-
-    for url in urls:
-        validate_photo_url(url)
-
-    return urls
-
-
-def normalize_work_form_fields(fields: list[WorkFormField]):
-    normalized_fields = []
-    seen_ids = set()
-
-    if len(fields) > MAX_WORK_FORM_FIELDS:
-        raise HTTPException(status_code=400, detail=f"Forms can include up to {MAX_WORK_FORM_FIELDS} fields")
-
-    for field in fields:
-        field_id = field.id.strip().lower().replace(" ", "_")
-        label = field.label.strip()
-        field_type = field.type.strip().lower()
-
-        if not field_id:
-            raise HTTPException(status_code=400, detail="Field id is required")
-        if field_id in seen_ids:
-            raise HTTPException(status_code=400, detail=f"Duplicate field id: {field_id}")
-        if not label:
-            raise HTTPException(status_code=400, detail="Field label is required")
-        if field_type not in VALID_WORK_FORM_FIELD_TYPES:
-            raise HTTPException(status_code=400, detail="Unsupported field type")
-
-        options = [
-            option.strip()
-            for option in (field.options or [])
-            if option and option.strip()
-        ]
-        if field_type == "select" and not options:
-            raise HTTPException(status_code=400, detail=f"Select field '{label}' needs options")
-
-        normalized_fields.append({
-            "id": field_id,
-            "label": label,
-            "type": field_type,
-            "required": field.required,
-            "options": options,
-        })
-        seen_ids.add(field_id)
-
-    return normalized_fields
-
-
-def validate_work_form_answers(form: WorkForm, answers: dict):
-    fields = work_form_fields(form)
-    normalized_answers = {}
-
-    for field in fields:
-        field_id = field.get("id")
-        field_label = field.get("label") or field_id
-        field_type = field.get("type")
-        required = bool(field.get("required"))
-        raw_value = answers.get(field_id)
-
-        if field_type == "checkbox":
-            value = bool(raw_value)
-        elif raw_value is None:
-            value = ""
-        else:
-            value = str(raw_value).strip()
-
-        if required and (value == "" or value is False):
-            raise HTTPException(status_code=400, detail=f"{field_label} is required")
-
-        if field_type == "signature" and value:
-            validate_photo_url(value)
-
-        if field_type == "number" and value != "":
-            try:
-                value = float(value)
-            except ValueError:
-                raise HTTPException(status_code=400, detail=f"{field_label} must be a number")
-
-        if field_type == "select" and value:
-            options = field.get("options") or []
-            if value not in options:
-                raise HTTPException(status_code=400, detail=f"{field_label} has an invalid option")
-
-        normalized_answers[field_id] = value
-
-    return normalized_answers
-
-
-def normalize_work_form_photo_urls(photo_urls: list[str]):
-    if len(photo_urls) > MAX_WORK_FORM_PHOTOS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Form submissions can include up to {MAX_WORK_FORM_PHOTOS} photos"
-        )
-
-    urls = [url for url in photo_urls if url]
-    for url in urls:
-        validate_photo_url(url)
-    return urls
-
-
-def normalize_site_input(data: SiteCreateRequest):
-    name = data.name.strip()
-    address = data.address.strip() if data.address else None
-
-    if not name:
-        raise HTTPException(status_code=400, detail="Site name is required")
-
-    return {
-        "name": name,
-        "address": address,
-        "latitude": data.latitude,
-        "longitude": data.longitude,
-        "allowed_radius_m": data.allowed_radius_m,
-    }
-
-
-def select_attendance_records(status: Optional[str] = None):
-    statement = select(AttendanceRecord)
-
-    if status:
-        if status not in VALID_ATTENDANCE_STATUSES:
-            raise HTTPException(
-                status_code=400,
-                detail="status must be pending, approved, or rejected"
-            )
-        statement = statement.where(AttendanceRecord.status == status)
-
-    return statement.order_by(AttendanceRecord.created_at.desc())
-
-
-def create_user_account(
-    session: Session,
-    email: str,
-    name: str,
-    password: str,
-    role: str
-):
-    email, name, role = validate_user_input(email, name, password, role)
-    existing_user = session.exec(
-        select(User).where(User.email == email)
-    ).first()
-
-    if existing_user:
-        raise HTTPException(status_code=409, detail="A user with this email already exists")
-
-    user = User(
-        email=email,
-        name=name,
-        password_hash=hash_password(password),
-        role=role,
-        status="active"
-    )
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    return user
-
 
 @app.on_event("startup")
 def on_startup():
@@ -795,14 +231,7 @@ def seed_demo_data(session: Session = Depends(get_session)):
 
 @app.get("/sites")
 def get_sites(session: Session = Depends(get_session)):
-    sites = session.exec(
-        select(Site).order_by(Site.name)
-    ).all()
-
-    return [
-        site_response(site)
-        for site in sites
-    ]
+    return staff_site_admin_use_cases.list_sites(session)
 
 
 @app.post("/supervisor/sites")
@@ -811,20 +240,7 @@ def create_site(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    site_data = normalize_site_input(data)
-    existing_site = session.exec(
-        select(Site).where(Site.name == site_data["name"])
-    ).first()
-
-    if existing_site:
-        raise HTTPException(status_code=409, detail="A site with this name already exists")
-
-    site = Site(**site_data)
-    session.add(site)
-    session.commit()
-    session.refresh(site)
-
-    return site_response(site)
+    return staff_site_admin_use_cases.create_site(data, session)
 
 
 @app.patch("/supervisor/sites/{site_id}")
@@ -834,37 +250,7 @@ def update_site(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    require_confirmed(data.confirmed)
-    site = session.get(Site, site_id)
-
-    if not site:
-        raise HTTPException(status_code=404, detail="Site not found")
-
-    fields = data.model_fields_set
-    if "name" in fields and data.name is not None:
-        name = data.name.strip()
-        if not name:
-            raise HTTPException(status_code=400, detail="Site name is required")
-        existing_site = session.exec(
-            select(Site).where(Site.name == name, Site.id != site.id)
-        ).first()
-        if existing_site:
-            raise HTTPException(status_code=409, detail="A site with this name already exists")
-        site.name = name
-    if "address" in fields:
-        site.address = data.address.strip() if data.address else None
-    if "latitude" in fields and data.latitude is not None:
-        site.latitude = data.latitude
-    if "longitude" in fields and data.longitude is not None:
-        site.longitude = data.longitude
-    if "allowed_radius_m" in fields and data.allowed_radius_m is not None:
-        site.allowed_radius_m = data.allowed_radius_m
-
-    session.add(site)
-    session.commit()
-    session.refresh(site)
-
-    return site_response(site)
+    return staff_site_admin_use_cases.update_site(site_id, data, session)
 
 
 @app.post("/photo-uploads")
@@ -923,7 +309,7 @@ def login(data: LoginRequest, session: Session = Depends(get_session)):
 
 @app.post("/auth/register")
 def register(data: RegisterRequest, session: Session = Depends(get_session)):
-    user = create_user_account(
+    user = staff_site_admin_use_cases.create_user_account(
         session=session,
         email=data.email,
         name=data.name,
@@ -952,14 +338,7 @@ def get_users(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    users = session.exec(
-        select(User).order_by(User.role, User.name)
-    ).all()
-
-    return [
-        user_response(user)
-        for user in users
-    ]
+    return staff_site_admin_use_cases.list_users(session)
 
 
 @app.post("/supervisor/users")
@@ -968,15 +347,7 @@ def create_user(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    user = create_user_account(
-        session=session,
-        email=data.email,
-        name=data.name,
-        password=data.password,
-        role=data.role
-    )
-
-    return user_response(user)
+    return staff_site_admin_use_cases.create_staff_user(data, session)
 
 
 @app.patch("/supervisor/users/{user_id}")
@@ -986,59 +357,7 @@ def update_user(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    require_confirmed(data.confirmed)
-    user = session.get(User, user_id)
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    fields = data.model_fields_set
-
-    if "email" in fields and data.email is not None:
-        email = data.email.strip().lower()
-        if "@" not in email:
-            raise HTTPException(status_code=400, detail="Enter a valid email address")
-        existing = session.exec(
-            select(User).where(User.email == email)
-        ).first()
-        if existing and existing.id != user.id:
-            raise HTTPException(status_code=409, detail="A user with this email already exists")
-        if user.id == supervisor.id and email != user.email:
-            raise HTTPException(status_code=400, detail="Sign out and use another supervisor to change your own email")
-        user.email = email
-
-    if "name" in fields and data.name is not None:
-        name = data.name.strip()
-        if not name:
-            raise HTTPException(status_code=400, detail="Name is required")
-        user.name = name
-
-    if "role" in fields and data.role is not None:
-        role = data.role.strip().lower()
-        if role not in VALID_ROLES:
-            raise HTTPException(status_code=400, detail="Role must be worker or supervisor")
-        if user.id == supervisor.id and role != "supervisor":
-            raise HTTPException(status_code=400, detail="You cannot remove your own supervisor role")
-        user.role = role
-
-    if "status" in fields and data.status is not None:
-        status = data.status.strip().lower()
-        if status not in VALID_USER_STATUSES:
-            raise HTTPException(status_code=400, detail="status must be active or resigned")
-        if user.id == supervisor.id and status != "active":
-            raise HTTPException(status_code=400, detail="You cannot resign your own supervisor account")
-        user.status = status
-
-    if "password" in fields and data.password:
-        if len(data.password.encode("utf-8")) > 72:
-            raise HTTPException(status_code=400, detail="Password must be 72 bytes or shorter")
-        user.password_hash = hash_password(data.password)
-
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-
-    return user_response(user)
+    return staff_site_admin_use_cases.update_user(user_id, data, supervisor, session)
 
 
 @app.post("/supervisor/users/{user_id}/status")
@@ -1048,25 +367,7 @@ def update_user_status(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    require_confirmed(data.confirmed)
-    status = data.status.strip().lower()
-
-    if status not in VALID_USER_STATUSES:
-        raise HTTPException(status_code=400, detail="status must be active or resigned")
-
-    user = session.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    if user.id == supervisor.id and status != "active":
-        raise HTTPException(status_code=400, detail="You cannot resign your own supervisor account")
-
-    user.status = status
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-
-    return user_response(user)
+    return staff_site_admin_use_cases.update_user_status(user_id, data, supervisor, session)
 
 
 @app.post("/attendance")
@@ -1075,42 +376,7 @@ def create_attendance(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    if user.role != "worker":
-        raise HTTPException(status_code=403, detail="Worker only")
-
-    if data.record_type not in ["check_in", "check_out"]:
-        raise HTTPException(
-            status_code=400,
-            detail="record_type must be check_in or check_out"
-        )
-
-    site = ensure_site_exists(session, data.site_id)
-    validate_photo_url(data.photo_url)
-    distance_from_site_m, within_site_radius = site_distance_check(
-        site,
-        data.latitude,
-        data.longitude
-    )
-
-    record = AttendanceRecord(
-        worker_id=user.id,
-        site_id=data.site_id,
-        record_type=data.record_type,
-        latitude=data.latitude,
-        longitude=data.longitude,
-        accuracy=data.accuracy,
-        distance_from_site_m=distance_from_site_m,
-        within_site_radius=within_site_radius,
-        note=data.note,
-        photo_url=data.photo_url,
-        status="pending"
-    )
-
-    session.add(record)
-    session.commit()
-    session.refresh(record)
-
-    return attendance_record_response(record, session)
+    return attendance_use_cases.create_attendance(data, user, session)
 
 
 @app.patch("/my-records/{record_id}")
@@ -1120,48 +386,7 @@ def update_my_attendance_record(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    if user.role != "worker":
-        raise HTTPException(status_code=403, detail="Worker only")
-
-    record = session.get(AttendanceRecord, record_id)
-
-    if not record or record.worker_id != user.id:
-        raise HTTPException(status_code=404, detail="Record not found")
-    if record.status != "pending":
-        raise HTTPException(status_code=400, detail="Only pending attendance can be edited by the worker")
-
-    fields = data.model_fields_set
-    if "record_type" in fields and data.record_type is not None:
-        if data.record_type not in ["check_in", "check_out"]:
-            raise HTTPException(status_code=400, detail="record_type must be check_in or check_out")
-        record.record_type = data.record_type
-    if "site_id" in fields:
-        ensure_site_exists(session, data.site_id)
-        record.site_id = data.site_id
-    if "latitude" in fields and data.latitude is not None:
-        record.latitude = data.latitude
-    if "longitude" in fields and data.longitude is not None:
-        record.longitude = data.longitude
-    if "accuracy" in fields:
-        record.accuracy = data.accuracy
-    if "note" in fields:
-        record.note = data.note
-    if "photo_url" in fields:
-        validate_photo_url(data.photo_url)
-        record.photo_url = data.photo_url
-
-    site = ensure_site_exists(session, record.site_id)
-    record.distance_from_site_m, record.within_site_radius = site_distance_check(
-        site,
-        record.latitude,
-        record.longitude
-    )
-
-    session.add(record)
-    session.commit()
-    session.refresh(record)
-
-    return attendance_record_response(record, session)
+    return attendance_use_cases.update_my_attendance_record(record_id, data, user, session)
 
 
 @app.delete("/my-records/{record_id}")
@@ -1170,20 +395,7 @@ def delete_my_attendance_record(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    if user.role != "worker":
-        raise HTTPException(status_code=403, detail="Worker only")
-
-    record = session.get(AttendanceRecord, record_id)
-
-    if not record or record.worker_id != user.id:
-        raise HTTPException(status_code=404, detail="Record not found")
-    if record.status != "pending":
-        raise HTTPException(status_code=400, detail="Only pending attendance can be deleted by the worker")
-
-    session.delete(record)
-    session.commit()
-
-    return {"message": "Attendance record deleted"}
+    return attendance_use_cases.delete_my_attendance_record(record_id, user, session)
 
 
 @app.get("/my-records")
@@ -1191,16 +403,7 @@ def get_my_records(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    records = session.exec(
-        select(AttendanceRecord)
-        .where(AttendanceRecord.worker_id == user.id)
-        .order_by(AttendanceRecord.created_at.desc())
-    ).all()
-
-    return [
-        attendance_record_response(record, session)
-        for record in records
-    ]
+    return attendance_use_cases.list_my_attendance_records(user, session)
 
 
 @app.post("/task-logs")
@@ -1209,28 +412,7 @@ def create_task_log(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    if user.role != "worker":
-        raise HTTPException(status_code=403, detail="Worker only")
-
-    ensure_site_exists(session, data.site_id)
-    photo_urls = normalize_task_photo_urls(data.photo_url, data.photo_urls)
-
-    log = TaskLog(
-        worker_id=user.id,
-        site_id=data.site_id,
-        description=data.description,
-        work_date=data.work_date,
-        hours_worked=data.hours_worked,
-        safety_notes=data.safety_notes,
-        photo_url=photo_urls[0] if photo_urls else None,
-        photo_urls=json.dumps(photo_urls) if photo_urls else None
-    )
-
-    session.add(log)
-    session.commit()
-    session.refresh(log)
-
-    return task_log_response(log, session)
+    return task_log_use_cases.create_task_log(data, user, session)
 
 
 @app.patch("/my-task-logs/{log_id}")
@@ -1240,15 +422,7 @@ def update_my_task_log(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    if user.role != "worker":
-        raise HTTPException(status_code=403, detail="Worker only")
-
-    log = session.get(TaskLog, log_id)
-
-    if not log or log.worker_id != user.id:
-        raise HTTPException(status_code=404, detail="Task log not found")
-
-    raise HTTPException(status_code=403, detail="Submitted task logs cannot be edited by workers")
+    return task_log_use_cases.update_my_task_log(log_id, user, session)
 
 
 @app.delete("/my-task-logs/{log_id}")
@@ -1257,15 +431,7 @@ def delete_my_task_log(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    if user.role != "worker":
-        raise HTTPException(status_code=403, detail="Worker only")
-
-    log = session.get(TaskLog, log_id)
-
-    if not log or log.worker_id != user.id:
-        raise HTTPException(status_code=404, detail="Task log not found")
-
-    raise HTTPException(status_code=403, detail="Submitted task logs cannot be deleted by workers")
+    return task_log_use_cases.delete_my_task_log(log_id, user, session)
 
 
 @app.get("/my-task-logs")
@@ -1273,16 +439,7 @@ def get_my_task_logs(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    records = session.exec(
-        select(TaskLog)
-        .where(TaskLog.worker_id == user.id)
-        .order_by(TaskLog.created_at.desc())
-    ).all()
-
-    return [
-        task_log_response(record, session)
-        for record in records
-    ]
+    return task_log_use_cases.list_my_task_logs(user, session)
 
 
 @app.get("/task-templates")
@@ -1290,19 +447,7 @@ def get_task_templates(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    if user.role != "worker":
-        raise HTTPException(status_code=403, detail="Worker only")
-
-    templates = session.exec(
-        select(TaskTemplate)
-        .where(TaskTemplate.worker_id == user.id)
-        .order_by(TaskTemplate.name)
-    ).all()
-
-    return [
-        task_template_response(template, session)
-        for template in templates
-    ]
+    return task_log_use_cases.list_task_templates(user, session)
 
 
 @app.post("/task-templates")
@@ -1311,23 +456,7 @@ def create_task_template(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    if user.role != "worker":
-        raise HTTPException(status_code=403, detail="Worker only")
-
-    ensure_site_exists(session, data.site_id)
-    template = TaskTemplate(
-        worker_id=user.id,
-        site_id=data.site_id,
-        name=data.name.strip(),
-        description=data.description,
-        hours_worked=data.hours_worked,
-        safety_notes=data.safety_notes
-    )
-    session.add(template)
-    session.commit()
-    session.refresh(template)
-
-    return task_template_response(template, session)
+    return task_log_use_cases.create_task_template(data, user, session)
 
 
 @app.patch("/task-templates/{template_id}")
@@ -1337,31 +466,7 @@ def update_task_template(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    if user.role != "worker":
-        raise HTTPException(status_code=403, detail="Worker only")
-
-    template = session.get(TaskTemplate, template_id)
-    if not template or template.worker_id != user.id:
-        raise HTTPException(status_code=404, detail="Task template not found")
-
-    fields = data.model_fields_set
-    if "name" in fields and data.name is not None:
-        template.name = data.name.strip()
-    if "description" in fields and data.description is not None:
-        template.description = data.description
-    if "site_id" in fields:
-        ensure_site_exists(session, data.site_id)
-        template.site_id = data.site_id
-    if "hours_worked" in fields:
-        template.hours_worked = data.hours_worked
-    if "safety_notes" in fields:
-        template.safety_notes = data.safety_notes
-
-    session.add(template)
-    session.commit()
-    session.refresh(template)
-
-    return task_template_response(template, session)
+    return task_log_use_cases.update_task_template(template_id, data, user, session)
 
 
 @app.delete("/task-templates/{template_id}")
@@ -1370,17 +475,7 @@ def delete_task_template(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    if user.role != "worker":
-        raise HTTPException(status_code=403, detail="Worker only")
-
-    template = session.get(TaskTemplate, template_id)
-    if not template or template.worker_id != user.id:
-        raise HTTPException(status_code=404, detail="Task template not found")
-
-    session.delete(template)
-    session.commit()
-
-    return {"message": "Task template deleted"}
+    return task_log_use_cases.delete_task_template(template_id, user, session)
 
 
 @app.get("/work-forms")
@@ -1388,16 +483,7 @@ def get_work_forms(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    statement = select(WorkForm).order_by(WorkForm.name)
-    if user.role == "worker":
-        statement = statement.where(WorkForm.status == "active")
-
-    forms = session.exec(statement).all()
-
-    return [
-        work_form_response(form)
-        for form in forms
-    ]
+    return work_form_use_cases.list_work_forms(user, session)
 
 
 @app.post("/supervisor/work-forms")
@@ -1406,28 +492,7 @@ def create_work_form(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    name = data.name.strip()
-    if not name:
-        raise HTTPException(status_code=400, detail="Form name is required")
-
-    existing = session.exec(
-        select(WorkForm).where(WorkForm.name == name)
-    ).first()
-    if existing:
-        raise HTTPException(status_code=409, detail="A form with this name already exists")
-
-    form = WorkForm(
-        name=name,
-        description=data.description.strip() if data.description else None,
-        fields_json=json.dumps(normalize_work_form_fields(data.fields)),
-        status="active",
-        created_by=supervisor.id
-    )
-    session.add(form)
-    session.commit()
-    session.refresh(form)
-
-    return work_form_response(form)
+    return work_form_use_cases.create_work_form(data, supervisor, session)
 
 
 @app.patch("/supervisor/work-forms/{form_id}")
@@ -1437,42 +502,7 @@ def update_work_form(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    require_confirmed(data.confirmed)
-    form = session.get(WorkForm, form_id)
-
-    if not form:
-        raise HTTPException(status_code=404, detail="Form not found")
-
-    fields = data.model_fields_set
-
-    if "name" in fields and data.name is not None:
-        name = data.name.strip()
-        if not name:
-            raise HTTPException(status_code=400, detail="Form name is required")
-        existing = session.exec(
-            select(WorkForm).where(WorkForm.name == name)
-        ).first()
-        if existing and existing.id != form.id:
-            raise HTTPException(status_code=409, detail="A form with this name already exists")
-        form.name = name
-
-    if "description" in fields:
-        form.description = data.description.strip() if data.description else None
-
-    if "fields" in fields and data.fields is not None:
-        form.fields_json = json.dumps(normalize_work_form_fields(data.fields))
-
-    if "status" in fields and data.status is not None:
-        status = data.status.strip().lower()
-        if status not in VALID_WORK_FORM_STATUSES:
-            raise HTTPException(status_code=400, detail="status must be active or archived")
-        form.status = status
-
-    session.add(form)
-    session.commit()
-    session.refresh(form)
-
-    return work_form_response(form)
+    return work_form_use_cases.update_work_form(form_id, data, session)
 
 
 @app.post("/form-submissions")
@@ -1481,30 +511,7 @@ def create_work_form_submission(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    if user.role != "worker":
-        raise HTTPException(status_code=403, detail="Worker only")
-
-    form = session.get(WorkForm, data.form_id)
-    if not form or form.status != "active":
-        raise HTTPException(status_code=404, detail="Form not found")
-
-    ensure_site_exists(session, data.site_id)
-    answers = validate_work_form_answers(form, data.answers)
-    photo_urls = normalize_work_form_photo_urls(data.photo_urls)
-
-    submission = WorkFormSubmission(
-        form_id=form.id,
-        worker_id=user.id,
-        site_id=data.site_id,
-        work_date=data.work_date,
-        answers_json=json.dumps(answers),
-        photo_urls=json.dumps(photo_urls) if photo_urls else None
-    )
-    session.add(submission)
-    session.commit()
-    session.refresh(submission)
-
-    return work_form_submission_response(submission, session)
+    return work_form_use_cases.create_work_form_submission(data, user, session)
 
 
 @app.get("/my-form-submissions")
@@ -1512,31 +519,25 @@ def get_my_form_submissions(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    records = session.exec(
-        select(WorkFormSubmission)
-        .where(WorkFormSubmission.worker_id == user.id)
-        .order_by(WorkFormSubmission.created_at.desc())
-    ).all()
-
-    return [
-        work_form_submission_response(record, session)
-        for record in records
-    ]
+    return work_form_use_cases.list_my_form_submissions(user, session)
 
 
 @app.get("/supervisor/form-submissions")
 def get_supervisor_form_submissions(
+    status: Optional[str] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    records = session.exec(
-        select(WorkFormSubmission).order_by(WorkFormSubmission.created_at.desc())
-    ).all()
+    return work_form_use_cases.list_supervisor_form_submissions(status, session)
 
-    return [
-        work_form_submission_response(record, session)
-        for record in records
-    ]
+
+@app.get("/supervisor/review-records")
+def get_supervisor_review_records(
+    status: Optional[str] = None,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.list_review_records(session, status)
 
 
 @app.get("/supervisor/pending-records")
@@ -1544,16 +545,7 @@ def get_pending_records(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    records = session.exec(
-        select(AttendanceRecord)
-        .where(AttendanceRecord.status == "pending")
-        .order_by(AttendanceRecord.created_at.desc())
-    ).all()
-
-    return [
-        attendance_record_response(record, session)
-        for record in records
-    ]
+    return supervisor_review_use_cases.list_pending_attendance_records(session)
 
 
 @app.get("/supervisor/records")
@@ -1562,14 +554,7 @@ def get_supervisor_records(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    records = session.exec(
-        select_attendance_records(status)
-    ).all()
-
-    return [
-        attendance_record_response(record, session)
-        for record in records
-    ]
+    return supervisor_review_use_cases.list_supervisor_attendance_records(session, status)
 
 
 @app.patch("/supervisor/records/{record_id}")
@@ -1579,49 +564,7 @@ def update_supervisor_record(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    require_confirmed(data.confirmed)
-    record = session.get(AttendanceRecord, record_id)
-
-    if not record:
-        raise HTTPException(status_code=404, detail="Record not found")
-
-    fields = data.model_fields_set
-
-    if "record_type" in fields and data.record_type is not None:
-        if data.record_type not in ["check_in", "check_out"]:
-            raise HTTPException(status_code=400, detail="record_type must be check_in or check_out")
-        record.record_type = data.record_type
-    if "site_id" in fields:
-        ensure_site_exists(session, data.site_id)
-        record.site_id = data.site_id
-    if "latitude" in fields and data.latitude is not None:
-        record.latitude = data.latitude
-    if "longitude" in fields and data.longitude is not None:
-        record.longitude = data.longitude
-    if "accuracy" in fields:
-        record.accuracy = data.accuracy
-    if "note" in fields:
-        record.note = data.note
-    if "photo_url" in fields:
-        validate_photo_url(data.photo_url)
-        record.photo_url = data.photo_url
-    if "status" in fields and data.status is not None:
-        if data.status not in VALID_ATTENDANCE_STATUSES:
-            raise HTTPException(status_code=400, detail="status must be pending, approved, or rejected")
-        record.status = data.status
-
-    site = ensure_site_exists(session, record.site_id)
-    record.distance_from_site_m, record.within_site_radius = site_distance_check(
-        site,
-        record.latitude,
-        record.longitude
-    )
-
-    session.add(record)
-    session.commit()
-    session.refresh(record)
-
-    return attendance_record_response(record, session)
+    return supervisor_review_use_cases.update_supervisor_attendance_record(record_id, data, session)
 
 
 @app.get("/supervisor/records/export.csv")
@@ -1630,122 +573,25 @@ def export_supervisor_records_csv(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    records = session.exec(
-        select_attendance_records(status)
-    ).all()
-    output = StringIO()
-    writer = csv.writer(output)
-    writer.writerow([
-        "id",
-        "worker_id",
-        "worker_name",
-        "site_id",
-        "site_name",
-        "record_type",
-        "status",
-        "created_at",
-        "latitude",
-        "longitude",
-        "accuracy",
-        "distance_from_site_m",
-        "within_site_radius",
-        "note",
-        "photo_url",
-    ])
-
-    for record in records:
-        item = attendance_record_response(record, session)
-        writer.writerow([
-            item["id"],
-            item["worker_id"],
-            item["worker_name"],
-            item["site_id"],
-            item["site_name"],
-            item["record_type"],
-            item["status"],
-            item["created_at"],
-            item["latitude"],
-            item["longitude"],
-            item["accuracy"],
-            item["distance_from_site_m"],
-            item["within_site_radius"],
-            item["note"],
-            item["photo_url"],
-        ])
-
-    filename = "attendance-records.csv" if not status else f"attendance-records-{status}.csv"
-
-    return Response(
-        output.getvalue(),
-        media_type="text/csv",
-        headers={
-            "Content-Disposition": f'attachment; filename="{filename}"'
-        }
-    )
+    return supervisor_review_use_cases.export_attendance_records_csv(session, status)
 
 
 @app.get("/supervisor/task-logs")
 def get_supervisor_task_logs(
+    status: Optional[str] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    records = session.exec(
-        select(TaskLog).order_by(TaskLog.created_at.desc())
-    ).all()
-
-    return [
-        task_log_response(record, session)
-        for record in records
-    ]
+    return supervisor_review_use_cases.list_supervisor_task_logs(session, status)
 
 
 @app.get("/supervisor/task-logs/export.csv")
 def export_supervisor_task_logs_csv(
+    status: Optional[str] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    records = session.exec(
-        select(TaskLog).order_by(TaskLog.created_at.desc())
-    ).all()
-    output = StringIO()
-    writer = csv.writer(output)
-    writer.writerow([
-        "id",
-        "worker_id",
-        "worker_name",
-        "site_id",
-        "site_name",
-        "work_date",
-        "hours_worked",
-        "description",
-        "safety_notes",
-        "photo_urls",
-        "created_at",
-    ])
-
-    for record in records:
-        item = task_log_response(record, session)
-        writer.writerow([
-            item["id"],
-            item["worker_id"],
-            item["worker_name"],
-            item["site_id"],
-            item["site_name"],
-            item["work_date"],
-            item["hours_worked"],
-            item["description"],
-            item["safety_notes"],
-            "; ".join(item["photo_urls"]),
-            item["created_at"],
-        ])
-
-    return Response(
-        output.getvalue(),
-        media_type="text/csv",
-        headers={
-            "Content-Disposition": 'attachment; filename="task-logs.csv"'
-        }
-    )
+    return supervisor_review_use_cases.export_task_logs_csv(session, status)
 
 
 @app.patch("/supervisor/task-logs/{log_id}")
@@ -1755,38 +601,18 @@ def update_supervisor_task_log(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    require_confirmed(data.confirmed)
-    log = session.get(TaskLog, log_id)
+    return supervisor_review_use_cases.update_supervisor_task_log(log_id, data, session)
 
-    if not log:
-        raise HTTPException(status_code=404, detail="Task log not found")
 
-    fields = data.model_fields_set
-    if "description" in fields and data.description is not None:
-        log.description = data.description
-    if "site_id" in fields:
-        ensure_site_exists(session, data.site_id)
-        log.site_id = data.site_id
-    if "work_date" in fields:
-        log.work_date = data.work_date
-    if "hours_worked" in fields:
-        log.hours_worked = data.hours_worked
-    if "safety_notes" in fields:
-        log.safety_notes = data.safety_notes
-    if "photo_urls" in fields:
-        photo_urls = normalize_task_photo_urls(None, data.photo_urls or [])
-        log.photo_url = photo_urls[0] if photo_urls else None
-        log.photo_urls = json.dumps(photo_urls) if photo_urls else None
-    elif "photo_url" in fields:
-        validate_photo_url(data.photo_url)
-        log.photo_url = data.photo_url
-        log.photo_urls = json.dumps([data.photo_url]) if data.photo_url else None
-
-    session.add(log)
-    session.commit()
-    session.refresh(log)
-
-    return task_log_response(log, session)
+@app.post("/supervisor/review-records/{record_type}/{record_id}/decision")
+def decide_review_record(
+    record_type: str,
+    record_id: int,
+    data: ApprovalRequest,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.apply_review_decision(record_type, record_id, data.status, session)
 
 
 @app.post("/supervisor/records/{record_id}/decision")
@@ -1796,21 +622,4 @@ def decide_record(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    if data.status not in ["approved", "rejected"]:
-        raise HTTPException(
-            status_code=400,
-            detail="status must be approved or rejected"
-        )
-
-    record = session.get(AttendanceRecord, record_id)
-
-    if not record:
-        raise HTTPException(status_code=404, detail="Record not found")
-
-    record.status = data.status
-
-    session.add(record)
-    session.commit()
-    session.refresh(record)
-
-    return attendance_record_response(record, session)
+    return supervisor_review_use_cases.apply_review_decision(data.record_type, record_id, data.status, session)

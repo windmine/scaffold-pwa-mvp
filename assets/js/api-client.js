@@ -331,6 +331,11 @@ export async function getSupervisorRecords(status = "") {
   return await apiFetch(`/supervisor/records${query}`);
 }
 
+export async function getSupervisorReviewRecords(status = "") {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  return await apiFetch(`/supervisor/review-records${query}`);
+}
+
 export async function exportSupervisorRecordsCsv(status = "") {
   const token = getToken();
   const query = status ? `?status=${encodeURIComponent(status)}` : "";
@@ -394,8 +399,8 @@ export async function exportSupervisorTaskLogsCsv() {
   return await res.blob();
 }
 
-export async function decideRecord(recordId, status) {
-  return await apiFetch(`/supervisor/records/${recordId}/decision`, {
+export async function decideRecord(recordId, status, recordType = "attendance") {
+  return await apiFetch(`/supervisor/review-records/${recordType}/${recordId}/decision`, {
     method: "POST",
     body: JSON.stringify({ status })
   });

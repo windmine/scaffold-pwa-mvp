@@ -1,0 +1,205 @@
+from fastapi import HTTPException
+from sqlmodel import Session, select
+
+from app.auth import hash_password
+from app.models import Site, User
+from app.use_cases.common import (
+    VALID_ROLES,
+    VALID_USER_STATUSES,
+    normalize_site_input,
+    require_confirmed,
+    site_response,
+    user_response,
+    validate_user_input,
+)
+
+
+def list_sites(session: Session):
+    sites = session.exec(
+        select(Site).order_by(Site.name)
+    ).all()
+
+    return [
+        site_response(site)
+        for site in sites
+    ]
+
+
+def create_site(data, session: Session):
+    site_data = normalize_site_input(data)
+    existing_site = session.exec(
+        select(Site).where(Site.name == site_data["name"])
+    ).first()
+
+    if existing_site:
+        raise HTTPException(status_code=409, detail="A site with this name already exists")
+
+    site = Site(**site_data)
+    session.add(site)
+    session.commit()
+    session.refresh(site)
+
+    return site_response(site)
+
+
+def update_site(site_id: int, data, session: Session):
+    require_confirmed(data.confirmed)
+    site = session.get(Site, site_id)
+
+    if not site:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    fields = data.model_fields_set
+    if "name" in fields and data.name is not None:
+        name = data.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Site name is required")
+        existing_site = session.exec(
+            select(Site).where(Site.name == name, Site.id != site.id)
+        ).first()
+        if existing_site:
+            raise HTTPException(status_code=409, detail="A site with this name already exists")
+        site.name = name
+    if "address" in fields:
+        site.address = data.address.strip() if data.address else None
+    if "latitude" in fields and data.latitude is not None:
+        site.latitude = data.latitude
+    if "longitude" in fields and data.longitude is not None:
+        site.longitude = data.longitude
+    if "allowed_radius_m" in fields and data.allowed_radius_m is not None:
+        site.allowed_radius_m = data.allowed_radius_m
+
+    session.add(site)
+    session.commit()
+    session.refresh(site)
+
+    return site_response(site)
+
+
+def list_users(session: Session):
+    users = session.exec(
+        select(User).order_by(User.role, User.name)
+    ).all()
+
+    return [
+        user_response(user)
+        for user in users
+    ]
+
+
+def create_user_account(
+    session: Session,
+    email: str,
+    name: str,
+    password: str,
+    role: str
+):
+    email, name, role = validate_user_input(email, name, password, role)
+    existing_user = session.exec(
+        select(User).where(User.email == email)
+    ).first()
+
+    if existing_user:
+        raise HTTPException(status_code=409, detail="A user with this email already exists")
+
+    user = User(
+        email=email,
+        name=name,
+        password_hash=hash_password(password),
+        role=role,
+        status="active"
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+def create_staff_user(data, session: Session):
+    user = create_user_account(
+        session=session,
+        email=data.email,
+        name=data.name,
+        password=data.password,
+        role=data.role
+    )
+
+    return user_response(user)
+
+
+def update_user(user_id: int, data, supervisor: User, session: Session):
+    require_confirmed(data.confirmed)
+    user = session.get(User, user_id)
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    fields = data.model_fields_set
+
+    if "email" in fields and data.email is not None:
+        email = data.email.strip().lower()
+        if "@" not in email:
+            raise HTTPException(status_code=400, detail="Enter a valid email address")
+        existing = session.exec(
+            select(User).where(User.email == email)
+        ).first()
+        if existing and existing.id != user.id:
+            raise HTTPException(status_code=409, detail="A user with this email already exists")
+        if user.id == supervisor.id and email != user.email:
+            raise HTTPException(status_code=400, detail="Sign out and use another supervisor to change your own email")
+        user.email = email
+
+    if "name" in fields and data.name is not None:
+        name = data.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Name is required")
+        user.name = name
+
+    if "role" in fields and data.role is not None:
+        role = data.role.strip().lower()
+        if role not in VALID_ROLES:
+            raise HTTPException(status_code=400, detail="Role must be worker or supervisor")
+        if user.id == supervisor.id and role != "supervisor":
+            raise HTTPException(status_code=400, detail="You cannot remove your own supervisor role")
+        user.role = role
+
+    if "status" in fields and data.status is not None:
+        status = data.status.strip().lower()
+        if status not in VALID_USER_STATUSES:
+            raise HTTPException(status_code=400, detail="status must be active or resigned")
+        if user.id == supervisor.id and status != "active":
+            raise HTTPException(status_code=400, detail="You cannot resign your own supervisor account")
+        user.status = status
+
+    if "password" in fields and data.password:
+        if len(data.password.encode("utf-8")) > 72:
+            raise HTTPException(status_code=400, detail="Password must be 72 bytes or shorter")
+        user.password_hash = hash_password(data.password)
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    return user_response(user)
+
+
+def update_user_status(user_id: int, data, supervisor: User, session: Session):
+    require_confirmed(data.confirmed)
+    status = data.status.strip().lower()
+
+    if status not in VALID_USER_STATUSES:
+        raise HTTPException(status_code=400, detail="status must be active or resigned")
+
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.id == supervisor.id and status != "active":
+        raise HTTPException(status_code=400, detail="You cannot resign your own supervisor account")
+
+    user.status = status
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    return user_response(user)

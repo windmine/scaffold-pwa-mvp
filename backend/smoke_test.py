@@ -248,6 +248,8 @@ def main():
         )
         if form_submission["answers"]["result"] != "Pass":
             raise AssertionError("submit work form: expected saved answer")
+        if form_submission["status"] != "pending":
+            raise AssertionError("submit work form: expected pending approval status")
         supervisor_form_submissions = assert_status(
             "list supervisor form submissions",
             request("GET", "/supervisor/form-submissions", token=supervisor_token),
@@ -255,6 +257,28 @@ def main():
         )
         if not any(item["id"] == form_submission["id"] for item in supervisor_form_submissions):
             raise AssertionError("list supervisor form submissions: created submission not found")
+        approved_form_submission = assert_status(
+            "supervisor approve form submission",
+            request(
+                "POST",
+                f"/supervisor/review-records/form/{form_submission['id']}/decision",
+                {"status": "approved"},
+                supervisor_token,
+            ),
+            200,
+        )
+        if approved_form_submission["status"] != "approved":
+            raise AssertionError("supervisor approve form submission: expected approved status")
+        approved_review_records = assert_status(
+            "list approved review records",
+            request("GET", "/supervisor/review-records?status=approved", token=supervisor_token),
+            200,
+        )
+        if not any(
+            item["kind"] == "form" and item["id"] == form_submission["id"]
+            for item in approved_review_records
+        ):
+            raise AssertionError("list approved review records: expected approved form submission")
         assert_status(
             "reject required form answer missing",
             request(
@@ -388,7 +412,7 @@ def main():
         if template["hours_worked"] != 1.5:
             raise AssertionError("update task template: expected updated hours")
         attendance = assert_status(
-            "create attendance",
+            "create inside-site attendance",
             request(
                 "POST",
                 "/attendance",
@@ -408,23 +432,56 @@ def main():
             raise AssertionError("create attendance: expected location to be inside site radius")
         if attendance["distance_from_site_m"] is None:
             raise AssertionError("create attendance: expected distance from site")
-        attendance = assert_status(
-            "worker update pending attendance",
+        if attendance["status"] != "approved":
+            raise AssertionError("create attendance: expected inside-site attendance to auto-approve")
+        assert_status(
+            "worker cannot update auto-approved attendance",
             request(
                 "PATCH",
                 f"/my-records/{attendance['id']}",
+                {"note": "late worker edit should fail"},
+                worker_token,
+            ),
+            400,
+        )
+        pending_attendance = assert_status(
+            "create outside-site attendance",
+            request(
+                "POST",
+                "/attendance",
+                {
+                    "record_type": "check_in",
+                    "latitude": site["latitude"] + 0.02,
+                    "longitude": site["longitude"],
+                    "accuracy": 20,
+                    "site_id": site["id"],
+                    "note": f"outside smoke test {timestamp}",
+                },
+                worker_token,
+            ),
+            200,
+        )
+        if pending_attendance["within_site_radius"] is not False:
+            raise AssertionError("create outside-site attendance: expected location outside site radius")
+        if pending_attendance["status"] != "pending":
+            raise AssertionError("create outside-site attendance: expected pending status")
+        pending_attendance = assert_status(
+            "worker update pending attendance",
+            request(
+                "PATCH",
+                f"/my-records/{pending_attendance['id']}",
                 {"note": f"worker updated smoke test {timestamp}", "accuracy": 15},
                 worker_token,
             ),
             200,
         )
-        if attendance["note"] != f"worker updated smoke test {timestamp}":
+        if pending_attendance["note"] != f"worker updated smoke test {timestamp}":
             raise AssertionError("worker update pending attendance: expected updated note")
-        attendance = assert_status(
+        pending_attendance = assert_status(
             "update attendance record",
             request(
                 "PATCH",
-                f"/supervisor/records/{attendance['id']}",
+                f"/supervisor/records/{pending_attendance['id']}",
                 {"note": f"updated smoke test {timestamp}", "confirmed": True},
                 supervisor_token,
             ),
@@ -437,7 +494,7 @@ def main():
                 "/attendance",
                 {
                     "record_type": "check_out",
-                    "latitude": site["latitude"],
+                    "latitude": site["latitude"] + 0.02,
                     "longitude": site["longitude"],
                     "accuracy": 20,
                     "site_id": site["id"],
@@ -498,6 +555,23 @@ def main():
         )
         if len(task_log["photo_urls"]) != 2:
             raise AssertionError("create task log: expected two task photos")
+        if task_log["status"] != "pending":
+            raise AssertionError("create task log: expected pending approval status")
+        pending_review_records = assert_status(
+            "list pending review records",
+            request("GET", "/supervisor/review-records?status=pending", token=supervisor_token),
+            200,
+        )
+        if not any(
+            item["kind"] == "attendance" and item["id"] == pending_attendance["id"]
+            for item in pending_review_records
+        ):
+            raise AssertionError("list pending review records: expected pending outside-site attendance")
+        if not any(
+            item["kind"] == "task" and item["id"] == task_log["id"]
+            for item in pending_review_records
+        ):
+            raise AssertionError("list pending review records: expected pending task log")
         assert_status(
             "worker cannot update task log",
             request(
@@ -521,6 +595,18 @@ def main():
             ),
             200,
         )
+        approved_task_log = assert_status(
+            "supervisor approve task log",
+            request(
+                "POST",
+                f"/supervisor/review-records/task/{task_log['id']}/decision",
+                {"status": "approved"},
+                supervisor_token,
+            ),
+            200,
+        )
+        if approved_task_log["status"] != "approved":
+            raise AssertionError("supervisor approve task log: expected approved status")
         assert_status(
             "worker cannot delete task log",
             request("DELETE", f"/my-task-logs/{task_log['id']}", token=worker_token),
@@ -558,7 +644,7 @@ def main():
             "supervisor approve attendance",
             request(
                 "POST",
-                f"/supervisor/records/{attendance['id']}/decision",
+                f"/supervisor/review-records/attendance/{pending_attendance['id']}/decision",
                 {"status": "approved"},
                 supervisor_token,
             ),
@@ -568,7 +654,7 @@ def main():
             "worker cannot update approved attendance",
             request(
                 "PATCH",
-                f"/my-records/{attendance['id']}",
+                f"/my-records/{pending_attendance['id']}",
                 {"note": "late worker edit should fail"},
                 worker_token,
             ),
@@ -576,7 +662,7 @@ def main():
         )
         assert_status(
             "worker cannot delete approved attendance",
-            request("DELETE", f"/my-records/{attendance['id']}", token=worker_token),
+            request("DELETE", f"/my-records/{pending_attendance['id']}", token=worker_token),
             400,
         )
         csv_body = assert_status(

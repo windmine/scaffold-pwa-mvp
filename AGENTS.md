@@ -1,45 +1,59 @@
 # AGENTS.md
 
-## Final Aim for Codex
+## Final Aim For Codex
 
-The final aim of this project is to build a clean, mobile-first Geo-Management / Geo-Attendance System that can be used by staff in the field and managers in an admin portal.
+Build a working mobile-first geo-attendance management MVP where staff can check in and out by phone with location data, submit field logs/forms with photos and signatures, and supervisors can review/manage those records through a simple admin interface.
 
-The system should help an organisation manage attendance, location-based check-ins, simple staff records, and job/site activity in one practical web application. The first target is a working MVP that is easy to test on both desktop and phone before adding more advanced HR or workflow features.
+The project should stay practical: reliable local testing first, then production PWA hardening, then advanced HR/workflow features.
 
 ## Product Vision
 
-Create a practical geo-based management platform with two main user groups:
+Create a practical geo-based field operations platform for two main user groups.
 
 1. **Staff / field users**
    - Log in securely.
    - Check in and check out from a phone.
-   - Allow the system to capture their current location.
-   - View simple attendance or job/site information.
+   - Allow browser geolocation capture.
+   - Submit daily task logs with photos.
+   - Choose supervisor-created work forms such as daywork, inspection, and tool deduction forms.
+   - Complete handwritten signature fields when a form requires them.
+   - View synced attendance, task log, and form history.
    - Use a simple interface that works well on mobile screens.
 
-2. **Managers / admin users**
+2. **Supervisors / admin users**
    - Log in securely.
    - View staff attendance records.
    - Review check-in and check-out location data.
-   - Manage basic staff/user information.
-   - Use the system from desktop or tablet with a clear dashboard-style layout.
+   - View task logs, form submissions, photos, and handwritten signatures.
+   - Manage sites and allowed site radius.
+   - Manage staff users, including resigned/reactivated workers.
+   - Create, edit, archive, and reactivate reusable work forms.
+   - Use a folded/searchable dashboard layout from desktop, tablet, or phone.
+
+## Current Implementation Notes
+
+- The active frontend path is `index.html` with `assets/js/app.js`, `assets/js/api-client.js`, `assets/js/db.js`, `assets/js/mock-api.js`, and `assets/css/styles.css`.
+- `src/App.jsx` exists but is a legacy React path and is not the current production UI.
+- The backend is FastAPI in `backend/app/main.py` using SQLModel models from `backend/app/models.py`.
+- Local development uses SQLite at `backend/geo_management.db`.
+- The app currently supports backend auth, worker/supervisor roles, attendance, geolocation, site radius checks, task logs, multiple photos, task templates, staff management, resigned workers, supervisor record edits, CSV exports, dynamic work forms, form submissions, and handwritten signature fields.
+- PWA pieces exist: `manifest.webmanifest`, `sw.js`, `offline.html`, HTTPS Vite dev server, IndexedDB drafts, and an offline queue for core records. Treat it as PWA-shaped but not fully production PWA-ready yet.
+- Runtime/generated paths such as `backend/geo_management.db`, `backend/uploads/`, `backend/app/__pycache__/`, `dist/`, and `node_modules/` are not source-of-truth code changes.
 
 ## MVP Scope
-
-Codex should focus on completing a stable MVP before expanding the system.
 
 The MVP should include:
 
 - User authentication.
-- Role-based behaviour for staff and admin users.
+- Role-based behaviour for workers and supervisors.
 - Staff registration and login.
 - Mobile-friendly check-in/check-out flow.
 - Location capture using browser geolocation.
-- Backend API endpoints for attendance and user data.
-- Database storage for users, attendance records, timestamps, and location coordinates.
-- Admin page or dashboard to view attendance records.
-- Clear error handling for login, registration, location permission, and API failures.
-- README instructions that explain setup, environment variables, backend startup, frontend startup, and phone testing.
+- Backend API endpoints for attendance, task logs, forms, sites, and user data.
+- Database storage for users, attendance records, task logs, sites, work forms, form submissions, timestamps, coordinates, photos, and signature URLs.
+- Supervisor dashboard to view, search, approve, reject, and adjust records.
+- Clear error handling for login, registration, location permission, API failures, photo upload failures, and form validation.
+- README instructions for setup, environment variables, backend startup, frontend startup, phone testing, and validation.
 
 ## Preferred Technical Direction
 
@@ -47,30 +61,39 @@ Use the existing project structure where possible.
 
 Expected stack:
 
-- **Frontend:** Vite / React / PWA-style mobile-friendly UI.
+- **Frontend:** Vite-served PWA-style static app.
 - **Backend:** Python FastAPI.
-- **Database:** SQLAlchemy-compatible database.
+- **Database:** SQLModel / SQLAlchemy-compatible database.
 - **Testing target:** local desktop browser and phone browser on the same network.
 - **Development startup example:**
   - Backend: `python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`
-  - Frontend: `npm run dev:phone` or equivalent Vite command using `--host 0.0.0.0`.
+  - Frontend: `npm run dev:phone`
 
 Do not replace the whole stack unless the current implementation clearly requires it.
 
 ## Implementation Priorities
 
-Codex should prioritise the work in this order:
+General MVP order:
 
 1. Make the project run locally without errors.
 2. Make login and registration reliable.
 3. Make phone testing work on the same local network.
-4. Implement or stabilise geolocation check-in/check-out.
-5. Store attendance records correctly in the backend database.
-6. Display attendance records clearly for admin users.
+4. Stabilise geolocation check-in/check-out.
+5. Store attendance and task/form records correctly in the backend database.
+6. Display records clearly for supervisor users.
 7. Improve UI clarity and mobile responsiveness.
-8. Clean up README and setup instructions.
-9. Add validation and basic tests where useful.
-10. Only then add extra features such as reports, maps, exports, or advanced HR functions.
+8. Keep README/setup instructions current.
+9. Add validation and focused tests where useful.
+10. Only then add advanced reports, maps, exports, HR, or workflow features.
+
+Current next priorities:
+
+1. Make the PWA production-build safe: ensure `dist/` includes/serves the service worker, offline page, manifest, and icon assets correctly.
+2. Improve service worker caching rules so `/api` and `/uploads` do not return stale data accidentally.
+3. Extend offline queue support to dynamic work-form submissions, including handwritten signatures and photos.
+4. Add a clear app update flow when a new service worker version is available.
+5. Add supervisor audit history for edits to attendance, sites, staff users, task logs, and form definitions.
+6. Add focused mobile/browser checks for worker and supervisor workflows.
 
 ## Important Behaviour Rules
 
@@ -78,40 +101,89 @@ Codex should prioritise the work in this order:
 - Use `.env` files for local configuration.
 - Keep sample environment values in `.env.example`.
 - Do not break existing working routes or UI flows.
-- Keep the UI simple and practical.
+- Keep the UI simple, practical, and mobile-first.
 - Prefer small, safe changes over large rewrites.
 - After changing backend code, check that API routes still start correctly.
-- After changing frontend code, check that the Vite app still builds or runs.
-- When adding a feature, also update the README if setup or usage changes.
+- After changing frontend code, check that the Vite app still builds.
+- When adding a feature, update the README if setup, usage, API, or validation changes.
+- When changing frontend assets used by the app shell, bump the service worker cache version in `sw.js`.
 - Use clear naming for files, functions, routes, and components.
 
 ## Suggested Core Data Model
 
-The exact schema can follow the current project, but the MVP should support these concepts:
+The exact schema can follow the current project, but the MVP should support these concepts.
 
 ### User
 
 - id
-- username or email
+- email
+- name
 - password hash
-- role: staff or admin
-- optional staff profile fields
+- role: worker or supervisor
+- status: active or resigned
 
 ### Attendance Record
 
 - id
-- user id
-- check-in timestamp
-- check-in latitude
-- check-in longitude
-- check-out timestamp
-- check-out latitude
-- check-out longitude
-- optional status or note
+- worker id
+- optional site id
+- record type: check_in or check_out
+- timestamp
+- latitude
+- longitude
+- accuracy
+- distance from site
+- within site radius
+- optional note
+- optional photo URL
+- status: pending, approved, or rejected
+
+### Task Log
+
+- id
+- worker id
+- optional site id
+- work date
+- hours worked
+- task description
+- safety notes
+- photo URLs
+- created timestamp
+
+### Work Form
+
+- id
+- name
+- description
+- JSON field definition list
+- status: active or archived
+- created by
+- created timestamp
+
+Supported field types:
+
+- text
+- textarea
+- number
+- date
+- select
+- checkbox
+- signature
+
+Signature fields should be handwritten by the worker using a signature pad and saved as uploaded image URLs, not typed names.
+
+### Work Form Submission
+
+- id
+- form id
+- worker id
+- optional site id
+- work date
+- JSON answers
+- photo URLs
+- created timestamp
 
 ### Site / Job Location
-
-Optional for the first MVP, but useful later:
 
 - id
 - name
@@ -130,23 +202,31 @@ The project can be considered successful when:
 - The staff user can check in with location permission enabled.
 - The backend stores the check-in time and coordinates.
 - The staff user can check out later.
-- An admin user can view attendance records.
+- A worker can submit task logs with multiple photos.
+- A supervisor can create, edit, archive, and reactivate work forms.
+- A worker can submit a chosen work form.
+- Required handwritten signature fields are enforced.
+- A supervisor can view attendance, task logs, form submissions, photos, and signatures.
+- A supervisor can mark workers resigned and reactivate them without losing old records.
 - The app does not crash when location permission is denied.
 - Setup instructions are clear enough for another developer to run the project.
 
 ## Future Features After MVP
 
-After the MVP works, possible future features include:
+Possible future features include:
 
-- Map view of attendance locations.
-- Site geofencing with allowed check-in radius.
-- Export attendance records to CSV or Excel.
-- Manager approval workflow.
+- Production-ready PWA packaging.
+- Offline-first work-form submissions with signatures and photos.
+- Map view for attendance locations and sites.
+- Site geofencing with stricter allowed check-in radius rules.
+- Export attendance/forms to Excel.
+- Manager approval workflows for task logs and form submissions.
 - Staff schedule or shift management.
 - Leave request management.
-- Photo upload during check-in.
-- Offline-first PWA support.
+- Photo requirement rules per site or form.
 - Push notifications.
+- Audit trail UI.
+- Bulk staff import.
 - Integration with external HR or form systems.
 
 ## Codex Working Style
@@ -161,6 +241,13 @@ When modifying this repository, Codex should:
 - Run or suggest the most relevant validation command.
 - Summarise what changed and what still needs testing.
 
-## One-Sentence Final Aim
+Preferred validation commands:
 
-Build a working mobile-first geo-attendance management MVP where staff can check in and out by phone with location data, and managers can review those attendance records through a simple admin interface.
+```powershell
+npm run lint
+npm run build
+python -m compileall backend\app backend\smoke_test.py
+python backend\smoke_test.py
+```
+
+The smoke test expects the backend to be running at `http://127.0.0.1:8000`.

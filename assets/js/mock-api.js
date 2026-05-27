@@ -156,7 +156,7 @@ export async function createTaskLog(payload) {
     syncError: payload.syncError || '',
     syncedAt: payload.syncedAt || '',
     backendRecordId: payload.backendRecordId || null,
-    status: payload.status || 'logged'
+    status: payload.status || 'pending'
   };
 
   await put('records', record);

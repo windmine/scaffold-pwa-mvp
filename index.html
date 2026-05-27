@@ -83,6 +83,7 @@
               <div class="button-stack">
                 <button data-tab-target="attendanceTab" type="button">Open check in / check out</button>
                 <button data-tab-target="taskTab" type="button">Open task log</button>
+                <button data-tab-target="formTab" type="button">Open work form</button>
                 <button data-tab-target="historyTab" type="button">Open my history</button>
               </div>
             </article>
@@ -91,6 +92,7 @@
           <div class="tabs">
             <button class="tab active" data-tab-target="attendanceTab" type="button">Check</button>
             <button class="tab" data-tab-target="taskTab" type="button">Log</button>
+            <button class="tab" data-tab-target="formTab" type="button">Form</button>
             <button class="tab" data-tab-target="historyTab" type="button">History</button>
           </div>
 
@@ -130,33 +132,6 @@
           </section>
 
           <section id="taskTab" class="tab-panel hidden">
-            <article class="card">
-              <h2>Work forms</h2>
-              <form id="workFormSubmissionForm" class="form-grid">
-                <label>
-                  Form
-                  <select id="workFormSelect" required>
-                    <option value="">Select a form</option>
-                  </select>
-                </label>
-                <label>
-                  Site
-                  <select id="workFormSite"></select>
-                </label>
-                <label>
-                  Work date
-                  <input id="workFormDate" type="date" />
-                </label>
-                <div id="workFormFields" class="dynamic-fields"></div>
-                <label>
-                  Photos
-                  <input id="workFormPhotos" type="file" accept="image/*" multiple />
-                </label>
-                <div id="workFormPhotoPreview" class="photo-preview hidden"></div>
-                <button id="submitWorkFormButton" type="submit">Submit form</button>
-              </form>
-            </article>
-
             <article class="card">
               <h2>Daily task log</h2>
               <div class="template-tools">
@@ -210,6 +185,35 @@
             </article>
           </section>
 
+          <section id="formTab" class="tab-panel hidden">
+            <article class="card">
+              <h2>Work forms</h2>
+              <form id="workFormSubmissionForm" class="form-grid">
+                <label>
+                  Form
+                  <select id="workFormSelect" required>
+                    <option value="">Select a form</option>
+                  </select>
+                </label>
+                <label>
+                  Site
+                  <select id="workFormSite"></select>
+                </label>
+                <label>
+                  Work date
+                  <input id="workFormDate" type="date" />
+                </label>
+                <div id="workFormFields" class="dynamic-fields"></div>
+                <label>
+                  Photos
+                  <input id="workFormPhotos" type="file" accept="image/*" multiple />
+                </label>
+                <div id="workFormPhotoPreview" class="photo-preview hidden"></div>
+                <button id="submitWorkFormButton" type="submit">Submit form</button>
+              </form>
+            </article>
+          </section>
+
           <section id="historyTab" class="tab-panel hidden">
             <article class="card">
               <div class="section-heading">
@@ -239,8 +243,6 @@
                     <option value="rejected">Rejected</option>
                     <option value="queued">Queued</option>
                     <option value="synced">Synced</option>
-                    <option value="logged">Logged</option>
-                    <option value="submitted">Submitted</option>
                   </select>
                 </label>
                 <label>
@@ -265,28 +267,26 @@
         <section id="supervisorView" class="view hidden">
           <div class="grid two-col">
             <article class="card">
-              <h2>Supervisor overview</h2>
+              <h2>Review overview</h2>
               <div id="supervisorSummary" class="summary-list"></div>
-              <div class="card-actions">
-                <button id="exportAttendanceButton" type="button" class="secondary">Export attendance CSV</button>
-              </div>
             </article>
             <article class="card">
-              <h2>Notes</h2>
-              <p class="muted">
-                Sign-in, attendance, task logs, history, and approvals use the FastAPI backend when online.
-              </p>
+              <h2>Exports</h2>
+              <div class="button-stack">
+                <button id="exportAttendanceButton" type="button" class="secondary">Export attendance CSV</button>
+                <button id="exportTaskLogsButton" type="button" class="ghost">Export task logs CSV</button>
+              </div>
             </article>
           </div>
 
-          <details class="card fold-card" open>
+          <details class="card fold-card review-queue-card" open>
             <summary>
-              <span>Find records</span>
+              <span>Review queue</span>
               <span id="supervisorResultCount" class="fold-count">0 records</span>
             </summary>
             <div class="fold-content">
               <div class="section-heading">
-                <h2>Filters</h2>
+                <h2>Records</h2>
                 <button id="refreshSupervisorButton" type="button" class="ghost">Refresh</button>
               </div>
               <form id="supervisorFilterForm" class="filter-bar">
@@ -307,11 +307,9 @@
                   Status
                   <select id="supervisorStatusFilter">
                     <option value="">All</option>
-                    <option value="pending">Pending</option>
+                    <option value="pending" selected>Pending</option>
                     <option value="approved">Approved</option>
                     <option value="rejected">Rejected</option>
-                    <option value="logged">Logged</option>
-                    <option value="submitted">Submitted</option>
                   </select>
                 </label>
                 <label>
@@ -320,16 +318,7 @@
                 </label>
                 <button id="clearSupervisorFiltersButton" type="button" class="ghost">Clear</button>
               </form>
-            </div>
-          </details>
-
-          <details class="card fold-card" open>
-            <summary>
-              <span>Pending approvals</span>
-              <span id="pendingApprovalsCount" class="fold-count">0</span>
-            </summary>
-            <div class="fold-content">
-              <div id="pendingApprovalsList" class="records-list"></div>
+              <div id="reviewQueueList" class="records-list"></div>
             </div>
           </details>
 
@@ -340,27 +329,6 @@
             </div>
             <form id="editPanelForm" class="form-grid"></form>
           </article>
-
-          <details class="card fold-card">
-            <summary>
-              <span>Reviewed records</span>
-              <span id="reviewedApprovalsCount" class="fold-count">0</span>
-            </summary>
-            <div class="fold-content">
-              <div id="reviewedApprovalsList" class="records-list"></div>
-            </div>
-          </details>
-
-          <details class="card fold-card">
-            <summary>
-              <span>Worker task logs</span>
-              <span id="supervisorTaskLogsCount" class="fold-count">0</span>
-            </summary>
-            <div class="fold-content">
-              <button id="exportTaskLogsButton" type="button" class="ghost">Export task logs CSV</button>
-              <div id="supervisorTaskLogsList" class="records-list"></div>
-            </div>
-          </details>
 
           <details class="card fold-card">
             <summary>
@@ -384,16 +352,6 @@
                 <button type="submit">Create form</button>
               </form>
               <div id="workFormsList" class="records-list staff-users-list"></div>
-            </div>
-          </details>
-
-          <details class="card fold-card">
-            <summary>
-              <span>Form submissions</span>
-              <span id="formSubmissionsCount" class="fold-count">0</span>
-            </summary>
-            <div class="fold-content">
-              <div id="formSubmissionsList" class="records-list"></div>
             </div>
           </details>
 

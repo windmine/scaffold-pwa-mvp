@@ -721,8 +721,8 @@ body.viewer-open {
   color: #263241;
 }
 
-.badge.pending { background: #fff7d6; color: var(--warning); }
 .badge.synced, .badge.approved { background: #e0f4e8; color: var(--success); }
+.badge.pending { background: #fff7d6; color: var(--warning); }
 .badge.queued { background: #ffe5e5; color: var(--danger); }
 .badge.rejected { background: #ffe5e5; color: var(--danger); }
 
@@ -743,6 +743,10 @@ body.viewer-open {
   border-radius: var(--radius);
   background: var(--surface-quiet);
   color: var(--muted);
+}
+
+.review-queue-card {
+  grid-column: 1 / -1;
 }
 
 @media (min-width: 980px) {
@@ -783,7 +787,7 @@ body.viewer-open {
   #workerView .tabs {
     position: static;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 4px;
     margin: 0 0 10px;
     padding: 4px;

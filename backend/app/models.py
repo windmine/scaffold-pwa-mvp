@@ -66,6 +66,7 @@ class TaskLog(SQLModel, table=True):
     safety_notes: Optional[str] = None
     photo_url: Optional[str] = None
     photo_urls: Optional[str] = None
+    status: str = Field(default="pending", index=True)
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
@@ -112,6 +113,7 @@ class WorkFormSubmission(SQLModel, table=True):
     work_date: Optional[str] = None
     answers_json: str
     photo_urls: Optional[str] = None
+    status: str = Field(default="pending", index=True)
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)

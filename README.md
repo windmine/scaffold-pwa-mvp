@@ -28,11 +28,12 @@ The app started as a frontend-only prototype. It now uses the FastAPI backend fo
 - Select a job/site.
 - Capture browser geolocation.
 - Check in and check out with GPS coordinates, accuracy, site radius result, notes, and optional attendance photo.
-- Edit or delete own pending attendance before supervisor approval.
-- Submit task logs with work date, hours, task summary, safety notes, and up to 8 progress photos.
+- Inside-site attendance is approved automatically; outside-site attendance stays pending for supervisor review.
+- Edit or delete own pending outside-site attendance before supervisor approval.
+- Submit task logs for approval with work date, hours, task summary, safety notes, and up to 8 progress photos.
 - Save and apply reusable task-log templates for repetitive work.
 - Choose supervisor-created work forms, such as daywork, inspection, and tool deduction forms.
-- Submit work forms with typed fields, handwritten signatures, site/work date, and up to 8 photos.
+- Submit work forms for approval with typed fields, handwritten signatures, site/work date, and up to 8 photos.
 - View local and backend-synced attendance/task history.
 - Search/filter history by text, type, status, and local calendar date.
 - Click any uploaded photo thumbnail to open a floating zoom viewer with previous/next controls.
@@ -47,11 +48,11 @@ Worker restrictions:
 ### Supervisor
 
 - Sign in with a supervisor account.
-- View pending, approved, and rejected attendance.
+- View pending, approved, and rejected attendance, task logs, and form submissions.
 - View worker task logs and attached photo galleries.
 - Create, edit, and archive worker-facing work forms.
 - View worker work-form submissions and attached photo galleries.
-- Approve or reject pending attendance.
+- Approve or reject pending outside-site attendance, task logs, and form submissions.
 - Adjust attendance records with double-check confirmation.
 - Adjust submitted task logs with double-check confirmation.
 - Create and edit sites, including allowed check-in radius.
@@ -104,20 +105,37 @@ scaffold-pwa-mvp/
     css/
       styles.css              Active UI styles
     js/
-      app.js                  Active frontend app logic
+      app.js                  Active frontend shell and module wiring
       api-client.js           FastAPI client
       db.js                   IndexedDB wrapper
+      history.js              Worker history and shared record rendering module
       mock-api.js             Offline/local fallback data
+      offline-submissions.js  Offline submission queue and sync module
+      photo-viewer.js         Photo thumbnail and zoom viewer module
+      staff-sites.js          Supervisor staff, site, and form admin module
+      supervisor-review.js    Supervisor review queue and export module
       utils.js
+      worker-attendance.js    Worker attendance capture module
+      worker-form.js          Worker dynamic form submission module
+      worker-log.js           Worker task log submission module
+      work-form-fields.js     Work form field rendering and signature module
     icons/
 
   backend/
     app/
       main.py                 FastAPI routes
+      schemas.py              FastAPI request schemas
       models.py               SQLModel tables
       database.py             Engine and lightweight SQLite migrations
       auth.py                 Password/JWT helpers
       config.py               Environment loading
+      use_cases/
+        common.py             Shared serializers, validation, and review helpers
+        attendance.py         Worker attendance use cases
+        task_logs.py          Worker task-log and template use cases
+        work_forms.py         Work-form definition and submission use cases
+        supervisor_review.py  Supervisor review, edit, decision, and export use cases
+        staff_site_admin.py   Staff user and site admin use cases
     smoke_test.py             Backend smoke/regression script
     uploads/                  Runtime uploaded files
     geo_management.db         Runtime SQLite DB
@@ -308,17 +326,19 @@ Phone checklist:
 5. Add optional notes/photo.
 6. Check in or check out.
 7. History shows the backend-synced record and whether it was inside the site radius.
-8. Pending attendance can be edited or deleted until supervisor approval/rejection.
+8. Inside-site attendance is approved automatically.
+9. Outside-site attendance stays pending and can be edited or deleted until supervisor approval/rejection.
 
 ### Worker Task Log
 
-1. Select a site.
-2. Set work date and hours.
-3. Enter task summary and optional safety notes.
-4. Select one or more progress photos from the phone photo picker.
-5. Submit task log.
-6. Task logs become locked for the worker after submission.
-7. Photos can be opened in the floating photo viewer.
+1. Open the Log tab or the task-log quick action.
+2. Select a site.
+3. Set work date and hours.
+4. Enter task summary and optional safety notes.
+5. Select one or more progress photos from the phone photo picker.
+6. Submit task log.
+7. Task logs are saved as pending approval and become locked for the worker after submission.
+8. Photos can be opened in the floating photo viewer.
 
 ### Task Templates
 
@@ -341,12 +361,13 @@ Photos are not stored in templates.
 
 ### Worker Work Forms
 
-1. Choose a work form from the task/log area.
-2. Select a site and work date.
-3. Fill in the form fields.
-4. Select optional photos from the phone photo picker.
-5. Submit the form.
-6. The submission appears in worker history and the supervisor form-submissions section.
+1. Open the Form tab or the work-form quick action.
+2. Choose a work form.
+3. Select a site and work date.
+4. Fill in the form fields.
+5. Select optional photos from the phone photo picker.
+6. Submit the form.
+7. The submission is saved as pending approval and appears in worker history and supervisor review.
 
 Built-in seeded examples:
 
@@ -384,11 +405,12 @@ Supported field types are `text`, `textarea`, `number`, `date`, `select`, `check
 ### Supervisor Review
 
 1. Sign in as supervisor.
-2. Review pending attendance.
-3. Check worker, site, timestamp, location, site radius, notes, and photo.
-4. Approve or reject.
-5. Use edit controls only after double-check confirmation.
-6. Export CSV when needed.
+2. Use the Review Queue as the single inbox for outside-site attendance, task logs, and form submissions.
+3. Filter by worker/site text, record type, status, or date.
+4. Check worker, site, timestamp, location/site radius where applicable, notes, photos, and signatures.
+5. Approve or reject pending review records.
+6. Use edit controls only after double-check confirmation.
+7. Export CSV when needed.
 
 ## API Summary
 
@@ -422,6 +444,7 @@ Rules:
 
 - `PATCH /my-records/{record_id}` and `DELETE /my-records/{record_id}` only work for the owning worker.
 - Worker edits/deletes only work while attendance status is `pending`.
+- Attendance submitted inside the selected site radius is created as `approved`; attendance outside the radius remains `pending`.
 - Approved/rejected attendance is locked for workers.
 
 ### Worker Task Logs
@@ -436,6 +459,7 @@ DELETE /my-task-logs/{log_id}
 Rules:
 
 - Workers can create and view their task logs.
+- Task logs are created as `pending` for supervisor approval.
 - Worker update/delete endpoints intentionally return `403` for submitted logs.
 - Task logs support `photo_urls` with up to 8 uploaded image URLs.
 - `photo_url` remains for compatibility and points to the first task photo when present.
@@ -461,7 +485,7 @@ Rules:
 
 - Workers only see active work forms.
 - Form submissions support typed answers and up to 8 uploaded image URLs.
-- Submitted forms are visible in worker history and supervisor review.
+- Submitted forms start as `pending` and are visible in worker history and supervisor review.
 
 ### Supervisor
 
@@ -474,6 +498,11 @@ POST  /supervisor/users/{user_id}/status
 POST  /supervisor/sites
 PATCH /supervisor/sites/{site_id}
 
+GET   /supervisor/review-records
+GET   /supervisor/review-records?status=pending
+GET   /supervisor/review-records?status=approved
+POST  /supervisor/review-records/{kind}/{record_id}/decision
+
 GET   /supervisor/pending-records
 GET   /supervisor/records
 GET   /supervisor/records?status=approved
@@ -483,13 +512,17 @@ PATCH /supervisor/records/{record_id}
 POST  /supervisor/records/{record_id}/decision
 
 GET   /supervisor/task-logs
+GET   /supervisor/task-logs?status=pending
 GET   /supervisor/task-logs/export.csv
 PATCH /supervisor/task-logs/{log_id}
 
 GET   /supervisor/form-submissions
+GET   /supervisor/form-submissions?status=pending
 POST  /supervisor/work-forms
 PATCH /supervisor/work-forms/{form_id}
 ```
+
+`/supervisor/review-records` is the unified supervisor review feed for attendance, task logs, and form submissions. The older attendance/task/form list routes remain available for export and compatibility.
 
 Supervisor edit/archive routes require `confirmed: true` in the request body.
 
@@ -641,20 +674,20 @@ The smoke test covers:
 
 ## Offline Behavior
 
-The frontend uses IndexedDB for drafts and queued records.
+The frontend uses IndexedDB for drafts and queued offline submissions. The Offline Submission module owns the submit/sync path for attendance, task logs, and work forms, including photo uploads and handwritten signature uploads.
 
 ```text
 Online:
-  Send attendance, task logs, and work forms to FastAPI.
+  Save the submission locally, upload photos/signatures, and send attendance, task logs, or work forms to FastAPI.
 
 Offline:
-  Save drafts and queued records locally.
+  Save the submission locally with syncStatus=queued.
 
 Back online:
-  Flush queued records to FastAPI.
+  Flush queued submissions to FastAPI and update the local history record.
 ```
 
-Current offline behavior is suitable for MVP testing, but production conflict handling still needs more work.
+Work-form signatures are stored locally as image data while queued, then uploaded as PNG files during sync. Current offline behavior is suitable for MVP testing, but production conflict handling still needs more work.
 
 ## Date Filtering
 
