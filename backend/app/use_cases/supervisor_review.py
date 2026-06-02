@@ -7,7 +7,8 @@ from fastapi import HTTPException
 from fastapi.responses import Response
 from sqlmodel import Session, select
 
-from app.models import AttendanceRecord, TaskLog, WorkFormSubmission
+from app.models import AttendanceRecord, TaskLog, User, WorkFormSubmission
+from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
     attendance_record_response,
     ensure_site_exists,
@@ -72,7 +73,7 @@ def list_supervisor_attendance_records(session: Session, status: Optional[str] =
     ]
 
 
-def update_supervisor_attendance_record(record_id: int, data, session: Session):
+def update_supervisor_attendance_record(record_id: int, data, supervisor: User, session: Session):
     require_confirmed(data.confirmed)
     record = session.get(AttendanceRecord, record_id)
 
@@ -80,6 +81,7 @@ def update_supervisor_attendance_record(record_id: int, data, session: Session):
         raise HTTPException(status_code=404, detail="Record not found")
 
     fields = data.model_fields_set
+    before = model_snapshot(record)
 
     if "record_type" in fields and data.record_type is not None:
         if data.record_type not in ["check_in", "check_out"]:
@@ -110,6 +112,16 @@ def update_supervisor_attendance_record(record_id: int, data, session: Session):
     )
 
     session.add(record)
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action="attendance_update",
+        entity_type="attendance",
+        entity_id=record.id,
+        before=before,
+        after=model_snapshot(record),
+        summary=f"Updated attendance record #{record.id}",
+    )
     session.commit()
     session.refresh(record)
 
@@ -231,7 +243,7 @@ def export_task_logs_csv(session: Session, status: Optional[str] = None):
     )
 
 
-def update_supervisor_task_log(log_id: int, data, session: Session):
+def update_supervisor_task_log(log_id: int, data, supervisor: User, session: Session):
     require_confirmed(data.confirmed)
     log = session.get(TaskLog, log_id)
 
@@ -239,6 +251,7 @@ def update_supervisor_task_log(log_id: int, data, session: Session):
         raise HTTPException(status_code=404, detail="Task log not found")
 
     fields = data.model_fields_set
+    before = model_snapshot(log)
     if "description" in fields and data.description is not None:
         log.description = data.description
     if "site_id" in fields:
@@ -262,6 +275,16 @@ def update_supervisor_task_log(log_id: int, data, session: Session):
         log.status = validate_review_status(data.status)
 
     session.add(log)
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action="task_log_update",
+        entity_type="task_log",
+        entity_id=log.id,
+        before=before,
+        after=model_snapshot(log),
+        summary=f"Updated task log #{log.id}",
+    )
     session.commit()
     session.refresh(log)
 
@@ -272,6 +295,7 @@ def apply_review_decision(
     record_type: str,
     record_id: int,
     status: str,
+    supervisor: User,
     session: Session
 ):
     status = validate_approval_decision(status)
@@ -293,8 +317,19 @@ def apply_review_decision(
         if not record:
             raise HTTPException(status_code=404, detail="Form submission not found")
 
+    before = model_snapshot(record)
     record.status = status
     session.add(record)
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action="review_decision",
+        entity_type=record_type,
+        entity_id=record.id,
+        before=before,
+        after=model_snapshot(record),
+        summary=f"{status.capitalize()} {record_type} record #{record.id}",
+    )
     session.commit()
     session.refresh(record)
 

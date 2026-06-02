@@ -219,7 +219,7 @@ export function createHistoryModule({
     const records = await getWorkerHistoryRecords();
     const today = todayDateInput();
     const todayRecords = records.filter((record) => getRecordDate(record) === today);
-    const queuedCount = records.filter((record) => record.syncStatus === 'queued').length;
+    const queuedCount = records.filter((record) => ['queued', 'syncing'].includes(record.syncStatus)).length;
     const latestCheckIn = records.find((record) => record.type === 'attendance' && record.action === 'check_in');
     const latestCheckOut = records.find((record) => record.type === 'attendance' && record.action === 'check_out');
 

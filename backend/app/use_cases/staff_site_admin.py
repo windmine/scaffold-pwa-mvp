@@ -3,6 +3,7 @@ from sqlmodel import Session, select
 
 from app.auth import hash_password
 from app.models import Site, User
+from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
     VALID_ROLES,
     VALID_USER_STATUSES,
@@ -25,7 +26,7 @@ def list_sites(session: Session):
     ]
 
 
-def create_site(data, session: Session):
+def create_site(data, supervisor: User, session: Session):
     site_data = normalize_site_input(data)
     existing_site = session.exec(
         select(Site).where(Site.name == site_data["name"])
@@ -36,13 +37,23 @@ def create_site(data, session: Session):
 
     site = Site(**site_data)
     session.add(site)
+    session.flush()
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action="site_create",
+        entity_type="site",
+        entity_id=site.id,
+        after=model_snapshot(site),
+        summary=f"Created site {site.name}",
+    )
     session.commit()
     session.refresh(site)
 
     return site_response(site)
 
 
-def update_site(site_id: int, data, session: Session):
+def update_site(site_id: int, data, supervisor: User, session: Session):
     require_confirmed(data.confirmed)
     site = session.get(Site, site_id)
 
@@ -50,6 +61,7 @@ def update_site(site_id: int, data, session: Session):
         raise HTTPException(status_code=404, detail="Site not found")
 
     fields = data.model_fields_set
+    before = model_snapshot(site)
     if "name" in fields and data.name is not None:
         name = data.name.strip()
         if not name:
@@ -70,6 +82,16 @@ def update_site(site_id: int, data, session: Session):
         site.allowed_radius_m = data.allowed_radius_m
 
     session.add(site)
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action="site_update",
+        entity_type="site",
+        entity_id=site.id,
+        before=before,
+        after=model_snapshot(site),
+        summary=f"Updated site {site.name}",
+    )
     session.commit()
     session.refresh(site)
 
@@ -115,7 +137,7 @@ def create_user_account(
     return user
 
 
-def create_staff_user(data, session: Session):
+def create_staff_user(data, supervisor: User, session: Session):
     user = create_user_account(
         session=session,
         email=data.email,
@@ -123,6 +145,16 @@ def create_staff_user(data, session: Session):
         password=data.password,
         role=data.role
     )
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action="user_create",
+        entity_type="user",
+        entity_id=user.id,
+        after=model_snapshot(user),
+        summary=f"Created {user.role} user {user.email}",
+    )
+    session.commit()
 
     return user_response(user)
 
@@ -135,6 +167,8 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
         raise HTTPException(status_code=404, detail="User not found")
 
     fields = data.model_fields_set
+    before = model_snapshot(user)
+    changed_fields = sorted(field for field in fields if field != "confirmed")
 
     if "email" in fields and data.email is not None:
         email = data.email.strip().lower()
@@ -177,6 +211,16 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
         user.password_hash = hash_password(data.password)
 
     session.add(user)
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action="user_update",
+        entity_type="user",
+        entity_id=user.id,
+        before=before,
+        after=model_snapshot(user),
+        summary=f"Updated user {user.email}: {', '.join(changed_fields) or 'details'}",
+    )
     session.commit()
     session.refresh(user)
 
@@ -197,8 +241,19 @@ def update_user_status(user_id: int, data, supervisor: User, session: Session):
     if user.id == supervisor.id and status != "active":
         raise HTTPException(status_code=400, detail="You cannot resign your own supervisor account")
 
+    before = model_snapshot(user)
     user.status = status
     session.add(user)
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action="user_status",
+        entity_type="user",
+        entity_id=user.id,
+        before=before,
+        after=model_snapshot(user),
+        summary=f"Set user {user.email} status to {status}",
+    )
     session.commit()
     session.refresh(user)
 

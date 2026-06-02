@@ -75,6 +75,11 @@ def main():
             403,
         )
         assert_status(
+            "worker cannot list supervisor audit events",
+            request("GET", "/supervisor/audit-events", token=worker_token),
+            403,
+        )
+        assert_status(
             "supervisor cannot create attendance",
             request(
                 "POST",
@@ -241,6 +246,7 @@ def main():
                         "worker_signature": "/uploads/signature-smoke.png",
                     },
                     "photo_urls": ["/uploads/form-smoke-1.jpg"],
+                    "client_submission_id": f"smoke-form-{timestamp}",
                 },
                 worker_token,
             ),
@@ -250,6 +256,30 @@ def main():
             raise AssertionError("submit work form: expected saved answer")
         if form_submission["status"] != "pending":
             raise AssertionError("submit work form: expected pending approval status")
+        duplicate_form_submission = assert_status(
+            "dedupe duplicate form submission retry",
+            request(
+                "POST",
+                "/form-submissions",
+                {
+                    "form_id": smoke_form["id"],
+                    "site_id": site["id"],
+                    "work_date": now.date().isoformat(),
+                    "answers": {
+                        "area": "North bay",
+                        "result": "Pass",
+                        "notes": "All clear",
+                        "worker_signature": "/uploads/signature-smoke.png",
+                    },
+                    "photo_urls": ["/uploads/form-smoke-1.jpg"],
+                    "client_submission_id": f"smoke-form-{timestamp}",
+                },
+                worker_token,
+            ),
+            200,
+        )
+        if duplicate_form_submission["id"] != form_submission["id"]:
+            raise AssertionError("dedupe duplicate form submission retry: expected original form submission")
         supervisor_form_submissions = assert_status(
             "list supervisor form submissions",
             request("GET", "/supervisor/form-submissions", token=supervisor_token),
@@ -423,6 +453,7 @@ def main():
                     "accuracy": 20,
                     "site_id": site["id"],
                     "note": f"smoke test {timestamp}",
+                    "client_submission_id": f"smoke-attendance-{timestamp}",
                 },
                 worker_token,
             ),
@@ -434,6 +465,26 @@ def main():
             raise AssertionError("create attendance: expected distance from site")
         if attendance["status"] != "approved":
             raise AssertionError("create attendance: expected inside-site attendance to auto-approve")
+        duplicate_attendance = assert_status(
+            "dedupe duplicate attendance retry",
+            request(
+                "POST",
+                "/attendance",
+                {
+                    "record_type": "check_in",
+                    "latitude": site["latitude"],
+                    "longitude": site["longitude"],
+                    "accuracy": 20,
+                    "site_id": site["id"],
+                    "note": f"smoke test {timestamp}",
+                    "client_submission_id": f"smoke-attendance-{timestamp}",
+                },
+                worker_token,
+            ),
+            200,
+        )
+        if duplicate_attendance["id"] != attendance["id"]:
+            raise AssertionError("dedupe duplicate attendance retry: expected original attendance record")
         assert_status(
             "worker cannot update auto-approved attendance",
             request(
@@ -548,6 +599,7 @@ def main():
                         "/uploads/smoke-task-1.jpg",
                         "/uploads/smoke-task-2.jpg",
                     ],
+                    "client_submission_id": f"smoke-task-{timestamp}",
                 },
                 worker_token,
             ),
@@ -557,6 +609,28 @@ def main():
             raise AssertionError("create task log: expected two task photos")
         if task_log["status"] != "pending":
             raise AssertionError("create task log: expected pending approval status")
+        duplicate_task_log = assert_status(
+            "dedupe duplicate task log retry",
+            request(
+                "POST",
+                "/task-logs",
+                {
+                    "description": f"Smoke-tested task log {timestamp}",
+                    "site_id": site["id"],
+                    "hours_worked": 1,
+                    "work_date": now.date().isoformat(),
+                    "photo_urls": [
+                        "/uploads/smoke-task-1.jpg",
+                        "/uploads/smoke-task-2.jpg",
+                    ],
+                    "client_submission_id": f"smoke-task-{timestamp}",
+                },
+                worker_token,
+            ),
+            200,
+        )
+        if duplicate_task_log["id"] != task_log["id"]:
+            raise AssertionError("dedupe duplicate task log retry: expected original task log")
         pending_review_records = assert_status(
             "list pending review records",
             request("GET", "/supervisor/review-records?status=pending", token=supervisor_token),
@@ -679,6 +753,34 @@ def main():
         )
         if "hours_worked" not in task_csv_body or "photo_urls" not in task_csv_body:
             raise AssertionError("export task logs csv: missing expected CSV headers")
+        audit_events = assert_status(
+            "list supervisor audit events",
+            request("GET", "/supervisor/audit-events?limit=100", token=supervisor_token),
+            200,
+        )
+        audit_actions = {event["action"] for event in audit_events}
+        expected_audit_actions = {
+            "user_create",
+            "user_update",
+            "user_status",
+            "site_create",
+            "site_update",
+            "work_form_create",
+            "work_form_archive",
+            "attendance_update",
+            "task_log_update",
+            "review_decision",
+        }
+        missing_audit_actions = expected_audit_actions - audit_actions
+        if missing_audit_actions:
+            raise AssertionError(f"list supervisor audit events: missing actions {sorted(missing_audit_actions)}")
+        if not any(
+            event["entity_type"] == "attendance" and event["entity_id"] == pending_attendance["id"]
+            for event in audit_events
+        ):
+            raise AssertionError("list supervisor audit events: expected attendance audit event")
+        if not any(event.get("actor_name") == "Demo Supervisor" for event in audit_events):
+            raise AssertionError("list supervisor audit events: expected actor details")
 
     except URLError as error:
         print(f"Could not reach {BASE_URL}: {error}", file=sys.stderr)

@@ -5,6 +5,7 @@ from app.models import AttendanceRecord, User
 from app.use_cases.common import (
     attendance_record_response,
     ensure_site_exists,
+    normalize_client_submission_id,
     require_worker,
     site_distance_check,
     validate_photo_url,
@@ -22,6 +23,17 @@ def create_attendance(data, user: User, session: Session):
 
     site = ensure_site_exists(session, data.site_id)
     validate_photo_url(data.photo_url)
+    client_submission_id = normalize_client_submission_id(data.client_submission_id)
+    if client_submission_id:
+        existing_record = session.exec(
+            select(AttendanceRecord).where(
+                AttendanceRecord.worker_id == user.id,
+                AttendanceRecord.client_submission_id == client_submission_id
+            )
+        ).first()
+        if existing_record:
+            return attendance_record_response(existing_record, session)
+
     distance_from_site_m, within_site_radius = site_distance_check(
         site,
         data.latitude,
@@ -39,6 +51,7 @@ def create_attendance(data, user: User, session: Session):
         within_site_radius=within_site_radius,
         note=data.note,
         photo_url=data.photo_url,
+        client_submission_id=client_submission_id,
         status="approved" if within_site_radius is True else "pending"
     )
 

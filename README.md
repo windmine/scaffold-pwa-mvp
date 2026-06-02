@@ -2,7 +2,7 @@
 
 Mobile-first geo-attendance and field task logging MVP for Leader Scaffolding-style operations.
 
-This project lets field workers check in/out from a phone with location data, submit daily task logs and custom work forms with progress photos, and review their own synced history. Supervisors can manage sites, staff, reusable work forms, attendance review, backend record adjustments with double-check confirmation, and CSV exports.
+This project lets field workers check in/out from a phone with location data, submit daily task logs and custom work forms with progress photos, and review their own synced history. Supervisors can manage sites, staff, reusable work forms, attendance review, backend record adjustments with double-check confirmation, audit history, and CSV exports.
 
 ## Current Version
 
@@ -18,6 +18,21 @@ Primary UI files: index.html, assets/css/styles.css, assets/js/app.js
 The app started as a frontend-only prototype. It now uses the FastAPI backend for login, sites, attendance, task logs, task templates, dynamic work forms, photo uploads, staff users, supervisor review, and cross-device history sync.
 
 `src/App.jsx` is not the current production UI path. The active app is `index.html` plus the modules in `assets/js/`.
+
+## Reset Goal - 2026-06-02
+
+The current destination is a reliable local MVP that can be installed and tested from a phone without stale data or broken offline behavior. The product should stop expanding sideways until the app shell, cache rules, update flow, and worker/supervisor validation checks are dependable.
+
+Done for this reset means:
+
+- `npm run build` produces a `dist/` that serves the service worker, offline page, manifest, and icon assets from the paths used by the app.
+- The service worker never returns cached `/api`, `/auth`, `/photo-uploads`, or `/uploads` responses as if they were fresh backend data.
+- Workers can complete check-in/out, task logs, and work forms with signatures/photos on a phone, including graceful geolocation-denied and offline/queued states.
+- Supervisors can review the resulting attendance, task logs, form submissions, photos, and signatures from the unified Review Queue.
+- A browser/mobile validation checklist or automated check covers the main worker and supervisor paths.
+- Supervisor changes have an audit-history API and visible dashboard section.
+
+Near-term non-goals: maps, schedules, leave requests, payroll/HR features, push notifications, bulk import, and external integrations.
 
 ## Features
 
@@ -62,6 +77,7 @@ Worker restrictions:
 - View and search staff users.
 - Mark workers resigned so they cannot sign in.
 - Reactivate resigned workers without losing previous records.
+- View recent supervisor audit history for staff, site, work-form, review, attendance, and task-log changes.
 - Export attendance records to CSV.
 - Export task logs to CSV.
 
@@ -71,7 +87,7 @@ Worker restrictions:
 - Same-origin `/api` proxy to avoid iOS mixed-content blocking.
 - Service worker app shell cache.
 - Offline page.
-- IndexedDB drafts and queue.
+- IndexedDB drafts and queued attendance, task-log, and work-form submissions, including photos and handwritten signature data.
 - Mobile-first layout with folded supervisor sections.
 
 ## Demo Accounts
@@ -100,6 +116,12 @@ scaffold-pwa-mvp/
   package.json
   README.md
   .env.example
+
+  docs/
+    mobile-browser-workflow-checks.md  Focused manual phone/browser workflow checks
+
+  scripts/
+    check-mobile-browser-workflows.mjs  Dependency-free PWA/mobile preflight check
 
   assets/
     css/
@@ -130,6 +152,7 @@ scaffold-pwa-mvp/
       auth.py                 Password/JWT helpers
       config.py               Environment loading
       use_cases/
+        audit.py              Supervisor audit-event helpers
         common.py             Shared serializers, validation, and review helpers
         attendance.py         Worker attendance use cases
         task_logs.py          Worker task-log and template use cases
@@ -315,6 +338,12 @@ Phone checklist:
 - Open the computer IP address, not `localhost`.
 - Accept the local HTTPS certificate warning.
 
+Use the focused workflow checklist for the full worker, supervisor, offline, and update-flow pass:
+
+```text
+docs/mobile-browser-workflow-checks.md
+```
+
 ## Key Workflows
 
 ### Worker Attendance
@@ -410,7 +439,8 @@ Supported field types are `text`, `textarea`, `number`, `date`, `select`, `check
 4. Check worker, site, timestamp, location/site radius where applicable, notes, photos, and signatures.
 5. Approve or reject pending review records.
 6. Use edit controls only after double-check confirmation.
-7. Export CSV when needed.
+7. Open Audit history and confirm recent review/edit/admin changes appear.
+8. Export CSV when needed.
 
 ## API Summary
 
@@ -494,6 +524,7 @@ GET   /supervisor/users
 POST  /supervisor/users
 PATCH /supervisor/users/{user_id}
 POST  /supervisor/users/{user_id}/status
+GET   /supervisor/audit-events
 
 POST  /supervisor/sites
 PATCH /supervisor/sites/{site_id}
@@ -522,7 +553,7 @@ POST  /supervisor/work-forms
 PATCH /supervisor/work-forms/{form_id}
 ```
 
-`/supervisor/review-records` is the unified supervisor review feed for attendance, task logs, and form submissions. The older attendance/task/form list routes remain available for export and compatibility.
+`/supervisor/review-records` is the unified supervisor review feed for attendance, task logs, and form submissions. `/supervisor/audit-events` returns recent supervisor change events with actor, action, target entity, summary, and before/after snapshots. The older attendance/task/form list routes remain available for export and compatibility.
 
 Supervisor edit/archive routes require `confirmed: true` in the request body.
 
@@ -639,8 +670,9 @@ python backend\smoke_test.py
 Frontend checks:
 
 ```powershell
-npm run lint
-npm run build
+npm.cmd run lint
+npm.cmd run build
+npm.cmd run check:mobile
 ```
 
 Backend import check:
@@ -669,8 +701,20 @@ The smoke test covers:
 - Cross-worker ownership boundaries.
 - Validation failures.
 - Supervisor task-log adjustment.
+- Supervisor audit-history access and expected event types.
 - CSV export.
 - Task-log CSV export.
+
+The mobile/browser workflow check covers:
+
+- Production PWA app-shell files and stable manifest/icon paths.
+- Service worker network-only API/upload rules.
+- Visible service worker update-flow wiring.
+- Mobile viewport, camera/photo inputs, and active worker/supervisor UI controls.
+- Supervisor audit-history UI/API wiring.
+- Offline form submission support for photos and handwritten signatures.
+
+Manual phone/browser checks are listed in `docs/mobile-browser-workflow-checks.md`.
 
 ## Offline Behavior
 
@@ -687,7 +731,9 @@ Back online:
   Flush queued submissions to FastAPI and update the local history record.
 ```
 
-Work-form signatures are stored locally as image data while queued, then uploaded as PNG files during sync. Current offline behavior is suitable for MVP testing, but production conflict handling still needs more work.
+Work-form signatures are stored locally as image data while queued, then uploaded as PNG files during sync. Queued submissions keep a stable client submission id so a retry can return the existing backend record instead of creating a duplicate. Partial photo/signature uploads are saved onto the queued record as they succeed, so later retries reuse uploaded files. If the saved session expires, syncing pauses, the record remains queued, and the worker must sign in again before retrying.
+
+Current offline behavior is suitable for MVP testing, but production conflict handling still needs more work.
 
 ## Date Filtering
 
@@ -767,13 +813,16 @@ Check:
 
 Before real production use, improve:
 
+- Production PWA build output: currently `npm run build` succeeds, but the generated `dist/` must still be checked for root-level `/sw.js`, `/offline.html`, manifest, and icon paths.
+- Service worker data safety: `/api`, `/auth`, `/photo-uploads`, and `/uploads` should bypass app-shell caching to avoid stale reviews, user data, and photos.
+- Service worker update UX: users need a clear update/reload prompt when a new worker is waiting.
 - Real database migrations instead of lightweight SQLite `ALTER TABLE` startup checks.
 - PostgreSQL or another managed production database.
 - Production HTTPS deployment.
 - Strong secret management.
 - Refresh token/session strategy.
 - Rate limiting.
-- Audit log table for supervisor changes.
+- Richer audit-history filtering/export and a dedicated audit detail view.
 - Stronger file storage for photos, such as S3-compatible object storage.
 - Backup and restore plan.
 - More automated frontend and backend tests.
@@ -784,13 +833,14 @@ Before real production use, improve:
 
 Useful next features:
 
+- Fix production PWA asset emission and cache strategy.
+- Add app update prompt and mobile/browser workflow checks.
 - Map view for attendance and sites.
 - Geofence warning before submit.
 - Shift/schedule module.
 - Leave requests.
 - Photo requirement rules per site/job.
 - Excel export.
-- Audit trail UI.
 - Bulk staff import.
 - Production deployment scripts.
 

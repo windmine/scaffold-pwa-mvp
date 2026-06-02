@@ -17,6 +17,7 @@ export function createStaffSitesModule({
   loadSites,
   fillSiteSelects,
   refreshWorkForms,
+  refreshSupervisorAuditHistory,
   renderStatusBanner,
   showEditPanel,
   closeEditPanel,
@@ -165,6 +166,7 @@ export function createStaffSitesModule({
       els.workFormBuilderForm.reset();
       renderStatusBanner('Work form created.');
       await refreshWorkForms();
+      await refreshSupervisorAuditHistory?.();
     } catch (error) {
       renderStatusBanner(error.message || 'Could not create work form.', true);
     }
@@ -202,6 +204,7 @@ export function createStaffSitesModule({
           closeEditPanel();
           renderStatusBanner('Work form updated.');
           await refreshWorkForms();
+          await refreshSupervisorAuditHistory?.();
         } catch (error) {
           renderStatusBanner(error.message || 'Could not update work form.', true);
         }
@@ -252,6 +255,7 @@ export function createStaffSitesModule({
           await updateBackendWorkForm(form.id, { status: nextStatus });
           renderStatusBanner(nextStatus === 'active' ? 'Work form activated.' : 'Work form archived.');
           await refreshWorkForms();
+          await refreshSupervisorAuditHistory?.();
         } catch (error) {
           renderStatusBanner(error.message || 'Could not update work form.', true);
         }
@@ -288,6 +292,7 @@ export function createStaffSitesModule({
       fillSiteSelects();
       renderSupervisorSites();
       renderStatusBanner('Site created and added to worker forms.');
+      await refreshSupervisorAuditHistory?.();
     } catch (error) {
       renderStatusBanner(error.message || 'Could not create site.', true);
     }
@@ -301,6 +306,7 @@ export function createStaffSitesModule({
       await updateBackendUserStatus(user.id, status);
       renderStatusBanner(status === 'resigned' ? 'Worker marked resigned.' : 'Worker reactivated.');
       await renderStaffUsers();
+      await refreshSupervisorAuditHistory?.();
     } catch (error) {
       renderStatusBanner(error.message || 'Could not update worker status.', true);
     }
@@ -364,6 +370,7 @@ export function createStaffSitesModule({
           closeEditPanel();
           renderStatusBanner('Staff user updated.');
           await renderStaffUsers();
+          await refreshSupervisorAuditHistory?.();
         } catch (error) {
           renderStatusBanner(error.message || 'Could not update staff user.', true);
         }
@@ -397,6 +404,7 @@ export function createStaffSitesModule({
           fillSiteSelects();
           renderSupervisorSites();
           renderStatusBanner('Site updated.');
+          await refreshSupervisorAuditHistory?.();
         } catch (error) {
           renderStatusBanner(error.message || 'Could not update site.', true);
         }
@@ -416,6 +424,7 @@ export function createStaffSitesModule({
       els.staffUserForm.reset();
       renderStatusBanner('Staff user created.');
       await renderStaffUsers();
+      await refreshSupervisorAuditHistory?.();
     } catch (error) {
       renderStatusBanner(error.message || 'Could not create staff user.', true);
     }

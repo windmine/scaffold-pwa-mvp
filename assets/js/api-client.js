@@ -166,6 +166,11 @@ export async function updateUserStatus(userId, status) {
   });
 }
 
+export async function getSupervisorAuditEvents(limit = 50) {
+  const query = `?limit=${encodeURIComponent(limit)}`;
+  return await apiFetch(`/supervisor/audit-events${query}`);
+}
+
 export async function getSites() {
   return await apiFetch("/sites");
 }

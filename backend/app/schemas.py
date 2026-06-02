@@ -62,6 +62,7 @@ class AttendanceCreate(BaseModel):
     site_id: Optional[int] = Field(default=None, ge=1)
     note: Optional[str] = Field(default=None, max_length=1000)
     photo_url: Optional[str] = Field(default=None, max_length=500)
+    client_submission_id: Optional[str] = Field(default=None, max_length=120)
 
 
 class AttendanceUpdateRequest(BaseModel):
@@ -84,6 +85,7 @@ class TaskLogCreate(BaseModel):
     safety_notes: Optional[str] = Field(default=None, max_length=1500)
     photo_url: Optional[str] = Field(default=None, max_length=500)
     photo_urls: list[str] = Field(default_factory=list)
+    client_submission_id: Optional[str] = Field(default=None, max_length=120)
 
 
 class TaskLogUpdateRequest(BaseModel):
@@ -142,6 +144,7 @@ class WorkFormSubmissionCreate(BaseModel):
     work_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     answers: dict = Field(default_factory=dict)
     photo_urls: list[str] = Field(default_factory=list)
+    client_submission_id: Optional[str] = Field(default=None, max_length=120)
 
 
 class ApprovalRequest(BaseModel):

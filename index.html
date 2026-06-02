@@ -23,6 +23,7 @@
         </div>
         <div class="topbar-actions">
           <button id="installButton" class="ghost hidden" type="button">Install App</button>
+          <button id="updateButton" class="ghost hidden" type="button">Update App</button>
           <button id="logoutButton" class="ghost hidden" type="button">Log out</button>
         </div>
       </header>
@@ -319,6 +320,20 @@
                 <button id="clearSupervisorFiltersButton" type="button" class="ghost">Clear</button>
               </form>
               <div id="reviewQueueList" class="records-list"></div>
+            </div>
+          </details>
+
+          <details class="card fold-card">
+            <summary>
+              <span>Audit history</span>
+              <span id="auditEventsCount" class="fold-count">0</span>
+            </summary>
+            <div class="fold-content">
+              <div class="section-heading">
+                <h2>Supervisor changes</h2>
+                <button id="refreshAuditButton" type="button" class="ghost">Refresh</button>
+              </div>
+              <div id="auditEventsList" class="records-list"></div>
             </div>
           </details>
 

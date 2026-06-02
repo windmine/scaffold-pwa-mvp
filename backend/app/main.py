@@ -38,6 +38,7 @@ from app.auth import (
     require_supervisor
 )
 from app.use_cases import attendance as attendance_use_cases
+from app.use_cases import audit as audit_use_cases
 from app.use_cases import staff_site_admin as staff_site_admin_use_cases
 from app.use_cases import supervisor_review as supervisor_review_use_cases
 from app.use_cases import task_logs as task_log_use_cases
@@ -240,7 +241,7 @@ def create_site(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return staff_site_admin_use_cases.create_site(data, session)
+    return staff_site_admin_use_cases.create_site(data, supervisor, session)
 
 
 @app.patch("/supervisor/sites/{site_id}")
@@ -250,7 +251,7 @@ def update_site(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return staff_site_admin_use_cases.update_site(site_id, data, session)
+    return staff_site_admin_use_cases.update_site(site_id, data, supervisor, session)
 
 
 @app.post("/photo-uploads")
@@ -347,7 +348,7 @@ def create_user(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return staff_site_admin_use_cases.create_staff_user(data, session)
+    return staff_site_admin_use_cases.create_staff_user(data, supervisor, session)
 
 
 @app.patch("/supervisor/users/{user_id}")
@@ -368,6 +369,22 @@ def update_user_status(
     session: Session = Depends(get_session)
 ):
     return staff_site_admin_use_cases.update_user_status(user_id, data, supervisor, session)
+
+
+@app.get("/supervisor/audit-events")
+def get_supervisor_audit_events(
+    limit: int = 100,
+    entity_type: Optional[str] = None,
+    actor_id: Optional[int] = None,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return audit_use_cases.list_audit_events(
+        session=session,
+        limit=limit,
+        entity_type=entity_type,
+        actor_id=actor_id,
+    )
 
 
 @app.post("/attendance")
@@ -502,7 +519,7 @@ def update_work_form(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return work_form_use_cases.update_work_form(form_id, data, session)
+    return work_form_use_cases.update_work_form(form_id, data, supervisor, session)
 
 
 @app.post("/form-submissions")
@@ -564,7 +581,7 @@ def update_supervisor_record(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.update_supervisor_attendance_record(record_id, data, session)
+    return supervisor_review_use_cases.update_supervisor_attendance_record(record_id, data, supervisor, session)
 
 
 @app.get("/supervisor/records/export.csv")
@@ -601,7 +618,7 @@ def update_supervisor_task_log(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.update_supervisor_task_log(log_id, data, session)
+    return supervisor_review_use_cases.update_supervisor_task_log(log_id, data, supervisor, session)
 
 
 @app.post("/supervisor/review-records/{record_type}/{record_id}/decision")
@@ -612,7 +629,7 @@ def decide_review_record(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.apply_review_decision(record_type, record_id, data.status, session)
+    return supervisor_review_use_cases.apply_review_decision(record_type, record_id, data.status, supervisor, session)
 
 
 @app.post("/supervisor/records/{record_id}/decision")
@@ -622,4 +639,4 @@ def decide_record(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.apply_review_decision(data.record_type, record_id, data.status, session)
+    return supervisor_review_use_cases.apply_review_decision(data.record_type, record_id, data.status, supervisor, session)

@@ -30,6 +30,7 @@ const state = {
   user: null,
   sites: [],
   installPrompt: null,
+  waitingServiceWorker: null,
   attendanceLocation: null,
   attendancePhotoDataUrl: '',
   attendancePhotoFile: null,
@@ -45,13 +46,15 @@ const state = {
   historyRecords: [],
   staffUsers: [],
   supervisorRecords: {
-    reviewRecords: []
+    reviewRecords: [],
+    auditEvents: []
   }
 };
 
 const els = {
   statusBanner: document.getElementById('statusBanner'),
   installButton: document.getElementById('installButton'),
+  updateButton: document.getElementById('updateButton'),
   logoutButton: document.getElementById('logoutButton'),
   loginView: document.getElementById('loginView'),
   workerView: document.getElementById('workerView'),
@@ -120,6 +123,9 @@ const els = {
   supervisorStatusFilter: document.getElementById('supervisorStatusFilter'),
   supervisorDateFilter: document.getElementById('supervisorDateFilter'),
   supervisorResultCount: document.getElementById('supervisorResultCount'),
+  auditEventsCount: document.getElementById('auditEventsCount'),
+  auditEventsList: document.getElementById('auditEventsList'),
+  refreshAuditButton: document.getElementById('refreshAuditButton'),
   workFormsCount: document.getElementById('workFormsCount'),
   supervisorSitesCount: document.getElementById('supervisorSitesCount'),
   staffUsersCount: document.getElementById('staffUsersCount'),
@@ -167,6 +173,7 @@ const photoViewer = createPhotoViewer({
 
 let staffSitesModule;
 let supervisorReviewModule;
+let reloadingForServiceWorkerUpdate = false;
 
 const historyModule = createHistoryModule({
   els,
@@ -229,6 +236,7 @@ staffSitesModule = createStaffSitesModule({
   loadSites,
   fillSiteSelects,
   refreshWorkForms: () => workerForm.refreshWorkForms(),
+  refreshSupervisorAuditHistory: () => supervisorReviewModule?.renderAuditHistory(),
   renderStatusBanner,
   showEditPanel,
   closeEditPanel,
@@ -318,6 +326,7 @@ function bindEvents() {
   els.cancelEditButton.addEventListener('click', closeEditPanel);
   photoViewer.bindEvents();
   els.installButton.addEventListener('click', handleInstall);
+  els.updateButton.addEventListener('click', handleAppUpdate);
 
   document.querySelectorAll('[data-tab-target]').forEach((button) => {
     button.addEventListener('click', () => activateTab(button.dataset.tabTarget));
@@ -370,7 +379,11 @@ function renderApp() {
   updateTopbar();
   if (!state.user) {
     showView('login');
-    renderStatusBanner(navigator.onLine ? 'Ready for sign in.' : 'Offline mode is active. Login still works only if this browser session already has data cached.', !navigator.onLine);
+    if (hasPendingAppUpdate()) {
+      renderAppUpdateBanner();
+    } else {
+      renderStatusBanner(navigator.onLine ? 'Ready for sign in.' : 'Offline mode is active. Login still works only if this browser session already has data cached.', !navigator.onLine);
+    }
     return;
   }
 
@@ -385,7 +398,11 @@ function renderApp() {
     supervisorReviewModule.renderPanel();
   }
 
-  refreshStatusBannerForSession();
+  if (hasPendingAppUpdate()) {
+    renderAppUpdateBanner();
+  } else {
+    refreshStatusBannerForSession();
+  }
 }
 
 function showView(view) {
@@ -405,6 +422,8 @@ function showView(view) {
 }
 
 function updateTopbar() {
+  els.updateButton.classList.toggle('hidden', !hasPendingAppUpdate());
+
   if (state.user) {
     els.logoutButton.classList.remove('hidden');
   } else {
@@ -418,6 +437,11 @@ function renderStatusBanner(message, offline = false) {
 }
 
 async function refreshStatusBannerForSession() {
+  if (hasPendingAppUpdate()) {
+    renderAppUpdateBanner();
+    return;
+  }
+
   const lastSyncAt = await getLastSyncAt();
   const base = state.user
     ? `${state.user.fullName} is signed in as ${state.user.role}.`
@@ -646,12 +670,24 @@ function activateTab(targetId) {
 async function syncQueueIfPossible(showMessage) {
   const result = await syncQueuedSubmissions();
 
+  if (result.authBlocked) {
+    clearBackendSession();
+    state.user = null;
+    renderApp();
+    renderStatusBanner('Sign in again to sync queued submissions.', true);
+    return;
+  }
+
   if (showMessage && result.flushed) {
     renderStatusBanner(`${result.flushed} queued record${result.flushed === 1 ? '' : 's'} synced.`);
   }
 
   if (showMessage && result.failed) {
     renderStatusBanner(`${result.failed} queued record${result.failed === 1 ? '' : 's'} could not sync yet.`, true);
+  }
+
+  if (showMessage && !result.flushed && !result.failed && result.skipped) {
+    renderStatusBanner('Queued submissions are already syncing.');
   }
 }
 
@@ -663,12 +699,67 @@ async function handleInstall() {
   els.installButton.classList.add('hidden');
 }
 
+function hasPendingAppUpdate() {
+  return Boolean(state.waitingServiceWorker);
+}
+
+function renderAppUpdateBanner() {
+  renderStatusBanner('A new app version is ready. Tap Update App to reload when you are ready.');
+}
+
+function showServiceWorkerUpdate(worker) {
+  state.waitingServiceWorker = worker;
+  updateTopbar();
+  renderAppUpdateBanner();
+}
+
+function handleAppUpdate() {
+  const worker = state.waitingServiceWorker;
+  if (!worker) return;
+
+  els.updateButton.disabled = true;
+  renderStatusBanner('Updating app...');
+  worker.postMessage({ type: 'SKIP_WAITING' });
+
+  window.setTimeout(() => {
+    window.location.reload();
+  }, 5000);
+}
+
+function watchServiceWorkerInstall(registration) {
+  const worker = registration.installing;
+  if (!worker) return;
+
+  worker.addEventListener('statechange', () => {
+    if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+      showServiceWorkerUpdate(worker);
+    }
+  });
+}
+
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((error) => {
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloadingForServiceWorkerUpdate) return;
+    reloadingForServiceWorkerUpdate = true;
+    window.location.reload();
+  });
+
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js');
+
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        showServiceWorkerUpdate(registration.waiting);
+      }
+
+      registration.addEventListener('updatefound', () => {
+        watchServiceWorkerInstall(registration);
+      });
+    } catch (error) {
       console.warn('Service worker registration failed:', error);
-    });
+    }
   });
 }
 

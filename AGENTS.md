@@ -37,7 +37,7 @@ Create a practical geo-based field operations platform for two main user groups.
 - The backend is FastAPI in `backend/app/main.py` using SQLModel models from `backend/app/models.py`.
 - Local development uses SQLite at `backend/geo_management.db`.
 - The app currently supports backend auth, worker/supervisor roles, attendance, geolocation, site radius checks, task logs, multiple photos, task templates, staff management, resigned workers, supervisor record edits, CSV exports, dynamic work forms, form submissions, and handwritten signature fields.
-- PWA pieces exist: `manifest.webmanifest`, `sw.js`, `offline.html`, HTTPS Vite dev server, IndexedDB drafts, and an offline queue for core records. Treat it as PWA-shaped but not fully production PWA-ready yet.
+- PWA pieces exist: `manifest.webmanifest`, `sw.js`, `offline.html`, HTTPS Vite dev server, IndexedDB drafts, and an offline queue for attendance, task logs, and work forms with photos/signatures. Treat it as PWA-shaped but not fully production PWA-ready yet.
 - Runtime/generated paths such as `backend/geo_management.db`, `backend/uploads/`, `backend/app/__pycache__/`, `dist/`, and `node_modules/` are not source-of-truth code changes.
 
 ## MVP Scope
@@ -86,14 +86,24 @@ General MVP order:
 9. Add validation and focused tests where useful.
 10. Only then add advanced reports, maps, exports, HR, or workflow features.
 
+Current reset goal:
+
+Make the existing local MVP reliable as an installable phone-first PWA before adding more business features. The core worker/supervisor workflows are broad enough; the next work should reduce build, cache, sync, and review-risk.
+
+Current reset priorities completed:
+
+1. Production PWA build output includes the service worker, offline page, manifest, and icon assets.
+2. Service worker cache rules keep API, auth, upload, and supervisor data paths network-only.
+3. A visible `Update App` flow appears when a new service worker is waiting.
+4. Focused browser/mobile workflow checks cover worker, supervisor, PWA, offline, and update-flow basics.
+5. Queued offline submissions are hardened for partial upload failures, expired sessions, and duplicate sync attempts.
+6. Supervisor audit history records edits to attendance, sites, staff users, task logs, work forms, and review decisions.
+
 Current next priorities:
 
-1. Make the PWA production-build safe: ensure `dist/` includes/serves the service worker, offline page, manifest, and icon assets correctly.
-2. Improve service worker caching rules so `/api` and `/uploads` do not return stale data accidentally.
-3. Extend offline queue support to dynamic work-form submissions, including handwritten signatures and photos.
-4. Add a clear app update flow when a new service worker version is available.
-5. Add supervisor audit history for edits to attendance, sites, staff users, task logs, and form definitions.
-6. Add focused mobile/browser checks for worker and supervisor workflows.
+1. Run the full manual phone/browser workflow checklist against a real phone on the local network.
+2. Replace lightweight SQLite startup migrations with a real migration workflow before production.
+3. Expand automated frontend/backend tests around the highest-risk worker and supervisor workflows.
 
 ## Important Behaviour Rules
 
@@ -225,7 +235,7 @@ Possible future features include:
 - Leave request management.
 - Photo requirement rules per site or form.
 - Push notifications.
-- Audit trail UI.
+- Richer audit filtering, export, and detail view.
 - Bulk staff import.
 - Integration with external HR or form systems.
 

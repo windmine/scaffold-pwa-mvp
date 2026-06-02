@@ -36,6 +36,8 @@ def create_db_and_tables():
             connection.exec_driver_sql("ALTER TABLE tasklog ADD COLUMN photo_urls VARCHAR")
         if "status" not in task_log_columns:
             connection.exec_driver_sql("ALTER TABLE tasklog ADD COLUMN status VARCHAR DEFAULT 'pending'")
+        if "client_submission_id" not in task_log_columns:
+            connection.exec_driver_sql("ALTER TABLE tasklog ADD COLUMN client_submission_id VARCHAR")
 
         attendance_columns = {
             row[1]
@@ -46,6 +48,8 @@ def create_db_and_tables():
             connection.exec_driver_sql("ALTER TABLE attendancerecord ADD COLUMN distance_from_site_m FLOAT")
         if "within_site_radius" not in attendance_columns:
             connection.exec_driver_sql("ALTER TABLE attendancerecord ADD COLUMN within_site_radius BOOLEAN")
+        if "client_submission_id" not in attendance_columns:
+            connection.exec_driver_sql("ALTER TABLE attendancerecord ADD COLUMN client_submission_id VARCHAR")
 
         form_submission_columns = {
             row[1]
@@ -54,6 +58,8 @@ def create_db_and_tables():
 
         if "status" not in form_submission_columns:
             connection.exec_driver_sql("ALTER TABLE workformsubmission ADD COLUMN status VARCHAR DEFAULT 'pending'")
+        if "client_submission_id" not in form_submission_columns:
+            connection.exec_driver_sql("ALTER TABLE workformsubmission ADD COLUMN client_submission_id VARCHAR")
 
 
 def get_session():

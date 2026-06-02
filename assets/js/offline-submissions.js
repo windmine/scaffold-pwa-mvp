@@ -12,8 +12,17 @@ const SUBMISSION_DRAFT_KEYS = {
   task: 'task-form'
 };
 
+const QUEUED_SYNC_STATUSES = new Set(['queued', 'syncing']);
+const STALE_SYNCING_AFTER_MS = 2 * 60 * 1000;
+
+let syncQueuePromise = null;
+
 function isAuthError(error) {
   return error?.status === 401 || error?.status === 403;
+}
+
+function nowIso() {
+  return new Date().toISOString();
 }
 
 export function normaliseRecordPhotoUrls(record) {
@@ -31,14 +40,7 @@ function photoFilenameFor(record, file, index = 0, dataUrl = '') {
   return `${record.type || 'record'}-${record.id || uuid()}${suffix}.${extension.replace('jpeg', 'jpg')}`;
 }
 
-async function uploadRecordPhotos(record, files = []) {
-  const existingUrls = normaliseRecordPhotoUrls(record);
-  if (existingUrls.length) {
-    record.photoUrls = existingUrls;
-    record.photoUrl = existingUrls[0];
-    return existingUrls;
-  }
-
+async function uploadRecordPhotos(record, files = [], options = {}) {
   const fileList = Array.from(files || []);
   const dataUrls = Array.isArray(record.photoDataUrls)
     ? record.photoDataUrls.filter(Boolean)
@@ -56,21 +58,30 @@ async function uploadRecordPhotos(record, files = []) {
       dataUrl
     }));
 
-  if (!sources.length) return [];
-
-  const uploadedUrls = [];
-  for (const [index, item] of sources.entries()) {
-    const uploaded = await uploadPhoto(item.source, photoFilenameFor(record, item.file, index, item.dataUrl));
-    uploadedUrls.push(uploaded.url);
+  const uploadedUrls = normaliseRecordPhotoUrls(record);
+  if (!sources.length || uploadedUrls.length >= sources.length) {
+    record.photoUrls = uploadedUrls;
+    record.photoUrl = uploadedUrls[0] || '';
+    return uploadedUrls;
   }
 
-  record.photoUrls = uploadedUrls;
+  for (const [index, item] of sources.entries()) {
+    if (uploadedUrls[index]) continue;
+
+    const uploaded = await uploadPhoto(item.source, photoFilenameFor(record, item.file, index, item.dataUrl));
+    uploadedUrls[index] = uploaded.url;
+    record.photoUrls = uploadedUrls.filter(Boolean);
+    record.photoUrl = record.photoUrls[0] || '';
+    await options.onProgress?.(record);
+  }
+
+  record.photoUrls = uploadedUrls.filter(Boolean);
   record.photoUrl = uploadedUrls[0] || '';
-  return uploadedUrls;
+  return record.photoUrls;
 }
 
-async function uploadRecordPhoto(record, file = null) {
-  const urls = await uploadRecordPhotos(record, file ? [file] : []);
+async function uploadRecordPhoto(record, file = null, options = {}) {
+  const urls = await uploadRecordPhotos(record, file ? [file] : [], options);
   return urls[0] || null;
 }
 
@@ -78,7 +89,7 @@ function isSignatureDataUrl(value) {
   return typeof value === 'string' && value.startsWith('data:image/');
 }
 
-async function uploadSignatureAnswers(record) {
+async function uploadSignatureAnswers(record, options = {}) {
   if (!record.answers || !record.fields?.length) return record.answers || {};
 
   const answers = { ...record.answers };
@@ -93,6 +104,8 @@ async function uploadSignatureAnswers(record) {
       `signature-${record.userId || 'worker'}-${record.formId || 'form'}-${field.id}-${record.id || Date.now()}.png`
     );
     answers[field.id] = uploaded.url;
+    record.answers = answers;
+    await options.onProgress?.(record);
   }
 
   record.answers = answers;
@@ -114,7 +127,8 @@ function toBackendAttendancePayload(record) {
     accuracy: record.location.accuracy,
     site_id: getBackendSiteId(record.siteId),
     note: record.notes || null,
-    photo_url: record.photoUrl || null
+    photo_url: record.photoUrl || null,
+    client_submission_id: record.clientSubmissionId || record.id
   };
 }
 
@@ -128,7 +142,8 @@ function toBackendTaskLogPayload(record) {
     hours_worked: record.hoursWorked ? Number(record.hoursWorked) : null,
     safety_notes: record.safetyNotes || null,
     photo_url: photoUrls[0] || null,
-    photo_urls: photoUrls
+    photo_urls: photoUrls,
+    client_submission_id: record.clientSubmissionId || record.id
   };
 }
 
@@ -138,41 +153,87 @@ function toBackendFormSubmissionPayload(record) {
     site_id: getBackendSiteId(record.siteId),
     work_date: record.workDate || null,
     answers: record.answers || {},
-    photo_urls: normaliseRecordPhotoUrls(record)
+    photo_urls: normaliseRecordPhotoUrls(record),
+    client_submission_id: record.clientSubmissionId || record.id
   };
 }
 
 function normaliseLocalSubmission(record) {
   const createdAt = record.createdAt || new Date().toISOString();
+  const id = record.id || uuid();
 
   return {
-    id: record.id || uuid(),
     photoDataUrl: '',
     photoDataUrls: [],
     photoUrl: '',
     photoUrls: [],
+    ...record,
     syncStatus: record.syncStatus || 'queued',
     syncError: record.syncError || '',
+    syncStartedAt: record.syncStartedAt || '',
+    lastSyncAttemptAt: record.lastSyncAttemptAt || '',
+    retryCount: record.retryCount || 0,
+    syncBlockedByAuth: Boolean(record.syncBlockedByAuth),
     syncedAt: record.syncedAt || '',
     backendRecordId: record.backendRecordId || null,
     status: record.status || 'pending',
     createdAt,
-    ...record
+    id,
+    clientSubmissionId: record.clientSubmissionId || record.client_submission_id || id
   };
 }
 
 function markQueued(record, error = null) {
   record.syncStatus = 'queued';
-  record.syncError = error?.message || record.syncError || '';
+  record.syncStartedAt = '';
+  record.syncBlockedByAuth = false;
+
+  if (error) {
+    record.syncError = error.message || 'Sync failed';
+    record.lastSyncAttemptAt = nowIso();
+    record.retryCount = Number(record.retryCount || 0) + 1;
+  } else {
+    record.syncError = record.syncError || '';
+  }
+}
+
+function markSyncing(record) {
+  record.syncStatus = 'syncing';
+  record.syncError = '';
+  record.syncStartedAt = nowIso();
+  record.lastSyncAttemptAt = record.syncStartedAt;
+  record.syncBlockedByAuth = false;
+}
+
+function markAuthBlocked(record, error) {
+  record.syncStatus = 'queued';
+  record.syncStartedAt = '';
+  record.syncBlockedByAuth = true;
+  record.syncError = error?.message || 'Sign in again to sync queued submissions.';
+  record.lastSyncAttemptAt = nowIso();
+  record.retryCount = Number(record.retryCount || 0) + 1;
+}
+
+function isStaleSyncingRecord(record) {
+  if (record.syncStatus !== 'syncing') return true;
+  if (!record.syncStartedAt) return true;
+
+  const startedAt = new Date(record.syncStartedAt).getTime();
+  return Number.isNaN(startedAt) || Date.now() - startedAt > STALE_SYNCING_AFTER_MS;
 }
 
 function applySyncedResponse(record, syncedRecord) {
   record.syncStatus = 'synced';
   record.syncError = '';
+  record.syncStartedAt = '';
+  record.syncBlockedByAuth = false;
   record.syncedAt = new Date().toISOString();
 
   if (syncedRecord?.id) {
     record.backendRecordId = syncedRecord.id;
+  }
+  if (syncedRecord?.client_submission_id) {
+    record.clientSubmissionId = syncedRecord.client_submission_id;
   }
   if (syncedRecord?.status) {
     record.status = syncedRecord.status;
@@ -203,11 +264,12 @@ function applySyncedResponse(record, syncedRecord) {
 async function persistLocalSubmission(record) {
   await put('records', record);
 
-  if (record.syncStatus === 'queued') {
+  if (QUEUED_SYNC_STATUSES.has(record.syncStatus) && !record.backendRecordId) {
     await put('queue', {
       id: record.id,
       kind: record.type,
-      createdAt: record.createdAt
+      createdAt: record.createdAt,
+      syncStartedAt: record.syncStartedAt || ''
     });
   } else {
     await remove('queue', record.id);
@@ -221,19 +283,34 @@ async function clearSubmissionDraft(draftKey) {
 }
 
 async function syncSubmission(record, options = {}) {
+  if (record.backendRecordId) {
+    return {
+      id: record.backendRecordId,
+      status: record.status,
+      photo_url: record.photoUrl || null,
+      photo_urls: normaliseRecordPhotoUrls(record),
+      answers: record.answers,
+      client_submission_id: record.clientSubmissionId || record.id
+    };
+  }
+
+  const uploadOptions = {
+    onProgress: options.onProgress
+  };
+
   if (record.type === 'attendance') {
-    await uploadRecordPhoto(record, options.photoFiles?.[0] || null);
+    await uploadRecordPhoto(record, options.photoFiles?.[0] || null, uploadOptions);
     return await createBackendAttendance(toBackendAttendancePayload(record));
   }
 
   if (record.type === 'task') {
-    await uploadRecordPhotos(record, options.photoFiles || []);
+    await uploadRecordPhotos(record, options.photoFiles || [], uploadOptions);
     return await createBackendTaskLog(toBackendTaskLogPayload(record));
   }
 
   if (record.type === 'form') {
-    await uploadSignatureAnswers(record);
-    await uploadRecordPhotos(record, options.photoFiles || []);
+    await uploadSignatureAnswers(record, uploadOptions);
+    await uploadRecordPhotos(record, options.photoFiles || [], uploadOptions);
     return await createBackendFormSubmission(toBackendFormSubmissionPayload(record));
   }
 
@@ -289,8 +366,15 @@ export async function submitOfflineSubmission(record, options = {}) {
   };
 
   if (navigator.onLine) {
+    let authError = null;
+
     try {
-      const syncedRecord = await syncSubmission(localRecord, options);
+      markSyncing(localRecord);
+      await persistLocalSubmission(localRecord);
+      const syncedRecord = await syncSubmission(localRecord, {
+        ...options,
+        onProgress: persistLocalSubmission
+      });
       applySyncedResponse(localRecord, syncedRecord);
       result = {
         record: localRecord,
@@ -299,15 +383,26 @@ export async function submitOfflineSubmission(record, options = {}) {
         message: syncedSubmissionMessage(localRecord)
       };
     } catch (error) {
-      if (isAuthError(error)) throw error;
-      markQueued(localRecord, error);
+      if (isAuthError(error)) {
+        markAuthBlocked(localRecord, error);
+        authError = error;
+      } else {
+        markQueued(localRecord, error);
+      }
       result = {
         record: localRecord,
         offline: true,
         queued: true,
-        message: queuedSubmissionMessage(localRecord, true)
+        message: authError
+          ? 'Submission saved locally. Sign in again to sync it.'
+          : queuedSubmissionMessage(localRecord, true)
       };
     }
+
+    await persistLocalSubmission(localRecord);
+    if (draftKey) await clearSubmissionDraft(draftKey);
+    if (authError) throw authError;
+    return result;
   } else {
     markQueued(localRecord);
   }
@@ -317,12 +412,14 @@ export async function submitOfflineSubmission(record, options = {}) {
   return result;
 }
 
-export async function syncQueuedSubmissions() {
+async function flushQueuedSubmissions() {
   if (!navigator.onLine) return { flushed: 0, failed: 0 };
 
   const queueItems = await getAll('queue');
   let flushed = 0;
   let failed = 0;
+  let skipped = 0;
+  let authBlocked = false;
 
   for (const item of queueItems) {
     const record = await get('records', item.id);
@@ -331,18 +428,51 @@ export async function syncQueuedSubmissions() {
       continue;
     }
 
+    if (record.backendRecordId || record.syncStatus === 'synced') {
+      await remove('queue', item.id);
+      continue;
+    }
+
+    if (record.syncStatus === 'syncing' && !isStaleSyncingRecord(record)) {
+      skipped += 1;
+      continue;
+    }
+
+    const localRecord = normaliseLocalSubmission(record);
+
     try {
-      const syncedRecord = await syncSubmission(record);
-      applySyncedResponse(record, syncedRecord);
-      await persistLocalSubmission(record);
+      markSyncing(localRecord);
+      await persistLocalSubmission(localRecord);
+
+      const syncedRecord = await syncSubmission(localRecord, {
+        onProgress: persistLocalSubmission
+      });
+      applySyncedResponse(localRecord, syncedRecord);
+      await persistLocalSubmission(localRecord);
       flushed += 1;
     } catch (error) {
-      record.syncError = error.message || 'Sync failed';
-      await put('records', record);
+      if (isAuthError(error)) {
+        markAuthBlocked(localRecord, error);
+        authBlocked = true;
+      } else {
+        markQueued(localRecord, error);
+      }
+      await persistLocalSubmission(localRecord);
       failed += 1;
+      if (authBlocked) break;
     }
   }
 
   await put('settings', { key: 'lastSyncAt', value: new Date().toISOString() });
-  return { flushed, failed };
+  return { flushed, failed, skipped, authBlocked };
+}
+
+export async function syncQueuedSubmissions() {
+  if (syncQueuePromise) return syncQueuePromise;
+
+  syncQueuePromise = flushQueuedSubmissions().finally(() => {
+    syncQueuePromise = null;
+  });
+
+  return syncQueuePromise;
 }

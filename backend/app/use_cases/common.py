@@ -45,6 +45,7 @@ def attendance_record_response(record: AttendanceRecord, session: Session):
         "within_site_radius": record.within_site_radius,
         "note": record.note,
         "photo_url": record.photo_url,
+        "client_submission_id": record.client_submission_id,
         "status": record.status,
         "created_at": format_datetime(record.created_at),
     }
@@ -88,6 +89,7 @@ def task_log_response(log: TaskLog, session: Session):
         "safety_notes": log.safety_notes,
         "photo_url": photo_urls[0] if photo_urls else None,
         "photo_urls": photo_urls,
+        "client_submission_id": log.client_submission_id,
         "status": log.status or "pending",
         "created_at": format_datetime(log.created_at),
     }
@@ -166,6 +168,7 @@ def work_form_submission_response(submission: WorkFormSubmission, session: Sessi
         "work_date": submission.work_date,
         "answers": parse_json_object(submission.answers_json),
         "photo_urls": parse_json_list(submission.photo_urls),
+        "client_submission_id": submission.client_submission_id,
         "status": submission.status or "pending",
         "created_at": format_datetime(submission.created_at),
     }
@@ -209,6 +212,14 @@ def user_response(user: User):
         "role": user.role,
         "status": user.status or "active",
     }
+
+
+def normalize_client_submission_id(value: Optional[str]):
+    if not value:
+        return None
+
+    normalized = value.strip()
+    return normalized or None
 
 
 def require_worker(user: User):

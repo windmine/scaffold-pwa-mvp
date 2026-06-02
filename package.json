@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:phone": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
+    "check:mobile": "node scripts/check-mobile-browser-workflows.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "preview:phone": "vite preview --host 0.0.0.0 --port 4173"

@@ -2,6 +2,7 @@ import {
   decideRecord as decideBackendRecord,
   exportSupervisorRecordsCsv,
   exportSupervisorTaskLogsCsv,
+  getSupervisorAuditEvents as getBackendSupervisorAuditEvents,
   getSupervisorReviewRecords as getBackendSupervisorReviewRecords,
   updateSupervisorRecord as updateBackendSupervisorRecord,
   updateSupervisorTaskLog as updateBackendSupervisorTaskLog
@@ -12,7 +13,7 @@ import {
   getReviewedApprovals,
   getTaskLogRecords
 } from './mock-api.js';
-import { todayDateInput, escapeHtml } from './utils.js';
+import { todayDateInput, escapeHtml, formatDateTime } from './utils.js';
 
 function mergeReviewRecords(...recordGroups) {
   const recordsByKey = new Map();
@@ -41,6 +42,10 @@ function reviewRecordCounts(records) {
     task: 0,
     form: 0
   });
+}
+
+function formatAuditAction(action) {
+  return (action || 'change').replaceAll('_', ' ');
 }
 
 export function createSupervisorReviewModule({
@@ -105,6 +110,7 @@ export function createSupervisorReviewModule({
     renderSupervisorSites();
     await refreshWorkForms();
     await renderStaffUsers();
+    await renderAuditHistory();
   }
 
   function renderFilteredLists() {
@@ -157,6 +163,49 @@ export function createSupervisorReviewModule({
       renderStatusBanner('Task logs CSV exported.');
     } catch (error) {
       renderStatusBanner(error.message || 'Could not export task logs CSV.', true);
+    }
+  }
+
+  function renderAuditEventsList(events) {
+    els.auditEventsList.innerHTML = '';
+    els.auditEventsCount.textContent = String(events.length);
+
+    if (!events.length) {
+      els.auditEventsList.innerHTML = '<div class="empty-state">No supervisor changes have been recorded yet.</div>';
+      return;
+    }
+
+    events.forEach((event) => {
+      const node = document.createElement('article');
+      node.className = 'record-card';
+      node.innerHTML = `
+        <div class="record-header">
+          <div>
+            <h3 class="record-title">${escapeHtml(event.summary || formatAuditAction(event.action))}</h3>
+            <p class="record-meta">${escapeHtml(event.actor_name || event.actor_email || 'Supervisor')} | ${escapeHtml(formatDateTime(event.created_at))}</p>
+          </div>
+          <span class="badge synced">${escapeHtml(formatAuditAction(event.action))}</span>
+        </div>
+        <p class="record-detail">${escapeHtml(event.entity_type || 'record')} #${escapeHtml(event.entity_id ?? '-')}</p>
+      `;
+      els.auditEventsList.appendChild(node);
+    });
+  }
+
+  async function renderAuditHistory() {
+    try {
+      const events = await getBackendSupervisorAuditEvents(50);
+      state.supervisorRecords.auditEvents = events;
+      renderAuditEventsList(events);
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        handleSessionExpired();
+        return;
+      }
+
+      state.supervisorRecords.auditEvents = [];
+      els.auditEventsCount.textContent = '-';
+      els.auditEventsList.innerHTML = '<div class="empty-state">Audit history is unavailable.</div>';
     }
   }
 
@@ -297,12 +346,14 @@ export function createSupervisorReviewModule({
     els.clearSupervisorFiltersButton.addEventListener('click', clearFilters);
     els.exportAttendanceButton.addEventListener('click', handleExportAttendance);
     els.exportTaskLogsButton.addEventListener('click', handleExportTaskLogs);
+    els.refreshAuditButton.addEventListener('click', renderAuditHistory);
   }
 
   return {
     bindEvents,
     handleDecision,
     handleEditRecord,
+    renderAuditHistory,
     renderFilteredLists,
     renderPanel
   };

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
+from sqlalchemy import Column, Text
 from sqlmodel import SQLModel, Field
 
 
@@ -45,6 +46,7 @@ class AttendanceRecord(SQLModel, table=True):
 
     note: Optional[str] = None
     photo_url: Optional[str] = None
+    client_submission_id: Optional[str] = Field(default=None, index=True)
 
     # "pending", "approved", "rejected"
     status: str = Field(default="pending")
@@ -66,6 +68,7 @@ class TaskLog(SQLModel, table=True):
     safety_notes: Optional[str] = None
     photo_url: Optional[str] = None
     photo_urls: Optional[str] = None
+    client_submission_id: Optional[str] = Field(default=None, index=True)
     status: str = Field(default="pending", index=True)
 
     created_at: datetime = Field(
@@ -113,8 +116,26 @@ class WorkFormSubmission(SQLModel, table=True):
     work_date: Optional[str] = None
     answers_json: str
     photo_urls: Optional[str] = None
+    client_submission_id: Optional[str] = Field(default=None, index=True)
     status: str = Field(default="pending", index=True)
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+
+class AuditEvent(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    actor_id: int = Field(index=True)
+    action: str = Field(index=True)
+    entity_type: str = Field(index=True)
+    entity_id: Optional[int] = Field(default=None, index=True)
+    summary: Optional[str] = None
+    before_json: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
+    after_json: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
+
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        index=True
     )

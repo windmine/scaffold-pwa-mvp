@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'leader-field-v24';
+const CACHE_VERSION = 'leader-field-v26';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -25,9 +25,72 @@ const APP_SHELL = [
   '/assets/icons/apple-touch-icon.png'
 ];
 
+const NETWORK_ONLY_PREFIXES = [
+  '/api',
+  '/auth',
+  '/photo-uploads',
+  '/uploads',
+  '/supervisor',
+  '/attendance',
+  '/my-records',
+  '/task-logs',
+  '/task-templates',
+  '/work-forms',
+  '/form-submissions',
+  '/sites',
+  '/dev',
+  '/health'
+];
+
+function pathMatchesPrefix(pathname, prefix) {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+function isNetworkOnlyRequest(request) {
+  const url = new URL(request.url);
+
+  if (url.origin !== self.location.origin) return true;
+
+  return NETWORK_ONLY_PREFIXES.some((prefix) => pathMatchesPrefix(url.pathname, prefix));
+}
+
+function isCacheableStaticRequest(request) {
+  const url = new URL(request.url);
+
+  if (url.origin !== self.location.origin) return false;
+  if (isNetworkOnlyRequest(request)) return false;
+
+  return (
+    request.destination === 'script'
+    || request.destination === 'style'
+    || request.destination === 'image'
+    || request.destination === 'font'
+    || request.destination === 'manifest'
+    || APP_SHELL.includes(url.pathname)
+  );
+}
+
+function isCacheableResponse(response) {
+  return response && response.ok && response.type === 'basic';
+}
+
+async function cacheFirst(request) {
+  const cache = await caches.open(CACHE_VERSION);
+  const cached = await cache.match(request);
+
+  if (cached) return cached;
+
+  const response = await fetch(request);
+
+  if (isCacheableResponse(response)) {
+    await cache.put(request, response.clone());
+  }
+
+  return response;
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_VERSION).then((cache) => cache.addAll(APP_SHELL)));
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -37,6 +100,12 @@ self.addEventListener('activate', (event) => {
     )
   );
   self.clients.claim();
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('fetch', (event) => {
@@ -54,16 +123,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(() => caches.match('/offline.html'));
-    })
-  );
+  if (isNetworkOnlyRequest(request)) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  if (!isCacheableStaticRequest(request)) {
+    return;
+  }
+
+  event.respondWith(cacheFirst(request));
 });

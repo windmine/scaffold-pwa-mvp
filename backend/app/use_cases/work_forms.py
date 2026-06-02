@@ -4,9 +4,11 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from app.models import User, WorkForm, WorkFormSubmission
+from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
     VALID_WORK_FORM_STATUSES,
     ensure_site_exists,
+    normalize_client_submission_id,
     normalize_work_form_fields,
     normalize_work_form_photo_urls,
     require_confirmed,
@@ -50,13 +52,23 @@ def create_work_form(data, supervisor: User, session: Session):
         created_by=supervisor.id
     )
     session.add(form)
+    session.flush()
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action="work_form_create",
+        entity_type="work_form",
+        entity_id=form.id,
+        after=model_snapshot(form),
+        summary=f"Created work form {form.name}",
+    )
     session.commit()
     session.refresh(form)
 
     return work_form_response(form)
 
 
-def update_work_form(form_id: int, data, session: Session):
+def update_work_form(form_id: int, data, supervisor: User, session: Session):
     require_confirmed(data.confirmed)
     form = session.get(WorkForm, form_id)
 
@@ -64,6 +76,8 @@ def update_work_form(form_id: int, data, session: Session):
         raise HTTPException(status_code=404, detail="Form not found")
 
     fields = data.model_fields_set
+    before = model_snapshot(form)
+    previous_status = form.status
 
     if "name" in fields and data.name is not None:
         name = data.name.strip()
@@ -89,6 +103,20 @@ def update_work_form(form_id: int, data, session: Session):
         form.status = status
 
     session.add(form)
+    action = "work_form_update"
+    if "status" in fields and form.status != previous_status:
+        action = "work_form_archive" if form.status == "archived" else "work_form_reactivate"
+
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action=action,
+        entity_type="work_form",
+        entity_id=form.id,
+        before=before,
+        after=model_snapshot(form),
+        summary=f"{action.replace('_', ' ').capitalize()} {form.name}",
+    )
     session.commit()
     session.refresh(form)
 
@@ -104,6 +132,16 @@ def create_work_form_submission(data, user: User, session: Session):
     ensure_site_exists(session, data.site_id)
     answers = validate_work_form_answers(form, data.answers)
     photo_urls = normalize_work_form_photo_urls(data.photo_urls)
+    client_submission_id = normalize_client_submission_id(data.client_submission_id)
+    if client_submission_id:
+        existing_submission = session.exec(
+            select(WorkFormSubmission).where(
+                WorkFormSubmission.worker_id == user.id,
+                WorkFormSubmission.client_submission_id == client_submission_id
+            )
+        ).first()
+        if existing_submission:
+            return work_form_submission_response(existing_submission, session)
 
     submission = WorkFormSubmission(
         form_id=form.id,
@@ -112,6 +150,7 @@ def create_work_form_submission(data, user: User, session: Session):
         work_date=data.work_date,
         answers_json=json.dumps(answers),
         photo_urls=json.dumps(photo_urls) if photo_urls else None,
+        client_submission_id=client_submission_id,
         status="pending"
     )
     session.add(submission)

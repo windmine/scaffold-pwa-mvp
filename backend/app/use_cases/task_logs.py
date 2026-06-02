@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 from app.models import TaskLog, TaskTemplate, User
 from app.use_cases.common import (
     ensure_site_exists,
+    normalize_client_submission_id,
     normalize_task_photo_urls,
     require_worker,
     task_log_response,
@@ -17,6 +18,16 @@ def create_task_log(data, user: User, session: Session):
     require_worker(user)
     ensure_site_exists(session, data.site_id)
     photo_urls = normalize_task_photo_urls(data.photo_url, data.photo_urls)
+    client_submission_id = normalize_client_submission_id(data.client_submission_id)
+    if client_submission_id:
+        existing_log = session.exec(
+            select(TaskLog).where(
+                TaskLog.worker_id == user.id,
+                TaskLog.client_submission_id == client_submission_id
+            )
+        ).first()
+        if existing_log:
+            return task_log_response(existing_log, session)
 
     log = TaskLog(
         worker_id=user.id,
@@ -27,6 +38,7 @@ def create_task_log(data, user: User, session: Session):
         safety_notes=data.safety_notes,
         photo_url=photo_urls[0] if photo_urls else None,
         photo_urls=json.dumps(photo_urls) if photo_urls else None,
+        client_submission_id=client_submission_id,
         status="pending"
     )
 
