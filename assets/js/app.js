@@ -54,6 +54,8 @@ const state = {
 const els = {
   statusBanner: document.getElementById('statusBanner'),
   installButton: document.getElementById('installButton'),
+  downloadAppButton: document.getElementById('downloadAppButton'),
+  downloadAppHelp: document.getElementById('downloadAppHelp'),
   updateButton: document.getElementById('updateButton'),
   logoutButton: document.getElementById('logoutButton'),
   loginView: document.getElementById('loginView'),
@@ -269,6 +271,7 @@ async function init() {
   els.workFormDate.value = todayDateInput();
   await restoreDrafts();
   bindEvents();
+  renderInstallHelp();
   await syncQueueIfPossible(false);
   renderApp();
   if (authRestoreMessage) {
@@ -326,6 +329,7 @@ function bindEvents() {
   els.cancelEditButton.addEventListener('click', closeEditPanel);
   photoViewer.bindEvents();
   els.installButton.addEventListener('click', handleInstall);
+  els.downloadAppButton.addEventListener('click', handleInstall);
   els.updateButton.addEventListener('click', handleAppUpdate);
 
   document.querySelectorAll('[data-tab-target]').forEach((button) => {
@@ -346,6 +350,7 @@ function bindEvents() {
     event.preventDefault();
     state.installPrompt = event;
     els.installButton.classList.remove('hidden');
+    renderInstallHelp();
   });
 }
 
@@ -692,11 +697,53 @@ async function syncQueueIfPossible(showMessage) {
 }
 
 async function handleInstall() {
-  if (!state.installPrompt) return;
+  if (!state.installPrompt) {
+    renderInstallHelp(true);
+    renderStatusBanner(installFallbackMessage(), true);
+    return;
+  }
+
   state.installPrompt.prompt();
   await state.installPrompt.userChoice;
   state.installPrompt = null;
   els.installButton.classList.add('hidden');
+  renderInstallHelp();
+}
+
+function isInstalledApp() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function installFallbackMessage() {
+  if (isInstalledApp()) {
+    return 'This app is already installed on this device.';
+  }
+
+  if (/iphone|ipad|ipod/i.test(window.navigator.userAgent)) {
+    return 'On iPhone or iPad, use Safari Share, then Add to Home Screen.';
+  }
+
+  return 'Use your browser menu and choose Install app or Add to Home screen.';
+}
+
+function renderInstallHelp(forceFallback = false) {
+  if (isInstalledApp()) {
+    els.downloadAppButton.textContent = 'App Installed';
+    els.downloadAppButton.disabled = true;
+    els.downloadAppHelp.textContent = 'This app is already installed on this device.';
+    return;
+  }
+
+  els.downloadAppButton.disabled = false;
+
+  if (state.installPrompt && !forceFallback) {
+    els.downloadAppButton.textContent = 'Download App';
+    els.downloadAppHelp.textContent = 'Tap Download App to install it on this device.';
+    return;
+  }
+
+  els.downloadAppButton.textContent = 'How to Install';
+  els.downloadAppHelp.textContent = installFallbackMessage();
 }
 
 function hasPendingAppUpdate() {

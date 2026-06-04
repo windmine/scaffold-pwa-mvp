@@ -57,6 +57,7 @@ check('production HTML keeps stable PWA links', () => (
 [
   'statusBanner',
   'installButton',
+  'downloadAppButton',
   'updateButton',
   'loginForm',
   'registerForm',
@@ -97,6 +98,14 @@ check('service worker update prompt is wired', () => (
   && sourceApp.includes('controllerchange')
   && sourceApp.includes("worker.postMessage({ type: 'SKIP_WAITING' })")
   && sourceWorker.includes("event.data?.type === 'SKIP_WAITING'")
+));
+
+check('visible app download button is wired', () => (
+  sourceIndex.includes('id="downloadAppButton"')
+  && sourceIndex.includes('id="downloadAppHelp"')
+  && sourceApp.includes('downloadAppButton')
+  && sourceApp.includes('installFallbackMessage')
+  && sourceApp.includes('beforeinstallprompt')
 ));
 
 check('production service worker uses the current app shell rules', () => (

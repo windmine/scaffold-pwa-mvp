@@ -19,11 +19,11 @@ The app started as a frontend-only prototype. It now uses the FastAPI backend fo
 
 `src/App.jsx` is not the current production UI path. The active app is `index.html` plus the modules in `assets/js/`.
 
-## Reset Goal - 2026-06-02
+## Current Reset Status - 2026-06-04
 
-The current destination is a reliable local MVP that can be installed and tested from a phone without stale data or broken offline behavior. The product should stop expanding sideways until the app shell, cache rules, update flow, and worker/supervisor validation checks are dependable.
+The reset goal is still a reliable local MVP that can be installed and tested from a phone without stale data or broken offline behavior. The build, cache, update-flow, offline-sync, audit-history, and real-device workflow pass are now in place, so the project can move from PWA validation into migration and test hardening before more business features are added.
 
-Done for this reset means:
+Completed in this reset:
 
 - `npm run build` produces a `dist/` that serves the service worker, offline page, manifest, and icon assets from the paths used by the app.
 - The service worker never returns cached `/api`, `/auth`, `/photo-uploads`, or `/uploads` responses as if they were fresh backend data.
@@ -31,8 +31,11 @@ Done for this reset means:
 - Supervisors can review the resulting attendance, task logs, form submissions, photos, and signatures from the unified Review Queue.
 - A browser/mobile validation checklist or automated check covers the main worker and supervisor paths.
 - Supervisor changes have an audit-history API and visible dashboard section.
+- The full manual phone/browser workflow checklist passed on a real phone on the local network on 2026-06-04.
 
-Near-term non-goals: maps, schedules, leave requests, payroll/HR features, push notifications, bulk import, and external integrations.
+Next step:
+
+Replace the lightweight SQLite startup migrations with a real migration workflow before production. Keep the real-phone checklist in `docs/mobile-browser-workflow-checks.md` as the regression pass after migration or offline/PWA changes.
 
 ## Features
 
@@ -85,6 +88,7 @@ Worker restrictions:
 
 - Vite HTTPS dev server for geolocation-friendly phone testing.
 - Same-origin `/api` proxy to avoid iOS mixed-content blocking.
+- Visible Download App button with browser install prompt or Add-to-Home-Screen fallback instructions.
 - Service worker app shell cache.
 - Offline page.
 - IndexedDB drafts and queued attendance, task-log, and work-form submissions, including photos and handwritten signature data.
@@ -291,6 +295,39 @@ https://127.0.0.1:5173
 ```
 
 The browser may warn about the local certificate. Accept it for local testing so geolocation and PWA behavior work.
+
+## Firebase Deployment Files
+
+This repo includes Firebase Hosting and Cloud Run deployment scaffolding:
+
+```text
+.firebaserc              Firebase project id: geo-attendance-system-db9ca
+firebase.json            Hosting config for dist/ plus /api and /uploads Cloud Run rewrites
+Dockerfile               FastAPI Cloud Run container
+.dockerignore            Small Docker build context
+.gcloudignore            Small Cloud Run source upload
+.env.firebase.example    Cloud Run environment variable template
+firestore.rules          Deny-all until the app intentionally uses client Firestore
+storage.rules            Deny-all until uploads are moved to Firebase Storage
+```
+
+Build and deploy the backend service first:
+
+```powershell
+gcloud config set project geo-attendance-system-db9ca
+gcloud run deploy geo-backend --source . --region australia-southeast1 --allow-unauthenticated
+```
+
+Set Cloud Run environment variables from `.env.firebase.example`. The current file uses SQLite for a short demo only; use Cloud SQL/Postgres before production.
+
+Then build and deploy Hosting:
+
+```powershell
+npm.cmd run build
+firebase deploy --only hosting
+```
+
+`firebase.json` rewrites `/api/**` and `/uploads/**` to the `geo-backend` Cloud Run service. FastAPI strips the `/api` prefix at runtime so existing routes like `/auth/login`, `/attendance`, and `/supervisor/audit-events` continue to work behind Firebase Hosting.
 
 ## Phone Testing
 
@@ -813,12 +850,9 @@ Check:
 
 Before real production use, improve:
 
-- Production PWA build output: currently `npm run build` succeeds, but the generated `dist/` must still be checked for root-level `/sw.js`, `/offline.html`, manifest, and icon paths.
-- Service worker data safety: `/api`, `/auth`, `/photo-uploads`, and `/uploads` should bypass app-shell caching to avoid stale reviews, user data, and photos.
-- Service worker update UX: users need a clear update/reload prompt when a new worker is waiting.
 - Real database migrations instead of lightweight SQLite `ALTER TABLE` startup checks.
 - PostgreSQL or another managed production database.
-- Production HTTPS deployment.
+- Production Firebase Hosting / Cloud Run validation with HTTPS, domain, CORS, upload paths, and app update behavior.
 - Strong secret management.
 - Refresh token/session strategy.
 - Rate limiting.
@@ -831,10 +865,14 @@ Before real production use, improve:
 
 ## Roadmap
 
-Useful next features:
+Current next work:
 
-- Fix production PWA asset emission and cache strategy.
-- Add app update prompt and mobile/browser workflow checks.
+- Replace lightweight SQLite startup migrations with a real migration workflow before production.
+- Expand automated frontend/backend tests around high-risk worker and supervisor workflows.
+- Validate Firebase Hosting / Cloud Run deployment end to end after local migration/test hardening.
+
+Useful later features:
+
 - Map view for attendance and sites.
 - Geofence warning before submit.
 - Shift/schedule module.

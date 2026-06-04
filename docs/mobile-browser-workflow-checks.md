@@ -2,6 +2,10 @@
 
 Use this checklist before calling the MVP ready for phone testing or PWA hardening. Run the automated checks first, then do the manual phone/browser pass.
 
+## Latest Manual Pass
+
+- 2026-06-04: Full real-phone workflow pass completed on the local network with no reported blocking issues.
+
 ## Automated Preflight
 
 From the project root:
@@ -53,6 +57,7 @@ python backend\smoke_test.py
 ## Worker Phone Checks
 
 - Login as `worker@example.com / Passw0rd!`.
+- Tap `Download App` on the sign-in screen and confirm it either opens the browser install prompt or shows Add-to-Home-Screen instructions.
 - Deny geolocation once and confirm the app shows an error instead of crashing.
 - Allow geolocation, capture location, and confirm the site-radius preview appears.
 - Submit a check-in with notes and an optional photo.

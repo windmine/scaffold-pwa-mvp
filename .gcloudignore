@@ -1,0 +1,11 @@
+.git
+.agents
+.env
+backend/.env
+backend/geo_management.db
+backend/uploads
+backend/app/__pycache__
+dist
+node_modules
+public
+*.log

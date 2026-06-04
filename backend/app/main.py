@@ -48,6 +48,15 @@ from app.use_cases.common import upload_url, user_response
 
 app = FastAPI(title="Geo Management Backend")
 
+
+@app.middleware("http")
+async def strip_firebase_hosting_api_prefix(request, call_next):
+    if request.scope["path"].startswith("/api/"):
+        request.scope["path"] = request.scope["path"][4:]
+
+    return await call_next(request)
+
+
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 
