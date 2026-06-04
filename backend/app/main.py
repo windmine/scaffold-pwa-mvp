@@ -8,8 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 
-from app.config import CORS_ORIGINS, MAX_UPLOAD_BYTES, UPLOAD_DIR
-from app.database import create_db_and_tables, get_session
+from app.config import AUTO_MIGRATE, CORS_ORIGINS, MAX_UPLOAD_BYTES, UPLOAD_DIR
+from app.database import migrate_database, get_session
 from app.models import User, Site, WorkForm
 from app.schemas import (
     ApprovalRequest,
@@ -132,7 +132,8 @@ DEMO_WORK_FORMS = [
 
 @app.on_event("startup")
 def on_startup():
-    create_db_and_tables()
+    if AUTO_MIGRATE:
+        migrate_database()
 
 
 @app.get("/health")

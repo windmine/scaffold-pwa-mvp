@@ -44,6 +44,15 @@ def int_env(name: str, default: int):
         return default
 
 
+def bool_env(name: str, default: bool):
+    value = os.environ.get(name)
+
+    if value is None:
+        return default
+
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def path_env(name: str, default: Path):
     value = os.environ.get(name)
     path = Path(value) if value else default
@@ -55,6 +64,8 @@ def path_env(name: str, default: Path):
 
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./geo_management.db")
+AUTO_MIGRATE = bool_env("AUTO_MIGRATE", True)
+SQL_ECHO = bool_env("SQL_ECHO", False)
 
 JWT_SECRET_KEY = os.environ.get("GEO_SECRET_KEY", "dev-only-change-me")
 JWT_ALGORITHM = os.environ.get("GEO_JWT_ALGORITHM", "HS256")

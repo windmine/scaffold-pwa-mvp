@@ -21,7 +21,7 @@ The app started as a frontend-only prototype. It now uses the FastAPI backend fo
 
 ## Current Reset Status - 2026-06-04
 
-The reset goal is still a reliable local MVP that can be installed and tested from a phone without stale data or broken offline behavior. The build, cache, update-flow, offline-sync, audit-history, and real-device workflow pass are now in place, so the project can move from PWA validation into migration and test hardening before more business features are added.
+The reset goal is still a reliable local MVP that can be installed and tested from a phone without stale data or broken offline behavior. The build, cache, update-flow, offline-sync, audit-history, real-device workflow pass, and versioned database migration workflow are now in place, so the project can move from PWA validation into deployment hardening before more business features are added.
 
 Completed in this reset:
 
@@ -32,10 +32,11 @@ Completed in this reset:
 - A browser/mobile validation checklist or automated check covers the main worker and supervisor paths.
 - Supervisor changes have an audit-history API and visible dashboard section.
 - The full manual phone/browser workflow checklist passed on a real phone on the local network on 2026-06-04.
+- Backend schema changes now use versioned migrations recorded in `schema_migrations` instead of inline SQLite startup `ALTER TABLE` checks.
 
 Next step:
 
-Replace the lightweight SQLite startup migrations with a real migration workflow before production. Keep the real-phone checklist in `docs/mobile-browser-workflow-checks.md` as the regression pass after migration or offline/PWA changes.
+Expand production validation around Firebase Hosting and Cloud Run. Keep the real-phone checklist in `docs/mobile-browser-workflow-checks.md` as the regression pass after migration, deployment, or offline/PWA changes.
 
 ## Features
 
@@ -148,11 +149,15 @@ scaffold-pwa-mvp/
     icons/
 
   backend/
+    migrations/
+      versions/
+        0001_initial_schema.py  Versioned database migration
     app/
       main.py                 FastAPI routes
       schemas.py              FastAPI request schemas
       models.py               SQLModel tables
-      database.py             Engine and lightweight SQLite migrations
+      database.py             Engine and migration startup hook
+      migrations.py           Dependency-free versioned migration runner
       auth.py                 Password/JWT helpers
       config.py               Environment loading
       use_cases/
@@ -163,6 +168,7 @@ scaffold-pwa-mvp/
         work_forms.py         Work-form definition and submission use cases
         supervisor_review.py  Supervisor review, edit, decision, and export use cases
         staff_site_admin.py   Staff user and site admin use cases
+    migration_test.py         Migration workflow regression script
     smoke_test.py             Backend smoke/regression script
     uploads/                  Runtime uploaded files
     geo_management.db         Runtime SQLite DB
@@ -202,6 +208,8 @@ Important values:
 ```text
 GEO_SECRET_KEY=change-this-dev-secret
 DATABASE_URL=sqlite:///./geo_management.db
+AUTO_MIGRATE=true
+SQL_ECHO=false
 CORS_ORIGINS=http://localhost:5173,https://localhost:5173,http://127.0.0.1:5173,https://127.0.0.1:5173
 UPLOAD_DIR=uploads
 MAX_UPLOAD_BYTES=5242880
@@ -242,6 +250,15 @@ If bcrypt/passlib gives login errors, use the known compatible bcrypt pin:
 python -m pip uninstall -y bcrypt passlib
 python -m pip install "passlib[bcrypt]==1.7.4" "bcrypt==4.0.1"
 ```
+
+Run database migrations:
+
+```powershell
+cd backend
+python -m app.migrations
+```
+
+The backend also runs pending migrations on startup when `AUTO_MIGRATE=true`, which keeps local development and the current Cloud Run demo path simple. For a managed production database, run migrations as an explicit deployment step before shifting traffic.
 
 Run the backend:
 
@@ -319,6 +336,8 @@ gcloud run deploy geo-backend --source . --region australia-southeast1 --allow-u
 ```
 
 Set Cloud Run environment variables from `.env.firebase.example`. The current file uses SQLite for a short demo only; use Cloud SQL/Postgres before production.
+
+The Docker container runs `python -m app.migrations` before starting Uvicorn, so Cloud Run startup fails fast if the database schema cannot be migrated.
 
 Then build and deploy Hosting:
 
@@ -715,7 +734,13 @@ npm.cmd run check:mobile
 Backend import check:
 
 ```powershell
-python -m compileall backend\app backend\smoke_test.py
+python -m compileall backend\app backend\smoke_test.py backend\migration_test.py
+```
+
+Migration workflow check:
+
+```powershell
+python backend\migration_test.py
 ```
 
 The smoke test covers:
@@ -737,8 +762,10 @@ The smoke test covers:
 - Worker/supervisor role boundaries.
 - Cross-worker ownership boundaries.
 - Validation failures.
+- Rejected attendance, task-log, and work-form review records.
+- Worker lockout after attendance approval/rejection.
 - Supervisor task-log adjustment.
-- Supervisor audit-history access and expected event types.
+- Supervisor audit-history access, filtering, and expected event types.
 - CSV export.
 - Task-log CSV export.
 
@@ -850,7 +877,6 @@ Check:
 
 Before real production use, improve:
 
-- Real database migrations instead of lightweight SQLite `ALTER TABLE` startup checks.
 - PostgreSQL or another managed production database.
 - Production Firebase Hosting / Cloud Run validation with HTTPS, domain, CORS, upload paths, and app update behavior.
 - Strong secret management.
@@ -867,9 +893,9 @@ Before real production use, improve:
 
 Current next work:
 
-- Replace lightweight SQLite startup migrations with a real migration workflow before production.
-- Expand automated frontend/backend tests around high-risk worker and supervisor workflows.
 - Validate Firebase Hosting / Cloud Run deployment end to end after local migration/test hardening.
+- Add a production database migration runbook for Cloud SQL/Postgres, including backup and rollback steps.
+- Expand automated frontend coverage beyond static workflow checks.
 
 Useful later features:
 

@@ -309,6 +309,60 @@ def main():
             for item in approved_review_records
         ):
             raise AssertionError("list approved review records: expected approved form submission")
+        rejected_form_submission = assert_status(
+            "submit rejectable work form",
+            request(
+                "POST",
+                "/form-submissions",
+                {
+                    "form_id": smoke_form["id"],
+                    "site_id": site["id"],
+                    "work_date": now.date().isoformat(),
+                    "answers": {
+                        "area": "South bay",
+                        "result": "Fail",
+                        "notes": "Needs recheck",
+                        "worker_signature": "/uploads/signature-smoke-reject.png",
+                    },
+                    "photo_urls": ["/uploads/form-smoke-reject.jpg"],
+                    "client_submission_id": f"smoke-form-reject-{timestamp}",
+                },
+                worker_token,
+            ),
+            200,
+        )
+        rejected_form_submission = assert_status(
+            "supervisor reject form submission",
+            request(
+                "POST",
+                f"/supervisor/review-records/form/{rejected_form_submission['id']}/decision",
+                {"status": "rejected"},
+                supervisor_token,
+            ),
+            200,
+        )
+        if rejected_form_submission["status"] != "rejected":
+            raise AssertionError("supervisor reject form submission: expected rejected status")
+        rejected_review_records = assert_status(
+            "list rejected review records",
+            request("GET", "/supervisor/review-records?status=rejected", token=supervisor_token),
+            200,
+        )
+        if not any(
+            item["kind"] == "form" and item["id"] == rejected_form_submission["id"]
+            for item in rejected_review_records
+        ):
+            raise AssertionError("list rejected review records: expected rejected form submission")
+        worker_form_submissions = assert_status(
+            "worker sees rejected form submission",
+            request("GET", "/my-form-submissions", token=worker_token),
+            200,
+        )
+        if not any(
+            item["id"] == rejected_form_submission["id"] and item["status"] == "rejected"
+            for item in worker_form_submissions
+        ):
+            raise AssertionError("worker sees rejected form submission: expected rejected status")
         assert_status(
             "reject required form answer missing",
             request(
@@ -686,6 +740,45 @@ def main():
             request("DELETE", f"/my-task-logs/{task_log['id']}", token=worker_token),
             403,
         )
+        rejected_task_log = assert_status(
+            "create rejectable task log",
+            request(
+                "POST",
+                "/task-logs",
+                {
+                    "description": f"Rejectable task log {timestamp}",
+                    "site_id": site["id"],
+                    "hours_worked": 2,
+                    "work_date": now.date().isoformat(),
+                    "photo_urls": ["/uploads/smoke-task-reject.jpg"],
+                    "client_submission_id": f"smoke-task-reject-{timestamp}",
+                },
+                worker_token,
+            ),
+            200,
+        )
+        rejected_task_log = assert_status(
+            "supervisor reject task log",
+            request(
+                "POST",
+                f"/supervisor/review-records/task/{rejected_task_log['id']}/decision",
+                {"status": "rejected"},
+                supervisor_token,
+            ),
+            200,
+        )
+        if rejected_task_log["status"] != "rejected":
+            raise AssertionError("supervisor reject task log: expected rejected status")
+        rejected_review_records = assert_status(
+            "list rejected task review records",
+            request("GET", "/supervisor/review-records?status=rejected", token=supervisor_token),
+            200,
+        )
+        if not any(
+            item["kind"] == "task" and item["id"] == rejected_task_log["id"]
+            for item in rejected_review_records
+        ):
+            raise AssertionError("list rejected task review records: expected rejected task log")
         assert_status(
             "delete task template",
             request("DELETE", f"/task-templates/{template['id']}", token=worker_token),
@@ -739,6 +832,61 @@ def main():
             request("DELETE", f"/my-records/{pending_attendance['id']}", token=worker_token),
             400,
         )
+        rejected_attendance = assert_status(
+            "create rejectable attendance",
+            request(
+                "POST",
+                "/attendance",
+                {
+                    "record_type": "check_out",
+                    "latitude": site["latitude"] + 0.02,
+                    "longitude": site["longitude"],
+                    "accuracy": 20,
+                    "site_id": site["id"],
+                    "note": f"reject smoke test {timestamp}",
+                    "client_submission_id": f"smoke-attendance-reject-{timestamp}",
+                },
+                worker_token,
+            ),
+            200,
+        )
+        rejected_attendance = assert_status(
+            "supervisor reject attendance",
+            request(
+                "POST",
+                f"/supervisor/review-records/attendance/{rejected_attendance['id']}/decision",
+                {"status": "rejected"},
+                supervisor_token,
+            ),
+            200,
+        )
+        if rejected_attendance["status"] != "rejected":
+            raise AssertionError("supervisor reject attendance: expected rejected status")
+        assert_status(
+            "worker cannot update rejected attendance",
+            request(
+                "PATCH",
+                f"/my-records/{rejected_attendance['id']}",
+                {"note": "late rejected edit should fail"},
+                worker_token,
+            ),
+            400,
+        )
+        assert_status(
+            "worker cannot delete rejected attendance",
+            request("DELETE", f"/my-records/{rejected_attendance['id']}", token=worker_token),
+            400,
+        )
+        rejected_review_records = assert_status(
+            "list rejected attendance review records",
+            request("GET", "/supervisor/review-records?status=rejected", token=supervisor_token),
+            200,
+        )
+        if not any(
+            item["kind"] == "attendance" and item["id"] == rejected_attendance["id"]
+            for item in rejected_review_records
+        ):
+            raise AssertionError("list rejected attendance review records: expected rejected attendance")
         csv_body = assert_status(
             "export attendance csv",
             request("GET", "/supervisor/records/export.csv", token=supervisor_token),
@@ -781,6 +929,15 @@ def main():
             raise AssertionError("list supervisor audit events: expected attendance audit event")
         if not any(event.get("actor_name") == "Demo Supervisor" for event in audit_events):
             raise AssertionError("list supervisor audit events: expected actor details")
+        work_form_audit_events = assert_status(
+            "filter supervisor audit events by work form",
+            request("GET", "/supervisor/audit-events?entity_type=work_form&limit=100", token=supervisor_token),
+            200,
+        )
+        if not work_form_audit_events:
+            raise AssertionError("filter supervisor audit events by work form: expected events")
+        if any(event["entity_type"] != "work_form" for event in work_form_audit_events):
+            raise AssertionError("filter supervisor audit events by work form: expected only work_form events")
 
     except URLError as error:
         print(f"Could not reach {BASE_URL}: {error}", file=sys.stderr)

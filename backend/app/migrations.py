@@ -1,0 +1,175 @@
+from __future__ import annotations
+
+import hashlib
+import importlib.util
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from types import ModuleType
+
+from sqlalchemy import inspect, text
+from sqlalchemy.engine import Connection, Engine
+
+from app.config import BACKEND_DIR
+
+
+MIGRATIONS_DIR = BACKEND_DIR / "migrations" / "versions"
+
+
+class MigrationError(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True)
+class Migration:
+    version: str
+    name: str
+    checksum: str
+    module: ModuleType
+
+
+class MigrationContext:
+    def __init__(self, connection: Connection):
+        self.connection = connection
+
+    def execute(self, statement: str):
+        self.connection.exec_driver_sql(statement)
+
+    def table_exists(self, table_name: str) -> bool:
+        return table_name in inspect(self.connection).get_table_names()
+
+    def column_exists(self, table_name: str, column_name: str) -> bool:
+        if not self.table_exists(table_name):
+            return False
+
+        return any(
+            column["name"] == column_name
+            for column in inspect(self.connection).get_columns(table_name)
+        )
+
+    def add_column_if_missing(self, table_name: str, column_name: str, definition: str):
+        if self.column_exists(table_name, column_name):
+            return
+
+        table = self._quote_identifier(table_name)
+        column = self._quote_identifier(column_name)
+        self.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+    def _quote_identifier(self, identifier: str) -> str:
+        return self.connection.dialect.identifier_preparer.quote(identifier)
+
+
+def run_migrations(engine: Engine, migrations_dir: Path = MIGRATIONS_DIR) -> list[str]:
+    migrations = _load_migrations(migrations_dir)
+    applied_now: list[str] = []
+
+    with engine.begin() as connection:
+        _ensure_migration_table(connection)
+        applied = _get_applied_migrations(connection)
+
+        for migration in migrations:
+            applied_checksum = applied.get(migration.version)
+
+            if applied_checksum:
+                if applied_checksum != migration.checksum:
+                    raise MigrationError(
+                        f"Migration {migration.version} has changed since it was applied"
+                    )
+                continue
+
+            upgrade = getattr(migration.module, "upgrade", None)
+
+            if not callable(upgrade):
+                raise MigrationError(f"Migration {migration.name} has no upgrade(context) function")
+
+            upgrade(MigrationContext(connection))
+            connection.execute(
+                text(
+                    """
+                INSERT INTO schema_migrations (version, name, checksum, applied_at)
+                VALUES (:version, :name, :checksum, :applied_at)
+                """
+                ),
+                {
+                    "version": migration.version,
+                    "name": migration.name,
+                    "checksum": migration.checksum,
+                    "applied_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+            applied_now.append(migration.version)
+
+    return applied_now
+
+
+def _ensure_migration_table(connection: Connection):
+    connection.exec_driver_sql(
+        """
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version VARCHAR PRIMARY KEY,
+            name VARCHAR NOT NULL,
+            checksum VARCHAR NOT NULL,
+            applied_at VARCHAR NOT NULL
+        )
+        """
+    )
+
+
+def _get_applied_migrations(connection: Connection) -> dict[str, str]:
+    rows = connection.exec_driver_sql(
+        "SELECT version, checksum FROM schema_migrations"
+    ).all()
+    return {row[0]: row[1] for row in rows}
+
+
+def _load_migrations(migrations_dir: Path) -> list[Migration]:
+    if not migrations_dir.exists():
+        return []
+
+    migrations = [
+        _load_migration(path)
+        for path in sorted(migrations_dir.glob("*.py"))
+        if path.name != "__init__.py"
+    ]
+    versions = [migration.version for migration in migrations]
+
+    if len(versions) != len(set(versions)):
+        raise MigrationError("Duplicate migration versions found")
+
+    return migrations
+
+
+def _load_migration(path: Path) -> Migration:
+    module_name = f"app_migration_{path.stem}"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+
+    if not spec or not spec.loader:
+        raise MigrationError(f"Could not load migration {path.name}")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    version = getattr(module, "revision", path.stem)
+
+    return Migration(
+        version=version,
+        name=path.name,
+        checksum=hashlib.sha256(path.read_bytes()).hexdigest(),
+        module=module,
+    )
+
+
+def main() -> int:
+    from app.database import engine
+
+    applied = run_migrations(engine)
+
+    if applied:
+        print(f"Applied migrations: {', '.join(applied)}")
+    else:
+        print("No pending migrations")
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
