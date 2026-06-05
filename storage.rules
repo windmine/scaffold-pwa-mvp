@@ -1,8 +1,8 @@
 rules_version = '2';
 
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
+// The app does not allow direct browser uploads to Firebase Storage.
+// FastAPI handles authenticated /photo-uploads requests and writes to
+// the private Cloud Storage bucket through Cloud Run IAM.
 service firebase.storage {
   match /b/{bucket}/o {
     match /{allPaths=**} {

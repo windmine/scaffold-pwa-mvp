@@ -9,9 +9,9 @@ This project lets field workers check in/out from a phone with location data, su
 ```text
 Frontend: Vite-served PWA-style static app
 Backend: FastAPI REST API
-Database: SQLite for local development
+Database: SQLite for local development; Cloud SQL PostgreSQL for the live Cloud Run test backend
 Auth: JWT bearer tokens
-Uploads: Local backend/uploads folder
+Uploads: Local backend/uploads folder for development; private Cloud Storage bucket for live Cloud Run
 Primary UI files: index.html, assets/css/styles.css, assets/js/app.js
 ```
 
@@ -19,7 +19,7 @@ The app started as a frontend-only prototype. It now uses the FastAPI backend fo
 
 `src/App.jsx` is not the current production UI path. The active app is `index.html` plus the modules in `assets/js/`.
 
-## Current Reset Status - 2026-06-04
+## Current Reset Status - 2026-06-05
 
 The reset goal is still a reliable local MVP that can be installed and tested from a phone without stale data or broken offline behavior. The build, cache, update-flow, offline-sync, audit-history, real-device workflow pass, and versioned database migration workflow are now in place, so the project can move from PWA validation into deployment hardening before more business features are added.
 
@@ -33,10 +33,14 @@ Completed in this reset:
 - Supervisor changes have an audit-history API and visible dashboard section.
 - The full manual phone/browser workflow checklist passed on a real phone on the local network on 2026-06-04.
 - Backend schema changes now use versioned migrations recorded in `schema_migrations` instead of inline SQLite startup `ALTER TABLE` checks.
+- Cloud Run `geo-backend` now uses Cloud SQL PostgreSQL through Secret Manager-backed `DATABASE_URL` and `GEO_SECRET_KEY`.
+- The live backend smoke test passed through Firebase Hosting `/api` on 2026-06-05.
+- Cloud SQL backups and PITR are enabled, and an on-demand backup was created after enabling PITR.
+- Cloud Run revision `geo-backend-00007-5fc` stores new photos/signatures in private Cloud Storage bucket `geo-attendance-system-db9ca-uploads`.
 
 Next step:
 
-Expand production validation around Firebase Hosting and Cloud Run. Keep the real-phone checklist in `docs/mobile-browser-workflow-checks.md` as the regression pass after migration, deployment, or offline/PWA changes.
+Run the real-phone checklist against the live Firebase Hosting / Cloud Run path, then clean up test data and finish the remaining production hardening items.
 
 ## Features
 
@@ -124,6 +128,7 @@ scaffold-pwa-mvp/
 
   docs/
     mobile-browser-workflow-checks.md  Focused manual phone/browser workflow checks
+    production-db-runbook.md           Managed database migration and rollback runbook
 
   scripts/
     check-mobile-browser-workflows.mjs  Dependency-free PWA/mobile preflight check
@@ -325,7 +330,7 @@ Dockerfile               FastAPI Cloud Run container
 .gcloudignore            Small Cloud Run source upload
 .env.firebase.example    Cloud Run environment variable template
 firestore.rules          Deny-all until the app intentionally uses client Firestore
-storage.rules            Deny-all until uploads are moved to Firebase Storage
+storage.rules            Deny-all for direct browser Firebase Storage access
 ```
 
 Build and deploy the backend service first:
@@ -335,9 +340,15 @@ gcloud config set project geo-attendance-system-db9ca
 gcloud run deploy geo-backend --source . --region australia-southeast1 --allow-unauthenticated
 ```
 
-Set Cloud Run environment variables from `.env.firebase.example`. The current file uses SQLite for a short demo only; use Cloud SQL/Postgres before production.
+Set Cloud Run environment variables from `.env.firebase.example`. The current live service stores `DATABASE_URL` and `GEO_SECRET_KEY` in Secret Manager, points `DATABASE_URL` at Cloud SQL PostgreSQL, and uses Cloud Storage for uploaded photos/signatures.
 
 The Docker container runs `python -m app.migrations` before starting Uvicorn, so Cloud Run startup fails fast if the database schema cannot be migrated.
+
+Use the production database runbook before changing the live Cloud SQL/PostgreSQL setup:
+
+```text
+docs/production-db-runbook.md
+```
 
 Then build and deploy Hosting:
 
@@ -346,7 +357,7 @@ npm.cmd run build
 firebase deploy --only hosting
 ```
 
-`firebase.json` rewrites `/api/**` and `/uploads/**` to the `geo-backend` Cloud Run service. FastAPI strips the `/api` prefix at runtime so existing routes like `/auth/login`, `/attendance`, and `/supervisor/audit-events` continue to work behind Firebase Hosting.
+`firebase.json` rewrites `/api/**` and `/uploads/**` to the `geo-backend` Cloud Run service. FastAPI strips the `/api` prefix at runtime so existing routes like `/auth/login`, `/attendance`, and `/supervisor/audit-events` continue to work behind Firebase Hosting. Uploaded files keep stable `/uploads/...` URLs; in production the backend loads those objects from Cloud Storage.
 
 ## Phone Testing
 
@@ -734,7 +745,8 @@ npm.cmd run check:mobile
 Backend import check:
 
 ```powershell
-python -m compileall backend\app backend\smoke_test.py backend\migration_test.py
+python -m compileall backend\app backend\smoke_test.py backend\migration_test.py backend\upload_storage_test.py
+python backend\upload_storage_test.py
 ```
 
 Migration workflow check:
@@ -810,7 +822,8 @@ History date filters use the user's local calendar date. For example, in New Zea
 - Uploaded photos are served from `/uploads/...`.
 - Thumbnails open in a floating photo viewer.
 - Multi-photo task logs support previous/next navigation in the viewer.
-- Current storage is local filesystem storage under `backend/uploads/`.
+- Local development stores uploads under `backend/uploads/`.
+- Live Cloud Run stores new uploads in private Cloud Storage bucket `geo-attendance-system-db9ca-uploads` and serves them back through the backend.
 
 ## Common Problems
 
@@ -877,13 +890,14 @@ Check:
 
 Before real production use, improve:
 
-- PostgreSQL or another managed production database.
 - Production Firebase Hosting / Cloud Run validation with HTTPS, domain, CORS, upload paths, and app update behavior.
-- Strong secret management.
+- Strong secret management for any remaining production credentials.
+- Dedicated least-privilege Cloud Run service account instead of the default compute service account.
+- Cloud SQL HA decision: keep zonal for cost or move to regional for automatic failover.
+- Private IP/VPC plan before disabling Cloud SQL public IPv4.
 - Refresh token/session strategy.
 - Rate limiting.
 - Richer audit-history filtering/export and a dedicated audit detail view.
-- Stronger file storage for photos, such as S3-compatible object storage.
 - Backup and restore plan.
 - More automated frontend and backend tests.
 - Better offline conflict resolution.
@@ -893,8 +907,8 @@ Before real production use, improve:
 
 Current next work:
 
-- Validate Firebase Hosting / Cloud Run deployment end to end after local migration/test hardening.
-- Add a production database migration runbook for Cloud SQL/Postgres, including backup and rollback steps.
+- Run the real-phone checklist against the live Firebase Hosting / Cloud Run / Cloud SQL path.
+- Clean up live smoke-test data and decide how to handle the `geo_migration_runner` database user.
 - Expand automated frontend coverage beyond static workflow checks.
 
 Useful later features:

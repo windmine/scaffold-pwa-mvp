@@ -3,12 +3,11 @@ from pathlib import Path
 from typing import Optional
 from uuid import uuid4
 
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 
-from app.config import AUTO_MIGRATE, CORS_ORIGINS, MAX_UPLOAD_BYTES, UPLOAD_DIR
+from app.config import AUTO_MIGRATE, CORS_ORIGINS, MAX_UPLOAD_BYTES
 from app.database import migrate_database, get_session
 from app.models import User, Site, WorkForm
 from app.schemas import (
@@ -44,6 +43,7 @@ from app.use_cases import supervisor_review as supervisor_review_use_cases
 from app.use_cases import task_logs as task_log_use_cases
 from app.use_cases import work_forms as work_form_use_cases
 from app.use_cases.common import upload_url, user_response
+from app.upload_storage import ensure_upload_storage_ready, load_upload, save_upload
 
 
 app = FastAPI(title="Geo Management Backend")
@@ -57,10 +57,8 @@ async def strip_firebase_hosting_api_prefix(request, call_next):
     return await call_next(request)
 
 
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
-
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+ensure_upload_storage_ready()
 
 
 app.add_middleware(
@@ -281,8 +279,7 @@ async def upload_photo(
         raise HTTPException(status_code=413, detail="Photo must be 5MB or smaller")
 
     filename = f"{uuid4().hex}{suffix}"
-    path = UPLOAD_DIR / filename
-    path.write_bytes(contents)
+    save_upload(filename, contents, file.content_type)
 
     return {
         "url": upload_url(filename),
@@ -291,6 +288,23 @@ async def upload_photo(
         "size": len(contents),
         "uploaded_by": user.id,
     }
+
+
+@app.get("/uploads/{filename}")
+def get_upload(filename: str):
+    try:
+        upload = load_upload(filename)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    return Response(
+        content=upload.content,
+        media_type=upload.content_type,
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
 
 
 @app.post("/auth/login")

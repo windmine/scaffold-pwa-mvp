@@ -83,3 +83,6 @@ CORS_ORIGINS = csv_env(
 
 UPLOAD_DIR = path_env("UPLOAD_DIR", BACKEND_DIR / "uploads")
 MAX_UPLOAD_BYTES = int_env("MAX_UPLOAD_BYTES", 5 * 1024 * 1024)
+UPLOAD_STORAGE_BACKEND = os.environ.get("UPLOAD_STORAGE_BACKEND", "local").strip().lower()
+UPLOAD_BUCKET = os.environ.get("UPLOAD_BUCKET", "").strip().removeprefix("gs://").rstrip("/")
+UPLOAD_OBJECT_PREFIX = os.environ.get("UPLOAD_OBJECT_PREFIX", "uploads").strip().strip("/")

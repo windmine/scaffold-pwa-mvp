@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import sys
@@ -7,6 +8,9 @@ from urllib.request import Request, urlopen
 
 
 BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+SMOKE_IMAGE_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+)
 
 
 def request(method, path, payload=None, token=None):
@@ -40,6 +44,41 @@ def assert_status(label, result, expected_status):
     return body
 
 
+def app_origin():
+    if BASE_URL.endswith("/api"):
+        return BASE_URL[:-4]
+    return BASE_URL
+
+
+def upload_test_image(label, token, filename):
+    boundary = f"----geoSmokeBoundary{datetime.now(timezone.utc).timestamp()}"
+    body = b"".join([
+        f"--{boundary}\r\n".encode("utf-8"),
+        f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'.encode("utf-8"),
+        b"Content-Type: image/png\r\n\r\n",
+        SMOKE_IMAGE_BYTES,
+        b"\r\n",
+        f"--{boundary}--\r\n".encode("utf-8"),
+    ])
+    request_obj = Request(f"{BASE_URL}/photo-uploads", data=body, method="POST")
+    request_obj.add_header("Accept", "application/json")
+    request_obj.add_header("Authorization", f"Bearer {token}")
+    request_obj.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+    request_obj.add_header("Content-Length", str(len(body)))
+
+    with urlopen(request_obj, timeout=10) as response:
+        upload = json.loads(response.read().decode("utf-8"))
+
+    with urlopen(Request(f"{app_origin()}{upload['url']}", method="GET"), timeout=10) as response:
+        fetched = response.read()
+
+    if fetched != SMOKE_IMAGE_BYTES:
+        raise AssertionError(f"{label}: fetched upload did not match uploaded bytes")
+
+    print(f"ok - {label}")
+    return upload["url"]
+
+
 def main():
     try:
         assert_status("health", request("GET", "/health"), 200)
@@ -68,6 +107,13 @@ def main():
         supervisor_token = supervisor_login["access_token"]
         now = datetime.now(timezone.utc)
         timestamp = now.strftime("%Y%m%d%H%M%S%f")
+        signature_smoke_url = upload_test_image("upload smoke signature", worker_token, f"signature-smoke-{timestamp}.png")
+        form_smoke_photo_url = upload_test_image("upload smoke form photo", worker_token, f"form-smoke-{timestamp}.png")
+        signature_reject_url = upload_test_image("upload rejectable smoke signature", worker_token, f"signature-smoke-reject-{timestamp}.png")
+        form_reject_photo_url = upload_test_image("upload rejectable smoke form photo", worker_token, f"form-smoke-reject-{timestamp}.png")
+        task_photo_1_url = upload_test_image("upload smoke task photo 1", worker_token, f"smoke-task-1-{timestamp}.png")
+        task_photo_2_url = upload_test_image("upload smoke task photo 2", worker_token, f"smoke-task-2-{timestamp}.png")
+        task_reject_photo_url = upload_test_image("upload rejectable smoke task photo", worker_token, f"smoke-task-reject-{timestamp}.png")
 
         assert_status(
             "worker cannot list supervisor users",
@@ -243,9 +289,9 @@ def main():
                         "area": "North bay",
                         "result": "Pass",
                         "notes": "All clear",
-                        "worker_signature": "/uploads/signature-smoke.png",
+                        "worker_signature": signature_smoke_url,
                     },
-                    "photo_urls": ["/uploads/form-smoke-1.jpg"],
+                    "photo_urls": [form_smoke_photo_url],
                     "client_submission_id": f"smoke-form-{timestamp}",
                 },
                 worker_token,
@@ -269,9 +315,9 @@ def main():
                         "area": "North bay",
                         "result": "Pass",
                         "notes": "All clear",
-                        "worker_signature": "/uploads/signature-smoke.png",
+                        "worker_signature": signature_smoke_url,
                     },
-                    "photo_urls": ["/uploads/form-smoke-1.jpg"],
+                    "photo_urls": [form_smoke_photo_url],
                     "client_submission_id": f"smoke-form-{timestamp}",
                 },
                 worker_token,
@@ -322,9 +368,9 @@ def main():
                         "area": "South bay",
                         "result": "Fail",
                         "notes": "Needs recheck",
-                        "worker_signature": "/uploads/signature-smoke-reject.png",
+                        "worker_signature": signature_reject_url,
                     },
-                    "photo_urls": ["/uploads/form-smoke-reject.jpg"],
+                    "photo_urls": [form_reject_photo_url],
                     "client_submission_id": f"smoke-form-reject-{timestamp}",
                 },
                 worker_token,
@@ -650,8 +696,8 @@ def main():
                     "hours_worked": 1,
                     "work_date": now.date().isoformat(),
                     "photo_urls": [
-                        "/uploads/smoke-task-1.jpg",
-                        "/uploads/smoke-task-2.jpg",
+                        task_photo_1_url,
+                        task_photo_2_url,
                     ],
                     "client_submission_id": f"smoke-task-{timestamp}",
                 },
@@ -674,8 +720,8 @@ def main():
                     "hours_worked": 1,
                     "work_date": now.date().isoformat(),
                     "photo_urls": [
-                        "/uploads/smoke-task-1.jpg",
-                        "/uploads/smoke-task-2.jpg",
+                        task_photo_1_url,
+                        task_photo_2_url,
                     ],
                     "client_submission_id": f"smoke-task-{timestamp}",
                 },
@@ -750,7 +796,7 @@ def main():
                     "site_id": site["id"],
                     "hours_worked": 2,
                     "work_date": now.date().isoformat(),
-                    "photo_urls": ["/uploads/smoke-task-reject.jpg"],
+                    "photo_urls": [task_reject_photo_url],
                     "client_submission_id": f"smoke-task-reject-{timestamp}",
                 },
                 worker_token,
