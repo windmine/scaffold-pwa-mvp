@@ -6,15 +6,17 @@
     <title>Offline | Leader Field Operations</title>
     <style>
       :root {
-        --dark: #111111;
-        --red: #d71920;
-        --safety: #f5c400;
-        --line: #d7dde5;
+        --dark: #05070a;
+        --ink: #0d1726;
+        --brand-blue: #096cf5;
+        --brand-blue-soft: #d9e9f8;
+        --line: #d8e4f2;
       }
       body {
-        font-family: Arial, Helvetica, sans-serif;
-        background: #eceff3;
-        color: var(--dark);
+        font-family: "Segoe UI", Roboto, Arial, Helvetica, sans-serif;
+        background:
+          linear-gradient(180deg, var(--dark) 0 120px, #edf3fb 120px 100%);
+        color: var(--ink);
         margin: 0;
         padding: 24px;
       }
@@ -23,14 +25,23 @@
         margin: 48px auto;
         background: white;
         border: 1px solid var(--line);
-        border-top: 5px solid var(--red);
+        border-top: 5px solid var(--brand-blue);
         border-radius: 8px;
         padding: 24px;
-        box-shadow: 0 16px 34px rgba(17, 17, 17, 0.12);
+        box-shadow: 0 18px 42px rgba(8, 28, 58, 0.12);
+      }
+      .logo {
+        width: min(260px, 100%);
+        height: auto;
+        display: block;
+        margin-bottom: 18px;
+        padding: 10px;
+        background: linear-gradient(135deg, var(--dark), #08244d);
+        border-radius: 6px;
       }
       h1 { margin-top: 0; }
       .eyebrow {
-        color: var(--red);
+        color: var(--brand-blue);
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.08em;
@@ -41,7 +52,8 @@
   </head>
   <body>
     <div class="card">
-      <p class="eyebrow">Leader Scaffolding</p>
+      <img class="logo" src="/assets/icons/leader-logo.svg" alt="Leader Scaffolding" />
+      <p class="eyebrow">Field Operations</p>
       <h1>You are offline</h1>
       <p>
         The app shell is still available. If you were already using the app, your draft forms and queued records stay on this device.

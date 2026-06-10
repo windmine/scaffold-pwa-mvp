@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="leader-icon-title">
+  <title id="leader-icon-title">Leader Scaffolding icon</title>
+  <rect width="512" height="512" rx="72" fill="#05070a"/>
+  <g transform="translate(50 160) scale(.54)">
+    <rect x="30" y="82" width="565" height="12" rx="2" fill="#d9e9f8"/>
+    <polygon points="584,9 671,50 584,91" fill="#6aa0ea"/>
+    <polygon points="671,50 764,91 679,130" fill="#096cf5"/>
+    <polygon points="584,91 671,50 679,130 584,177" fill="#2d86f7"/>
+    <text x="30" y="226" fill="#096cf5" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="170" font-weight="900" letter-spacing="0">LEADER</text>
+    <text x="30" y="305" fill="#a9ccff" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="88" font-weight="900" letter-spacing="0" textLength="660" lengthAdjust="spacingAndGlyphs">SCAFFOLDING</text>
+    <rect x="31" y="316" width="658" height="11" rx="1" fill="#d9e9f8"/>
+  </g>
+</svg>

@@ -30,6 +30,13 @@ Create a practical geo-based field operations platform for two main user groups.
    - Create, edit, archive, and reactivate reusable work forms.
    - Use a folded/searchable dashboard layout from desktop, tablet, or phone.
 
+3. **Accounting / payroll users**
+   - Review approved attendance by pay period.
+   - See worker/day hour totals for wage preparation.
+   - Find missing check-outs, duplicate attendance events, pending/rejected records, outside-site records, and manual supervisor adjustments before payroll export.
+   - Export payroll-ready CSV or Excel-friendly summaries.
+   - Use a desktop-first admin section, while preserving the worker phone-first PWA.
+
 ## Current Implementation Notes
 
 - The active frontend path is `index.html` with `assets/js/app.js`, `assets/js/api-client.js`, `assets/js/db.js`, `assets/js/mock-api.js`, and `assets/css/styles.css`.
@@ -37,6 +44,7 @@ Create a practical geo-based field operations platform for two main user groups.
 - The backend is FastAPI in `backend/app/main.py` using SQLModel models from `backend/app/models.py`.
 - Local development uses SQLite at `backend/geo_management.db`.
 - The app currently supports backend auth, worker/supervisor roles, attendance, geolocation, site radius checks, task logs, multiple photos, task templates, staff management, resigned workers, supervisor record edits, CSV exports, dynamic work forms, form submissions, and handwritten signature fields.
+- Payroll/admin reporting is planned, not implemented yet. Keep it separate from the Review Queue: supervisors validate records, while accounting calculates/export payable hours from approved attendance.
 - PWA pieces exist: `manifest.webmanifest`, `sw.js`, `offline.html`, HTTPS Vite dev server, IndexedDB drafts, and an offline queue for attendance, task logs, and work forms with photos/signatures. Treat it as PWA-shaped but not fully production PWA-ready yet.
 - Runtime/generated paths such as `backend/geo_management.db`, `backend/uploads/`, `backend/app/__pycache__/`, `dist/`, and `node_modules/` are not source-of-truth code changes.
 
@@ -104,6 +112,7 @@ Current next priorities:
 1. Run the full manual phone/browser workflow checklist against a real phone on the local network.
 2. Replace lightweight SQLite startup migrations with a real migration workflow before production.
 3. Expand automated frontend/backend tests around the highest-risk worker and supervisor workflows.
+4. Add a desktop-first payroll/admin portal section for pay-period worker hour summaries, exception flags, and payroll CSV export.
 
 ## Important Behaviour Rules
 
@@ -225,11 +234,13 @@ The project can be considered successful when:
 
 Possible future features include:
 
+- Desktop payroll/admin portal for approved-hour summaries and payroll CSV export.
+- Payroll rules for overtime, allowances, deductions, public holidays, wage rates, and other business-specific wage calculations.
 - Production-ready PWA packaging.
 - Offline-first work-form submissions with signatures and photos.
 - Map view for attendance locations and sites.
 - Site geofencing with stricter allowed check-in radius rules.
-- Export attendance/forms to Excel.
+- Native Excel export for payroll/admin reports and submitted field records.
 - Manager approval workflows for task logs and form submissions.
 - Staff schedule or shift management.
 - Leave request management.

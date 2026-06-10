@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 330" role="img" aria-labelledby="leader-logo-title">
+  <title id="leader-logo-title">Leader Scaffolding</title>
+  <defs>
+    <linearGradient id="leader-line" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#d9e9f8"/>
+      <stop offset="0.63" stop-color="#d9e9f8"/>
+      <stop offset="0.78" stop-color="#7fb5ff"/>
+      <stop offset="1" stop-color="#1b79f7"/>
+    </linearGradient>
+  </defs>
+  <rect x="30" y="82" width="565" height="12" rx="2" fill="url(#leader-line)"/>
+  <polygon points="584,9 671,50 584,91" fill="#6aa0ea"/>
+  <polygon points="671,50 764,91 679,130" fill="#096cf5"/>
+  <polygon points="584,91 671,50 679,130 584,177" fill="#2d86f7"/>
+  <text x="30" y="226" fill="#096cf5" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="170" font-weight="900" letter-spacing="0">LEADER</text>
+  <text x="30" y="305" fill="#a9ccff" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="88" font-weight="900" letter-spacing="0" textLength="660" lengthAdjust="spacingAndGlyphs">SCAFFOLDING</text>
+  <rect x="31" y="316" width="658" height="11" rx="1" fill="#d9e9f8"/>
+</svg>

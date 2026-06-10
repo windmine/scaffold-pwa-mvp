@@ -1,6 +1,12 @@
 import {
   decideRecord as decideBackendRecord,
+  exportSupervisorFormSubmissionCsv,
+  exportSupervisorFormSubmissionHtml,
+  exportSupervisorFormSubmissionsHtml,
   exportSupervisorRecordsCsv,
+  exportSupervisorTaskLogCsv,
+  exportSupervisorTaskLogHtml,
+  exportSupervisorTaskLogsHtml,
   exportSupervisorTaskLogsCsv,
   getSupervisorAuditEvents as getBackendSupervisorAuditEvents,
   getSupervisorReviewRecords as getBackendSupervisorReviewRecords,
@@ -46,6 +52,17 @@ function reviewRecordCounts(records) {
 
 function formatAuditAction(action) {
   return (action || 'change').replaceAll('_', ' ');
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function createSupervisorReviewModule({
@@ -120,7 +137,8 @@ export function createSupervisorReviewModule({
     els.supervisorResultCount.textContent = `${filteredRecords.length}/${reviewRecords.length}`;
     historyModule.renderRecordsList(els.reviewQueueList, filteredRecords, {
       showDecisionActions: true,
-      showEditActions: true
+      showEditActions: true,
+      showExportActions: true
     });
   }
 
@@ -135,14 +153,7 @@ export function createSupervisorReviewModule({
   async function handleExportAttendance() {
     try {
       const blob = await exportSupervisorRecordsCsv();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `leader-attendance-${todayDateInput()}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadBlob(blob, `leader-attendance-${todayDateInput()}.csv`);
       renderStatusBanner('Attendance CSV exported.');
     } catch (error) {
       renderStatusBanner(error.message || 'Could not export attendance CSV.', true);
@@ -152,17 +163,79 @@ export function createSupervisorReviewModule({
   async function handleExportTaskLogs() {
     try {
       const blob = await exportSupervisorTaskLogsCsv();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `leader-task-logs-${todayDateInput()}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadBlob(blob, `leader-task-logs-${todayDateInput()}.csv`);
       renderStatusBanner('Task logs CSV exported.');
     } catch (error) {
       renderStatusBanner(error.message || 'Could not export task logs CSV.', true);
+    }
+  }
+
+  async function handleExportDocument() {
+    const exportType = els.exportDocumentSelect.value;
+
+    try {
+      if (exportType === 'task-photo-report') {
+        const blob = await exportSupervisorTaskLogsHtml('photo-report');
+        downloadBlob(blob, `leader-task-photo-report-${todayDateInput()}.html`);
+        renderStatusBanner('Task photo report exported.');
+        return;
+      }
+
+      if (exportType === 'form-submissions') {
+        const blob = await exportSupervisorFormSubmissionsHtml();
+        downloadBlob(blob, `leader-work-forms-${todayDateInput()}.html`);
+        renderStatusBanner('Work form submissions exported.');
+        return;
+      }
+
+      const blob = await exportSupervisorTaskLogsHtml('daily-log');
+      downloadBlob(blob, `leader-daily-task-logs-${todayDateInput()}.html`);
+      renderStatusBanner('Daily task log sheets exported.');
+    } catch (error) {
+      renderStatusBanner(error.message || 'Could not export document.', true);
+    }
+  }
+
+  async function handleExportRecord(record, exportType) {
+    if (!record.backendRecordId) {
+      renderStatusBanner('Only backend records can be exported.', true);
+      return;
+    }
+
+    try {
+      if (exportType === 'task-photo-report-html') {
+        const blob = await exportSupervisorTaskLogHtml(record.backendRecordId, 'photo-report');
+        downloadBlob(blob, `leader-task-log-${record.backendRecordId}-photo-report-${todayDateInput()}.html`);
+        renderStatusBanner('Task photo report exported.');
+        return;
+      }
+
+      if (exportType === 'task-csv') {
+        const blob = await exportSupervisorTaskLogCsv(record.backendRecordId);
+        downloadBlob(blob, `leader-task-log-${record.backendRecordId}-${todayDateInput()}.csv`);
+        renderStatusBanner('Task log CSV row exported.');
+        return;
+      }
+
+      if (exportType === 'form-html') {
+        const blob = await exportSupervisorFormSubmissionHtml(record.backendRecordId);
+        downloadBlob(blob, `leader-form-${record.backendRecordId}-${todayDateInput()}.html`);
+        renderStatusBanner('Form submission exported.');
+        return;
+      }
+
+      if (exportType === 'form-csv') {
+        const blob = await exportSupervisorFormSubmissionCsv(record.backendRecordId);
+        downloadBlob(blob, `leader-form-${record.backendRecordId}-${todayDateInput()}.csv`);
+        renderStatusBanner('Form submission CSV row exported.');
+        return;
+      }
+
+      const blob = await exportSupervisorTaskLogHtml(record.backendRecordId, 'daily-log');
+      downloadBlob(blob, `leader-task-log-${record.backendRecordId}-daily-log-${todayDateInput()}.html`);
+      renderStatusBanner('Daily task log exported.');
+    } catch (error) {
+      renderStatusBanner(error.message || 'Could not export record.', true);
     }
   }
 
@@ -346,6 +419,7 @@ export function createSupervisorReviewModule({
     els.clearSupervisorFiltersButton.addEventListener('click', clearFilters);
     els.exportAttendanceButton.addEventListener('click', handleExportAttendance);
     els.exportTaskLogsButton.addEventListener('click', handleExportTaskLogs);
+    els.exportDocumentButton.addEventListener('click', handleExportDocument);
     els.refreshAuditButton.addEventListener('click', renderAuditHistory);
   }
 
@@ -353,6 +427,7 @@ export function createSupervisorReviewModule({
     bindEvents,
     handleDecision,
     handleEditRecord,
+    handleExportRecord,
     renderAuditHistory,
     renderFilteredLists,
     renderPanel

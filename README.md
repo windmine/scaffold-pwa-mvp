@@ -2,7 +2,7 @@
 
 Mobile-first geo-attendance and field task logging MVP for Leader Scaffolding-style operations.
 
-This project lets field workers check in/out from a phone with location data, submit daily task logs and custom work forms with progress photos, and review their own synced history. Supervisors can manage sites, staff, reusable work forms, attendance review, backend record adjustments with double-check confirmation, audit history, and CSV exports.
+This project lets field workers check in/out from a phone with location data, submit daily task logs and custom work forms with progress photos, and review their own synced history. Supervisors can manage sites, staff, reusable work forms, attendance review, backend record adjustments with double-check confirmation, audit history, CSV exports, and print-ready HTML exports for logs and submitted forms. The next business-facing direction is a desktop payroll/admin section that helps accounting calculate approved worker hours by pay period.
 
 ## Current Version
 
@@ -88,6 +88,9 @@ Worker restrictions:
 - View recent supervisor audit history for staff, site, work-form, review, attendance, and task-log changes.
 - Export attendance records to CSV.
 - Export task logs to CSV.
+- Export task logs as daily log sheets or photo reports in print-ready HTML.
+- Export submitted work forms in print-ready HTML with form answers, photos, and signature images.
+- Export a single selected task log or submitted work form from its review card as HTML or a CSV row.
 
 ### PWA / Mobile UX
 
@@ -128,6 +131,7 @@ scaffold-pwa-mvp/
 
   docs/
     mobile-browser-workflow-checks.md  Focused manual phone/browser workflow checks
+    payroll-admin-portal-plan.md       Planned desktop payroll/admin workflow
     production-db-runbook.md           Managed database migration and rollback runbook
 
   scripts/
@@ -512,7 +516,24 @@ Supported field types are `text`, `textarea`, `number`, `date`, `select`, `check
 5. Approve or reject pending review records.
 6. Use edit controls only after double-check confirmation.
 7. Open Audit history and confirm recent review/edit/admin changes appear.
-8. Export CSV when needed.
+8. Export CSV, daily task-log sheets, task photo reports, or submitted work-form sheets when needed.
+
+### Planned Payroll Admin Portal
+
+Payroll/accounting should use a separate desktop-first section inside the supervisor/admin dashboard, not the worker phone flow. The first version should summarise approved attendance by pay period, group hours by worker, flag exceptions such as missing check-outs or duplicate records, and export an Excel-friendly payroll CSV.
+
+Keep these workflows separate:
+
+```text
+Supervisor Review: validate field records.
+Payroll Admin: calculate/export payable hours.
+```
+
+The detailed plan is in:
+
+```text
+docs/payroll-admin-portal-plan.md
+```
 
 ## API Summary
 
@@ -619,15 +640,23 @@ POST  /supervisor/records/{record_id}/decision
 GET   /supervisor/task-logs
 GET   /supervisor/task-logs?status=pending
 GET   /supervisor/task-logs/export.csv
+GET   /supervisor/task-logs/export.html?layout=daily-log
+GET   /supervisor/task-logs/export.html?layout=photo-report
+GET   /supervisor/task-logs/{log_id}/export.csv
+GET   /supervisor/task-logs/{log_id}/export.html?layout=daily-log
+GET   /supervisor/task-logs/{log_id}/export.html?layout=photo-report
 PATCH /supervisor/task-logs/{log_id}
 
 GET   /supervisor/form-submissions
 GET   /supervisor/form-submissions?status=pending
+GET   /supervisor/form-submissions/export.html
+GET   /supervisor/form-submissions/{submission_id}/export.csv
+GET   /supervisor/form-submissions/{submission_id}/export.html
 POST  /supervisor/work-forms
 PATCH /supervisor/work-forms/{form_id}
 ```
 
-`/supervisor/review-records` is the unified supervisor review feed for attendance, task logs, and form submissions. `/supervisor/audit-events` returns recent supervisor change events with actor, action, target entity, summary, and before/after snapshots. The older attendance/task/form list routes remain available for export and compatibility.
+`/supervisor/review-records` is the unified supervisor review feed for attendance, task logs, and form submissions. `/supervisor/audit-events` returns recent supervisor change events with actor, action, target entity, summary, and before/after snapshots. The older attendance/task/form list routes remain available for export and compatibility. HTML exports are standalone files intended for opening in a browser and printing or saving as PDF. Single-record CSV exports are Excel-friendly rows for the selected review card.
 
 Supervisor edit/archive routes require `confirmed: true` in the request body.
 
@@ -787,6 +816,8 @@ The smoke test covers:
 - Supervisor audit-history access, filtering, and expected event types.
 - CSV export.
 - Task-log CSV export.
+- Bulk and single-record task-log/work-form HTML exports.
+- Single-record task-log/work-form CSV exports.
 
 The mobile/browser workflow check covers:
 
@@ -917,15 +948,17 @@ Current next work:
 - Run the real-phone checklist against the live Firebase Hosting / Cloud Run / Cloud SQL path.
 - Clean up live smoke-test data and decide how to handle the `geo_migration_runner` database user.
 - Expand automated frontend coverage beyond static workflow checks.
+- Add a desktop-first payroll/admin portal section for pay-period worker hour summaries and payroll CSV export.
 
 Useful later features:
 
 - Map view for attendance and sites.
 - Geofence warning before submit.
+- Payroll rule hardening for overtime, allowances, deductions, public holidays, and wage-rate calculations.
 - Shift/schedule module.
 - Leave requests.
 - Photo requirement rules per site/job.
-- Excel export.
+- Native Excel export for payroll/admin reports.
 - Bulk staff import.
 - Production deployment scripts.
 

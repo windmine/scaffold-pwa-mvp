@@ -121,6 +121,36 @@ async function apiFetch(path, options = {}) {
   return await res.json();
 }
 
+async function apiBlob(path, fallbackMessage) {
+  const token = getToken();
+  const headers = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      credentials: "include",
+      headers
+    });
+  } catch (error) {
+    throw new ApiError(`${fallbackMessage} Check that FastAPI is running.`, {
+      cause: error
+    });
+  }
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new ApiError(error.detail || fallbackMessage, {
+      status: res.status
+    });
+  }
+
+  return await res.blob();
+}
+
 export async function login(email, password) {
   const data = await apiFetch("/auth/login", {
     method: "POST",
@@ -351,68 +381,45 @@ export async function getSupervisorReviewRecords(status = "") {
 }
 
 export async function exportSupervisorRecordsCsv(status = "") {
-  const token = getToken();
   const query = status ? `?status=${encodeURIComponent(status)}` : "";
-  const headers = {};
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  let res;
-  try {
-    res = await fetch(`${API_BASE}/supervisor/records/export.csv${query}`, {
-      credentials: "include",
-      headers
-    });
-  } catch (error) {
-    throw new ApiError("CSV export failed. Check that FastAPI is running.", {
-      cause: error
-    });
-  }
-
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new ApiError(error.detail || "CSV export failed", {
-      status: res.status
-    });
-  }
-
-  return await res.blob();
+  return await apiBlob(`/supervisor/records/export.csv${query}`, "CSV export failed.");
 }
 
 export async function getSupervisorTaskLogs() {
   return await apiFetch("/supervisor/task-logs");
 }
 
-export async function exportSupervisorTaskLogsCsv() {
-  const token = getToken();
-  const headers = {};
+export async function exportSupervisorTaskLogsCsv(status = "") {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  return await apiBlob(`/supervisor/task-logs/export.csv${query}`, "Task-log CSV export failed.");
+}
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+export async function exportSupervisorTaskLogsHtml(layout = "daily-log", status = "") {
+  const params = new URLSearchParams({ layout });
+  if (status) params.set("status", status);
+  return await apiBlob(`/supervisor/task-logs/export.html?${params.toString()}`, "Task-log document export failed.");
+}
 
-  let res;
-  try {
-    res = await fetch(`${API_BASE}/supervisor/task-logs/export.csv`, {
-      credentials: "include",
-      headers
-    });
-  } catch (error) {
-    throw new ApiError("Task-log CSV export failed. Check that FastAPI is running.", {
-      cause: error
-    });
-  }
+export async function exportSupervisorTaskLogCsv(logId) {
+  return await apiBlob(`/supervisor/task-logs/${logId}/export.csv`, "Task-log CSV export failed.");
+}
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new ApiError(error.detail || "Task-log CSV export failed", {
-      status: res.status
-    });
-  }
+export async function exportSupervisorTaskLogHtml(logId, layout = "daily-log") {
+  const params = new URLSearchParams({ layout });
+  return await apiBlob(`/supervisor/task-logs/${logId}/export.html?${params.toString()}`, "Task-log document export failed.");
+}
 
-  return await res.blob();
+export async function exportSupervisorFormSubmissionsHtml(status = "") {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  return await apiBlob(`/supervisor/form-submissions/export.html${query}`, "Form submission document export failed.");
+}
+
+export async function exportSupervisorFormSubmissionCsv(submissionId) {
+  return await apiBlob(`/supervisor/form-submissions/${submissionId}/export.csv`, "Form submission CSV export failed.");
+}
+
+export async function exportSupervisorFormSubmissionHtml(submissionId) {
+  return await apiBlob(`/supervisor/form-submissions/${submissionId}/export.html`, "Form submission document export failed.");
 }
 
 export async function decideRecord(recordId, status, recordType = "attendance") {

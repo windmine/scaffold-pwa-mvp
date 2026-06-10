@@ -3,10 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#111111" />
+    <meta name="theme-color" content="#05070a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Leader Field" />
     <title>Leader Field Operations</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/icons/leader-icon.svg" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
     <link rel="stylesheet" href="/assets/css/styles.css" />
@@ -15,9 +16,9 @@
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-lockup">
-          <div class="brand-mark" aria-hidden="true">LS</div>
-          <div>
-            <p class="eyebrow">Leader Scaffolding</p>
+          <img class="brand-logo" src="/assets/icons/leader-logo.svg" alt="Leader Scaffolding" />
+          <div class="brand-heading">
+            <p class="eyebrow">Mobile attendance</p>
             <h1>Field Operations</h1>
           </div>
         </div>
@@ -283,6 +284,17 @@
               <div class="button-stack">
                 <button id="exportAttendanceButton" type="button" class="secondary">Export attendance CSV</button>
                 <button id="exportTaskLogsButton" type="button" class="ghost">Export task logs CSV</button>
+              </div>
+              <div class="export-tools">
+                <label>
+                  Document export
+                  <select id="exportDocumentSelect">
+                    <option value="task-daily-log">Daily task log sheets</option>
+                    <option value="task-photo-report">Task photo report</option>
+                    <option value="form-submissions">Submitted work forms</option>
+                  </select>
+                </label>
+                <button id="exportDocumentButton" type="button">Export document HTML</button>
               </div>
             </article>
           </div>

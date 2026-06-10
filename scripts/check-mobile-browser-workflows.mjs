@@ -41,6 +41,8 @@ check('production build exists', () => [
 ].every(hasFile));
 
 [
+  'dist/assets/icons/leader-logo.svg',
+  'dist/assets/icons/leader-icon.svg',
   'dist/assets/icons/apple-touch-icon.png',
   'dist/assets/icons/icon-192.png',
   'dist/assets/icons/icon-512.png',
@@ -51,6 +53,7 @@ check('production build exists', () => [
 
 check('production HTML keeps stable PWA links', () => (
   distIndex.includes('href="/manifest.webmanifest"')
+  && distIndex.includes('href="/assets/icons/leader-icon.svg"')
   && distIndex.includes('href="/assets/icons/apple-touch-icon.png"')
 ));
 

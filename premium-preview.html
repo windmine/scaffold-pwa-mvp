@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="en-NZ">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#03070d" />
+    <title>Premium Preview | Leader Field Operations</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/icons/leader-icon.svg" />
+    <style>
+      :root {
+        --ink: #03070d;
+        --navy: #071425;
+        --navy-2: #0b2342;
+        --blue: #096cf5;
+        --blue-2: #7fb5ff;
+        --ice: #d9e9f8;
+        --platinum: #e9edf4;
+        --champagne: #c8a96a;
+        --paper: #fbfcff;
+        --muted: #7f8da1;
+        --line: rgba(217, 233, 248, 0.18);
+        --line-strong: rgba(217, 233, 248, 0.34);
+        --success: #3ec98f;
+        --warning: #e9b85d;
+        --danger: #f06b62;
+        --radius: 8px;
+        --shadow: 0 28px 80px rgba(0, 0, 0, 0.34), 0 8px 24px rgba(3, 7, 13, 0.32);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--ink);
+        color-scheme: dark;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        overflow-x: hidden;
+        background:
+          linear-gradient(180deg, rgba(9, 108, 245, 0.16) 0, rgba(9, 108, 245, 0) 250px),
+          linear-gradient(180deg, #03070d 0, #071425 48%, #eef3f9 48%, #eef3f9 100%);
+        color: var(--paper);
+        font-family: Inter, "Segoe UI", Roboto, Arial, Helvetica, sans-serif;
+        text-rendering: optimizeLegibility;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      button {
+        min-height: 44px;
+        border: 0;
+        border-radius: 6px;
+        padding: 0.78rem 1rem;
+        background: linear-gradient(180deg, #1f84ff, #075dcc);
+        color: white;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 12px 28px rgba(9, 108, 245, 0.28);
+      }
+
+      button.secondary {
+        background: rgba(217, 233, 248, 0.08);
+        border: 1px solid var(--line-strong);
+        color: var(--ice);
+        box-shadow: none;
+      }
+
+      button.compact {
+        min-height: 36px;
+        padding: 0.52rem 0.72rem;
+        font-size: 0.86rem;
+      }
+
+      .page {
+        width: min(100%, 1320px);
+        margin: 0 auto;
+        padding: 22px 18px 54px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        min-height: 92px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        min-width: 0;
+      }
+
+      .brand img {
+        width: clamp(176px, 22vw, 248px);
+        height: auto;
+        display: block;
+      }
+
+      .brand-copy {
+        min-width: 0;
+        padding-left: 18px;
+        border-left: 1px solid var(--line-strong);
+      }
+
+      .eyebrow {
+        margin: 0 0 5px;
+        color: var(--champagne);
+        font-size: 0.76rem;
+        font-weight: 900;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        margin-bottom: 0;
+        font-size: clamp(1.8rem, 3vw, 3.4rem);
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        margin-bottom: 0.9rem;
+        font-size: clamp(1.25rem, 1.6vw, 1.65rem);
+        letter-spacing: 0;
+      }
+
+      h3 {
+        margin-bottom: 0.3rem;
+        font-size: 1rem;
+      }
+
+      .topbar-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .stage {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+        gap: 18px;
+        align-items: stretch;
+        margin-top: 18px;
+      }
+
+      .surface {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.052)),
+          rgba(7, 20, 37, 0.92);
+        box-shadow: var(--shadow);
+      }
+
+      .command-center {
+        display: grid;
+        gap: 16px;
+        padding: 18px;
+      }
+
+      .hero-copy {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 18px;
+        align-items: start;
+        padding: 8px 4px 0;
+      }
+
+      .hero-copy p:last-child {
+        margin-bottom: 0;
+        max-width: 64ch;
+        color: #c9d5e4;
+        line-height: 1.55;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: max-content;
+        border: 1px solid rgba(200, 169, 106, 0.44);
+        border-radius: 999px;
+        padding: 0.44rem 0.72rem;
+        color: #ffe3a6;
+        background: rgba(200, 169, 106, 0.09);
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--success);
+        box-shadow: 0 0 0 5px rgba(62, 201, 143, 0.13);
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .metric {
+        min-height: 112px;
+        display: grid;
+        align-content: space-between;
+        gap: 12px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: rgba(3, 7, 13, 0.32);
+      }
+
+      .metric span {
+        color: #aebdd1;
+        font-size: 0.82rem;
+        font-weight: 800;
+      }
+
+      .metric strong {
+        font-size: clamp(1.6rem, 3vw, 2.4rem);
+        line-height: 1;
+      }
+
+      .workbench {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
+        gap: 14px;
+      }
+
+      .panel {
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: rgba(251, 252, 255, 0.06);
+        overflow: hidden;
+      }
+
+      .panel-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(217, 233, 248, 0.055);
+      }
+
+      .panel-head p,
+      .panel-head h2 {
+        margin: 0;
+      }
+
+      .panel-head p {
+        color: var(--muted);
+        font-size: 0.84rem;
+        font-weight: 800;
+      }
+
+      .review-list {
+        display: grid;
+        gap: 10px;
+        padding: 14px;
+      }
+
+      .review-item {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px;
+        border: 1px solid rgba(217, 233, 248, 0.12);
+        border-radius: 6px;
+        background: rgba(3, 7, 13, 0.24);
+      }
+
+      .avatar {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        background: linear-gradient(145deg, var(--ice), var(--blue-2));
+        color: #06152a;
+        font-weight: 950;
+      }
+
+      .review-item p {
+        margin: 0;
+        color: #dce8f7;
+        font-weight: 800;
+      }
+
+      .review-item span {
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      .tag {
+        border-radius: 999px;
+        padding: 0.32rem 0.62rem;
+        background: rgba(217, 233, 248, 0.1);
+        color: var(--ice);
+        font-size: 0.78rem;
+        font-weight: 900;
+        white-space: nowrap;
+      }
+
+      .tag.gold {
+        background: rgba(200, 169, 106, 0.14);
+        color: #ffe0a0;
+      }
+
+      .tag.green {
+        background: rgba(62, 201, 143, 0.12);
+        color: #9ff0cb;
+      }
+
+      .tag.red {
+        background: rgba(240, 107, 98, 0.14);
+        color: #ffb0aa;
+      }
+
+      .payroll {
+        display: grid;
+        gap: 12px;
+        padding: 14px;
+      }
+
+      .progress-row {
+        display: grid;
+        gap: 8px;
+      }
+
+      .progress-label {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: #dce8f7;
+        font-size: 0.86rem;
+        font-weight: 800;
+      }
+
+      .track {
+        height: 8px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(217, 233, 248, 0.13);
+      }
+
+      .bar {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--blue), var(--blue-2));
+      }
+
+      .bar.gold {
+        background: linear-gradient(90deg, #a98235, #f0d18a);
+      }
+
+      .bar.green {
+        background: linear-gradient(90deg, #108a5e, #7de0b2);
+      }
+
+      .device-wrap {
+        display: grid;
+        min-height: 100%;
+        padding: 18px;
+      }
+
+      .phone {
+        width: min(100%, 392px);
+        margin: auto;
+        border: 1px solid rgba(217, 233, 248, 0.22);
+        border-radius: 34px;
+        padding: 12px;
+        background: linear-gradient(145deg, #101d32, #02050a);
+        box-shadow: 0 28px 76px rgba(0, 0, 0, 0.46);
+      }
+
+      .phone-screen {
+        min-height: 690px;
+        overflow: hidden;
+        border-radius: 24px;
+        background: #f6f9fd;
+        color: #0d1726;
+      }
+
+      .mobile-top {
+        padding: 18px;
+        background:
+          linear-gradient(180deg, rgba(9, 108, 245, 0.18), rgba(9, 108, 245, 0)),
+          #05070a;
+        color: white;
+      }
+
+      .mobile-top img {
+        width: 160px;
+        height: auto;
+        display: block;
+        margin-bottom: 26px;
+      }
+
+      .mobile-top p {
+        margin: 0;
+        color: var(--ice);
+        font-weight: 800;
+      }
+
+      .mobile-top h2 {
+        margin: 6px 0 0;
+        font-size: 1.72rem;
+      }
+
+      .mobile-body {
+        display: grid;
+        gap: 12px;
+        padding: 14px;
+      }
+
+      .mobile-card {
+        border: 1px solid #d8e4f2;
+        border-radius: 8px;
+        padding: 13px;
+        background: white;
+        box-shadow: 0 10px 24px rgba(8, 28, 58, 0.08);
+      }
+
+      .mobile-card h3 {
+        color: #0a2347;
+      }
+
+      .site-select {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        min-height: 48px;
+        padding: 0 12px;
+        border: 1px solid #adc3df;
+        border-radius: 6px;
+        color: #26364c;
+        font-weight: 800;
+      }
+
+      .check-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .check-button {
+        display: grid;
+        place-items: center;
+        min-height: 72px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 900;
+      }
+
+      .check-button.in {
+        background: linear-gradient(180deg, #1f84ff, #075dcc);
+      }
+
+      .check-button.out {
+        background: #0a2347;
+      }
+
+      .timeline {
+        display: grid;
+        gap: 10px;
+      }
+
+      .timeline-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        color: #44536a;
+        font-size: 0.88rem;
+      }
+
+      .pin {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--blue);
+        box-shadow: 0 0 0 4px rgba(9, 108, 245, 0.13);
+      }
+
+      .map-strip {
+        position: relative;
+        min-height: 132px;
+        overflow: hidden;
+        border-radius: 8px;
+        background:
+          linear-gradient(90deg, rgba(9, 108, 245, 0.14) 1px, transparent 1px),
+          linear-gradient(0deg, rgba(9, 108, 245, 0.14) 1px, transparent 1px),
+          #eaf2fc;
+        background-size: 34px 34px;
+      }
+
+      .map-route {
+        position: absolute;
+        inset: 28px 34px 30px;
+        border: 3px solid rgba(9, 108, 245, 0.42);
+        border-right-color: transparent;
+        border-radius: 999px;
+        transform: rotate(-9deg);
+      }
+
+      .map-marker {
+        position: absolute;
+        right: 34%;
+        top: 34%;
+        width: 18px;
+        height: 18px;
+        border: 4px solid white;
+        border-radius: 999px;
+        background: var(--blue);
+        box-shadow: 0 10px 24px rgba(9, 108, 245, 0.34);
+      }
+
+      .lower-band {
+        margin-top: 18px;
+        color: #0d1726;
+      }
+
+      .lower-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .light-card {
+        min-width: 0;
+        border: 1px solid #d8e4f2;
+        border-radius: var(--radius);
+        padding: 18px;
+        background: white;
+        box-shadow: 0 18px 42px rgba(8, 28, 58, 0.09);
+      }
+
+      .light-card p {
+        margin-bottom: 0;
+        color: #607087;
+        line-height: 1.55;
+      }
+
+      .mini-kpis {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .mini-kpis div {
+        min-height: 66px;
+        display: grid;
+        align-content: center;
+        gap: 3px;
+        padding: 10px;
+        border-radius: 6px;
+        background: #f3f7fc;
+      }
+
+      .mini-kpis strong {
+        color: #0a2347;
+        font-size: 1.18rem;
+      }
+
+      .mini-kpis span {
+        color: #6c7c92;
+        font-size: 0.75rem;
+        font-weight: 800;
+      }
+
+      @media (max-width: 1060px) {
+        .stage,
+        .workbench,
+        .lower-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .topbar {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .hero-copy {
+          grid-template-columns: 1fr;
+        }
+
+        .topbar-actions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          justify-content: stretch;
+        }
+
+        .topbar-actions button {
+          min-width: 0;
+        }
+
+        .status-pill {
+          width: 100%;
+          white-space: normal;
+        }
+
+        .metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .phone {
+          width: min(100%, 430px);
+        }
+      }
+
+      @media (max-width: 720px) {
+        body {
+          background:
+            linear-gradient(180deg, rgba(9, 108, 245, 0.14) 0, rgba(9, 108, 245, 0) 220px),
+            linear-gradient(180deg, #03070d 0, #071425 60%, #eef3f9 60%, #eef3f9 100%);
+        }
+
+        .page {
+          padding: 14px 12px 34px;
+        }
+
+        .brand {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .brand {
+          gap: 12px;
+        }
+
+        .brand img {
+          width: min(68vw, 222px);
+        }
+
+        .brand-copy {
+          padding-left: 0;
+          border-left: 0;
+        }
+
+        .metrics,
+        .check-grid,
+        .mini-kpis {
+          grid-template-columns: 1fr;
+        }
+
+        .command-center,
+        .device-wrap,
+        .light-card {
+          padding: 14px;
+        }
+
+        .review-item {
+          grid-template-columns: auto minmax(0, 1fr);
+        }
+
+        .review-item .tag {
+          grid-column: 1 / -1;
+          width: max-content;
+        }
+
+        .phone {
+          padding: 8px;
+          border-radius: 28px;
+        }
+
+        .phone-screen {
+          min-height: 620px;
+          border-radius: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="topbar">
+        <div class="brand">
+          <img src="/assets/icons/leader-logo.svg" alt="Leader Scaffolding" />
+          <div class="brand-copy">
+            <p class="eyebrow">Premium product preview</p>
+            <h1>Leader Field Operations</h1>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button type="button">Open Console</button>
+          <button class="secondary" type="button">Phone Preview</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="stage">
+          <div class="surface command-center">
+            <div class="hero-copy">
+              <div>
+                <p class="eyebrow">Live attendance command centre</p>
+                <h2>Executive-grade control for mobile field teams.</h2>
+                <p>
+                  A refined PWA direction for check-ins, site evidence, supervisor approvals, and payroll readiness.
+                </p>
+              </div>
+              <div class="status-pill"><span class="dot"></span> All systems active</div>
+            </div>
+
+            <div class="metrics" aria-label="Operational summary">
+              <div class="metric">
+                <span>Workers on site</span>
+                <strong>42</strong>
+              </div>
+              <div class="metric">
+                <span>Pending review</span>
+                <strong>9</strong>
+              </div>
+              <div class="metric">
+                <span>Inside radius</span>
+                <strong>96%</strong>
+              </div>
+              <div class="metric">
+                <span>Payroll ready</span>
+                <strong>84%</strong>
+              </div>
+            </div>
+
+            <div class="workbench">
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p>Supervisor Review</p>
+                    <h2>Priority queue</h2>
+                  </div>
+                  <button class="compact secondary" type="button">Filter</button>
+                </div>
+                <div class="review-list">
+                  <div class="review-item">
+                    <div class="avatar">AM</div>
+                    <div>
+                      <p>Ari Mason checked in</p>
+                      <span>Harbour Tower, 06:48, 18 m from site centre</span>
+                    </div>
+                    <span class="tag green">Approved</span>
+                  </div>
+                  <div class="review-item">
+                    <div class="avatar">TK</div>
+                    <div>
+                      <p>Tane King submitted inspection form</p>
+                      <span>2 signatures, 5 photos, scaffold handover attached</span>
+                    </div>
+                    <span class="tag gold">Review</span>
+                  </div>
+                  <div class="review-item">
+                    <div class="avatar">SL</div>
+                    <div>
+                      <p>Sofia Lee missing check-out</p>
+                      <span>Manual adjustment requested by supervisor</span>
+                    </div>
+                    <span class="tag red">Exception</span>
+                  </div>
+                </div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p>Accounting</p>
+                    <h2>Pay period</h2>
+                  </div>
+                  <span class="tag">Week 24</span>
+                </div>
+                <div class="payroll">
+                  <div class="progress-row">
+                    <div class="progress-label"><span>Approved hours</span><strong>412.5</strong></div>
+                    <div class="track"><div class="bar green" style="width: 84%"></div></div>
+                  </div>
+                  <div class="progress-row">
+                    <div class="progress-label"><span>Resolved exceptions</span><strong>71%</strong></div>
+                    <div class="track"><div class="bar gold" style="width: 71%"></div></div>
+                  </div>
+                  <div class="progress-row">
+                    <div class="progress-label"><span>Export confidence</span><strong>92%</strong></div>
+                    <div class="track"><div class="bar" style="width: 92%"></div></div>
+                  </div>
+                  <button type="button">Prepare Payroll CSV</button>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <aside class="surface device-wrap" aria-label="Mobile worker preview">
+            <div class="phone">
+              <div class="phone-screen">
+                <div class="mobile-top">
+                  <img src="/assets/icons/leader-logo.svg" alt="Leader Scaffolding" />
+                  <p>Worker PWA</p>
+                  <h2>Good morning, Ari</h2>
+                </div>
+                <div class="mobile-body">
+                  <section class="mobile-card">
+                    <h3>Today</h3>
+                    <div class="site-select">
+                      <span>Harbour Tower</span>
+                      <span>18 m</span>
+                    </div>
+                    <div class="check-grid">
+                      <div class="check-button in">Check in</div>
+                      <div class="check-button out">Check out</div>
+                    </div>
+                  </section>
+                  <section class="mobile-card">
+                    <h3>Location confidence</h3>
+                    <div class="map-strip">
+                      <div class="map-route"></div>
+                      <div class="map-marker"></div>
+                    </div>
+                  </section>
+                  <section class="mobile-card">
+                    <h3>Record history</h3>
+                    <div class="timeline">
+                      <div class="timeline-row">
+                        <span class="pin"></span>
+                        <span>Check-in synced</span>
+                        <strong>06:48</strong>
+                      </div>
+                      <div class="timeline-row">
+                        <span class="pin"></span>
+                        <span>Inspection form queued</span>
+                        <strong>09:15</strong>
+                      </div>
+                      <div class="timeline-row">
+                        <span class="pin"></span>
+                        <span>Task photos uploaded</span>
+                        <strong>11:40</strong>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="lower-band">
+          <div class="lower-grid">
+            <article class="light-card">
+              <p class="eyebrow">Worker flow</p>
+              <h2>Phone-first attendance</h2>
+              <p>Fast check-in, site radius confidence, draft recovery, and clean record history for field users.</p>
+              <div class="mini-kpis">
+                <div><strong>2 sec</strong><span>capture</span></div>
+                <div><strong>GPS</strong><span>verified</span></div>
+                <div><strong>PWA</strong><span>ready</span></div>
+              </div>
+            </article>
+            <article class="light-card">
+              <p class="eyebrow">Supervisor flow</p>
+              <h2>Premium review desk</h2>
+              <p>Searchable exceptions, approvals, signatures, photos, staff status, site rules, and audit confidence.</p>
+              <div class="mini-kpis">
+                <div><strong>9</strong><span>pending</span></div>
+                <div><strong>3</strong><span>forms</span></div>
+                <div><strong>42</strong><span>staff</span></div>
+              </div>
+            </article>
+            <article class="light-card">
+              <p class="eyebrow">Payroll flow</p>
+              <h2>Ready for admin</h2>
+              <p>Approved hours, exception flags, duplicate checks, missing check-outs, and clean export preparation.</p>
+              <div class="mini-kpis">
+                <div><strong>412.5</strong><span>hours</span></div>
+                <div><strong>6</strong><span>flags</span></div>
+                <div><strong>CSV</strong><span>export</span></div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

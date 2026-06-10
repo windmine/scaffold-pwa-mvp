@@ -957,6 +957,55 @@ def main():
         )
         if "hours_worked" not in task_csv_body or "photo_urls" not in task_csv_body:
             raise AssertionError("export task logs csv: missing expected CSV headers")
+        task_log_html = assert_status(
+            "export task logs html",
+            request("GET", "/supervisor/task-logs/export.html?layout=daily-log", token=supervisor_token),
+            200,
+        )
+        if "Daily Task Log Export" not in task_log_html or "Smoke-tested task log" not in task_log_html:
+            raise AssertionError("export task logs html: missing expected task-log content")
+        task_photo_html = assert_status(
+            "export task photo report html",
+            request("GET", "/supervisor/task-logs/export.html?layout=photo-report", token=supervisor_token),
+            200,
+        )
+        if "Task Log Photo Report" not in task_photo_html or "data:image/png;base64" not in task_photo_html:
+            raise AssertionError("export task photo report html: missing expected embedded photo content")
+        form_html = assert_status(
+            "export form submissions html",
+            request("GET", "/supervisor/form-submissions/export.html", token=supervisor_token),
+            200,
+        )
+        if "Work Form Submission Export" not in form_html or "Worker signature" not in form_html:
+            raise AssertionError("export form submissions html: missing expected form content")
+        single_task_csv_body = assert_status(
+            "export single task log csv",
+            request("GET", f"/supervisor/task-logs/{task_log['id']}/export.csv", token=supervisor_token),
+            200,
+        )
+        if "Smoke-tested task log" not in single_task_csv_body or "photo_urls" not in single_task_csv_body:
+            raise AssertionError("export single task log csv: missing expected task-log content")
+        single_task_html = assert_status(
+            "export single task log html",
+            request("GET", f"/supervisor/task-logs/{task_log['id']}/export.html?layout=photo-report", token=supervisor_token),
+            200,
+        )
+        if "Task Log Photo Report" not in single_task_html or f"Task log #{task_log['id']}" not in single_task_html:
+            raise AssertionError("export single task log html: missing expected single-record content")
+        single_form_csv_body = assert_status(
+            "export single form submission csv",
+            request("GET", f"/supervisor/form-submissions/{form_submission['id']}/export.csv", token=supervisor_token),
+            200,
+        )
+        if "answer_worker_signature" not in single_form_csv_body or "North bay" not in single_form_csv_body:
+            raise AssertionError("export single form submission csv: missing expected form answer content")
+        single_form_html = assert_status(
+            "export single form submission html",
+            request("GET", f"/supervisor/form-submissions/{form_submission['id']}/export.html", token=supervisor_token),
+            200,
+        )
+        if f"Form submission #{form_submission['id']}" not in single_form_html or "Worker signature" not in single_form_html:
+            raise AssertionError("export single form submission html: missing expected single-record content")
         audit_events = assert_status(
             "list supervisor audit events",
             request("GET", "/supervisor/audit-events?limit=100", token=supervisor_token),

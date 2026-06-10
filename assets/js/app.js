@@ -134,6 +134,8 @@ const els = {
   clearSupervisorFiltersButton: document.getElementById('clearSupervisorFiltersButton'),
   exportAttendanceButton: document.getElementById('exportAttendanceButton'),
   exportTaskLogsButton: document.getElementById('exportTaskLogsButton'),
+  exportDocumentSelect: document.getElementById('exportDocumentSelect'),
+  exportDocumentButton: document.getElementById('exportDocumentButton'),
   staffUserForm: document.getElementById('staffUserForm'),
   staffNameInput: document.getElementById('staffNameInput'),
   staffEmailInput: document.getElementById('staffEmailInput'),
@@ -187,7 +189,8 @@ const historyModule = createHistoryModule({
   handleWorkerEditRecord,
   handleWorkerDeleteRecord,
   handleSupervisorEditRecord,
-  handleSupervisorDecision
+  handleSupervisorDecision,
+  handleSupervisorExportRecord
 });
 
 const workerAttendance = createWorkerAttendanceModule({
@@ -664,6 +667,10 @@ async function handleSupervisorDecision(record, decision) {
   await supervisorReviewModule.handleDecision(record, decision);
 }
 
+async function handleSupervisorExportRecord(record, exportType) {
+  await supervisorReviewModule.handleExportRecord(record, exportType);
+}
+
 function activateTab(targetId) {
   document.querySelectorAll('.tab').forEach((button) => {
     button.classList.toggle('active', button.dataset.tabTarget === targetId);
@@ -727,7 +734,7 @@ function installFallbackMessage() {
     return 'On iPhone or iPad, use Safari Share, then Add to Home Screen.';
   }
 
-  return 'Use your browser menu and choose Install app or Add to Home screen.';
+  return 'Use the browser menu to install or add it to your home screen.';
 }
 
 function renderInstallHelp(forceFallback = false) {

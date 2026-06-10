@@ -84,7 +84,8 @@ export function createHistoryModule({
   handleWorkerEditRecord,
   handleWorkerDeleteRecord,
   handleSupervisorEditRecord,
-  handleSupervisorDecision
+  handleSupervisorDecision,
+  handleSupervisorExportRecord
 }) {
   function fromBackendAttendanceRecord(record) {
     const site = state.sites.find((item) => getBackendSiteId(item.id) === record.site_id);
@@ -263,10 +264,30 @@ export function createHistoryModule({
     renderFilteredHistory();
   }
 
+  function exportOptionsForRecord(record) {
+    if (record.type === 'task') {
+      return [
+        ['task-daily-log-html', 'Daily log HTML'],
+        ['task-photo-report-html', 'Photo report HTML'],
+        ['task-csv', 'CSV row']
+      ];
+    }
+
+    if (record.type === 'form') {
+      return [
+        ['form-html', 'Form HTML'],
+        ['form-csv', 'CSV row']
+      ];
+    }
+
+    return [];
+  }
+
   function renderRecordsList(container, records, options = {}) {
     const showDecisionActions = typeof options === 'boolean' ? options : Boolean(options.showDecisionActions);
     const showEditActions = typeof options === 'object' && Boolean(options.showEditActions);
     const showWorkerActions = typeof options === 'object' && Boolean(options.showWorkerActions);
+    const showExportActions = typeof options === 'object' && Boolean(options.showExportActions);
     container.innerHTML = '';
     if (!records.length) {
       container.innerHTML = '<div class="empty-state">No records found yet.</div>';
@@ -344,7 +365,9 @@ export function createHistoryModule({
       const canShowWorkerActions = showWorkerActions && canWorkerEditRecord(record);
       const canShowSupervisorEdit = showEditActions && (record.type === 'attendance' || record.type === 'task');
       const canShowDecision = showDecisionActions && record.status === 'pending';
-      if (canShowDecision || canShowSupervisorEdit || canShowWorkerActions) {
+      const exportOptions = exportOptionsForRecord(record);
+      const canShowExport = showExportActions && record.backendRecordId && exportOptions.length > 0;
+      if (canShowDecision || canShowSupervisorEdit || canShowWorkerActions || canShowExport) {
         actions.classList.remove('hidden');
       }
 
@@ -377,6 +400,31 @@ export function createHistoryModule({
           await handleSupervisorEditRecord(record);
         });
         actions.append(editButton);
+      }
+
+      if (canShowExport) {
+        const exportGroup = document.createElement('div');
+        exportGroup.className = 'record-export-actions';
+
+        const exportSelect = document.createElement('select');
+        exportSelect.setAttribute('aria-label', 'Export format');
+        exportOptions.forEach(([value, label]) => {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = label;
+          exportSelect.appendChild(option);
+        });
+
+        const exportButton = document.createElement('button');
+        exportButton.type = 'button';
+        exportButton.className = 'ghost';
+        exportButton.textContent = 'Export';
+        exportButton.addEventListener('click', async () => {
+          await handleSupervisorExportRecord(record, exportSelect.value);
+        });
+
+        exportGroup.append(exportSelect, exportButton);
+        actions.append(exportGroup);
       }
 
       if (canShowDecision) {

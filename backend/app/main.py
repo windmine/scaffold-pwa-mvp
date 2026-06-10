@@ -729,6 +729,62 @@ def export_supervisor_task_logs_csv(
     return supervisor_review_use_cases.export_task_logs_csv(session, status)
 
 
+@app.get("/supervisor/task-logs/export.html")
+def export_supervisor_task_logs_html(
+    layout: str = "daily-log",
+    status: Optional[str] = None,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.export_task_logs_html(session, layout, status)
+
+
+@app.get("/supervisor/task-logs/{log_id}/export.csv")
+def export_supervisor_task_log_csv(
+    log_id: int,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.export_task_log_csv(log_id, session)
+
+
+@app.get("/supervisor/task-logs/{log_id}/export.html")
+def export_supervisor_task_log_html(
+    log_id: int,
+    layout: str = "daily-log",
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.export_task_log_html(log_id, session, layout)
+
+
+@app.get("/supervisor/form-submissions/export.html")
+def export_supervisor_form_submissions_html(
+    status: Optional[str] = None,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.export_form_submissions_html(session, status)
+
+
+@app.get("/supervisor/form-submissions/{submission_id}/export.csv")
+def export_supervisor_form_submission_csv(
+    submission_id: int,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.export_form_submission_csv(submission_id, session)
+
+
+@app.get("/supervisor/form-submissions/{submission_id}/export.html")
+def export_supervisor_form_submission_html(
+    submission_id: int,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.export_form_submission_html(submission_id, session)
+
+
 @app.patch("/supervisor/task-logs/{log_id}")
 def update_supervisor_task_log(
     log_id: int,
