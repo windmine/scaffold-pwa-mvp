@@ -463,6 +463,8 @@ async function handleLogin(event) {
   try {
     renderStatusBanner('Signing in with the backend...');
     state.user = await backendLogin(els.emailInput.value.trim(), els.passwordInput.value);
+    state.sites = await loadSites();
+    fillSiteSelects();
     renderApp();
   } catch (error) {
     renderStatusBanner(error.message, false);
@@ -479,6 +481,8 @@ async function handleRegister(event) {
       els.registerPasswordInput.value
     );
     els.registerForm.reset();
+    state.sites = await loadSites();
+    fillSiteSelects();
     renderApp();
   } catch (error) {
     renderStatusBanner(error.message, false);

@@ -34,11 +34,12 @@ def main():
             upload_storage.UPLOAD_DIR = Path(tmp_dir)
 
             upload_storage.ensure_upload_storage_ready()
-            upload_storage.save_upload("sample.png", b"image-bytes", "image/png")
+            upload_storage.save_upload("sample.png", b"image-bytes", "image/png", uploaded_by=42)
             stored = upload_storage.load_upload("sample.png")
 
             assert_equal("local upload content", stored.content, b"image-bytes")
             assert_equal("local upload content type", stored.content_type, "image/png")
+            assert_equal("local upload owner metadata", stored.uploaded_by, 42)
             assert_equal("upload url format", upload_url("sample.png"), "/uploads/sample.png")
 
             assert_raises_value_error(

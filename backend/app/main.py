@@ -1,15 +1,16 @@
 import json
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 from uuid import uuid4
 
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Response
+from fastapi import FastAPI, Depends, HTTPException, Request, UploadFile, File, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 
-from app.config import AUTO_MIGRATE, CORS_ORIGINS, MAX_UPLOAD_BYTES
+from app.config import AUTO_MIGRATE, CORS_ORIGINS, ENABLE_DEV_SEED, MAX_UPLOAD_BYTES, PRODUCTION_LIKE
 from app.database import migrate_database, get_session
-from app.models import User, Site, WorkForm
+from app.models import AttendanceRecord, TaskLog, User, Site, WorkForm, WorkFormSubmission
 from app.schemas import (
     ApprovalRequest,
     AttendanceCreate,
@@ -30,11 +31,13 @@ from app.schemas import (
     WorkFormUpdate,
 )
 from app.auth import (
+    clear_auth_cookie,
     hash_password,
     verify_password,
     create_access_token,
     get_current_user,
-    require_supervisor
+    require_supervisor,
+    set_auth_cookie,
 )
 from app.use_cases import attendance as attendance_use_cases
 from app.use_cases import audit as audit_use_cases
@@ -42,7 +45,7 @@ from app.use_cases import staff_site_admin as staff_site_admin_use_cases
 from app.use_cases import supervisor_review as supervisor_review_use_cases
 from app.use_cases import task_logs as task_log_use_cases
 from app.use_cases import work_forms as work_form_use_cases
-from app.use_cases.common import upload_url, user_response
+from app.use_cases.common import parse_json_list, parse_json_object, upload_url, user_response
 from app.upload_storage import ensure_upload_storage_ready, load_upload, save_upload
 
 
@@ -58,6 +61,7 @@ async def strip_firebase_hosting_api_prefix(request, call_next):
 
 
 ALLOWED_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
+LOCAL_DEV_HOSTS = {"127.0.0.1", "::1", "localhost"}
 ensure_upload_storage_ready()
 
 
@@ -143,7 +147,14 @@ def health():
 
 
 @app.post("/dev/seed")
-def seed_demo_data(session: Session = Depends(get_session)):
+def seed_demo_data(request: Request, session: Session = Depends(get_session)):
+    if not ENABLE_DEV_SEED or PRODUCTION_LIKE:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    client_host = request.client.host if request.client else ""
+    if client_host not in LOCAL_DEV_HOSTS:
+        raise HTTPException(status_code=403, detail="Demo seed is only available from localhost")
+
     existing_worker = session.exec(
         select(User).where(User.email == "worker@example.com")
     ).first()
@@ -239,7 +250,10 @@ def seed_demo_data(session: Session = Depends(get_session)):
 
 
 @app.get("/sites")
-def get_sites(session: Session = Depends(get_session)):
+def get_sites(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
     return staff_site_admin_use_cases.list_sites(session)
 
 
@@ -279,7 +293,7 @@ async def upload_photo(
         raise HTTPException(status_code=413, detail="Photo must be 5MB or smaller")
 
     filename = f"{uuid4().hex}{suffix}"
-    save_upload(filename, contents, file.content_type)
+    save_upload(filename, contents, file.content_type, uploaded_by=user.id)
 
     return {
         "url": upload_url(filename),
@@ -290,14 +304,78 @@ async def upload_photo(
     }
 
 
+def upload_filename_from_url(value: str):
+    if not isinstance(value, str) or not value:
+        return None
+
+    path = urlparse(value).path
+    if not path.startswith("/uploads/"):
+        return None
+
+    return Path(path).name
+
+
+def upload_values_include_filename(values, filename: str):
+    return any(upload_filename_from_url(value) == filename for value in values)
+
+
+def upload_is_referenced_by_worker(filename: str, worker_id: int, session: Session):
+    upload_path = upload_url(filename)
+    attendance = session.exec(
+        select(AttendanceRecord).where(
+            AttendanceRecord.worker_id == worker_id,
+            AttendanceRecord.photo_url == upload_path,
+        )
+    ).first()
+    if attendance:
+        return True
+
+    task_logs = session.exec(
+        select(TaskLog).where(TaskLog.worker_id == worker_id)
+    ).all()
+    for log in task_logs:
+        if log.photo_url == upload_path:
+            return True
+        if upload_values_include_filename(parse_json_list(log.photo_urls), filename):
+            return True
+
+    submissions = session.exec(
+        select(WorkFormSubmission).where(WorkFormSubmission.worker_id == worker_id)
+    ).all()
+    for submission in submissions:
+        if upload_values_include_filename(parse_json_list(submission.photo_urls), filename):
+            return True
+        if upload_values_include_filename(parse_json_object(submission.answers_json).values(), filename):
+            return True
+
+    return False
+
+
+def can_access_upload(filename: str, upload, user: User, session: Session):
+    if user.role == "supervisor":
+        return True
+
+    if upload.uploaded_by == user.id:
+        return True
+
+    return upload_is_referenced_by_worker(filename, user.id, session)
+
+
 @app.get("/uploads/{filename}")
-def get_upload(filename: str):
+def get_upload(
+    filename: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
     try:
         upload = load_upload(filename)
     except ValueError:
         raise HTTPException(status_code=404, detail="Upload not found")
 
     if not upload:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    if not can_access_upload(filename, upload, user, session):
         raise HTTPException(status_code=404, detail="Upload not found")
 
     return Response(
@@ -308,7 +386,11 @@ def get_upload(filename: str):
 
 
 @app.post("/auth/login")
-def login(data: LoginRequest, session: Session = Depends(get_session)):
+def login(
+    data: LoginRequest,
+    response: Response,
+    session: Session = Depends(get_session)
+):
     email = data.email.strip().lower()
     user = session.exec(
         select(User).where(User.email == email)
@@ -324,6 +406,7 @@ def login(data: LoginRequest, session: Session = Depends(get_session)):
         "sub": user.email,
         "role": user.role
     })
+    set_auth_cookie(response, token)
 
     return {
         "access_token": token,
@@ -333,7 +416,11 @@ def login(data: LoginRequest, session: Session = Depends(get_session)):
 
 
 @app.post("/auth/register")
-def register(data: RegisterRequest, session: Session = Depends(get_session)):
+def register(
+    data: RegisterRequest,
+    response: Response,
+    session: Session = Depends(get_session)
+):
     user = staff_site_admin_use_cases.create_user_account(
         session=session,
         email=data.email,
@@ -345,12 +432,19 @@ def register(data: RegisterRequest, session: Session = Depends(get_session)):
         "sub": user.email,
         "role": user.role
     })
+    set_auth_cookie(response, token)
 
     return {
         "access_token": token,
         "token_type": "bearer",
         "user": user_response(user)
     }
+
+
+@app.post("/auth/logout")
+def logout(response: Response):
+    clear_auth_cookie(response)
+    return {"message": "Signed out"}
 
 
 @app.get("/auth/me")

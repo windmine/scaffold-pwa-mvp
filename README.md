@@ -101,7 +101,7 @@ Worker restrictions:
 
 ## Demo Accounts
 
-Seed demo data first with `POST /dev/seed`.
+For local development only, copy `.env.example` to `.env`, keep `ENABLE_DEV_SEED=true`, start the backend from the backend folder, then seed demo data with `POST http://127.0.0.1:8000/dev/seed`. The endpoint is disabled by default unless explicitly enabled and is blocked in production-like environments.
 
 ```text
 Worker
@@ -211,10 +211,13 @@ copy .env.example .env
 Important values:
 
 ```text
+APP_ENV=development
 GEO_SECRET_KEY=change-this-dev-secret
 DATABASE_URL=sqlite:///./geo_management.db
 AUTO_MIGRATE=true
 SQL_ECHO=false
+ENABLE_DEV_SEED=true
+AUTH_COOKIE_SECURE=false
 CORS_ORIGINS=http://localhost:5173,https://localhost:5173,http://127.0.0.1:5173,https://127.0.0.1:5173
 UPLOAD_DIR=uploads
 MAX_UPLOAD_BYTES=5242880
@@ -284,11 +287,13 @@ Swagger docs:
 http://127.0.0.1:8000/docs
 ```
 
-Seed demo accounts and demo sites:
+Seed demo accounts and demo sites for local development only:
 
 ```text
 POST /dev/seed
 ```
+
+This requires `ENABLE_DEV_SEED=true`, must be called from localhost, and is unavailable when `APP_ENV=production` or Cloud Run production metadata is present.
 
 ## Frontend Setup
 
@@ -515,9 +520,10 @@ Supported field types are `text`, `textarea`, `number`, `date`, `select`, `check
 
 ```text
 GET  /health
-POST /dev/seed
-GET  /sites
-POST /photo-uploads
+POST /dev/seed       local development only, disabled unless ENABLE_DEV_SEED=true
+GET  /sites          authenticated
+POST /photo-uploads  authenticated
+GET  /uploads/{file} authenticated; workers can access their own uploaded/referenced files, supervisors can access uploaded files
 ```
 
 ### Auth
@@ -525,6 +531,7 @@ POST /photo-uploads
 ```text
 POST /auth/login
 POST /auth/register
+POST /auth/logout
 GET  /auth/me
 ```
 

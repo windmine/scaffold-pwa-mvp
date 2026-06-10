@@ -66,10 +66,26 @@ def path_env(name: str, default: Path):
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./geo_management.db")
 AUTO_MIGRATE = bool_env("AUTO_MIGRATE", True)
 SQL_ECHO = bool_env("SQL_ECHO", False)
+APP_ENV = os.environ.get("APP_ENV", os.environ.get("ENVIRONMENT", "development")).strip().lower()
+PRODUCTION_LIKE = APP_ENV in {"prod", "production"} or bool(os.environ.get("K_SERVICE"))
 
 JWT_SECRET_KEY = os.environ.get("GEO_SECRET_KEY", "dev-only-change-me")
 JWT_ALGORITHM = os.environ.get("GEO_JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int_env("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24)
+ENABLE_DEV_SEED = bool_env("ENABLE_DEV_SEED", False)
+AUTH_COOKIE_SECURE = bool_env("AUTH_COOKIE_SECURE", PRODUCTION_LIKE)
+
+WEAK_SECRET_VALUES = {
+    "",
+    "dev-only-change-me",
+    "change-this-dev-secret",
+    "replace-with-a-strong-production-secret",
+}
+
+if PRODUCTION_LIKE and JWT_SECRET_KEY in WEAK_SECRET_VALUES:
+    raise RuntimeError(
+        "Set GEO_SECRET_KEY to a strong production secret before starting the backend."
+    )
 
 CORS_ORIGINS = csv_env(
     "CORS_ORIGINS",

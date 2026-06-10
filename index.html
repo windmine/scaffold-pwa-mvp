@@ -33,11 +33,10 @@
 
         <section id="loginView" class="card view active">
           <h2>Sign in</h2>
-          <p class="muted">Use the demo accounts below to explore the worker and supervisor flows.</p>
+          <p class="muted">Sign in to continue to the worker or supervisor dashboard.</p>
 
           <div class="demo-box">
-            <p><strong>Worker:</strong> worker@example.com / Passw0rd!</p>
-            <p><strong>Supervisor:</strong> supervisor@example.com / Passw0rd!</p>
+            <p>Use the account provided by your supervisor, or register a worker account below.</p>
           </div>
 
           <div class="install-box">
@@ -51,11 +50,11 @@
           <form id="loginForm" class="form-grid">
             <label>
               Email
-              <input id="emailInput" type="email" value="worker@example.com" required />
+              <input id="emailInput" type="email" autocomplete="email" required />
             </label>
             <label>
               Password
-              <input id="passwordInput" type="password" value="Passw0rd!" required />
+              <input id="passwordInput" type="password" autocomplete="current-password" required />
             </label>
             <button type="submit">Sign in</button>
           </form>

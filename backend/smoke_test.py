@@ -69,7 +69,16 @@ def upload_test_image(label, token, filename):
     with urlopen(request_obj, timeout=10) as response:
         upload = json.loads(response.read().decode("utf-8"))
 
-    with urlopen(Request(f"{app_origin()}{upload['url']}", method="GET"), timeout=10) as response:
+    try:
+        with urlopen(Request(f"{app_origin()}{upload['url']}", method="GET"), timeout=10):
+            raise AssertionError(f"{label}: unauthenticated upload fetch should fail")
+    except HTTPError as error:
+        if error.code != 401:
+            raise AssertionError(f"{label}: expected unauthenticated fetch to return 401, got {error.code}")
+
+    fetch_request = Request(f"{app_origin()}{upload['url']}", method="GET")
+    fetch_request.add_header("Authorization", f"Bearer {token}")
+    with urlopen(fetch_request, timeout=10) as response:
         fetched = response.read()
 
     if fetched != SMOKE_IMAGE_BYTES:
@@ -220,7 +229,8 @@ def main():
         )
         smoke_worker_token = smoke_user_login["access_token"]
 
-        sites = assert_status("sites list", request("GET", "/sites"), 200)
+        assert_status("anonymous cannot list sites", request("GET", "/sites"), 401)
+        sites = assert_status("sites list", request("GET", "/sites", token=worker_token), 200)
         if not sites:
             raise AssertionError("sites list: expected at least one site")
 

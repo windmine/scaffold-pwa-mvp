@@ -2,17 +2,11 @@ const TOKEN_KEY = "geo_token";
 const USER_KEY = "geo_user";
 
 function getDefaultApiBase() {
-  if (window.location.protocol === "https:") {
+  if (["http:", "https:"].includes(window.location.protocol)) {
     return "/api";
   }
 
-  const host = window.location.hostname;
-
-  if (!host || host === "localhost" || host === "127.0.0.1") {
-    return "http://127.0.0.1:8000";
-  }
-
-  return `http://${host}:8000`;
+  return "http://127.0.0.1:8000";
 }
 
 function getStoredApiBase() {
@@ -75,6 +69,19 @@ export function getSession() {
 }
 
 export function logout() {
+  const token = getToken();
+  const headers = {};
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  fetch(`${API_BASE}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+    headers
+  }).catch(() => {});
+
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 }
@@ -95,6 +102,7 @@ async function apiFetch(path, options = {}) {
   try {
     res = await fetch(`${API_BASE}${path}`, {
       ...options,
+      credentials: "include",
       headers
     });
   } catch (error) {
@@ -203,6 +211,7 @@ export async function uploadPhoto(file, filename = "photo.jpg") {
   try {
     res = await fetch(`${API_BASE}/photo-uploads`, {
       method: "POST",
+      credentials: "include",
       headers,
       body: formData
     });
@@ -353,6 +362,7 @@ export async function exportSupervisorRecordsCsv(status = "") {
   let res;
   try {
     res = await fetch(`${API_BASE}/supervisor/records/export.csv${query}`, {
+      credentials: "include",
       headers
     });
   } catch (error) {
@@ -386,6 +396,7 @@ export async function exportSupervisorTaskLogsCsv() {
   let res;
   try {
     res = await fetch(`${API_BASE}/supervisor/task-logs/export.csv`, {
+      credentials: "include",
       headers
     });
   } catch (error) {

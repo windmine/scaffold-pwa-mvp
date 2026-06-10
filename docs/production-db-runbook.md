@@ -67,8 +67,11 @@ Google references:
 
    ```text
    DATABASE_URL=postgresql+psycopg://geo_app:URL_ENCODED_PASSWORD@/geo_management?host=/cloudsql/geo-attendance-system-db9ca:australia-southeast1:geo-attendance-system
+   APP_ENV=production
    AUTO_MIGRATE=true
    SQL_ECHO=false
+   ENABLE_DEV_SEED=false
+   AUTH_COOKIE_SECURE=true
    GEO_SECRET_KEY=<secret-manager-or-strong-secret>
    CORS_ORIGINS=https://geo-attendance-system-db9ca.web.app,https://geo-attendance-system-db9ca.firebaseapp.com
    ```

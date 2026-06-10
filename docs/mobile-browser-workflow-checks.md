@@ -34,7 +34,7 @@ python backend\smoke_test.py
    python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
-2. Seed demo accounts from Swagger or another API client:
+2. Seed demo accounts from Swagger or another API client. This requires the local backend to be using `.env.example` values or equivalent `ENABLE_DEV_SEED=true`; the seed endpoint only accepts localhost requests and is disabled in production-like environments.
 
    ```text
    POST http://127.0.0.1:8000/dev/seed
