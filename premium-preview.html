@@ -3,12 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#03070d" />
+    <meta name="theme-color" content="#000000" />
     <title>Premium Preview | Leader Field Operations</title>
-    <link rel="icon" type="image/svg+xml" href="/assets/icons/leader-icon.svg" />
+    <link rel="icon" type="image/png" href="/assets/icons/leader-logo-export.png" />
+    <script>
+      (() => {
+        try {
+          const savedTheme = localStorage.getItem('leader-theme');
+          const theme = savedTheme === 'light' ? 'light' : 'dark';
+          document.documentElement.dataset.theme = theme;
+          document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f4f7fb' : '#000000');
+        } catch {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      })();
+    </script>
     <style>
       :root {
-        --ink: #03070d;
+        --ink: #000000;
         --navy: #071425;
         --navy-2: #0b2342;
         --blue: #096cf5;
@@ -25,6 +37,61 @@
         --danger: #f06b62;
         --radius: 8px;
         --shadow: 0 28px 80px rgba(0, 0, 0, 0.34), 0 8px 24px rgba(3, 7, 13, 0.32);
+        --page-background: #000000;
+        --surface-background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.052)),
+          rgba(7, 20, 37, 0.92);
+        --metric-background: rgba(3, 7, 13, 0.32);
+        --panel-background: rgba(251, 252, 255, 0.06);
+        --panel-head-background: rgba(217, 233, 248, 0.055);
+        --item-background: rgba(3, 7, 13, 0.24);
+        --copy-color: #c9d5e4;
+        --item-copy-color: #dce8f7;
+        --status-pill-text: #ffe3a6;
+        --progress-label-color: #dce8f7;
+        --tag-text: var(--ice);
+        --track-background: rgba(217, 233, 248, 0.13);
+        --secondary-button-text: var(--ice);
+        --logo-background: transparent;
+        --logo-padding: 0;
+        --logo-radius: 0;
+        --logo-shadow: none;
+        --logo-filter: none;
+      }
+
+      html[data-theme="light"] {
+        --ink: #f4f7fb;
+        --navy: #ffffff;
+        --navy-2: #edf4ff;
+        --ice: #075dcc;
+        --paper: #0d1726;
+        --muted: #58677b;
+        --line: rgba(7, 20, 37, 0.12);
+        --line-strong: rgba(7, 20, 37, 0.24);
+        --shadow: 0 24px 70px rgba(8, 28, 58, 0.14), 0 8px 24px rgba(8, 28, 58, 0.08);
+        --page-background:
+          linear-gradient(180deg, rgba(9, 108, 245, 0.1) 0, rgba(9, 108, 245, 0) 260px),
+          #f4f7fb;
+        --surface-background: rgba(255, 255, 255, 0.96);
+        --metric-background: rgba(9, 108, 245, 0.045);
+        --panel-background: rgba(255, 255, 255, 0.92);
+        --panel-head-background: rgba(9, 108, 245, 0.06);
+        --item-background: rgba(9, 108, 245, 0.045);
+        --copy-color: #58677b;
+        --item-copy-color: #26364c;
+        --status-pill-text: #7a5516;
+        --progress-label-color: #26364c;
+        --tag-text: #075dcc;
+        --track-background: rgba(9, 108, 245, 0.12);
+        --secondary-button-text: #075dcc;
+        --logo-background: transparent;
+        --logo-padding: 0;
+        --logo-radius: 0;
+        --logo-shadow: none;
+        --logo-filter:
+          drop-shadow(0 1px 0 rgba(3, 7, 13, 0.82))
+          drop-shadow(0 -1px 0 rgba(3, 7, 13, 0.52))
+          drop-shadow(1px 0 0 rgba(3, 7, 13, 0.52));
       }
 
       * {
@@ -36,13 +103,15 @@
         color-scheme: dark;
       }
 
+      html[data-theme="light"] {
+        color-scheme: light;
+      }
+
       body {
         margin: 0;
         min-width: 320px;
         overflow-x: hidden;
-        background:
-          linear-gradient(180deg, rgba(9, 108, 245, 0.16) 0, rgba(9, 108, 245, 0) 250px),
-          linear-gradient(180deg, #03070d 0, #071425 48%, #eef3f9 48%, #eef3f9 100%);
+        background: var(--page-background);
         color: var(--paper);
         font-family: Inter, "Segoe UI", Roboto, Arial, Helvetica, sans-serif;
         text-rendering: optimizeLegibility;
@@ -69,7 +138,7 @@
       button.secondary {
         background: rgba(217, 233, 248, 0.08);
         border: 1px solid var(--line-strong);
-        color: var(--ice);
+        color: var(--secondary-button-text);
         box-shadow: none;
       }
 
@@ -104,6 +173,11 @@
         width: clamp(176px, 22vw, 248px);
         height: auto;
         display: block;
+        padding: var(--logo-padding);
+        background: var(--logo-background);
+        border-radius: var(--logo-radius);
+        box-shadow: var(--logo-shadow);
+        filter: var(--logo-filter);
       }
 
       .brand-copy {
@@ -164,9 +238,7 @@
       .surface {
         border: 1px solid var(--line);
         border-radius: var(--radius);
-        background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.052)),
-          rgba(7, 20, 37, 0.92);
+        background: var(--surface-background);
         box-shadow: var(--shadow);
       }
 
@@ -187,7 +259,7 @@
       .hero-copy p:last-child {
         margin-bottom: 0;
         max-width: 64ch;
-        color: #c9d5e4;
+        color: var(--copy-color);
         line-height: 1.55;
       }
 
@@ -199,7 +271,7 @@
         border: 1px solid rgba(200, 169, 106, 0.44);
         border-radius: 999px;
         padding: 0.44rem 0.72rem;
-        color: #ffe3a6;
+        color: var(--status-pill-text);
         background: rgba(200, 169, 106, 0.09);
         font-weight: 800;
         white-space: nowrap;
@@ -227,11 +299,11 @@
         padding: 14px;
         border: 1px solid var(--line);
         border-radius: var(--radius);
-        background: rgba(3, 7, 13, 0.32);
+        background: var(--metric-background);
       }
 
       .metric span {
-        color: #aebdd1;
+        color: var(--muted);
         font-size: 0.82rem;
         font-weight: 800;
       }
@@ -251,7 +323,7 @@
         min-width: 0;
         border: 1px solid var(--line);
         border-radius: var(--radius);
-        background: rgba(251, 252, 255, 0.06);
+        background: var(--panel-background);
         overflow: hidden;
       }
 
@@ -262,7 +334,7 @@
         align-items: center;
         padding: 14px 16px;
         border-bottom: 1px solid var(--line);
-        background: rgba(217, 233, 248, 0.055);
+        background: var(--panel-head-background);
       }
 
       .panel-head p,
@@ -290,7 +362,7 @@
         padding: 12px;
         border: 1px solid rgba(217, 233, 248, 0.12);
         border-radius: 6px;
-        background: rgba(3, 7, 13, 0.24);
+        background: var(--item-background);
       }
 
       .avatar {
@@ -306,7 +378,7 @@
 
       .review-item p {
         margin: 0;
-        color: #dce8f7;
+        color: var(--item-copy-color);
         font-weight: 800;
       }
 
@@ -319,7 +391,7 @@
         border-radius: 999px;
         padding: 0.32rem 0.62rem;
         background: rgba(217, 233, 248, 0.1);
-        color: var(--ice);
+        color: var(--tag-text);
         font-size: 0.78rem;
         font-weight: 900;
         white-space: nowrap;
@@ -355,7 +427,7 @@
         display: flex;
         justify-content: space-between;
         gap: 12px;
-        color: #dce8f7;
+        color: var(--progress-label-color);
         font-size: 0.86rem;
         font-weight: 800;
       }
@@ -364,7 +436,7 @@
         height: 8px;
         overflow: hidden;
         border-radius: 999px;
-        background: rgba(217, 233, 248, 0.13);
+        background: var(--track-background);
       }
 
       .bar {
@@ -637,9 +709,7 @@
 
       @media (max-width: 720px) {
         body {
-          background:
-            linear-gradient(180deg, rgba(9, 108, 245, 0.14) 0, rgba(9, 108, 245, 0) 220px),
-            linear-gradient(180deg, #03070d 0, #071425 60%, #eef3f9 60%, #eef3f9 100%);
+          background: var(--page-background);
         }
 
         .page {
@@ -701,13 +771,14 @@
     <div class="page">
       <header class="topbar">
         <div class="brand">
-          <img src="/assets/icons/leader-logo.svg" alt="Leader Scaffolding" />
+          <img src="/assets/icons/leader-logo-export.png" alt="Leader Scaffolding" />
           <div class="brand-copy">
             <p class="eyebrow">Premium product preview</p>
             <h1>Leader Field Operations</h1>
           </div>
         </div>
         <div class="topbar-actions">
+          <button id="previewThemeToggleButton" class="secondary" type="button" aria-pressed="true">Light mode</button>
           <button type="button">Open Console</button>
           <button class="secondary" type="button">Phone Preview</button>
         </div>
@@ -814,7 +885,7 @@
             <div class="phone">
               <div class="phone-screen">
                 <div class="mobile-top">
-                  <img src="/assets/icons/leader-logo.svg" alt="Leader Scaffolding" />
+                  <img src="/assets/icons/leader-logo-export.png" alt="Leader Scaffolding" />
                   <p>Worker PWA</p>
                   <h2>Good morning, Ari</h2>
                 </div>
@@ -899,5 +970,42 @@
         </section>
       </main>
     </div>
+    <script>
+      (() => {
+        const button = document.getElementById('previewThemeToggleButton');
+        const colors = { dark: '#000000', light: '#f4f7fb' };
+
+        function activeTheme() {
+          return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+        }
+
+        function render() {
+          const current = activeTheme();
+          const next = current === 'dark' ? 'light' : 'dark';
+          button.textContent = `${next[0].toUpperCase()}${next.slice(1)} mode`;
+          button.setAttribute('aria-pressed', String(current === 'dark'));
+          button.title = `Switch to ${next} mode`;
+        }
+
+        function setTheme(theme) {
+          const next = theme === 'light' ? 'light' : 'dark';
+          document.documentElement.dataset.theme = next;
+          document.querySelector('meta[name="theme-color"]')?.setAttribute('content', colors[next]);
+          try {
+            localStorage.setItem('leader-theme', next);
+          } catch {
+            // Theme persistence is optional when storage is unavailable.
+          }
+          render();
+        }
+
+        if (button) {
+          render();
+          button.addEventListener('click', () => {
+            setTheme(activeTheme() === 'dark' ? 'light' : 'dark');
+          });
+        }
+      })();
+    </script>
   </body>
 </html>

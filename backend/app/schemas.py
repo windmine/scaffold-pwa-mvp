@@ -122,6 +122,11 @@ class WorkFormField(BaseModel):
     type: str = Field(max_length=40)
     required: bool = False
     options: list[str] = Field(default_factory=list)
+    show_if: Optional[str] = Field(default=None, max_length=240)
+    formula: Optional[str] = Field(default=None, max_length=500)
+    repeat: Optional[str] = Field(default=None, max_length=80)
+    min_rows: Optional[int] = Field(default=None, ge=0, le=50)
+    max_rows: Optional[int] = Field(default=None, ge=1, le=50)
 
 
 class WorkFormCreate(BaseModel):
@@ -144,6 +149,7 @@ class WorkFormSubmissionCreate(BaseModel):
     work_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     answers: dict = Field(default_factory=dict)
     photo_urls: list[str] = Field(default_factory=list)
+    photo_metadata: list[dict] = Field(default_factory=list)
     client_submission_id: Optional[str] = Field(default=None, max_length=120)
 
 

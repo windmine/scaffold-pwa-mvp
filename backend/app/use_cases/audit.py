@@ -57,6 +57,7 @@ SNAPSHOT_FIELDS = {
         "work_date",
         "answers_json",
         "photo_urls",
+        "photo_metadata",
         "client_submission_id",
         "status",
         "created_at",
@@ -80,6 +81,9 @@ def model_snapshot(model):
             continue
         elif field == "photo_urls":
             data["photo_urls"] = parse_json_list(value)
+            continue
+        elif field == "photo_metadata":
+            data["photo_metadata"] = parse_json_list(value)
             continue
 
         data[field] = value

@@ -27,7 +27,7 @@ const pwaAssetCopies = [
   ['assets/js/worker-form.js', 'assets/js/worker-form.js'],
   ['assets/js/worker-log.js', 'assets/js/worker-log.js'],
   ['assets/js/work-form-fields.js', 'assets/js/work-form-fields.js'],
-  ['assets/icons/leader-logo.svg', 'assets/icons/leader-logo.svg'],
+  ['assets/icons/leader-logo-export.png', 'assets/icons/leader-logo-export.png'],
   ['assets/icons/leader-icon.svg', 'assets/icons/leader-icon.svg'],
   ['assets/icons/apple-touch-icon.png', 'assets/icons/apple-touch-icon.png'],
   ['assets/icons/icon-192.png', 'assets/icons/icon-192.png'],
@@ -56,7 +56,7 @@ function copyPwaAssets() {
       const indexPath = join(buildDir, 'index.html')
       const indexHtml = readFileSync(indexPath, 'utf8')
         .replace(/href="\/assets\/manifest-[^"]+\.webmanifest"/, 'href="/manifest.webmanifest"')
-        .replace(/href="\/assets\/leader-icon-[^"]+\.svg"/, 'href="/assets/icons/leader-icon.svg"')
+        .replace(/href="\/assets\/leader-logo-export-[^"]+\.png"/, 'href="/assets/icons/leader-logo-export.png"')
         .replace(/href="\/assets\/apple-touch-icon-[^"]+\.png"/, 'href="/assets/icons/apple-touch-icon.png"')
       writeFileSync(indexPath, indexHtml)
     }

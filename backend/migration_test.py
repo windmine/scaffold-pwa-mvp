@@ -50,8 +50,9 @@ def assert_migration_recorded(engine):
             "SELECT version FROM schema_migrations ORDER BY version"
         ).all()
 
-    if [row[0] for row in rows] != ["0001_initial_schema"]:
-        raise AssertionError("schema_migrations: expected 0001_initial_schema")
+    expected_versions = ["0001_initial_schema", "0002_work_form_photo_metadata"]
+    if [row[0] for row in rows] != expected_versions:
+        raise AssertionError(f"schema_migrations: expected {expected_versions}")
 
 
 def test_postgres_statement_adaptation():
@@ -79,8 +80,9 @@ def test_fresh_database():
         engine = make_engine(Path(directory) / "fresh.db")
 
         applied = run_migrations(engine)
-        if applied != ["0001_initial_schema"]:
-            raise AssertionError(f"fresh migration: expected 0001_initial_schema, got {applied}")
+        expected_versions = ["0001_initial_schema", "0002_work_form_photo_metadata"]
+        if applied != expected_versions:
+            raise AssertionError(f"fresh migration: expected {expected_versions}, got {applied}")
 
         if run_migrations(engine) != []:
             raise AssertionError("fresh migration: second run should be a no-op")
@@ -95,6 +97,11 @@ def test_fresh_database():
             "fresh attendance columns",
             columns(engine, "attendancerecord"),
             {"distance_from_site_m", "within_site_radius", "client_submission_id"},
+        )
+        assert_contains(
+            "fresh form submission columns",
+            columns(engine, "workformsubmission"),
+            {"photo_metadata"},
         )
         assert_migration_recorded(engine)
         engine.dispose()
@@ -163,8 +170,9 @@ def test_legacy_database():
             )
 
         applied = run_migrations(engine)
-        if applied != ["0001_initial_schema"]:
-            raise AssertionError(f"legacy migration: expected 0001_initial_schema, got {applied}")
+        expected_versions = ["0001_initial_schema", "0002_work_form_photo_metadata"]
+        if applied != expected_versions:
+            raise AssertionError(f"legacy migration: expected {expected_versions}, got {applied}")
 
         assert_contains("legacy tables", inspect(engine).get_table_names(), EXPECTED_TABLES)
         assert_contains("legacy user columns", columns(engine, "user"), {"status"})
@@ -181,7 +189,7 @@ def test_legacy_database():
         assert_contains(
             "legacy form submission columns",
             columns(engine, "workformsubmission"),
-            {"status", "client_submission_id"},
+            {"status", "client_submission_id", "photo_metadata"},
         )
         assert_migration_recorded(engine)
         engine.dispose()

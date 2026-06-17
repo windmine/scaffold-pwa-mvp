@@ -25,6 +25,8 @@ const sourceIndex = read('index.html');
 const sourceApp = read('assets/js/app.js');
 const sourceApiClient = read('assets/js/api-client.js');
 const sourceSupervisorReview = read('assets/js/supervisor-review.js');
+const sourceWorkerLog = read('assets/js/worker-log.js');
+const sourceWorkerSites = read('assets/js/worker-sites.js');
 const sourceWorker = read('sw.js');
 const sourceOfflineQueue = read('assets/js/offline-submissions.js');
 const sourceWorkFormFields = read('assets/js/work-form-fields.js');
@@ -41,7 +43,7 @@ check('production build exists', () => [
 ].every(hasFile));
 
 [
-  'dist/assets/icons/leader-logo.svg',
+  'dist/assets/icons/leader-logo-export.png',
   'dist/assets/icons/leader-icon.svg',
   'dist/assets/icons/apple-touch-icon.png',
   'dist/assets/icons/icon-192.png',
@@ -53,12 +55,13 @@ check('production build exists', () => [
 
 check('production HTML keeps stable PWA links', () => (
   distIndex.includes('href="/manifest.webmanifest"')
-  && distIndex.includes('href="/assets/icons/leader-icon.svg"')
+  && distIndex.includes('href="/assets/icons/leader-logo-export.png"')
   && distIndex.includes('href="/assets/icons/apple-touch-icon.png"')
 ));
 
 [
   'statusBanner',
+  'themeToggleButton',
   'installButton',
   'downloadAppButton',
   'updateButton',
@@ -84,6 +87,13 @@ check('mobile viewport and camera/photo controls exist', () => (
   && sourceIndex.includes('capture="environment"')
   && sourceIndex.includes('id="taskPhoto" type="file" accept="image/*" multiple')
   && sourceIndex.includes('id="workFormPhotos" type="file" accept="image/*" multiple')
+));
+
+check('theme toggle is persistent and available before paint', () => (
+  sourceIndex.includes("localStorage.getItem('leader-theme')")
+  && sourceIndex.includes('id="themeToggleButton"')
+  && sourceApp.includes("localStorage.setItem(THEME_STORAGE_KEY, nextTheme)")
+  && sourceApp.includes("document.documentElement.dataset.theme")
 ));
 
 check('same-origin phone proxy is configured', () => (
@@ -164,16 +174,69 @@ check('required handwritten signatures are rendered and enforced', () => (
   && sourceWorkFormFields.includes('throw new Error(`${field.label} is required.`)')
 ));
 
+check('advanced work form fields and photo timestamps are wired', () => (
+  sourceIndex.includes('time_range|Work time|required')
+  && sourceWorkFormFields.includes("field.type === 'section'")
+  && sourceWorkFormFields.includes("field.type === 'time_range'")
+  && sourceWorkFormFields.includes("field.type === 'repeat'")
+  && sourceWorkFormFields.includes('evaluateFormula')
+  && sourceWorkFormFields.includes('conditionMet')
+  && sourceOfflineQueue.includes('photo_metadata')
+  && read('backend/app/schemas.py').includes('photo_metadata')
+  && read('backend/app/schemas.py').includes('show_if')
+  && read('backend/app/use_cases/common.py').includes('"formula"')
+  && read('backend/app/use_cases/common.py').includes('"repeat"')
+  && read('backend/app/use_cases/common.py').includes('"time_range"')
+));
+
+check('worker Log tab uses the Daywork work form path', () => (
+  sourceIndex.includes('id="dayworkFormFields"')
+  && sourceIndex.includes('Submit daywork log')
+  && sourceWorkerLog.includes("type: 'form'")
+  && sourceWorkerLog.includes('DAYWORK_FIELD_PREFIX')
+  && sourceWorkerLog.includes('selectedDayworkForm')
+));
+
+check('workers can add missing sites', () => (
+  sourceIndex.includes('id="workerSiteForm"')
+  && sourceIndex.includes('Use current location')
+  && sourceApiClient.includes('createWorkerSite')
+  && sourceWorkerSites.includes('createBackendWorkerSite')
+  && read('backend/app/main.py').includes('@app.post("/sites")')
+));
+
 check('worker and supervisor workflow modules are active', () => (
   includesAll(sourceApp, [
     'createWorkerAttendanceModule',
     'createWorkerLogModule',
     'createWorkerFormModule',
+    'createWorkerSitesModule',
     'createSupervisorReviewModule',
     'handleSupervisorDecision',
     'handleWorkerEditRecord',
     'syncQueueIfPossible'
   ])
+));
+
+check('supervisors can preview work forms', () => (
+  sourceIndex.includes('id="workFormsList"')
+  && sourceIndex.includes('id="workFormDraftPreview"')
+  && sourceIndex.includes('id="workFormPreviewButton"')
+  && read('assets/js/staff-sites.js').includes('renderWorkFormFields(preview.querySelector')
+  && read('assets/js/staff-sites.js').includes('renderDraftWorkFormPreview')
+  && read('assets/js/staff-sites.js').includes('Worker preview')
+  && read('assets/css/styles.css').includes('.work-form-preview')
+));
+
+check('PDF exports are available for Daywork and submitted forms', () => (
+  sourceIndex.includes('value="daywork-pdf"')
+  && sourceIndex.includes('value="form-submissions-pdf"')
+  && sourceApiClient.includes('/supervisor/form-submissions/export.pdf')
+  && sourceApiClient.includes('/supervisor/form-submissions/${submissionId}/export.pdf')
+  && read('assets/js/supervisor-review.js').includes('exportSupervisorFormSubmissionsPdf')
+  && read('assets/js/history.js').includes('Daywork PDF')
+  && read('backend/app/main.py').includes('/supervisor/form-submissions/export.pdf')
+  && read('backend/app/use_cases/supervisor_review.py').includes('export_form_submissions_pdf')
 ));
 
 check('supervisor audit history is wired', () => (

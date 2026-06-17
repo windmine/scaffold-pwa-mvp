@@ -13,6 +13,7 @@ google-cloud-storage==3.11.0
 h11==0.16.0
 idna==3.15
 passlib==1.7.4
+pillow==12.2.0
 pyasn1==0.6.3
 pycparser==3.0
 psycopg[binary]==3.3.4
@@ -20,6 +21,7 @@ pydantic==2.13.4
 pydantic_core==2.46.4
 python-jose==3.5.0
 python-multipart==0.0.29
+reportlab==4.5.1
 rsa==4.9.1
 six==1.17.0
 SQLAlchemy==2.0.49

@@ -22,9 +22,15 @@ import { createSupervisorReviewModule } from './supervisor-review.js';
 import { createWorkerAttendanceModule } from './worker-attendance.js';
 import { createWorkerFormModule } from './worker-form.js';
 import { createWorkerLogModule } from './worker-log.js';
+import { createWorkerSitesModule } from './worker-sites.js';
 import { formatDateTime, todayDateInput, escapeHtml } from './utils.js';
 
 const MAX_TASK_LOG_PHOTOS = 8;
+const THEME_STORAGE_KEY = 'leader-theme';
+const THEME_COLORS = {
+  dark: '#000000',
+  light: '#f4f7fb'
+};
 
 const state = {
   user: null,
@@ -36,13 +42,17 @@ const state = {
   attendancePhotoFile: null,
   taskPhotoFiles: [],
   taskPhotoDataUrls: [],
+  taskPhotoMetadata: [],
+  dayworkLogDraft: null,
+  dayworkFormId: null,
   workForms: [],
   workFormPhotoFiles: [],
   workFormPhotoDataUrls: [],
+  workFormPhotoMetadata: [],
   submittingAttendance: false,
   submittingTask: false,
   submittingWorkForm: false,
-  taskTemplates: [],
+  submittingWorkerSite: false,
   historyRecords: [],
   staffUsers: [],
   supervisorRecords: {
@@ -54,6 +64,7 @@ const state = {
 const els = {
   statusBanner: document.getElementById('statusBanner'),
   installButton: document.getElementById('installButton'),
+  themeToggleButton: document.getElementById('themeToggleButton'),
   downloadAppButton: document.getElementById('downloadAppButton'),
   downloadAppHelp: document.getElementById('downloadAppHelp'),
   updateButton: document.getElementById('updateButton'),
@@ -90,13 +101,20 @@ const els = {
   taskForm: document.getElementById('taskForm'),
   taskSite: document.getElementById('taskSite'),
   taskDate: document.getElementById('taskDate'),
-  taskHours: document.getElementById('taskHours'),
-  taskSummary: document.getElementById('taskSummary'),
-  taskSafety: document.getElementById('taskSafety'),
+  dayworkFormHint: document.getElementById('dayworkFormHint'),
+  dayworkFormFields: document.getElementById('dayworkFormFields'),
   taskPhoto: document.getElementById('taskPhoto'),
   taskPhotoPreview: document.getElementById('taskPhotoPreview'),
   saveTaskDraftButton: document.getElementById('saveTaskDraftButton'),
   submitTaskButton: document.getElementById('submitTaskButton'),
+  workerSiteForm: document.getElementById('workerSiteForm'),
+  workerSiteNameInput: document.getElementById('workerSiteNameInput'),
+  workerSiteAddressInput: document.getElementById('workerSiteAddressInput'),
+  workerSiteLatitudeInput: document.getElementById('workerSiteLatitudeInput'),
+  workerSiteLongitudeInput: document.getElementById('workerSiteLongitudeInput'),
+  workerSiteRadiusInput: document.getElementById('workerSiteRadiusInput'),
+  workerSiteUseLocationButton: document.getElementById('workerSiteUseLocationButton'),
+  workerSiteSubmitButton: document.getElementById('workerSiteSubmitButton'),
   workFormSubmissionForm: document.getElementById('workFormSubmissionForm'),
   workFormSelect: document.getElementById('workFormSelect'),
   workFormSite: document.getElementById('workFormSite'),
@@ -105,11 +123,6 @@ const els = {
   workFormPhotos: document.getElementById('workFormPhotos'),
   workFormPhotoPreview: document.getElementById('workFormPhotoPreview'),
   submitWorkFormButton: document.getElementById('submitWorkFormButton'),
-  taskTemplateSelect: document.getElementById('taskTemplateSelect'),
-  taskTemplateNameInput: document.getElementById('taskTemplateNameInput'),
-  applyTaskTemplateButton: document.getElementById('applyTaskTemplateButton'),
-  saveTaskTemplateButton: document.getElementById('saveTaskTemplateButton'),
-  deleteTaskTemplateButton: document.getElementById('deleteTaskTemplateButton'),
   workerEditPanel: document.getElementById('workerEditPanel'),
   workerEditPanelTitle: document.getElementById('workerEditPanelTitle'),
   workerEditPanelForm: document.getElementById('workerEditPanelForm'),
@@ -155,6 +168,8 @@ const els = {
   workFormNameInput: document.getElementById('workFormNameInput'),
   workFormDescriptionInput: document.getElementById('workFormDescriptionInput'),
   workFormFieldsInput: document.getElementById('workFormFieldsInput'),
+  workFormPreviewButton: document.getElementById('workFormPreviewButton'),
+  workFormDraftPreview: document.getElementById('workFormDraftPreview'),
   workFormsList: document.getElementById('workFormsList'),
   refreshSupervisorButton: document.getElementById('refreshSupervisorButton'),
   photoViewer: document.getElementById('photoViewer'),
@@ -232,7 +247,18 @@ const workerForm = createWorkerFormModule({
   renderHistory: historyModule.renderHistory,
   handleSessionExpired,
   isBackendSessionError,
-  onSupervisorWorkFormsChanged: () => staffSitesModule?.renderWorkFormsList()
+  onSupervisorWorkFormsChanged: () => staffSitesModule?.renderWorkFormsList(),
+  onWorkFormsChanged: () => workerLog.renderDayworkForm()
+});
+
+const workerSites = createWorkerSitesModule({
+  els,
+  state,
+  loadSites,
+  fillSiteSelects,
+  renderStatusBanner,
+  handleSessionExpired,
+  isBackendSessionError
 });
 
 staffSitesModule = createStaffSitesModule({
@@ -319,12 +345,15 @@ async function restoreBackendSession() {
 }
 
 function bindEvents() {
+  renderThemeToggle();
+  els.themeToggleButton.addEventListener('click', handleThemeToggle);
   els.loginForm.addEventListener('submit', handleLogin);
   els.registerForm.addEventListener('submit', handleRegister);
   els.logoutButton.addEventListener('click', handleLogout);
   workerAttendance.bindEvents();
   workerLog.bindEvents();
   workerForm.bindEvents();
+  workerSites.bindEvents();
   els.cancelWorkerEditButton.addEventListener('click', () => closeEditPanel('worker'));
   historyModule.bindEvents();
   supervisorReviewModule.bindEvents();
@@ -355,6 +384,34 @@ function bindEvents() {
     els.installButton.classList.remove('hidden');
     renderInstallHelp();
   });
+}
+
+function getActiveTheme() {
+  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+}
+
+function renderThemeToggle() {
+  const currentTheme = getActiveTheme();
+  const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  els.themeToggleButton.textContent = `${nextTheme[0].toUpperCase()}${nextTheme.slice(1)} mode`;
+  els.themeToggleButton.setAttribute('aria-pressed', String(currentTheme === 'dark'));
+  els.themeToggleButton.title = `Switch to ${nextTheme} mode`;
+}
+
+function setTheme(theme) {
+  const nextTheme = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = nextTheme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLORS[nextTheme]);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+  } catch {
+    // Theme persistence is optional when storage is unavailable.
+  }
+  renderThemeToggle();
+}
+
+function handleThemeToggle() {
+  setTheme(getActiveTheme() === 'dark' ? 'light' : 'dark');
 }
 
 function fillSiteSelects() {

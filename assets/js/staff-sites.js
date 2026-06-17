@@ -8,7 +8,7 @@ import {
   updateUserStatus as updateBackendUserStatus,
   updateWorkForm as updateBackendWorkForm
 } from './api-client.js';
-import { parseWorkFormFieldsInput, serialiseWorkFormFields } from './work-form-fields.js';
+import { parseWorkFormFieldsInput, renderWorkFormFields, serialiseWorkFormFields } from './work-form-fields.js';
 import { escapeHtml } from './utils.js';
 
 export function createStaffSitesModule({
@@ -164,12 +164,97 @@ export function createStaffSitesModule({
         fields
       });
       els.workFormBuilderForm.reset();
+      hideDraftWorkFormPreview();
       renderStatusBanner('Work form created.');
       await refreshWorkForms();
       await refreshSupervisorAuditHistory?.();
     } catch (error) {
       renderStatusBanner(error.message || 'Could not create work form.', true);
     }
+  }
+
+  function draftWorkForm() {
+    return {
+      id: 'draft',
+      name: els.workFormNameInput.value.trim() || 'Untitled work form',
+      description: els.workFormDescriptionInput.value.trim() || '',
+      status: 'draft',
+      fields: parseWorkFormFieldsInput(els.workFormFieldsInput.value)
+    };
+  }
+
+  function renderWorkFormPreview(preview, form, idPrefix, emptyMessage = 'Add fields to preview this form.') {
+    if (!preview) return;
+
+    if (!form.fields?.length) {
+      preview.innerHTML = `<div class="empty-state">${escapeHtml(emptyMessage)}</div>`;
+      return;
+    }
+
+    preview.innerHTML = `
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Worker preview</p>
+          <h3>${escapeHtml(form.name)}</h3>
+          ${form.description ? `<p class="record-meta">${escapeHtml(form.description)}</p>` : ''}
+        </div>
+      </div>
+      <div class="form-preview-shell">
+        <label>
+          Site
+          <select disabled>
+            <option>${escapeHtml(state.sites[0]?.name || 'Worker selects site')}</option>
+          </select>
+        </label>
+        <label>
+          Work date
+          <input type="date" disabled />
+        </label>
+        <div class="dynamic-fields" data-work-form-preview-fields></div>
+        <label>
+          Photos
+          <input type="file" accept="image/*" multiple disabled />
+        </label>
+        <button type="button" disabled>Submit form</button>
+      </div>
+    `;
+
+    renderWorkFormFields(preview.querySelector('[data-work-form-preview-fields]'), form, {
+      idPrefix,
+      container: preview
+    });
+  }
+
+  function renderDraftWorkFormPreview() {
+    if (!els.workFormDraftPreview) return;
+    renderWorkFormPreview(els.workFormDraftPreview, draftWorkForm(), 'previewWorkForm_draft');
+  }
+
+  function showDraftWorkFormPreview() {
+    if (!els.workFormDraftPreview || !els.workFormPreviewButton) return;
+    renderDraftWorkFormPreview();
+    els.workFormDraftPreview.classList.remove('hidden');
+    els.workFormPreviewButton.textContent = 'Hide preview';
+  }
+
+  function hideDraftWorkFormPreview() {
+    if (!els.workFormDraftPreview || !els.workFormPreviewButton) return;
+    els.workFormDraftPreview.classList.add('hidden');
+    els.workFormPreviewButton.textContent = 'Preview draft';
+  }
+
+  function handleDraftWorkFormPreviewToggle() {
+    if (!els.workFormDraftPreview) return;
+    if (els.workFormDraftPreview.classList.contains('hidden')) {
+      showDraftWorkFormPreview();
+      return;
+    }
+    hideDraftWorkFormPreview();
+  }
+
+  function refreshOpenDraftWorkFormPreview() {
+    if (!els.workFormDraftPreview || els.workFormDraftPreview.classList.contains('hidden')) return;
+    renderDraftWorkFormPreview();
   }
 
   async function handleWorkFormEdit(form) {
@@ -182,7 +267,7 @@ export function createStaffSitesModule({
           id: 'editWorkFormFields',
           label: 'Fields',
           type: 'textarea',
-          rows: 7,
+          rows: 9,
           value: serialiseWorkFormFields(form.fields || [])
         }
       ],
@@ -232,9 +317,33 @@ export function createStaffSitesModule({
           </div>
           <span class="badge ${form.status === 'active' ? 'synced' : 'rejected'}">${escapeHtml(form.status)}</span>
         </div>
-        <p class="record-detail">${escapeHtml((form.fields || []).map((field) => field.label).join(' | '))}</p>
+        <p class="record-detail">${escapeHtml((form.fields || []).map((field) => {
+          if (field.type === 'section') return `Section: ${field.label}`;
+          if (field.type === 'time_range') return `${field.label} (time range)`;
+          if (field.type === 'formula') return `${field.label} = ${field.formula || 'formula'}`;
+          if (field.type === 'repeat') return `${field.label} (repeat ${field.min_rows ?? 0}-${field.max_rows ?? 12})`;
+          if (field.repeat) return `> ${field.label}`;
+          return field.label;
+        }).join(' | '))}</p>
         <div class="record-actions"></div>
+        <div class="work-form-preview hidden" data-work-form-preview></div>
       `;
+
+      const previewButton = document.createElement('button');
+      previewButton.type = 'button';
+      previewButton.className = 'ghost';
+      previewButton.textContent = 'Preview';
+      previewButton.addEventListener('click', () => {
+        const preview = node.querySelector('[data-work-form-preview]');
+        const isOpening = preview.classList.contains('hidden');
+
+        if (isOpening) {
+          renderWorkFormPreview(preview, form, `previewWorkForm_${form.id}`);
+        }
+
+        preview.classList.toggle('hidden', !isOpening);
+        previewButton.textContent = isOpening ? 'Hide preview' : 'Preview';
+      });
 
       const editButton = document.createElement('button');
       editButton.type = 'button';
@@ -261,7 +370,7 @@ export function createStaffSitesModule({
         }
       });
 
-      node.querySelector('.record-actions').append(editButton, statusButton);
+      node.querySelector('.record-actions').append(previewButton, editButton, statusButton);
       els.workFormsList.appendChild(node);
     });
   }
@@ -434,6 +543,10 @@ export function createStaffSitesModule({
     els.staffUserForm.addEventListener('submit', handleStaffUserCreate);
     els.siteForm.addEventListener('submit', handleSiteCreate);
     els.workFormBuilderForm.addEventListener('submit', handleWorkFormCreate);
+    els.workFormPreviewButton?.addEventListener('click', handleDraftWorkFormPreviewToggle);
+    els.workFormNameInput?.addEventListener('input', refreshOpenDraftWorkFormPreview);
+    els.workFormDescriptionInput?.addEventListener('input', refreshOpenDraftWorkFormPreview);
+    els.workFormFieldsInput?.addEventListener('input', refreshOpenDraftWorkFormPreview);
     els.siteSearchInput.addEventListener('input', renderSupervisorSites);
     els.staffSearchInput.addEventListener('input', renderFilteredStaffUsers);
   }

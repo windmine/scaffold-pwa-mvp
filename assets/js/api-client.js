@@ -213,6 +213,13 @@ export async function getSites() {
   return await apiFetch("/sites");
 }
 
+export async function createWorkerSite(site) {
+  return await apiFetch("/sites", {
+    method: "POST",
+    body: JSON.stringify(site)
+  });
+}
+
 export async function createSite(site) {
   return await apiFetch("/supervisor/sites", {
     method: "POST",
@@ -414,12 +421,23 @@ export async function exportSupervisorFormSubmissionsHtml(status = "") {
   return await apiBlob(`/supervisor/form-submissions/export.html${query}`, "Form submission document export failed.");
 }
 
+export async function exportSupervisorFormSubmissionsPdf(template = "submitted-form", status = "") {
+  const params = new URLSearchParams({ template });
+  if (status) params.set("status", status);
+  return await apiBlob(`/supervisor/form-submissions/export.pdf?${params.toString()}`, "Form submission PDF export failed.");
+}
+
 export async function exportSupervisorFormSubmissionCsv(submissionId) {
   return await apiBlob(`/supervisor/form-submissions/${submissionId}/export.csv`, "Form submission CSV export failed.");
 }
 
 export async function exportSupervisorFormSubmissionHtml(submissionId) {
   return await apiBlob(`/supervisor/form-submissions/${submissionId}/export.html`, "Form submission document export failed.");
+}
+
+export async function exportSupervisorFormSubmissionPdf(submissionId, template = "submitted-form") {
+  const params = new URLSearchParams({ template });
+  return await apiBlob(`/supervisor/form-submissions/${submissionId}/export.pdf?${params.toString()}`, "Form submission PDF export failed.");
 }
 
 export async function decideRecord(recordId, status, recordType = "attendance") {

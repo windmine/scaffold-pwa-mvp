@@ -34,11 +34,38 @@ def request(method, path, payload=None, token=None):
         return error.code, json.loads(raw) if raw else None
 
 
+def request_bytes(method, path, token=None):
+    request_obj = Request(f"{BASE_URL}{path}", method=method)
+    request_obj.add_header("Accept", "application/pdf")
+    if token:
+        request_obj.add_header("Authorization", f"Bearer {token}")
+
+    try:
+        with urlopen(request_obj, timeout=10) as response:
+            return response.status, response.read(), response.headers.get("Content-Type", "")
+    except HTTPError as error:
+        return error.code, error.read(), error.headers.get("Content-Type", "")
+
+
 def assert_status(label, result, expected_status):
     status, body = result
 
     if status != expected_status:
         raise AssertionError(f"{label}: expected {expected_status}, got {status}: {body}")
+
+    print(f"ok - {label}")
+    return body
+
+
+def assert_pdf_status(label, result, expected_status=200):
+    status, body, content_type = result
+
+    if status != expected_status:
+        raise AssertionError(f"{label}: expected {expected_status}, got {status}: {body[:160]!r}")
+    if not body.startswith(b"%PDF"):
+        raise AssertionError(f"{label}: expected PDF bytes, got {body[:20]!r}")
+    if "application/pdf" not in content_type:
+        raise AssertionError(f"{label}: expected application/pdf, got {content_type}")
 
     print(f"ok - {label}")
     return body
@@ -234,6 +261,39 @@ def main():
         if not sites:
             raise AssertionError("sites list: expected at least one site")
 
+        assert_status(
+            "anonymous cannot create site",
+            request(
+                "POST",
+                "/sites",
+                {
+                    "name": f"Anonymous Site {timestamp}",
+                    "latitude": sites[0]["latitude"],
+                    "longitude": sites[0]["longitude"],
+                    "allowed_radius_m": 100,
+                },
+            ),
+            401,
+        )
+        worker_site = assert_status(
+            "worker can create missing site",
+            request(
+                "POST",
+                "/sites",
+                {
+                    "name": f"Worker Missing Site {timestamp}",
+                    "address": "Created from worker dashboard",
+                    "latitude": sites[0]["latitude"],
+                    "longitude": sites[0]["longitude"],
+                    "allowed_radius_m": 100,
+                },
+                worker_token,
+            ),
+            200,
+        )
+        if worker_site["name"] != f"Worker Missing Site {timestamp}":
+            raise AssertionError("worker can create missing site: expected created site response")
+
         site = assert_status(
             "create supervisor site",
             request(
@@ -267,6 +327,9 @@ def main():
         )
         if not any(form["name"] == "Inspection form" for form in forms):
             raise AssertionError("list worker work forms: expected seeded inspection form")
+        daywork_form = next((form for form in forms if form["name"] == "Daywork log form"), None)
+        if not daywork_form:
+            raise AssertionError("list worker work forms: expected seeded Daywork log form")
         smoke_form = assert_status(
             "create supervisor work form",
             request(
@@ -276,13 +339,53 @@ def main():
                     "name": f"Smoke Form {timestamp}",
                     "description": "Smoke-test dynamic form",
                     "fields": [
+                        {"id": "pre_start", "label": "Pre-start checks", "type": "section", "required": False},
                         {"id": "area", "label": "Area", "type": "text", "required": True},
+                        {"id": "work_window", "label": "Work window", "type": "time_range", "required": True},
+                        {"id": "workers", "label": "Workers", "type": "number", "required": True},
+                        {"id": "total_worker_hours", "label": "Total worker hours", "type": "formula", "formula": "work_window * workers"},
                         {"id": "result", "label": "Result", "type": "select", "required": True, "options": ["Pass", "Fail"]},
                         {"id": "notes", "label": "Notes", "type": "textarea", "required": False},
+                        {"id": "fail_notes", "label": "Fail notes", "type": "textarea", "required": True, "show_if": "result=Fail"},
+                        {"id": "materials", "label": "Materials", "type": "repeat", "required": False, "min_rows": 0, "max_rows": 3},
+                        {"id": "material", "label": "Material", "type": "text", "required": True, "repeat": "materials"},
+                        {"id": "quantity", "label": "Quantity", "type": "number", "required": True, "repeat": "materials"},
+                        {"id": "line_total", "label": "Line total", "type": "formula", "formula": "quantity * 2", "repeat": "materials"},
                         {"id": "worker_signature", "label": "Worker signature", "type": "signature", "required": True},
                     ],
                 },
                 supervisor_token,
+            ),
+            200,
+        )
+        daywork_submission = assert_status(
+            "submit daywork form",
+            request(
+                "POST",
+                "/form-submissions",
+                {
+                    "form_id": daywork_form["id"],
+                    "site_id": site["id"],
+                    "work_date": now.date().isoformat(),
+                    "answers": {
+                        "work_completed": "Installed bay scaffold and checked access.",
+                        "hours_worked": 8,
+                        "materials_used": "Standards, ledgers, planks",
+                        "safety_notes": "Harness checks complete",
+                        "worker_signature": signature_smoke_url,
+                    },
+                    "photo_urls": [form_smoke_photo_url],
+                    "photo_metadata": [
+                        {
+                            "url": form_smoke_photo_url,
+                            "name": "daywork-smoke.png",
+                            "taken_at": now.isoformat(),
+                            "taken_at_source": "smoke_test",
+                        }
+                    ],
+                    "client_submission_id": f"smoke-daywork-{timestamp}",
+                },
+                worker_token,
             ),
             200,
         )
@@ -297,11 +400,26 @@ def main():
                     "work_date": now.date().isoformat(),
                     "answers": {
                         "area": "North bay",
+                        "work_window": {"start": "07:30", "end": "15:45", "duration_hours": 8.25},
+                        "workers": 3,
+                        "total_worker_hours": 999,
                         "result": "Pass",
                         "notes": "All clear",
+                        "materials": [
+                            {"material": "Tube", "quantity": 2, "line_total": 999},
+                            {"material": "Board", "quantity": 3},
+                        ],
                         "worker_signature": signature_smoke_url,
                     },
                     "photo_urls": [form_smoke_photo_url],
+                    "photo_metadata": [
+                        {
+                            "url": form_smoke_photo_url,
+                            "name": f"form-smoke-{timestamp}.png",
+                            "taken_at": now.isoformat(),
+                            "taken_at_source": "smoke_test",
+                        }
+                    ],
                     "client_submission_id": f"smoke-form-{timestamp}",
                 },
                 worker_token,
@@ -310,6 +428,16 @@ def main():
         )
         if form_submission["answers"]["result"] != "Pass":
             raise AssertionError("submit work form: expected saved answer")
+        if form_submission["answers"]["work_window"]["start"] != "07:30":
+            raise AssertionError("submit work form: expected saved time range answer")
+        if form_submission["answers"]["total_worker_hours"] != 24.75:
+            raise AssertionError("submit work form: expected recalculated formula answer")
+        if form_submission["answers"]["fail_notes"] != "":
+            raise AssertionError("submit work form: hidden conditional field should be blank")
+        if form_submission["answers"]["materials"][0]["line_total"] != 4:
+            raise AssertionError("submit work form: expected recalculated repeat row formula")
+        if not form_submission["photo_metadata"] or form_submission["photo_metadata"][0]["taken_at_source"] != "smoke_test":
+            raise AssertionError("submit work form: expected saved photo metadata")
         if form_submission["status"] != "pending":
             raise AssertionError("submit work form: expected pending approval status")
         duplicate_form_submission = assert_status(
@@ -323,6 +451,8 @@ def main():
                     "work_date": now.date().isoformat(),
                     "answers": {
                         "area": "North bay",
+                        "work_window": {"start": "07:30", "end": "15:45", "duration_hours": 8.25},
+                        "workers": 3,
                         "result": "Pass",
                         "notes": "All clear",
                         "worker_signature": signature_smoke_url,
@@ -376,8 +506,12 @@ def main():
                     "work_date": now.date().isoformat(),
                     "answers": {
                         "area": "South bay",
+                        "work_window": {"start": "08:00", "end": "12:30", "duration_hours": 4.5},
+                        "workers": 2,
                         "result": "Fail",
                         "notes": "Needs recheck",
+                        "fail_notes": "Ledger brace missing",
+                        "materials": [{"material": "Brace", "quantity": 1}],
                         "worker_signature": signature_reject_url,
                     },
                     "photo_urls": [form_reject_photo_url],
@@ -441,6 +575,8 @@ def main():
                     "form_id": smoke_form["id"],
                     "answers": {
                         "area": "North bay",
+                        "work_window": {"start": "07:30", "end": "15:45", "duration_hours": 8.25},
+                        "workers": 1,
                         "result": "Pass",
                         "worker_signature": "Someone Else",
                     },
@@ -964,6 +1100,8 @@ def main():
         )
         if "Daily Task Log Export" not in task_log_html or "Smoke-tested task log" not in task_log_html:
             raise AssertionError("export task logs html: missing expected task-log content")
+        if 'class="export-logo"' not in task_log_html or "data:image/" not in task_log_html:
+            raise AssertionError("export task logs html: missing embedded Leader logo")
         task_photo_html = assert_status(
             "export task photo report html",
             request("GET", "/supervisor/task-logs/export.html?layout=photo-report", token=supervisor_token),
@@ -978,6 +1116,20 @@ def main():
         )
         if "Work Form Submission Export" not in form_html or "Worker signature" not in form_html:
             raise AssertionError("export form submissions html: missing expected form content")
+        if 'class="export-logo"' not in form_html or "data:image/" not in form_html:
+            raise AssertionError("export form submissions html: missing embedded Leader logo")
+        if '<h3 class="form-subtitle">Pre-start checks</h3>' not in form_html:
+            raise AssertionError("export form submissions html: expected section subtitle")
+        if "answer_pre_start" in form_html:
+            raise AssertionError("export form submissions html: section should not export as an answer")
+        assert_pdf_status(
+            "export submitted forms pdf",
+            request_bytes("GET", "/supervisor/form-submissions/export.pdf?template=submitted-form", token=supervisor_token),
+        )
+        assert_pdf_status(
+            "export daywork pdf",
+            request_bytes("GET", "/supervisor/form-submissions/export.pdf?template=daywork", token=supervisor_token),
+        )
         single_task_csv_body = assert_status(
             "export single task log csv",
             request("GET", f"/supervisor/task-logs/{task_log['id']}/export.csv", token=supervisor_token),
@@ -999,6 +1151,8 @@ def main():
         )
         if "answer_worker_signature" not in single_form_csv_body or "North bay" not in single_form_csv_body:
             raise AssertionError("export single form submission csv: missing expected form answer content")
+        if "answer_pre_start" in single_form_csv_body:
+            raise AssertionError("export single form submission csv: section should not export as an answer")
         single_form_html = assert_status(
             "export single form submission html",
             request("GET", f"/supervisor/form-submissions/{form_submission['id']}/export.html", token=supervisor_token),
@@ -1006,6 +1160,16 @@ def main():
         )
         if f"Form submission #{form_submission['id']}" not in single_form_html or "Worker signature" not in single_form_html:
             raise AssertionError("export single form submission html: missing expected single-record content")
+        if '<h3 class="form-subtitle">Pre-start checks</h3>' not in single_form_html:
+            raise AssertionError("export single form submission html: expected section subtitle")
+        assert_pdf_status(
+            "export single form submission pdf",
+            request_bytes("GET", f"/supervisor/form-submissions/{form_submission['id']}/export.pdf?template=submitted-form", token=supervisor_token),
+        )
+        assert_pdf_status(
+            "export single daywork pdf",
+            request_bytes("GET", f"/supervisor/form-submissions/{daywork_submission['id']}/export.pdf?template=daywork", token=supervisor_token),
+        )
         audit_events = assert_status(
             "list supervisor audit events",
             request("GET", "/supervisor/audit-events?limit=100", token=supervisor_token),

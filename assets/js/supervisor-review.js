@@ -2,7 +2,9 @@ import {
   decideRecord as decideBackendRecord,
   exportSupervisorFormSubmissionCsv,
   exportSupervisorFormSubmissionHtml,
+  exportSupervisorFormSubmissionPdf,
   exportSupervisorFormSubmissionsHtml,
+  exportSupervisorFormSubmissionsPdf,
   exportSupervisorRecordsCsv,
   exportSupervisorTaskLogCsv,
   exportSupervisorTaskLogHtml,
@@ -52,6 +54,11 @@ function reviewRecordCounts(records) {
 
 function formatAuditAction(action) {
   return (action || 'change').replaceAll('_', ' ');
+}
+
+function isDayworkRecord(record) {
+  const text = `${record.formName || ''}`.toLowerCase();
+  return text.includes('daywork') || text.includes('daily work');
 }
 
 function downloadBlob(blob, filename) {
@@ -188,6 +195,20 @@ export function createSupervisorReviewModule({
         return;
       }
 
+      if (exportType === 'form-submissions-pdf') {
+        const blob = await exportSupervisorFormSubmissionsPdf('submitted-form');
+        downloadBlob(blob, `leader-work-forms-${todayDateInput()}.pdf`);
+        renderStatusBanner('Work form submissions PDF exported.');
+        return;
+      }
+
+      if (exportType === 'daywork-pdf') {
+        const blob = await exportSupervisorFormSubmissionsPdf('daywork');
+        downloadBlob(blob, `leader-daywork-${todayDateInput()}.pdf`);
+        renderStatusBanner('Daywork PDF exported.');
+        return;
+      }
+
       const blob = await exportSupervisorTaskLogsHtml('daily-log');
       downloadBlob(blob, `leader-daily-task-logs-${todayDateInput()}.html`);
       renderStatusBanner('Daily task log sheets exported.');
@@ -221,6 +242,24 @@ export function createSupervisorReviewModule({
         const blob = await exportSupervisorFormSubmissionHtml(record.backendRecordId);
         downloadBlob(blob, `leader-form-${record.backendRecordId}-${todayDateInput()}.html`);
         renderStatusBanner('Form submission exported.');
+        return;
+      }
+
+      if (exportType === 'form-pdf') {
+        const blob = await exportSupervisorFormSubmissionPdf(record.backendRecordId, 'submitted-form');
+        downloadBlob(blob, `leader-form-${record.backendRecordId}-${todayDateInput()}.pdf`);
+        renderStatusBanner('Form submission PDF exported.');
+        return;
+      }
+
+      if (exportType === 'daywork-pdf') {
+        if (!isDayworkRecord(record)) {
+          renderStatusBanner('This submission is not a Daywork form.', true);
+          return;
+        }
+        const blob = await exportSupervisorFormSubmissionPdf(record.backendRecordId, 'daywork');
+        downloadBlob(blob, `leader-daywork-${record.backendRecordId}-${todayDateInput()}.pdf`);
+        renderStatusBanner('Daywork PDF exported.');
         return;
       }
 

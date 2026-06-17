@@ -27,6 +27,34 @@ export function formatDateTime(value) {
   }).format(date);
 }
 
+export function formatPhotoTakenLabel(file) {
+  if (!file?.lastModified) return '';
+
+  const date = new Date(file.lastModified);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return new Intl.DateTimeFormat('en-NZ', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(date);
+}
+
+export function photoMetadataFromFile(file) {
+  const takenAt = file?.lastModified ? new Date(file.lastModified) : null;
+  const isValidDate = takenAt && !Number.isNaN(takenAt.getTime());
+
+  return {
+    name: file?.name || '',
+    size: file?.size || 0,
+    type: file?.type || '',
+    last_modified: file?.lastModified || null,
+    last_modified_iso: isValidDate ? takenAt.toISOString() : '',
+    taken_at: isValidDate ? takenAt.toISOString() : '',
+    taken_at_source: isValidDate ? 'file_last_modified' : '',
+    takenAtLabel: formatPhotoTakenLabel(file)
+  };
+}
+
 export function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')

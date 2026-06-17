@@ -68,7 +68,7 @@ export function createPhotoViewer({
     }
   }
 
-  function renderPreviews(container, dataUrls, alt) {
+  function renderPreviews(container, dataUrls, alt, metadata = []) {
     const urls = Array.isArray(dataUrls) ? dataUrls.filter(Boolean) : [];
     if (!urls.length) {
       container.classList.add('hidden');
@@ -81,6 +81,7 @@ export function createPhotoViewer({
       .map((dataUrl, index) => `
         <button class="photo-thumb" type="button" data-photo-index="${index}">
           <img src="${dataUrl}" alt="${escapeHtml(`${alt} ${index + 1}`)}" />
+          ${metadata[index]?.takenAtLabel ? `<span class="photo-time">${escapeHtml(metadata[index].takenAtLabel)}</span>` : ''}
         </button>
       `)
       .join('');
@@ -92,8 +93,8 @@ export function createPhotoViewer({
     });
   }
 
-  function renderPreview(container, dataUrl, alt) {
-    renderPreviews(container, dataUrl ? [dataUrl] : [], alt);
+  function renderPreview(container, dataUrl, alt, metadata = []) {
+    renderPreviews(container, dataUrl ? [dataUrl] : [], alt, metadata);
   }
 
   function bindEvents() {

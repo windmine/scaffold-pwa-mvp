@@ -6,6 +6,7 @@ import {
 import { getWorkerRecords as getLocalWorkerRecords } from './mock-api.js';
 import { normaliseRecordPhotoUrls } from './offline-submissions.js';
 import { dateInputValue, formatDateTime, todayDateInput, escapeHtml } from './utils.js';
+import { formatWorkFormAnswer } from './work-form-fields.js';
 
 function getBackendSiteId(siteId) {
   if (!siteId) return null;
@@ -18,19 +19,21 @@ function formAnswerSummary(record) {
   const answers = record.answers || {};
   const fields = record.fields || [];
   const entries = fields.length
-    ? fields.map((field) => [field.label || field.id, answers[field.id], field.type])
+    ? fields
+      .filter((field) => !field.repeat)
+      .map((field) => [field.label || field.id, answers[field.id], field.type])
     : Object.entries(answers).map(([label, value]) => [label, value, '']);
 
   return entries
-    .filter(([, value]) => value !== '' && value != null && value !== false)
-    .map(([label, value, type]) => `${label}: ${type === 'signature' ? 'Signed' : value === true ? 'Yes' : value}`)
+    .filter(([, value, type]) => type !== 'section' && value !== '' && value != null && value !== false)
+    .map(([label, value, type]) => `${label}: ${formatWorkFormAnswer(value, type)}`)
     .join(' | ');
 }
 
 function signatureImageSources(record) {
   const answers = record.answers || {};
   return (record.fields || [])
-    .filter((field) => field.type === 'signature' && answers[field.id])
+    .filter((field) => !field.repeat && field.type === 'signature' && answers[field.id])
     .map((field) => ({
       label: field.label || 'Signature',
       src: answers[field.id]
@@ -39,6 +42,11 @@ function signatureImageSources(record) {
 
 function getRecordDate(record) {
   return record.workDate || dateInputValue(record.createdAt);
+}
+
+function isDayworkRecord(record) {
+  const text = `${record.formName || ''}`.toLowerCase();
+  return text.includes('daywork') || text.includes('daily work');
 }
 
 function recordSearchText(record) {
@@ -163,6 +171,7 @@ export function createHistoryModule({
       photoDataUrls: [],
       photoUrl: record.photo_urls?.[0] || '',
       photoUrls: record.photo_urls || [],
+      photoMetadata: record.photo_metadata || [],
       createdAt: record.created_at,
       syncStatus: 'synced',
       status: record.status || 'pending',
@@ -274,10 +283,15 @@ export function createHistoryModule({
     }
 
     if (record.type === 'form') {
-      return [
+      const options = [
         ['form-html', 'Form HTML'],
+        ['form-pdf', 'Form PDF'],
         ['form-csv', 'CSV row']
       ];
+      if (isDayworkRecord(record)) {
+        options.splice(1, 0, ['daywork-pdf', 'Daywork PDF']);
+      }
+      return options;
     }
 
     return [];
@@ -330,6 +344,7 @@ export function createHistoryModule({
       const photoSources = (Array.isArray(record.photoDataUrls) && record.photoDataUrls.length)
         ? record.photoDataUrls
         : (normaliseRecordPhotoUrls(record).length ? normaliseRecordPhotoUrls(record) : (record.photoDataUrl ? [record.photoDataUrl] : []));
+      const photoMetadata = Array.isArray(record.photoMetadata) ? record.photoMetadata : [];
       const signatureSources = signatureImageSources(record);
       const hasSiteDistance = record.type === 'attendance' && record.distanceFromSiteM != null;
       extra.innerHTML = `
@@ -347,6 +362,7 @@ export function createHistoryModule({
         ${photoSources.length ? `<div class="record-photos">${photoSources.map((photoSrc, index) => `
           <button class="photo-thumb" type="button" data-photo-index="${index}">
             <img src="${escapeHtml(photoSrc)}" alt="Record photo ${index + 1}" />
+            ${photoMetadata[index]?.taken_at || photoMetadata[index]?.last_modified_iso ? `<span class="photo-time">${escapeHtml(formatDateTime(photoMetadata[index].taken_at || photoMetadata[index].last_modified_iso))}</span>` : ''}
           </button>
         `).join('')}</div>` : ''}
       `;

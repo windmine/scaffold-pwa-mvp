@@ -1,8 +1,8 @@
 # Leader Field Operations
 
-Mobile-first geo-attendance and field task logging MVP for Leader Scaffolding-style operations.
+Mobile-first geo-attendance and field daywork logging MVP for Leader Scaffolding-style operations.
 
-This project lets field workers check in/out from a phone with location data, submit daily task logs and custom work forms with progress photos, and review their own synced history. Supervisors can manage sites, staff, reusable work forms, attendance review, backend record adjustments with double-check confirmation, audit history, CSV exports, and print-ready HTML exports for logs and submitted forms. The next business-facing direction is a desktop payroll/admin section that helps accounting calculate approved worker hours by pay period.
+This project lets field workers check in/out from a phone with location data, submit Daywork logs and custom work forms with progress photos, and review their own synced history. Supervisors can manage sites, staff, reusable work forms, attendance review, backend record adjustments with double-check confirmation, audit history, CSV exports, and print-ready HTML exports for logs and submitted forms. The next business-facing direction is a desktop payroll/admin section that helps accounting calculate approved worker hours by pay period.
 
 ## Current Version
 
@@ -27,7 +27,7 @@ Completed in this reset:
 
 - `npm run build` produces a `dist/` that serves the service worker, offline page, manifest, and icon assets from the paths used by the app.
 - The service worker never returns cached `/api`, `/auth`, `/photo-uploads`, or `/uploads` responses as if they were fresh backend data.
-- Workers can complete check-in/out, task logs, and work forms with signatures/photos on a phone, including graceful geolocation-denied and offline/queued states.
+- Workers can complete check-in/out, Daywork logs, and work forms with signatures/photos on a phone, including graceful geolocation-denied and offline/queued states.
 - Supervisors can review the resulting attendance, task logs, form submissions, photos, and signatures from the unified Review Queue.
 - A browser/mobile validation checklist or automated check covers the main worker and supervisor paths.
 - Supervisor changes have an audit-history API and visible dashboard section.
@@ -53,11 +53,12 @@ Run the real-phone checklist against the live Firebase Hosting / Cloud Run path,
 - Check in and check out with GPS coordinates, accuracy, site radius result, notes, and optional attendance photo.
 - Inside-site attendance is approved automatically; outside-site attendance stays pending for supervisor review.
 - Edit or delete own pending outside-site attendance before supervisor approval.
-- Submit task logs for approval with work date, hours, task summary, safety notes, and up to 8 progress photos.
-- Save and apply reusable task-log templates for repetitive work.
+- Submit Daywork logs through the active Daywork log form, including work date, site, dynamic fields, signatures, time ranges, and up to 8 progress photos.
+- Complete advanced work forms with conditional fields, calculated formula fields, and repeatable sections for row-based data such as labour, materials, or equipment.
+- Add a missing site from the worker dashboard when today's job is not listed yet.
 - Choose supervisor-created work forms, such as daywork, inspection, and tool deduction forms.
 - Submit work forms for approval with typed fields, handwritten signatures, site/work date, and up to 8 photos.
-- View local and backend-synced attendance/task history.
+- View local and backend-synced attendance, Daywork, and form history.
 - Search/filter history by text, type, status, and local calendar date.
 - Click any uploaded photo thumbnail to open a floating zoom viewer with previous/next controls.
 - Save offline drafts and queue offline records for later sync.
@@ -74,6 +75,8 @@ Worker restrictions:
 - View pending, approved, and rejected attendance, task logs, and form submissions.
 - View worker task logs and attached photo galleries.
 - Create, edit, and archive worker-facing work forms.
+- Build worker-facing forms with sections, conditional logic, formulas, and repeatable row sections.
+- Preview worker-facing forms from the supervisor Work Forms builder before saving, and from the saved Work Forms list before editing or activating them.
 - View worker work-form submissions and attached photo galleries.
 - Approve or reject pending outside-site attendance, task logs, and form submissions.
 - Adjust attendance records with double-check confirmation.
@@ -89,6 +92,7 @@ Worker restrictions:
 - Export attendance records to CSV.
 - Export task logs to CSV.
 - Export task logs as daily log sheets or photo reports in print-ready HTML.
+- Export Daywork logs and submitted work forms as PDF templates with form answers, photos, and signature images.
 - Export submitted work forms in print-ready HTML with form answers, photos, and signature images.
 - Export a single selected task log or submitted work form from its review card as HTML or a CSV row.
 
@@ -101,6 +105,7 @@ Worker restrictions:
 - Offline page.
 - IndexedDB drafts and queued attendance, task-log, and work-form submissions, including photos and handwritten signature data.
 - Mobile-first layout with folded supervisor sections.
+- Black default theme with a persistent light/dark mode toggle.
 
 ## Demo Accounts
 
@@ -153,7 +158,8 @@ scaffold-pwa-mvp/
       utils.js
       worker-attendance.js    Worker attendance capture module
       worker-form.js          Worker dynamic form submission module
-      worker-log.js           Worker task log submission module
+      worker-log.js           Worker Daywork log submission module
+      worker-sites.js         Worker missing-site creation module
       work-form-fields.js     Work form field rendering and signature module
     icons/
 
@@ -434,35 +440,41 @@ docs/mobile-browser-workflow-checks.md
 8. Inside-site attendance is approved automatically.
 9. Outside-site attendance stays pending and can be edited or deleted until supervisor approval/rejection.
 
-### Worker Task Log
+### Worker Daywork Log
 
-1. Open the Log tab or the task-log quick action.
+1. Open the Log tab or the Daywork log quick action.
 2. Select a site.
-3. Set work date and hours.
-4. Enter task summary and optional safety notes.
-5. Select one or more progress photos from the phone photo picker.
-6. Submit task log.
-7. Task logs are saved as pending approval and become locked for the worker after submission.
-8. Photos can be opened in the floating photo viewer.
+3. Set the work date.
+4. Fill in the active Daywork log form fields.
+5. Complete any required signature or time-range fields.
+6. Select one or more progress photos from the phone photo picker.
+7. Submit the Daywork log.
+8. Daywork logs are saved as pending form submissions for supervisor approval.
+9. Photos can be opened in the floating photo viewer with their recorded taken time when available.
 
-### Task Templates
+### Worker Missing Site
 
-1. Fill in common task log fields.
-2. Enter a template name.
-3. Save the current log as a template.
-4. Reuse it later from the task template dropdown.
+1. Open **Add missing site** on the worker dashboard.
+2. Enter the site name and optional address.
+3. Use current location or enter latitude/longitude manually.
+4. Keep or adjust the allowed radius.
+5. Add the site.
+6. The new site is added to check-in, Daywork log, and work-form selectors.
 
-Templates store:
+### Legacy Task Logs
+
+The backend task-log and task-template routes remain available for older records and integrations. New worker-facing daywork records should use the Daywork log form.
+
+Legacy task logs store:
 
 ```text
-name
 site
-description
+work date
 hours
+task summary
 safety notes
+photos
 ```
-
-Photos are not stored in templates.
 
 ### Worker Work Forms
 
@@ -543,6 +555,7 @@ docs/payroll-admin-portal-plan.md
 GET  /health
 POST /dev/seed       local development only, disabled unless ENABLE_DEV_SEED=true
 GET  /sites          authenticated
+POST /sites          authenticated; workers and supervisors can add a missing site
 POST /photo-uploads  authenticated
 GET  /uploads/{file} authenticated; workers can access their own uploaded/referenced files, supervisors can access uploaded files
 ```
@@ -650,13 +663,17 @@ PATCH /supervisor/task-logs/{log_id}
 GET   /supervisor/form-submissions
 GET   /supervisor/form-submissions?status=pending
 GET   /supervisor/form-submissions/export.html
+GET   /supervisor/form-submissions/export.pdf?template=submitted-form
+GET   /supervisor/form-submissions/export.pdf?template=daywork
 GET   /supervisor/form-submissions/{submission_id}/export.csv
 GET   /supervisor/form-submissions/{submission_id}/export.html
+GET   /supervisor/form-submissions/{submission_id}/export.pdf?template=submitted-form
+GET   /supervisor/form-submissions/{submission_id}/export.pdf?template=daywork
 POST  /supervisor/work-forms
 PATCH /supervisor/work-forms/{form_id}
 ```
 
-`/supervisor/review-records` is the unified supervisor review feed for attendance, task logs, and form submissions. `/supervisor/audit-events` returns recent supervisor change events with actor, action, target entity, summary, and before/after snapshots. The older attendance/task/form list routes remain available for export and compatibility. HTML exports are standalone files intended for opening in a browser and printing or saving as PDF. Single-record CSV exports are Excel-friendly rows for the selected review card.
+`/supervisor/review-records` is the unified supervisor review feed for attendance, task logs, and form submissions. `/supervisor/audit-events` returns recent supervisor change events with actor, action, target entity, summary, and before/after snapshots. The older attendance/task/form list routes remain available for export and compatibility. HTML exports are standalone files intended for opening in a browser and printing or saving as PDF. PDF exports are generated server-side for submitted work forms and Daywork form submissions. Single-record CSV exports are Excel-friendly rows for the selected review card.
 
 Supervisor edit/archive routes require `confirmed: true` in the request body.
 
@@ -730,7 +747,13 @@ Supervisor edit/archive routes require `confirmed: true` in the request body.
   "fields": [
     { "id": "area", "label": "Area", "type": "text", "required": true },
     { "id": "result", "label": "Result", "type": "select", "required": true, "options": ["Pass", "Fail"] },
-    { "id": "notes", "label": "Notes", "type": "textarea", "required": false },
+    { "id": "hours", "label": "Hours", "type": "number", "required": true },
+    { "id": "workers", "label": "Workers", "type": "number", "required": true },
+    { "id": "total_worker_hours", "label": "Total worker hours", "type": "formula", "formula": "hours * workers" },
+    { "id": "fail_notes", "label": "Fail notes", "type": "textarea", "required": true, "show_if": "result=Fail" },
+    { "id": "materials", "label": "Materials", "type": "repeat", "min_rows": 0, "max_rows": 12 },
+    { "id": "material", "label": "Material", "type": "text", "required": true, "repeat": "materials" },
+    { "id": "quantity", "label": "Quantity", "type": "number", "required": true, "repeat": "materials" },
     { "id": "worker_signature", "label": "Worker signature", "type": "signature", "required": true }
   ]
 }
@@ -817,6 +840,7 @@ The smoke test covers:
 - CSV export.
 - Task-log CSV export.
 - Bulk and single-record task-log/work-form HTML exports.
+- Bulk and single-record Daywork/work-form PDF exports.
 - Single-record task-log/work-form CSV exports.
 
 The mobile/browser workflow check covers:

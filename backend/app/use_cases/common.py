@@ -1,5 +1,8 @@
 import json
 import math
+import ast
+import operator
+import re
 from datetime import timezone
 from typing import Optional
 
@@ -15,9 +18,24 @@ VALID_REVIEW_STATUSES = {"pending", "approved", "rejected"}
 VALID_APPROVAL_RECORD_TYPES = {"attendance", "task", "form"}
 MAX_TASK_LOG_PHOTOS = 8
 VALID_WORK_FORM_STATUSES = {"active", "archived"}
-VALID_WORK_FORM_FIELD_TYPES = {"text", "textarea", "number", "date", "select", "checkbox", "signature"}
+VALID_WORK_FORM_FIELD_TYPES = {
+    "text",
+    "textarea",
+    "number",
+    "date",
+    "select",
+    "checkbox",
+    "signature",
+    "section",
+    "time_range",
+    "formula",
+    "repeat",
+}
 MAX_WORK_FORM_FIELDS = 30
 MAX_WORK_FORM_PHOTOS = 8
+MAX_REPEAT_ROWS = 50
+SAFE_FIELD_ID_PATTERN = re.compile(r"^[a-z0-9_]+$")
+SAFE_REFERENCE_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
 
 def format_datetime(value):
@@ -168,6 +186,7 @@ def work_form_submission_response(submission: WorkFormSubmission, session: Sessi
         "work_date": submission.work_date,
         "answers": parse_json_object(submission.answers_json),
         "photo_urls": parse_json_list(submission.photo_urls),
+        "photo_metadata": parse_json_list(submission.photo_metadata),
         "client_submission_id": submission.client_submission_id,
         "status": submission.status or "pending",
         "created_at": format_datetime(submission.created_at),
@@ -329,6 +348,171 @@ def normalize_task_photo_urls(
     return urls
 
 
+def safe_field_id(raw_id: str):
+    field_id = raw_id.strip().lower().replace(" ", "_")
+    field_id = re.sub(r"_+", "_", field_id).strip("_")
+
+    if not field_id or not SAFE_FIELD_ID_PATTERN.match(field_id):
+        raise HTTPException(
+            status_code=400,
+            detail="Field ids can only include lowercase letters, numbers, and underscores",
+        )
+
+    return field_id
+
+
+def normalize_show_if(value):
+    if value is None:
+        return None
+
+    condition = str(value).strip()
+    if not condition:
+        return None
+
+    if not any(operator_text in condition for operator_text in ["!=", ">=", "<=", "=", ">", "<"]):
+        raise HTTPException(status_code=400, detail="show_if must use field=value style syntax")
+
+    return condition[:240]
+
+
+FORMULA_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.USub: operator.neg,
+    ast.UAdd: operator.pos,
+}
+
+
+def validate_formula_expression(expression: str, label: str):
+    try:
+        tree = ast.parse(expression, mode="eval")
+    except SyntaxError:
+        raise HTTPException(status_code=400, detail=f"Formula field '{label}' has invalid syntax")
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Expression):
+            continue
+        if type(node) in FORMULA_OPERATORS:
+            continue
+        if isinstance(node, ast.BinOp) and type(node.op) in FORMULA_OPERATORS:
+            continue
+        if isinstance(node, ast.UnaryOp) and type(node.op) in FORMULA_OPERATORS:
+            continue
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            continue
+        if isinstance(node, ast.Name) and SAFE_REFERENCE_PATTERN.match(node.id):
+            continue
+        if isinstance(node, ast.Load):
+            continue
+        raise HTTPException(status_code=400, detail=f"Formula field '{label}' uses unsupported syntax")
+
+
+def normalize_formula(value, label: str):
+    formula = str(value or "").strip()
+    if not formula:
+        raise HTTPException(status_code=400, detail=f"Formula field '{label}' needs a formula")
+    if len(formula) > 500:
+        raise HTTPException(status_code=400, detail=f"Formula field '{label}' is too long")
+    validate_formula_expression(formula, label)
+    return formula
+
+
+def compare_condition_value(left, operator_text: str, right: str):
+    if isinstance(left, bool):
+        left_text = "true" if left else "false"
+    elif isinstance(left, dict) and "duration_hours" in left:
+        left_text = str(left.get("duration_hours") if left.get("duration_hours") is not None else "")
+    elif left is None:
+        left_text = ""
+    else:
+        left_text = str(left)
+
+    right_text = str(right).strip()
+
+    if operator_text in {"=", "!="}:
+        result = left_text.strip().lower() == right_text.lower()
+        return not result if operator_text == "!=" else result
+
+    try:
+        left_number = float(left_text)
+        right_number = float(right_text)
+    except (TypeError, ValueError):
+        return False
+
+    if operator_text == ">":
+        return left_number > right_number
+    if operator_text == "<":
+        return left_number < right_number
+    if operator_text == ">=":
+        return left_number >= right_number
+    if operator_text == "<=":
+        return left_number <= right_number
+    return False
+
+
+def condition_is_met(condition: Optional[str], answers: dict):
+    condition = (condition or "").strip()
+    if not condition:
+        return True
+
+    for operator_text in ["!=", ">=", "<=", "=", ">", "<"]:
+        if operator_text in condition:
+            field_id, expected = condition.split(operator_text, 1)
+            field_id = field_id.strip()
+            if not SAFE_REFERENCE_PATTERN.match(field_id):
+                return False
+            return compare_condition_value(answers.get(field_id), operator_text, expected)
+
+    return True
+
+
+def formula_value_from_answer(value):
+    if isinstance(value, bool):
+        return 1 if value else 0
+    if isinstance(value, (int, float)) and math.isfinite(value):
+        return float(value)
+    if isinstance(value, dict):
+        duration = value.get("duration_hours")
+        try:
+            return float(duration)
+        except (TypeError, ValueError):
+            return 0
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def evaluate_formula_expression(expression: str, answers: dict):
+    try:
+        tree = ast.parse(expression, mode="eval")
+    except SyntaxError:
+        raise HTTPException(status_code=400, detail="Formula has invalid syntax")
+
+    def evaluate(node):
+        if isinstance(node, ast.Expression):
+            return evaluate(node.body)
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return float(node.value)
+        if isinstance(node, ast.Name):
+            return formula_value_from_answer(answers.get(node.id))
+        if isinstance(node, ast.BinOp) and type(node.op) in FORMULA_OPERATORS:
+            right = evaluate(node.right)
+            if isinstance(node.op, ast.Div) and right == 0:
+                return 0
+            return FORMULA_OPERATORS[type(node.op)](evaluate(node.left), right)
+        if isinstance(node, ast.UnaryOp) and type(node.op) in FORMULA_OPERATORS:
+            return FORMULA_OPERATORS[type(node.op)](evaluate(node.operand))
+        raise HTTPException(status_code=400, detail="Formula uses unsupported syntax")
+
+    value = evaluate(tree)
+    if not math.isfinite(value):
+        return 0
+    return round(value, 2)
+
+
 def normalize_work_form_fields(fields):
     normalized_fields = []
     seen_ids = set()
@@ -337,9 +521,13 @@ def normalize_work_form_fields(fields):
         raise HTTPException(status_code=400, detail=f"Forms can include up to {MAX_WORK_FORM_FIELDS} fields")
 
     for field in fields:
-        field_id = field.id.strip().lower().replace(" ", "_")
+        field_id = safe_field_id(field.id)
         label = field.label.strip()
         field_type = field.type.strip().lower()
+        if field_type in {"subsection", "sub_section"}:
+            field_type = "section"
+        if field_type in {"time-range", "timerange"}:
+            field_type = "time_range"
 
         if not field_id:
             raise HTTPException(status_code=400, detail="Field id is required")
@@ -357,57 +545,211 @@ def normalize_work_form_fields(fields):
         ]
         if field_type == "select" and not options:
             raise HTTPException(status_code=400, detail=f"Select field '{label}' needs options")
+        if field_type in {"section", "repeat", "formula"}:
+            options = []
 
-        normalized_fields.append({
+        normalized = {
             "id": field_id,
             "label": label,
             "type": field_type,
             "required": field.required,
             "options": options,
-        })
+        }
+
+        show_if = normalize_show_if(field.show_if)
+        if show_if:
+            normalized["show_if"] = show_if
+
+        repeat = safe_field_id(field.repeat) if field.repeat else None
+        if repeat:
+            normalized["repeat"] = repeat
+
+        if field_type == "formula":
+            normalized["formula"] = normalize_formula(field.formula, label)
+
+        if field_type == "repeat":
+            min_rows = field.min_rows if field.min_rows is not None else (1 if field.required else 0)
+            max_rows = field.max_rows if field.max_rows is not None else 12
+            if max_rows < max(1, min_rows):
+                raise HTTPException(status_code=400, detail=f"Repeat section '{label}' max rows must be at least min rows")
+            normalized["min_rows"] = min_rows
+            normalized["max_rows"] = min(max_rows, MAX_REPEAT_ROWS)
+            normalized["required"] = min_rows > 0
+
+        normalized_fields.append(normalized)
         seen_ids.add(field_id)
+
+    repeat_ids = {field["id"] for field in normalized_fields if field["type"] == "repeat"}
+    for field in normalized_fields:
+        if field.get("repeat") and field["repeat"] not in repeat_ids:
+            raise HTTPException(status_code=400, detail=f"Repeat child '{field['label']}' references an unknown repeat section")
+        if field["type"] == "repeat" and field.get("repeat"):
+            raise HTTPException(status_code=400, detail="Repeat sections cannot be nested")
 
     return normalized_fields
 
 
 def validate_work_form_answers(form: WorkForm, answers: dict):
     fields = work_form_fields(form)
+    top_level_fields = [field for field in fields if not field.get("repeat")]
+    repeat_children = {}
     normalized_answers = {}
 
     for field in fields:
-        field_id = field.get("id")
-        field_label = field.get("label") or field_id
+        if field.get("repeat"):
+            repeat_children.setdefault(field["repeat"], []).append(field)
+
+    for field in top_level_fields:
         field_type = field.get("type")
-        required = bool(field.get("required"))
-        raw_value = answers.get(field_id)
+        field_id = field.get("id")
+        if field_type in {"section", "formula"}:
+            continue
+        if not condition_is_met(field.get("show_if"), normalized_answers):
+            normalized_answers[field_id] = [] if field_type == "repeat" else ""
+            continue
+        if field_type == "repeat":
+            normalized_answers[field_id] = validate_repeat_answer(
+                field,
+                repeat_children.get(field_id, []),
+                answers.get(field_id),
+                normalized_answers,
+            )
+            continue
+        normalized_answers[field_id] = normalize_work_form_answer(field, answers.get(field_id))
 
-        if field_type == "checkbox":
-            value = bool(raw_value)
-        elif raw_value is None:
-            value = ""
+    for field in top_level_fields:
+        if field.get("type") != "formula":
+            continue
+        if condition_is_met(field.get("show_if"), normalized_answers):
+            normalized_answers[field["id"]] = evaluate_formula_expression(field.get("formula") or "0", normalized_answers)
         else:
-            value = str(raw_value).strip()
-
-        if required and (value == "" or value is False):
-            raise HTTPException(status_code=400, detail=f"{field_label} is required")
-
-        if field_type == "signature" and value:
-            validate_photo_url(value)
-
-        if field_type == "number" and value != "":
-            try:
-                value = float(value)
-            except ValueError:
-                raise HTTPException(status_code=400, detail=f"{field_label} must be a number")
-
-        if field_type == "select" and value:
-            options = field.get("options") or []
-            if value not in options:
-                raise HTTPException(status_code=400, detail=f"{field_label} has an invalid option")
-
-        normalized_answers[field_id] = value
+            normalized_answers[field["id"]] = ""
 
     return normalized_answers
+
+
+def validate_repeat_answer(parent_field: dict, child_fields: list[dict], raw_value, parent_answers: dict):
+    field_label = parent_field.get("label") or parent_field.get("id")
+    min_rows = int(parent_field.get("min_rows") or 0)
+    max_rows = int(parent_field.get("max_rows") or 12)
+
+    if raw_value in (None, ""):
+        rows = []
+    elif isinstance(raw_value, list):
+        rows = raw_value
+    else:
+        raise HTTPException(status_code=400, detail=f"{field_label} must be a list of rows")
+
+    if len(rows) < min_rows:
+        raise HTTPException(status_code=400, detail=f"{field_label} needs at least {min_rows} row(s)")
+    if len(rows) > max_rows:
+        raise HTTPException(status_code=400, detail=f"{field_label} can include up to {max_rows} row(s)")
+
+    normalized_rows = []
+    for index, raw_row in enumerate(rows, start=1):
+        if not isinstance(raw_row, dict):
+            raise HTTPException(status_code=400, detail=f"{field_label} row {index} is invalid")
+        row_answers = {}
+        scope = {**parent_answers, **raw_row}
+        for child in child_fields:
+            if child.get("type") in {"section", "formula"}:
+                continue
+            if not condition_is_met(child.get("show_if"), {**scope, **row_answers}):
+                row_answers[child["id"]] = ""
+                continue
+            row_answers[child["id"]] = normalize_work_form_answer(child, raw_row.get(child["id"]))
+
+        for child in child_fields:
+            if child.get("type") != "formula":
+                continue
+            if condition_is_met(child.get("show_if"), {**scope, **row_answers}):
+                row_answers[child["id"]] = evaluate_formula_expression(child.get("formula") or "0", row_answers)
+            else:
+                row_answers[child["id"]] = ""
+
+        normalized_rows.append(row_answers)
+
+    return normalized_rows
+
+
+def normalize_work_form_answer(field: dict, raw_value):
+    field_id = field.get("id")
+    field_label = field.get("label") or field_id
+    field_type = field.get("type")
+    required = bool(field.get("required"))
+
+    if field_type == "checkbox":
+        value = bool(raw_value)
+    elif field_type == "time_range":
+        value = normalize_time_range_answer(field_label, raw_value, required)
+    elif raw_value is None:
+        value = ""
+    else:
+        value = str(raw_value).strip()
+
+    if required and (value == "" or value is False):
+        raise HTTPException(status_code=400, detail=f"{field_label} is required")
+
+    if field_type == "signature" and value:
+        validate_photo_url(value)
+
+    if field_type == "number" and value != "":
+        try:
+            value = float(value)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"{field_label} must be a number")
+
+    if field_type == "select" and value:
+        options = field.get("options") or []
+        if value not in options:
+            raise HTTPException(status_code=400, detail=f"{field_label} has an invalid option")
+
+    return value
+
+
+def normalize_time_range_answer(field_label: str, raw_value, required: bool):
+    if raw_value in (None, ""):
+        if required:
+            raise HTTPException(status_code=400, detail=f"{field_label} is required")
+        return {}
+
+    if not isinstance(raw_value, dict):
+        raise HTTPException(status_code=400, detail=f"{field_label} must include start and end times")
+
+    start = str(raw_value.get("start") or "").strip()
+    end = str(raw_value.get("end") or "").strip()
+
+    if required and (not start or not end):
+        raise HTTPException(status_code=400, detail=f"{field_label} needs both start and end times")
+    if bool(start) != bool(end):
+        raise HTTPException(status_code=400, detail=f"{field_label} needs both start and end times")
+    if not start and not end:
+        return {}
+
+    validate_time_value(field_label, "start", start)
+    validate_time_value(field_label, "end", end)
+
+    value = {"start": start, "end": end}
+    duration_hours = raw_value.get("duration_hours")
+    if duration_hours not in (None, ""):
+        try:
+            value["duration_hours"] = round(float(duration_hours), 2)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail=f"{field_label} duration must be a number")
+
+    return value
+
+
+def validate_time_value(field_label: str, part: str, value: str):
+    try:
+        hours, minutes = value.split(":", 1)
+        hours_int = int(hours)
+        minutes_int = int(minutes)
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=400, detail=f"{field_label} {part} time is invalid")
+
+    if not 0 <= hours_int <= 23 or not 0 <= minutes_int <= 59:
+        raise HTTPException(status_code=400, detail=f"{field_label} {part} time is invalid")
 
 
 def normalize_work_form_photo_urls(photo_urls: list[str]):
@@ -421,6 +763,35 @@ def normalize_work_form_photo_urls(photo_urls: list[str]):
     for url in urls:
         validate_photo_url(url)
     return urls
+
+
+def normalize_work_form_photo_metadata(photo_urls: list[str], photo_metadata: list[dict]):
+    metadata = []
+    metadata_by_url = {
+        item.get("url"): item
+        for item in (photo_metadata or [])
+        if isinstance(item, dict) and item.get("url")
+    }
+
+    for index, url in enumerate(photo_urls):
+        raw = metadata_by_url.get(url)
+        if raw is None and index < len(photo_metadata or []):
+            item = photo_metadata[index]
+            raw = item if isinstance(item, dict) else {}
+        raw = raw or {}
+
+        metadata.append({
+            "url": url,
+            "name": str(raw.get("name") or "")[:180],
+            "taken_at": str(raw.get("taken_at") or "")[:80],
+            "taken_at_source": str(raw.get("taken_at_source") or "")[:80],
+            "last_modified": raw.get("last_modified") if isinstance(raw.get("last_modified"), (int, float)) else None,
+            "last_modified_iso": str(raw.get("last_modified_iso") or "")[:80],
+            "size": raw.get("size") if isinstance(raw.get("size"), int) else None,
+            "type": str(raw.get("type") or "")[:120],
+        })
+
+    return metadata
 
 
 def normalize_site_input(data):

@@ -10,6 +10,7 @@ from app.use_cases.common import (
     ensure_site_exists,
     normalize_client_submission_id,
     normalize_work_form_fields,
+    normalize_work_form_photo_metadata,
     normalize_work_form_photo_urls,
     require_confirmed,
     require_worker,
@@ -132,6 +133,7 @@ def create_work_form_submission(data, user: User, session: Session):
     ensure_site_exists(session, data.site_id)
     answers = validate_work_form_answers(form, data.answers)
     photo_urls = normalize_work_form_photo_urls(data.photo_urls)
+    photo_metadata = normalize_work_form_photo_metadata(photo_urls, data.photo_metadata)
     client_submission_id = normalize_client_submission_id(data.client_submission_id)
     if client_submission_id:
         existing_submission = session.exec(
@@ -150,6 +152,7 @@ def create_work_form_submission(data, user: User, session: Session):
         work_date=data.work_date,
         answers_json=json.dumps(answers),
         photo_urls=json.dumps(photo_urls) if photo_urls else None,
+        photo_metadata=json.dumps(photo_metadata) if photo_metadata else None,
         client_submission_id=client_submission_id,
         status="pending"
     )

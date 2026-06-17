@@ -3,26 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#05070a" />
+    <meta name="theme-color" content="#000000" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Leader Field" />
     <title>Leader Field Operations</title>
-    <link rel="icon" type="image/svg+xml" href="/assets/icons/leader-icon.svg" />
+    <link rel="icon" type="image/png" href="/assets/icons/leader-logo-export.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
+    <script>
+      (() => {
+        try {
+          const savedTheme = localStorage.getItem('leader-theme');
+          const theme = savedTheme === 'light' ? 'light' : 'dark';
+          document.documentElement.dataset.theme = theme;
+          document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f4f7fb' : '#000000');
+        } catch {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      })();
+    </script>
     <link rel="stylesheet" href="/assets/css/styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-lockup">
-          <img class="brand-logo" src="/assets/icons/leader-logo.svg" alt="Leader Scaffolding" />
+          <img class="brand-logo" src="/assets/icons/leader-logo-export.png" alt="Leader Scaffolding" />
           <div class="brand-heading">
-            <p class="eyebrow">Mobile attendance</p>
+            <p class="eyebrow">Field command centre</p>
             <h1>Field Operations</h1>
           </div>
         </div>
         <div class="topbar-actions">
+          <button id="themeToggleButton" class="ghost theme-toggle" type="button" aria-pressed="true">Light mode</button>
           <button id="installButton" class="ghost hidden" type="button">Install App</button>
           <button id="updateButton" class="ghost hidden" type="button">Update App</button>
           <button id="logoutButton" class="ghost hidden" type="button">Log out</button>
@@ -34,7 +47,7 @@
 
         <section id="loginView" class="card view active">
           <h2>Sign in</h2>
-          <p class="muted">Sign in to continue to the worker or supervisor dashboard.</p>
+          <p class="muted">Sign in to continue.</p>
 
           <div class="demo-box">
             <p>Use the account provided by your supervisor, or register a worker account below.</p>
@@ -43,7 +56,7 @@
           <div class="install-box">
             <div>
               <strong>Use it like an app</strong>
-              <p id="downloadAppHelp" class="install-help">Download this app to your home screen after opening it in a supported browser.</p>
+              <p id="downloadAppHelp" class="install-help">Download this app to your home screen from a supported browser.</p>
             </div>
             <button id="downloadAppButton" type="button" class="secondary">Download App</button>
           </div>
@@ -91,12 +104,47 @@
               <h2>Quick actions</h2>
               <div class="button-stack">
                 <button data-tab-target="attendanceTab" type="button">Open check in / check out</button>
-                <button data-tab-target="taskTab" type="button">Open task log</button>
+                <button data-tab-target="taskTab" type="button">Open daywork log</button>
                 <button data-tab-target="formTab" type="button">Open work form</button>
                 <button data-tab-target="historyTab" type="button">Open my history</button>
               </div>
             </article>
           </div>
+
+          <details class="card worker-site-panel">
+            <summary>
+              <span>Add missing site</span>
+              <small>Use when today&apos;s job is not listed</small>
+            </summary>
+            <form id="workerSiteForm" class="form-grid">
+              <label>
+                Site name
+                <input id="workerSiteNameInput" type="text" maxlength="160" required placeholder="Example: Queen Street Fitout" />
+              </label>
+              <label>
+                Address
+                <input id="workerSiteAddressInput" type="text" maxlength="300" placeholder="Street address or site note" />
+              </label>
+              <div class="split-actions">
+                <button id="workerSiteUseLocationButton" type="button" class="secondary">Use current location</button>
+              </div>
+              <div class="grid two-col compact-fields">
+                <label>
+                  Latitude
+                  <input id="workerSiteLatitudeInput" type="number" step="0.000001" min="-90" max="90" required />
+                </label>
+                <label>
+                  Longitude
+                  <input id="workerSiteLongitudeInput" type="number" step="0.000001" min="-180" max="180" required />
+                </label>
+              </div>
+              <label>
+                Allowed radius metres
+                <input id="workerSiteRadiusInput" type="number" min="10" max="5000" value="100" required />
+              </label>
+              <button id="workerSiteSubmitButton" type="submit">Add site</button>
+            </form>
+          </details>
 
           <div class="tabs">
             <button class="tab active" data-tab-target="attendanceTab" type="button">Check</button>
@@ -142,24 +190,8 @@
 
           <section id="taskTab" class="tab-panel hidden">
             <article class="card">
-              <h2>Daily task log</h2>
-              <div class="template-tools">
-                <label>
-                  Template
-                  <select id="taskTemplateSelect">
-                    <option value="">No template selected</option>
-                  </select>
-                </label>
-                <div class="split-actions">
-                  <button id="applyTaskTemplateButton" type="button" class="secondary">Apply template</button>
-                  <button id="deleteTaskTemplateButton" type="button" class="ghost">Delete template</button>
-                </div>
-                <label>
-                  New template name
-                  <input id="taskTemplateNameInput" type="text" placeholder="Example: Base scaffold install" />
-                </label>
-                <button id="saveTaskTemplateButton" type="button" class="ghost">Save current log as template</button>
-              </div>
+              <h2>Daywork log</h2>
+              <p id="dayworkFormHint" class="muted">Loading Daywork log form...</p>
               <form id="taskForm" class="form-grid">
                 <label>
                   Site
@@ -169,18 +201,7 @@
                   Work date
                   <input id="taskDate" type="date" required />
                 </label>
-                <label>
-                  Hours worked
-                  <input id="taskHours" type="number" step="0.25" min="0" max="24" placeholder="8" />
-                </label>
-                <label>
-                  What was done
-                  <textarea id="taskSummary" rows="5" placeholder="Describe the work completed at the site."></textarea>
-                </label>
-                <label>
-                  Safety notes
-                  <textarea id="taskSafety" rows="3" placeholder="Example: edge protection checked, tagged area remained clear"></textarea>
-                </label>
+                <div id="dayworkFormFields" class="dynamic-fields"></div>
                 <label>
                   Progress photos
                   <input id="taskPhoto" type="file" accept="image/*" multiple />
@@ -188,7 +209,7 @@
                 <div id="taskPhotoPreview" class="photo-preview hidden"></div>
                 <div class="split-actions">
                   <button id="saveTaskDraftButton" type="button" class="ghost">Save draft</button>
-                  <button id="submitTaskButton" type="submit">Submit task log</button>
+                  <button id="submitTaskButton" type="submit">Submit daywork log</button>
                 </div>
               </form>
             </article>
@@ -291,10 +312,12 @@
                   <select id="exportDocumentSelect">
                     <option value="task-daily-log">Daily task log sheets</option>
                     <option value="task-photo-report">Task photo report</option>
-                    <option value="form-submissions">Submitted work forms</option>
+                    <option value="daywork-pdf">Daywork PDF</option>
+                    <option value="form-submissions-pdf">Submitted work forms PDF</option>
+                    <option value="form-submissions">Submitted work forms HTML</option>
                   </select>
                 </label>
-                <button id="exportDocumentButton" type="button">Export document HTML</button>
+                <button id="exportDocumentButton" type="button">Export document</button>
               </div>
             </article>
           </div>
@@ -381,9 +404,14 @@
                 </label>
                 <label>
                   Fields
-                  <textarea id="workFormFieldsInput" rows="6" placeholder="text|Area|required&#10;select|Result|required|Pass,Fail,N/A&#10;textarea|Notes&#10;signature|Worker signature|required"></textarea>
+                  <textarea id="workFormFieldsInput" rows="10" placeholder="section|Pre-start checks&#10;text|Area|required&#10;time_range|Work time|required&#10;number|Workers|required&#10;formula|Total worker hours||work_time * workers&#10;select|Result|required|Pass,Fail,N/A&#10;textarea|Issue details|required||show_if=result=Fail&#10;repeat|Materials||min=0|max=12&#10;&gt;text|Material|required&#10;&gt;number|Quantity|required&#10;signature|Worker signature|required"></textarea>
                 </label>
-                <button type="submit">Create form</button>
+                <p class="builder-help">Use one field per line: section, repeat, text, textarea, number, date, time_range, select, checkbox, formula, and signature. Select options or formula expressions go in the fourth column. Add rules such as show_if=result=Fail, min=1, or max=12 in later columns. Prefix repeat fields with &gt;.</p>
+                <div class="form-actions">
+                  <button id="workFormPreviewButton" type="button" class="ghost">Preview draft</button>
+                  <button type="submit">Create form</button>
+                </div>
+                <div id="workFormDraftPreview" class="work-form-preview builder-preview hidden" aria-live="polite"></div>
               </form>
               <div id="workFormsList" class="records-list staff-users-list"></div>
             </div>

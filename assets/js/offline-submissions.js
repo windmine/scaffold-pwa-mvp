@@ -33,6 +33,16 @@ export function normaliseRecordPhotoUrls(record) {
   return urls.filter(Boolean);
 }
 
+export function normaliseRecordPhotoMetadata(record) {
+  const photoUrls = normaliseRecordPhotoUrls(record);
+  const metadata = Array.isArray(record.photoMetadata) ? record.photoMetadata : [];
+
+  return photoUrls.map((url, index) => ({
+    ...(metadata[index] || {}),
+    url
+  }));
+}
+
 function photoFilenameFor(record, file, index = 0, dataUrl = '') {
   if (file?.name) return file.name;
   const extension = (dataUrl || record.photoDataUrl || '').match(/^data:image\/([a-z0-9+.-]+);base64,/i)?.[1] || 'jpg';
@@ -72,6 +82,12 @@ async function uploadRecordPhotos(record, files = [], options = {}) {
     uploadedUrls[index] = uploaded.url;
     record.photoUrls = uploadedUrls.filter(Boolean);
     record.photoUrl = record.photoUrls[0] || '';
+    if (Array.isArray(record.photoMetadata)) {
+      record.photoMetadata[index] = {
+        ...(record.photoMetadata[index] || {}),
+        url: uploaded.url
+      };
+    }
     await options.onProgress?.(record);
   }
 
@@ -154,6 +170,7 @@ function toBackendFormSubmissionPayload(record) {
     work_date: record.workDate || null,
     answers: record.answers || {},
     photo_urls: normaliseRecordPhotoUrls(record),
+    photo_metadata: normaliseRecordPhotoMetadata(record),
     client_submission_id: record.clientSubmissionId || record.id
   };
 }
@@ -165,6 +182,7 @@ function normaliseLocalSubmission(record) {
   return {
     photoDataUrl: '',
     photoDataUrls: [],
+    photoMetadata: [],
     photoUrl: '',
     photoUrls: [],
     ...record,
@@ -251,6 +269,9 @@ function applySyncedResponse(record, syncedRecord) {
     record.photoUrls = syncedRecord.photo_urls;
     record.photoUrl = syncedRecord.photo_urls[0] || record.photoUrl || '';
   }
+  if (syncedRecord?.photo_metadata) {
+    record.photoMetadata = syncedRecord.photo_metadata;
+  }
   if (syncedRecord?.answers) {
     record.answers = syncedRecord.answers;
   }
@@ -289,6 +310,7 @@ async function syncSubmission(record, options = {}) {
       status: record.status,
       photo_url: record.photoUrl || null,
       photo_urls: normaliseRecordPhotoUrls(record),
+      photo_metadata: normaliseRecordPhotoMetadata(record),
       answers: record.answers,
       client_submission_id: record.clientSubmissionId || record.id
     };
@@ -326,7 +348,7 @@ function syncedSubmissionMessage(record) {
   }
 
   if (record.type === 'task') return 'Task log submitted for approval.';
-  if (record.type === 'form') return 'Form submitted for approval.';
+  if (record.type === 'form') return `${record.formName || 'Form'} submitted for approval.`;
   return 'Submission synced.';
 }
 
@@ -345,9 +367,10 @@ function queuedSubmissionMessage(record, retry = false) {
   }
 
   if (record.type === 'form') {
+    const label = record.formName || 'Form';
     return retry
-      ? 'Form saved locally. Backend sync will retry when you reconnect.'
-      : 'Form saved offline and queued for later sync.';
+      ? `${label} saved locally. Backend sync will retry when you reconnect.`
+      : `${label} saved offline and queued for later sync.`;
   }
 
   return retry

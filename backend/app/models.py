@@ -116,6 +116,7 @@ class WorkFormSubmission(SQLModel, table=True):
     work_date: Optional[str] = None
     answers_json: str
     photo_urls: Optional[str] = None
+    photo_metadata: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     client_submission_id: Optional[str] = Field(default=None, index=True)
     status: str = Field(default="pending", index=True)
 

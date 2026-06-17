@@ -257,6 +257,15 @@ def get_sites(
     return staff_site_admin_use_cases.list_sites(session)
 
 
+@app.post("/sites")
+def create_shared_site(
+    data: SiteCreateRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    return staff_site_admin_use_cases.create_site(data, user, session)
+
+
 @app.post("/supervisor/sites")
 def create_site(
     data: SiteCreateRequest,
@@ -767,6 +776,16 @@ def export_supervisor_form_submissions_html(
     return supervisor_review_use_cases.export_form_submissions_html(session, status)
 
 
+@app.get("/supervisor/form-submissions/export.pdf")
+def export_supervisor_form_submissions_pdf(
+    template: str = "submitted-form",
+    status: Optional[str] = None,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.export_form_submissions_pdf(session, template, status)
+
+
 @app.get("/supervisor/form-submissions/{submission_id}/export.csv")
 def export_supervisor_form_submission_csv(
     submission_id: int,
@@ -783,6 +802,16 @@ def export_supervisor_form_submission_html(
     session: Session = Depends(get_session)
 ):
     return supervisor_review_use_cases.export_form_submission_html(submission_id, session)
+
+
+@app.get("/supervisor/form-submissions/{submission_id}/export.pdf")
+def export_supervisor_form_submission_pdf(
+    submission_id: int,
+    template: str = "submitted-form",
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.export_form_submission_pdf(submission_id, session, template)
 
 
 @app.patch("/supervisor/task-logs/{log_id}")

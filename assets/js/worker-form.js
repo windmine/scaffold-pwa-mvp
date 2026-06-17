@@ -1,7 +1,7 @@
 import { getWorkForms as getBackendWorkForms } from './api-client.js';
 import { submitOfflineSubmission } from './offline-submissions.js';
 import { collectWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
-import { fileToDataUrl, todayDateInput, uuid, escapeHtml } from './utils.js';
+import { fileToDataUrl, todayDateInput, uuid, escapeHtml, photoMetadataFromFile } from './utils.js';
 
 export function createWorkerFormModule({
   els,
@@ -15,7 +15,8 @@ export function createWorkerFormModule({
   renderHistory,
   handleSessionExpired,
   isBackendSessionError,
-  onSupervisorWorkFormsChanged = () => {}
+  onSupervisorWorkFormsChanged = () => {},
+  onWorkFormsChanged = () => {}
 }) {
   function renderWorkFormOptions() {
     const selectedValue = els.workFormSelect.value;
@@ -38,7 +39,7 @@ export function createWorkerFormModule({
   }
 
   function renderSelectedWorkForm() {
-    renderWorkFormFields(els.workFormFields, selectedWorkForm());
+    renderWorkFormFields(els.workFormFields, selectedWorkForm(), { container: els.workFormFields });
   }
 
   async function refreshWorkForms() {
@@ -48,6 +49,7 @@ export function createWorkerFormModule({
       state.workForms = await getBackendWorkForms();
       renderWorkFormOptions();
       renderSelectedWorkForm();
+      onWorkFormsChanged();
       if (state.user.role === 'supervisor') {
         onSupervisorWorkFormsChanged();
       }
@@ -65,7 +67,8 @@ export function createWorkerFormModule({
     const files = selectedFiles.slice(0, maxPhotos);
     state.workFormPhotoFiles = files;
     state.workFormPhotoDataUrls = await Promise.all(files.map((file) => fileToDataUrl(file)));
-    photoViewer.renderPreviews(els.workFormPhotoPreview, state.workFormPhotoDataUrls, 'Form photo');
+    state.workFormPhotoMetadata = files.map(photoMetadataFromFile);
+    photoViewer.renderPreviews(els.workFormPhotoPreview, state.workFormPhotoDataUrls, 'Form photo', state.workFormPhotoMetadata);
 
     if (selectedFiles.length > maxPhotos) {
       renderStatusBanner(`Form submissions can include up to ${maxPhotos} photos. The first ${maxPhotos} were kept.`, true);
@@ -106,8 +109,9 @@ export function createWorkerFormModule({
         siteId: site?.id || null,
         siteName: site?.name || 'Unassigned site',
         workDate: els.workFormDate.value || null,
-        answers: await collectWorkFormAnswers(form),
+        answers: await collectWorkFormAnswers(form, { container: els.workFormFields }),
         photoDataUrls: state.workFormPhotoDataUrls,
+        photoMetadata: state.workFormPhotoMetadata,
         photoUrls: [],
         createdAt: new Date().toISOString()
       };
@@ -121,6 +125,7 @@ export function createWorkerFormModule({
       els.workFormDate.value = todayDateInput();
       state.workFormPhotoFiles = [];
       state.workFormPhotoDataUrls = [];
+      state.workFormPhotoMetadata = [];
       photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Form photo');
       renderSelectedWorkForm();
       await syncQueueIfPossible(!result.offline);
