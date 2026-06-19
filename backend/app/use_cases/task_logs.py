@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 
 from app.models import TaskLog, TaskTemplate, User
 from app.use_cases.common import (
+    department_id_for_new_record,
     ensure_site_exists,
     normalize_client_submission_id,
     normalize_task_photo_urls,
@@ -16,7 +17,7 @@ from app.use_cases.common import (
 
 def create_task_log(data, user: User, session: Session):
     require_worker(user)
-    ensure_site_exists(session, data.site_id)
+    ensure_site_exists(session, data.site_id, user)
     photo_urls = normalize_task_photo_urls(data.photo_url, data.photo_urls)
     client_submission_id = normalize_client_submission_id(data.client_submission_id)
     if client_submission_id:
@@ -30,6 +31,7 @@ def create_task_log(data, user: User, session: Session):
             return task_log_response(existing_log, session)
 
     log = TaskLog(
+        department_id=department_id_for_new_record(user, session),
         worker_id=user.id,
         site_id=data.site_id,
         description=data.description,
@@ -98,8 +100,9 @@ def list_task_templates(user: User, session: Session):
 
 def create_task_template(data, user: User, session: Session):
     require_worker(user)
-    ensure_site_exists(session, data.site_id)
+    ensure_site_exists(session, data.site_id, user)
     template = TaskTemplate(
+        department_id=department_id_for_new_record(user, session),
         worker_id=user.id,
         site_id=data.site_id,
         name=data.name.strip(),
@@ -126,7 +129,7 @@ def update_task_template(template_id: int, data, user: User, session: Session):
     if "description" in fields and data.description is not None:
         template.description = data.description
     if "site_id" in fields:
-        ensure_site_exists(session, data.site_id)
+        ensure_site_exists(session, data.site_id, user)
         template.site_id = data.site_id
     if "hours_worked" in fields:
         template.hours_worked = data.hours_worked

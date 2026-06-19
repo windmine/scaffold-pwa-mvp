@@ -1,6 +1,7 @@
 import { saveDraft } from './mock-api.js';
 import { submitOfflineSubmission } from './offline-submissions.js';
 import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
+import { setDateInputValue } from './date-inputs.js';
 import { fileToDataUrl, photoMetadataFromFile, todayDateInput, uuid } from './utils.js';
 
 const DAYWORK_FIELD_PREFIX = 'dayworkFormField';
@@ -95,7 +96,7 @@ export function createWorkerLogModule({
 
   function resetForm() {
     els.taskSite.value = '';
-    els.taskDate.value = todayDateInput();
+    setDateInputValue(els.taskDate, todayDateInput());
     els.taskPhoto.value = '';
     state.taskPhotoDataUrls = [];
     state.taskPhotoFiles = [];
@@ -172,7 +173,7 @@ export function createWorkerLogModule({
 
     state.dayworkLogDraft = taskDraft;
     els.taskSite.value = taskDraft.siteId || '';
-    els.taskDate.value = taskDraft.workDate || todayDateInput();
+    setDateInputValue(els.taskDate, taskDraft.workDate || todayDateInput());
     state.taskPhotoDataUrls = taskDraft.photoDataUrls || (taskDraft.photoDataUrl ? [taskDraft.photoDataUrl] : []);
     state.taskPhotoMetadata = taskDraft.photoMetadata || [];
     photoViewer.renderPreviews(els.taskPhotoPreview, state.taskPhotoDataUrls, 'Daywork draft photo', state.taskPhotoMetadata);

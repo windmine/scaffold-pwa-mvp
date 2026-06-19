@@ -44,6 +44,11 @@ Run the real-phone checklist against the live Firebase Hosting / Cloud Run path,
 
 ## Features
 
+- App UI defaults to English and includes a prominent top-bar language toggle for Simplified Chinese.
+- Users belong to one department: Leader, Mutual, MC, Stech, BOP.
+- The signed-in header shows the user's group and highlights super-admin access.
+- Department supervisors see and manage only their own department data; global admins can manage all departments.
+
 ### Worker
 
 - Sign in with a backend account.
@@ -83,8 +88,8 @@ Worker restrictions:
 - Adjust submitted task logs with double-check confirmation.
 - Create and edit sites, including allowed check-in radius.
 - Search sites.
-- Create worker/supervisor users.
-- Edit staff name, email, role, status, or reset password with double-check confirmation.
+- Create worker/supervisor users in the supervisor's own department, or in any department when signed in as a global admin.
+- Edit staff name, email, role, status, department, global-admin access, or reset password with double-check confirmation.
 - View and search staff users.
 - Mark workers resigned so they cannot sign in.
 - Reactivate resigned workers without losing previous records.
@@ -115,10 +120,19 @@ For local development only, copy `.env.example` to `.env`, keep `ENABLE_DEV_SEED
 Worker
 Email: worker@example.com
 Password: Passw0rd!
+Department: Leader
 
 Supervisor
 Email: supervisor@example.com
 Password: Passw0rd!
+Department: Leader
+Global admin: no
+
+Super Admin
+Email: admin@example.com
+Password: Passw0rd!
+Department: Leader
+Global admin: yes
 ```
 
 ## Project Structure
@@ -324,6 +338,10 @@ Run for phone testing:
 ```powershell
 npm run dev:phone
 ```
+
+If the backend is running on a non-default local port, set `VITE_API_PROXY_TARGET` before starting Vite, for example `VITE_API_PROXY_TARGET=http://127.0.0.1:8765 npm run dev:phone` on Bash or `$env:VITE_API_PROXY_TARGET='http://127.0.0.1:8765'; npm run dev:phone` on PowerShell.
+
+For local browser automation that cannot accept the dev HTTPS certificate, set `VITE_DISABLE_HTTPS=true`; keep the default HTTPS server for phone geolocation and PWA testing.
 
 The frontend uses a local HTTPS dev certificate:
 
@@ -567,7 +585,10 @@ POST /auth/login
 POST /auth/register
 POST /auth/logout
 GET  /auth/me
+GET  /departments
 ```
+
+`GET /departments` returns the fixed active department list: Leader, Mutual, MC, Stech, BOP.
 
 ### Worker Attendance
 
@@ -818,6 +839,7 @@ The smoke test covers:
 
 - Health and seed data.
 - Worker/supervisor login.
+- Fixed department list, one-department user assignment, department-scoped staff lists, and global-admin-only cross-department access.
 - Resigned worker cannot login.
 - Reactivation keeps the user usable.
 - Staff user editing and self-demotion protections.

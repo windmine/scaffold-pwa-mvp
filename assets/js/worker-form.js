@@ -1,6 +1,7 @@
 import { getWorkForms as getBackendWorkForms } from './api-client.js';
 import { submitOfflineSubmission } from './offline-submissions.js';
 import { collectWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
+import { setDateInputValue } from './date-inputs.js';
 import { fileToDataUrl, todayDateInput, uuid, escapeHtml, photoMetadataFromFile } from './utils.js';
 
 export function createWorkerFormModule({
@@ -122,7 +123,7 @@ export function createWorkerFormModule({
       });
 
       els.workFormSubmissionForm.reset();
-      els.workFormDate.value = todayDateInput();
+      setDateInputValue(els.workFormDate, todayDateInput());
       state.workFormPhotoFiles = [];
       state.workFormPhotoDataUrls = [];
       state.workFormPhotoMetadata = [];

@@ -9,6 +9,7 @@ import {
   register as backendRegister,
   getSession as getBackendSession,
   getCurrentUser,
+  getDepartments as getBackendDepartments,
   getSites as getBackendSites,
   updateMyRecord as updateBackendMyRecord,
   deleteMyRecord as deleteBackendMyRecord,
@@ -23,6 +24,8 @@ import { createWorkerAttendanceModule } from './worker-attendance.js';
 import { createWorkerFormModule } from './worker-form.js';
 import { createWorkerLogModule } from './worker-log.js';
 import { createWorkerSitesModule } from './worker-sites.js';
+import { initDateInputs, setDateInputValue } from './date-inputs.js';
+import { applyLanguage, initLanguageToggle } from './i18n.js';
 import { formatDateTime, todayDateInput, escapeHtml } from './utils.js';
 
 const MAX_TASK_LOG_PHOTOS = 8;
@@ -31,6 +34,13 @@ const THEME_COLORS = {
   dark: '#000000',
   light: '#f4f7fb'
 };
+const DEFAULT_DEPARTMENTS = [
+  { id: 1, name: 'Leader' },
+  { id: 2, name: 'Mutual' },
+  { id: 3, name: 'MC' },
+  { id: 4, name: 'Stech' },
+  { id: 5, name: 'BOP' }
+];
 
 const state = {
   user: null,
@@ -54,6 +64,7 @@ const state = {
   submittingWorkForm: false,
   submittingWorkerSite: false,
   historyRecords: [],
+  departments: DEFAULT_DEPARTMENTS,
   staffUsers: [],
   supervisorRecords: {
     reviewRecords: [],
@@ -64,11 +75,16 @@ const state = {
 const els = {
   statusBanner: document.getElementById('statusBanner'),
   installButton: document.getElementById('installButton'),
+  languageToggleButton: document.getElementById('languageToggleButton'),
   themeToggleButton: document.getElementById('themeToggleButton'),
   downloadAppButton: document.getElementById('downloadAppButton'),
   downloadAppHelp: document.getElementById('downloadAppHelp'),
   updateButton: document.getElementById('updateButton'),
   logoutButton: document.getElementById('logoutButton'),
+  userContext: document.getElementById('userContext'),
+  userContextName: document.getElementById('userContextName'),
+  userContextGroup: document.getElementById('userContextGroup'),
+  userContextAdminBadge: document.getElementById('userContextAdminBadge'),
   loginView: document.getElementById('loginView'),
   workerView: document.getElementById('workerView'),
   supervisorView: document.getElementById('supervisorView'),
@@ -154,6 +170,8 @@ const els = {
   staffEmailInput: document.getElementById('staffEmailInput'),
   staffPasswordInput: document.getElementById('staffPasswordInput'),
   staffRoleSelect: document.getElementById('staffRoleSelect'),
+  staffDepartmentSelect: document.getElementById('staffDepartmentSelect'),
+  staffGlobalAdminInput: document.getElementById('staffGlobalAdminInput'),
   staffUsersList: document.getElementById('staffUsersList'),
   siteForm: document.getElementById('siteForm'),
   siteNameInput: document.getElementById('siteNameInput'),
@@ -292,12 +310,16 @@ supervisorReviewModule = createSupervisorReviewModule({
 });
 
 async function init() {
+  initDateInputs();
   await initializeMockData();
   state.sites = await loadSites();
   fillSiteSelects();
   const authRestoreMessage = await restoreBackendSession();
-  els.taskDate.value = todayDateInput();
-  els.workFormDate.value = todayDateInput();
+  if (state.user) {
+    state.departments = await loadDepartments();
+  }
+  setDateInputValue(els.taskDate, todayDateInput());
+  setDateInputValue(els.workFormDate, todayDateInput());
   await restoreDrafts();
   bindEvents();
   renderInstallHelp();
@@ -318,6 +340,15 @@ async function loadSites() {
   }
 
   return await getLocalSites();
+}
+
+async function loadDepartments() {
+  try {
+    const departments = await getBackendDepartments();
+    return departments.length ? departments : DEFAULT_DEPARTMENTS;
+  } catch {
+    return DEFAULT_DEPARTMENTS;
+  }
 }
 
 async function restoreBackendSession() {
@@ -346,6 +377,15 @@ async function restoreBackendSession() {
 
 function bindEvents() {
   renderThemeToggle();
+  initLanguageToggle({
+    button: els.languageToggleButton,
+    root: document.body,
+    onChange: () => {
+      renderThemeToggle();
+      renderInstallHelp();
+      applyLanguage();
+    }
+  });
   els.themeToggleButton.addEventListener('click', handleThemeToggle);
   els.loginForm.addEventListener('submit', handleLogin);
   els.registerForm.addEventListener('submit', handleRegister);
@@ -396,6 +436,7 @@ function renderThemeToggle() {
   els.themeToggleButton.textContent = `${nextTheme[0].toUpperCase()}${nextTheme.slice(1)} mode`;
   els.themeToggleButton.setAttribute('aria-pressed', String(currentTheme === 'dark'));
   els.themeToggleButton.title = `Switch to ${nextTheme} mode`;
+  applyLanguage(els.themeToggleButton);
 }
 
 function setTheme(theme) {
@@ -468,6 +509,8 @@ function renderApp() {
   } else {
     refreshStatusBannerForSession();
   }
+
+  applyLanguage();
 }
 
 function showView(view) {
@@ -490,15 +533,25 @@ function updateTopbar() {
   els.updateButton.classList.toggle('hidden', !hasPendingAppUpdate());
 
   if (state.user) {
+    const departmentName = state.user.departmentName || 'No department';
     els.logoutButton.classList.remove('hidden');
+    els.userContext.classList.remove('hidden');
+    els.userContextName.textContent = state.user.fullName || state.user.email;
+    els.userContextGroup.textContent = departmentName;
+    els.userContextAdminBadge.classList.toggle('hidden', !state.user.isGlobalAdmin);
   } else {
     els.logoutButton.classList.add('hidden');
+    els.userContext.classList.add('hidden');
+    els.userContextName.textContent = '';
+    els.userContextGroup.textContent = '';
+    els.userContextAdminBadge.classList.add('hidden');
   }
 }
 
 function renderStatusBanner(message, offline = false) {
   els.statusBanner.textContent = message;
   els.statusBanner.classList.toggle('offline', offline);
+  applyLanguage(els.statusBanner);
 }
 
 async function refreshStatusBannerForSession() {
@@ -523,6 +576,7 @@ async function handleLogin(event) {
   try {
     renderStatusBanner('Signing in with the backend...');
     state.user = await backendLogin(els.emailInput.value.trim(), els.passwordInput.value);
+    state.departments = await loadDepartments();
     state.sites = await loadSites();
     fillSiteSelects();
     renderApp();
@@ -541,6 +595,7 @@ async function handleRegister(event) {
       els.registerPasswordInput.value
     );
     els.registerForm.reset();
+    state.departments = await loadDepartments();
     state.sites = await loadSites();
     fillSiteSelects();
     renderApp();

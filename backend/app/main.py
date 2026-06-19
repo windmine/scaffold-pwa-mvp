@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 
 from app.config import AUTO_MIGRATE, CORS_ORIGINS, ENABLE_DEV_SEED, MAX_UPLOAD_BYTES, PRODUCTION_LIKE
 from app.database import migrate_database, get_session
-from app.models import AttendanceRecord, TaskLog, User, Site, WorkForm, WorkFormSubmission
+from app.models import AttendanceRecord, Department, TaskLog, User, Site, WorkForm, WorkFormSubmission
 from app.schemas import (
     ApprovalRequest,
     AttendanceCreate,
@@ -45,7 +45,16 @@ from app.use_cases import staff_site_admin as staff_site_admin_use_cases
 from app.use_cases import supervisor_review as supervisor_review_use_cases
 from app.use_cases import task_logs as task_log_use_cases
 from app.use_cases import work_forms as work_form_use_cases
-from app.use_cases.common import parse_json_list, parse_json_object, upload_url, user_response
+from app.use_cases.common import (
+    DEPARTMENT_NAMES,
+    can_access_department,
+    list_departments,
+    parse_json_list,
+    parse_json_object,
+    upload_url,
+    user_is_global_admin,
+    user_response,
+)
 from app.upload_storage import ensure_upload_storage_ready, load_upload, save_upload
 
 
@@ -155,6 +164,19 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
     if client_host not in LOCAL_DEV_HOSTS:
         raise HTTPException(status_code=403, detail="Demo seed is only available from localhost")
 
+    departments_by_name = {}
+    for name in DEPARTMENT_NAMES:
+        department = session.exec(
+            select(Department).where(Department.name == name)
+        ).first()
+        if not department:
+            department = Department(name=name, status="active")
+            session.add(department)
+            session.flush()
+        departments_by_name[name] = department
+
+    leader_department = departments_by_name["Leader"]
+
     existing_worker = session.exec(
         select(User).where(User.email == "worker@example.com")
     ).first()
@@ -162,9 +184,13 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
     existing_supervisor = session.exec(
         select(User).where(User.email == "supervisor@example.com")
     ).first()
+    existing_super_admin = session.exec(
+        select(User).where(User.email == "admin@example.com")
+    ).first()
 
     if not existing_worker:
         worker = User(
+            department_id=leader_department.id,
             email="worker@example.com",
             name="Demo Worker",
             password_hash=hash_password("Passw0rd!"),
@@ -173,21 +199,44 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
         )
         session.add(worker)
     else:
+        existing_worker.department_id = existing_worker.department_id or leader_department.id
         existing_worker.status = "active"
         session.add(existing_worker)
 
     if not existing_supervisor:
         supervisor = User(
+            department_id=leader_department.id,
             email="supervisor@example.com",
             name="Demo Supervisor",
             password_hash=hash_password("Passw0rd!"),
             role="supervisor",
-            status="active"
+            status="active",
+            is_global_admin=False,
         )
         session.add(supervisor)
     else:
+        existing_supervisor.department_id = existing_supervisor.department_id or leader_department.id
         existing_supervisor.status = "active"
+        existing_supervisor.is_global_admin = False
         session.add(existing_supervisor)
+
+    if not existing_super_admin:
+        super_admin = User(
+            department_id=leader_department.id,
+            email="admin@example.com",
+            name="Super Admin",
+            password_hash=hash_password("Passw0rd!"),
+            role="supervisor",
+            status="active",
+            is_global_admin=True,
+        )
+        session.add(super_admin)
+    else:
+        existing_super_admin.department_id = existing_super_admin.department_id or leader_department.id
+        existing_super_admin.status = "active"
+        existing_super_admin.role = "supervisor"
+        existing_super_admin.is_global_admin = True
+        session.add(existing_super_admin)
 
     legacy_site = session.exec(
         select(Site).where(Site.name == "Demo Site")
@@ -203,6 +252,7 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
         legacy_site.latitude = first_site["latitude"]
         legacy_site.longitude = first_site["longitude"]
         legacy_site.allowed_radius_m = first_site["allowed_radius_m"]
+        legacy_site.department_id = legacy_site.department_id or leader_department.id
         session.add(legacy_site)
 
     for site_data in DEMO_SITES:
@@ -215,8 +265,9 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
             site.latitude = site_data["latitude"]
             site.longitude = site_data["longitude"]
             site.allowed_radius_m = site_data["allowed_radius_m"]
+            site.department_id = site.department_id or leader_department.id
         else:
-            site = Site(**site_data)
+            site = Site(department_id=leader_department.id, **site_data)
 
         session.add(site)
 
@@ -230,8 +281,10 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
             form.description = form_data["description"]
             form.fields_json = fields_json
             form.status = "active"
+            form.department_id = form.department_id or leader_department.id
         else:
             form = WorkForm(
+                department_id=leader_department.id,
                 name=form_data["name"],
                 description=form_data["description"],
                 fields_json=fields_json,
@@ -245,7 +298,8 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
     return {
         "message": "Demo data created",
         "worker": "worker@example.com / Passw0rd!",
-        "supervisor": "supervisor@example.com / Passw0rd!"
+        "supervisor": "supervisor@example.com / Passw0rd!",
+        "super_admin": "admin@example.com / Passw0rd!"
     }
 
 
@@ -254,7 +308,15 @@ def get_sites(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    return staff_site_admin_use_cases.list_sites(session)
+    return staff_site_admin_use_cases.list_sites(session, user)
+
+
+@app.get("/departments")
+def get_departments(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    return list_departments(session)
 
 
 @app.post("/sites")
@@ -362,7 +424,12 @@ def upload_is_referenced_by_worker(filename: str, worker_id: int, session: Sessi
 
 def can_access_upload(filename: str, upload, user: User, session: Session):
     if user.role == "supervisor":
-        return True
+        if user_is_global_admin(user):
+            return True
+        if upload.uploaded_by:
+            uploader = session.get(User, upload.uploaded_by)
+            return bool(uploader and can_access_department(user, uploader.department_id))
+        return False
 
     if upload.uploaded_by == user.id:
         return True
@@ -420,7 +487,7 @@ def login(
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user": user_response(user)
+        "user": user_response(user, session)
     }
 
 
@@ -446,7 +513,7 @@ def register(
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user": user_response(user)
+        "user": user_response(user, session)
     }
 
 
@@ -457,8 +524,11 @@ def logout(response: Response):
 
 
 @app.get("/auth/me")
-def me(user: User = Depends(get_current_user)):
-    return user_response(user)
+def me(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    return user_response(user, session)
 
 
 @app.get("/supervisor/users")
@@ -466,7 +536,7 @@ def get_users(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return staff_site_admin_use_cases.list_users(session)
+    return staff_site_admin_use_cases.list_users(session, supervisor)
 
 
 @app.post("/supervisor/users")
@@ -508,6 +578,7 @@ def get_supervisor_audit_events(
 ):
     return audit_use_cases.list_audit_events(
         session=session,
+        supervisor=supervisor,
         limit=limit,
         entity_type=entity_type,
         actor_id=actor_id,
@@ -672,7 +743,7 @@ def get_supervisor_form_submissions(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return work_form_use_cases.list_supervisor_form_submissions(status, session)
+    return work_form_use_cases.list_supervisor_form_submissions(status, supervisor, session)
 
 
 @app.get("/supervisor/review-records")
@@ -681,7 +752,7 @@ def get_supervisor_review_records(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.list_review_records(session, status)
+    return supervisor_review_use_cases.list_review_records(session, supervisor, status)
 
 
 @app.get("/supervisor/pending-records")
@@ -689,7 +760,7 @@ def get_pending_records(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.list_pending_attendance_records(session)
+    return supervisor_review_use_cases.list_pending_attendance_records(session, supervisor)
 
 
 @app.get("/supervisor/records")
@@ -698,7 +769,7 @@ def get_supervisor_records(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.list_supervisor_attendance_records(session, status)
+    return supervisor_review_use_cases.list_supervisor_attendance_records(session, supervisor, status)
 
 
 @app.patch("/supervisor/records/{record_id}")
@@ -717,7 +788,7 @@ def export_supervisor_records_csv(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_attendance_records_csv(session, status)
+    return supervisor_review_use_cases.export_attendance_records_csv(session, supervisor, status)
 
 
 @app.get("/supervisor/task-logs")
@@ -726,7 +797,7 @@ def get_supervisor_task_logs(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.list_supervisor_task_logs(session, status)
+    return supervisor_review_use_cases.list_supervisor_task_logs(session, supervisor, status)
 
 
 @app.get("/supervisor/task-logs/export.csv")
@@ -735,7 +806,7 @@ def export_supervisor_task_logs_csv(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_task_logs_csv(session, status)
+    return supervisor_review_use_cases.export_task_logs_csv(session, supervisor, status)
 
 
 @app.get("/supervisor/task-logs/export.html")
@@ -745,7 +816,7 @@ def export_supervisor_task_logs_html(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_task_logs_html(session, layout, status)
+    return supervisor_review_use_cases.export_task_logs_html(session, supervisor, layout, status)
 
 
 @app.get("/supervisor/task-logs/{log_id}/export.csv")
@@ -754,7 +825,7 @@ def export_supervisor_task_log_csv(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_task_log_csv(log_id, session)
+    return supervisor_review_use_cases.export_task_log_csv(log_id, session, supervisor)
 
 
 @app.get("/supervisor/task-logs/{log_id}/export.html")
@@ -764,7 +835,7 @@ def export_supervisor_task_log_html(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_task_log_html(log_id, session, layout)
+    return supervisor_review_use_cases.export_task_log_html(log_id, session, supervisor, layout)
 
 
 @app.get("/supervisor/form-submissions/export.html")
@@ -773,7 +844,7 @@ def export_supervisor_form_submissions_html(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_form_submissions_html(session, status)
+    return supervisor_review_use_cases.export_form_submissions_html(session, supervisor, status)
 
 
 @app.get("/supervisor/form-submissions/export.pdf")
@@ -783,7 +854,7 @@ def export_supervisor_form_submissions_pdf(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_form_submissions_pdf(session, template, status)
+    return supervisor_review_use_cases.export_form_submissions_pdf(session, supervisor, template, status)
 
 
 @app.get("/supervisor/form-submissions/{submission_id}/export.csv")
@@ -792,7 +863,7 @@ def export_supervisor_form_submission_csv(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_form_submission_csv(submission_id, session)
+    return supervisor_review_use_cases.export_form_submission_csv(submission_id, session, supervisor)
 
 
 @app.get("/supervisor/form-submissions/{submission_id}/export.html")
@@ -801,7 +872,7 @@ def export_supervisor_form_submission_html(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_form_submission_html(submission_id, session)
+    return supervisor_review_use_cases.export_form_submission_html(submission_id, session, supervisor)
 
 
 @app.get("/supervisor/form-submissions/{submission_id}/export.pdf")
@@ -811,7 +882,7 @@ def export_supervisor_form_submission_pdf(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_form_submission_pdf(submission_id, session, template)
+    return supervisor_review_use_cases.export_form_submission_pdf(submission_id, session, supervisor, template)
 
 
 @app.patch("/supervisor/task-logs/{log_id}")

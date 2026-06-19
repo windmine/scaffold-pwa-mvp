@@ -34,7 +34,13 @@
             <h1>Field Operations</h1>
           </div>
         </div>
+        <div id="userContext" class="user-context hidden" aria-live="polite">
+          <span id="userContextName" class="user-context-name"></span>
+          <span class="user-context-group"><span>Group</span>: <strong id="userContextGroup"></strong></span>
+          <span id="userContextAdminBadge" class="user-context-badge hidden">Super admin</span>
+        </div>
         <div class="topbar-actions">
+          <button id="languageToggleButton" class="language-toggle" type="button" data-language-toggle aria-pressed="false">中文</button>
           <button id="themeToggleButton" class="ghost theme-toggle" type="button" aria-pressed="true">Light mode</button>
           <button id="installButton" class="ghost hidden" type="button">Install App</button>
           <button id="updateButton" class="ghost hidden" type="button">Update App</button>
@@ -481,6 +487,20 @@
                     <option value="worker">Worker</option>
                     <option value="supervisor">Supervisor</option>
                   </select>
+                </label>
+                <label>
+                  Department
+                  <select id="staffDepartmentSelect">
+                    <option value="1">Leader</option>
+                    <option value="2">Mutual</option>
+                    <option value="3">MC</option>
+                    <option value="4">Stech</option>
+                    <option value="5">BOP</option>
+                  </select>
+                </label>
+                <label class="checkbox-field">
+                  <input id="staffGlobalAdminInput" type="checkbox" />
+                  <span>Global admin</span>
                 </label>
                 <button type="submit">Create user</button>
               </form>

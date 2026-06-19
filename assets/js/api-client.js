@@ -39,7 +39,10 @@ function normalizeUser(user) {
     name: user.name || user.fullName || user.email,
     fullName: user.fullName || user.name || user.email,
     role: user.role,
-    status: user.status || "active"
+    status: user.status || "active",
+    departmentId: user.department_id || user.departmentId || null,
+    departmentName: user.department_name || user.departmentName || "",
+    isGlobalAdmin: Boolean(user.is_global_admin || user.isGlobalAdmin)
   };
 }
 
@@ -181,6 +184,10 @@ export async function getCurrentUser() {
 
 export async function getUsers() {
   return await apiFetch("/supervisor/users");
+}
+
+export async function getDepartments() {
+  return await apiFetch("/departments");
 }
 
 export async function createUser(user) {

@@ -138,9 +138,42 @@ def main():
             ),
             200,
         )
+        admin_login = assert_status(
+            "super admin login",
+            request(
+                "POST",
+                "/auth/login",
+                {"email": "admin@example.com", "password": "Passw0rd!"},
+            ),
+            200,
+        )
 
         worker_token = worker_login["access_token"]
         supervisor_token = supervisor_login["access_token"]
+        admin_token = admin_login["access_token"]
+        if worker_login["user"].get("department_name") != "Leader":
+            raise AssertionError("worker login: expected default Leader department")
+        if supervisor_login["user"].get("department_name") != "Leader":
+            raise AssertionError("supervisor login: expected default Leader department")
+        if supervisor_login["user"].get("is_global_admin"):
+            raise AssertionError("supervisor login: expected department-scoped supervisor access")
+        if admin_login["user"].get("department_name") != "Leader":
+            raise AssertionError("super admin login: expected default Leader department")
+        if not admin_login["user"].get("is_global_admin"):
+            raise AssertionError("super admin login: expected seeded global admin access")
+
+        departments = assert_status(
+            "list departments",
+            request("GET", "/departments", token=admin_token),
+            200,
+        )
+        expected_departments = ["Leader", "Mutual", "MC", "Stech", "BOP"]
+        department_names = [department["name"] for department in departments]
+        if department_names != expected_departments:
+            raise AssertionError(f"list departments: expected {expected_departments}, got {department_names}")
+        leader_department = next(department for department in departments if department["name"] == "Leader")
+        mutual_department = next(department for department in departments if department["name"] == "Mutual")
+
         now = datetime.now(timezone.utc)
         timestamp = now.strftime("%Y%m%d%H%M%S%f")
         signature_smoke_url = upload_test_image("upload smoke signature", worker_token, f"signature-smoke-{timestamp}.png")
@@ -201,6 +234,8 @@ def main():
             ),
             200,
         )
+        if smoke_user.get("department_name") != "Leader":
+            raise AssertionError("create resignable worker: expected Leader department")
         smoke_user = assert_status(
             "update staff user",
             request(
@@ -215,6 +250,108 @@ def main():
                 supervisor_token,
             ),
             200,
+        )
+        mutual_supervisor = assert_status(
+            "create mutual supervisor",
+            request(
+                "POST",
+                "/supervisor/users",
+                {
+                    "name": f"Mutual Supervisor {timestamp}",
+                    "email": f"mutual-supervisor-{timestamp}@example.com",
+                    "password": "Passw0rd!",
+                    "role": "supervisor",
+                    "department_id": mutual_department["id"],
+                    "is_global_admin": False,
+                },
+                admin_token,
+            ),
+            200,
+        )
+        if mutual_supervisor.get("department_name") != "Mutual":
+            raise AssertionError("create mutual supervisor: expected Mutual department")
+        mutual_supervisor_login = assert_status(
+            "mutual supervisor login",
+            request(
+                "POST",
+                "/auth/login",
+                {"email": mutual_supervisor["email"], "password": "Passw0rd!"},
+            ),
+            200,
+        )
+        mutual_supervisor_token = mutual_supervisor_login["access_token"]
+        mutual_worker = assert_status(
+            "department supervisor creates same-department worker",
+            request(
+                "POST",
+                "/supervisor/users",
+                {
+                    "name": f"Mutual Worker {timestamp}",
+                    "email": f"mutual-worker-{timestamp}@example.com",
+                    "password": "Passw0rd!",
+                    "role": "worker",
+                    "department_id": mutual_department["id"],
+                    "is_global_admin": False,
+                },
+                mutual_supervisor_token,
+            ),
+            200,
+        )
+        if mutual_worker.get("department_name") != "Mutual":
+            raise AssertionError("department supervisor creates same-department worker: expected Mutual department")
+        if mutual_worker.get("is_global_admin"):
+            raise AssertionError("department supervisor creates same-department worker: expected no global admin access")
+        mutual_worker = assert_status(
+            "department supervisor updates same-department worker",
+            request(
+                "PATCH",
+                f"/supervisor/users/{mutual_worker['id']}",
+                {
+                    "name": f"Mutual Worker Updated {timestamp}",
+                    "role": "worker",
+                    "status": "active",
+                    "department_id": mutual_department["id"],
+                    "is_global_admin": False,
+                    "confirmed": True,
+                },
+                mutual_supervisor_token,
+            ),
+            200,
+        )
+        mutual_users = assert_status(
+            "department supervisor lists own department users",
+            request("GET", "/supervisor/users", token=mutual_supervisor_token),
+            200,
+        )
+        if not any(user["id"] == mutual_worker["id"] for user in mutual_users):
+            raise AssertionError("department supervisor lists own department users: expected Mutual worker")
+        if any(user["id"] == smoke_user["id"] for user in mutual_users):
+            raise AssertionError("department supervisor lists own department users: should not include Leader worker")
+        assert_status(
+            "department supervisor cannot create cross-department worker",
+            request(
+                "POST",
+                "/supervisor/users",
+                {
+                    "name": f"Cross Department Worker {timestamp}",
+                    "email": f"cross-department-worker-{timestamp}@example.com",
+                    "password": "Passw0rd!",
+                    "role": "worker",
+                    "department_id": leader_department["id"],
+                },
+                mutual_supervisor_token,
+            ),
+            403,
+        )
+        assert_status(
+            "department supervisor cannot grant global admin",
+            request(
+                "PATCH",
+                f"/supervisor/users/{mutual_worker['id']}",
+                {"is_global_admin": True, "confirmed": True},
+                mutual_supervisor_token,
+            ),
+            403,
         )
         assert_status(
             "mark worker resigned",

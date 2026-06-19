@@ -9,11 +9,13 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from app.models import AttendanceRecord, Site, TaskLog, User, WorkForm, WorkFormSubmission
+from app.models import AttendanceRecord, Department, Site, TaskLog, User, WorkForm, WorkFormSubmission
 
 
 VALID_ROLES = {"worker", "supervisor"}
 VALID_USER_STATUSES = {"active", "resigned"}
+DEFAULT_DEPARTMENT_NAME = "Leader"
+DEPARTMENT_NAMES = ["Leader", "Mutual", "MC", "Stech", "BOP"]
 VALID_REVIEW_STATUSES = {"pending", "approved", "rejected"}
 VALID_APPROVAL_RECORD_TYPES = {"attendance", "task", "form"}
 MAX_TASK_LOG_PHOTOS = 8
@@ -48,9 +50,12 @@ def format_datetime(value):
 def attendance_record_response(record: AttendanceRecord, session: Session):
     worker = session.get(User, record.worker_id)
     site = session.get(Site, record.site_id) if record.site_id else None
+    department = session.get(Department, record.department_id) if record.department_id else None
 
     return {
         "id": record.id,
+        "department_id": record.department_id,
+        "department_name": department.name if department else None,
         "worker_id": record.worker_id,
         "worker_name": worker.name if worker else f"Worker {record.worker_id}",
         "site_id": record.site_id,
@@ -93,10 +98,13 @@ def task_log_photo_urls(log: TaskLog):
 def task_log_response(log: TaskLog, session: Session):
     worker = session.get(User, log.worker_id)
     site = session.get(Site, log.site_id) if log.site_id else None
+    department = session.get(Department, log.department_id) if log.department_id else None
     photo_urls = task_log_photo_urls(log)
 
     return {
         "id": log.id,
+        "department_id": log.department_id,
+        "department_name": department.name if department else None,
         "worker_id": log.worker_id,
         "worker_name": worker.name if worker else f"Worker {log.worker_id}",
         "site_id": log.site_id,
@@ -118,6 +126,7 @@ def task_template_response(template, session: Session):
 
     return {
         "id": template.id,
+        "department_id": template.department_id,
         "worker_id": template.worker_id,
         "site_id": template.site_id,
         "site_name": site.name if site else None,
@@ -157,9 +166,13 @@ def work_form_fields(form: WorkForm):
     return parse_json_list(form.fields_json)
 
 
-def work_form_response(form: WorkForm):
+def work_form_response(form: WorkForm, session: Session | None = None):
+    department = session.get(Department, form.department_id) if session and form.department_id else None
+
     return {
         "id": form.id,
+        "department_id": form.department_id,
+        "department_name": department.name if department else None,
         "name": form.name,
         "description": form.description,
         "fields": work_form_fields(form),
@@ -173,9 +186,12 @@ def work_form_submission_response(submission: WorkFormSubmission, session: Sessi
     form = session.get(WorkForm, submission.form_id)
     worker = session.get(User, submission.worker_id)
     site = session.get(Site, submission.site_id) if submission.site_id else None
+    department = session.get(Department, submission.department_id) if submission.department_id else None
 
     return {
         "id": submission.id,
+        "department_id": submission.department_id,
+        "department_name": department.name if department else None,
         "form_id": submission.form_id,
         "form_name": form.name if form else f"Form {submission.form_id}",
         "fields": work_form_fields(form) if form else [],
@@ -211,6 +227,7 @@ def review_record_response(record_kind: str, record, session: Session):
 def site_response(site: Site):
     return {
         "id": site.id,
+        "department_id": site.department_id,
         "name": site.name,
         "address": site.address,
         "latitude": site.latitude,
@@ -223,13 +240,54 @@ def upload_url(filename: str):
     return f"/uploads/{filename}"
 
 
-def user_response(user: User):
+def department_response(department: Department):
+    return {
+        "id": department.id,
+        "name": department.name,
+        "status": department.status or "active",
+        "created_at": format_datetime(department.created_at),
+    }
+
+
+def list_departments(session: Session):
+    departments = session.exec(
+        select(Department)
+        .where(Department.status == "active")
+        .order_by(Department.id)
+    ).all()
+
+    return [
+        department_response(department)
+        for department in departments
+    ]
+
+
+def default_department(session: Session):
+    department = session.exec(
+        select(Department).where(Department.name == DEFAULT_DEPARTMENT_NAME)
+    ).first()
+
+    if department:
+        return department
+
+    department = Department(name=DEFAULT_DEPARTMENT_NAME, status="active")
+    session.add(department)
+    session.flush()
+    return department
+
+
+def user_response(user: User, session: Session | None = None):
+    department = session.get(Department, user.department_id) if session and user.department_id else None
+
     return {
         "id": user.id,
+        "department_id": user.department_id,
+        "department_name": department.name if department else None,
         "email": user.email,
         "name": user.name,
         "role": user.role,
         "status": user.status or "active",
+        "is_global_admin": bool(user.is_global_admin),
     }
 
 
@@ -244,6 +302,51 @@ def normalize_client_submission_id(value: Optional[str]):
 def require_worker(user: User):
     if user.role != "worker":
         raise HTTPException(status_code=403, detail="Worker only")
+
+
+def user_is_global_admin(user: User):
+    return bool(getattr(user, "is_global_admin", False))
+
+
+def can_access_department(user: User, department_id: Optional[int]):
+    if user_is_global_admin(user):
+        return True
+
+    return department_id is not None and department_id == user.department_id
+
+
+def ensure_department_exists(session: Session, department_id: Optional[int]):
+    if department_id is None:
+        return default_department(session)
+
+    department = session.get(Department, department_id)
+    if not department or (department.status or "active") != "active":
+        raise HTTPException(status_code=400, detail="Department not found")
+
+    return department
+
+
+def department_id_for_new_record(user: User, session: Session):
+    if user.department_id:
+        return user.department_id
+
+    department = default_department(session)
+    user.department_id = department.id
+    session.add(user)
+    session.flush()
+    return department.id
+
+
+def require_department_access(user: User, department_id: Optional[int], detail: str = "Record not found"):
+    if not can_access_department(user, department_id):
+        raise HTTPException(status_code=404, detail=detail)
+
+
+def scope_statement_to_user_department(statement, model, user: User):
+    if user_is_global_admin(user):
+        return statement
+
+    return statement.where(model.department_id == user.department_id)
 
 
 def validate_user_input(email: str, name: str, password: str, role: str):
@@ -270,13 +373,15 @@ def require_confirmed(confirmed: bool):
         raise HTTPException(status_code=400, detail="Double check required before saving this change")
 
 
-def ensure_site_exists(session: Session, site_id: Optional[int]):
+def ensure_site_exists(session: Session, site_id: Optional[int], user: User | None = None):
     if site_id is None:
         return None
 
     site = session.get(Site, site_id)
 
     if not site:
+        raise HTTPException(status_code=400, detail="Site not found")
+    if user and not can_access_department(user, site.department_id):
         raise HTTPException(status_code=400, detail="Site not found")
 
     return site
@@ -846,31 +951,37 @@ def normalize_approval_record_type(record_type: str):
     return normalized_type
 
 
-def select_attendance_records(status: Optional[str] = None):
+def select_attendance_records(status: Optional[str] = None, user: User | None = None):
     statement = select(AttendanceRecord)
 
     if status:
         status = validate_review_status(status)
         statement = statement.where(AttendanceRecord.status == status)
+    if user:
+        statement = scope_statement_to_user_department(statement, AttendanceRecord, user)
 
     return statement.order_by(AttendanceRecord.created_at.desc())
 
 
-def select_task_logs(status: Optional[str] = None):
+def select_task_logs(status: Optional[str] = None, user: User | None = None):
     statement = select(TaskLog)
 
     if status:
         status = validate_review_status(status)
         statement = statement.where(TaskLog.status == status)
+    if user:
+        statement = scope_statement_to_user_department(statement, TaskLog, user)
 
     return statement.order_by(TaskLog.created_at.desc())
 
 
-def select_work_form_submissions(status: Optional[str] = None):
+def select_work_form_submissions(status: Optional[str] = None, user: User | None = None):
     statement = select(WorkFormSubmission)
 
     if status:
         status = validate_review_status(status)
         statement = statement.where(WorkFormSubmission.status == status)
+    if user:
+        statement = scope_statement_to_user_department(statement, WorkFormSubmission, user)
 
     return statement.order_by(WorkFormSubmission.created_at.desc())

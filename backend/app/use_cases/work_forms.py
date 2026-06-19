@@ -7,6 +7,8 @@ from app.models import User, WorkForm, WorkFormSubmission
 from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
     VALID_WORK_FORM_STATUSES,
+    can_access_department,
+    department_id_for_new_record,
     ensure_site_exists,
     normalize_client_submission_id,
     normalize_work_form_fields,
@@ -15,6 +17,7 @@ from app.use_cases.common import (
     require_confirmed,
     require_worker,
     select_work_form_submissions,
+    scope_statement_to_user_department,
     validate_work_form_answers,
     work_form_response,
     work_form_submission_response,
@@ -23,13 +26,14 @@ from app.use_cases.common import (
 
 def list_work_forms(user: User, session: Session):
     statement = select(WorkForm).order_by(WorkForm.name)
+    statement = scope_statement_to_user_department(statement, WorkForm, user)
     if user.role == "worker":
         statement = statement.where(WorkForm.status == "active")
 
     forms = session.exec(statement).all()
 
     return [
-        work_form_response(form)
+        work_form_response(form, session)
         for form in forms
     ]
 
@@ -39,13 +43,18 @@ def create_work_form(data, supervisor: User, session: Session):
     if not name:
         raise HTTPException(status_code=400, detail="Form name is required")
 
+    department_id = department_id_for_new_record(supervisor, session)
     existing = session.exec(
-        select(WorkForm).where(WorkForm.name == name)
+        select(WorkForm).where(
+            WorkForm.name == name,
+            WorkForm.department_id == department_id,
+        )
     ).first()
     if existing:
         raise HTTPException(status_code=409, detail="A form with this name already exists")
 
     form = WorkForm(
+        department_id=department_id,
         name=name,
         description=data.description.strip() if data.description else None,
         fields_json=json.dumps(normalize_work_form_fields(data.fields)),
@@ -66,14 +75,14 @@ def create_work_form(data, supervisor: User, session: Session):
     session.commit()
     session.refresh(form)
 
-    return work_form_response(form)
+    return work_form_response(form, session)
 
 
 def update_work_form(form_id: int, data, supervisor: User, session: Session):
     require_confirmed(data.confirmed)
     form = session.get(WorkForm, form_id)
 
-    if not form:
+    if not form or not can_access_department(supervisor, form.department_id):
         raise HTTPException(status_code=404, detail="Form not found")
 
     fields = data.model_fields_set
@@ -85,7 +94,10 @@ def update_work_form(form_id: int, data, supervisor: User, session: Session):
         if not name:
             raise HTTPException(status_code=400, detail="Form name is required")
         existing = session.exec(
-            select(WorkForm).where(WorkForm.name == name)
+            select(WorkForm).where(
+                WorkForm.name == name,
+                WorkForm.department_id == form.department_id,
+            )
         ).first()
         if existing and existing.id != form.id:
             raise HTTPException(status_code=409, detail="A form with this name already exists")
@@ -121,16 +133,16 @@ def update_work_form(form_id: int, data, supervisor: User, session: Session):
     session.commit()
     session.refresh(form)
 
-    return work_form_response(form)
+    return work_form_response(form, session)
 
 
 def create_work_form_submission(data, user: User, session: Session):
     require_worker(user)
     form = session.get(WorkForm, data.form_id)
-    if not form or form.status != "active":
+    if not form or form.status != "active" or not can_access_department(user, form.department_id):
         raise HTTPException(status_code=404, detail="Form not found")
 
-    ensure_site_exists(session, data.site_id)
+    ensure_site_exists(session, data.site_id, user)
     answers = validate_work_form_answers(form, data.answers)
     photo_urls = normalize_work_form_photo_urls(data.photo_urls)
     photo_metadata = normalize_work_form_photo_metadata(photo_urls, data.photo_metadata)
@@ -146,6 +158,7 @@ def create_work_form_submission(data, user: User, session: Session):
             return work_form_submission_response(existing_submission, session)
 
     submission = WorkFormSubmission(
+        department_id=department_id_for_new_record(user, session),
         form_id=form.id,
         worker_id=user.id,
         site_id=data.site_id,
@@ -176,9 +189,9 @@ def list_my_form_submissions(user: User, session: Session):
     ]
 
 
-def list_supervisor_form_submissions(status: str | None, session: Session):
+def list_supervisor_form_submissions(status: str | None, supervisor: User, session: Session):
     records = session.exec(
-        select_work_form_submissions(status)
+        select_work_form_submissions(status, supervisor)
     ).all()
 
     return [

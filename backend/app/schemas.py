@@ -21,6 +21,8 @@ class UserCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     password: str = Field(min_length=8, max_length=72)
     role: str = Field(default="worker", max_length=40)
+    department_id: Optional[int] = Field(default=None, ge=1)
+    is_global_admin: bool = False
 
 
 class UserUpdateRequest(BaseModel):
@@ -29,6 +31,8 @@ class UserUpdateRequest(BaseModel):
     password: Optional[str] = Field(default=None, min_length=8, max_length=72)
     role: Optional[str] = Field(default=None, max_length=40)
     status: Optional[str] = Field(default=None, max_length=40)
+    department_id: Optional[int] = Field(default=None, ge=1)
+    is_global_admin: Optional[bool] = None
     confirmed: bool = False
 
 

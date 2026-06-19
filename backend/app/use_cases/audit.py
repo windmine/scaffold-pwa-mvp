@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 from app.models import (
     AttendanceRecord,
     AuditEvent,
+    Department,
     Site,
     TaskLog,
     User,
@@ -16,10 +17,12 @@ from app.use_cases.common import format_datetime, parse_json_list, parse_json_ob
 
 
 SNAPSHOT_FIELDS = {
-    User: ["id", "email", "name", "role", "status"],
-    Site: ["id", "name", "address", "latitude", "longitude", "allowed_radius_m"],
+    User: ["id", "department_id", "email", "name", "role", "status", "is_global_admin"],
+    Department: ["id", "name", "status", "created_at"],
+    Site: ["id", "department_id", "name", "address", "latitude", "longitude", "allowed_radius_m"],
     AttendanceRecord: [
         "id",
+        "department_id",
         "worker_id",
         "site_id",
         "record_type",
@@ -36,6 +39,7 @@ SNAPSHOT_FIELDS = {
     ],
     TaskLog: [
         "id",
+        "department_id",
         "worker_id",
         "site_id",
         "description",
@@ -48,9 +52,10 @@ SNAPSHOT_FIELDS = {
         "status",
         "created_at",
     ],
-    WorkForm: ["id", "name", "description", "fields_json", "status", "created_by", "created_at"],
+    WorkForm: ["id", "department_id", "name", "description", "fields_json", "status", "created_by", "created_at"],
     WorkFormSubmission: [
         "id",
+        "department_id",
         "form_id",
         "worker_id",
         "site_id",
@@ -109,6 +114,7 @@ def add_audit_event(
     summary: Optional[str] = None,
 ):
     event = AuditEvent(
+        department_id=actor.department_id,
         actor_id=actor.id,
         action=action,
         entity_type=entity_type,
@@ -123,9 +129,12 @@ def add_audit_event(
 
 def audit_event_response(event: AuditEvent, session: Session):
     actor = session.get(User, event.actor_id)
+    department = session.get(Department, event.department_id) if event.department_id else None
 
     return {
         "id": event.id,
+        "department_id": event.department_id,
+        "department_name": department.name if department else None,
         "actor_id": event.actor_id,
         "actor_name": actor.name if actor else f"User {event.actor_id}",
         "actor_email": actor.email if actor else None,
@@ -141,6 +150,7 @@ def audit_event_response(event: AuditEvent, session: Session):
 
 def list_audit_events(
     session: Session,
+    supervisor: User,
     limit: int = 100,
     entity_type: Optional[str] = None,
     actor_id: Optional[int] = None,
@@ -152,6 +162,8 @@ def list_audit_events(
         statement = statement.where(AuditEvent.entity_type == entity_type.strip().lower())
     if actor_id:
         statement = statement.where(AuditEvent.actor_id == actor_id)
+    if not supervisor.is_global_admin:
+        statement = statement.where(AuditEvent.department_id == supervisor.department_id)
 
     events = session.exec(
         statement.order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc()).limit(limit)

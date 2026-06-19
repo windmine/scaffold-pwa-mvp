@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'leader-field-v41';
+const CACHE_VERSION = 'leader-field-v51';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -7,8 +7,10 @@ const APP_SHELL = [
   '/assets/css/styles.css',
   '/assets/js/app.js',
   '/assets/js/api-client.js',
+  '/assets/js/date-inputs.js',
   '/assets/js/db.js',
   '/assets/js/history.js',
+  '/assets/js/i18n.js',
   '/assets/js/mock-api.js',
   '/assets/js/offline-submissions.js',
   '/assets/js/photo-viewer.js',

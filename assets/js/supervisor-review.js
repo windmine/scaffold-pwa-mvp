@@ -15,6 +15,7 @@ import {
   updateSupervisorRecord as updateBackendSupervisorRecord,
   updateSupervisorTaskLog as updateBackendSupervisorTaskLog
 } from './api-client.js';
+import { setDateInputValue } from './date-inputs.js';
 import {
   decideRecord as decideLocalRecord,
   getPendingApprovals,
@@ -153,7 +154,7 @@ export function createSupervisorReviewModule({
     els.supervisorSearchInput.value = '';
     els.supervisorTypeFilter.value = '';
     els.supervisorStatusFilter.value = '';
-    els.supervisorDateFilter.value = '';
+    setDateInputValue(els.supervisorDateFilter, '');
     renderFilteredLists();
   }
 

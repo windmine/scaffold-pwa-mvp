@@ -24,6 +24,14 @@ export function createStaffSitesModule({
   editValue,
   editNumber
 }) {
+  function departmentSelectOptions() {
+    return (state.departments || [])
+      .map((department) => ({
+        value: department.id,
+        label: department.name
+      }));
+  }
+
   function siteSelectOptions() {
     return [
       { value: '', label: 'No site' },
@@ -101,7 +109,9 @@ export function createStaffSitesModule({
         user.name,
         user.email,
         user.role,
-        user.status || 'active'
+        user.status || 'active',
+        user.department_name || user.departmentName,
+        user.is_global_admin || user.isGlobalAdmin ? 'global admin' : ''
       ].join(' ').toLowerCase();
       return !query || text.includes(query);
     });
@@ -121,9 +131,9 @@ export function createStaffSitesModule({
         <div class="record-header">
           <div>
             <h3 class="record-title">${escapeHtml(user.name)}</h3>
-            <p class="record-meta">ID ${escapeHtml(user.id)} | ${escapeHtml(user.email)}</p>
+            <p class="record-meta">ID ${escapeHtml(user.id)} | ${escapeHtml(user.email)} | ${escapeHtml(user.department_name || user.departmentName || 'No department')}</p>
           </div>
-          <span class="badge ${status === 'active' ? 'synced' : 'rejected'}">${escapeHtml(status === 'active' ? user.role : 'resigned worker')}</span>
+          <span class="badge ${status === 'active' ? 'synced' : 'rejected'}">${escapeHtml(status === 'active' ? `${user.role}${user.is_global_admin || user.isGlobalAdmin ? ' global' : ''}` : 'resigned worker')}</span>
         </div>
         <div class="record-actions"></div>
       `;
@@ -438,6 +448,23 @@ export function createStaffSitesModule({
           ]
         },
         {
+          id: 'editUserDepartmentId',
+          label: 'Department',
+          type: 'select',
+          value: user.department_id || user.departmentId || '',
+          options: departmentSelectOptions()
+        },
+        {
+          id: 'editUserGlobalAdmin',
+          label: 'Global admin',
+          type: 'select',
+          value: user.is_global_admin || user.isGlobalAdmin ? 'true' : 'false',
+          options: [
+            { value: 'false', label: 'No' },
+            { value: 'true', label: 'Yes' }
+          ]
+        },
+        {
           id: 'editUserStatus',
           label: 'Status',
           type: 'select',
@@ -458,7 +485,9 @@ export function createStaffSitesModule({
           name: editValue('editUserName'),
           email: editValue('editUserEmail'),
           role: editValue('editUserRole'),
-          status: editValue('editUserStatus')
+          status: editValue('editUserStatus'),
+          department_id: editNumber('editUserDepartmentId'),
+          is_global_admin: editValue('editUserGlobalAdmin') === 'true'
         };
 
         if (newPassword) {
@@ -473,7 +502,10 @@ export function createStaffSitesModule({
               name: updated.name,
               fullName: updated.name,
               role: updated.role,
-              status: updated.status
+              status: updated.status,
+              departmentId: updated.department_id || updated.departmentId || null,
+              departmentName: updated.department_name || updated.departmentName || '',
+              isGlobalAdmin: Boolean(updated.is_global_admin || updated.isGlobalAdmin)
             };
           }
           closeEditPanel();
@@ -528,7 +560,9 @@ export function createStaffSitesModule({
         name: els.staffNameInput.value.trim(),
         email: els.staffEmailInput.value.trim(),
         password: els.staffPasswordInput.value,
-        role: els.staffRoleSelect.value
+        role: els.staffRoleSelect.value,
+        department_id: Number(els.staffDepartmentSelect.value),
+        is_global_admin: els.staffGlobalAdminInput.checked
       });
       els.staffUserForm.reset();
       renderStatusBanner('Staff user created.');

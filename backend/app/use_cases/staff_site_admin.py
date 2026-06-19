@@ -7,17 +7,24 @@ from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
     VALID_ROLES,
     VALID_USER_STATUSES,
+    can_access_department,
+    department_id_for_new_record,
+    ensure_department_exists,
     normalize_site_input,
     require_confirmed,
+    scope_statement_to_user_department,
     site_response,
+    user_is_global_admin,
     user_response,
     validate_user_input,
 )
 
 
-def list_sites(session: Session):
+def list_sites(session: Session, user: User):
+    department_id_for_new_record(user, session)
+    statement = scope_statement_to_user_department(select(Site), Site, user)
     sites = session.exec(
-        select(Site).order_by(Site.name)
+        statement.order_by(Site.name)
     ).all()
 
     return [
@@ -28,14 +35,18 @@ def list_sites(session: Session):
 
 def create_site(data, supervisor: User, session: Session):
     site_data = normalize_site_input(data)
+    department_id = department_id_for_new_record(supervisor, session)
     existing_site = session.exec(
-        select(Site).where(Site.name == site_data["name"])
+        select(Site).where(
+            Site.name == site_data["name"],
+            Site.department_id == department_id,
+        )
     ).first()
 
     if existing_site:
         raise HTTPException(status_code=409, detail="A site with this name already exists")
 
-    site = Site(**site_data)
+    site = Site(department_id=department_id, **site_data)
     session.add(site)
     session.flush()
     add_audit_event(
@@ -59,6 +70,8 @@ def update_site(site_id: int, data, supervisor: User, session: Session):
 
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
+    if not can_access_department(supervisor, site.department_id):
+        raise HTTPException(status_code=404, detail="Site not found")
 
     fields = data.model_fields_set
     before = model_snapshot(site)
@@ -67,7 +80,11 @@ def update_site(site_id: int, data, supervisor: User, session: Session):
         if not name:
             raise HTTPException(status_code=400, detail="Site name is required")
         existing_site = session.exec(
-            select(Site).where(Site.name == name, Site.id != site.id)
+            select(Site).where(
+                Site.name == name,
+                Site.department_id == site.department_id,
+                Site.id != site.id,
+            )
         ).first()
         if existing_site:
             raise HTTPException(status_code=409, detail="A site with this name already exists")
@@ -98,13 +115,15 @@ def update_site(site_id: int, data, supervisor: User, session: Session):
     return site_response(site)
 
 
-def list_users(session: Session):
+def list_users(session: Session, supervisor: User):
+    department_id_for_new_record(supervisor, session)
+    statement = scope_statement_to_user_department(select(User), User, supervisor)
     users = session.exec(
-        select(User).order_by(User.role, User.name)
+        statement.order_by(User.role, User.name)
     ).all()
 
     return [
-        user_response(user)
+        user_response(user, session)
         for user in users
     ]
 
@@ -114,7 +133,9 @@ def create_user_account(
     email: str,
     name: str,
     password: str,
-    role: str
+    role: str,
+    department_id: int | None = None,
+    is_global_admin: bool = False,
 ):
     email, name, role = validate_user_input(email, name, password, role)
     existing_user = session.exec(
@@ -124,12 +145,15 @@ def create_user_account(
     if existing_user:
         raise HTTPException(status_code=409, detail="A user with this email already exists")
 
+    department = ensure_department_exists(session, department_id)
     user = User(
+        department_id=department.id,
         email=email,
         name=name,
         password_hash=hash_password(password),
         role=role,
-        status="active"
+        status="active",
+        is_global_admin=is_global_admin,
     )
     session.add(user)
     session.commit()
@@ -138,12 +162,26 @@ def create_user_account(
 
 
 def create_staff_user(data, supervisor: User, session: Session):
+    supervisor_department_id = department_id_for_new_record(supervisor, session)
+    if (
+        data.department_id
+        and not user_is_global_admin(supervisor)
+        and data.department_id != supervisor_department_id
+    ):
+        raise HTTPException(status_code=403, detail="Only global admins can choose another department")
+    target_department_id = (
+        data.department_id
+        if user_is_global_admin(supervisor) and data.department_id
+        else supervisor_department_id
+    )
     user = create_user_account(
         session=session,
         email=data.email,
         name=data.name,
         password=data.password,
-        role=data.role
+        role=data.role,
+        department_id=target_department_id,
+        is_global_admin=data.is_global_admin if user_is_global_admin(supervisor) else False,
     )
     add_audit_event(
         session=session,
@@ -156,7 +194,7 @@ def create_staff_user(data, supervisor: User, session: Session):
     )
     session.commit()
 
-    return user_response(user)
+    return user_response(user, session)
 
 
 def update_user(user_id: int, data, supervisor: User, session: Session):
@@ -164,6 +202,8 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
     user = session.get(User, user_id)
 
     if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not can_access_department(supervisor, user.department_id):
         raise HTTPException(status_code=404, detail="User not found")
 
     fields = data.model_fields_set
@@ -205,6 +245,23 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
             raise HTTPException(status_code=400, detail="You cannot resign your own supervisor account")
         user.status = status
 
+    if "department_id" in fields and data.department_id is not None:
+        if not user_is_global_admin(supervisor):
+            if data.department_id != user.department_id:
+                raise HTTPException(status_code=403, detail="Only global admins can move users between departments")
+        else:
+            department = ensure_department_exists(session, data.department_id)
+            user.department_id = department.id
+
+    if "is_global_admin" in fields and data.is_global_admin is not None:
+        if not user_is_global_admin(supervisor):
+            if data.is_global_admin != user.is_global_admin:
+                raise HTTPException(status_code=403, detail="Only global admins can change global admin access")
+        else:
+            if user.id == supervisor.id and data.is_global_admin is False:
+                raise HTTPException(status_code=400, detail="You cannot remove your own global admin access")
+            user.is_global_admin = data.is_global_admin
+
     if "password" in fields and data.password:
         if len(data.password.encode("utf-8")) > 72:
             raise HTTPException(status_code=400, detail="Password must be 72 bytes or shorter")
@@ -224,7 +281,7 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
     session.commit()
     session.refresh(user)
 
-    return user_response(user)
+    return user_response(user, session)
 
 
 def update_user_status(user_id: int, data, supervisor: User, session: Session):
@@ -236,6 +293,8 @@ def update_user_status(user_id: int, data, supervisor: User, session: Session):
 
     user = session.get(User, user_id)
     if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not can_access_department(supervisor, user.department_id):
         raise HTTPException(status_code=404, detail="User not found")
 
     if user.id == supervisor.id and status != "active":
@@ -257,4 +316,4 @@ def update_user_status(user_id: int, data, supervisor: User, session: Session):
     session.commit()
     session.refresh(user)
 
-    return user_response(user)
+    return user_response(user, session)

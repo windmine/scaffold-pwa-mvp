@@ -24,6 +24,7 @@ from app.upload_storage import load_upload
 from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
     attendance_record_response,
+    can_access_department,
     ensure_site_exists,
     normalize_approval_record_type,
     normalize_task_photo_urls,
@@ -517,12 +518,12 @@ def render_task_log_photo_report_page(item):
     return "".join(body)
 
 
-def export_task_logs_html(session: Session, layout: str = "daily-log", status: Optional[str] = None):
+def export_task_logs_html(session: Session, supervisor: User, layout: str = "daily-log", status: Optional[str] = None):
     layout = (layout or "daily-log").strip().lower()
     if layout not in VALID_TASK_LOG_HTML_LAYOUTS:
         raise HTTPException(status_code=400, detail="layout must be daily-log or photo-report")
 
-    records = session.exec(select_task_logs(status)).all()
+    records = session.exec(select_task_logs(status, supervisor)).all()
     items = [task_log_response(record, session) for record in records]
 
     if layout == "photo-report":
@@ -542,13 +543,13 @@ def export_task_logs_html(session: Session, layout: str = "daily-log", status: O
     return export_document(title, subtitle, "".join(pages), filename)
 
 
-def export_task_log_html(log_id: int, session: Session, layout: str = "daily-log"):
+def export_task_log_html(log_id: int, session: Session, supervisor: User, layout: str = "daily-log"):
     layout = (layout or "daily-log").strip().lower()
     if layout not in VALID_TASK_LOG_HTML_LAYOUTS:
         raise HTTPException(status_code=400, detail="layout must be daily-log or photo-report")
 
     record = session.get(TaskLog, log_id)
-    if not record:
+    if not record or not can_access_department(supervisor, record.department_id):
         raise HTTPException(status_code=404, detail="Task log not found")
 
     item = task_log_response(record, session)
@@ -1104,8 +1105,8 @@ def export_pdf_document(title: str, subtitle: str, body_flowables: list, filenam
     )
 
 
-def form_submission_pdf_items(session: Session, status: Optional[str], template: str):
-    records = session.exec(select_work_form_submissions(status)).all()
+def form_submission_pdf_items(session: Session, supervisor: User, status: Optional[str], template: str):
+    records = session.exec(select_work_form_submissions(status, supervisor)).all()
     items = [
         review_record_response("form", record, session)
         for record in records
@@ -1115,8 +1116,8 @@ def form_submission_pdf_items(session: Session, status: Optional[str], template:
     return items
 
 
-def export_form_submissions_html(session: Session, status: Optional[str] = None):
-    records = session.exec(select_work_form_submissions(status)).all()
+def export_form_submissions_html(session: Session, supervisor: User, status: Optional[str] = None):
+    records = session.exec(select_work_form_submissions(status, supervisor)).all()
     items = [
         review_record_response("form", record, session)
         for record in records
@@ -1137,11 +1138,12 @@ def export_form_submissions_html(session: Session, status: Optional[str] = None)
 
 def export_form_submissions_pdf(
     session: Session,
+    supervisor: User,
     template: str = "submitted-form",
     status: Optional[str] = None,
 ):
     template = normalize_form_pdf_template(template)
-    items = form_submission_pdf_items(session, status, template)
+    items = form_submission_pdf_items(session, supervisor, status, template)
     styles = pdf_styles()
     story = []
 
@@ -1161,9 +1163,9 @@ def export_form_submissions_pdf(
     return export_pdf_document(title, subtitle, story, filename)
 
 
-def export_form_submission_html(submission_id: int, session: Session):
+def export_form_submission_html(submission_id: int, session: Session, supervisor: User):
     record = session.get(WorkFormSubmission, submission_id)
-    if not record:
+    if not record or not can_access_department(supervisor, record.department_id):
         raise HTTPException(status_code=404, detail="Form submission not found")
 
     item = review_record_response("form", record, session)
@@ -1178,11 +1180,12 @@ def export_form_submission_html(submission_id: int, session: Session):
 def export_form_submission_pdf(
     submission_id: int,
     session: Session,
+    supervisor: User,
     template: str = "submitted-form",
 ):
     template = normalize_form_pdf_template(template)
     record = session.get(WorkFormSubmission, submission_id)
-    if not record:
+    if not record or not can_access_department(supervisor, record.department_id):
         raise HTTPException(status_code=404, detail="Form submission not found")
 
     item = review_record_response("form", record, session)
@@ -1202,19 +1205,19 @@ def export_form_submission_pdf(
     )
 
 
-def list_review_records(session: Session, status: Optional[str] = None):
+def list_review_records(session: Session, supervisor: User, status: Optional[str] = None):
     rows = []
     rows.extend(
         ("attendance", record)
-        for record in session.exec(select_attendance_records(status)).all()
+        for record in session.exec(select_attendance_records(status, supervisor)).all()
     )
     rows.extend(
         ("task", record)
-        for record in session.exec(select_task_logs(status)).all()
+        for record in session.exec(select_task_logs(status, supervisor)).all()
     )
     rows.extend(
         ("form", record)
-        for record in session.exec(select_work_form_submissions(status)).all()
+        for record in session.exec(select_work_form_submissions(status, supervisor)).all()
     )
     rows.sort(key=lambda row: row[1].created_at, reverse=True)
 
@@ -1224,11 +1227,9 @@ def list_review_records(session: Session, status: Optional[str] = None):
     ]
 
 
-def list_pending_attendance_records(session: Session):
+def list_pending_attendance_records(session: Session, supervisor: User):
     records = session.exec(
-        select(AttendanceRecord)
-        .where(AttendanceRecord.status == "pending")
-        .order_by(AttendanceRecord.created_at.desc())
+        select_attendance_records("pending", supervisor)
     ).all()
 
     return [
@@ -1237,9 +1238,9 @@ def list_pending_attendance_records(session: Session):
     ]
 
 
-def list_supervisor_attendance_records(session: Session, status: Optional[str] = None):
+def list_supervisor_attendance_records(session: Session, supervisor: User, status: Optional[str] = None):
     records = session.exec(
-        select_attendance_records(status)
+        select_attendance_records(status, supervisor)
     ).all()
 
     return [
@@ -1252,7 +1253,7 @@ def update_supervisor_attendance_record(record_id: int, data, supervisor: User, 
     require_confirmed(data.confirmed)
     record = session.get(AttendanceRecord, record_id)
 
-    if not record:
+    if not record or not can_access_department(supervisor, record.department_id):
         raise HTTPException(status_code=404, detail="Record not found")
 
     fields = data.model_fields_set
@@ -1263,7 +1264,7 @@ def update_supervisor_attendance_record(record_id: int, data, supervisor: User, 
             raise HTTPException(status_code=400, detail="record_type must be check_in or check_out")
         record.record_type = data.record_type
     if "site_id" in fields:
-        ensure_site_exists(session, data.site_id)
+        ensure_site_exists(session, data.site_id, supervisor)
         record.site_id = data.site_id
     if "latitude" in fields and data.latitude is not None:
         record.latitude = data.latitude
@@ -1279,7 +1280,7 @@ def update_supervisor_attendance_record(record_id: int, data, supervisor: User, 
     if "status" in fields and data.status is not None:
         record.status = validate_review_status(data.status)
 
-    site = ensure_site_exists(session, record.site_id)
+    site = ensure_site_exists(session, record.site_id, supervisor)
     record.distance_from_site_m, record.within_site_radius = site_distance_check(
         site,
         record.latitude,
@@ -1303,9 +1304,9 @@ def update_supervisor_attendance_record(record_id: int, data, supervisor: User, 
     return attendance_record_response(record, session)
 
 
-def export_attendance_records_csv(session: Session, status: Optional[str] = None):
+def export_attendance_records_csv(session: Session, supervisor: User, status: Optional[str] = None):
     records = session.exec(
-        select_attendance_records(status)
+        select_attendance_records(status, supervisor)
     ).all()
     output = StringIO()
     writer = csv.writer(output)
@@ -1358,9 +1359,9 @@ def export_attendance_records_csv(session: Session, status: Optional[str] = None
     )
 
 
-def list_supervisor_task_logs(session: Session, status: Optional[str] = None):
+def list_supervisor_task_logs(session: Session, supervisor: User, status: Optional[str] = None):
     records = session.exec(
-        select_task_logs(status)
+        select_task_logs(status, supervisor)
     ).all()
 
     return [
@@ -1412,18 +1413,18 @@ def task_logs_csv_response(items, filename: str):
     )
 
 
-def export_task_logs_csv(session: Session, status: Optional[str] = None):
+def export_task_logs_csv(session: Session, supervisor: User, status: Optional[str] = None):
     records = session.exec(
-        select_task_logs(status)
+        select_task_logs(status, supervisor)
     ).all()
     items = [task_log_response(record, session) for record in records]
     filename = "task-logs.csv" if not status else f"task-logs-{status}.csv"
     return task_logs_csv_response(items, filename)
 
 
-def export_task_log_csv(log_id: int, session: Session):
+def export_task_log_csv(log_id: int, session: Session, supervisor: User):
     record = session.get(TaskLog, log_id)
-    if not record:
+    if not record or not can_access_department(supervisor, record.department_id):
         raise HTTPException(status_code=404, detail="Task log not found")
 
     item = task_log_response(record, session)
@@ -1516,9 +1517,9 @@ def form_submissions_csv_response(items, filename: str):
     )
 
 
-def export_form_submission_csv(submission_id: int, session: Session):
+def export_form_submission_csv(submission_id: int, session: Session, supervisor: User):
     record = session.get(WorkFormSubmission, submission_id)
-    if not record:
+    if not record or not can_access_department(supervisor, record.department_id):
         raise HTTPException(status_code=404, detail="Form submission not found")
 
     item = review_record_response("form", record, session)
@@ -1529,7 +1530,7 @@ def update_supervisor_task_log(log_id: int, data, supervisor: User, session: Ses
     require_confirmed(data.confirmed)
     log = session.get(TaskLog, log_id)
 
-    if not log:
+    if not log or not can_access_department(supervisor, log.department_id):
         raise HTTPException(status_code=404, detail="Task log not found")
 
     fields = data.model_fields_set
@@ -1537,7 +1538,7 @@ def update_supervisor_task_log(log_id: int, data, supervisor: User, session: Ses
     if "description" in fields and data.description is not None:
         log.description = data.description
     if "site_id" in fields:
-        ensure_site_exists(session, data.site_id)
+        ensure_site_exists(session, data.site_id, supervisor)
         log.site_id = data.site_id
     if "work_date" in fields:
         log.work_date = data.work_date
@@ -1586,17 +1587,17 @@ def apply_review_decision(
     if record_type == "attendance":
         record = session.get(AttendanceRecord, record_id)
 
-        if not record:
+        if not record or not can_access_department(supervisor, record.department_id):
             raise HTTPException(status_code=404, detail="Record not found")
     elif record_type == "task":
         record = session.get(TaskLog, record_id)
 
-        if not record:
+        if not record or not can_access_department(supervisor, record.department_id):
             raise HTTPException(status_code=404, detail="Task log not found")
     else:
         record = session.get(WorkFormSubmission, record_id)
 
-        if not record:
+        if not record or not can_access_department(supervisor, record.department_id):
             raise HTTPException(status_code=404, detail="Form submission not found")
 
     before = model_snapshot(record)

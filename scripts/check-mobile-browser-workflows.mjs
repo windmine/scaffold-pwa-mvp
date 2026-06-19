@@ -30,6 +30,8 @@ const sourceWorkerSites = read('assets/js/worker-sites.js');
 const sourceWorker = read('sw.js');
 const sourceOfflineQueue = read('assets/js/offline-submissions.js');
 const sourceWorkFormFields = read('assets/js/work-form-fields.js');
+const sourceDateInputs = read('assets/js/date-inputs.js');
+const sourceStyles = read('assets/css/styles.css');
 const viteConfig = read('vite.config.js');
 
 const distIndex = hasFile('dist/index.html') ? read('dist/index.html') : '';
@@ -87,6 +89,16 @@ check('mobile viewport and camera/photo controls exist', () => (
   && sourceIndex.includes('capture="environment"')
   && sourceIndex.includes('id="taskPhoto" type="file" accept="image/*" multiple')
   && sourceIndex.includes('id="workFormPhotos" type="file" accept="image/*" multiple')
+));
+
+check('localized date inputs stay inside mobile form boundaries', () => (
+  sourceApp.includes("import { initDateInputs, setDateInputValue } from './date-inputs.js'")
+  && sourceApp.includes('initDateInputs()')
+  && sourceDateInputs.includes("input[type=\"date\"]")
+  && sourceDateInputs.includes("display.textContent = input.value || '-'")
+  && sourceStyles.includes('.date-input-shell > input[type="date"]')
+  && sourceStyles.includes('opacity: 0')
+  && !sourceStyles.includes('::-webkit-date-and-time-value')
 ));
 
 check('theme toggle is persistent and available before paint', () => (

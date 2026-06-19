@@ -1,5 +1,6 @@
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'vite'
@@ -7,6 +8,8 @@ import react from '@vitejs/plugin-react'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url))
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000'
+const useHttpsDevServer = process.env.VITE_DISABLE_HTTPS !== 'true'
 
 const pwaAssetCopies = [
   ['sw.js', 'sw.js'],
@@ -17,6 +20,7 @@ const pwaAssetCopies = [
   ['assets/js/api-client.js', 'assets/js/api-client.js'],
   ['assets/js/db.js', 'assets/js/db.js'],
   ['assets/js/history.js', 'assets/js/history.js'],
+  ['assets/js/i18n.js', 'assets/js/i18n.js'],
   ['assets/js/mock-api.js', 'assets/js/mock-api.js'],
   ['assets/js/offline-submissions.js', 'assets/js/offline-submissions.js'],
   ['assets/js/photo-viewer.js', 'assets/js/photo-viewer.js'],
@@ -66,9 +70,9 @@ function copyPwaAssets() {
 export default defineConfig({
   plugins: [
     react(),
-    basicSsl(),
+    useHttpsDevServer ? basicSsl() : null,
     copyPwaAssets()
-  ],
+  ].filter(Boolean),
 
   server: {
     host: '0.0.0.0',
@@ -76,12 +80,12 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: apiProxyTarget,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       },
       '/uploads': {
-        target: 'http://127.0.0.1:8000',
+        target: apiProxyTarget,
         changeOrigin: true
       }
     }
@@ -93,12 +97,12 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: apiProxyTarget,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       },
       '/uploads': {
-        target: 'http://127.0.0.1:8000',
+        target: apiProxyTarget,
         changeOrigin: true
       }
     }

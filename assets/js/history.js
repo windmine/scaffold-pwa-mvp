@@ -7,6 +7,7 @@ import { getWorkerRecords as getLocalWorkerRecords } from './mock-api.js';
 import { normaliseRecordPhotoUrls } from './offline-submissions.js';
 import { dateInputValue, formatDateTime, todayDateInput, escapeHtml } from './utils.js';
 import { formatWorkFormAnswer } from './work-form-fields.js';
+import { setDateInputValue } from './date-inputs.js';
 
 function getBackendSiteId(siteId) {
   if (!siteId) return null;
@@ -269,7 +270,7 @@ export function createHistoryModule({
     els.historySearchInput.value = '';
     els.historyTypeFilter.value = '';
     els.historyStatusFilter.value = '';
-    els.historyDateFilter.value = '';
+    setDateInputValue(els.historyDateFilter, '');
     renderFilteredHistory();
   }
 

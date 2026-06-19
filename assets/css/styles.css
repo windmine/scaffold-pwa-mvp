@@ -248,6 +248,49 @@ button:disabled {
   justify-content: flex-end;
 }
 
+.user-context {
+  flex: 0 1 280px;
+  display: grid;
+  gap: 5px;
+  align-content: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(200, 169, 106, 0.48);
+  border-left: 5px solid var(--champagne);
+  border-radius: var(--radius);
+  background: rgba(217, 233, 248, 0.08);
+  color: var(--topbar-text);
+  box-shadow: 0 12px 28px rgba(3, 7, 13, 0.16);
+}
+
+.user-context-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 900;
+}
+
+.user-context-group {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.user-context-group strong {
+  color: var(--champagne);
+}
+
+.user-context-badge {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: rgba(62, 201, 143, 0.14);
+  color: var(--badge-approved-text);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
 .topbar .ghost {
   color: var(--topbar-text);
   background: rgba(217, 233, 248, 0.08);
@@ -257,6 +300,19 @@ button:disabled {
 .topbar .ghost:hover {
   background: rgba(217, 233, 248, 0.16);
   border-color: rgba(217, 233, 248, 0.78);
+}
+
+.language-toggle {
+  min-width: 104px;
+  background: linear-gradient(180deg, var(--champagne), #9f7835);
+  color: #05070b;
+  border: 1px solid rgba(255, 236, 180, 0.72);
+  box-shadow: 0 14px 30px rgba(200, 169, 106, 0.28);
+}
+
+.language-toggle:hover {
+  background: linear-gradient(180deg, #f0d28f, #ad843d);
+  border-color: rgba(255, 241, 198, 0.94);
 }
 
 .layout {
@@ -520,6 +576,7 @@ p,
 
 label {
   display: grid;
+  min-width: 0;
   gap: 7px;
   font-weight: 800;
   color: var(--brand-blue-soft);
@@ -529,6 +586,7 @@ input,
 textarea,
 select {
   width: 100%;
+  min-width: 0;
   min-height: 46px;
   border: 1px solid var(--input-border);
   border-radius: 6px;
@@ -537,6 +595,62 @@ select {
   color: var(--input-text);
   box-shadow: 0 1px 0 rgba(8, 28, 58, 0.02);
   transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.date-input-shell {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  overflow: hidden;
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  background: var(--input-background);
+  color: var(--input-text);
+  box-shadow: 0 1px 0 rgba(8, 28, 58, 0.02);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.date-input-shell:focus-within {
+  outline: 3px solid rgba(127, 181, 255, 0.72);
+  outline-offset: 2px;
+  border-color: var(--brand-blue);
+  box-shadow: 0 0 0 3px rgba(9, 108, 245, 0.12);
+}
+
+.date-input-display {
+  min-width: 0;
+  align-self: center;
+  overflow: hidden;
+  padding: 0.8rem 0.9rem;
+  color: var(--input-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.date-input-shell.is-empty .date-input-display {
+  color: var(--input-placeholder);
+}
+
+.date-input-shell > input[type="date"] {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.date-input-shell > input[type="date"]:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 input::placeholder,
@@ -1260,6 +1374,11 @@ body.viewer-open {
     clip: auto;
     clip-path: none;
     white-space: normal;
+  }
+
+  .user-context {
+    width: 100%;
+    flex-basis: auto;
   }
 
   .topbar-actions button,

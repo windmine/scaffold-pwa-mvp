@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from app.models import AttendanceRecord, User
 from app.use_cases.common import (
     attendance_record_response,
+    department_id_for_new_record,
     ensure_site_exists,
     normalize_client_submission_id,
     require_worker,
@@ -21,7 +22,7 @@ def create_attendance(data, user: User, session: Session):
             detail="record_type must be check_in or check_out"
         )
 
-    site = ensure_site_exists(session, data.site_id)
+    site = ensure_site_exists(session, data.site_id, user)
     validate_photo_url(data.photo_url)
     client_submission_id = normalize_client_submission_id(data.client_submission_id)
     if client_submission_id:
@@ -41,6 +42,7 @@ def create_attendance(data, user: User, session: Session):
     )
 
     record = AttendanceRecord(
+        department_id=department_id_for_new_record(user, session),
         worker_id=user.id,
         site_id=data.site_id,
         record_type=data.record_type,
@@ -77,7 +79,7 @@ def update_my_attendance_record(record_id: int, data, user: User, session: Sessi
             raise HTTPException(status_code=400, detail="record_type must be check_in or check_out")
         record.record_type = data.record_type
     if "site_id" in fields:
-        ensure_site_exists(session, data.site_id)
+        ensure_site_exists(session, data.site_id, user)
         record.site_id = data.site_id
     if "latitude" in fields and data.latitude is not None:
         record.latitude = data.latitude
@@ -91,7 +93,7 @@ def update_my_attendance_record(record_id: int, data, user: User, session: Sessi
         validate_photo_url(data.photo_url)
         record.photo_url = data.photo_url
 
-    site = ensure_site_exists(session, record.site_id)
+    site = ensure_site_exists(session, record.site_id, user)
     record.distance_from_site_m, record.within_site_radius = site_distance_check(
         site,
         record.latitude,

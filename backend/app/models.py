@@ -5,9 +5,21 @@ from sqlalchemy import Column, Text
 from sqlmodel import SQLModel, Field
 
 
+class Department(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    name: str = Field(index=True, unique=True)
+    status: str = Field(default="active", index=True)
+
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
+    department_id: Optional[int] = Field(default=None, index=True)
     email: str = Field(index=True, unique=True)
     name: str
     password_hash: str
@@ -15,11 +27,13 @@ class User(SQLModel, table=True):
     # "worker" or "supervisor"
     role: str = Field(default="worker")
     status: str = Field(default="active", index=True)
+    is_global_admin: bool = Field(default=False, index=True)
 
 
 class Site(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
+    department_id: Optional[int] = Field(default=None, index=True)
     name: str
     address: Optional[str] = None
     latitude: float
@@ -32,6 +46,7 @@ class Site(SQLModel, table=True):
 class AttendanceRecord(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
+    department_id: Optional[int] = Field(default=None, index=True)
     worker_id: int = Field(index=True)
     site_id: Optional[int] = Field(default=None, index=True)
 
@@ -59,6 +74,7 @@ class AttendanceRecord(SQLModel, table=True):
 class TaskLog(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
+    department_id: Optional[int] = Field(default=None, index=True)
     worker_id: int = Field(index=True)
     site_id: Optional[int] = Field(default=None, index=True)
 
@@ -79,6 +95,7 @@ class TaskLog(SQLModel, table=True):
 class TaskTemplate(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
+    department_id: Optional[int] = Field(default=None, index=True)
     worker_id: int = Field(index=True)
     site_id: Optional[int] = Field(default=None, index=True)
 
@@ -95,6 +112,7 @@ class TaskTemplate(SQLModel, table=True):
 class WorkForm(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
+    department_id: Optional[int] = Field(default=None, index=True)
     name: str = Field(index=True)
     description: Optional[str] = None
     fields_json: str
@@ -109,6 +127,7 @@ class WorkForm(SQLModel, table=True):
 class WorkFormSubmission(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
+    department_id: Optional[int] = Field(default=None, index=True)
     form_id: int = Field(index=True)
     worker_id: int = Field(index=True)
     site_id: Optional[int] = Field(default=None, index=True)
@@ -128,6 +147,7 @@ class WorkFormSubmission(SQLModel, table=True):
 class AuditEvent(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
+    department_id: Optional[int] = Field(default=None, index=True)
     actor_id: int = Field(index=True)
     action: str = Field(index=True)
     entity_type: str = Field(index=True)
