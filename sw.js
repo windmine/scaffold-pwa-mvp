@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'leader-field-v51';
+const CACHE_VERSION = 'leader-field-v53';
 const APP_SHELL = [
   '/',
   '/index.html',

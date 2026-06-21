@@ -82,6 +82,7 @@
           <div class="form-divider"></div>
 
           <h3>Create staff account</h3>
+          <p class="muted">Verify your email before choosing a department.</p>
           <form id="registerForm" class="form-grid">
             <label>
               Name
@@ -91,11 +92,40 @@
               Email
               <input id="registerEmailInput" type="email" autocomplete="email" required />
             </label>
-            <label>
-              Password
-              <input id="registerPasswordInput" type="password" minlength="8" autocomplete="new-password" required />
-            </label>
-            <button type="submit" class="secondary">Create account</button>
+            <button id="sendRegistrationCodeButton" type="button" class="secondary">Send verification code</button>
+
+            <div id="registrationCodeFields" class="form-grid hidden">
+              <label>
+                Verification code
+                <input
+                  id="registrationCodeInput"
+                  type="text"
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  maxlength="6"
+                  disabled
+                  required
+                />
+              </label>
+              <div class="form-actions">
+                <button id="verifyRegistrationCodeButton" type="button">Verify email</button>
+                <button id="restartRegistrationButton" type="button" class="ghost">Start over</button>
+              </div>
+            </div>
+
+            <div id="registrationCompletionFields" class="form-grid hidden">
+              <p class="registration-verified">Email verified. Choose your department. A supervisor must activate the account.</p>
+              <label>
+                Department
+                <select id="registerDepartmentSelect" disabled required></select>
+              </label>
+              <label>
+                Password
+                <input id="registerPasswordInput" type="password" minlength="8" autocomplete="new-password" disabled required />
+              </label>
+              <button type="submit" class="secondary">Create account</button>
+            </div>
           </form>
         </section>
 

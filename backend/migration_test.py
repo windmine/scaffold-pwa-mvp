@@ -12,6 +12,7 @@ from app.migrations import adapt_statement_for_dialect, run_migrations  # noqa: 
 
 EXPECTED_TABLES = {
     "department",
+    "registrationverification",
     "user",
     "site",
     "attendancerecord",
@@ -51,7 +52,12 @@ def assert_migration_recorded(engine):
             "SELECT version FROM schema_migrations ORDER BY version"
         ).all()
 
-    expected_versions = ["0001_initial_schema", "0002_work_form_photo_metadata", "0003_departments"]
+    expected_versions = [
+        "0001_initial_schema",
+        "0002_work_form_photo_metadata",
+        "0003_departments",
+        "0004_registration_verification",
+    ]
     if [row[0] for row in rows] != expected_versions:
         raise AssertionError(f"schema_migrations: expected {expected_versions}")
 
@@ -81,7 +87,12 @@ def test_fresh_database():
         engine = make_engine(Path(directory) / "fresh.db")
 
         applied = run_migrations(engine)
-        expected_versions = ["0001_initial_schema", "0002_work_form_photo_metadata", "0003_departments"]
+        expected_versions = [
+            "0001_initial_schema",
+            "0002_work_form_photo_metadata",
+            "0003_departments",
+            "0004_registration_verification",
+        ]
         if applied != expected_versions:
             raise AssertionError(f"fresh migration: expected {expected_versions}, got {applied}")
 
@@ -105,6 +116,11 @@ def test_fresh_database():
             {"department_id", "photo_metadata"},
         )
         assert_contains("fresh user columns", columns(engine, "user"), {"department_id", "is_global_admin"})
+        assert_contains(
+            "fresh registration verification columns",
+            columns(engine, "registrationverification"),
+            {"email", "name", "code_hash", "token_hash", "attempts", "expires_at", "verified_at", "consumed_at"},
+        )
         assert_contains("fresh site columns", columns(engine, "site"), {"department_id"})
         assert_contains("fresh workform columns", columns(engine, "workform"), {"department_id"})
         assert_migration_recorded(engine)
@@ -174,12 +190,22 @@ def test_legacy_database():
             )
 
         applied = run_migrations(engine)
-        expected_versions = ["0001_initial_schema", "0002_work_form_photo_metadata", "0003_departments"]
+        expected_versions = [
+            "0001_initial_schema",
+            "0002_work_form_photo_metadata",
+            "0003_departments",
+            "0004_registration_verification",
+        ]
         if applied != expected_versions:
             raise AssertionError(f"legacy migration: expected {expected_versions}, got {applied}")
 
         assert_contains("legacy tables", inspect(engine).get_table_names(), EXPECTED_TABLES)
         assert_contains("legacy user columns", columns(engine, "user"), {"status", "department_id", "is_global_admin"})
+        assert_contains(
+            "legacy registration verification columns",
+            columns(engine, "registrationverification"),
+            {"email", "name", "code_hash", "token_hash", "attempts", "expires_at", "verified_at", "consumed_at"},
+        )
         assert_contains(
             "legacy tasklog columns",
             columns(engine, "tasklog"),

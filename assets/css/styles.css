@@ -510,6 +510,15 @@ p,
   background: var(--line);
 }
 
+.registration-verified {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 4px solid var(--success);
+  background: rgba(62, 201, 143, 0.1);
+  color: var(--text);
+  font-weight: 800;
+}
+
 .optional-details {
   border: 1px solid var(--line);
   border-radius: var(--radius);

@@ -17,6 +17,8 @@ from app.schemas import (
     AttendanceUpdateRequest,
     LoginRequest,
     RegisterRequest,
+    RegistrationStartRequest,
+    RegistrationVerifyRequest,
     SiteCreateRequest,
     SiteUpdateRequest,
     TaskLogCreate,
@@ -41,6 +43,7 @@ from app.auth import (
 )
 from app.use_cases import attendance as attendance_use_cases
 from app.use_cases import audit as audit_use_cases
+from app.use_cases import registration as registration_use_cases
 from app.use_cases import staff_site_admin as staff_site_admin_use_cases
 from app.use_cases import supervisor_review as supervisor_review_use_cases
 from app.use_cases import task_logs as task_log_use_cases
@@ -494,27 +497,29 @@ def login(
 @app.post("/auth/register")
 def register(
     data: RegisterRequest,
-    response: Response,
     session: Session = Depends(get_session)
 ):
-    user = staff_site_admin_use_cases.create_user_account(
-        session=session,
-        email=data.email,
-        name=data.name,
-        password=data.password,
-        role="worker"
-    )
-    token = create_access_token({
-        "sub": user.email,
-        "role": user.role
-    })
-    set_auth_cookie(response, token)
-
+    user = registration_use_cases.complete_registration(data, session)
     return {
-        "access_token": token,
-        "token_type": "bearer",
-        "user": user_response(user, session)
+        "user": user_response(user, session),
+        "message": "Account created. A supervisor must activate it before you can sign in.",
     }
+
+
+@app.post("/auth/registration/start")
+def start_registration(
+    data: RegistrationStartRequest,
+    session: Session = Depends(get_session),
+):
+    return registration_use_cases.start_registration(data, session)
+
+
+@app.post("/auth/registration/verify")
+def verify_registration(
+    data: RegistrationVerifyRequest,
+    session: Session = Depends(get_session),
+):
+    return registration_use_cases.verify_registration(data, session)
 
 
 @app.post("/auth/logout")

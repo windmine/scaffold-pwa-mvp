@@ -136,8 +136,12 @@ def create_user_account(
     role: str,
     department_id: int | None = None,
     is_global_admin: bool = False,
+    status: str = "active",
+    commit: bool = True,
 ):
     email, name, role = validate_user_input(email, name, password, role)
+    if status not in VALID_USER_STATUSES:
+        raise HTTPException(status_code=400, detail="status must be active or resigned")
     existing_user = session.exec(
         select(User).where(User.email == email)
     ).first()
@@ -152,12 +156,15 @@ def create_user_account(
         name=name,
         password_hash=hash_password(password),
         role=role,
-        status="active",
+        status=status,
         is_global_admin=is_global_admin,
     )
     session.add(user)
-    session.commit()
-    session.refresh(user)
+    if commit:
+        session.commit()
+        session.refresh(user)
+    else:
+        session.flush()
     return user
 
 

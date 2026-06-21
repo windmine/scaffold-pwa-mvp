@@ -7,6 +7,8 @@ import {
 import {
   login as backendLogin,
   register as backendRegister,
+  startRegistration as backendStartRegistration,
+  verifyRegistration as backendVerifyRegistration,
   getSession as getBackendSession,
   getCurrentUser,
   getDepartments as getBackendDepartments,
@@ -69,7 +71,9 @@ const state = {
   supervisorRecords: {
     reviewRecords: [],
     auditEvents: []
-  }
+  },
+  registrationVerificationId: null,
+  registrationToken: ''
 };
 
 const els = {
@@ -95,6 +99,13 @@ const els = {
   registerNameInput: document.getElementById('registerNameInput'),
   registerEmailInput: document.getElementById('registerEmailInput'),
   registerPasswordInput: document.getElementById('registerPasswordInput'),
+  sendRegistrationCodeButton: document.getElementById('sendRegistrationCodeButton'),
+  registrationCodeFields: document.getElementById('registrationCodeFields'),
+  registrationCodeInput: document.getElementById('registrationCodeInput'),
+  verifyRegistrationCodeButton: document.getElementById('verifyRegistrationCodeButton'),
+  restartRegistrationButton: document.getElementById('restartRegistrationButton'),
+  registrationCompletionFields: document.getElementById('registrationCompletionFields'),
+  registerDepartmentSelect: document.getElementById('registerDepartmentSelect'),
   attendanceSite: document.getElementById('attendanceSite'),
   attendanceNotes: document.getElementById('attendanceNotes'),
   attendanceDetails: document.getElementById('attendanceDetails'),
@@ -389,6 +400,9 @@ function bindEvents() {
   els.themeToggleButton.addEventListener('click', handleThemeToggle);
   els.loginForm.addEventListener('submit', handleLogin);
   els.registerForm.addEventListener('submit', handleRegister);
+  els.sendRegistrationCodeButton.addEventListener('click', handleRegistrationStart);
+  els.verifyRegistrationCodeButton.addEventListener('click', handleRegistrationVerify);
+  els.restartRegistrationButton.addEventListener('click', resetRegistrationFlow);
   els.logoutButton.addEventListener('click', handleLogout);
   workerAttendance.bindEvents();
   workerLog.bindEvents();
@@ -576,6 +590,7 @@ async function handleLogin(event) {
   try {
     renderStatusBanner('Signing in with the backend...');
     state.user = await backendLogin(els.emailInput.value.trim(), els.passwordInput.value);
+    resetRegistrationFlow();
     state.departments = await loadDepartments();
     state.sites = await loadSites();
     fillSiteSelects();
@@ -587,21 +602,105 @@ async function handleLogin(event) {
 
 async function handleRegister(event) {
   event.preventDefault();
+  if (!state.registrationToken) {
+    renderStatusBanner('Verify your email before creating an account.', true);
+    return;
+  }
+
   try {
     renderStatusBanner('Creating staff account...');
-    state.user = await backendRegister(
-      els.registerNameInput.value.trim(),
-      els.registerEmailInput.value.trim(),
-      els.registerPasswordInput.value
+    const result = await backendRegister(
+      state.registrationToken,
+      els.registerPasswordInput.value,
+      Number(els.registerDepartmentSelect.value)
     );
-    els.registerForm.reset();
-    state.departments = await loadDepartments();
-    state.sites = await loadSites();
-    fillSiteSelects();
+    resetRegistrationFlow();
+    state.user = null;
     renderApp();
+    renderStatusBanner(
+      result.message || 'Account created. A supervisor must activate it before you can sign in.'
+    );
   } catch (error) {
     renderStatusBanner(error.message, false);
   }
+}
+
+async function handleRegistrationStart() {
+  const name = els.registerNameInput.value.trim();
+  const email = els.registerEmailInput.value.trim();
+  if (!name || !email || !els.registerEmailInput.checkValidity()) {
+    els.registerNameInput.reportValidity();
+    els.registerEmailInput.reportValidity();
+    return;
+  }
+
+  try {
+    renderStatusBanner('Sending verification code...');
+    const result = await backendStartRegistration(name, email);
+    state.registrationVerificationId = result.verification_id;
+    state.registrationToken = '';
+    els.registerNameInput.readOnly = true;
+    els.registerEmailInput.readOnly = true;
+    els.sendRegistrationCodeButton.classList.add('hidden');
+    els.registrationCodeFields.classList.remove('hidden');
+    els.registrationCodeInput.disabled = false;
+    els.registrationCodeInput.value = result.dev_verification_code || '';
+    els.registrationCodeInput.focus();
+    renderStatusBanner(
+      result.dev_verification_code
+        ? `Verification code sent. Development code: ${result.dev_verification_code}`
+        : 'Verification code sent. Check your email.'
+    );
+  } catch (error) {
+    renderStatusBanner(error.message, true);
+  }
+}
+
+async function handleRegistrationVerify() {
+  if (!state.registrationVerificationId || !els.registrationCodeInput.checkValidity()) {
+    els.registrationCodeInput.reportValidity();
+    return;
+  }
+
+  try {
+    renderStatusBanner('Verifying email...');
+    const result = await backendVerifyRegistration(
+      state.registrationVerificationId,
+      els.registrationCodeInput.value.trim()
+    );
+    state.registrationToken = result.verification_token;
+    state.departments = result.departments || [];
+    els.registerDepartmentSelect.innerHTML = [
+      '<option value="">Select a department</option>',
+      ...state.departments.map(
+        (department) => `<option value="${department.id}">${escapeHtml(department.name)}</option>`
+      )
+    ].join('');
+    els.registrationCodeFields.classList.add('hidden');
+    els.registrationCodeInput.disabled = true;
+    els.registrationCompletionFields.classList.remove('hidden');
+    els.registerDepartmentSelect.disabled = false;
+    els.registerPasswordInput.disabled = false;
+    els.registerPasswordInput.focus();
+    renderStatusBanner('Email verified. Choose your department. A supervisor must activate the account.');
+  } catch (error) {
+    renderStatusBanner(error.message, true);
+  }
+}
+
+function resetRegistrationFlow() {
+  state.registrationVerificationId = null;
+  state.registrationToken = '';
+  els.registerForm.reset();
+  els.registerNameInput.readOnly = false;
+  els.registerEmailInput.readOnly = false;
+  els.sendRegistrationCodeButton.classList.remove('hidden');
+  els.registrationCodeFields.classList.add('hidden');
+  els.registrationCodeInput.disabled = true;
+  els.registrationCompletionFields.classList.add('hidden');
+  els.registerDepartmentSelect.disabled = true;
+  els.registerDepartmentSelect.innerHTML = '';
+  els.registerPasswordInput.disabled = true;
 }
 
 function handleLogout() {

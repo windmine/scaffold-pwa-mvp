@@ -30,6 +30,24 @@ class User(SQLModel, table=True):
     is_global_admin: bool = Field(default=False, index=True)
 
 
+class RegistrationVerification(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    email: str = Field(index=True)
+    name: str
+    code_hash: str
+    token_hash: Optional[str] = Field(default=None, index=True)
+    attempts: int = Field(default=0)
+
+    expires_at: datetime = Field(index=True)
+    verified_at: Optional[datetime] = None
+    consumed_at: Optional[datetime] = None
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+
+
 class Site(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 

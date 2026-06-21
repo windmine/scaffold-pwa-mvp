@@ -69,6 +69,12 @@ check('production HTML keeps stable PWA links', () => (
   'updateButton',
   'loginForm',
   'registerForm',
+  'sendRegistrationCodeButton',
+  'registrationCodeFields',
+  'registrationCodeInput',
+  'verifyRegistrationCodeButton',
+  'registrationCompletionFields',
+  'registerDepartmentSelect',
   'workerView',
   'supervisorView',
   'attendanceSite',
@@ -99,6 +105,17 @@ check('localized date inputs stay inside mobile form boundaries', () => (
   && sourceStyles.includes('.date-input-shell > input[type="date"]')
   && sourceStyles.includes('opacity: 0')
   && !sourceStyles.includes('::-webkit-date-and-time-value')
+));
+
+check('verified registration gates department selection', () => (
+  sourceApiClient.includes('"/auth/registration/start"')
+  && sourceApiClient.includes('"/auth/registration/verify"')
+  && sourceApiClient.includes('verification_token')
+  && sourceApp.includes('handleRegistrationStart')
+  && sourceApp.includes('handleRegistrationVerify')
+  && sourceApp.includes('registrationCompletionFields.classList.remove')
+  && sourceApp.includes('<option value="">Select a department</option>')
+  && sourceIndex.includes('registerDepartmentSelect" disabled required')
 ));
 
 check('theme toggle is persistent and available before paint', () => (

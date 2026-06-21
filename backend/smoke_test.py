@@ -176,6 +176,111 @@ def main():
 
         now = datetime.now(timezone.utc)
         timestamp = now.strftime("%Y%m%d%H%M%S%f")
+        registration_email = f"verified-worker-{timestamp}@example.com"
+        registration_start = assert_status(
+            "start verified registration",
+            request(
+                "POST",
+                "/auth/registration/start",
+                {"name": "Verified Worker", "email": registration_email},
+            ),
+            200,
+        )
+        verification_code = registration_start.get("dev_verification_code")
+        if not verification_code:
+            raise AssertionError("start verified registration: expected development verification code")
+        assert_status(
+            "direct registration cannot bypass verification",
+            request(
+                "POST",
+                "/auth/register",
+                {
+                    "name": "Bypass Worker",
+                    "email": f"bypass-{timestamp}@example.com",
+                    "password": "Passw0rd!",
+                },
+            ),
+            422,
+        )
+        assert_status(
+            "reject incorrect registration code",
+            request(
+                "POST",
+                "/auth/registration/verify",
+                {
+                    "verification_id": registration_start["verification_id"],
+                    "code": "000000" if verification_code != "000000" else "999999",
+                },
+            ),
+            400,
+        )
+        registration_verification = assert_status(
+            "verify registration email",
+            request(
+                "POST",
+                "/auth/registration/verify",
+                {
+                    "verification_id": registration_start["verification_id"],
+                    "code": verification_code,
+                },
+            ),
+            200,
+        )
+        verified_department_names = [
+            department["name"]
+            for department in registration_verification["departments"]
+        ]
+        if verified_department_names != expected_departments:
+            raise AssertionError(
+                "verify registration email: expected department choices after verification"
+            )
+        registered_worker = assert_status(
+            "complete verified registration with department",
+            request(
+                "POST",
+                "/auth/register",
+                {
+                    "verification_token": registration_verification["verification_token"],
+                    "password": "Passw0rd!",
+                    "department_id": mutual_department["id"],
+                },
+            ),
+            200,
+        )
+        if registered_worker["user"].get("department_name") != "Mutual":
+            raise AssertionError(
+                "complete verified registration with department: expected Mutual department"
+            )
+        if registered_worker["user"].get("status") != "resigned":
+            raise AssertionError(
+                "complete verified registration with department: expected resigned status"
+            )
+        if registered_worker.get("access_token"):
+            raise AssertionError(
+                "complete verified registration with department: resigned account must not receive a token"
+            )
+        assert_status(
+            "verified registration token is one time use",
+            request(
+                "POST",
+                "/auth/register",
+                {
+                    "verification_token": registration_verification["verification_token"],
+                    "password": "Passw0rd!",
+                    "department_id": mutual_department["id"],
+                },
+            ),
+            400,
+        )
+        assert_status(
+            "newly registered worker cannot login before activation",
+            request(
+                "POST",
+                "/auth/login",
+                {"email": registration_email, "password": "Passw0rd!"},
+            ),
+            403,
+        )
         signature_smoke_url = upload_test_image("upload smoke signature", worker_token, f"signature-smoke-{timestamp}.png")
         form_smoke_photo_url = upload_test_image("upload smoke form photo", worker_token, f"form-smoke-{timestamp}.png")
         signature_reject_url = upload_test_image("upload rejectable smoke signature", worker_token, f"signature-smoke-reject-{timestamp}.png")

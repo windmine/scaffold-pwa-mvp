@@ -10,10 +10,20 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=72)
 
 
-class RegisterRequest(BaseModel):
+class RegistrationStartRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     name: str = Field(min_length=1, max_length=120)
+
+
+class RegistrationVerifyRequest(BaseModel):
+    verification_id: int = Field(ge=1)
+    code: str = Field(pattern=r"^\d{6}$")
+
+
+class RegisterRequest(BaseModel):
+    verification_token: str = Field(min_length=20, max_length=200)
     password: str = Field(min_length=8, max_length=72)
+    department_id: int = Field(ge=1)
 
 
 class UserCreateRequest(BaseModel):

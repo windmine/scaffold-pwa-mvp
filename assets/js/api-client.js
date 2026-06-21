@@ -165,15 +165,37 @@ export async function login(email, password) {
   return normalizeUser(data.user);
 }
 
-export async function register(name, email, password) {
+export async function startRegistration(name, email) {
+  return await apiFetch("/auth/registration/start", {
+    method: "POST",
+    body: JSON.stringify({ name, email })
+  });
+}
+
+export async function verifyRegistration(verificationId, code) {
+  return await apiFetch("/auth/registration/verify", {
+    method: "POST",
+    body: JSON.stringify({
+      verification_id: verificationId,
+      code
+    })
+  });
+}
+
+export async function register(verificationToken, password, departmentId) {
   const data = await apiFetch("/auth/register", {
     method: "POST",
-    body: JSON.stringify({ name, email, password })
+    body: JSON.stringify({
+      verification_token: verificationToken,
+      password,
+      department_id: departmentId
+    })
   });
 
-  saveSession(data.access_token, data.user);
-
-  return normalizeUser(data.user);
+  return {
+    user: normalizeUser(data.user),
+    message: data.message
+  };
 }
 
 export async function getCurrentUser() {

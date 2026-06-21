@@ -52,7 +52,7 @@ Run the real-phone checklist against the live Firebase Hosting / Cloud Run path,
 ### Worker
 
 - Sign in with a backend account.
-- Register a new staff account.
+- Register a new staff account for supervisor activation.
 - Select a job/site.
 - Capture browser geolocation.
 - Check in and check out with GPS coordinates, accuracy, site radius result, notes, and optional attendance photo.
@@ -582,6 +582,8 @@ GET  /uploads/{file} authenticated; workers can access their own uploaded/refere
 
 ```text
 POST /auth/login
+POST /auth/registration/start
+POST /auth/registration/verify
 POST /auth/register
 POST /auth/logout
 GET  /auth/me
@@ -589,6 +591,15 @@ GET  /departments
 ```
 
 `GET /departments` returns the fixed active department list: Leader, Mutual, MC, Stech, BOP.
+
+Worker self-registration is a three-step flow:
+
+1. `POST /auth/registration/start` sends a six-digit email verification code.
+2. `POST /auth/registration/verify` verifies that code and returns a short-lived registration token plus the active department choices.
+3. `POST /auth/register` accepts the registration token, password, and selected `department_id`, then creates the worker with `resigned` status.
+4. A supervisor reviews and reactivates the worker before the worker can sign in.
+
+Verification codes expire, are attempt-limited, and cannot be reused. In local development, `REGISTRATION_EXPOSE_CODE=true` returns `dev_verification_code` so the flow can be tested without SMTP. Production never exposes the code and requires `SMTP_HOST` and `SMTP_FROM_EMAIL`.
 
 ### Worker Attendance
 
