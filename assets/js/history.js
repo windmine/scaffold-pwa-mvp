@@ -1,7 +1,8 @@
 import {
   getMyFormSubmissions as getBackendMyFormSubmissions,
   getMyRecords as getBackendMyAttendanceRecords,
-  getMyTaskLogs as getBackendMyTaskLogs
+  getMyTaskLogs as getBackendMyTaskLogs,
+  getMyTeamWorkLogs as getBackendMyTeamWorkLogs
 } from './api-client.js';
 import { getWorkerRecords as getLocalWorkerRecords } from './mock-api.js';
 import { normaliseRecordPhotoUrls } from './offline-submissions.js';
@@ -56,6 +57,8 @@ function recordSearchText(record) {
     record.action,
     record.status,
     record.syncStatus,
+    record.entrySource,
+    record.createdBySupervisorName,
     record.withinSiteRadius === true ? 'inside site radius' : '',
     record.withinSiteRadius === false ? 'outside site radius' : '',
     record.distanceFromSiteM,
@@ -67,6 +70,12 @@ function recordSearchText(record) {
     record.safetyNotes,
     record.workDate,
     record.hoursWorked,
+    ...(record.entries || []).flatMap((entry) => [
+      entry.worker_name,
+      entry.site_name,
+      entry.work_date,
+      entry.work_description
+    ]),
     formAnswerSummary(record)
   ].join(' ').toLowerCase();
 }
@@ -75,6 +84,8 @@ export function filterRecords(records, filters) {
   const query = filters.query.trim().toLowerCase();
 
   return records.filter((record) => {
+    const departmentId = record.departmentId ?? filters.fallbackDepartment;
+    if (filters.department && String(departmentId) !== String(filters.department)) return false;
     if (filters.type && record.type !== filters.type) return false;
     if (filters.date && getRecordDate(record) !== filters.date) return false;
     if (filters.status && record.status !== filters.status && record.syncStatus !== filters.status) return false;
@@ -93,16 +104,20 @@ export function createHistoryModule({
   handleWorkerEditRecord,
   handleWorkerDeleteRecord,
   handleSupervisorEditRecord,
+  handleSupervisorTrashRecord,
   handleSupervisorDecision,
   handleSupervisorExportRecord
 }) {
   function fromBackendAttendanceRecord(record) {
     const site = state.sites.find((item) => getBackendSiteId(item.id) === record.site_id);
+    const hasLocation = record.latitude != null && record.longitude != null;
 
     return {
       id: record.id,
       backendRecordId: record.id,
       type: 'attendance',
+      departmentId: record.department_id,
+      departmentName: record.department_name || '',
       userId: record.worker_id,
       userName: record.worker_name || `Worker ${record.worker_id}`,
       siteId: record.site_id,
@@ -111,13 +126,21 @@ export function createHistoryModule({
       notes: record.note || '',
       photoDataUrl: '',
       photoUrl: record.photo_url || '',
-      location: {
+      location: hasLocation ? {
         latitude: record.latitude,
         longitude: record.longitude,
         accuracy: record.accuracy
-      },
+      } : null,
       distanceFromSiteM: record.distance_from_site_m,
       withinSiteRadius: record.within_site_radius,
+      entrySource: record.entry_source || 'worker',
+      createdBySupervisorId: record.created_by_supervisor_id,
+      createdBySupervisorName: record.created_by_supervisor_name || '',
+      deletedBySupervisorId: record.deleted_by_supervisor_id,
+      deletedBySupervisorName: record.deleted_by_supervisor_name || '',
+      deletionReason: record.deletion_reason || '',
+      deletedAt: record.deleted_at || '',
+      purgeAt: record.purge_at || '',
       createdAt: record.created_at,
       syncStatus: 'synced',
       status: record.status || 'pending',
@@ -132,6 +155,8 @@ export function createHistoryModule({
       id: `task-${record.id}`,
       backendRecordId: record.id,
       type: 'task',
+      departmentId: record.department_id,
+      departmentName: record.department_name || '',
       userId: record.worker_id,
       userName: record.worker_name || `Worker ${record.worker_id}`,
       siteId: record.site_id,
@@ -144,6 +169,14 @@ export function createHistoryModule({
       photoDataUrls: [],
       photoUrl: record.photo_url || '',
       photoUrls: record.photo_urls || (record.photo_url ? [record.photo_url] : []),
+      entrySource: record.entry_source || 'worker',
+      createdBySupervisorId: record.created_by_supervisor_id,
+      createdBySupervisorName: record.created_by_supervisor_name || '',
+      deletedBySupervisorId: record.deleted_by_supervisor_id,
+      deletedBySupervisorName: record.deleted_by_supervisor_name || '',
+      deletionReason: record.deletion_reason || '',
+      deletedAt: record.deleted_at || '',
+      purgeAt: record.purge_at || '',
       createdAt: record.created_at,
       syncStatus: 'synced',
       status: record.status || 'pending',
@@ -158,6 +191,8 @@ export function createHistoryModule({
       id: `form-${record.id}`,
       backendRecordId: record.id,
       type: 'form',
+      departmentId: record.department_id,
+      departmentName: record.department_name || '',
       formId: record.form_id,
       formName: record.form_name || `Form ${record.form_id}`,
       fields: record.fields || [],
@@ -180,6 +215,29 @@ export function createHistoryModule({
     };
   }
 
+  function fromBackendTeamWorkLogRecord(record) {
+    return {
+      id: `team-log-${record.id}`,
+      backendRecordId: record.id,
+      type: 'team_log',
+      departmentId: record.department_id,
+      departmentName: record.department_name || '',
+      userId: record.leader_id,
+      userName: record.leader_name || `Leader ${record.leader_id}`,
+      workDate: record.week_start,
+      weekStart: record.week_start,
+      notes: record.notes || '',
+      entries: record.entries || [],
+      entryCount: record.entry_count || 0,
+      memberCount: record.member_count || 0,
+      hoursWorked: record.total_hours == null ? '' : String(record.total_hours),
+      createdAt: record.created_at,
+      syncStatus: 'synced',
+      status: record.status || 'pending',
+      source: 'backend'
+    };
+  }
+
   function fromBackendReviewRecord(record) {
     if (record.kind === 'attendance') {
       return fromBackendAttendanceRecord(record);
@@ -193,15 +251,20 @@ export function createHistoryModule({
       return fromBackendFormSubmissionRecord(record);
     }
 
+    if (record.kind === 'team_log') {
+      return fromBackendTeamWorkLogRecord(record);
+    }
+
     return null;
   }
 
   async function getWorkerHistoryRecords() {
     try {
-      const [attendanceRecords, taskLogs, formSubmissions, localRecords] = await Promise.all([
+      const [attendanceRecords, taskLogs, formSubmissions, teamWorkLogs, localRecords] = await Promise.all([
         getBackendMyAttendanceRecords(),
         getBackendMyTaskLogs(),
         getBackendMyFormSubmissions(),
+        state.user.workerClass === 'leader' ? getBackendMyTeamWorkLogs() : Promise.resolve([]),
         getLocalWorkerRecords(state.user.id)
       ]);
 
@@ -211,6 +274,7 @@ export function createHistoryModule({
         .concat(
           taskLogs.map(fromBackendTaskLogRecord),
           formSubmissions.map(fromBackendFormSubmissionRecord),
+          teamWorkLogs.map(fromBackendTeamWorkLogRecord),
           queuedLocalRecords
         )
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -233,7 +297,23 @@ export function createHistoryModule({
     const queuedCount = records.filter((record) => ['queued', 'syncing'].includes(record.syncStatus)).length;
     const latestCheckIn = records.find((record) => record.type === 'attendance' && record.action === 'check_in');
     const latestCheckOut = records.find((record) => record.type === 'attendance' && record.action === 'check_out');
+    const latestAttendance = records.find((record) => record.type === 'attendance');
 
+    if (state.user.workerClass !== 'leader') {
+      const isCheckedIn = latestAttendance?.action === 'check_in';
+      const attendanceToday = todayRecords.filter((record) => record.type === 'attendance').length;
+      els.workerSummaryTitle.textContent = 'Today’s attendance';
+      els.workerSummary.innerHTML = `
+        <div class="summary-item normal-status-row"><span>Current status</span><strong class="${isCheckedIn ? 'site-inside' : ''}">${isCheckedIn ? 'Checked in' : 'Not checked in'}</strong></div>
+        <div class="summary-item"><span>Next action</span><strong>${isCheckedIn ? 'Check out when finished' : 'Check in when you arrive'}</strong></div>
+        <div class="summary-item"><span>Attendance entries today</span><strong>${attendanceToday}</strong></div>
+        <div class="summary-item"><span>Last attendance</span><strong>${latestAttendance ? formatDateTime(latestAttendance.createdAt) : 'No attendance yet'}</strong></div>
+        ${queuedCount ? `<div class="summary-item"><span>Waiting to sync</span><strong>${queuedCount}</strong></div>` : ''}
+      `;
+      return;
+    }
+
+    els.workerSummaryTitle.textContent = 'Today';
     els.workerSummary.innerHTML = `
       <div class="summary-item"><span>Signed in as</span><strong>${escapeHtml(state.user.fullName)}</strong></div>
       <div class="summary-item"><span>Entries today</span><strong>${todayRecords.length}</strong></div>
@@ -303,6 +383,7 @@ export function createHistoryModule({
     const showEditActions = typeof options === 'object' && Boolean(options.showEditActions);
     const showWorkerActions = typeof options === 'object' && Boolean(options.showWorkerActions);
     const showExportActions = typeof options === 'object' && Boolean(options.showExportActions);
+    const showTrashActions = typeof options === 'object' && Boolean(options.showTrashActions);
     container.innerHTML = '';
     if (!records.length) {
       container.innerHTML = '<div class="empty-state">No records found yet.</div>';
@@ -312,7 +393,9 @@ export function createHistoryModule({
     records.forEach((record) => {
       const node = els.recordTemplate.content.firstElementChild.cloneNode(true);
       node.classList.add(
-        record.type === 'form'
+        record.type === 'team_log'
+          ? 'record-team-log'
+          : record.type === 'form'
           ? 'record-form'
           : record.type === 'task'
           ? 'record-task'
@@ -322,17 +405,21 @@ export function createHistoryModule({
       );
       const title = record.type === 'attendance'
         ? `${record.action === 'check_in' ? 'Check in' : 'Check out'} - ${record.siteName}`
+        : record.type === 'team_log'
+          ? `Weekly team log - ${record.weekStart}`
         : record.type === 'form'
           ? `${record.formName} - ${record.siteName}`
           : `Task log - ${record.siteName}`;
       const detail = record.type === 'attendance'
         ? record.notes || 'No notes added.'
+        : record.type === 'team_log'
+          ? `${record.memberCount} members | ${record.entryCount} member entries | ${record.hoursWorked || 0} worker hours${record.notes ? ` | ${record.notes}` : ''}`
         : record.type === 'form'
           ? formAnswerSummary(record) || 'No answers provided.'
           : `${record.summary || 'No summary provided.'}${record.safetyNotes ? ` Safety: ${record.safetyNotes}` : ''}`;
 
       node.querySelector('.record-title').textContent = title;
-      node.querySelector('.record-meta').textContent = `${record.userName || 'Worker'}  |  ${formatDateTime(record.createdAt)}${record.workDate ? `  |  Work date: ${record.workDate}` : ''}`;
+      node.querySelector('.record-meta').textContent = `${record.userName || 'Worker'}  |  ${formatDateTime(record.createdAt)}${record.workDate ? `  |  Work date: ${record.workDate}` : ''}${record.entrySource === 'supervisor_manual' ? '  |  Manual entry' : ''}`;
       node.querySelector('.record-detail').textContent = detail;
 
       const badge = node.querySelector('.badge');
@@ -349,11 +436,19 @@ export function createHistoryModule({
       const signatureSources = signatureImageSources(record);
       const hasSiteDistance = record.type === 'attendance' && record.distanceFromSiteM != null;
       extra.innerHTML = `
-        <p><strong>Type:</strong> ${record.type === 'attendance' ? escapeHtml(record.action === 'check_in' ? 'Check in' : 'Check out') : record.type === 'form' ? 'Form submission' : 'Task log'}</p>
+        <p><strong>Type:</strong> ${record.type === 'attendance' ? escapeHtml(record.action === 'check_in' ? 'Check in' : 'Check out') : record.type === 'form' ? 'Form submission' : record.type === 'team_log' ? 'Weekly team log' : 'Task log'}</p>
+        ${record.entrySource === 'supervisor_manual' ? `<p><strong>Entry source:</strong> ${record.type === 'attendance' ? 'Manual supervisor attendance' : 'Admin-entered approved log'}${record.createdBySupervisorName ? ` by ${escapeHtml(record.createdBySupervisorName)}` : ''}${record.type === 'attendance' ? '; no GPS was captured.' : '; no approval is required.'}</p>` : ''}
         ${record.type === 'attendance' && record.location ? `<p><strong>Location:</strong> ${record.location.latitude}, ${record.location.longitude} (${record.location.accuracy}m)</p>` : ''}
         ${hasSiteDistance ? `<p><strong>Site radius:</strong> <span class="${record.withinSiteRadius ? 'site-inside' : 'site-outside'}">${record.withinSiteRadius ? 'Inside' : 'Outside'} - ${escapeHtml(record.distanceFromSiteM)}m from site</span></p>` : ''}
         ${record.hoursWorked ? `<p><strong>Hours:</strong> ${escapeHtml(record.hoursWorked)}</p>` : ''}
         ${record.type === 'form' ? `<p><strong>Form:</strong> ${escapeHtml(record.formName)}</p>` : ''}
+        ${record.type === 'team_log' ? `<div class="team-log-entry-summary">${record.entries.map((entry) => `
+          <div>
+            <strong>${escapeHtml(entry.worker_name)}</strong>
+            <span>${escapeHtml(entry.work_date)} | ${escapeHtml(entry.start_time)}-${escapeHtml(entry.end_time)} | ${escapeHtml(entry.hours_worked)}h | ${escapeHtml(entry.site_name)}</span>
+            <p>${escapeHtml(entry.work_description)}</p>
+          </div>
+        `).join('')}</div>` : ''}
         ${record.syncStatus ? `<p><strong>Sync:</strong> ${escapeHtml(record.syncStatus)}</p>` : ''}
         ${signatureSources.length ? `<div class="record-signatures">${signatureSources.map((signature, index) => `
           <button class="photo-thumb" type="button" data-signature-index="${index}">
@@ -381,10 +476,15 @@ export function createHistoryModule({
       const actions = node.querySelector('.record-actions');
       const canShowWorkerActions = showWorkerActions && canWorkerEditRecord(record);
       const canShowSupervisorEdit = showEditActions && (record.type === 'attendance' || record.type === 'task');
+      const canShowSupervisorTrash = (
+        showTrashActions
+        && record.backendRecordId
+        && (record.type === 'attendance' || record.type === 'task')
+      );
       const canShowDecision = showDecisionActions && record.status === 'pending';
       const exportOptions = exportOptionsForRecord(record);
       const canShowExport = showExportActions && record.backendRecordId && exportOptions.length > 0;
-      if (canShowDecision || canShowSupervisorEdit || canShowWorkerActions || canShowExport) {
+      if (canShowDecision || canShowSupervisorEdit || canShowSupervisorTrash || canShowWorkerActions || canShowExport) {
         actions.classList.remove('hidden');
       }
 
@@ -417,6 +517,17 @@ export function createHistoryModule({
           await handleSupervisorEditRecord(record);
         });
         actions.append(editButton);
+      }
+
+      if (canShowSupervisorTrash) {
+        const trashButton = document.createElement('button');
+        trashButton.type = 'button';
+        trashButton.className = 'secondary danger-action';
+        trashButton.innerHTML = '<span aria-hidden="true">🗑</span> Move to bin';
+        trashButton.addEventListener('click', async () => {
+          await handleSupervisorTrashRecord(record);
+        });
+        actions.append(trashButton);
       }
 
       if (canShowExport) {

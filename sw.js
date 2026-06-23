@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'leader-field-v53';
+const CACHE_VERSION = 'leader-field-v69';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -15,11 +15,15 @@ const APP_SHELL = [
   '/assets/js/offline-submissions.js',
   '/assets/js/photo-viewer.js',
   '/assets/js/staff-sites.js',
+  '/assets/js/supervisor-analytics.js',
+  '/assets/js/supervisor-map.js',
   '/assets/js/supervisor-review.js',
+  '/assets/js/team-work-log.js',
   '/assets/js/utils.js',
   '/assets/js/worker-attendance.js',
   '/assets/js/worker-form.js',
   '/assets/js/worker-log.js',
+  '/assets/js/worker-sites.js',
   '/assets/js/work-form-fields.js',
   '/assets/icons/leader-logo-export.png',
   '/assets/icons/leader-icon.svg',
@@ -39,6 +43,9 @@ const NETWORK_ONLY_PREFIXES = [
   '/my-records',
   '/task-logs',
   '/task-templates',
+  '/team-work-log-members',
+  '/team-work-logs',
+  '/my-team-work-logs',
   '/work-forms',
   '/form-submissions',
   '/sites',

@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { buildManagementAnalytics } from '../assets/js/supervisor-analytics.js';
 
 const root = process.cwd();
 
@@ -25,8 +26,11 @@ const sourceIndex = read('index.html');
 const sourceApp = read('assets/js/app.js');
 const sourceApiClient = read('assets/js/api-client.js');
 const sourceSupervisorReview = read('assets/js/supervisor-review.js');
+const sourceSupervisorAnalytics = read('assets/js/supervisor-analytics.js');
+const sourceSupervisorMap = read('assets/js/supervisor-map.js');
 const sourceWorkerLog = read('assets/js/worker-log.js');
 const sourceWorkerSites = read('assets/js/worker-sites.js');
+const sourceTeamWorkLog = read('assets/js/team-work-log.js');
 const sourceWorker = read('sw.js');
 const sourceOfflineQueue = read('assets/js/offline-submissions.js');
 const sourceWorkFormFields = read('assets/js/work-form-fields.js');
@@ -45,6 +49,9 @@ check('production build exists', () => [
 ].every(hasFile));
 
 [
+  'dist/assets/js/date-inputs.js',
+  'dist/assets/js/team-work-log.js',
+  'dist/assets/js/worker-sites.js',
   'dist/assets/icons/leader-logo-export.png',
   'dist/assets/icons/leader-icon.svg',
   'dist/assets/icons/apple-touch-icon.png',
@@ -76,7 +83,21 @@ check('production HTML keeps stable PWA links', () => (
   'registrationCompletionFields',
   'registerDepartmentSelect',
   'workerView',
+  'teamLogTab',
+  'teamWorkLogForm',
+  'teamWorkLogWeekStart',
+  'teamWorkLogEntries',
+  'addTeamWorkLogEntryButton',
+  'submitTeamWorkLogButton',
+  'teamWorkLogHistory',
   'supervisorView',
+  'adminOverview',
+  'reviewQueueDetails',
+  'auditHistoryDetails',
+  'workFormsDetails',
+  'sitesDetails',
+  'staffUsersDetails',
+  'staffWorkerClassSelect',
   'attendanceSite',
   'captureLocationButton',
   'checkInButton',
@@ -84,8 +105,38 @@ check('production HTML keeps stable PWA links', () => (
   'taskForm',
   'workFormSubmissionForm',
   'reviewQueueList',
+  'manualAttendanceDetails',
+  'manualAttendanceForm',
+  'manualAttendanceWorker',
+  'manualAttendanceSite',
+  'manualAttendanceType',
+  'manualAttendanceTime',
+  'manualAttendanceNote',
+  'manualAttendanceSubmitButton',
+  'adminTaskLogDetails',
+  'adminTaskLogForm',
+  'adminTaskLogUser',
+  'adminTaskLogSite',
+  'adminTaskLogDate',
+  'adminTaskLogDescription',
+  'adminTaskLogSubmitButton',
+  'rubbishBinDetails',
+  'rubbishBinCount',
+  'rubbishBinList',
+  'refreshRubbishBinButton',
+  'supervisorDepartmentFilter',
+  'saveDefaultDepartmentButton',
   'auditEventsList',
-  'refreshAuditButton'
+  'refreshAuditButton',
+  'managementAnalyticsDetails',
+  'analyticsTrendChart',
+  'analyticsExceptionSummary',
+  'analyticsExceptionList',
+  'analyticsSiteSummary',
+  'analyticsFormCharts',
+  'locationMapDetails',
+  'locationReviewMap',
+  'locationMapHistory'
 ].forEach((id) => {
   check(`#${id} exists in the app shell`, () => sourceIndex.includes(`id="${id}"`));
 });
@@ -95,6 +146,17 @@ check('mobile viewport and camera/photo controls exist', () => (
   && sourceIndex.includes('capture="environment"')
   && sourceIndex.includes('id="taskPhoto" type="file" accept="image/*" multiple')
   && sourceIndex.includes('id="workFormPhotos" type="file" accept="image/*" multiple')
+));
+
+check('desktop admin workspace navigation opens and links management sections', () => (
+  sourceIndex.includes('class="admin-desktop-nav"')
+  && sourceIndex.includes('class="admin-workspace"')
+  && sourceIndex.includes('href="#reviewQueueDetails"')
+  && sourceIndex.includes('href="#staffUsersDetails"')
+  && sourceApp.includes('bindAdminNavigation()')
+  && sourceApp.includes('target instanceof HTMLDetailsElement')
+  && sourceStyles.includes('grid-template-columns: 214px minmax(0, 1fr)')
+  && sourceStyles.includes('@media (min-width: 1240px)')
 ));
 
 check('localized date inputs stay inside mobile form boundaries', () => (
@@ -234,6 +296,42 @@ check('workers can add missing sites', () => (
   && read('backend/app/main.py').includes('@app.post("/sites")')
 ));
 
+check('normal workers are attendance-only and leaders can submit weekly team logs', () => (
+  sourceIndex.includes('class="leader-only" data-tab-target="teamLogTab"')
+  && sourceIndex.includes('id="staffWorkerClassSelect"')
+  && sourceApp.includes("state.user.workerClass === 'leader'")
+  && sourceApp.includes("element.classList.toggle('access-hidden', !isLeader)")
+  && sourceApiClient.includes('"/team-work-logs"')
+  && sourceApiClient.includes('"/team-work-log-members"')
+  && sourceTeamWorkLog.includes('function entriesPayload')
+  && sourceTeamWorkLog.includes("type=\"checkbox\"")
+  && sourceTeamWorkLog.includes('data-team-member-search')
+  && sourceTeamWorkLog.includes('rows.flatMap')
+  && sourceTeamWorkLog.includes('selectedMemberIds')
+  && sourceTeamWorkLog.includes('break_minutes')
+  && sourceTeamWorkLog.includes('work_description')
+  && sourceStyles.includes('.team-work-log-entry')
+  && sourceStyles.includes('.team-member-options')
+  && sourceStyles.includes('.team-member-chip')
+  && read('backend/app/use_cases/common.py').includes('def require_leader')
+  && read('backend/app/use_cases/team_work_logs.py').includes('week_start.weekday() != 0')
+  && read('backend/app/models.py').includes('class TeamWorkLogEntry')
+));
+
+check('normal worker UI is focused and step based', () => (
+  sourceIndex.includes('class="card normal-worker-only normal-worker-guide"')
+  && sourceIndex.includes('id="attendanceActionHelp"')
+  && sourceIndex.includes('data-normal-label="Check in / out"')
+  && sourceIndex.includes('data-normal-label="My history"')
+  && sourceApp.includes("els.workerView.classList.toggle('normal-worker-mode', isNormalWorker)")
+  && sourceApp.includes("element.classList.toggle('access-hidden', !isNormalWorker)")
+  && sourceStyles.includes('#workerView.normal-worker-mode .tabs')
+  && sourceStyles.includes('#workerView.normal-worker-mode .history-type-filter')
+  && sourceStyles.includes('.normal-worker-steps')
+  && read('assets/js/worker-attendance.js').includes('Ready. Tap the action you need.')
+  && read('assets/js/history.js').includes('Check out when finished')
+));
+
 check('worker and supervisor workflow modules are active', () => (
   includesAll(sourceApp, [
     'createWorkerAttendanceModule',
@@ -276,6 +374,172 @@ check('supervisor audit history is wired', () => (
   && read('backend/app/models.py').includes('class AuditEvent')
   && read('backend/app/main.py').includes('/supervisor/audit-events')
   && read('backend/app/use_cases/audit.py').includes('add_audit_event')
+  && read('backend/app/use_cases/audit.py').includes('"actor_access_level"')
+  && sourceSupervisorReview.includes('audit-editor-grid')
+  && sourceSupervisorReview.includes('actor_department_name')
+  && sourceSupervisorReview.includes('actor_access_level')
+  && sourceStyles.includes('.audit-editor-grid')
+));
+
+check('supervisor location map review is wired', () => (
+  sourceApp.includes('createSupervisorMapModule')
+  && sourceSupervisorReview.includes('renderLocationMap')
+  && sourceSupervisorMap.includes('L.circle(')
+  && sourceSupervisorMap.includes('L.polyline(')
+  && sourceSupervisorMap.includes('locationMapOutsideOnly')
+  && sourceSupervisorMap.includes('onDecision(record')
+  && sourceStyles.includes('.location-review-map')
+  && sourceWorker.includes("'/assets/js/supervisor-map.js'")
+  && viteConfig.includes("'assets/js/supervisor-map.js'")
+));
+
+check('site coordinates are rounded and map points stay compact', () => (
+  read('assets/js/utils.js').includes('export function roundCoordinate')
+  && read('assets/js/staff-sites.js').includes('roundCoordinateInput(els.siteLatitudeInput)')
+  && read('assets/js/staff-sites.js').includes('roundCoordinateInput(els.siteLongitudeInput)')
+  && sourceWorkerSites.includes('roundCoordinateInput(els.workerSiteLatitudeInput)')
+  && sourceWorkerSites.includes('roundCoordinateInput(els.workerSiteLongitudeInput)')
+  && sourceSupervisorMap.includes("radius: record.action === 'check_out' ? 4 : 5")
+));
+
+check('dark-mode location toggles are clear and consistently sized', () => (
+  sourceStyles.includes('.location-map-filters .location-map-toggle')
+  && sourceStyles.includes('flex: 1 1 210px')
+  && sourceStyles.includes('color: var(--input-text)')
+  && sourceStyles.includes('.location-map-toggle input[type="checkbox"]')
+  && sourceStyles.includes('accent-color: var(--brand-blue)')
+  && sourceStyles.includes('grid-column: 1 / -1')
+));
+
+check('management analytics and reports are wired', () => (
+  sourceApp.includes('createSupervisorAnalyticsModule')
+  && sourceSupervisorReview.includes('renderManagementAnalytics')
+  && sourceSupervisorAnalytics.includes('buildManagementAnalytics')
+  && sourceSupervisorAnalytics.includes('Possible duplicate')
+  && sourceSupervisorAnalytics.includes('Missing check-out')
+  && sourceSupervisorAnalytics.includes('MISSING_CHECK_OUT_GRACE_MS')
+  && sourceSupervisorAnalytics.includes('12 * 60 * 60 * 1000')
+  && sourceSupervisorAnalytics.includes('buildSiteSummaries')
+  && sourceSupervisorAnalytics.includes('buildFormCharts')
+  && sourceSupervisorAnalytics.includes('managementCsv')
+  && sourceSupervisorAnalytics.includes('managementHtml')
+  && sourceStyles.includes('.analytics-trend-chart')
+  && sourceStyles.includes('.analytics-response-grid')
+  && sourceWorker.includes("'/assets/js/supervisor-analytics.js'")
+  && viteConfig.includes("'assets/js/supervisor-analytics.js'")
+));
+
+check('supervisors can add audit-logged manual attendance without GPS', () => (
+  sourceApiClient.includes('createSupervisorAttendance')
+  && sourceApiClient.includes('"/supervisor/records"')
+  && sourceSupervisorReview.includes('handleManualAttendanceSubmit')
+  && sourceSupervisorReview.includes('renderManualAttendanceSites')
+  && sourceSupervisorReview.includes('occurred_at: occurredAt.toISOString()')
+  && sourceSupervisorReview.includes('Manual attendance added')
+  && read('assets/js/history.js').includes("entrySource === 'supervisor_manual'")
+  && read('backend/app/main.py').includes('def create_supervisor_record')
+  && read('backend/app/use_cases/supervisor_review.py').includes('create_manual_attendance_record')
+  && read('backend/app/use_cases/supervisor_review.py').includes('entry_source="supervisor_manual"')
+  && read('backend/app/use_cases/supervisor_review.py').includes('latitude=None')
+  && read('backend/smoke_test.py').includes('supervisor creates manual attendance')
+  && read('backend/migration_test.py').includes('0006_manual_attendance_entries')
+  && sourceStyles.includes('.manual-attendance-form')
+));
+
+check('supervisors can submit approved logs for themselves or others', () => (
+  sourceApiClient.includes('createSupervisorTaskLog')
+  && sourceApiClient.includes('"/supervisor/task-logs"')
+  && sourceSupervisorReview.includes('handleAdminTaskLogSubmit')
+  && sourceSupervisorReview.includes('renderAdminTaskLogForm')
+  && sourceSupervisorReview.includes('String(user.id) === String(state.user?.id)')
+  && sourceSupervisorReview.includes('Approved log submitted')
+  && read('assets/js/history.js').includes('Admin-entered approved log')
+  && read('backend/app/main.py').includes('def create_supervisor_task_log')
+  && read('backend/app/use_cases/supervisor_review.py').includes('create_supervisor_task_log')
+  && read('backend/app/use_cases/supervisor_review.py').includes('status="approved"')
+  && read('backend/app/use_cases/supervisor_review.py').includes('action="task_log_manual_create"')
+  && read('backend/smoke_test.py').includes('supervisor creates approved task log for self')
+  && read('backend/smoke_test.py').includes('supervisor creates approved task log for another user')
+  && read('backend/migration_test.py').includes('0008_manual_task_logs')
+  && sourceStyles.includes('.admin-task-log-form')
+));
+
+check('rapid duplicate submissions and the 30-day rubbish bin are wired', () => (
+  read('backend/app/use_cases/attendance.py').includes('timedelta(seconds=10)')
+  && read('backend/app/use_cases/attendance.py').includes('AttendanceRecord.latitude == data.latitude')
+  && read('backend/app/use_cases/task_logs.py').includes('timedelta(seconds=10)')
+  && read('backend/app/use_cases/record_trash.py').includes('TRASH_RETENTION_DAYS = 30')
+  && read('backend/app/use_cases/record_trash.py').includes('run_periodic_trash_purge')
+  && read('backend/app/main.py').includes('/supervisor/trash/{record_type}/{record_id}')
+  && sourceApiClient.includes('moveSupervisorRecordToTrash')
+  && sourceApiClient.includes('restoreSupervisorRecord')
+  && sourceSupervisorReview.includes('handleTrashRecord')
+  && sourceSupervisorReview.includes('renderTrashList')
+  && read('assets/js/history.js').includes('showTrashActions')
+  && read('assets/js/history.js').includes('🗑')
+  && read('backend/smoke_test.py').includes('dedupe rapid attendance double tap')
+  && read('backend/smoke_test.py').includes('supervisor moves attendance to rubbish bin')
+  && read('backend/migration_test.py').includes('rubbish bin 30-day purge')
+  && sourceStyles.includes('.rubbish-bin-record')
+));
+
+check('missing check-outs use a 12-hour grace and pair overnight shifts', () => {
+  const now = new Date('2026-06-23T08:00:00.000Z');
+  const attendance = (userId, userName, action, createdAt, workDate) => ({
+    id: `${userId}-${action}-${createdAt}`,
+    type: 'attendance',
+    userId,
+    userName,
+    siteId: userId,
+    siteName: `Site ${userId}`,
+    action,
+    createdAt,
+    workDate,
+    status: 'approved'
+  });
+  const report = buildManagementAnalytics([
+    attendance(1, 'Recent', 'check_in', '2026-06-22T22:00:01.000Z', '2026-06-22'),
+    attendance(2, 'Old', 'check_in', '2026-06-22T20:00:00.000Z', '2026-06-22'),
+    attendance(3, 'Overnight', 'check_in', '2026-06-22T23:00:00.000Z', '2026-06-22'),
+    attendance(3, 'Overnight', 'check_out', '2026-06-23T07:00:00.000Z', '2026-06-23')
+  ], 30, now);
+  const missing = report.exceptions.filter(({ category }) => category === 'Missing check-out');
+  const orphanCheckOuts = report.exceptions.filter(({ category }) => category === 'Check-out without check-in');
+  return (
+    missing.length === 1
+    && missing[0].userName === 'Old'
+    && orphanCheckOuts.length === 0
+  );
+});
+
+check('department focus and persisted default department are wired', () => (
+  sourceApiClient.includes('updateDefaultDepartment')
+  && sourceApiClient.includes('"/auth/default-department"')
+  && sourceApp.includes('departmentFocusId')
+  && sourceSupervisorReview.includes('renderDepartmentFilter')
+  && sourceSupervisorReview.includes('departmentFocusedRecords')
+  && sourceSupervisorReview.includes('handleSaveDefaultDepartment')
+  && sourceSupervisorReview.includes("dashboardDepartmentName || 'All departments'")
+  && sourceSupervisorMap.includes('state.departmentFocusId')
+  && sourceSupervisorAnalytics.includes('state.departmentFocusId')
+  && read('assets/js/staff-sites.js').includes('matchesDepartmentFocus')
+  && read('backend/app/main.py').includes('@app.patch("/auth/default-department")')
+  && read('backend/smoke_test.py').includes('super admin saves all departments as default')
+  && read('backend/migration_test.py').includes('0005_dashboard_department_preference')
+));
+
+check('department supervisors cannot resign global admins', () => (
+  read('backend/app/use_cases/staff_site_admin.py').includes(
+    'Only a global admin can change a global admin account status'
+  )
+  && read('backend/smoke_test.py').includes(
+    'department supervisor cannot resign super admin by status route'
+  )
+  && read('backend/smoke_test.py').includes(
+    'department supervisor cannot resign super admin by user update'
+  )
+  && read('assets/js/staff-sites.js').includes('statusIsProtected')
+  && read('assets/js/staff-sites.js').includes('if (!statusIsProtected)')
 ));
 
 const failures = [];

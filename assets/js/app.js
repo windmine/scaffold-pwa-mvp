@@ -21,11 +21,14 @@ import { syncQueuedSubmissions } from './offline-submissions.js';
 import { createHistoryModule } from './history.js';
 import { createPhotoViewer } from './photo-viewer.js';
 import { createStaffSitesModule } from './staff-sites.js';
+import { createSupervisorAnalyticsModule } from './supervisor-analytics.js';
+import { createSupervisorMapModule } from './supervisor-map.js';
 import { createSupervisorReviewModule } from './supervisor-review.js';
 import { createWorkerAttendanceModule } from './worker-attendance.js';
 import { createWorkerFormModule } from './worker-form.js';
 import { createWorkerLogModule } from './worker-log.js';
 import { createWorkerSitesModule } from './worker-sites.js';
+import { createTeamWorkLogModule } from './team-work-log.js';
 import { initDateInputs, setDateInputValue } from './date-inputs.js';
 import { applyLanguage, initLanguageToggle } from './i18n.js';
 import { formatDateTime, todayDateInput, escapeHtml } from './utils.js';
@@ -68,10 +71,13 @@ const state = {
   historyRecords: [],
   departments: DEFAULT_DEPARTMENTS,
   staffUsers: [],
+  teamWorkLogMembers: [],
   supervisorRecords: {
     reviewRecords: [],
-    auditEvents: []
+    auditEvents: [],
+    trashRecords: []
   },
+  departmentFocusId: '',
   registrationVerificationId: null,
   registrationToken: ''
 };
@@ -116,7 +122,9 @@ const els = {
   saveAttendanceDraftButton: document.getElementById('saveAttendanceDraftButton'),
   checkInButton: document.getElementById('checkInButton'),
   checkOutButton: document.getElementById('checkOutButton'),
+  attendanceActionHelp: document.getElementById('attendanceActionHelp'),
   workerSummary: document.getElementById('workerSummary'),
+  workerSummaryTitle: document.getElementById('workerSummaryTitle'),
   historyList: document.getElementById('historyList'),
   refreshHistoryButton: document.getElementById('refreshHistoryButton'),
   historySearchInput: document.getElementById('historySearchInput'),
@@ -150,6 +158,14 @@ const els = {
   workFormPhotos: document.getElementById('workFormPhotos'),
   workFormPhotoPreview: document.getElementById('workFormPhotoPreview'),
   submitWorkFormButton: document.getElementById('submitWorkFormButton'),
+  teamWorkLogForm: document.getElementById('teamWorkLogForm'),
+  teamWorkLogWeekStart: document.getElementById('teamWorkLogWeekStart'),
+  teamWorkLogNotes: document.getElementById('teamWorkLogNotes'),
+  teamWorkLogEntries: document.getElementById('teamWorkLogEntries'),
+  addTeamWorkLogEntryButton: document.getElementById('addTeamWorkLogEntryButton'),
+  submitTeamWorkLogButton: document.getElementById('submitTeamWorkLogButton'),
+  refreshTeamWorkLogsButton: document.getElementById('refreshTeamWorkLogsButton'),
+  teamWorkLogHistory: document.getElementById('teamWorkLogHistory'),
   workerEditPanel: document.getElementById('workerEditPanel'),
   workerEditPanelTitle: document.getElementById('workerEditPanelTitle'),
   workerEditPanelForm: document.getElementById('workerEditPanelForm'),
@@ -161,13 +177,61 @@ const els = {
   editPanelForm: document.getElementById('editPanelForm'),
   cancelEditButton: document.getElementById('cancelEditButton'),
   supervisorSearchInput: document.getElementById('supervisorSearchInput'),
+  supervisorDepartmentFilter: document.getElementById('supervisorDepartmentFilter'),
+  supervisorDepartmentHelp: document.getElementById('supervisorDepartmentHelp'),
+  saveDefaultDepartmentButton: document.getElementById('saveDefaultDepartmentButton'),
   supervisorTypeFilter: document.getElementById('supervisorTypeFilter'),
   supervisorStatusFilter: document.getElementById('supervisorStatusFilter'),
   supervisorDateFilter: document.getElementById('supervisorDateFilter'),
   supervisorResultCount: document.getElementById('supervisorResultCount'),
+  rubbishBinCount: document.getElementById('rubbishBinCount'),
+  rubbishBinList: document.getElementById('rubbishBinList'),
+  refreshRubbishBinButton: document.getElementById('refreshRubbishBinButton'),
+  manualAttendanceForm: document.getElementById('manualAttendanceForm'),
+  manualAttendanceWorker: document.getElementById('manualAttendanceWorker'),
+  manualAttendanceSite: document.getElementById('manualAttendanceSite'),
+  manualAttendanceType: document.getElementById('manualAttendanceType'),
+  manualAttendanceTime: document.getElementById('manualAttendanceTime'),
+  manualAttendanceNote: document.getElementById('manualAttendanceNote'),
+  manualAttendanceSubmitButton: document.getElementById('manualAttendanceSubmitButton'),
+  adminTaskLogForm: document.getElementById('adminTaskLogForm'),
+  adminTaskLogUser: document.getElementById('adminTaskLogUser'),
+  adminTaskLogSite: document.getElementById('adminTaskLogSite'),
+  adminTaskLogDate: document.getElementById('adminTaskLogDate'),
+  adminTaskLogHours: document.getElementById('adminTaskLogHours'),
+  adminTaskLogDescription: document.getElementById('adminTaskLogDescription'),
+  adminTaskLogSafety: document.getElementById('adminTaskLogSafety'),
+  adminTaskLogSubmitButton: document.getElementById('adminTaskLogSubmitButton'),
   auditEventsCount: document.getElementById('auditEventsCount'),
   auditEventsList: document.getElementById('auditEventsList'),
   refreshAuditButton: document.getElementById('refreshAuditButton'),
+  managementAnalyticsDetails: document.getElementById('managementAnalyticsDetails'),
+  analyticsExceptionCount: document.getElementById('analyticsExceptionCount'),
+  analyticsPeriodSelect: document.getElementById('analyticsPeriodSelect'),
+  analyticsPeriodLabel: document.getElementById('analyticsPeriodLabel'),
+  exportManagementCsvButton: document.getElementById('exportManagementCsvButton'),
+  exportManagementHtmlButton: document.getElementById('exportManagementHtmlButton'),
+  analyticsMetrics: document.getElementById('analyticsMetrics'),
+  analyticsTrendChart: document.getElementById('analyticsTrendChart'),
+  analyticsExceptionSummary: document.getElementById('analyticsExceptionSummary'),
+  analyticsExceptionList: document.getElementById('analyticsExceptionList'),
+  analyticsSiteSummary: document.getElementById('analyticsSiteSummary'),
+  analyticsFormCharts: document.getElementById('analyticsFormCharts'),
+  locationMapDetails: document.getElementById('locationMapDetails'),
+  locationMapCount: document.getElementById('locationMapCount'),
+  refreshLocationMapButton: document.getElementById('refreshLocationMapButton'),
+  locationMapWorkerFilter: document.getElementById('locationMapWorkerFilter'),
+  locationMapSiteFilter: document.getElementById('locationMapSiteFilter'),
+  locationMapStatusFilter: document.getElementById('locationMapStatusFilter'),
+  locationMapDateFrom: document.getElementById('locationMapDateFrom'),
+  locationMapDateTo: document.getElementById('locationMapDateTo'),
+  locationMapOutsideOnly: document.getElementById('locationMapOutsideOnly'),
+  locationMapRouteToggle: document.getElementById('locationMapRouteToggle'),
+  clearLocationMapFiltersButton: document.getElementById('clearLocationMapFiltersButton'),
+  locationReviewMap: document.getElementById('locationReviewMap'),
+  locationMapSummary: document.getElementById('locationMapSummary'),
+  locationMapSelection: document.getElementById('locationMapSelection'),
+  locationMapHistory: document.getElementById('locationMapHistory'),
   workFormsCount: document.getElementById('workFormsCount'),
   supervisorSitesCount: document.getElementById('supervisorSitesCount'),
   staffUsersCount: document.getElementById('staffUsersCount'),
@@ -181,6 +245,7 @@ const els = {
   staffEmailInput: document.getElementById('staffEmailInput'),
   staffPasswordInput: document.getElementById('staffPasswordInput'),
   staffRoleSelect: document.getElementById('staffRoleSelect'),
+  staffWorkerClassSelect: document.getElementById('staffWorkerClassSelect'),
   staffDepartmentSelect: document.getElementById('staffDepartmentSelect'),
   staffGlobalAdminInput: document.getElementById('staffGlobalAdminInput'),
   staffUsersList: document.getElementById('staffUsersList'),
@@ -221,6 +286,8 @@ const photoViewer = createPhotoViewer({
 
 let staffSitesModule;
 let supervisorReviewModule;
+let supervisorMapModule;
+let supervisorAnalyticsModule;
 let reloadingForServiceWorkerUpdate = false;
 
 const historyModule = createHistoryModule({
@@ -233,6 +300,7 @@ const historyModule = createHistoryModule({
   handleWorkerEditRecord,
   handleWorkerDeleteRecord,
   handleSupervisorEditRecord,
+  handleSupervisorTrashRecord,
   handleSupervisorDecision,
   handleSupervisorExportRecord
 });
@@ -290,6 +358,16 @@ const workerSites = createWorkerSitesModule({
   isBackendSessionError
 });
 
+const teamWorkLogModule = createTeamWorkLogModule({
+  els,
+  state,
+  renderStatusBanner,
+  handleSessionExpired,
+  isBackendSessionError,
+  renderWorkerSummary: historyModule.renderWorkerSummary,
+  renderHistory: historyModule.renderHistory
+});
+
 staffSitesModule = createStaffSitesModule({
   els,
   state,
@@ -297,6 +375,7 @@ staffSitesModule = createStaffSitesModule({
   fillSiteSelects,
   refreshWorkForms: () => workerForm.refreshWorkForms(),
   refreshSupervisorAuditHistory: () => supervisorReviewModule?.renderAuditHistory(),
+  refreshSupervisorMap: () => supervisorMapModule?.renderPanel(),
   renderStatusBanner,
   showEditPanel,
   closeEditPanel,
@@ -313,11 +392,37 @@ supervisorReviewModule = createSupervisorReviewModule({
   refreshWorkForms: () => workerForm.refreshWorkForms(),
   renderSupervisorSites: () => staffSitesModule.renderSupervisorSites(),
   renderStaffUsers: () => staffSitesModule.renderStaffUsers(),
+  renderLocationMap: () => supervisorMapModule?.renderPanel(),
+  renderManagementAnalytics: () => supervisorAnalyticsModule?.renderPanel(),
+  renderDepartmentScopedAdminLists: () => {
+    staffSitesModule.renderSupervisorSites();
+    staffSitesModule.renderFilteredStaffUsers();
+    staffSitesModule.renderWorkFormsList();
+  },
+  onDefaultDepartmentChanged: (user) => {
+    state.user = user;
+    updateTopbar();
+  },
   showEditPanel,
   closeEditPanel,
   editValue,
   editNumber,
   siteSelectOptions: () => staffSitesModule.siteSelectOptions()
+});
+
+supervisorMapModule = createSupervisorMapModule({
+  els,
+  state,
+  onDecision: handleSupervisorDecision,
+  onEdit: handleSupervisorEditRecord,
+  refreshRecords: () => supervisorReviewModule.renderPanel(),
+  renderStatusBanner
+});
+
+supervisorAnalyticsModule = createSupervisorAnalyticsModule({
+  els,
+  state,
+  renderStatusBanner
 });
 
 async function init() {
@@ -328,6 +433,7 @@ async function init() {
   const authRestoreMessage = await restoreBackendSession();
   if (state.user) {
     state.departments = await loadDepartments();
+    initialiseDepartmentFocus();
   }
   setDateInputValue(els.taskDate, todayDateInput());
   setDateInputValue(els.workFormDate, todayDateInput());
@@ -360,6 +466,12 @@ async function loadDepartments() {
   } catch {
     return DEFAULT_DEPARTMENTS;
   }
+}
+
+function initialiseDepartmentFocus() {
+  state.departmentFocusId = state.user?.isGlobalAdmin
+    ? (state.user.dashboardDepartmentId ? String(state.user.dashboardDepartmentId) : '')
+    : (state.user?.departmentId ? String(state.user.departmentId) : '');
 }
 
 async function restoreBackendSession() {
@@ -408,15 +520,19 @@ function bindEvents() {
   workerLog.bindEvents();
   workerForm.bindEvents();
   workerSites.bindEvents();
+  teamWorkLogModule.bindEvents();
   els.cancelWorkerEditButton.addEventListener('click', () => closeEditPanel('worker'));
   historyModule.bindEvents();
   supervisorReviewModule.bindEvents();
+  supervisorMapModule.bindEvents();
+  supervisorAnalyticsModule.bindEvents();
   staffSitesModule.bindEvents();
   els.cancelEditButton.addEventListener('click', closeEditPanel);
   photoViewer.bindEvents();
   els.installButton.addEventListener('click', handleInstall);
   els.downloadAppButton.addEventListener('click', handleInstall);
   els.updateButton.addEventListener('click', handleAppUpdate);
+  bindAdminNavigation();
 
   document.querySelectorAll('[data-tab-target]').forEach((button) => {
     button.addEventListener('click', () => activateTab(button.dataset.tabTarget));
@@ -437,6 +553,29 @@ function bindEvents() {
     state.installPrompt = event;
     els.installButton.classList.remove('hidden');
     renderInstallHelp();
+  });
+}
+
+function bindAdminNavigation() {
+  const links = [...document.querySelectorAll('.admin-desktop-nav a[href^="#"]')];
+
+  links.forEach((link) => {
+    link.addEventListener('click', (event) => {
+      const target = document.querySelector(link.getAttribute('href'));
+      if (!target) return;
+
+      event.preventDefault();
+      if (target instanceof HTMLDetailsElement) {
+        target.open = true;
+      }
+
+      links.forEach((item) => item.removeAttribute('aria-current'));
+      link.setAttribute('aria-current', 'location');
+      target.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start'
+      });
+    });
   });
 }
 
@@ -509,8 +648,13 @@ function renderApp() {
 
   if (state.user.role === 'worker') {
     showView('worker');
-    workerLog.refreshTaskTemplates();
-    workerForm.refreshWorkForms();
+    renderWorkerAccess();
+    workerAttendance.renderLocationPreview();
+    if (state.user.workerClass === 'leader') {
+      workerLog.refreshTaskTemplates();
+      workerForm.refreshWorkForms();
+      teamWorkLogModule.refresh();
+    }
     historyModule.renderWorkerSummary();
     historyModule.renderHistory();
   } else {
@@ -525,6 +669,28 @@ function renderApp() {
   }
 
   applyLanguage();
+}
+
+function renderWorkerAccess() {
+  const isLeader = state.user?.role === 'worker' && state.user?.workerClass === 'leader';
+  const isNormalWorker = state.user?.role === 'worker' && !isLeader;
+  els.workerView.classList.toggle('normal-worker-mode', isNormalWorker);
+  els.workerView.classList.toggle('leader-worker-mode', isLeader);
+
+  document.querySelectorAll('.leader-only').forEach((element) => {
+    element.classList.toggle('access-hidden', !isLeader);
+  });
+  document.querySelectorAll('.normal-worker-only').forEach((element) => {
+    element.classList.toggle('access-hidden', !isNormalWorker);
+  });
+  document.querySelectorAll('#workerView [data-leader-label][data-normal-label]').forEach((element) => {
+    element.textContent = isLeader ? element.dataset.leaderLabel : element.dataset.normalLabel;
+  });
+
+  const activePanel = document.querySelector('#workerView .tab-panel.active');
+  if (!isLeader && activePanel?.classList.contains('leader-only')) {
+    activateTab('attendanceTab');
+  }
 }
 
 function showView(view) {
@@ -552,7 +718,13 @@ function updateTopbar() {
     els.userContext.classList.remove('hidden');
     els.userContextName.textContent = state.user.fullName || state.user.email;
     els.userContextGroup.textContent = departmentName;
-    els.userContextAdminBadge.classList.toggle('hidden', !state.user.isGlobalAdmin);
+    const contextBadge = state.user.isGlobalAdmin
+      ? 'Super admin'
+      : state.user.role === 'worker' && state.user.workerClass === 'leader'
+        ? 'Leader'
+        : '';
+    els.userContextAdminBadge.textContent = contextBadge;
+    els.userContextAdminBadge.classList.toggle('hidden', !contextBadge);
   } else {
     els.logoutButton.classList.add('hidden');
     els.userContext.classList.add('hidden');
@@ -592,6 +764,7 @@ async function handleLogin(event) {
     state.user = await backendLogin(els.emailInput.value.trim(), els.passwordInput.value);
     resetRegistrationFlow();
     state.departments = await loadDepartments();
+    initialiseDepartmentFocus();
     state.sites = await loadSites();
     fillSiteSelects();
     renderApp();
@@ -872,6 +1045,10 @@ async function handleWorkerDeleteRecord(record) {
 
 async function handleSupervisorEditRecord(record) {
   await supervisorReviewModule.handleEditRecord(record);
+}
+
+async function handleSupervisorTrashRecord(record) {
+  await supervisorReviewModule.handleTrashRecord(record);
 }
 
 async function handleSupervisorDecision(record, decision) {

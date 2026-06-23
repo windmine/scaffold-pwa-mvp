@@ -15,6 +15,7 @@ from app.use_cases.common import (
     normalize_work_form_photo_metadata,
     normalize_work_form_photo_urls,
     require_confirmed,
+    require_leader,
     require_worker,
     select_work_form_submissions,
     scope_statement_to_user_department,
@@ -25,6 +26,8 @@ from app.use_cases.common import (
 
 
 def list_work_forms(user: User, session: Session):
+    if user.role == "worker" and (user.worker_class or "normal") != "leader":
+        return []
     statement = select(WorkForm).order_by(WorkForm.name)
     statement = scope_statement_to_user_department(statement, WorkForm, user)
     if user.role == "worker":
@@ -137,7 +140,7 @@ def update_work_form(form_id: int, data, supervisor: User, session: Session):
 
 
 def create_work_form_submission(data, user: User, session: Session):
-    require_worker(user)
+    require_leader(user)
     form = session.get(WorkForm, data.form_id)
     if not form or form.status != "active" or not can_access_department(user, form.department_id):
         raise HTTPException(status_code=404, detail="Form not found")

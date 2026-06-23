@@ -131,8 +131,8 @@
 
         <section id="workerView" class="view hidden">
           <div class="grid two-col worker-dashboard">
-            <article class="card">
-              <h2>Today</h2>
+            <article class="card worker-summary-card">
+              <h2 id="workerSummaryTitle">Today</h2>
               <div id="workerSummary" class="summary-list"></div>
             </article>
 
@@ -140,14 +140,28 @@
               <h2>Quick actions</h2>
               <div class="button-stack">
                 <button data-tab-target="attendanceTab" type="button">Open check in / check out</button>
-                <button data-tab-target="taskTab" type="button">Open daywork log</button>
-                <button data-tab-target="formTab" type="button">Open work form</button>
+                <button class="leader-only" data-tab-target="teamLogTab" type="button">Open weekly team log</button>
+                <button class="leader-only" data-tab-target="taskTab" type="button">Open daywork log</button>
+                <button class="leader-only" data-tab-target="formTab" type="button">Open work form</button>
                 <button data-tab-target="historyTab" type="button">Open my history</button>
               </div>
             </article>
           </div>
 
-          <details class="card worker-site-panel">
+          <section class="card normal-worker-only normal-worker-guide">
+            <div>
+              <p class="eyebrow">Your attendance</p>
+              <h2>Start or finish your shift</h2>
+              <p class="muted">Choose your site, confirm your location, then tap one attendance button.</p>
+            </div>
+            <ol class="normal-worker-steps" aria-label="Attendance steps">
+              <li><span>1</span><strong>Choose site</strong></li>
+              <li><span>2</span><strong>Confirm location</strong></li>
+              <li><span>3</span><strong>Check in or out</strong></li>
+            </ol>
+          </section>
+
+          <details class="card worker-site-panel leader-only">
             <summary>
               <span>Add missing site</span>
               <small>Use when today&apos;s job is not listed</small>
@@ -183,28 +197,39 @@
           </details>
 
           <div class="tabs">
-            <button class="tab active" data-tab-target="attendanceTab" type="button">Check</button>
-            <button class="tab" data-tab-target="taskTab" type="button">Log</button>
-            <button class="tab" data-tab-target="formTab" type="button">Form</button>
-            <button class="tab" data-tab-target="historyTab" type="button">History</button>
+            <button class="tab active" data-tab-target="attendanceTab" data-leader-label="Check" data-normal-label="Check in / out" type="button">Check</button>
+            <button class="tab leader-only" data-tab-target="teamLogTab" type="button">Team</button>
+            <button class="tab leader-only" data-tab-target="taskTab" type="button">Daywork</button>
+            <button class="tab leader-only" data-tab-target="formTab" type="button">Form</button>
+            <button class="tab" data-tab-target="historyTab" data-leader-label="History" data-normal-label="My history" type="button">History</button>
           </div>
 
           <section id="attendanceTab" class="tab-panel active">
-            <article class="card">
-              <h2>Check in / check out</h2>
+            <article class="card attendance-card">
+              <div class="section-heading">
+                <div>
+                  <h2>Check in / check out</h2>
+                  <p class="muted normal-worker-only">Complete the steps in order. Notes and a photo are optional.</p>
+                </div>
+              </div>
               <form id="attendanceForm" class="form-grid">
                 <label>
-                  Site
+                  <span class="normal-worker-only attendance-step-label">Step 1</span>
+                  <span data-leader-label="Site" data-normal-label="Choose today&apos;s site">Site</span>
                   <select id="attendanceSite" required></select>
                 </label>
                 <div class="split-actions">
-                  <button id="captureLocationButton" type="button" class="secondary">Capture current location</button>
-                  <button id="saveAttendanceDraftButton" type="button" class="ghost">Save draft</button>
+                  <button id="captureLocationButton" type="button" class="secondary" data-leader-label="Capture current location" data-normal-label="Step 2: Confirm my location">Capture current location</button>
+                  <button id="saveAttendanceDraftButton" type="button" class="ghost leader-only">Save draft</button>
                 </div>
                 <div id="locationPreview" class="preview-box">No location captured yet.</div>
+                <div class="normal-worker-only attendance-action-guide">
+                  <span class="attendance-step-label">Step 3</span>
+                  <strong id="attendanceActionHelp">Choose your site first.</strong>
+                </div>
                 <div class="split-actions primary-actions">
-                  <button id="checkInButton" type="button">Check in</button>
-                  <button id="checkOutButton" type="button" class="secondary">Check out</button>
+                  <button id="checkInButton" type="button" data-leader-label="Check in" data-normal-label="Check in now">Check in</button>
+                  <button id="checkOutButton" type="button" class="secondary" data-leader-label="Check out" data-normal-label="Check out now">Check out</button>
                 </div>
                 <details id="attendanceDetails" class="optional-details">
                   <summary>Notes and photo</summary>
@@ -224,7 +249,46 @@
             </article>
           </section>
 
-          <section id="taskTab" class="tab-panel hidden">
+          <section id="teamLogTab" class="tab-panel hidden leader-only">
+            <article class="card">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Leader only</p>
+                  <h2>Weekly team work log</h2>
+                  <p class="muted">Select several members in one row when they worked the same site, hours, and activity. Members can appear under different leaders in the same week.</p>
+                </div>
+              </div>
+              <form id="teamWorkLogForm" class="form-grid">
+                <div class="grid two-col compact-fields">
+                  <label>
+                    Week starting Monday
+                    <input id="teamWorkLogWeekStart" type="date" required />
+                  </label>
+                  <label>
+                    Week notes
+                    <input id="teamWorkLogNotes" type="text" maxlength="3000" placeholder="Weather, access, crew changes, or general notes" />
+                  </label>
+                </div>
+                <div class="section-heading team-log-heading">
+                  <div>
+                    <h2>Member work rows</h2>
+                    <p class="muted">Search and select one or more members per row. Add another row when the site, hours, or work activity changes.</p>
+                  </div>
+                  <button id="addTeamWorkLogEntryButton" type="button" class="secondary">Add member row</button>
+                </div>
+                <div id="teamWorkLogEntries" class="team-work-log-entries"></div>
+                <button id="submitTeamWorkLogButton" type="submit">Submit weekly team log</button>
+              </form>
+              <div class="form-divider"></div>
+              <div class="section-heading">
+                <h2>My submitted team logs</h2>
+                <button id="refreshTeamWorkLogsButton" type="button" class="ghost">Refresh</button>
+              </div>
+              <div id="teamWorkLogHistory" class="records-list"></div>
+            </article>
+          </section>
+
+          <section id="taskTab" class="tab-panel hidden leader-only">
             <article class="card">
               <h2>Daywork log</h2>
               <p id="dayworkFormHint" class="muted">Loading Daywork log form...</p>
@@ -251,7 +315,7 @@
             </article>
           </section>
 
-          <section id="formTab" class="tab-panel hidden">
+          <section id="formTab" class="tab-panel hidden leader-only">
             <article class="card">
               <h2>Work forms</h2>
               <form id="workFormSubmissionForm" class="form-grid">
@@ -287,16 +351,17 @@
                 <button id="refreshHistoryButton" type="button" class="ghost">Refresh</button>
               </div>
               <form id="historyFilterForm" class="filter-bar">
-                <label>
+                <label class="history-search-filter">
                   Find
                   <input id="historySearchInput" type="search" placeholder="Site, note, task, status" />
                 </label>
-                <label>
+                <label class="history-type-filter">
                   Type
                   <select id="historyTypeFilter">
                     <option value="">All</option>
                     <option value="attendance">Check in/out</option>
                     <option value="task">Task logs</option>
+                    <option value="team_log">Team weekly logs</option>
                     <option value="form">Forms</option>
                   </select>
                 </label>
@@ -331,7 +396,35 @@
         </section>
 
         <section id="supervisorView" class="view hidden">
-          <div class="grid two-col">
+          <nav class="admin-desktop-nav" aria-label="Admin workspace sections">
+            <div class="admin-nav-heading">
+              <p class="eyebrow">Admin workspace</p>
+              <strong>Jump to</strong>
+            </div>
+            <div class="admin-nav-group">
+              <span>Review</span>
+              <a href="#adminOverview">Overview</a>
+              <a href="#reviewQueueDetails">Review queue</a>
+              <a href="#managementAnalyticsDetails">Analytics</a>
+              <a href="#locationMapDetails">Maps</a>
+            </div>
+            <div class="admin-nav-group">
+              <span>Add records</span>
+              <a href="#manualAttendanceDetails">Attendance</a>
+              <a href="#adminTaskLogDetails">Task log</a>
+            </div>
+            <div class="admin-nav-group">
+              <span>Manage</span>
+              <a href="#workFormsDetails">Work forms</a>
+              <a href="#sitesDetails">Sites</a>
+              <a href="#staffUsersDetails">Staff users</a>
+              <a href="#auditHistoryDetails">Audit history</a>
+              <a href="#rubbishBinDetails">Rubbish bin</a>
+            </div>
+          </nav>
+
+          <div class="admin-workspace">
+            <div id="adminOverview" class="grid two-col admin-overview-grid">
             <article class="card">
               <h2>Review overview</h2>
               <div id="supervisorSummary" class="summary-list"></div>
@@ -356,9 +449,166 @@
                 <button id="exportDocumentButton" type="button">Export document</button>
               </div>
             </article>
-          </div>
+            </div>
 
-          <details class="card fold-card review-queue-card" open>
+            <section class="card dashboard-scope-card">
+            <div class="dashboard-scope-copy">
+              <p class="eyebrow">Dashboard scope</p>
+              <h2>Choose the department to review</h2>
+              <p class="muted">This changes review records, maps, analytics, sites, staff, and forms. It does not change your home department.</p>
+            </div>
+            <div class="dashboard-scope-controls">
+              <label>
+                Current view
+                <select id="supervisorDepartmentFilter"></select>
+              </label>
+              <button id="saveDefaultDepartmentButton" type="button">Save as default view</button>
+              <small id="supervisorDepartmentHelp" class="dashboard-scope-help"></small>
+            </div>
+            </section>
+
+          <details id="managementAnalyticsDetails" class="card fold-card management-analytics-card">
+            <summary>
+              <span>Management analytics</span>
+              <span id="analyticsExceptionCount" class="fold-count">0 exceptions</span>
+            </summary>
+            <div class="fold-content">
+              <div class="section-heading">
+                <div>
+                  <h2>Operational trends and exceptions</h2>
+                  <p class="muted">Management summaries use accessible review records. Open check-ins are marked missing after 12 hours. Logged task hours are operational figures, not payroll-approved hours.</p>
+                </div>
+                <div class="analytics-toolbar">
+                  <label>
+                    Reporting period
+                    <select id="analyticsPeriodSelect">
+                      <option value="7">Last 7 days</option>
+                      <option value="30" selected>Last 30 days</option>
+                      <option value="90">Last 90 days</option>
+                      <option value="all">All records</option>
+                    </select>
+                  </label>
+                  <button id="exportManagementCsvButton" type="button" class="secondary">Export management CSV</button>
+                  <button id="exportManagementHtmlButton" type="button" class="ghost">Export printable report</button>
+                </div>
+              </div>
+              <p id="analyticsPeriodLabel" class="list-count">Last 30 days</p>
+              <div id="analyticsMetrics" class="analytics-metrics"></div>
+
+              <div class="analytics-grid">
+                <section class="analytics-panel">
+                  <div class="section-heading"><h2>Record trend</h2></div>
+                  <div class="analytics-chart-legend"><span><i class="total"></i>Records</span><span><i class="exceptions"></i>Exceptions</span></div>
+                  <div id="analyticsTrendChart" class="analytics-trend-chart"></div>
+                </section>
+                <section class="analytics-panel">
+                  <div class="section-heading"><h2>Exception analytics</h2></div>
+                  <div id="analyticsExceptionSummary" class="analytics-exception-summary"></div>
+                  <div id="analyticsExceptionList" class="analytics-exception-list"></div>
+                </section>
+              </div>
+
+              <section class="analytics-panel">
+                <div class="section-heading"><h2>Productivity and site summary</h2></div>
+                <div id="analyticsSiteSummary"></div>
+              </section>
+
+              <section class="analytics-panel">
+                <div class="section-heading">
+                  <div>
+                    <h2>Form response charts</h2>
+                    <p class="muted">Select, checkbox, and numeric responses are summarised automatically.</p>
+                  </div>
+                </div>
+                <div id="analyticsFormCharts" class="analytics-response-grid"></div>
+              </section>
+            </div>
+          </details>
+
+          <details id="manualAttendanceDetails" class="card fold-card manual-attendance-card">
+            <summary>
+              <span>Add missed check in / check out</span>
+              <span class="fold-count">Manual entry</span>
+            </summary>
+            <div class="fold-content">
+              <div class="section-heading">
+                <div>
+                  <h2>Add attendance for a worker</h2>
+                  <p class="muted">Use this when a worker performed the work but forgot to check in or out. The entry is approved, audit-logged, and marked as manual with no GPS result.</p>
+                </div>
+              </div>
+              <form id="manualAttendanceForm" class="form-grid manual-attendance-form">
+                <label>
+                  Worker
+                  <select id="manualAttendanceWorker" required></select>
+                </label>
+                <label>
+                  Site
+                  <select id="manualAttendanceSite" required></select>
+                </label>
+                <label>
+                  Entry type
+                  <select id="manualAttendanceType" required>
+                    <option value="check_in">Check in</option>
+                    <option value="check_out">Check out</option>
+                  </select>
+                </label>
+                <label>
+                  Date and time
+                  <input id="manualAttendanceTime" type="datetime-local" required />
+                </label>
+                <label class="manual-attendance-reason">
+                  Reason for manual entry
+                  <textarea id="manualAttendanceNote" rows="3" minlength="3" maxlength="1000" placeholder="Example: Worker confirmed start time with site supervisor." required></textarea>
+                </label>
+                <button id="manualAttendanceSubmitButton" type="submit">Add attendance entry</button>
+              </form>
+            </div>
+          </details>
+
+          <details id="adminTaskLogDetails" class="card fold-card admin-task-log-card">
+            <summary>
+              <span>Submit approved log</span>
+              <span class="fold-count">Self or others</span>
+            </summary>
+            <div class="fold-content">
+              <div class="section-heading">
+                <div>
+                  <h2>Add a task log</h2>
+                  <p class="muted">Submit a log for yourself or another accessible user. Admin-entered logs are approved immediately and audit-logged.</p>
+                </div>
+              </div>
+              <form id="adminTaskLogForm" class="form-grid admin-task-log-form">
+                <label>
+                  Person
+                  <select id="adminTaskLogUser" required></select>
+                </label>
+                <label>
+                  Site
+                  <select id="adminTaskLogSite" required></select>
+                </label>
+                <label>
+                  Work date
+                  <input id="adminTaskLogDate" type="date" required />
+                </label>
+                <label>
+                  Hours worked
+                  <input id="adminTaskLogHours" type="number" min="0" max="24" step="0.25" />
+                </label>
+                <label class="admin-task-log-description">
+                  Task summary
+                  <textarea id="adminTaskLogDescription" rows="4" maxlength="3000" required></textarea>
+                </label>
+                <label class="admin-task-log-safety">
+                  Safety notes
+                  <textarea id="adminTaskLogSafety" rows="4" maxlength="1500"></textarea>
+                </label>
+                <button id="adminTaskLogSubmitButton" type="submit">Submit approved log</button>
+              </form>
+            </div>
+          </details>
+
+          <details id="reviewQueueDetails" class="card fold-card review-queue-card" open>
             <summary>
               <span>Review queue</span>
               <span id="supervisorResultCount" class="fold-count">0 records</span>
@@ -379,6 +629,7 @@
                     <option value="">All</option>
                     <option value="attendance">Check in/out</option>
                     <option value="task">Task logs</option>
+                    <option value="team_log">Team weekly logs</option>
                     <option value="form">Forms</option>
                   </select>
                 </label>
@@ -401,14 +652,108 @@
             </div>
           </details>
 
-          <details class="card fold-card">
+          <details id="rubbishBinDetails" class="card fold-card rubbish-bin-card">
+            <summary>
+              <span>Rubbish bin</span>
+              <span id="rubbishBinCount" class="fold-count">0</span>
+            </summary>
+            <div class="fold-content">
+              <div class="section-heading">
+                <div>
+                  <h2>Deleted attendance and task logs</h2>
+                  <p class="muted">Records can be restored for 30 days. After that they are permanently deleted automatically.</p>
+                </div>
+                <button id="refreshRubbishBinButton" type="button" class="ghost">Refresh</button>
+              </div>
+              <div id="rubbishBinList" class="records-list"></div>
+            </div>
+          </details>
+
+          <details id="locationMapDetails" class="card fold-card location-review-card">
+            <summary>
+              <span>Maps and location review</span>
+              <span id="locationMapCount" class="fold-count">0 points</span>
+            </summary>
+            <div class="fold-content">
+              <div class="section-heading">
+                <div>
+                  <h2>Attendance locations</h2>
+                  <p class="muted">Review recorded check-in/out points and site boundaries. Dashed lines connect recorded events; they are not continuous GPS routes.</p>
+                </div>
+                <button id="refreshLocationMapButton" type="button" class="ghost">Refresh</button>
+              </div>
+              <form id="locationMapFilterForm" class="filter-bar location-map-filters">
+                <label>
+                  Worker
+                  <select id="locationMapWorkerFilter">
+                    <option value="">All workers</option>
+                  </select>
+                </label>
+                <label>
+                  Site
+                  <select id="locationMapSiteFilter">
+                    <option value="">All sites</option>
+                  </select>
+                </label>
+                <label>
+                  Status
+                  <select id="locationMapStatusFilter">
+                    <option value="">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </label>
+                <label>
+                  From
+                  <input id="locationMapDateFrom" type="date" />
+                </label>
+                <label>
+                  To
+                  <input id="locationMapDateTo" type="date" />
+                </label>
+                <label class="checkbox-field location-map-toggle">
+                  <input id="locationMapOutsideOnly" type="checkbox" />
+                  Outside site only
+                </label>
+                <label class="checkbox-field location-map-toggle">
+                  <input id="locationMapRouteToggle" type="checkbox" checked />
+                  Connect recorded points
+                </label>
+                <button id="clearLocationMapFiltersButton" type="button" class="ghost">Clear</button>
+              </form>
+              <div class="location-review-layout">
+                <div>
+                  <div id="locationReviewMap" class="location-review-map" aria-label="Attendance location map"></div>
+                  <div class="location-map-legend" aria-label="Map legend">
+                    <span><i class="map-key inside"></i>Inside site</span>
+                    <span><i class="map-key outside"></i>Outside site</span>
+                    <span><i class="map-key unknown"></i>No radius result</span>
+                    <span><i class="map-key boundary"></i>Site boundary</span>
+                  </div>
+                </div>
+                <aside class="location-review-sidebar">
+                  <div id="locationMapSummary" class="summary-list"></div>
+                  <div id="locationMapSelection" class="location-map-selection">
+                    <div class="empty-state">Select an attendance point or history row to review it.</div>
+                  </div>
+                </aside>
+              </div>
+              <div class="section-heading location-history-heading">
+                <h2>Recorded location history</h2>
+              </div>
+              <div id="locationMapHistory" class="location-map-history"></div>
+            </div>
+          </details>
+
+          <details id="auditHistoryDetails" class="card fold-card audit-history-card">
             <summary>
               <span>Audit history</span>
               <span id="auditEventsCount" class="fold-count">0</span>
             </summary>
             <div class="fold-content">
               <div class="section-heading">
-                <h2>Supervisor changes</h2>
+                <h2>Recorded changes and submissions</h2>
                 <button id="refreshAuditButton" type="button" class="ghost">Refresh</button>
               </div>
               <div id="auditEventsList" class="records-list"></div>
@@ -423,12 +768,12 @@
             <form id="editPanelForm" class="form-grid"></form>
           </article>
 
-          <details class="card fold-card">
+          <details id="workFormsDetails" class="card fold-card work-forms-card">
             <summary>
               <span>Work forms</span>
               <span id="workFormsCount" class="fold-count">0</span>
             </summary>
-            <div class="fold-content">
+            <div class="fold-content work-forms-content">
               <form id="workFormBuilderForm" class="form-grid">
                 <label>
                   Form name
@@ -453,7 +798,7 @@
             </div>
           </details>
 
-          <details class="card fold-card">
+          <details id="sitesDetails" class="card fold-card sites-card">
             <summary>
               <span>Sites</span>
               <span id="supervisorSitesCount" class="fold-count">0</span>
@@ -492,7 +837,7 @@
             </div>
           </details>
 
-          <details class="card fold-card">
+          <details id="staffUsersDetails" class="card fold-card staff-users-card">
             <summary>
               <span>Staff users</span>
               <span id="staffUsersCount" class="fold-count">0</span>
@@ -516,6 +861,13 @@
                   <select id="staffRoleSelect">
                     <option value="worker">Worker</option>
                     <option value="supervisor">Supervisor</option>
+                  </select>
+                </label>
+                <label>
+                  Worker class
+                  <select id="staffWorkerClassSelect">
+                    <option value="normal">Normal worker</option>
+                    <option value="leader">Leader</option>
                   </select>
                 </label>
                 <label>
@@ -543,6 +895,7 @@
               <div id="staffUsersList" class="records-list staff-users-list"></div>
             </div>
           </details>
+          </div>
         </section>
       </main>
     </div>

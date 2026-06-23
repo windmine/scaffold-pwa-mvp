@@ -207,6 +207,7 @@ def complete_registration(data, session: Session):
         name=verification.name,
         password=data.password,
         role="worker",
+        worker_class="normal",
         department_id=department.id,
         status="resigned",
         commit=False,

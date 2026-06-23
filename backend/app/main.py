@@ -1,3 +1,5 @@
+import asyncio
+from contextlib import suppress
 import json
 from pathlib import Path
 from typing import Optional
@@ -15,6 +17,10 @@ from app.schemas import (
     ApprovalRequest,
     AttendanceCreate,
     AttendanceUpdateRequest,
+    SupervisorAttendanceCreate,
+    RecordRestoreRequest,
+    RecordTrashRequest,
+    DefaultDepartmentRequest,
     LoginRequest,
     RegisterRequest,
     RegistrationStartRequest,
@@ -23,8 +29,10 @@ from app.schemas import (
     SiteUpdateRequest,
     TaskLogCreate,
     TaskLogUpdateRequest,
+    SupervisorTaskLogCreate,
     TaskTemplateCreate,
     TaskTemplateUpdate,
+    TeamWorkLogCreate,
     UserCreateRequest,
     UserStatusRequest,
     UserUpdateRequest,
@@ -44,9 +52,11 @@ from app.auth import (
 from app.use_cases import attendance as attendance_use_cases
 from app.use_cases import audit as audit_use_cases
 from app.use_cases import registration as registration_use_cases
+from app.use_cases import record_trash as record_trash_use_cases
 from app.use_cases import staff_site_admin as staff_site_admin_use_cases
 from app.use_cases import supervisor_review as supervisor_review_use_cases
 from app.use_cases import task_logs as task_log_use_cases
+from app.use_cases import team_work_logs as team_work_log_use_cases
 from app.use_cases import work_forms as work_form_use_cases
 from app.use_cases.common import (
     DEPARTMENT_NAMES,
@@ -62,6 +72,7 @@ from app.upload_storage import ensure_upload_storage_ready, load_upload, save_up
 
 
 app = FastAPI(title="Geo Management Backend")
+trash_purge_task = None
 
 
 @app.middleware("http")
@@ -145,9 +156,24 @@ DEMO_WORK_FORMS = [
 ]
 
 @app.on_event("startup")
-def on_startup():
+async def on_startup():
+    global trash_purge_task
     if AUTO_MIGRATE:
         migrate_database()
+    record_trash_use_cases.purge_expired_deleted_records_with_new_session()
+    trash_purge_task = asyncio.create_task(
+        record_trash_use_cases.run_periodic_trash_purge()
+    )
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    global trash_purge_task
+    if trash_purge_task:
+        trash_purge_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await trash_purge_task
+        trash_purge_task = None
 
 
 @app.get("/health")
@@ -198,12 +224,14 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
             name="Demo Worker",
             password_hash=hash_password("Passw0rd!"),
             role="worker",
+            worker_class="leader",
             status="active"
         )
         session.add(worker)
     else:
         existing_worker.department_id = existing_worker.department_id or leader_department.id
         existing_worker.status = "active"
+        existing_worker.worker_class = "leader"
         session.add(existing_worker)
 
     if not existing_supervisor:
@@ -213,6 +241,7 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
             name="Demo Supervisor",
             password_hash=hash_password("Passw0rd!"),
             role="supervisor",
+            worker_class=None,
             status="active",
             is_global_admin=False,
         )
@@ -221,6 +250,7 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
         existing_supervisor.department_id = existing_supervisor.department_id or leader_department.id
         existing_supervisor.status = "active"
         existing_supervisor.is_global_admin = False
+        existing_supervisor.worker_class = None
         session.add(existing_supervisor)
 
     if not existing_super_admin:
@@ -230,6 +260,7 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
             name="Super Admin",
             password_hash=hash_password("Passw0rd!"),
             role="supervisor",
+            worker_class=None,
             status="active",
             is_global_admin=True,
         )
@@ -239,6 +270,7 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
         existing_super_admin.status = "active"
         existing_super_admin.role = "supervisor"
         existing_super_admin.is_global_admin = True
+        existing_super_admin.worker_class = None
         session.add(existing_super_admin)
 
     legacy_site = session.exec(
@@ -536,6 +568,15 @@ def me(
     return user_response(user, session)
 
 
+@app.patch("/auth/default-department")
+def update_default_department(
+    data: DefaultDepartmentRequest,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    return staff_site_admin_use_cases.update_default_department(data, user, session)
+
+
 @app.get("/supervisor/users")
 def get_users(
     supervisor: User = Depends(require_supervisor),
@@ -662,6 +703,40 @@ def get_my_task_logs(
     return task_log_use_cases.list_my_task_logs(user, session)
 
 
+@app.get("/team-work-log-members")
+def get_team_work_log_members(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    return team_work_log_use_cases.list_team_members(user, session)
+
+
+@app.post("/team-work-logs")
+def create_team_work_log(
+    data: TeamWorkLogCreate,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    return team_work_log_use_cases.create_team_work_log(data, user, session)
+
+
+@app.get("/my-team-work-logs")
+def get_my_team_work_logs(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    return team_work_log_use_cases.list_my_team_work_logs(user, session)
+
+
+@app.get("/supervisor/team-work-logs")
+def get_supervisor_team_work_logs(
+    status: Optional[str] = None,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session),
+):
+    return team_work_log_use_cases.list_supervisor_team_work_logs(status, supervisor, session)
+
+
 @app.get("/task-templates")
 def get_task_templates(
     user: User = Depends(get_current_user),
@@ -777,6 +852,15 @@ def get_supervisor_records(
     return supervisor_review_use_cases.list_supervisor_attendance_records(session, supervisor, status)
 
 
+@app.post("/supervisor/records")
+def create_supervisor_record(
+    data: SupervisorAttendanceCreate,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.create_manual_attendance_record(data, supervisor, session)
+
+
 @app.patch("/supervisor/records/{record_id}")
 def update_supervisor_record(
     record_id: int,
@@ -803,6 +887,15 @@ def get_supervisor_task_logs(
     session: Session = Depends(get_session)
 ):
     return supervisor_review_use_cases.list_supervisor_task_logs(session, supervisor, status)
+
+
+@app.post("/supervisor/task-logs")
+def create_supervisor_task_log(
+    data: SupervisorTaskLogCreate,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.create_supervisor_task_log(data, supervisor, session)
 
 
 @app.get("/supervisor/task-logs/export.csv")
@@ -898,6 +991,48 @@ def update_supervisor_task_log(
     session: Session = Depends(get_session)
 ):
     return supervisor_review_use_cases.update_supervisor_task_log(log_id, data, supervisor, session)
+
+
+@app.get("/supervisor/trash")
+def get_supervisor_trash(
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return record_trash_use_cases.list_trash(session, supervisor)
+
+
+@app.post("/supervisor/trash/{record_type}/{record_id}")
+def move_supervisor_record_to_trash(
+    record_type: str,
+    record_id: int,
+    data: RecordTrashRequest,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return record_trash_use_cases.move_record_to_trash(
+        record_type,
+        record_id,
+        data,
+        supervisor,
+        session,
+    )
+
+
+@app.post("/supervisor/trash/{record_type}/{record_id}/restore")
+def restore_supervisor_record(
+    record_type: str,
+    record_id: int,
+    data: RecordRestoreRequest,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return record_trash_use_cases.restore_record(
+        record_type,
+        record_id,
+        data,
+        supervisor,
+        session,
+    )
 
 
 @app.post("/supervisor/review-records/{record_type}/{record_id}/decision")

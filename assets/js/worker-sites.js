@@ -1,4 +1,5 @@
 import { createWorkerSite as createBackendWorkerSite } from './api-client.js';
+import { roundCoordinate } from './utils.js';
 
 function currentPosition() {
   return new Promise((resolve, reject) => {
@@ -19,6 +20,14 @@ export function createWorkerSitesModule({
   handleSessionExpired,
   isBackendSessionError
 }) {
+  function roundCoordinateInput(input) {
+    const rounded = roundCoordinate(input.value);
+    if (Number.isFinite(rounded)) {
+      input.value = rounded.toFixed(6);
+    }
+    return rounded;
+  }
+
   function setSubmitting(isSubmitting) {
     state.submittingWorkerSite = isSubmitting;
     els.workerSiteSubmitButton.disabled = isSubmitting;
@@ -36,8 +45,8 @@ export function createWorkerSitesModule({
 
     try {
       const position = await currentPosition();
-      els.workerSiteLatitudeInput.value = position.coords.latitude.toFixed(6);
-      els.workerSiteLongitudeInput.value = position.coords.longitude.toFixed(6);
+      els.workerSiteLatitudeInput.value = roundCoordinate(position.coords.latitude).toFixed(6);
+      els.workerSiteLongitudeInput.value = roundCoordinate(position.coords.longitude).toFixed(6);
       renderStatusBanner('Current location added to the site form.');
     } catch {
       renderStatusBanner('Location permission was denied or timed out. Enter the site coordinates manually.', true);
@@ -50,8 +59,8 @@ export function createWorkerSitesModule({
     event.preventDefault();
     if (!state.user || state.submittingWorkerSite) return;
 
-    const latitude = Number(els.workerSiteLatitudeInput.value);
-    const longitude = Number(els.workerSiteLongitudeInput.value);
+    const latitude = roundCoordinateInput(els.workerSiteLatitudeInput);
+    const longitude = roundCoordinateInput(els.workerSiteLongitudeInput);
     const allowedRadius = Number(els.workerSiteRadiusInput.value);
 
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || !Number.isFinite(allowedRadius)) {
@@ -95,6 +104,8 @@ export function createWorkerSitesModule({
   function bindEvents() {
     els.workerSiteForm.addEventListener('submit', handleSubmit);
     els.workerSiteUseLocationButton.addEventListener('click', useCurrentLocation);
+    els.workerSiteLatitudeInput.addEventListener('blur', () => roundCoordinateInput(els.workerSiteLatitudeInput));
+    els.workerSiteLongitudeInput.addEventListener('blur', () => roundCoordinateInput(els.workerSiteLongitudeInput));
   }
 
   return {

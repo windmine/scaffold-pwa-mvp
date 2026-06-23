@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
@@ -35,6 +37,25 @@ def create_attendance(data, user: User, session: Session):
         if existing_record:
             return attendance_record_response(existing_record, session)
 
+    rapid_duplicate = session.exec(
+        select(AttendanceRecord)
+        .where(
+            AttendanceRecord.worker_id == user.id,
+            AttendanceRecord.site_id == data.site_id,
+            AttendanceRecord.record_type == data.record_type,
+            AttendanceRecord.latitude == data.latitude,
+            AttendanceRecord.longitude == data.longitude,
+            AttendanceRecord.accuracy == data.accuracy,
+            AttendanceRecord.note == data.note,
+            AttendanceRecord.photo_url == data.photo_url,
+            AttendanceRecord.deleted_at.is_(None),
+            AttendanceRecord.created_at >= datetime.now(timezone.utc) - timedelta(seconds=10),
+        )
+        .order_by(AttendanceRecord.created_at.desc())
+    ).first()
+    if rapid_duplicate:
+        return attendance_record_response(rapid_duplicate, session)
+
     distance_from_site_m, within_site_radius = site_distance_check(
         site,
         data.latitude,
@@ -68,7 +89,7 @@ def update_my_attendance_record(record_id: int, data, user: User, session: Sessi
     require_worker(user)
     record = session.get(AttendanceRecord, record_id)
 
-    if not record or record.worker_id != user.id:
+    if not record or record.worker_id != user.id or record.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Record not found")
     if record.status != "pending":
         raise HTTPException(status_code=400, detail="Only pending attendance can be edited by the worker")
@@ -113,7 +134,7 @@ def delete_my_attendance_record(record_id: int, user: User, session: Session):
     require_worker(user)
     record = session.get(AttendanceRecord, record_id)
 
-    if not record or record.worker_id != user.id:
+    if not record or record.worker_id != user.id or record.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Record not found")
     if record.status != "pending":
         raise HTTPException(status_code=400, detail="Only pending attendance can be deleted by the worker")
@@ -127,7 +148,10 @@ def delete_my_attendance_record(record_id: int, user: User, session: Session):
 def list_my_attendance_records(user: User, session: Session):
     records = session.exec(
         select(AttendanceRecord)
-        .where(AttendanceRecord.worker_id == user.id)
+        .where(
+            AttendanceRecord.worker_id == user.id,
+            AttendanceRecord.deleted_at.is_(None),
+        )
         .order_by(AttendanceRecord.created_at.desc())
     ).all()
 

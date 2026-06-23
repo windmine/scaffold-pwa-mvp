@@ -52,11 +52,32 @@ export function createWorkerAttendanceModule({
   handleSessionExpired,
   isBackendSessionError
 }) {
+  function updateActionState() {
+    const hasSite = Boolean(els.attendanceSite.value);
+    const hasLocation = Boolean(state.attendanceLocation);
+    const ready = hasSite && hasLocation;
+    const usesGuidedFlow = state.user?.role === 'worker' && state.user?.workerClass !== 'leader';
+
+    els.captureLocationButton.disabled = state.submittingAttendance || (usesGuidedFlow && !hasSite);
+    els.checkInButton.disabled = state.submittingAttendance || (usesGuidedFlow && !ready);
+    els.checkOutButton.disabled = state.submittingAttendance || (usesGuidedFlow && !ready);
+    els.saveAttendanceDraftButton.disabled = state.submittingAttendance;
+
+    if (els.attendanceActionHelp) {
+      els.attendanceActionHelp.textContent = !hasSite
+        ? 'Choose your site first.'
+        : !hasLocation
+          ? 'Now confirm your location.'
+          : 'Ready. Tap the action you need.';
+    }
+  }
+
   function renderLocationPreview() {
     if (!state.attendanceLocation) {
       els.locationPreview.innerHTML = els.attendanceSite.value
         ? 'No location captured yet.'
         : 'Select a site and capture your current location.';
+      updateActionState();
       return;
     }
 
@@ -82,6 +103,7 @@ export function createWorkerAttendanceModule({
       Time: ${formatDateTime(loc.capturedAt)}
       ${radiusMessage}
     `;
+    updateActionState();
   }
 
   async function persistDraft() {
@@ -126,10 +148,7 @@ export function createWorkerAttendanceModule({
 
   function setSubmitting(isSubmitting) {
     state.submittingAttendance = isSubmitting;
-    els.checkInButton.disabled = isSubmitting;
-    els.checkOutButton.disabled = isSubmitting;
-    els.captureLocationButton.disabled = isSubmitting;
-    els.saveAttendanceDraftButton.disabled = isSubmitting;
+    updateActionState();
   }
 
   async function handlePhotoChange(event) {
@@ -227,6 +246,7 @@ export function createWorkerAttendanceModule({
     els.checkInButton.addEventListener('click', () => submit('check_in'));
     els.checkOutButton.addEventListener('click', () => submit('check_out'));
     els.attendancePhoto.addEventListener('change', handlePhotoChange);
+    renderLocationPreview();
   }
 
   return {

@@ -27,6 +27,12 @@ export function formatDateTime(value) {
   }).format(date);
 }
 
+export function roundCoordinate(value, decimalPlaces = 6) {
+  const coordinate = Number(value);
+  if (!Number.isFinite(coordinate)) return coordinate;
+  return Number(coordinate.toFixed(decimalPlaces));
+}
+
 export function formatPhotoTakenLabel(file) {
   if (!file?.lastModified) return '';
 

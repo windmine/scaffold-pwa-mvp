@@ -9,15 +9,26 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from app.models import AttendanceRecord, Department, Site, TaskLog, User, WorkForm, WorkFormSubmission
+from app.models import (
+    AttendanceRecord,
+    Department,
+    Site,
+    TaskLog,
+    TeamWorkLog,
+    TeamWorkLogEntry,
+    User,
+    WorkForm,
+    WorkFormSubmission,
+)
 
 
 VALID_ROLES = {"worker", "supervisor"}
+VALID_WORKER_CLASSES = {"normal", "leader"}
 VALID_USER_STATUSES = {"active", "resigned"}
 DEFAULT_DEPARTMENT_NAME = "Leader"
 DEPARTMENT_NAMES = ["Leader", "Mutual", "MC", "Stech", "BOP"]
 VALID_REVIEW_STATUSES = {"pending", "approved", "rejected"}
-VALID_APPROVAL_RECORD_TYPES = {"attendance", "task", "form"}
+VALID_APPROVAL_RECORD_TYPES = {"attendance", "task", "form", "team_log"}
 MAX_TASK_LOG_PHOTOS = 8
 VALID_WORK_FORM_STATUSES = {"active", "archived"}
 VALID_WORK_FORM_FIELD_TYPES = {
@@ -51,6 +62,16 @@ def attendance_record_response(record: AttendanceRecord, session: Session):
     worker = session.get(User, record.worker_id)
     site = session.get(Site, record.site_id) if record.site_id else None
     department = session.get(Department, record.department_id) if record.department_id else None
+    created_by_supervisor = (
+        session.get(User, record.created_by_supervisor_id)
+        if record.created_by_supervisor_id
+        else None
+    )
+    deleted_by_supervisor = (
+        session.get(User, record.deleted_by_supervisor_id)
+        if record.deleted_by_supervisor_id
+        else None
+    )
 
     return {
         "id": record.id,
@@ -69,6 +90,13 @@ def attendance_record_response(record: AttendanceRecord, session: Session):
         "note": record.note,
         "photo_url": record.photo_url,
         "client_submission_id": record.client_submission_id,
+        "entry_source": record.entry_source or "worker",
+        "created_by_supervisor_id": record.created_by_supervisor_id,
+        "created_by_supervisor_name": created_by_supervisor.name if created_by_supervisor else None,
+        "deleted_at": format_datetime(record.deleted_at) if record.deleted_at else None,
+        "deleted_by_supervisor_id": record.deleted_by_supervisor_id,
+        "deleted_by_supervisor_name": deleted_by_supervisor.name if deleted_by_supervisor else None,
+        "deletion_reason": record.deletion_reason,
         "status": record.status,
         "created_at": format_datetime(record.created_at),
     }
@@ -100,6 +128,16 @@ def task_log_response(log: TaskLog, session: Session):
     site = session.get(Site, log.site_id) if log.site_id else None
     department = session.get(Department, log.department_id) if log.department_id else None
     photo_urls = task_log_photo_urls(log)
+    created_by_supervisor = (
+        session.get(User, log.created_by_supervisor_id)
+        if log.created_by_supervisor_id
+        else None
+    )
+    deleted_by_supervisor = (
+        session.get(User, log.deleted_by_supervisor_id)
+        if log.deleted_by_supervisor_id
+        else None
+    )
 
     return {
         "id": log.id,
@@ -116,6 +154,13 @@ def task_log_response(log: TaskLog, session: Session):
         "photo_url": photo_urls[0] if photo_urls else None,
         "photo_urls": photo_urls,
         "client_submission_id": log.client_submission_id,
+        "entry_source": log.entry_source or "worker",
+        "created_by_supervisor_id": log.created_by_supervisor_id,
+        "created_by_supervisor_name": created_by_supervisor.name if created_by_supervisor else None,
+        "deleted_at": format_datetime(log.deleted_at) if log.deleted_at else None,
+        "deleted_by_supervisor_id": log.deleted_by_supervisor_id,
+        "deleted_by_supervisor_name": deleted_by_supervisor.name if deleted_by_supervisor else None,
+        "deletion_reason": log.deletion_reason,
         "status": log.status or "pending",
         "created_at": format_datetime(log.created_at),
     }
@@ -209,6 +254,51 @@ def work_form_submission_response(submission: WorkFormSubmission, session: Sessi
     }
 
 
+def team_work_log_response(log: TeamWorkLog, session: Session):
+    leader = session.get(User, log.leader_id)
+    department = session.get(Department, log.department_id) if log.department_id else None
+    entries = session.exec(
+        select(TeamWorkLogEntry)
+        .where(TeamWorkLogEntry.team_work_log_id == log.id)
+        .order_by(TeamWorkLogEntry.work_date, TeamWorkLogEntry.start_time, TeamWorkLogEntry.id)
+    ).all()
+    entry_items = []
+
+    for entry in entries:
+        worker = session.get(User, entry.worker_id)
+        site = session.get(Site, entry.site_id)
+        entry_items.append({
+            "id": entry.id,
+            "worker_id": entry.worker_id,
+            "worker_name": worker.name if worker else f"Worker {entry.worker_id}",
+            "site_id": entry.site_id,
+            "site_name": site.name if site else f"Site {entry.site_id}",
+            "work_date": entry.work_date,
+            "start_time": entry.start_time,
+            "end_time": entry.end_time,
+            "break_minutes": entry.break_minutes,
+            "hours_worked": entry.hours_worked,
+            "work_description": entry.work_description,
+        })
+
+    return {
+        "id": log.id,
+        "department_id": log.department_id,
+        "department_name": department.name if department else None,
+        "leader_id": log.leader_id,
+        "leader_name": leader.name if leader else f"Leader {log.leader_id}",
+        "week_start": log.week_start,
+        "notes": log.notes,
+        "client_submission_id": log.client_submission_id,
+        "status": log.status or "pending",
+        "entries": entry_items,
+        "entry_count": len(entry_items),
+        "member_count": len({entry["worker_id"] for entry in entry_items}),
+        "total_hours": round(sum(entry["hours_worked"] for entry in entry_items), 2),
+        "created_at": format_datetime(log.created_at),
+    }
+
+
 def review_record_response(record_kind: str, record, session: Session):
     if record_kind == "attendance":
         item = attendance_record_response(record, session)
@@ -216,6 +306,8 @@ def review_record_response(record_kind: str, record, session: Session):
         item = task_log_response(record, session)
     elif record_kind == "form":
         item = work_form_submission_response(record, session)
+    elif record_kind == "team_log":
+        item = team_work_log_response(record, session)
     else:
         raise HTTPException(status_code=400, detail="record type is not reviewable")
 
@@ -278,14 +370,22 @@ def default_department(session: Session):
 
 def user_response(user: User, session: Session | None = None):
     department = session.get(Department, user.department_id) if session and user.department_id else None
+    dashboard_department = (
+        session.get(Department, user.dashboard_department_id)
+        if session and user.dashboard_department_id
+        else None
+    )
 
     return {
         "id": user.id,
         "department_id": user.department_id,
         "department_name": department.name if department else None,
+        "dashboard_department_id": user.dashboard_department_id,
+        "dashboard_department_name": dashboard_department.name if dashboard_department else None,
         "email": user.email,
         "name": user.name,
         "role": user.role,
+        "worker_class": user.worker_class if user.role == "worker" else None,
         "status": user.status or "active",
         "is_global_admin": bool(user.is_global_admin),
     }
@@ -302,6 +402,12 @@ def normalize_client_submission_id(value: Optional[str]):
 def require_worker(user: User):
     if user.role != "worker":
         raise HTTPException(status_code=403, detail="Worker only")
+
+
+def require_leader(user: User):
+    require_worker(user)
+    if (user.worker_class or "normal") != "leader":
+        raise HTTPException(status_code=403, detail="Leader only")
 
 
 def user_is_global_admin(user: User):
@@ -368,6 +474,13 @@ def validate_user_input(email: str, name: str, password: str, role: str):
     return email, name, role
 
 
+def validate_worker_class(worker_class: Optional[str]):
+    normalized = (worker_class or "normal").strip().lower()
+    if normalized not in VALID_WORKER_CLASSES:
+        raise HTTPException(status_code=400, detail="worker_class must be normal or leader")
+    return normalized
+
+
 def require_confirmed(confirmed: bool):
     if not confirmed:
         raise HTTPException(status_code=400, detail="Double check required before saving this change")
@@ -406,8 +519,12 @@ def distance_between_coordinates_m(
     return earth_radius_m * c
 
 
-def site_distance_check(site: Optional[Site], latitude: float, longitude: float):
-    if site is None:
+def site_distance_check(
+    site: Optional[Site],
+    latitude: Optional[float],
+    longitude: Optional[float],
+):
+    if site is None or latitude is None or longitude is None:
         return None, None
 
     distance = round(
@@ -909,8 +1026,8 @@ def normalize_site_input(data):
     return {
         "name": name,
         "address": address,
-        "latitude": data.latitude,
-        "longitude": data.longitude,
+        "latitude": round(data.latitude, 6),
+        "longitude": round(data.longitude, 6),
         "allowed_radius_m": data.allowed_radius_m,
     }
 
@@ -945,14 +1062,14 @@ def normalize_approval_record_type(record_type: str):
     if normalized_type not in VALID_APPROVAL_RECORD_TYPES:
         raise HTTPException(
             status_code=400,
-            detail="record_type must be attendance, task, or form"
+            detail="record_type must be attendance, task, form, or team_log"
         )
 
     return normalized_type
 
 
 def select_attendance_records(status: Optional[str] = None, user: User | None = None):
-    statement = select(AttendanceRecord)
+    statement = select(AttendanceRecord).where(AttendanceRecord.deleted_at.is_(None))
 
     if status:
         status = validate_review_status(status)
@@ -964,7 +1081,7 @@ def select_attendance_records(status: Optional[str] = None, user: User | None = 
 
 
 def select_task_logs(status: Optional[str] = None, user: User | None = None):
-    statement = select(TaskLog)
+    statement = select(TaskLog).where(TaskLog.deleted_at.is_(None))
 
     if status:
         status = validate_review_status(status)
@@ -985,3 +1102,15 @@ def select_work_form_submissions(status: Optional[str] = None, user: User | None
         statement = scope_statement_to_user_department(statement, WorkFormSubmission, user)
 
     return statement.order_by(WorkFormSubmission.created_at.desc())
+
+
+def select_team_work_logs(status: Optional[str] = None, user: User | None = None):
+    statement = select(TeamWorkLog)
+
+    if status:
+        status = validate_review_status(status)
+        statement = statement.where(TeamWorkLog.status == status)
+    if user:
+        statement = scope_statement_to_user_department(statement, TeamWorkLog, user)
+
+    return statement.order_by(TeamWorkLog.created_at.desc())

@@ -3,6 +3,7 @@ import csv
 import html
 import json
 from io import BytesIO, StringIO
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -19,7 +20,7 @@ from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, 
 from sqlmodel import Session, select
 
 from app.config import ROOT_DIR
-from app.models import AttendanceRecord, TaskLog, User, WorkFormSubmission
+from app.models import AttendanceRecord, TaskLog, TeamWorkLog, User, WorkFormSubmission
 from app.upload_storage import load_upload
 from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
@@ -32,6 +33,7 @@ from app.use_cases.common import (
     review_record_response,
     select_attendance_records,
     select_task_logs,
+    select_team_work_logs,
     select_work_form_submissions,
     site_distance_check,
     task_log_response,
@@ -549,7 +551,11 @@ def export_task_log_html(log_id: int, session: Session, supervisor: User, layout
         raise HTTPException(status_code=400, detail="layout must be daily-log or photo-report")
 
     record = session.get(TaskLog, log_id)
-    if not record or not can_access_department(supervisor, record.department_id):
+    if (
+        not record
+        or record.deleted_at is not None
+        or not can_access_department(supervisor, record.department_id)
+    ):
         raise HTTPException(status_code=404, detail="Task log not found")
 
     item = task_log_response(record, session)
@@ -1165,7 +1171,10 @@ def export_form_submissions_pdf(
 
 def export_form_submission_html(submission_id: int, session: Session, supervisor: User):
     record = session.get(WorkFormSubmission, submission_id)
-    if not record or not can_access_department(supervisor, record.department_id):
+    if (
+        not record
+        or not can_access_department(supervisor, record.department_id)
+    ):
         raise HTTPException(status_code=404, detail="Form submission not found")
 
     item = review_record_response("form", record, session)
@@ -1185,7 +1194,10 @@ def export_form_submission_pdf(
 ):
     template = normalize_form_pdf_template(template)
     record = session.get(WorkFormSubmission, submission_id)
-    if not record or not can_access_department(supervisor, record.department_id):
+    if (
+        not record
+        or not can_access_department(supervisor, record.department_id)
+    ):
         raise HTTPException(status_code=404, detail="Form submission not found")
 
     item = review_record_response("form", record, session)
@@ -1219,6 +1231,10 @@ def list_review_records(session: Session, supervisor: User, status: Optional[str
         ("form", record)
         for record in session.exec(select_work_form_submissions(status, supervisor)).all()
     )
+    rows.extend(
+        ("team_log", record)
+        for record in session.exec(select_team_work_logs(status, supervisor)).all()
+    )
     rows.sort(key=lambda row: row[1].created_at, reverse=True)
 
     return [
@@ -1249,11 +1265,76 @@ def list_supervisor_attendance_records(session: Session, supervisor: User, statu
     ]
 
 
+def create_manual_attendance_record(data, supervisor: User, session: Session):
+    require_confirmed(data.confirmed)
+    if data.record_type not in ["check_in", "check_out"]:
+        raise HTTPException(status_code=400, detail="record_type must be check_in or check_out")
+
+    worker = session.get(User, data.worker_id)
+    if (
+        not worker
+        or worker.role != "worker"
+        or not can_access_department(supervisor, worker.department_id)
+    ):
+        raise HTTPException(status_code=404, detail="Worker not found")
+
+    site = ensure_site_exists(session, data.site_id, supervisor)
+    if not site or site.department_id != worker.department_id:
+        raise HTTPException(status_code=400, detail="Site must belong to the worker's department")
+
+    if data.occurred_at.tzinfo is None:
+        raise HTTPException(status_code=400, detail="occurred_at must include a timezone")
+    occurred_at = data.occurred_at.astimezone(timezone.utc)
+    if occurred_at > datetime.now(timezone.utc) + timedelta(minutes=5):
+        raise HTTPException(status_code=400, detail="Attendance time cannot be in the future")
+
+    note = data.note.strip()
+    if len(note) < 3:
+        raise HTTPException(status_code=400, detail="A reason for the manual attendance entry is required")
+
+    record = AttendanceRecord(
+        department_id=worker.department_id,
+        worker_id=worker.id,
+        site_id=site.id,
+        record_type=data.record_type,
+        latitude=None,
+        longitude=None,
+        accuracy=None,
+        distance_from_site_m=None,
+        within_site_radius=None,
+        note=note,
+        status="approved",
+        entry_source="supervisor_manual",
+        created_by_supervisor_id=supervisor.id,
+        created_at=occurred_at,
+    )
+    session.add(record)
+    session.flush()
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action="attendance_manual_create",
+        entity_type="attendance",
+        entity_id=record.id,
+        after=model_snapshot(record),
+        summary=f"Added manual {data.record_type.replace('_', ' ')} for {worker.name}",
+        department_id=worker.department_id,
+    )
+    session.commit()
+    session.refresh(record)
+
+    return attendance_record_response(record, session)
+
+
 def update_supervisor_attendance_record(record_id: int, data, supervisor: User, session: Session):
     require_confirmed(data.confirmed)
     record = session.get(AttendanceRecord, record_id)
 
-    if not record or not can_access_department(supervisor, record.department_id):
+    if (
+        not record
+        or record.deleted_at is not None
+        or not can_access_department(supervisor, record.department_id)
+    ):
         raise HTTPException(status_code=404, detail="Record not found")
 
     fields = data.model_fields_set
@@ -1326,6 +1407,9 @@ def export_attendance_records_csv(session: Session, supervisor: User, status: Op
         "within_site_radius",
         "note",
         "photo_url",
+        "entry_source",
+        "created_by_supervisor_id",
+        "created_by_supervisor_name",
     ])
 
     for record in records:
@@ -1346,6 +1430,9 @@ def export_attendance_records_csv(session: Session, supervisor: User, status: Op
             item["within_site_radius"],
             item["note"],
             item["photo_url"],
+            item["entry_source"],
+            item["created_by_supervisor_id"],
+            item["created_by_supervisor_name"],
         ])
 
     filename = "attendance-records.csv" if not status else f"attendance-records-{status}.csv"
@@ -1370,6 +1457,49 @@ def list_supervisor_task_logs(session: Session, supervisor: User, status: Option
     ]
 
 
+def create_supervisor_task_log(data, supervisor: User, session: Session):
+    require_confirmed(data.confirmed)
+    target_user = session.get(User, data.user_id)
+    if not target_user or not can_access_department(supervisor, target_user.department_id):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    site = ensure_site_exists(session, data.site_id, supervisor)
+    if not site or site.department_id != target_user.department_id:
+        raise HTTPException(status_code=400, detail="Site must belong to the selected user's department")
+
+    description = data.description.strip()
+    if not description:
+        raise HTTPException(status_code=400, detail="Task description is required")
+
+    log = TaskLog(
+        department_id=target_user.department_id,
+        worker_id=target_user.id,
+        site_id=site.id,
+        description=description,
+        work_date=data.work_date,
+        hours_worked=data.hours_worked,
+        safety_notes=data.safety_notes.strip() if data.safety_notes else None,
+        status="approved",
+        entry_source="supervisor_manual",
+        created_by_supervisor_id=supervisor.id,
+    )
+    session.add(log)
+    session.flush()
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action="task_log_manual_create",
+        entity_type="task_log",
+        entity_id=log.id,
+        after=model_snapshot(log),
+        summary=f"Added approved task log for {target_user.name}",
+        department_id=target_user.department_id,
+    )
+    session.commit()
+    session.refresh(log)
+    return task_log_response(log, session)
+
+
 def task_logs_csv_response(items, filename: str):
     output = StringIO()
     writer = csv.writer(output)
@@ -1384,6 +1514,9 @@ def task_logs_csv_response(items, filename: str):
         "description",
         "safety_notes",
         "photo_urls",
+        "entry_source",
+        "created_by_supervisor_id",
+        "created_by_supervisor_name",
         "status",
         "created_at",
     ])
@@ -1400,6 +1533,9 @@ def task_logs_csv_response(items, filename: str):
             item["description"],
             item["safety_notes"],
             "; ".join(item["photo_urls"]),
+            item["entry_source"],
+            item["created_by_supervisor_id"],
+            item["created_by_supervisor_name"],
             item["status"],
             item["created_at"],
         ])
@@ -1424,7 +1560,11 @@ def export_task_logs_csv(session: Session, supervisor: User, status: Optional[st
 
 def export_task_log_csv(log_id: int, session: Session, supervisor: User):
     record = session.get(TaskLog, log_id)
-    if not record or not can_access_department(supervisor, record.department_id):
+    if (
+        not record
+        or record.deleted_at is not None
+        or not can_access_department(supervisor, record.department_id)
+    ):
         raise HTTPException(status_code=404, detail="Task log not found")
 
     item = task_log_response(record, session)
@@ -1530,7 +1670,11 @@ def update_supervisor_task_log(log_id: int, data, supervisor: User, session: Ses
     require_confirmed(data.confirmed)
     log = session.get(TaskLog, log_id)
 
-    if not log or not can_access_department(supervisor, log.department_id):
+    if (
+        not log
+        or log.deleted_at is not None
+        or not can_access_department(supervisor, log.department_id)
+    ):
         raise HTTPException(status_code=404, detail="Task log not found")
 
     fields = data.model_fields_set
@@ -1587,13 +1731,26 @@ def apply_review_decision(
     if record_type == "attendance":
         record = session.get(AttendanceRecord, record_id)
 
-        if not record or not can_access_department(supervisor, record.department_id):
+        if (
+            not record
+            or record.deleted_at is not None
+            or not can_access_department(supervisor, record.department_id)
+        ):
             raise HTTPException(status_code=404, detail="Record not found")
     elif record_type == "task":
         record = session.get(TaskLog, record_id)
 
-        if not record or not can_access_department(supervisor, record.department_id):
+        if (
+            not record
+            or record.deleted_at is not None
+            or not can_access_department(supervisor, record.department_id)
+        ):
             raise HTTPException(status_code=404, detail="Task log not found")
+    elif record_type == "team_log":
+        record = session.get(TeamWorkLog, record_id)
+
+        if not record or not can_access_department(supervisor, record.department_id):
+            raise HTTPException(status_code=404, detail="Team work log not found")
     else:
         record = session.get(WorkFormSubmission, record_id)
 

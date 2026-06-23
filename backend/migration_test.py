@@ -1,13 +1,17 @@
 import sys
 import tempfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from sqlalchemy import create_engine, inspect
+from sqlmodel import Session
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app.migrations import adapt_statement_for_dialect, run_migrations  # noqa: E402
+from app.models import AttendanceRecord, TaskLog, User  # noqa: E402
+from app.use_cases.record_trash import purge_expired_deleted_records  # noqa: E402
 
 
 EXPECTED_TABLES = {
@@ -20,6 +24,8 @@ EXPECTED_TABLES = {
     "tasktemplate",
     "workform",
     "workformsubmission",
+    "teamworklog",
+    "teamworklogentry",
     "auditevent",
     "schema_migrations",
 }
@@ -35,6 +41,13 @@ def make_engine(db_path: Path):
 def columns(engine, table_name: str):
     return {
         column["name"]
+        for column in inspect(engine).get_columns(table_name)
+    }
+
+
+def column_details(engine, table_name: str):
+    return {
+        column["name"]: column
         for column in inspect(engine).get_columns(table_name)
     }
 
@@ -57,6 +70,11 @@ def assert_migration_recorded(engine):
         "0002_work_form_photo_metadata",
         "0003_departments",
         "0004_registration_verification",
+        "0005_dashboard_department_preference",
+        "0006_manual_attendance_entries",
+        "0007_record_rubbish_bin",
+        "0008_manual_task_logs",
+        "0009_worker_classes_and_team_logs",
     ]
     if [row[0] for row in rows] != expected_versions:
         raise AssertionError(f"schema_migrations: expected {expected_versions}")
@@ -92,6 +110,11 @@ def test_fresh_database():
             "0002_work_form_photo_metadata",
             "0003_departments",
             "0004_registration_verification",
+            "0005_dashboard_department_preference",
+            "0006_manual_attendance_entries",
+            "0007_record_rubbish_bin",
+            "0008_manual_task_logs",
+            "0009_worker_classes_and_team_logs",
         ]
         if applied != expected_versions:
             raise AssertionError(f"fresh migration: expected {expected_versions}, got {applied}")
@@ -103,19 +126,64 @@ def test_fresh_database():
         assert_contains(
             "fresh tasklog columns",
             columns(engine, "tasklog"),
-            {"department_id", "work_date", "hours_worked", "safety_notes", "photo_urls", "status", "client_submission_id"},
+            {
+                "department_id",
+                "work_date",
+                "hours_worked",
+                "safety_notes",
+                "photo_urls",
+                "status",
+                "client_submission_id",
+                "deleted_at",
+                "deleted_by_supervisor_id",
+                "deletion_reason",
+                "entry_source",
+                "created_by_supervisor_id",
+            },
         )
         assert_contains(
             "fresh attendance columns",
             columns(engine, "attendancerecord"),
-            {"department_id", "distance_from_site_m", "within_site_radius", "client_submission_id"},
+            {
+                "department_id",
+                "distance_from_site_m",
+                "within_site_radius",
+                "client_submission_id",
+                "entry_source",
+                "created_by_supervisor_id",
+                "deleted_at",
+                "deleted_by_supervisor_id",
+                "deletion_reason",
+            },
         )
+        attendance_columns = column_details(engine, "attendancerecord")
+        if not attendance_columns["latitude"]["nullable"] or not attendance_columns["longitude"]["nullable"]:
+            raise AssertionError("fresh attendance columns: manual entries require nullable coordinates")
         assert_contains(
             "fresh form submission columns",
             columns(engine, "workformsubmission"),
             {"department_id", "photo_metadata"},
         )
-        assert_contains("fresh user columns", columns(engine, "user"), {"department_id", "is_global_admin"})
+        assert_contains(
+            "fresh user columns",
+            columns(engine, "user"),
+            {"department_id", "dashboard_department_id", "is_global_admin"},
+        )
+        assert_contains(
+            "fresh user worker class",
+            columns(engine, "user"),
+            {"worker_class"},
+        )
+        assert_contains(
+            "fresh team work log columns",
+            columns(engine, "teamworklog"),
+            {"department_id", "leader_id", "week_start", "notes", "client_submission_id", "status", "created_at"},
+        )
+        assert_contains(
+            "fresh team work log entry columns",
+            columns(engine, "teamworklogentry"),
+            {"team_work_log_id", "worker_id", "site_id", "work_date", "start_time", "end_time", "break_minutes", "hours_worked", "work_description"},
+        )
         assert_contains(
             "fresh registration verification columns",
             columns(engine, "registrationverification"),
@@ -195,12 +263,21 @@ def test_legacy_database():
             "0002_work_form_photo_metadata",
             "0003_departments",
             "0004_registration_verification",
+            "0005_dashboard_department_preference",
+            "0006_manual_attendance_entries",
+            "0007_record_rubbish_bin",
+            "0008_manual_task_logs",
+            "0009_worker_classes_and_team_logs",
         ]
         if applied != expected_versions:
             raise AssertionError(f"legacy migration: expected {expected_versions}, got {applied}")
 
         assert_contains("legacy tables", inspect(engine).get_table_names(), EXPECTED_TABLES)
-        assert_contains("legacy user columns", columns(engine, "user"), {"status", "department_id", "is_global_admin"})
+        assert_contains(
+            "legacy user columns",
+            columns(engine, "user"),
+            {"status", "department_id", "dashboard_department_id", "is_global_admin", "worker_class"},
+        )
         assert_contains(
             "legacy registration verification columns",
             columns(engine, "registrationverification"),
@@ -209,13 +286,39 @@ def test_legacy_database():
         assert_contains(
             "legacy tasklog columns",
             columns(engine, "tasklog"),
-            {"department_id", "work_date", "hours_worked", "safety_notes", "photo_urls", "status", "client_submission_id"},
+            {
+                "department_id",
+                "work_date",
+                "hours_worked",
+                "safety_notes",
+                "photo_urls",
+                "status",
+                "client_submission_id",
+                "deleted_at",
+                "deleted_by_supervisor_id",
+                "deletion_reason",
+                "entry_source",
+                "created_by_supervisor_id",
+            },
         )
         assert_contains(
             "legacy attendance columns",
             columns(engine, "attendancerecord"),
-            {"department_id", "distance_from_site_m", "within_site_radius", "client_submission_id"},
+            {
+                "department_id",
+                "distance_from_site_m",
+                "within_site_radius",
+                "client_submission_id",
+                "entry_source",
+                "created_by_supervisor_id",
+                "deleted_at",
+                "deleted_by_supervisor_id",
+                "deletion_reason",
+            },
         )
+        attendance_columns = column_details(engine, "attendancerecord")
+        if not attendance_columns["latitude"]["nullable"] or not attendance_columns["longitude"]["nullable"]:
+            raise AssertionError("legacy attendance columns: manual entries require nullable coordinates")
         assert_contains(
             "legacy form submission columns",
             columns(engine, "workformsubmission"),
@@ -227,10 +330,66 @@ def test_legacy_database():
     print("ok - legacy database migration")
 
 
+def test_rubbish_bin_purge():
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
+        engine = make_engine(Path(directory) / "trash.db")
+        run_migrations(engine)
+        now = datetime.now(timezone.utc)
+
+        with Session(engine) as session:
+            supervisor = User(
+                department_id=1,
+                email="trash-supervisor@example.com",
+                name="Trash Supervisor",
+                password_hash="test",
+                role="supervisor",
+            )
+            session.add(supervisor)
+            session.flush()
+            expired_attendance = AttendanceRecord(
+                department_id=1,
+                worker_id=999,
+                record_type="check_in",
+                latitude=-36.8,
+                longitude=174.7,
+                status="approved",
+                deleted_at=now - timedelta(days=31),
+                deleted_by_supervisor_id=supervisor.id,
+                deletion_reason="Expired duplicate",
+            )
+            retained_task = TaskLog(
+                department_id=1,
+                worker_id=999,
+                description="Retained deleted task",
+                status="approved",
+                deleted_at=now - timedelta(days=29),
+                deleted_by_supervisor_id=supervisor.id,
+                deletion_reason="Recent duplicate",
+            )
+            session.add(expired_attendance)
+            session.add(retained_task)
+            session.commit()
+            expired_id = expired_attendance.id
+            retained_id = retained_task.id
+
+            counts = purge_expired_deleted_records(session, now)
+            if counts["attendance"] != 1 or counts["task"] != 0:
+                raise AssertionError(f"rubbish bin purge: unexpected counts {counts}")
+            if session.get(AttendanceRecord, expired_id) is not None:
+                raise AssertionError("rubbish bin purge: expired attendance should be permanently deleted")
+            if session.get(TaskLog, retained_id) is None:
+                raise AssertionError("rubbish bin purge: records under 30 days must be retained")
+
+        engine.dispose()
+
+    print("ok - rubbish bin 30-day purge")
+
+
 def main():
     test_postgres_statement_adaptation()
     test_fresh_database()
     test_legacy_database()
+    test_rubbish_bin_purge()
     print("migration test passed")
     return 0
 

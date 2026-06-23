@@ -8,7 +8,8 @@ const DEMO_USERS = [
     email: 'worker@example.com',
     password: 'Passw0rd!',
     fullName: 'Demo Worker',
-    role: 'worker'
+    role: 'worker',
+    workerClass: 'leader'
   },
   {
     id: 'user-supervisor-1',

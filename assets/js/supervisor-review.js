@@ -1,4 +1,6 @@
 import {
+  createSupervisorAttendance as createBackendSupervisorAttendance,
+  createSupervisorTaskLog as createBackendSupervisorTaskLog,
   decideRecord as decideBackendRecord,
   exportSupervisorFormSubmissionCsv,
   exportSupervisorFormSubmissionHtml,
@@ -11,7 +13,11 @@ import {
   exportSupervisorTaskLogsHtml,
   exportSupervisorTaskLogsCsv,
   getSupervisorAuditEvents as getBackendSupervisorAuditEvents,
+  getSupervisorTrash as getBackendSupervisorTrash,
   getSupervisorReviewRecords as getBackendSupervisorReviewRecords,
+  moveSupervisorRecordToTrash as moveBackendSupervisorRecordToTrash,
+  restoreSupervisorRecord as restoreBackendSupervisorRecord,
+  updateDefaultDepartment as updateBackendDefaultDepartment,
   updateSupervisorRecord as updateBackendSupervisorRecord,
   updateSupervisorTaskLog as updateBackendSupervisorTaskLog
 } from './api-client.js';
@@ -42,6 +48,7 @@ function reviewRecordCounts(records) {
     if (record.status === 'approved' || record.status === 'rejected') counts.reviewed += 1;
     if (record.type === 'attendance') counts.attendance += 1;
     if (record.type === 'task') counts.task += 1;
+    if (record.type === 'team_log') counts.teamLog += 1;
     if (record.type === 'form') counts.form += 1;
     return counts;
   }, {
@@ -49,6 +56,7 @@ function reviewRecordCounts(records) {
     reviewed: 0,
     attendance: 0,
     task: 0,
+    teamLog: 0,
     form: 0
   });
 }
@@ -73,6 +81,13 @@ function downloadBlob(blob, filename) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function localDateTimeInputValue(value = new Date()) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const localTime = new Date(date.getTime() - (date.getTimezoneOffset() * 60 * 1000));
+  return localTime.toISOString().slice(0, 16);
+}
+
 export function createSupervisorReviewModule({
   els,
   state,
@@ -82,6 +97,10 @@ export function createSupervisorReviewModule({
   refreshWorkForms,
   renderSupervisorSites,
   renderStaffUsers,
+  renderLocationMap,
+  renderManagementAnalytics,
+  renderDepartmentScopedAdminLists,
+  onDefaultDepartmentChanged,
   showEditPanel,
   closeEditPanel,
   editValue,
@@ -91,10 +110,189 @@ export function createSupervisorReviewModule({
   function getFilters() {
     return {
       query: els.supervisorSearchInput.value,
+      department: state.departmentFocusId,
+      fallbackDepartment: state.user?.departmentId,
       type: els.supervisorTypeFilter.value,
       status: els.supervisorStatusFilter.value,
       date: els.supervisorDateFilter.value
     };
+  }
+
+  function departmentFocusedRecords(records) {
+    if (!state.departmentFocusId) return records;
+    return records.filter((record) => (
+      String(record.departmentId ?? state.user?.departmentId) === String(state.departmentFocusId)
+    ));
+  }
+
+  function focusedDepartmentName() {
+    if (!state.departmentFocusId) return 'All departments';
+    return state.departments.find(
+      (department) => String(department.id) === String(state.departmentFocusId)
+    )?.name || 'Department';
+  }
+
+  function itemDepartmentId(item) {
+    return item?.department_id ?? item?.departmentId;
+  }
+
+  function manualAttendanceWorkers() {
+    return (state.staffUsers || []).filter((user) => (
+      user.role === 'worker'
+      && (
+        !state.departmentFocusId
+        || String(itemDepartmentId(user)) === String(state.departmentFocusId)
+      )
+    ));
+  }
+
+  function renderManualAttendanceSites() {
+    const worker = manualAttendanceWorkers().find(
+      (item) => String(item.id) === els.manualAttendanceWorker.value
+    );
+    const currentSiteId = els.manualAttendanceSite.value;
+    const sites = worker
+      ? (state.sites || []).filter(
+        (site) => String(itemDepartmentId(site)) === String(itemDepartmentId(worker))
+      )
+      : [];
+    els.manualAttendanceSite.innerHTML = sites.length
+      ? sites.map((site) => (
+        `<option value="${site.id}">${escapeHtml(site.name)} (#${escapeHtml(site.id)})</option>`
+      )).join('')
+      : '<option value="">No sites available for this worker</option>';
+    if (sites.some((site) => String(site.id) === currentSiteId)) {
+      els.manualAttendanceSite.value = currentSiteId;
+    }
+    els.manualAttendanceSubmitButton.disabled = !worker || !sites.length;
+  }
+
+  function renderManualAttendanceForm() {
+    const currentWorkerId = els.manualAttendanceWorker.value;
+    const workers = manualAttendanceWorkers();
+    els.manualAttendanceWorker.innerHTML = workers.length
+      ? workers.map((worker) => {
+        const departmentName = worker.department_name || worker.departmentName || 'No department';
+        const status = worker.status === 'resigned' ? ' - resigned' : '';
+        return `<option value="${worker.id}">${escapeHtml(worker.name)} (${escapeHtml(departmentName)}${escapeHtml(status)})</option>`;
+      }).join('')
+      : '<option value="">No workers available</option>';
+    if (workers.some((worker) => String(worker.id) === currentWorkerId)) {
+      els.manualAttendanceWorker.value = currentWorkerId;
+    }
+    if (!els.manualAttendanceTime.value) {
+      els.manualAttendanceTime.value = localDateTimeInputValue();
+    }
+    renderManualAttendanceSites();
+  }
+
+  function adminTaskLogUsers() {
+    return (state.staffUsers || []).filter((user) => (
+      !state.departmentFocusId
+      || String(itemDepartmentId(user)) === String(state.departmentFocusId)
+    ));
+  }
+
+  function renderAdminTaskLogSites() {
+    const user = adminTaskLogUsers().find(
+      (item) => String(item.id) === els.adminTaskLogUser.value
+    );
+    const currentSiteId = els.adminTaskLogSite.value;
+    const sites = user
+      ? (state.sites || []).filter(
+        (site) => String(itemDepartmentId(site)) === String(itemDepartmentId(user))
+      )
+      : [];
+    els.adminTaskLogSite.innerHTML = sites.length
+      ? sites.map((site) => (
+        `<option value="${site.id}">${escapeHtml(site.name)} (#${escapeHtml(site.id)})</option>`
+      )).join('')
+      : '<option value="">No sites available for this person</option>';
+    if (sites.some((site) => String(site.id) === currentSiteId)) {
+      els.adminTaskLogSite.value = currentSiteId;
+    }
+    els.adminTaskLogSubmitButton.disabled = !user || !sites.length;
+  }
+
+  function renderAdminTaskLogForm() {
+    const currentUserId = els.adminTaskLogUser.value;
+    const users = adminTaskLogUsers();
+    els.adminTaskLogUser.innerHTML = users.length
+      ? users.map((user) => {
+        const departmentName = user.department_name || user.departmentName || 'No department';
+        const selfLabel = String(user.id) === String(state.user?.id) ? ' - You' : '';
+        const status = user.status === 'resigned' ? ' - resigned' : '';
+        return `<option value="${user.id}">${escapeHtml(user.name)} (${escapeHtml(user.role)}${escapeHtml(selfLabel)} | ${escapeHtml(departmentName)}${escapeHtml(status)})</option>`;
+      }).join('')
+      : '<option value="">No users available</option>';
+    const preferredUserId = users.some((user) => String(user.id) === currentUserId)
+      ? currentUserId
+      : users.some((user) => String(user.id) === String(state.user?.id))
+        ? String(state.user.id)
+        : '';
+    if (preferredUserId) {
+      els.adminTaskLogUser.value = preferredUserId;
+    }
+    if (!els.adminTaskLogDate.value) {
+      els.adminTaskLogDate.value = todayDateInput();
+    }
+    renderAdminTaskLogSites();
+  }
+
+  function renderDepartmentFilter() {
+    const isGlobalAdmin = Boolean(state.user?.isGlobalAdmin);
+    const currentValue = state.departmentFocusId || '';
+    const departments = state.departments || [];
+    const options = isGlobalAdmin
+      ? [
+        '<option value="">All departments</option>',
+        ...departments.map((department) => (
+          `<option value="${department.id}">${escapeHtml(department.name)}</option>`
+        ))
+      ]
+      : departments
+        .filter((department) => String(department.id) === String(state.user?.departmentId))
+        .map((department) => `<option value="${department.id}">${escapeHtml(department.name)}</option>`);
+
+    els.supervisorDepartmentFilter.innerHTML = options.join('');
+    const validValue = Array.from(els.supervisorDepartmentFilter.options)
+      .some((option) => option.value === currentValue);
+    state.departmentFocusId = validValue
+      ? currentValue
+      : String(state.user?.departmentId || '');
+    els.supervisorDepartmentFilter.value = state.departmentFocusId;
+    els.supervisorDepartmentFilter.disabled = !isGlobalAdmin;
+    els.saveDefaultDepartmentButton.classList.toggle('hidden', !isGlobalAdmin);
+    const savedDefaultValue = state.user?.dashboardDepartmentId
+      ? String(state.user.dashboardDepartmentId)
+      : '';
+    els.saveDefaultDepartmentButton.disabled = (
+      String(state.departmentFocusId) === savedDefaultValue
+    );
+    els.supervisorDepartmentHelp.textContent = isGlobalAdmin
+      ? `Saved default view: ${state.user?.dashboardDepartmentName || 'All departments'}`
+      : `Fixed to ${state.user?.departmentName || 'your department'}.`;
+  }
+
+  function renderFocusedDashboard(usingBackend = state.supervisorRecords.usingBackend) {
+    const reviewRecords = state.supervisorRecords.reviewRecords || [];
+    const focusedRecords = departmentFocusedRecords(reviewRecords);
+    const counts = reviewRecordCounts(focusedRecords);
+
+    els.supervisorSummary.innerHTML = `
+      <div class="summary-item"><span>Signed in as</span><strong>${escapeHtml(state.user.fullName)}</strong></div>
+      <div class="summary-item"><span>Department focus</span><strong>${escapeHtml(focusedDepartmentName())}</strong></div>
+      <div class="summary-item"><span>Needs review</span><strong>${counts.pending}</strong></div>
+      <div class="summary-item"><span>Reviewed</span><strong>${counts.reviewed}</strong></div>
+      <div class="summary-item"><span>Check in/out</span><strong>${counts.attendance}</strong></div>
+      <div class="summary-item"><span>Task logs</span><strong>${counts.task}</strong></div>
+      <div class="summary-item"><span>Team weekly logs</span><strong>${counts.teamLog}</strong></div>
+      <div class="summary-item"><span>Forms</span><strong>${counts.form}</strong></div>
+      <div class="summary-item"><span>Source</span><strong>${usingBackend ? 'Backend' : 'This device'}</strong></div>
+    `;
+    renderFilteredLists();
+    renderLocationMap();
+    renderManagementAnalytics();
   }
 
   async function renderPanel() {
@@ -119,34 +317,34 @@ export function createSupervisorReviewModule({
       renderStatusBanner('Backend approvals are unreachable. Showing records saved on this device only.', true);
     }
 
-    const counts = reviewRecordCounts(reviewRecords);
-
-    els.supervisorSummary.innerHTML = `
-      <div class="summary-item"><span>Signed in as</span><strong>${escapeHtml(state.user.fullName)}</strong></div>
-      <div class="summary-item"><span>Needs review</span><strong>${counts.pending}</strong></div>
-      <div class="summary-item"><span>Reviewed</span><strong>${counts.reviewed}</strong></div>
-      <div class="summary-item"><span>Check in/out</span><strong>${counts.attendance}</strong></div>
-      <div class="summary-item"><span>Task logs</span><strong>${counts.task}</strong></div>
-      <div class="summary-item"><span>Forms</span><strong>${counts.form}</strong></div>
-      <div class="summary-item"><span>Source</span><strong>${usingBackend ? 'Backend' : 'This device'}</strong></div>
-    `;
-    state.supervisorRecords = { reviewRecords };
-    renderFilteredLists();
+    state.supervisorRecords = {
+      reviewRecords,
+      usingBackend,
+      auditEvents: [],
+      trashRecords: state.supervisorRecords.trashRecords || []
+    };
+    renderDepartmentFilter();
+    renderFocusedDashboard(usingBackend);
     renderSupervisorSites();
     await refreshWorkForms();
     await renderStaffUsers();
+    renderManualAttendanceForm();
+    renderAdminTaskLogForm();
     await renderAuditHistory();
+    await renderTrash();
   }
 
   function renderFilteredLists() {
     const { reviewRecords } = state.supervisorRecords;
+    const focusedRecords = departmentFocusedRecords(reviewRecords);
     const filteredRecords = historyModule.filterRecords(reviewRecords, getFilters());
 
-    els.supervisorResultCount.textContent = `${filteredRecords.length}/${reviewRecords.length}`;
+    els.supervisorResultCount.textContent = `${filteredRecords.length}/${focusedRecords.length}`;
     historyModule.renderRecordsList(els.reviewQueueList, filteredRecords, {
       showDecisionActions: true,
       showEditActions: true,
-      showExportActions: true
+      showExportActions: true,
+      showTrashActions: true
     });
   }
 
@@ -156,6 +354,215 @@ export function createSupervisorReviewModule({
     els.supervisorStatusFilter.value = '';
     setDateInputValue(els.supervisorDateFilter, '');
     renderFilteredLists();
+  }
+
+  function handleDepartmentFilterChange() {
+    state.departmentFocusId = els.supervisorDepartmentFilter.value;
+    renderDepartmentFilter();
+    renderFocusedDashboard();
+    renderDepartmentScopedAdminLists();
+    renderManualAttendanceForm();
+    renderAdminTaskLogForm();
+    renderTrashList();
+  }
+
+  function focusedTrashRecords() {
+    const records = state.supervisorRecords.trashRecords || [];
+    if (!state.departmentFocusId) return records;
+    return records.filter((record) => (
+      String(record.departmentId ?? state.user?.departmentId) === String(state.departmentFocusId)
+    ));
+  }
+
+  function renderTrashList() {
+    const records = focusedTrashRecords();
+    els.rubbishBinCount.textContent = String(records.length);
+    els.rubbishBinList.innerHTML = records.length
+      ? records.map((record) => {
+        const recordLabel = record.type === 'attendance'
+          ? (record.action === 'check_out' ? 'Check out' : 'Check in')
+          : 'Task log';
+        return `
+          <article class="record-card rubbish-bin-record">
+            <div class="record-header">
+              <div>
+                <h3 class="record-title">${escapeHtml(recordLabel)} - ${escapeHtml(record.siteName)}</h3>
+                <p class="record-meta">${escapeHtml(record.userName)} | ${escapeHtml(formatDateTime(record.createdAt))}</p>
+              </div>
+              <span class="badge rejected">In bin</span>
+            </div>
+            <div class="record-extra">
+              <p><strong>Reason:</strong> ${escapeHtml(record.deletionReason || 'No reason recorded.')}</p>
+              <p><strong>Deleted:</strong> ${escapeHtml(formatDateTime(record.deletedAt))}${record.deletedBySupervisorName ? ` by ${escapeHtml(record.deletedBySupervisorName)}` : ''}</p>
+              <p><strong>Automatic deletion:</strong> ${escapeHtml(formatDateTime(record.purgeAt))}</p>
+            </div>
+            <div class="record-actions">
+              <button type="button" data-restore-record="${escapeHtml(record.type)}:${escapeHtml(record.backendRecordId)}">Restore</button>
+            </div>
+          </article>
+        `;
+      }).join('')
+      : '<div class="empty-state">The rubbish bin is empty.</div>';
+
+    els.rubbishBinList.querySelectorAll('[data-restore-record]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const [recordType, recordId] = button.dataset.restoreRecord.split(':');
+        await handleRestoreRecord(recordType, Number(recordId));
+      });
+    });
+  }
+
+  async function renderTrash() {
+    try {
+      const records = await getBackendSupervisorTrash();
+      state.supervisorRecords.trashRecords = records
+        .map(historyModule.fromBackendReviewRecord)
+        .filter(Boolean);
+      renderTrashList();
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        handleSessionExpired();
+        return;
+      }
+      state.supervisorRecords.trashRecords = [];
+      els.rubbishBinCount.textContent = '-';
+      els.rubbishBinList.innerHTML = '<div class="empty-state">The rubbish bin is unavailable.</div>';
+    }
+  }
+
+  async function handleRestoreRecord(recordType, recordId) {
+    if (!window.confirm('Double check: restore this record to the active review history?')) return;
+    try {
+      await restoreBackendSupervisorRecord(recordType, recordId);
+      renderStatusBanner('Record restored from the rubbish bin.');
+      await renderPanel();
+    } catch (error) {
+      renderStatusBanner(error.message || 'Could not restore the record.', true);
+    }
+  }
+
+  async function handleTrashRecord(record) {
+    if (!record.backendRecordId || !['attendance', 'task'].includes(record.type)) {
+      renderStatusBanner('Only backend attendance and task logs can be moved to the rubbish bin.', true);
+      return;
+    }
+
+    showEditPanel(
+      `Move ${record.type === 'attendance' ? 'attendance' : 'task log'} to rubbish bin`,
+      [{
+        id: 'trashRecordReason',
+        label: 'Reason for deletion',
+        type: 'textarea',
+        rows: 4,
+        value: ''
+      }],
+      'Move to rubbish bin',
+      async () => {
+        const reason = editValue('trashRecordReason').trim();
+        if (reason.length < 3) {
+          renderStatusBanner('Enter a reason for moving this record to the rubbish bin.', true);
+          return;
+        }
+        if (!window.confirm('Double check: hide this record and keep it in the rubbish bin for 30 days?')) return;
+        try {
+          await moveBackendSupervisorRecordToTrash(
+            record.type,
+            record.backendRecordId,
+            reason
+          );
+          closeEditPanel();
+          renderStatusBanner('Record moved to the rubbish bin for 30 days.');
+          await renderPanel();
+        } catch (error) {
+          renderStatusBanner(error.message || 'Could not move the record to the rubbish bin.', true);
+        }
+      }
+    );
+  }
+
+  async function handleManualAttendanceSubmit(event) {
+    event.preventDefault();
+    const worker = manualAttendanceWorkers().find(
+      (item) => String(item.id) === els.manualAttendanceWorker.value
+    );
+    const occurredAt = new Date(els.manualAttendanceTime.value);
+    if (!worker || !els.manualAttendanceSite.value || Number.isNaN(occurredAt.getTime())) {
+      renderStatusBanner('Choose a worker, site, and valid attendance time.', true);
+      return;
+    }
+    if (!window.confirm(
+      `Double check: add this ${els.manualAttendanceType.value === 'check_out' ? 'check out' : 'check in'} for ${worker.name}?`
+    )) return;
+
+    els.manualAttendanceSubmitButton.disabled = true;
+    try {
+      await createBackendSupervisorAttendance({
+        worker_id: Number(worker.id),
+        site_id: Number(els.manualAttendanceSite.value),
+        record_type: els.manualAttendanceType.value,
+        occurred_at: occurredAt.toISOString(),
+        note: els.manualAttendanceNote.value.trim()
+      });
+      els.manualAttendanceNote.value = '';
+      els.manualAttendanceTime.value = localDateTimeInputValue();
+      renderStatusBanner(`Manual attendance added for ${worker.name}.`);
+      await renderPanel();
+    } catch (error) {
+      renderStatusBanner(error.message || 'Could not add manual attendance.', true);
+      renderManualAttendanceSites();
+    }
+  }
+
+  async function handleAdminTaskLogSubmit(event) {
+    event.preventDefault();
+    const user = adminTaskLogUsers().find(
+      (item) => String(item.id) === els.adminTaskLogUser.value
+    );
+    const description = els.adminTaskLogDescription.value.trim();
+    if (!user || !els.adminTaskLogSite.value || !els.adminTaskLogDate.value || !description) {
+      renderStatusBanner('Choose a person, site, work date, and enter the task summary.', true);
+      return;
+    }
+    if (!window.confirm(`Double check: submit this approved log for ${user.name}?`)) return;
+
+    els.adminTaskLogSubmitButton.disabled = true;
+    try {
+      await createBackendSupervisorTaskLog({
+        user_id: Number(user.id),
+        site_id: Number(els.adminTaskLogSite.value),
+        work_date: els.adminTaskLogDate.value,
+        hours_worked: els.adminTaskLogHours.value === ''
+          ? null
+          : Number(els.adminTaskLogHours.value),
+        description,
+        safety_notes: els.adminTaskLogSafety.value.trim() || null
+      });
+      els.adminTaskLogHours.value = '';
+      els.adminTaskLogDescription.value = '';
+      els.adminTaskLogSafety.value = '';
+      renderStatusBanner(`Approved log submitted for ${user.name}.`);
+      await renderPanel();
+    } catch (error) {
+      renderStatusBanner(error.message || 'Could not submit the approved log.', true);
+      renderAdminTaskLogSites();
+    }
+  }
+
+  async function handleSaveDefaultDepartment() {
+    if (!state.user?.isGlobalAdmin) return;
+
+    try {
+      const user = await updateBackendDefaultDepartment(
+        state.departmentFocusId ? Number(state.departmentFocusId) : null
+      );
+      onDefaultDepartmentChanged(user);
+      renderDepartmentFilter();
+      renderStatusBanner(
+        `Default dashboard view set to ${user.dashboardDepartmentName || 'All departments'}.`
+      );
+    } catch (error) {
+      renderStatusBanner(error.message || 'Could not save the default department.', true);
+    }
   }
 
   async function handleExportAttendance() {
@@ -290,12 +697,17 @@ export function createSupervisorReviewModule({
 
     events.forEach((event) => {
       const node = document.createElement('article');
-      node.className = 'record-card';
+      node.className = 'record-card audit-event-card';
       node.innerHTML = `
         <div class="record-header">
           <div>
             <h3 class="record-title">${escapeHtml(event.summary || formatAuditAction(event.action))}</h3>
-            <p class="record-meta">${escapeHtml(event.actor_name || event.actor_email || 'Supervisor')} | ${escapeHtml(formatDateTime(event.created_at))}</p>
+            <div class="audit-editor-grid">
+              <span><small>Editor</small><strong>${escapeHtml(event.actor_name || event.actor_email || 'Unknown user')}</strong></span>
+              <span><small>Group</small><strong>${escapeHtml(event.actor_department_name || event.department_name || 'No group')}</strong></span>
+              <span><small>Access</small><strong>${escapeHtml(event.actor_access_level || 'Unknown')}</strong></span>
+              <span><small>Edited</small><strong>${escapeHtml(formatDateTime(event.created_at))}</strong></span>
+            </div>
           </div>
           <span class="badge synced">${escapeHtml(formatAuditAction(event.action))}</span>
         </div>
@@ -447,6 +859,8 @@ export function createSupervisorReviewModule({
 
   function bindEvents() {
     els.refreshSupervisorButton.addEventListener('click', renderPanel);
+    els.supervisorDepartmentFilter.addEventListener('change', handleDepartmentFilterChange);
+    els.saveDefaultDepartmentButton.addEventListener('click', handleSaveDefaultDepartment);
     [
       els.supervisorSearchInput,
       els.supervisorTypeFilter,
@@ -461,6 +875,11 @@ export function createSupervisorReviewModule({
     els.exportTaskLogsButton.addEventListener('click', handleExportTaskLogs);
     els.exportDocumentButton.addEventListener('click', handleExportDocument);
     els.refreshAuditButton.addEventListener('click', renderAuditHistory);
+    els.refreshRubbishBinButton.addEventListener('click', renderTrash);
+    els.manualAttendanceWorker.addEventListener('change', renderManualAttendanceSites);
+    els.manualAttendanceForm.addEventListener('submit', handleManualAttendanceSubmit);
+    els.adminTaskLogUser.addEventListener('change', renderAdminTaskLogSites);
+    els.adminTaskLogForm.addEventListener('submit', handleAdminTaskLogSubmit);
   }
 
   return {
@@ -468,8 +887,10 @@ export function createSupervisorReviewModule({
     handleDecision,
     handleEditRecord,
     handleExportRecord,
+    handleTrashRecord,
     renderAuditHistory,
     renderFilteredLists,
-    renderPanel
+    renderPanel,
+    renderTrash
   };
 }

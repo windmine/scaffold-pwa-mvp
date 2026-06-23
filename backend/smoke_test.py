@@ -2,7 +2,7 @@ import base64
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -153,6 +153,8 @@ def main():
         admin_token = admin_login["access_token"]
         if worker_login["user"].get("department_name") != "Leader":
             raise AssertionError("worker login: expected default Leader department")
+        if worker_login["user"].get("worker_class") != "leader":
+            raise AssertionError("worker login: expected seeded worker to be a leader")
         if supervisor_login["user"].get("department_name") != "Leader":
             raise AssertionError("supervisor login: expected default Leader department")
         if supervisor_login["user"].get("is_global_admin"):
@@ -161,6 +163,26 @@ def main():
             raise AssertionError("super admin login: expected default Leader department")
         if not admin_login["user"].get("is_global_admin"):
             raise AssertionError("super admin login: expected seeded global admin access")
+        assert_status(
+            "department supervisor cannot resign super admin by status route",
+            request(
+                "POST",
+                f"/supervisor/users/{admin_login['user']['id']}/status",
+                {"status": "resigned", "confirmed": True},
+                supervisor_token,
+            ),
+            403,
+        )
+        assert_status(
+            "department supervisor cannot resign super admin by user update",
+            request(
+                "PATCH",
+                f"/supervisor/users/{admin_login['user']['id']}",
+                {"status": "resigned", "confirmed": True},
+                supervisor_token,
+            ),
+            403,
+        )
 
         departments = assert_status(
             "list departments",
@@ -173,6 +195,57 @@ def main():
             raise AssertionError(f"list departments: expected {expected_departments}, got {department_names}")
         leader_department = next(department for department in departments if department["name"] == "Leader")
         mutual_department = next(department for department in departments if department["name"] == "Mutual")
+
+        assert_status(
+            "worker cannot change default department",
+            request(
+                "PATCH",
+                "/auth/default-department",
+                {"department_id": mutual_department["id"]},
+                worker_token,
+            ),
+            403,
+        )
+        admin_default_department = assert_status(
+            "super admin changes default dashboard department",
+            request(
+                "PATCH",
+                "/auth/default-department",
+                {"department_id": mutual_department["id"]},
+                admin_token,
+            ),
+            200,
+        )
+        if admin_default_department.get("dashboard_department_name") != "Mutual":
+            raise AssertionError("super admin changes default dashboard department: expected Mutual")
+        if admin_default_department.get("department_name") != "Leader":
+            raise AssertionError("super admin changes default dashboard department: home department must stay Leader")
+        admin_me = assert_status(
+            "default dashboard department persists in auth profile",
+            request("GET", "/auth/me", token=admin_token),
+            200,
+        )
+        if admin_me.get("dashboard_department_name") != "Mutual":
+            raise AssertionError("default dashboard department persists in auth profile: expected Mutual")
+        admin_default_department = assert_status(
+            "super admin saves all departments as default",
+            request(
+                "PATCH",
+                "/auth/default-department",
+                {"department_id": None},
+                admin_token,
+            ),
+            200,
+        )
+        if admin_default_department.get("dashboard_department_id") is not None:
+            raise AssertionError("super admin saves all departments as default: expected no department id")
+        admin_me = assert_status(
+            "all departments default persists in auth profile",
+            request("GET", "/auth/me", token=admin_token),
+            200,
+        )
+        if admin_me.get("dashboard_department_id") is not None:
+            raise AssertionError("all departments default persists in auth profile: expected no department id")
 
         now = datetime.now(timezone.utc)
         timestamp = now.strftime("%Y%m%d%H%M%S%f")
@@ -334,6 +407,7 @@ def main():
                     "email": f"smoke-worker-{timestamp}@example.com",
                     "password": "Passw0rd!",
                     "role": "worker",
+                    "worker_class": "normal",
                 },
                 supervisor_token,
             ),
@@ -341,6 +415,8 @@ def main():
         )
         if smoke_user.get("department_name") != "Leader":
             raise AssertionError("create resignable worker: expected Leader department")
+        if smoke_user.get("worker_class") != "normal":
+            raise AssertionError("create resignable worker: expected normal worker class")
         smoke_user = assert_status(
             "update staff user",
             request(
@@ -497,6 +573,8 @@ def main():
             200,
         )
         smoke_worker_token = smoke_user_login["access_token"]
+        if smoke_user_login["user"].get("worker_class") != "normal":
+            raise AssertionError("reactivated worker can login: expected normal worker class")
 
         assert_status("anonymous cannot list sites", request("GET", "/sites"), 401)
         sites = assert_status("sites list", request("GET", "/sites", token=worker_token), 200)
@@ -525,8 +603,8 @@ def main():
                 {
                     "name": f"Worker Missing Site {timestamp}",
                     "address": "Created from worker dashboard",
-                    "latitude": sites[0]["latitude"],
-                    "longitude": sites[0]["longitude"],
+                    "latitude": -36.8485123456,
+                    "longitude": 174.7633123456,
                     "allowed_radius_m": 100,
                 },
                 worker_token,
@@ -535,6 +613,8 @@ def main():
         )
         if worker_site["name"] != f"Worker Missing Site {timestamp}":
             raise AssertionError("worker can create missing site: expected created site response")
+        if worker_site["latitude"] != -36.848512 or worker_site["longitude"] != 174.763312:
+            raise AssertionError("worker can create missing site: expected coordinates rounded to six decimals")
 
         site = assert_status(
             "create supervisor site",
@@ -562,6 +642,356 @@ def main():
             ),
             200,
         )
+        assert_status(
+            "normal worker cannot create missing site",
+            request(
+                "POST",
+                "/sites",
+                {
+                    "name": f"Normal Worker Site {timestamp}",
+                    "latitude": sites[0]["latitude"],
+                    "longitude": sites[0]["longitude"],
+                    "allowed_radius_m": 100,
+                },
+                smoke_worker_token,
+            ),
+            403,
+        )
+        assert_status(
+            "normal worker cannot list team log members",
+            request("GET", "/team-work-log-members", token=smoke_worker_token),
+            403,
+        )
+        assert_status(
+            "normal worker cannot submit task log",
+            request(
+                "POST",
+                "/task-logs",
+                {
+                    "site_id": site["id"],
+                    "work_date": now.date().isoformat(),
+                    "description": "Normal worker should not submit this",
+                },
+                smoke_worker_token,
+            ),
+            403,
+        )
+        team_members = assert_status(
+            "leader lists team log members",
+            request("GET", "/team-work-log-members", token=worker_token),
+            200,
+        )
+        if not any(member["id"] == smoke_user["id"] for member in team_members):
+            raise AssertionError("leader lists team log members: expected normal worker")
+        week_start = (now.date() - timedelta(days=now.weekday())).isoformat()
+        team_work_log = assert_status(
+            "leader submits weekly multi-member team log",
+            request(
+                "POST",
+                "/team-work-logs",
+                {
+                    "week_start": week_start,
+                    "notes": "Crew changed during the week",
+                    "entries": [
+                        {
+                            "worker_id": smoke_user["id"],
+                            "site_id": site["id"],
+                            "work_date": week_start,
+                            "start_time": "07:00",
+                            "end_time": "15:30",
+                            "break_minutes": 30,
+                            "work_description": "Built the north elevation scaffold",
+                        },
+                        {
+                            "worker_id": worker_login["user"]["id"],
+                            "site_id": site["id"],
+                            "work_date": (now.date() - timedelta(days=now.weekday()) + timedelta(days=1)).isoformat(),
+                            "start_time": "18:00",
+                            "end_time": "02:00",
+                            "break_minutes": 30,
+                            "work_description": "Night shift handover and tie inspection",
+                        },
+                    ],
+                    "client_submission_id": f"team-log-{timestamp}",
+                },
+                worker_token,
+            ),
+            200,
+        )
+        if team_work_log.get("status") != "pending" or team_work_log.get("member_count") != 2:
+            raise AssertionError("leader submits weekly multi-member team log: expected pending two-member log")
+        if team_work_log.get("total_hours") != 15.5:
+            raise AssertionError("leader submits weekly multi-member team log: expected 15.5 total hours")
+        duplicate_team_work_log = assert_status(
+            "team log retry is idempotent",
+            request(
+                "POST",
+                "/team-work-logs",
+                {
+                    "week_start": week_start,
+                    "entries": [
+                        {
+                            "worker_id": smoke_user["id"],
+                            "site_id": site["id"],
+                            "work_date": week_start,
+                            "start_time": "07:00",
+                            "end_time": "15:30",
+                            "break_minutes": 30,
+                            "work_description": "Retry",
+                        }
+                    ],
+                    "client_submission_id": f"team-log-{timestamp}",
+                },
+                worker_token,
+            ),
+            200,
+        )
+        if duplicate_team_work_log["id"] != team_work_log["id"]:
+            raise AssertionError("team log retry is idempotent: expected original log")
+        my_team_logs = assert_status(
+            "leader lists own team logs",
+            request("GET", "/my-team-work-logs", token=worker_token),
+            200,
+        )
+        if not any(log["id"] == team_work_log["id"] for log in my_team_logs):
+            raise AssertionError("leader lists own team logs: expected submitted log")
+        approved_team_work_log = assert_status(
+            "supervisor approves weekly team log",
+            request(
+                "POST",
+                f"/supervisor/review-records/team_log/{team_work_log['id']}/decision",
+                {"status": "approved"},
+                supervisor_token,
+            ),
+            200,
+        )
+        if approved_team_work_log.get("status") != "approved":
+            raise AssertionError("supervisor approves weekly team log: expected approved")
+        manual_attendance_time = (
+            datetime.now(timezone.utc) - timedelta(hours=8)
+        ).replace(microsecond=0).isoformat()
+        assert_status(
+            "worker cannot create supervisor manual attendance",
+            request(
+                "POST",
+                "/supervisor/records",
+                {
+                    "worker_id": smoke_user["id"],
+                    "site_id": site["id"],
+                    "record_type": "check_in",
+                    "occurred_at": manual_attendance_time,
+                    "note": "Worker forgot to check in",
+                    "confirmed": True,
+                },
+                smoke_worker_token,
+            ),
+            403,
+        )
+        assert_status(
+            "manual attendance requires confirmation",
+            request(
+                "POST",
+                "/supervisor/records",
+                {
+                    "worker_id": smoke_user["id"],
+                    "site_id": site["id"],
+                    "record_type": "check_in",
+                    "occurred_at": manual_attendance_time,
+                    "note": "Worker forgot to check in",
+                },
+                supervisor_token,
+            ),
+            400,
+        )
+        assert_status(
+            "department supervisor cannot add cross-department attendance",
+            request(
+                "POST",
+                "/supervisor/records",
+                {
+                    "worker_id": mutual_worker["id"],
+                    "site_id": site["id"],
+                    "record_type": "check_in",
+                    "occurred_at": manual_attendance_time,
+                    "note": "Cross-department attempt",
+                    "confirmed": True,
+                },
+                supervisor_token,
+            ),
+            404,
+        )
+        assert_status(
+            "manual attendance site must match worker department",
+            request(
+                "POST",
+                "/supervisor/records",
+                {
+                    "worker_id": mutual_worker["id"],
+                    "site_id": site["id"],
+                    "record_type": "check_in",
+                    "occurred_at": manual_attendance_time,
+                    "note": "Wrong department site",
+                    "confirmed": True,
+                },
+                admin_token,
+            ),
+            400,
+        )
+        manual_attendance = assert_status(
+            "supervisor creates manual attendance",
+            request(
+                "POST",
+                "/supervisor/records",
+                {
+                    "worker_id": smoke_user["id"],
+                    "site_id": site["id"],
+                    "record_type": "check_in",
+                    "occurred_at": manual_attendance_time,
+                    "note": "Worker confirmed start time with site supervisor",
+                    "confirmed": True,
+                },
+                supervisor_token,
+            ),
+            200,
+        )
+        if manual_attendance.get("status") != "approved":
+            raise AssertionError("supervisor creates manual attendance: expected approved status")
+        if manual_attendance.get("entry_source") != "supervisor_manual":
+            raise AssertionError("supervisor creates manual attendance: expected manual source")
+        if manual_attendance.get("created_by_supervisor_id") != supervisor_login["user"]["id"]:
+            raise AssertionError("supervisor creates manual attendance: expected supervisor creator")
+        if manual_attendance.get("latitude") is not None or manual_attendance.get("longitude") is not None:
+            raise AssertionError("supervisor creates manual attendance: manual record must not contain GPS")
+        manual_worker_records = assert_status(
+            "worker sees supervisor manual attendance",
+            request("GET", "/my-records", token=smoke_worker_token),
+            200,
+        )
+        if not any(record["id"] == manual_attendance["id"] for record in manual_worker_records):
+            raise AssertionError("worker sees supervisor manual attendance: expected manual record")
+        manual_audit_events = assert_status(
+            "manual attendance is audit logged",
+            request("GET", "/supervisor/audit-events?entity_type=attendance", token=supervisor_token),
+            200,
+        )
+        if not any(
+            event["action"] == "attendance_manual_create"
+            and event["entity_id"] == manual_attendance["id"]
+            for event in manual_audit_events
+        ):
+            raise AssertionError("manual attendance is audit logged: expected create audit event")
+        assert_status(
+            "manual attendance rejects future time",
+            request(
+                "POST",
+                "/supervisor/records",
+                {
+                    "worker_id": smoke_user["id"],
+                    "site_id": site["id"],
+                    "record_type": "check_out",
+                    "occurred_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+                    "note": "Invalid future check out",
+                    "confirmed": True,
+                },
+                supervisor_token,
+            ),
+            400,
+        )
+        assert_status(
+            "worker cannot create approved admin task log",
+            request(
+                "POST",
+                "/supervisor/task-logs",
+                {
+                    "user_id": smoke_user["id"],
+                    "site_id": site["id"],
+                    "work_date": now.date().isoformat(),
+                    "hours_worked": 1,
+                    "description": "Worker attempted admin task log",
+                    "confirmed": True,
+                },
+                smoke_worker_token,
+            ),
+            403,
+        )
+        assert_status(
+            "department supervisor cannot log for cross-department user",
+            request(
+                "POST",
+                "/supervisor/task-logs",
+                {
+                    "user_id": mutual_worker["id"],
+                    "site_id": site["id"],
+                    "work_date": now.date().isoformat(),
+                    "hours_worked": 1,
+                    "description": "Cross-department admin log attempt",
+                    "confirmed": True,
+                },
+                supervisor_token,
+            ),
+            404,
+        )
+        admin_self_task_log = assert_status(
+            "supervisor creates approved task log for self",
+            request(
+                "POST",
+                "/supervisor/task-logs",
+                {
+                    "user_id": supervisor_login["user"]["id"],
+                    "site_id": site["id"],
+                    "work_date": now.date().isoformat(),
+                    "hours_worked": 2,
+                    "description": "Supervisor site coordination",
+                    "safety_notes": "Admin-entered self log",
+                    "confirmed": True,
+                },
+                supervisor_token,
+            ),
+            200,
+        )
+        if admin_self_task_log.get("status") != "approved":
+            raise AssertionError("supervisor creates approved task log for self: expected approved")
+        if admin_self_task_log.get("worker_id") != supervisor_login["user"]["id"]:
+            raise AssertionError("supervisor creates approved task log for self: expected supervisor subject")
+        if admin_self_task_log.get("entry_source") != "supervisor_manual":
+            raise AssertionError("supervisor creates approved task log for self: expected admin source")
+        admin_other_task_log = assert_status(
+            "supervisor creates approved task log for another user",
+            request(
+                "POST",
+                "/supervisor/task-logs",
+                {
+                    "user_id": smoke_user["id"],
+                    "site_id": site["id"],
+                    "work_date": now.date().isoformat(),
+                    "hours_worked": 3,
+                    "description": "Admin-entered work completed",
+                    "safety_notes": "Confirmed by site supervisor",
+                    "confirmed": True,
+                },
+                supervisor_token,
+            ),
+            200,
+        )
+        if admin_other_task_log.get("status") != "approved":
+            raise AssertionError("supervisor creates approved task log for another user: expected approved")
+        if admin_other_task_log.get("worker_id") != smoke_user["id"]:
+            raise AssertionError("supervisor creates approved task log for another user: expected selected user")
+        if admin_other_task_log.get("created_by_supervisor_id") != supervisor_login["user"]["id"]:
+            raise AssertionError("supervisor creates approved task log for another user: expected creator")
+        approved_admin_logs = assert_status(
+            "approved admin task logs need no review decision",
+            request("GET", "/supervisor/review-records?status=approved", token=supervisor_token),
+            200,
+        )
+        if not all(
+            any(
+                item["kind"] == "task" and item["id"] == expected_id
+                for item in approved_admin_logs
+            )
+            for expected_id in [admin_self_task_log["id"], admin_other_task_log["id"]]
+        ):
+            raise AssertionError("approved admin task logs need no review decision: expected both approved logs")
         forms = assert_status(
             "list worker work forms",
             request("GET", "/work-forms", token=worker_token),
@@ -599,6 +1029,28 @@ def main():
                 supervisor_token,
             ),
             200,
+        )
+        normal_worker_forms = assert_status(
+            "normal worker sees no work forms",
+            request("GET", "/work-forms", token=smoke_worker_token),
+            200,
+        )
+        if normal_worker_forms:
+            raise AssertionError("normal worker sees no work forms: expected empty list")
+        assert_status(
+            "normal worker cannot submit work form",
+            request(
+                "POST",
+                "/form-submissions",
+                {
+                    "form_id": smoke_form["id"],
+                    "site_id": site["id"],
+                    "work_date": now.date().isoformat(),
+                    "answers": {},
+                },
+                smoke_worker_token,
+            ),
+            403,
         )
         daywork_submission = assert_status(
             "submit daywork form",
@@ -872,6 +1324,18 @@ def main():
             request("DELETE", f"/my-records/{other_worker_attendance['id']}", token=worker_token),
             404,
         )
+        promoted_worker = assert_status(
+            "supervisor promotes normal worker to leader",
+            request(
+                "PATCH",
+                f"/supervisor/users/{smoke_user['id']}",
+                {"worker_class": "leader", "confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
+        if promoted_worker.get("worker_class") != "leader":
+            raise AssertionError("supervisor promotes normal worker to leader: expected leader class")
         other_worker_template = assert_status(
             "create other worker template",
             request(
@@ -973,6 +1437,26 @@ def main():
         )
         if duplicate_attendance["id"] != attendance["id"]:
             raise AssertionError("dedupe duplicate attendance retry: expected original attendance record")
+        double_tap_attendance = assert_status(
+            "dedupe rapid attendance double tap",
+            request(
+                "POST",
+                "/attendance",
+                {
+                    "record_type": "check_in",
+                    "latitude": site["latitude"],
+                    "longitude": site["longitude"],
+                    "accuracy": 20,
+                    "site_id": site["id"],
+                    "note": f"smoke test {timestamp}",
+                    "client_submission_id": f"smoke-attendance-double-tap-{timestamp}",
+                },
+                worker_token,
+            ),
+            200,
+        )
+        if double_tap_attendance["id"] != attendance["id"]:
+            raise AssertionError("dedupe rapid attendance double tap: expected original attendance record")
         assert_status(
             "worker cannot update auto-approved attendance",
             request(
@@ -1119,6 +1603,133 @@ def main():
         )
         if duplicate_task_log["id"] != task_log["id"]:
             raise AssertionError("dedupe duplicate task log retry: expected original task log")
+        double_tap_task_log = assert_status(
+            "dedupe rapid task-log double tap",
+            request(
+                "POST",
+                "/task-logs",
+                {
+                    "description": f"Smoke-tested task log {timestamp}",
+                    "site_id": site["id"],
+                    "hours_worked": 1,
+                    "work_date": now.date().isoformat(),
+                    "photo_urls": [
+                        task_photo_1_url,
+                        task_photo_2_url,
+                    ],
+                    "client_submission_id": f"smoke-task-double-tap-{timestamp}",
+                },
+                worker_token,
+            ),
+            200,
+        )
+        if double_tap_task_log["id"] != task_log["id"]:
+            raise AssertionError("dedupe rapid task-log double tap: expected original task log")
+        assert_status(
+            "worker cannot move records to supervisor rubbish bin",
+            request(
+                "POST",
+                f"/supervisor/trash/attendance/{manual_attendance['id']}",
+                {"reason": "Worker deletion attempt", "confirmed": True},
+                smoke_worker_token,
+            ),
+            403,
+        )
+        assert_status(
+            "rubbish-bin delete requires confirmation",
+            request(
+                "POST",
+                f"/supervisor/trash/attendance/{manual_attendance['id']}",
+                {"reason": "Duplicate manual entry"},
+                supervisor_token,
+            ),
+            400,
+        )
+        assert_status(
+            "department supervisor cannot trash cross-department record",
+            request(
+                "POST",
+                f"/supervisor/trash/attendance/{manual_attendance['id']}",
+                {"reason": "Cross-department attempt", "confirmed": True},
+                mutual_supervisor_token,
+            ),
+            404,
+        )
+        trashed_attendance = assert_status(
+            "supervisor moves attendance to rubbish bin",
+            request(
+                "POST",
+                f"/supervisor/trash/attendance/{manual_attendance['id']}",
+                {"reason": "Duplicate manual entry", "confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
+        if not trashed_attendance.get("deleted_at") or not trashed_attendance.get("purge_at"):
+            raise AssertionError("supervisor moves attendance to rubbish bin: expected retention dates")
+        if trashed_attendance.get("deletion_reason") != "Duplicate manual entry":
+            raise AssertionError("supervisor moves attendance to rubbish bin: expected deletion reason")
+        active_review_records = assert_status(
+            "trashed attendance is hidden from review records",
+            request("GET", "/supervisor/review-records", token=supervisor_token),
+            200,
+        )
+        if any(
+            item["kind"] == "attendance" and item["id"] == manual_attendance["id"]
+            for item in active_review_records
+        ):
+            raise AssertionError("trashed attendance is hidden from review records")
+        worker_records_after_trash = assert_status(
+            "trashed attendance is hidden from worker history",
+            request("GET", "/my-records", token=smoke_worker_token),
+            200,
+        )
+        if any(item["id"] == manual_attendance["id"] for item in worker_records_after_trash):
+            raise AssertionError("trashed attendance is hidden from worker history")
+        trash_records = assert_status(
+            "supervisor lists rubbish bin",
+            request("GET", "/supervisor/trash", token=supervisor_token),
+            200,
+        )
+        if not any(
+            item["kind"] == "attendance" and item["id"] == manual_attendance["id"]
+            for item in trash_records
+        ):
+            raise AssertionError("supervisor lists rubbish bin: expected attendance record")
+        restored_attendance = assert_status(
+            "supervisor restores attendance from rubbish bin",
+            request(
+                "POST",
+                f"/supervisor/trash/attendance/{manual_attendance['id']}/restore",
+                {"confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
+        if restored_attendance.get("deleted_at") is not None:
+            raise AssertionError("supervisor restores attendance from rubbish bin: expected active record")
+        trashed_task_log = assert_status(
+            "supervisor moves task log to rubbish bin",
+            request(
+                "POST",
+                f"/supervisor/trash/task/{task_log['id']}",
+                {"reason": "Duplicate task submission", "confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
+        if trashed_task_log.get("kind") != "task":
+            raise AssertionError("supervisor moves task log to rubbish bin: expected task kind")
+        assert_status(
+            "supervisor restores task log from rubbish bin",
+            request(
+                "POST",
+                f"/supervisor/trash/task/{task_log['id']}/restore",
+                {"confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
         pending_review_records = assert_status(
             "list pending review records",
             request("GET", "/supervisor/review-records?status=pending", token=supervisor_token),
@@ -1326,7 +1937,11 @@ def main():
             request("GET", "/supervisor/records/export.csv", token=supervisor_token),
             200,
         )
-        if "record_type" not in csv_body or "worker_name" not in csv_body:
+        if (
+            "record_type" not in csv_body
+            or "worker_name" not in csv_body
+            or "entry_source" not in csv_body
+        ):
             raise AssertionError("export attendance csv: missing expected CSV headers")
         task_csv_body = assert_status(
             "export task logs csv",
@@ -1427,8 +2042,15 @@ def main():
             "work_form_create",
             "work_form_archive",
             "attendance_update",
+            "attendance_trash",
+            "attendance_restore",
             "task_log_update",
+            "task_log_manual_create",
+            "team_work_log_create",
+            "task_trash",
+            "task_restore",
             "review_decision",
+            "default_department_update",
         }
         missing_audit_actions = expected_audit_actions - audit_actions
         if missing_audit_actions:
@@ -1438,8 +2060,24 @@ def main():
             for event in audit_events
         ):
             raise AssertionError("list supervisor audit events: expected attendance audit event")
-        if not any(event.get("actor_name") == "Demo Supervisor" for event in audit_events):
+        supervisor_audit_event = next(
+            (event for event in audit_events if event.get("actor_name") == "Demo Supervisor"),
+            None,
+        )
+        if not supervisor_audit_event:
             raise AssertionError("list supervisor audit events: expected actor details")
+        if supervisor_audit_event.get("actor_department_name") != "Leader":
+            raise AssertionError("list supervisor audit events: expected editor group")
+        if supervisor_audit_event.get("actor_access_level") != "Department supervisor":
+            raise AssertionError("list supervisor audit events: expected editor access level")
+        admin_audit_event = next(
+            (event for event in audit_events if event.get("actor_name") == "Super Admin"),
+            None,
+        )
+        if not admin_audit_event:
+            raise AssertionError("list supervisor audit events: expected global admin editor details")
+        if admin_audit_event.get("actor_access_level") != "Global admin":
+            raise AssertionError("list supervisor audit events: expected global admin access level")
         work_form_audit_events = assert_status(
             "filter supervisor audit events by work form",
             request("GET", "/supervisor/audit-events?entity_type=work_form&limit=100", token=supervisor_token),

@@ -9,7 +9,7 @@ import {
   updateWorkForm as updateBackendWorkForm
 } from './api-client.js';
 import { parseWorkFormFieldsInput, renderWorkFormFields, serialiseWorkFormFields } from './work-form-fields.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, roundCoordinate } from './utils.js';
 
 export function createStaffSitesModule({
   els,
@@ -18,12 +18,21 @@ export function createStaffSitesModule({
   fillSiteSelects,
   refreshWorkForms,
   refreshSupervisorAuditHistory,
+  refreshSupervisorMap,
   renderStatusBanner,
   showEditPanel,
   closeEditPanel,
   editValue,
   editNumber
 }) {
+  function roundCoordinateInput(input) {
+    const rounded = roundCoordinate(input.value);
+    if (Number.isFinite(rounded)) {
+      input.value = rounded.toFixed(6);
+    }
+    return rounded;
+  }
+
   function departmentSelectOptions() {
     return (state.departments || [])
       .map((department) => ({
@@ -32,10 +41,15 @@ export function createStaffSitesModule({
       }));
   }
 
+  function matchesDepartmentFocus(item) {
+    if (!state.departmentFocusId) return true;
+    return String(item.department_id ?? item.departmentId) === String(state.departmentFocusId);
+  }
+
   function siteSelectOptions() {
     return [
       { value: '', label: 'No site' },
-      ...state.sites.map((site) => ({
+      ...state.sites.filter(matchesDepartmentFocus).map((site) => ({
         value: site.id,
         label: `${site.name} (#${site.id})`
       }))
@@ -45,7 +59,8 @@ export function createStaffSitesModule({
   function renderSupervisorSites() {
     els.supervisorSitesList.innerHTML = '';
     const query = els.siteSearchInput.value.trim().toLowerCase();
-    const sites = state.sites.filter((site) => {
+    const departmentSites = state.sites.filter(matchesDepartmentFocus);
+    const sites = departmentSites.filter((site) => {
       const text = [
         site.id,
         site.name,
@@ -56,7 +71,7 @@ export function createStaffSitesModule({
       ].join(' ').toLowerCase();
       return !query || text.includes(query);
     });
-    els.supervisorSitesCount.textContent = query ? `${sites.length}/${state.sites.length}` : String(state.sites.length);
+    els.supervisorSitesCount.textContent = query ? `${sites.length}/${departmentSites.length}` : String(departmentSites.length);
 
     if (!sites.length) {
       els.supervisorSitesList.innerHTML = '<div class="empty-state">No sites found yet.</div>';
@@ -103,12 +118,14 @@ export function createStaffSitesModule({
 
   function renderFilteredStaffUsers() {
     const query = els.staffSearchInput.value.trim().toLowerCase();
-    const users = state.staffUsers.filter((user) => {
+    const departmentUsers = state.staffUsers.filter(matchesDepartmentFocus);
+    const users = departmentUsers.filter((user) => {
       const text = [
         user.id,
         user.name,
         user.email,
         user.role,
+        user.worker_class || user.workerClass,
         user.status || 'active',
         user.department_name || user.departmentName,
         user.is_global_admin || user.isGlobalAdmin ? 'global admin' : ''
@@ -116,7 +133,7 @@ export function createStaffSitesModule({
       return !query || text.includes(query);
     });
     els.staffUsersList.innerHTML = '';
-    els.staffUsersCount.textContent = query ? `${users.length}/${state.staffUsers.length}` : String(state.staffUsers.length);
+    els.staffUsersCount.textContent = query ? `${users.length}/${departmentUsers.length}` : String(departmentUsers.length);
 
     if (!users.length) {
       els.staffUsersList.innerHTML = '<div class="empty-state">No users found yet.</div>';
@@ -127,13 +144,16 @@ export function createStaffSitesModule({
       const node = document.createElement('article');
       node.className = 'record-card';
       const status = user.status || 'active';
+      const isGlobalAdmin = Boolean(user.is_global_admin || user.isGlobalAdmin);
+      const workerClass = user.worker_class || user.workerClass || 'normal';
+      const statusIsProtected = isGlobalAdmin && !state.user?.isGlobalAdmin;
       node.innerHTML = `
         <div class="record-header">
           <div>
             <h3 class="record-title">${escapeHtml(user.name)}</h3>
             <p class="record-meta">ID ${escapeHtml(user.id)} | ${escapeHtml(user.email)} | ${escapeHtml(user.department_name || user.departmentName || 'No department')}</p>
           </div>
-          <span class="badge ${status === 'active' ? 'synced' : 'rejected'}">${escapeHtml(status === 'active' ? `${user.role}${user.is_global_admin || user.isGlobalAdmin ? ' global' : ''}` : 'resigned worker')}</span>
+          <span class="badge ${status === 'active' ? 'synced' : 'rejected'}">${escapeHtml(status === 'active' ? `${user.role === 'worker' ? workerClass : user.role}${isGlobalAdmin ? ' global' : ''}` : 'resigned worker')}</span>
         </div>
         <div class="record-actions"></div>
       `;
@@ -146,14 +166,17 @@ export function createStaffSitesModule({
         await handleStaffUserEdit(user);
       });
 
-      const statusButton = document.createElement('button');
-      statusButton.type = 'button';
-      statusButton.className = status === 'active' ? 'secondary' : '';
-      statusButton.textContent = status === 'active' ? 'Mark resigned' : 'Reactivate';
-      statusButton.addEventListener('click', async () => {
-        await handleUserStatusChange(user, status === 'active' ? 'resigned' : 'active');
-      });
-      actions.append(editButton, statusButton);
+      actions.append(editButton);
+      if (!statusIsProtected) {
+        const statusButton = document.createElement('button');
+        statusButton.type = 'button';
+        statusButton.className = status === 'active' ? 'secondary' : '';
+        statusButton.textContent = status === 'active' ? 'Mark resigned' : 'Reactivate';
+        statusButton.addEventListener('click', async () => {
+          await handleUserStatusChange(user, status === 'active' ? 'resigned' : 'active');
+        });
+        actions.append(statusButton);
+      }
       els.staffUsersList.appendChild(node);
     });
   }
@@ -309,14 +332,15 @@ export function createStaffSitesModule({
 
   function renderWorkFormsList() {
     els.workFormsList.innerHTML = '';
-    els.workFormsCount.textContent = String(state.workForms.length);
+    const forms = state.workForms.filter(matchesDepartmentFocus);
+    els.workFormsCount.textContent = String(forms.length);
 
-    if (!state.workForms.length) {
+    if (!forms.length) {
       els.workFormsList.innerHTML = '<div class="empty-state">No forms found yet.</div>';
       return;
     }
 
-    state.workForms.forEach((form) => {
+    forms.forEach((form) => {
       const node = document.createElement('article');
       node.className = 'record-card record-form';
       node.innerHTML = `
@@ -388,8 +412,8 @@ export function createStaffSitesModule({
   async function handleSiteCreate(event) {
     event.preventDefault();
 
-    const latitude = Number(els.siteLatitudeInput.value);
-    const longitude = Number(els.siteLongitudeInput.value);
+    const latitude = roundCoordinateInput(els.siteLatitudeInput);
+    const longitude = roundCoordinateInput(els.siteLongitudeInput);
     const allowedRadius = Number(els.siteRadiusInput.value);
 
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || !Number.isFinite(allowedRadius)) {
@@ -410,6 +434,7 @@ export function createStaffSitesModule({
       state.sites = await loadSites();
       fillSiteSelects();
       renderSupervisorSites();
+      refreshSupervisorMap?.();
       renderStatusBanner('Site created and added to worker forms.');
       await refreshSupervisorAuditHistory?.();
     } catch (error) {
@@ -432,50 +457,65 @@ export function createStaffSitesModule({
   }
 
   async function handleStaffUserEdit(user) {
+    const statusIsProtected = Boolean(
+      (user.is_global_admin || user.isGlobalAdmin) && !state.user?.isGlobalAdmin
+    );
+    const fields = [
+      { id: 'editUserName', label: 'Name', value: user.name || '' },
+      { id: 'editUserEmail', label: 'Email', type: 'email', value: user.email || '' },
+      {
+        id: 'editUserRole',
+        label: 'Role',
+        type: 'select',
+        value: user.role || 'worker',
+        options: [
+          { value: 'worker', label: 'Worker' },
+          { value: 'supervisor', label: 'Supervisor' }
+        ]
+      },
+      {
+        id: 'editUserWorkerClass',
+        label: 'Worker class',
+        type: 'select',
+        value: user.worker_class || user.workerClass || 'normal',
+        options: [
+          { value: 'normal', label: 'Normal worker' },
+          { value: 'leader', label: 'Leader' }
+        ]
+      },
+      {
+        id: 'editUserDepartmentId',
+        label: 'Department',
+        type: 'select',
+        value: user.department_id || user.departmentId || '',
+        options: departmentSelectOptions()
+      },
+      {
+        id: 'editUserGlobalAdmin',
+        label: 'Global admin',
+        type: 'select',
+        value: user.is_global_admin || user.isGlobalAdmin ? 'true' : 'false',
+        options: [
+          { value: 'false', label: 'No' },
+          { value: 'true', label: 'Yes' }
+        ]
+      },
+      ...(!statusIsProtected ? [{
+        id: 'editUserStatus',
+        label: 'Status',
+        type: 'select',
+        value: user.status || 'active',
+        options: [
+          { value: 'active', label: 'Active' },
+          { value: 'resigned', label: 'Resigned' }
+        ]
+      }] : []),
+      { id: 'editUserPassword', label: 'New password (optional)', type: 'password', value: '' }
+    ];
+
     showEditPanel(
       `Edit user: ${user.name}`,
-      [
-        { id: 'editUserName', label: 'Name', value: user.name || '' },
-        { id: 'editUserEmail', label: 'Email', type: 'email', value: user.email || '' },
-        {
-          id: 'editUserRole',
-          label: 'Role',
-          type: 'select',
-          value: user.role || 'worker',
-          options: [
-            { value: 'worker', label: 'Worker' },
-            { value: 'supervisor', label: 'Supervisor' }
-          ]
-        },
-        {
-          id: 'editUserDepartmentId',
-          label: 'Department',
-          type: 'select',
-          value: user.department_id || user.departmentId || '',
-          options: departmentSelectOptions()
-        },
-        {
-          id: 'editUserGlobalAdmin',
-          label: 'Global admin',
-          type: 'select',
-          value: user.is_global_admin || user.isGlobalAdmin ? 'true' : 'false',
-          options: [
-            { value: 'false', label: 'No' },
-            { value: 'true', label: 'Yes' }
-          ]
-        },
-        {
-          id: 'editUserStatus',
-          label: 'Status',
-          type: 'select',
-          value: user.status || 'active',
-          options: [
-            { value: 'active', label: 'Active' },
-            { value: 'resigned', label: 'Resigned' }
-          ]
-        },
-        { id: 'editUserPassword', label: 'New password (optional)', type: 'password', value: '' }
-      ],
+      fields,
       'Save user',
       async () => {
         if (!window.confirm(`Double check: save changes to user "${user.email}"?`)) return;
@@ -485,11 +525,14 @@ export function createStaffSitesModule({
           name: editValue('editUserName'),
           email: editValue('editUserEmail'),
           role: editValue('editUserRole'),
-          status: editValue('editUserStatus'),
+          worker_class: editValue('editUserRole') === 'worker' ? editValue('editUserWorkerClass') : null,
           department_id: editNumber('editUserDepartmentId'),
           is_global_admin: editValue('editUserGlobalAdmin') === 'true'
         };
 
+        if (!statusIsProtected) {
+          payload.status = editValue('editUserStatus');
+        }
         if (newPassword) {
           payload.password = newPassword;
         }
@@ -502,6 +545,7 @@ export function createStaffSitesModule({
               name: updated.name,
               fullName: updated.name,
               role: updated.role,
+              workerClass: updated.worker_class || updated.workerClass || null,
               status: updated.status,
               departmentId: updated.department_id || updated.departmentId || null,
               departmentName: updated.department_name || updated.departmentName || '',
@@ -544,6 +588,7 @@ export function createStaffSitesModule({
           state.sites = await loadSites();
           fillSiteSelects();
           renderSupervisorSites();
+          refreshSupervisorMap?.();
           renderStatusBanner('Site updated.');
           await refreshSupervisorAuditHistory?.();
         } catch (error) {
@@ -561,6 +606,7 @@ export function createStaffSitesModule({
         email: els.staffEmailInput.value.trim(),
         password: els.staffPasswordInput.value,
         role: els.staffRoleSelect.value,
+        worker_class: els.staffRoleSelect.value === 'worker' ? els.staffWorkerClassSelect.value : 'normal',
         department_id: Number(els.staffDepartmentSelect.value),
         is_global_admin: els.staffGlobalAdminInput.checked
       });
@@ -576,6 +622,8 @@ export function createStaffSitesModule({
   function bindEvents() {
     els.staffUserForm.addEventListener('submit', handleStaffUserCreate);
     els.siteForm.addEventListener('submit', handleSiteCreate);
+    els.siteLatitudeInput.addEventListener('blur', () => roundCoordinateInput(els.siteLatitudeInput));
+    els.siteLongitudeInput.addEventListener('blur', () => roundCoordinateInput(els.siteLongitudeInput));
     els.workFormBuilderForm.addEventListener('submit', handleWorkFormCreate);
     els.workFormPreviewButton?.addEventListener('click', handleDraftWorkFormPreviewToggle);
     els.workFormNameInput?.addEventListener('input', refreshOpenDraftWorkFormPreview);
@@ -583,6 +631,9 @@ export function createStaffSitesModule({
     els.workFormFieldsInput?.addEventListener('input', refreshOpenDraftWorkFormPreview);
     els.siteSearchInput.addEventListener('input', renderSupervisorSites);
     els.staffSearchInput.addEventListener('input', renderFilteredStaffUsers);
+    els.staffRoleSelect.addEventListener('change', () => {
+      els.staffWorkerClassSelect.disabled = els.staffRoleSelect.value !== 'worker';
+    });
   }
 
   return {

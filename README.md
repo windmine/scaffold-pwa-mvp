@@ -48,8 +48,18 @@ Run the real-phone checklist against the live Firebase Hosting / Cloud Run path,
 - Users belong to one department: Leader, Mutual, MC, Stech, BOP.
 - The signed-in header shows the user's group and highlights super-admin access.
 - Department supervisors see and manage only their own department data; global admins can manage all departments.
+- Global admins can focus the supervisor dashboard on one department or all departments and save either view as their dashboard default. This preference is separate from the account’s home department, which continues to control ownership of newly created department records.
 
 ### Worker
+
+Worker accounts have two field classes:
+
+- **Normal worker:** check in, check out, and review their attendance history.
+- **Leader:** all normal-worker attendance functions plus weekly team logs, Daywork logs, reusable work forms, and missing-site creation.
+
+New self-registered accounts start as normal workers. A supervisor can promote or return a worker between Normal worker and Leader from Staff users without changing the account’s department or historical records.
+
+Normal workers receive a simplified attendance screen with only **Check in / out** and **My history** navigation. The attendance card guides them through site, location, and action steps, and prevents submission until the required site and location are ready.
 
 - Sign in with a backend account.
 - Register a new staff account for supervisor activation.
@@ -58,11 +68,11 @@ Run the real-phone checklist against the live Firebase Hosting / Cloud Run path,
 - Check in and check out with GPS coordinates, accuracy, site radius result, notes, and optional attendance photo.
 - Inside-site attendance is approved automatically; outside-site attendance stays pending for supervisor review.
 - Edit or delete own pending outside-site attendance before supervisor approval.
-- Submit Daywork logs through the active Daywork log form, including work date, site, dynamic fields, signatures, time ranges, and up to 8 progress photos.
-- Complete advanced work forms with conditional fields, calculated formula fields, and repeatable sections for row-based data such as labour, materials, or equipment.
-- Add a missing site from the worker dashboard when today's job is not listed yet.
-- Choose supervisor-created work forms, such as daywork, inspection, and tool deduction forms.
-- Submit work forms for approval with typed fields, handwritten signatures, site/work date, and up to 8 photos.
+- Leaders submit Daywork logs through the active Daywork log form, including work date, site, dynamic fields, signatures, time ranges, and up to 8 progress photos.
+- Leaders complete advanced work forms with conditional fields, calculated formula fields, and repeatable sections for row-based data such as labour, materials, or equipment.
+- Leaders add a missing site from the worker dashboard when today's job is not listed yet.
+- Leaders choose supervisor-created work forms, such as daywork, inspection, and tool deduction forms.
+- Leaders submit work forms for approval with typed fields, handwritten signatures, site/work date, and up to 8 photos.
 - View local and backend-synced attendance, Daywork, and form history.
 - Search/filter history by text, type, status, and local calendar date.
 - Click any uploaded photo thumbnail to open a floating zoom viewer with previous/next controls.
@@ -70,6 +80,7 @@ Run the real-phone checklist against the live Firebase Hosting / Cloud Run path,
 
 Worker restrictions:
 
+- Normal workers cannot create sites, task logs, weekly team logs, or work-form submissions.
 - Workers cannot edit or delete submitted task logs.
 - Workers cannot edit or delete attendance after it is approved or rejected.
 - Resigned workers cannot sign in.
@@ -85,14 +96,25 @@ Worker restrictions:
 - View worker work-form submissions and attached photo galleries.
 - Approve or reject pending outside-site attendance, task logs, and form submissions.
 - Adjust attendance records with double-check confirmation.
+- Add a missed worker check-in or check-out with the original date/time and a required reason. Manual entries are approved, audit-logged, visibly marked, and do not claim a GPS result.
+- Submit an approved task log for themselves or another accessible user. Admin-entered logs are visibly marked and audit-logged, with no separate approval step.
+- Set a worker’s field class to Normal worker or Leader.
+- Review and approve weekly team logs containing many member/date/site/time/work rows.
+- Move attendance or task logs to a department-scoped rubbish bin after entering a reason and confirming the action. Records can be restored for 30 days before automatic permanent deletion.
 - Adjust submitted task logs with double-check confirmation.
 - Create and edit sites, including allowed check-in radius.
+- Review attendance on a map with site-radius boundaries, inside/outside markers, worker/site/date/status filters, and map-based approve/reject controls.
+- View each worker's recorded attendance-point history and connect those events as straight reference lines; the app does not collect continuous background routes.
+- View management analytics for record trends, pending/rejected/outside-site and attendance-pairing exceptions, site activity, logged task hours, approval rates, and structured form responses. Open check-ins are only marked as missing after 12 hours.
+- Filter review records, maps, analytics, sites, staff, and work forms by department. Department-scoped supervisors remain fixed to their assigned department.
+- Export the selected management period as CSV or a print-ready HTML management report.
 - Search sites.
 - Create worker/supervisor users in the supervisor's own department, or in any department when signed in as a global admin.
 - Edit staff name, email, role, status, department, global-admin access, or reset password with double-check confirmation.
 - View and search staff users.
 - Mark workers resigned so they cannot sign in.
 - Reactivate resigned workers without losing previous records.
+- Department supervisors cannot resign or reactivate global-admin accounts; only another global admin can change a global admin account status.
 - View recent supervisor audit history for staff, site, work-form, review, attendance, and task-log changes.
 - Export attendance records to CSV.
 - Export task logs to CSV.
@@ -512,6 +534,17 @@ Inspection form
 Tool deduction form
 ```
 
+### Leader Weekly Team Log
+
+1. A supervisor sets the staff account’s Worker class to **Leader**.
+2. The leader opens the Team tab and selects the Monday starting the work week.
+3. Search and select one or more members in each row. The selected members share that row’s date, site, start, finish, break minutes, and completed-work description.
+4. Add another row whenever the selected group changes site, shift, or activity. Members are not permanently assigned to one leader and may appear in different leaders’ logs.
+5. Submit the weekly log. The backend calculates row hours, supports overnight work periods, totals the log, and places it in the supervisor Review Queue.
+6. A supervisor approves or rejects the team log like other review records.
+
+Each weekly log accepts up to 150 work rows. The week must start on Monday and each row date must be inside that seven-day period.
+
 ### Supervisor Form Builder
 
 1. Sign in as supervisor.
@@ -540,13 +573,22 @@ Supported field types are `text`, `textarea`, `number`, `date`, `select`, `check
 ### Supervisor Review
 
 1. Sign in as supervisor.
-2. Use the Review Queue as the single inbox for outside-site attendance, task logs, and form submissions.
-3. Filter by worker/site text, record type, status, or date.
-4. Check worker, site, timestamp, location/site radius where applicable, notes, photos, and signatures.
-5. Approve or reject pending review records.
-6. Use edit controls only after double-check confirmation.
-7. Open Audit history and confirm recent review/edit/admin changes appear.
-8. Export CSV, daily task-log sheets, task photo reports, or submitted work-form sheets when needed.
+2. On desktop, use the sticky Admin workspace navigation to jump between review, reporting, record-entry, and management sections. Selecting a folded section opens it automatically.
+3. Use the Review Queue as the single inbox for outside-site attendance, task logs, and form submissions.
+4. Filter by worker/site text, record type, status, or date.
+5. Check worker, site, timestamp, location/site radius where applicable, notes, photos, and signatures.
+6. If a worker forgot to check in or out but performed the work, open Add missed check in / check out, choose the worker/site/type/original time, enter the reason, and confirm the manual entry.
+7. Open Submit approved log to enter a task log for yourself or another accessible user. Confirm it appears immediately as approved.
+8. Use Move to bin on an incorrect attendance or task-log record, enter the reason, and complete the double-check confirmation.
+9. Open Rubbish bin to restore a record within 30 days. Expired records are permanently removed automatically.
+10. Approve or reject pending review records.
+11. Open Maps and location review, inspect site boundaries and outside-site points, and filter recorded location history by worker, site, status, or date.
+12. Optionally connect recorded points to compare event order. These straight lines are not continuous travel tracking or road routes.
+13. Open Management analytics and review trends, exceptions, site productivity, and form-response summaries for 7, 30, 90, or all available days. Confirm recent open check-ins are not marked missing until they are at least 12 hours old.
+14. Export the management summary as CSV or print-ready HTML. Logged task hours remain separate from payroll-approved hours.
+15. Use edit controls only after double-check confirmation.
+16. Open Audit history and confirm recent review/edit/admin changes appear.
+17. Export attendance CSV, task logs, daily sheets, photo reports, or submitted work-form sheets when needed.
 
 ### Planned Payroll Admin Portal
 
@@ -615,6 +657,7 @@ Rules:
 - `PATCH /my-records/{record_id}` and `DELETE /my-records/{record_id}` only work for the owning worker.
 - Worker edits/deletes only work while attendance status is `pending`.
 - Attendance submitted inside the selected site radius is created as `approved`; attendance outside the radius remains `pending`.
+- Matching attendance payloads submitted within 10 seconds are treated as an accidental repeat and return the original record.
 - Approved/rejected attendance is locked for workers.
 
 ### Worker Task Logs
@@ -628,11 +671,22 @@ DELETE /my-task-logs/{log_id}
 
 Rules:
 
-- Workers can create and view their task logs.
+- Leaders can create and view their task logs. Normal workers are attendance-only.
 - Task logs are created as `pending` for supervisor approval.
 - Worker update/delete endpoints intentionally return `403` for submitted logs.
 - Task logs support `photo_urls` with up to 8 uploaded image URLs.
+- Matching task-log payloads submitted within 10 seconds return the original record.
 - `photo_url` remains for compatibility and points to the first task photo when present.
+
+### Supervisor Rubbish Bin
+
+```text
+GET  /supervisor/trash
+POST /supervisor/trash/{record_type}/{record_id}
+POST /supervisor/trash/{record_type}/{record_id}/restore
+```
+
+Attendance and task logs require a deletion reason and confirmation before entering the rubbish bin. Deleted records are hidden from worker history, review queues, maps, analytics, and exports. They remain restorable for 30 days, then a startup/hourly backend purge permanently removes them.
 
 ### Worker Task Templates
 
@@ -653,9 +707,19 @@ GET  /my-form-submissions
 
 Rules:
 
-- Workers only see active work forms.
+- Leaders only see active work forms. Normal workers receive an empty form list and cannot submit forms.
 - Form submissions support typed answers and up to 8 uploaded image URLs.
 - Submitted forms start as `pending` and are visible in worker history and supervisor review.
+
+### Leader Team Work Logs
+
+```text
+GET  /team-work-log-members
+POST /team-work-logs
+GET  /my-team-work-logs
+```
+
+Team members are selected through a searchable multi-member checklist containing active workers in the leader’s department. One visible row expands into an audited entry for each selected member, so hours remain attributable per worker. Membership is chosen per row, allowing a worker to work with different leaders without changing account ownership.
 
 ### Supervisor
 
@@ -683,6 +747,8 @@ PATCH /supervisor/records/{record_id}
 POST  /supervisor/records/{record_id}/decision
 
 GET   /supervisor/task-logs
+POST  /supervisor/task-logs
+GET   /supervisor/team-work-logs
 GET   /supervisor/task-logs?status=pending
 GET   /supervisor/task-logs/export.csv
 GET   /supervisor/task-logs/export.html?layout=daily-log
@@ -705,7 +771,9 @@ POST  /supervisor/work-forms
 PATCH /supervisor/work-forms/{form_id}
 ```
 
-`/supervisor/review-records` is the unified supervisor review feed for attendance, task logs, and form submissions. `/supervisor/audit-events` returns recent supervisor change events with actor, action, target entity, summary, and before/after snapshots. The older attendance/task/form list routes remain available for export and compatibility. HTML exports are standalone files intended for opening in a browser and printing or saving as PDF. PDF exports are generated server-side for submitted work forms and Daywork form submissions. Single-record CSV exports are Excel-friendly rows for the selected review card.
+`/supervisor/review-records` is the unified supervisor review feed for attendance, task logs, weekly team logs, and form submissions. `/supervisor/audit-events` returns recent change events with actor, access level, action, target entity, summary, and before/after snapshots. The older attendance/task/form list routes remain available for export and compatibility. HTML exports are standalone files intended for opening in a browser and printing or saving as PDF. PDF exports are generated server-side for submitted work forms and Daywork form submissions. Single-record CSV exports are Excel-friendly rows for the selected review card.
+
+`POST /supervisor/task-logs` accepts a selected user, site, work date, task summary, optional hours, and optional safety notes. The selected user may be the signed-in supervisor or another department-accessible user. These records are created as `approved`, marked `supervisor_manual`, and do not require a review decision.
 
 Supervisor edit/archive routes require `confirmed: true` in the request body.
 
@@ -1009,7 +1077,6 @@ Current next work:
 
 Useful later features:
 
-- Map view for attendance and sites.
 - Geofence warning before submit.
 - Payroll rule hardening for overtime, allowances, deductions, public holidays, and wage-rate calculations.
 - Shift/schedule module.

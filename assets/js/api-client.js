@@ -39,9 +39,12 @@ function normalizeUser(user) {
     name: user.name || user.fullName || user.email,
     fullName: user.fullName || user.name || user.email,
     role: user.role,
+    workerClass: user.worker_class || user.workerClass || (user.role === "worker" ? "normal" : null),
     status: user.status || "active",
     departmentId: user.department_id || user.departmentId || null,
     departmentName: user.department_name || user.departmentName || "",
+    dashboardDepartmentId: user.dashboard_department_id ?? user.dashboardDepartmentId ?? null,
+    dashboardDepartmentName: user.dashboard_department_name || user.dashboardDepartmentName || "",
     isGlobalAdmin: Boolean(user.is_global_admin || user.isGlobalAdmin)
   };
 }
@@ -204,6 +207,15 @@ export async function getCurrentUser() {
   return user;
 }
 
+export async function updateDefaultDepartment(departmentId) {
+  const user = normalizeUser(await apiFetch("/auth/default-department", {
+    method: "PATCH",
+    body: JSON.stringify({ department_id: departmentId || null })
+  }));
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  return user;
+}
+
 export async function getUsers() {
   return await apiFetch("/supervisor/users");
 }
@@ -332,6 +344,26 @@ export async function getMyTaskLogs() {
   return await apiFetch("/my-task-logs");
 }
 
+export async function getTeamWorkLogMembers() {
+  return await apiFetch("/team-work-log-members");
+}
+
+export async function createTeamWorkLog(log) {
+  return await apiFetch("/team-work-logs", {
+    method: "POST",
+    body: JSON.stringify(log)
+  });
+}
+
+export async function getMyTeamWorkLogs() {
+  return await apiFetch("/my-team-work-logs");
+}
+
+export async function getSupervisorTeamWorkLogs(status = "") {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  return await apiFetch(`/supervisor/team-work-logs${query}`);
+}
+
 export async function updateMyTaskLog(logId, log) {
   return await apiFetch(`/my-task-logs/${logId}`, {
     method: "PATCH",
@@ -411,6 +443,13 @@ export async function getSupervisorRecords(status = "") {
   return await apiFetch(`/supervisor/records${query}`);
 }
 
+export async function createSupervisorAttendance(record) {
+  return await apiFetch("/supervisor/records", {
+    method: "POST",
+    body: JSON.stringify({ ...record, confirmed: true })
+  });
+}
+
 export async function getSupervisorReviewRecords(status = "") {
   const query = status ? `?status=${encodeURIComponent(status)}` : "";
   return await apiFetch(`/supervisor/review-records${query}`);
@@ -423,6 +462,13 @@ export async function exportSupervisorRecordsCsv(status = "") {
 
 export async function getSupervisorTaskLogs() {
   return await apiFetch("/supervisor/task-logs");
+}
+
+export async function createSupervisorTaskLog(log) {
+  return await apiFetch("/supervisor/task-logs", {
+    method: "POST",
+    body: JSON.stringify({ ...log, confirmed: true })
+  });
 }
 
 export async function exportSupervisorTaskLogsCsv(status = "") {
@@ -487,5 +533,23 @@ export async function updateSupervisorTaskLog(logId, log) {
   return await apiFetch(`/supervisor/task-logs/${logId}`, {
     method: "PATCH",
     body: JSON.stringify({ ...log, confirmed: true })
+  });
+}
+
+export async function getSupervisorTrash() {
+  return await apiFetch("/supervisor/trash");
+}
+
+export async function moveSupervisorRecordToTrash(recordType, recordId, reason) {
+  return await apiFetch(`/supervisor/trash/${recordType}/${recordId}`, {
+    method: "POST",
+    body: JSON.stringify({ reason, confirmed: true })
+  });
+}
+
+export async function restoreSupervisorRecord(recordType, recordId) {
+  return await apiFetch(`/supervisor/trash/${recordType}/${recordId}/restore`, {
+    method: "POST",
+    body: JSON.stringify({ confirmed: true })
   });
 }

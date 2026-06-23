@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -31,6 +32,7 @@ class UserCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     password: str = Field(min_length=8, max_length=72)
     role: str = Field(default="worker", max_length=40)
+    worker_class: str = Field(default="normal", max_length=40)
     department_id: Optional[int] = Field(default=None, ge=1)
     is_global_admin: bool = False
 
@@ -40,6 +42,7 @@ class UserUpdateRequest(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=120)
     password: Optional[str] = Field(default=None, min_length=8, max_length=72)
     role: Optional[str] = Field(default=None, max_length=40)
+    worker_class: Optional[str] = Field(default=None, max_length=40)
     status: Optional[str] = Field(default=None, max_length=40)
     department_id: Optional[int] = Field(default=None, ge=1)
     is_global_admin: Optional[bool] = None
@@ -49,6 +52,10 @@ class UserUpdateRequest(BaseModel):
 class UserStatusRequest(BaseModel):
     status: str = Field(max_length=40)
     confirmed: bool = False
+
+
+class DefaultDepartmentRequest(BaseModel):
+    department_id: Optional[int] = Field(default=None, ge=1)
 
 
 class SiteCreateRequest(BaseModel):
@@ -79,6 +86,24 @@ class AttendanceCreate(BaseModel):
     client_submission_id: Optional[str] = Field(default=None, max_length=120)
 
 
+class SupervisorAttendanceCreate(BaseModel):
+    worker_id: int = Field(ge=1)
+    site_id: int = Field(ge=1)
+    record_type: str = Field(max_length=40)
+    occurred_at: datetime
+    note: str = Field(min_length=3, max_length=1000)
+    confirmed: bool = False
+
+
+class RecordTrashRequest(BaseModel):
+    reason: str = Field(min_length=3, max_length=1000)
+    confirmed: bool = False
+
+
+class RecordRestoreRequest(BaseModel):
+    confirmed: bool = False
+
+
 class AttendanceUpdateRequest(BaseModel):
     record_type: Optional[str] = Field(default=None, max_length=40)
     latitude: Optional[float] = Field(default=None, ge=-90, le=90)
@@ -100,6 +125,16 @@ class TaskLogCreate(BaseModel):
     photo_url: Optional[str] = Field(default=None, max_length=500)
     photo_urls: list[str] = Field(default_factory=list)
     client_submission_id: Optional[str] = Field(default=None, max_length=120)
+
+
+class SupervisorTaskLogCreate(BaseModel):
+    user_id: int = Field(ge=1)
+    site_id: int = Field(ge=1)
+    work_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    hours_worked: Optional[float] = Field(default=None, ge=0, le=24)
+    description: str = Field(min_length=1, max_length=3000)
+    safety_notes: Optional[str] = Field(default=None, max_length=1500)
+    confirmed: bool = False
 
 
 class TaskLogUpdateRequest(BaseModel):
@@ -164,6 +199,23 @@ class WorkFormSubmissionCreate(BaseModel):
     answers: dict = Field(default_factory=dict)
     photo_urls: list[str] = Field(default_factory=list)
     photo_metadata: list[dict] = Field(default_factory=list)
+    client_submission_id: Optional[str] = Field(default=None, max_length=120)
+
+
+class TeamWorkLogEntryCreate(BaseModel):
+    worker_id: int = Field(ge=1)
+    site_id: int = Field(ge=1)
+    work_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    start_time: str = Field(pattern=r"^\d{2}:\d{2}$")
+    end_time: str = Field(pattern=r"^\d{2}:\d{2}$")
+    break_minutes: int = Field(default=0, ge=0, le=1440)
+    work_description: str = Field(min_length=1, max_length=3000)
+
+
+class TeamWorkLogCreate(BaseModel):
+    week_start: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    notes: Optional[str] = Field(default=None, max_length=3000)
+    entries: list[TeamWorkLogEntryCreate] = Field(min_length=1, max_length=150)
     client_submission_id: Optional[str] = Field(default=None, max_length=120)
 
 

@@ -9,6 +9,7 @@ from app.models import (
     Department,
     Site,
     TaskLog,
+    TeamWorkLog,
     User,
     WorkForm,
     WorkFormSubmission,
@@ -17,7 +18,17 @@ from app.use_cases.common import format_datetime, parse_json_list, parse_json_ob
 
 
 SNAPSHOT_FIELDS = {
-    User: ["id", "department_id", "email", "name", "role", "status", "is_global_admin"],
+    User: [
+        "id",
+        "department_id",
+        "dashboard_department_id",
+        "email",
+        "name",
+        "role",
+        "worker_class",
+        "status",
+        "is_global_admin",
+    ],
     Department: ["id", "name", "status", "created_at"],
     Site: ["id", "department_id", "name", "address", "latitude", "longitude", "allowed_radius_m"],
     AttendanceRecord: [
@@ -34,6 +45,11 @@ SNAPSHOT_FIELDS = {
         "note",
         "photo_url",
         "client_submission_id",
+        "entry_source",
+        "created_by_supervisor_id",
+        "deleted_at",
+        "deleted_by_supervisor_id",
+        "deletion_reason",
         "status",
         "created_at",
     ],
@@ -49,6 +65,11 @@ SNAPSHOT_FIELDS = {
         "photo_url",
         "photo_urls",
         "client_submission_id",
+        "entry_source",
+        "created_by_supervisor_id",
+        "deleted_at",
+        "deleted_by_supervisor_id",
+        "deletion_reason",
         "status",
         "created_at",
     ],
@@ -67,6 +88,16 @@ SNAPSHOT_FIELDS = {
         "status",
         "created_at",
     ],
+    TeamWorkLog: [
+        "id",
+        "department_id",
+        "leader_id",
+        "week_start",
+        "notes",
+        "client_submission_id",
+        "status",
+        "created_at",
+    ],
 }
 
 
@@ -76,7 +107,7 @@ def model_snapshot(model):
 
     for field in fields:
         value = getattr(model, field)
-        if field == "created_at" and value is not None:
+        if field in {"created_at", "deleted_at"} and value is not None:
             value = format_datetime(value)
         elif field == "fields_json":
             data["fields"] = parse_json_list(value)
@@ -112,9 +143,10 @@ def add_audit_event(
     before: Optional[dict] = None,
     after: Optional[dict] = None,
     summary: Optional[str] = None,
+    department_id: Optional[int] = None,
 ):
     event = AuditEvent(
-        department_id=actor.department_id,
+        department_id=department_id if department_id is not None else actor.department_id,
         actor_id=actor.id,
         action=action,
         entity_type=entity_type,
@@ -130,6 +162,23 @@ def add_audit_event(
 def audit_event_response(event: AuditEvent, session: Session):
     actor = session.get(User, event.actor_id)
     department = session.get(Department, event.department_id) if event.department_id else None
+    actor_department = (
+        session.get(Department, actor.department_id)
+        if actor and actor.department_id
+        else None
+    )
+    actor_role = actor.role if actor else None
+    actor_is_global_admin = bool(actor.is_global_admin) if actor else False
+    if actor_is_global_admin:
+        actor_access_level = "Global admin"
+    elif actor_role == "supervisor":
+        actor_access_level = "Department supervisor"
+    elif actor_role == "worker" and (actor.worker_class or "normal") == "leader":
+        actor_access_level = "Leader"
+    elif actor_role:
+        actor_access_level = actor_role.replace("_", " ").title()
+    else:
+        actor_access_level = "Unknown"
 
     return {
         "id": event.id,
@@ -138,6 +187,11 @@ def audit_event_response(event: AuditEvent, session: Session):
         "actor_id": event.actor_id,
         "actor_name": actor.name if actor else f"User {event.actor_id}",
         "actor_email": actor.email if actor else None,
+        "actor_department_id": actor.department_id if actor else None,
+        "actor_department_name": actor_department.name if actor_department else None,
+        "actor_role": actor_role,
+        "actor_is_global_admin": actor_is_global_admin,
+        "actor_access_level": actor_access_level,
         "action": event.action,
         "entity_type": event.entity_type,
         "entity_id": event.entity_id,

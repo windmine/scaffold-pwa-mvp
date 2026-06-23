@@ -12,11 +12,13 @@ from app.use_cases.common import (
     ensure_department_exists,
     normalize_site_input,
     require_confirmed,
+    require_leader,
     scope_statement_to_user_department,
     site_response,
     user_is_global_admin,
     user_response,
     validate_user_input,
+    validate_worker_class,
 )
 
 
@@ -34,6 +36,8 @@ def list_sites(session: Session, user: User):
 
 
 def create_site(data, supervisor: User, session: Session):
+    if supervisor.role == "worker":
+        require_leader(supervisor)
     site_data = normalize_site_input(data)
     department_id = department_id_for_new_record(supervisor, session)
     existing_site = session.exec(
@@ -134,6 +138,7 @@ def create_user_account(
     name: str,
     password: str,
     role: str,
+    worker_class: str = "normal",
     department_id: int | None = None,
     is_global_admin: bool = False,
     status: str = "active",
@@ -150,12 +155,14 @@ def create_user_account(
         raise HTTPException(status_code=409, detail="A user with this email already exists")
 
     department = ensure_department_exists(session, department_id)
+    normalized_worker_class = validate_worker_class(worker_class) if role == "worker" else None
     user = User(
         department_id=department.id,
         email=email,
         name=name,
         password_hash=hash_password(password),
         role=role,
+        worker_class=normalized_worker_class,
         status=status,
         is_global_admin=is_global_admin,
     )
@@ -187,6 +194,7 @@ def create_staff_user(data, supervisor: User, session: Session):
         name=data.name,
         password=data.password,
         role=data.role,
+        worker_class=data.worker_class,
         department_id=target_department_id,
         is_global_admin=data.is_global_admin if user_is_global_admin(supervisor) else False,
     )
@@ -243,11 +251,22 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
         if user.id == supervisor.id and role != "supervisor":
             raise HTTPException(status_code=400, detail="You cannot remove your own supervisor role")
         user.role = role
+        user.worker_class = (user.worker_class or "normal") if role == "worker" else None
+
+    if "worker_class" in fields and data.worker_class is not None:
+        if user.role != "worker":
+            raise HTTPException(status_code=400, detail="Only worker accounts can have a worker class")
+        user.worker_class = validate_worker_class(data.worker_class)
 
     if "status" in fields and data.status is not None:
         status = data.status.strip().lower()
         if status not in VALID_USER_STATUSES:
             raise HTTPException(status_code=400, detail="status must be active or resigned")
+        if user.is_global_admin and not user_is_global_admin(supervisor) and status != user.status:
+            raise HTTPException(
+                status_code=403,
+                detail="Only a global admin can change a global admin account status",
+            )
         if user.id == supervisor.id and status != "active":
             raise HTTPException(status_code=400, detail="You cannot resign your own supervisor account")
         user.status = status
@@ -304,6 +323,11 @@ def update_user_status(user_id: int, data, supervisor: User, session: Session):
     if not can_access_department(supervisor, user.department_id):
         raise HTTPException(status_code=404, detail="User not found")
 
+    if user.is_global_admin and not user_is_global_admin(supervisor) and status != user.status:
+        raise HTTPException(
+            status_code=403,
+            detail="Only a global admin can change a global admin account status",
+        )
     if user.id == supervisor.id and status != "active":
         raise HTTPException(status_code=400, detail="You cannot resign your own supervisor account")
 
@@ -319,6 +343,48 @@ def update_user_status(user_id: int, data, supervisor: User, session: Session):
         before=before,
         after=model_snapshot(user),
         summary=f"Set user {user.email} status to {status}",
+    )
+    session.commit()
+    session.refresh(user)
+
+    return user_response(user, session)
+
+
+def update_default_department(data, user: User, session: Session):
+    department = (
+        ensure_department_exists(session, data.department_id)
+        if data.department_id is not None
+        else None
+    )
+
+    if not user_is_global_admin(user) and (
+        department is None or department.id != user.department_id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Only global admins can choose another default department",
+        )
+
+    next_department_id = department.id if department else None
+    if next_department_id == user.dashboard_department_id:
+        return user_response(user, session)
+
+    before = model_snapshot(user)
+    user.dashboard_department_id = next_department_id
+    session.add(user)
+    add_audit_event(
+        session=session,
+        actor=user,
+        action="default_department_update",
+        entity_type="user",
+        entity_id=user.id,
+        before=before,
+        after=model_snapshot(user),
+        summary=(
+            f"Set default dashboard department to {department.name}"
+            if department
+            else "Set default dashboard department to all departments"
+        ),
     )
     session.commit()
     session.refresh(user)
