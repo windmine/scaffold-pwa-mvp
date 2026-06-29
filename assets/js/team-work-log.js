@@ -3,8 +3,12 @@ import {
   getMyTeamWorkLogs,
   getTeamWorkLogMembers
 } from './api-client.js';
+import { clearDraft, saveDraft } from './mock-api.js';
 import { escapeHtml, formatDateTime, uuid } from './utils.js';
 import { setDateInputValue } from './date-inputs.js';
+
+const TEAM_WORK_LOG_DRAFT_KEY = 'team-work-log';
+const AUTOSAVE_DELAY_MS = 700;
 
 function mondayDateInput(value = new Date()) {
   const date = new Date(value);
@@ -30,6 +34,41 @@ function calculatedHours(start, end, breakMinutes) {
   return worked > 0 ? Math.round((worked / 60) * 100) / 100 : null;
 }
 
+function minutesToTime(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+}
+
+function normaliseTimeValue(value) {
+  const match = String(value || '').match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return '';
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return '';
+  }
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function timeOptions(selected = '') {
+  const selectedValue = normaliseTimeValue(selected);
+  const values = new Set();
+  for (let minutes = 0; minutes < 24 * 60; minutes += 15) {
+    values.add(minutesToTime(minutes));
+  }
+  if (selectedValue) values.add(selectedValue);
+
+  return [...values]
+    .sort((a, b) => {
+      const [aHours, aMinutes] = a.split(':').map(Number);
+      const [bHours, bMinutes] = b.split(':').map(Number);
+      return ((aHours * 60) + aMinutes) - ((bHours * 60) + bMinutes);
+    })
+    .map((value) => `<option value="${value}"${value === selectedValue ? ' selected' : ''}>${value}</option>`)
+    .join('');
+}
+
 export function createTeamWorkLogModule({
   els,
   state,
@@ -40,9 +79,25 @@ export function createTeamWorkLogModule({
   renderHistory
 }) {
   let rowCounter = 0;
+  let autosaveTimer = null;
+  let restoringDraft = false;
 
   function selectedMemberIds(row) {
     return [...(row.selectedMemberIds || new Set())];
+  }
+
+  function setAutosaveStatus(message, stateClass = '') {
+    if (!els.teamWorkLogAutosaveStatus) return;
+    els.teamWorkLogAutosaveStatus.textContent = message;
+    els.teamWorkLogAutosaveStatus.classList.toggle('saved', stateClass === 'saved');
+    els.teamWorkLogAutosaveStatus.classList.toggle('error', stateClass === 'error');
+  }
+
+  function autosaveTimeLabel(value = new Date()) {
+    return new Intl.DateTimeFormat('en-NZ', {
+      hour: 'numeric',
+      minute: '2-digit'
+    }).format(value);
   }
 
   function renderSelectedMembers(row) {
@@ -67,6 +122,7 @@ export function createTeamWorkLogModule({
         renderMemberChoices(row);
         renderSelectedMembers(row);
         updateRowHours(row);
+        scheduleDraftSave();
       });
     });
   }
@@ -105,6 +161,7 @@ export function createTeamWorkLogModule({
         }
         renderSelectedMembers(row);
         updateRowHours(row);
+        scheduleDraftSave();
       });
     });
   }
@@ -184,11 +241,15 @@ export function createTeamWorkLogModule({
         </label>
         <label>
           Start
-          <input data-team-start type="time" value="${escapeHtml(initial.start_time || '07:00')}" required />
+          <select data-team-start class="team-time-select" required>
+            ${timeOptions(initial.start_time || '07:00')}
+          </select>
         </label>
         <label>
           Finish
-          <input data-team-end type="time" value="${escapeHtml(initial.end_time || '15:30')}" required />
+          <select data-team-end class="team-time-select" required>
+            ${timeOptions(initial.end_time || '15:30')}
+          </select>
         </label>
         <label>
           Break minutes
@@ -204,13 +265,83 @@ export function createTeamWorkLogModule({
     applyWeekRange(row);
     ['[data-team-start]', '[data-team-end]', '[data-team-break]'].forEach((selector) => {
       row.querySelector(selector).addEventListener('input', () => updateRowHours(row));
+      row.querySelector(selector).addEventListener('change', () => updateRowHours(row));
     });
     row.querySelector('[data-remove-team-row]').addEventListener('click', () => {
       row.remove();
       if (!els.teamWorkLogEntries.children.length) addEntry();
+      scheduleDraftSave();
     });
     updateRowHours(row);
     els.teamWorkLogEntries.appendChild(row);
+  }
+
+  function draftRows() {
+    return [...els.teamWorkLogEntries.querySelectorAll('[data-team-log-row]')].map((row) => ({
+      worker_ids: selectedMemberIds(row).map(Number),
+      site_id: row.querySelector('[data-team-site]').value,
+      work_date: row.querySelector('[data-team-date]').value,
+      start_time: row.querySelector('[data-team-start]').value,
+      end_time: row.querySelector('[data-team-end]').value,
+      break_minutes: row.querySelector('[data-team-break]').value,
+      work_description: row.querySelector('[data-team-description]').value
+    }));
+  }
+
+  function rowHasDraftContent(row) {
+    return Boolean(
+      row.worker_ids.length
+      || row.site_id
+      || row.work_description.trim()
+      || row.work_date !== (els.teamWorkLogWeekStart.value || mondayDateInput())
+      || row.start_time !== '07:00'
+      || row.end_time !== '15:30'
+      || String(row.break_minutes || '') !== '30'
+    );
+  }
+
+  function draftHasContent(draft) {
+    return Boolean(
+      (draft.notes || '').trim()
+      || draft.week_start !== mondayDateInput()
+      || draft.rows.length > 1
+      || draft.rows.some(rowHasDraftContent)
+    );
+  }
+
+  async function persistDraft() {
+    if (restoringDraft) return;
+
+    const savedAt = new Date();
+    const draft = {
+      kind: 'team-work-log',
+      week_start: els.teamWorkLogWeekStart.value || mondayDateInput(),
+      notes: els.teamWorkLogNotes.value,
+      rows: draftRows(),
+      saved_at: savedAt.toISOString()
+    };
+
+    if (!draftHasContent(draft)) {
+      await clearDraft(TEAM_WORK_LOG_DRAFT_KEY);
+      setAutosaveStatus('Autosaves on this device.');
+      return;
+    }
+
+    await saveDraft(TEAM_WORK_LOG_DRAFT_KEY, draft);
+    setAutosaveStatus(`Autosaved ${autosaveTimeLabel(savedAt)}.`, 'saved');
+  }
+
+  function scheduleDraftSave() {
+    if (restoringDraft) return;
+    clearTimeout(autosaveTimer);
+    setAutosaveStatus('Saving draft...');
+    autosaveTimer = setTimeout(async () => {
+      try {
+        await persistDraft();
+      } catch {
+        setAutosaveStatus('Could not autosave this team log.', 'error');
+      }
+    }, AUTOSAVE_DELAY_MS);
   }
 
   function workRows() {
@@ -290,10 +421,12 @@ export function createTeamWorkLogModule({
   }
 
   function resetForm() {
+    clearTimeout(autosaveTimer);
     els.teamWorkLogForm.reset();
     setDateInputValue(els.teamWorkLogWeekStart, mondayDateInput());
     els.teamWorkLogEntries.innerHTML = '';
     addEntry();
+    setAutosaveStatus('Autosaves on this device.');
   }
 
   async function handleSubmit(event) {
@@ -317,6 +450,7 @@ export function createTeamWorkLogModule({
         entries,
         client_submission_id: uuid()
       });
+      await clearDraft(TEAM_WORK_LOG_DRAFT_KEY);
       resetForm();
       await refresh();
       await renderWorkerSummary();
@@ -334,15 +468,40 @@ export function createTeamWorkLogModule({
   }
 
   function bindEvents() {
-    els.addTeamWorkLogEntryButton.addEventListener('click', () => addEntry());
+    els.addTeamWorkLogEntryButton.addEventListener('click', () => {
+      addEntry();
+      scheduleDraftSave();
+    });
     els.teamWorkLogWeekStart.addEventListener('change', () => {
       els.teamWorkLogEntries.querySelectorAll('[data-team-log-row]').forEach(applyWeekRange);
+      scheduleDraftSave();
     });
+    els.teamWorkLogForm.addEventListener('input', scheduleDraftSave);
+    els.teamWorkLogForm.addEventListener('change', scheduleDraftSave);
     els.teamWorkLogForm.addEventListener('submit', handleSubmit);
     els.refreshTeamWorkLogsButton.addEventListener('click', refresh);
   }
 
+  function restoreDraft(draft) {
+    if (!draft || draft.kind !== 'team-work-log') return;
+
+    restoringDraft = true;
+    clearTimeout(autosaveTimer);
+    els.teamWorkLogForm.reset();
+    setDateInputValue(els.teamWorkLogWeekStart, draft.week_start || mondayDateInput());
+    els.teamWorkLogNotes.value = draft.notes || '';
+    els.teamWorkLogEntries.innerHTML = '';
+    (draft.rows?.length ? draft.rows : [{}]).forEach((row) => addEntry(row));
+    setAutosaveStatus(
+      draft.saved_at
+        ? `Restored autosaved draft from ${autosaveTimeLabel(new Date(draft.saved_at))}.`
+        : 'Restored autosaved draft.',
+      'saved'
+    );
+    restoringDraft = false;
+  }
+
   setDateInputValue(els.teamWorkLogWeekStart, mondayDateInput());
 
-  return { bindEvents, refresh };
+  return { bindEvents, refresh, restoreDraft };
 }

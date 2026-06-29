@@ -25,6 +25,7 @@ const pwaAssetCopies = [
   ['assets/js/mock-api.js', 'assets/js/mock-api.js'],
   ['assets/js/offline-submissions.js', 'assets/js/offline-submissions.js'],
   ['assets/js/photo-viewer.js', 'assets/js/photo-viewer.js'],
+  ['assets/js/site-map-picker.js', 'assets/js/site-map-picker.js'],
   ['assets/js/staff-sites.js', 'assets/js/staff-sites.js'],
   ['assets/js/supervisor-analytics.js', 'assets/js/supervisor-analytics.js'],
   ['assets/js/supervisor-map.js', 'assets/js/supervisor-map.js'],

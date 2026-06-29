@@ -20,6 +20,11 @@ const LANGUAGE_META = {
 };
 
 const ZH_TEXT = {
+  'Task form': '\u4efb\u52a1\u8868\u5355',
+  'Basic task log': '\u57fa\u672c\u4efb\u52a1\u8bb0\u5f55',
+  'Choose a person, site, and work date.': '\u8bf7\u9009\u62e9\u4eba\u5458\u3001\u5de5\u5730\u548c\u5de5\u4f5c\u65e5\u671f\u3002',
+  'Enter the task summary.': '\u8bf7\u8f93\u5165\u4efb\u52a1\u6458\u8981\u3002',
+  'log': '\u8bb0\u5f55',
   'Group': '\u90e8\u95e8',
   'Super admin': '\u8d85\u7ea7\u7ba1\u7406\u5458',
   'Daily work summary for site activity.': '现场日工汇总。',
@@ -467,6 +472,7 @@ const ZH_TEXT = {
 };
 
 const ZH_PATTERNS = [
+  [/^Approved (.+) submitted for (.+)\.$/, (match) => `${translateText(match[1], 'zh')} \u5df2\u4e3a ${match[2]} \u63d0\u4ea4\u5e76\u901a\u8fc7\u3002`],
   [/^(.+) \*$/, (match) => `${translateText(match[1], 'zh')} *`],
   [/^Verification code sent\. Development code: (.+)$/, (match) => `验证码已发送。开发验证码：${match[1]}`],
   [/^Section: (.+)$/, (match) => `分组：${translateText(match[1], 'zh')}`],

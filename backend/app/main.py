@@ -30,6 +30,7 @@ from app.schemas import (
     TaskLogCreate,
     TaskLogUpdateRequest,
     SupervisorTaskLogCreate,
+    SupervisorWorkFormSubmissionCreate,
     TaskTemplateCreate,
     TaskTemplateUpdate,
     TeamWorkLogCreate,
@@ -807,6 +808,15 @@ def create_work_form_submission(
     session: Session = Depends(get_session)
 ):
     return work_form_use_cases.create_work_form_submission(data, user, session)
+
+
+@app.post("/supervisor/form-submissions")
+def create_supervisor_work_form_submission(
+    data: SupervisorWorkFormSubmissionCreate,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.create_supervisor_work_form_submission(data, supervisor, session)
 
 
 @app.get("/my-form-submissions")

@@ -8,6 +8,7 @@ import {
   updateUserStatus as updateBackendUserStatus,
   updateWorkForm as updateBackendWorkForm
 } from './api-client.js';
+import { createSiteMapPicker, currentPosition } from './site-map-picker.js';
 import { parseWorkFormFieldsInput, renderWorkFormFields, serialiseWorkFormFields } from './work-form-fields.js';
 import { escapeHtml, roundCoordinate } from './utils.js';
 
@@ -26,6 +27,7 @@ export function createStaffSitesModule({
   editNumber
 }) {
   function roundCoordinateInput(input) {
+    if (input.value.trim() === '') return NaN;
     const rounded = roundCoordinate(input.value);
     if (Number.isFinite(rounded)) {
       input.value = rounded.toFixed(6);
@@ -44,6 +46,19 @@ export function createStaffSitesModule({
   function matchesDepartmentFocus(item) {
     if (!state.departmentFocusId) return true;
     return String(item.department_id ?? item.departmentId) === String(state.departmentFocusId);
+  }
+
+  const siteMapPicker = createSiteMapPicker({
+    mapElement: els.siteMap,
+    latitudeInput: els.siteLatitudeInput,
+    longitudeInput: els.siteLongitudeInput,
+    radiusInput: els.siteRadiusInput,
+    statusElement: els.siteMapStatus,
+    getExistingSites: () => state.sites.filter(matchesDepartmentFocus)
+  });
+
+  function refreshSiteMapIfVisible() {
+    if (els.siteMap?.closest('details')?.open) siteMapPicker.refresh();
   }
 
   function siteSelectOptions() {
@@ -75,6 +90,7 @@ export function createStaffSitesModule({
 
     if (!sites.length) {
       els.supervisorSitesList.innerHTML = '<div class="empty-state">No sites found yet.</div>';
+      refreshSiteMapIfVisible();
       return;
     }
 
@@ -103,6 +119,7 @@ export function createStaffSitesModule({
       actions.append(editButton);
       els.supervisorSitesList.appendChild(node);
     });
+    refreshSiteMapIfVisible();
   }
 
   async function renderStaffUsers() {
@@ -431,14 +448,36 @@ export function createStaffSitesModule({
       });
       els.siteForm.reset();
       els.siteRadiusInput.value = '100';
+      siteMapPicker.reset();
       state.sites = await loadSites();
       fillSiteSelects();
       renderSupervisorSites();
       refreshSupervisorMap?.();
+      siteMapPicker.refresh();
       renderStatusBanner('Site created and added to worker forms.');
       await refreshSupervisorAuditHistory?.();
     } catch (error) {
       renderStatusBanner(error.message || 'Could not create site.', true);
+    }
+  }
+
+  async function useCurrentLocationForSite() {
+    if (!navigator.geolocation) {
+      renderStatusBanner('This browser does not support location capture.', true);
+      return;
+    }
+
+    els.siteUseLocationButton.disabled = true;
+    renderStatusBanner('Capturing current location for the site...');
+
+    try {
+      const position = await currentPosition();
+      siteMapPicker.setCoordinates(position.coords.latitude, position.coords.longitude);
+      renderStatusBanner('Current location added to the site form.');
+    } catch {
+      renderStatusBanner('Location permission was denied or timed out. Enter the site coordinates manually.', true);
+    } finally {
+      els.siteUseLocationButton.disabled = false;
     }
   }
 
@@ -622,6 +661,8 @@ export function createStaffSitesModule({
   function bindEvents() {
     els.staffUserForm.addEventListener('submit', handleStaffUserCreate);
     els.siteForm.addEventListener('submit', handleSiteCreate);
+    els.siteUseLocationButton.addEventListener('click', useCurrentLocationForSite);
+    siteMapPicker.bindEvents();
     els.siteLatitudeInput.addEventListener('blur', () => roundCoordinateInput(els.siteLatitudeInput));
     els.siteLongitudeInput.addEventListener('blur', () => roundCoordinateInput(els.siteLongitudeInput));
     els.workFormBuilderForm.addEventListener('submit', handleWorkFormCreate);

@@ -685,6 +685,29 @@ p,
   border-top: 4px solid var(--brand-blue);
 }
 
+#workerView.normal-worker-mode .worker-summary-card {
+  border-left: 5px solid var(--success);
+}
+
+#workerView.normal-worker-mode #attendanceForm {
+  gap: 16px;
+}
+
+#workerView.normal-worker-mode #attendanceForm input,
+#workerView.normal-worker-mode #attendanceForm select,
+#workerView.normal-worker-mode #attendanceForm textarea {
+  font-size: 1rem;
+}
+
+#workerView.normal-worker-mode #captureLocationButton {
+  min-height: 54px;
+  font-size: 1rem;
+}
+
+#workerView.normal-worker-mode #locationPreview {
+  line-height: 1.55;
+}
+
 #workerView.normal-worker-mode .primary-actions button {
   min-height: 62px;
   font-size: 1.08rem;
@@ -724,6 +747,28 @@ select {
   color: var(--input-text);
   box-shadow: 0 1px 0 rgba(8, 28, 58, 0.02);
   transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+input[type="time"] {
+  color-scheme: light;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator {
+  width: 22px;
+  height: 22px;
+  margin-left: 8px;
+  opacity: 1;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  input[type="time"] {
+    min-height: 52px;
+    padding-block: 0.88rem;
+  }
 }
 
 .date-input-shell {
@@ -1138,6 +1183,11 @@ textarea {
   gap: 12px;
 }
 
+.team-time-select {
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+}
+
 .team-member-picker {
   min-width: 0;
   grid-column: 1 / -1;
@@ -1264,6 +1314,26 @@ textarea {
 
 .team-log-heading {
   margin-top: 6px;
+}
+
+.team-log-submit-row {
+  display: grid;
+  gap: 8px;
+}
+
+.autosave-status {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.autosave-status.saved {
+  color: var(--badge-approved-text);
+}
+
+.autosave-status.error {
+  color: var(--danger);
 }
 
 .team-log-entry-summary {
@@ -1467,6 +1537,10 @@ body.viewer-open {
   align-items: flex-start;
 }
 
+.record-header > :first-child {
+  min-width: 0;
+}
+
 .records-list {
   display: grid;
   gap: 12px;
@@ -1573,13 +1647,21 @@ body.viewer-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: max-content;
+  min-width: 0;
+  max-width: 100%;
   border-radius: 999px;
   padding: 0.35rem 0.7rem;
   font-size: 0.82rem;
   font-weight: 800;
   background: rgba(217, 233, 248, 0.1);
   color: var(--badge-text);
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.record-header > .badge {
+  flex: 0 0 auto;
+  align-self: flex-start;
 }
 
 .badge.synced, .badge.approved { background: rgba(62, 201, 143, 0.12); color: var(--badge-approved-text); }
@@ -1633,6 +1715,77 @@ body.viewer-open {
   min-width: 0;
 }
 
+.admin-command-card {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 16px;
+  border-left: 5px solid var(--champagne);
+  background:
+    radial-gradient(circle at top right, rgba(200, 169, 106, 0.2), transparent 34%),
+    linear-gradient(110deg, rgba(9, 108, 245, 0.12), transparent 54%),
+    var(--card-background);
+}
+
+.admin-command-content h2 {
+  margin: 3px 0 6px;
+}
+
+.admin-command-content p:last-child {
+  margin-bottom: 0;
+}
+
+.admin-command-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.admin-command-link {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.72rem 0.9rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(217, 233, 248, 0.08);
+  color: var(--brand-blue-soft);
+  font-weight: 900;
+  text-align: center;
+  text-decoration: none;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.admin-command-link.primary {
+  border-color: var(--brand-blue);
+  background: linear-gradient(180deg, #2488ff, var(--brand-blue-dark));
+  color: var(--primary-contrast);
+  box-shadow: 0 12px 26px rgba(9, 108, 245, 0.24);
+}
+
+.admin-command-link:hover,
+.admin-command-link:focus-visible {
+  border-color: var(--brand-blue);
+  background: rgba(36, 136, 255, 0.14);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.admin-command-link.primary:hover,
+.admin-command-link.primary:focus-visible {
+  background: linear-gradient(180deg, #3f96ff, var(--brand-blue));
+}
+
+.admin-command-link[aria-current="location"] {
+  border-color: var(--champagne);
+  box-shadow: 0 0 0 3px rgba(200, 169, 106, 0.18);
+}
+
+.admin-command-link.primary[aria-current="location"] {
+  border-color: var(--champagne);
+}
+
+.admin-command-card,
 .admin-overview-grid,
 .dashboard-scope-card,
 .management-analytics-card,
@@ -1677,6 +1830,10 @@ body.viewer-open {
 .admin-task-log-description,
 .admin-task-log-safety {
   grid-column: span 2;
+}
+
+.admin-task-log-fields {
+  grid-column: 1 / -1;
 }
 
 .admin-task-log-form button {
@@ -2063,11 +2220,133 @@ body.viewer-open {
 }
 
 .location-review-map .leaflet-control-attribution {
-  color: #24364b;
+  max-width: calc(100% - 12px);
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #06111f;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: normal;
+  box-shadow: 0 2px 8px rgba(3, 7, 13, 0.18);
 }
 
 .location-review-map .leaflet-control-attribution a {
   color: #0645ad;
+}
+
+.location-review-map .leaflet-control-zoom a {
+  width: 40px !important;
+  height: 40px !important;
+  line-height: 40px !important;
+  font-size: 1.12rem !important;
+}
+
+.location-review-map .leaflet-tooltip {
+  box-sizing: border-box;
+  width: min(320px, calc(100vw - 72px));
+  max-width: min(320px, calc(100vw - 72px));
+  padding: 8px 10px;
+  border: 1px solid rgba(6, 17, 31, 0.28);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #06111f;
+  font-weight: 800;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  box-shadow: 0 8px 20px rgba(3, 7, 13, 0.25);
+}
+
+.location-review-map .leaflet-tooltip-left::before {
+  border-left-color: rgba(255, 255, 255, 0.96);
+}
+
+.location-review-map .leaflet-tooltip-right::before {
+  border-right-color: rgba(255, 255, 255, 0.96);
+}
+
+.site-location-actions,
+.site-map-panel {
+  grid-column: 1 / -1;
+}
+
+.site-map-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.site-map-picker {
+  width: 100%;
+  min-height: 360px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--panel-background);
+}
+
+.site-map-picker .leaflet-control-attribution {
+  max-width: calc(100% - 12px);
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #06111f;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: normal;
+  box-shadow: 0 2px 8px rgba(3, 7, 13, 0.18);
+}
+
+.site-map-picker .leaflet-control-attribution a {
+  color: #0645ad;
+}
+
+.site-map-picker .leaflet-control-zoom a {
+  width: 40px !important;
+  height: 40px !important;
+  line-height: 40px !important;
+  font-size: 1.12rem !important;
+}
+
+.site-map-picker .leaflet-tooltip {
+  box-sizing: border-box;
+  width: min(260px, calc(100vw - 72px));
+  max-width: min(260px, calc(100vw - 72px));
+  padding: 7px 9px;
+  border: 1px solid rgba(6, 17, 31, 0.28);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #06111f;
+  font-weight: 800;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  box-shadow: 0 8px 20px rgba(3, 7, 13, 0.25);
+}
+
+.site-map-pin {
+  display: grid;
+  place-items: center;
+}
+
+.site-map-pin span {
+  width: 22px;
+  height: 22px;
+  display: block;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: var(--brand-blue);
+  box-shadow: 0 4px 14px rgba(3, 7, 13, 0.38);
+}
+
+.site-map-status {
+  min-height: 1.35em;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.35;
 }
 
 .location-review-sidebar {
@@ -2135,15 +2414,17 @@ body.viewer-open {
 
 .location-map-filters .location-map-toggle {
   flex: 1 1 210px;
-  height: 46px;
+  min-height: 46px;
+  height: auto;
   min-width: 0;
   align-self: end;
-  padding: 0 12px;
+  padding: 8px 12px;
   border: 1px solid var(--input-border);
   border-radius: 6px;
   background: var(--input-background);
   color: var(--input-text);
-  white-space: nowrap;
+  line-height: 1.25;
+  white-space: normal;
   cursor: pointer;
 }
 
@@ -2216,14 +2497,18 @@ body.viewer-open {
     padding-inline: 24px;
   }
 
+  body.session-supervisor .app-shell {
+    width: min(100%, 1620px);
+  }
+
   #supervisorView {
     display: none;
   }
 
   #supervisorView.active {
     display: grid;
-    grid-template-columns: 214px minmax(0, 1fr);
-    gap: 20px;
+    grid-template-columns: minmax(214px, 240px) minmax(0, 1fr);
+    gap: 22px;
     align-items: start;
   }
 
@@ -2233,14 +2518,17 @@ body.viewer-open {
     display: flex;
     max-height: calc(100vh - 36px);
     flex-direction: column;
-    gap: 18px;
+    gap: 14px;
     overflow-y: auto;
-    padding: 18px 14px;
+    padding: 18px 12px;
     border: 1px solid var(--line);
     border-top: 4px solid var(--brand-blue);
     border-radius: var(--radius);
-    background: var(--card-background);
+    background:
+      linear-gradient(180deg, rgba(9, 108, 245, 0.08), transparent 42%),
+      var(--card-background);
     box-shadow: var(--shadow);
+    scrollbar-width: thin;
   }
 
   .admin-nav-heading {
@@ -2270,9 +2558,11 @@ body.viewer-open {
   }
 
   .admin-nav-group a {
+    position: relative;
     display: flex;
     min-height: 38px;
     align-items: center;
+    gap: 9px;
     padding: 8px 10px;
     border: 1px solid transparent;
     border-radius: 6px;
@@ -2281,6 +2571,15 @@ body.viewer-open {
     font-weight: 800;
     text-decoration: none;
     transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+  }
+
+  .admin-nav-group a::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: var(--line-strong);
   }
 
   .admin-nav-group a:hover,
@@ -2292,13 +2591,56 @@ body.viewer-open {
     outline: none;
   }
 
+  .admin-nav-group a:hover::before,
+  .admin-nav-group a:focus-visible::before,
+  .admin-nav-group a[aria-current="location"]::before {
+    background: var(--brand-blue);
+    box-shadow: 0 0 0 4px rgba(36, 136, 255, 0.14);
+  }
+
   .admin-workspace {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
+    gap: 18px;
     align-items: start;
   }
 
+  .admin-command-card {
+    grid-template-columns: minmax(0, 1.2fr) minmax(380px, 0.8fr);
+    align-items: center;
+    padding: 20px;
+  }
+
+  #supervisorView .filter-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    align-items: end;
+  }
+
+  #supervisorView .filter-bar button {
+    width: auto;
+    min-height: 46px;
+  }
+
+  #supervisorView .fold-content {
+    padding: 18px 20px 20px;
+  }
+
+  #supervisorView .record-card {
+    padding: 16px;
+  }
+
+  #supervisorView .fold-card > summary {
+    min-height: 58px;
+    padding: 16px 20px;
+  }
+
+  #supervisorView .fold-card > summary:hover {
+    background: rgba(36, 136, 255, 0.08);
+  }
+
+  .admin-workspace > .admin-command-card,
   .admin-workspace > .admin-overview-grid,
   .admin-workspace > .dashboard-scope-card,
   .admin-workspace > .management-analytics-card,
@@ -2307,6 +2649,8 @@ body.viewer-open {
   .admin-workspace > .location-review-card,
   .admin-workspace > .audit-history-card,
   .admin-workspace > .work-forms-card,
+  .admin-workspace > .sites-card,
+  .admin-workspace > .staff-users-card,
   .admin-workspace > #supervisorEditPanel {
     grid-column: 1 / -1;
   }
@@ -2322,7 +2666,8 @@ body.viewer-open {
 
   .manual-attendance-reason,
   .admin-task-log-description,
-  .admin-task-log-safety {
+  .admin-task-log-safety,
+  .admin-task-log-fields {
     grid-column: 1 / -1;
   }
 
@@ -2333,12 +2678,85 @@ body.viewer-open {
 
 @media (min-width: 1240px) {
   .admin-workspace {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+
+  .admin-workspace > .admin-command-card {
+    grid-column: 1 / -1;
+  }
+
+  .admin-workspace > .admin-overview-grid {
+    grid-column: span 7;
+  }
+
+  .admin-workspace > .dashboard-scope-card {
+    grid-column: span 5;
+    grid-template-columns: 1fr;
+    align-content: start;
+  }
+
+  .admin-workspace > .management-analytics-card,
+  .admin-workspace > .review-queue-card,
+  .admin-workspace > .rubbish-bin-card,
+  .admin-workspace > .location-review-card,
+  .admin-workspace > .audit-history-card,
+  .admin-workspace > .work-forms-card,
+  .admin-workspace > .sites-card,
+  .admin-workspace > .staff-users-card,
+  .admin-workspace > #supervisorEditPanel {
+    grid-column: 1 / -1;
   }
 
   .admin-workspace > .manual-attendance-card,
   .admin-workspace > .admin-task-log-card {
-    grid-column: auto;
+    grid-column: span 6;
+  }
+
+  .admin-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-scope-controls {
+    grid-template-columns: 1fr;
+  }
+
+  #siteForm,
+  #staffUserForm {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: end;
+  }
+
+  #siteForm label:nth-child(2),
+  #staffUserForm label:nth-child(2) {
+    grid-column: span 2;
+  }
+
+  #siteForm button,
+  #staffUserForm button {
+    width: fit-content;
+    min-width: 180px;
+    justify-self: start;
+  }
+
+  .management-analytics-card .analytics-toolbar {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) auto auto;
+    width: min(100%, 680px);
+    margin-left: auto;
+  }
+
+  .management-analytics-card .analytics-toolbar label {
+    min-width: 0;
+  }
+
+  .review-queue-card #reviewQueueList,
+  .rubbish-bin-card #rubbishBinList,
+  .audit-history-card #auditEventsList,
+  .sites-card .staff-users-list,
+  .staff-users-card .staff-users-list,
+  .work-forms-card .staff-users-list {
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    align-items: start;
   }
 
   .work-forms-content {
@@ -2360,6 +2778,77 @@ body.viewer-open {
 
   .app-shell {
     padding: 14px 12px 34px;
+  }
+
+  body.session-worker .app-shell {
+    padding: 10px 10px max(96px, calc(38px + env(safe-area-inset-bottom)));
+  }
+
+  body.session-worker .topbar {
+    min-height: auto;
+    display: grid;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  body.session-worker .brand-lockup {
+    flex-direction: row;
+    gap: 10px;
+    align-items: center;
+  }
+
+  body.session-worker .brand-logo {
+    width: 112px;
+    max-height: 64px;
+  }
+
+  body.session-worker .brand-heading {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  body.session-worker .user-context {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 8px 10px;
+  }
+
+  body.session-worker .user-context-group {
+    font-size: 0.8rem;
+  }
+
+  body.session-worker .user-context-badge {
+    align-self: center;
+    grid-row: 1 / span 2;
+    grid-column: 2;
+  }
+
+  body.session-worker .topbar-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+    justify-content: stretch;
+  }
+
+  body.session-worker .topbar-actions button {
+    width: 100%;
+    min-height: 42px;
+    padding: 0.58rem 0.45rem;
+    font-size: 0.84rem;
+  }
+
+  body.session-worker #statusBanner {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    line-height: 1.35;
   }
 
   #workerView.active {
@@ -2429,14 +2918,79 @@ body.viewer-open {
 
   #workerView.normal-worker-mode .normal-worker-guide {
     order: 2;
+    gap: 12px;
+    margin-top: 10px;
+    padding: 14px;
   }
 
   #workerView.normal-worker-mode .tabs {
     order: 3;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    margin-top: 10px;
   }
 
   #workerView.normal-worker-mode .tab-panel {
     order: 4;
+  }
+
+  #workerView.normal-worker-mode .worker-dashboard,
+  #workerView.normal-worker-mode .normal-worker-guide,
+  #workerView.normal-worker-mode .tabs,
+  #workerView.normal-worker-mode .tab-panel {
+    width: 100%;
+  }
+
+  #workerView.normal-worker-mode .worker-summary-card {
+    padding: 14px;
+  }
+
+  #workerView.normal-worker-mode .summary-item {
+    padding: 9px 0;
+  }
+
+  #workerView.normal-worker-mode .attendance-card {
+    padding: 14px;
+  }
+
+  #workerView.normal-worker-mode #attendanceForm input,
+  #workerView.normal-worker-mode #attendanceForm select {
+    min-height: 52px;
+  }
+
+  #workerView.normal-worker-mode #captureLocationButton {
+    width: 100%;
+    min-height: 56px;
+  }
+
+  #workerView.normal-worker-mode .primary-actions {
+    position: sticky;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    z-index: 8;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 4px -5px 0;
+    padding: 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: calc(var(--radius) + 4px);
+    background: var(--tabs-background);
+    box-shadow: 0 14px 36px rgba(3, 7, 13, 0.38);
+    backdrop-filter: blur(10px);
+  }
+
+  #workerView.normal-worker-mode .primary-actions button {
+    min-height: 58px;
+    padding-inline: 0.4rem;
+  }
+
+  #workerView.leader-worker-mode .team-work-log-entry {
+    padding: 12px;
+  }
+
+  #workerView.leader-worker-mode .team-member-picker {
+    padding: 10px;
   }
 
   .two-col {
@@ -2521,6 +3075,8 @@ body.viewer-open {
   .location-map-filters .location-map-toggle {
     grid-column: 1 / -1;
     width: 100%;
+    min-height: 52px;
+    padding-block: 10px;
   }
 
   .analytics-toolbar,
@@ -2560,6 +3116,7 @@ body.viewer-open {
   .manual-attendance-form button,
   .admin-task-log-description,
   .admin-task-log-safety,
+  .admin-task-log-fields,
   .admin-task-log-form button {
     grid-column: 1;
     width: 100%;
@@ -2625,6 +3182,10 @@ body.viewer-open {
 
   .location-review-map {
     min-height: 390px;
+  }
+
+  .site-map-picker {
+    min-height: 310px;
   }
 
   .location-history-row {

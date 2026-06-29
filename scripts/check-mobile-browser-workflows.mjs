@@ -30,6 +30,7 @@ const sourceSupervisorAnalytics = read('assets/js/supervisor-analytics.js');
 const sourceSupervisorMap = read('assets/js/supervisor-map.js');
 const sourceWorkerLog = read('assets/js/worker-log.js');
 const sourceWorkerSites = read('assets/js/worker-sites.js');
+const sourceSiteMapPicker = read('assets/js/site-map-picker.js');
 const sourceTeamWorkLog = read('assets/js/team-work-log.js');
 const sourceWorker = read('sw.js');
 const sourceOfflineQueue = read('assets/js/offline-submissions.js');
@@ -50,6 +51,7 @@ check('production build exists', () => [
 
 [
   'dist/assets/js/date-inputs.js',
+  'dist/assets/js/site-map-picker.js',
   'dist/assets/js/team-work-log.js',
   'dist/assets/js/worker-sites.js',
   'dist/assets/icons/leader-logo-export.png',
@@ -83,12 +85,15 @@ check('production HTML keeps stable PWA links', () => (
   'registrationCompletionFields',
   'registerDepartmentSelect',
   'workerView',
+  'workerSiteMap',
+  'workerSiteMapStatus',
   'teamLogTab',
   'teamWorkLogForm',
   'teamWorkLogWeekStart',
   'teamWorkLogEntries',
   'addTeamWorkLogEntryButton',
   'submitTeamWorkLogButton',
+  'teamWorkLogAutosaveStatus',
   'teamWorkLogHistory',
   'supervisorView',
   'adminOverview',
@@ -96,6 +101,9 @@ check('production HTML keeps stable PWA links', () => (
   'auditHistoryDetails',
   'workFormsDetails',
   'sitesDetails',
+  'siteUseLocationButton',
+  'siteMap',
+  'siteMapStatus',
   'staffUsersDetails',
   'staffWorkerClassSelect',
   'attendanceSite',
@@ -155,7 +163,8 @@ check('desktop admin workspace navigation opens and links management sections', 
   && sourceIndex.includes('href="#staffUsersDetails"')
   && sourceApp.includes('bindAdminNavigation()')
   && sourceApp.includes('target instanceof HTMLDetailsElement')
-  && sourceStyles.includes('grid-template-columns: 214px minmax(0, 1fr)')
+  && sourceStyles.includes('grid-template-columns: minmax(214px, 240px) minmax(0, 1fr)')
+  && sourceStyles.includes('grid-template-columns: repeat(12, minmax(0, 1fr))')
   && sourceStyles.includes('@media (min-width: 1240px)')
 ));
 
@@ -272,6 +281,9 @@ check('advanced work form fields and photo timestamps are wired', () => (
   && sourceWorkFormFields.includes("field.type === 'repeat'")
   && sourceWorkFormFields.includes('evaluateFormula')
   && sourceWorkFormFields.includes('conditionMet')
+  && sourceStyles.includes('input[type="time"]')
+  && sourceStyles.includes('color-scheme: light')
+  && sourceStyles.includes('::-webkit-calendar-picker-indicator')
   && sourceOfflineQueue.includes('photo_metadata')
   && read('backend/app/schemas.py').includes('photo_metadata')
   && read('backend/app/schemas.py').includes('show_if')
@@ -291,8 +303,10 @@ check('worker Log tab uses the Daywork work form path', () => (
 check('workers can add missing sites', () => (
   sourceIndex.includes('id="workerSiteForm"')
   && sourceIndex.includes('Use current location')
+  && sourceIndex.includes('id="workerSiteMap"')
   && sourceApiClient.includes('createWorkerSite')
   && sourceWorkerSites.includes('createBackendWorkerSite')
+  && sourceWorkerSites.includes('createSiteMapPicker')
   && read('backend/app/main.py').includes('@app.post("/sites")')
 ));
 
@@ -308,11 +322,20 @@ check('normal workers are attendance-only and leaders can submit weekly team log
   && sourceTeamWorkLog.includes('data-team-member-search')
   && sourceTeamWorkLog.includes('rows.flatMap')
   && sourceTeamWorkLog.includes('selectedMemberIds')
+  && sourceTeamWorkLog.includes('function timeOptions')
+  && sourceTeamWorkLog.includes('class="team-time-select"')
   && sourceTeamWorkLog.includes('break_minutes')
   && sourceTeamWorkLog.includes('work_description')
+  && sourceTeamWorkLog.includes("saveDraft(TEAM_WORK_LOG_DRAFT_KEY")
+  && sourceTeamWorkLog.includes("clearDraft(TEAM_WORK_LOG_DRAFT_KEY")
+  && sourceTeamWorkLog.includes('scheduleDraftSave')
+  && sourceApp.includes("getDraft('team-work-log')")
+  && sourceApp.includes('teamWorkLogModule.restoreDraft')
   && sourceStyles.includes('.team-work-log-entry')
+  && sourceStyles.includes('.team-time-select')
   && sourceStyles.includes('.team-member-options')
   && sourceStyles.includes('.team-member-chip')
+  && sourceStyles.includes('.autosave-status')
   && read('backend/app/use_cases/common.py').includes('def require_leader')
   && read('backend/app/use_cases/team_work_logs.py').includes('week_start.weekday() != 0')
   && read('backend/app/models.py').includes('class TeamWorkLogEntry')
@@ -399,6 +422,16 @@ check('site coordinates are rounded and map points stay compact', () => (
   && read('assets/js/staff-sites.js').includes('roundCoordinateInput(els.siteLongitudeInput)')
   && sourceWorkerSites.includes('roundCoordinateInput(els.workerSiteLatitudeInput)')
   && sourceWorkerSites.includes('roundCoordinateInput(els.workerSiteLongitudeInput)')
+  && sourceIndex.includes('id="siteMap"')
+  && sourceIndex.includes('id="siteUseLocationButton"')
+  && read('assets/js/staff-sites.js').includes('createSiteMapPicker')
+  && sourceSiteMapPicker.includes('L.map(mapElement')
+  && sourceSiteMapPicker.includes('draggable: true')
+  && sourceSiteMapPicker.includes('L.circle(point')
+  && sourceSiteMapPicker.includes('getExistingSites()')
+  && sourceStyles.includes('.site-map-picker')
+  && sourceWorker.includes("'/assets/js/site-map-picker.js'")
+  && viteConfig.includes("'assets/js/site-map-picker.js'")
   && sourceSupervisorMap.includes("radius: record.action === 'check_out' ? 4 : 5")
 ));
 

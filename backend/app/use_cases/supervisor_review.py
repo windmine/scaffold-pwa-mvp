@@ -20,7 +20,7 @@ from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, 
 from sqlmodel import Session, select
 
 from app.config import ROOT_DIR
-from app.models import AttendanceRecord, TaskLog, TeamWorkLog, User, WorkFormSubmission
+from app.models import AttendanceRecord, TaskLog, TeamWorkLog, User, WorkForm, WorkFormSubmission
 from app.upload_storage import load_upload
 from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
@@ -38,8 +38,10 @@ from app.use_cases.common import (
     site_distance_check,
     task_log_response,
     validate_approval_decision,
+    validate_work_form_answers,
     validate_photo_url,
     validate_review_status,
+    work_form_submission_response,
 )
 
 
@@ -1498,6 +1500,49 @@ def create_supervisor_task_log(data, supervisor: User, session: Session):
     session.commit()
     session.refresh(log)
     return task_log_response(log, session)
+
+
+def create_supervisor_work_form_submission(data, supervisor: User, session: Session):
+    require_confirmed(data.confirmed)
+    target_user = session.get(User, data.user_id)
+    if not target_user or not can_access_department(supervisor, target_user.department_id):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    form = session.get(WorkForm, data.form_id)
+    if not form or form.status != "active" or not can_access_department(supervisor, form.department_id):
+        raise HTTPException(status_code=404, detail="Form not found")
+    if form.department_id != target_user.department_id:
+        raise HTTPException(status_code=400, detail="Form must belong to the selected user's department")
+
+    site = ensure_site_exists(session, data.site_id, supervisor) if data.site_id else None
+    if site and site.department_id != target_user.department_id:
+        raise HTTPException(status_code=400, detail="Site must belong to the selected user's department")
+
+    answers = validate_work_form_answers(form, data.answers)
+    submission = WorkFormSubmission(
+        department_id=target_user.department_id,
+        form_id=form.id,
+        worker_id=target_user.id,
+        site_id=site.id if site else None,
+        work_date=data.work_date,
+        answers_json=json.dumps(answers),
+        status="approved",
+    )
+    session.add(submission)
+    session.flush()
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action="form_submission_manual_create",
+        entity_type="form_submission",
+        entity_id=submission.id,
+        after=model_snapshot(submission),
+        summary=f"Added approved {form.name} submission for {target_user.name}",
+        department_id=target_user.department_id,
+    )
+    session.commit()
+    session.refresh(submission)
+    return work_form_submission_response(submission, session)
 
 
 def task_logs_csv_response(items, filename: str):

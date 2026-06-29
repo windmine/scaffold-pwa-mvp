@@ -149,6 +149,8 @@ const els = {
   workerSiteLongitudeInput: document.getElementById('workerSiteLongitudeInput'),
   workerSiteRadiusInput: document.getElementById('workerSiteRadiusInput'),
   workerSiteUseLocationButton: document.getElementById('workerSiteUseLocationButton'),
+  workerSiteMap: document.getElementById('workerSiteMap'),
+  workerSiteMapStatus: document.getElementById('workerSiteMapStatus'),
   workerSiteSubmitButton: document.getElementById('workerSiteSubmitButton'),
   workFormSubmissionForm: document.getElementById('workFormSubmissionForm'),
   workFormSelect: document.getElementById('workFormSelect'),
@@ -164,6 +166,7 @@ const els = {
   teamWorkLogEntries: document.getElementById('teamWorkLogEntries'),
   addTeamWorkLogEntryButton: document.getElementById('addTeamWorkLogEntryButton'),
   submitTeamWorkLogButton: document.getElementById('submitTeamWorkLogButton'),
+  teamWorkLogAutosaveStatus: document.getElementById('teamWorkLogAutosaveStatus'),
   refreshTeamWorkLogsButton: document.getElementById('refreshTeamWorkLogsButton'),
   teamWorkLogHistory: document.getElementById('teamWorkLogHistory'),
   workerEditPanel: document.getElementById('workerEditPanel'),
@@ -197,8 +200,10 @@ const els = {
   adminTaskLogForm: document.getElementById('adminTaskLogForm'),
   adminTaskLogUser: document.getElementById('adminTaskLogUser'),
   adminTaskLogSite: document.getElementById('adminTaskLogSite'),
+  adminTaskLogFormSelect: document.getElementById('adminTaskLogFormSelect'),
   adminTaskLogDate: document.getElementById('adminTaskLogDate'),
   adminTaskLogHours: document.getElementById('adminTaskLogHours'),
+  adminTaskLogFormFields: document.getElementById('adminTaskLogFormFields'),
   adminTaskLogDescription: document.getElementById('adminTaskLogDescription'),
   adminTaskLogSafety: document.getElementById('adminTaskLogSafety'),
   adminTaskLogSubmitButton: document.getElementById('adminTaskLogSubmitButton'),
@@ -255,6 +260,9 @@ const els = {
   siteLatitudeInput: document.getElementById('siteLatitudeInput'),
   siteLongitudeInput: document.getElementById('siteLongitudeInput'),
   siteRadiusInput: document.getElementById('siteRadiusInput'),
+  siteUseLocationButton: document.getElementById('siteUseLocationButton'),
+  siteMap: document.getElementById('siteMap'),
+  siteMapStatus: document.getElementById('siteMapStatus'),
   siteSearchInput: document.getElementById('siteSearchInput'),
   supervisorSitesList: document.getElementById('supervisorSitesList'),
   staffSearchInput: document.getElementById('staffSearchInput'),
@@ -344,7 +352,10 @@ const workerForm = createWorkerFormModule({
   renderHistory: historyModule.renderHistory,
   handleSessionExpired,
   isBackendSessionError,
-  onSupervisorWorkFormsChanged: () => staffSitesModule?.renderWorkFormsList(),
+  onSupervisorWorkFormsChanged: () => {
+    staffSitesModule?.renderWorkFormsList();
+    supervisorReviewModule?.renderAdminTaskLogForm();
+  },
   onWorkFormsChanged: () => workerLog.renderDayworkForm()
 });
 
@@ -557,7 +568,7 @@ function bindEvents() {
 }
 
 function bindAdminNavigation() {
-  const links = [...document.querySelectorAll('.admin-desktop-nav a[href^="#"]')];
+  const links = [...document.querySelectorAll('.admin-desktop-nav a[href^="#"], .admin-command-link[href^="#"]')];
 
   links.forEach((link) => {
     link.addEventListener('click', (event) => {
@@ -632,6 +643,9 @@ async function restoreDrafts() {
 
   const taskDraft = await getDraft('task-form');
   workerLog.restoreDraft(taskDraft);
+
+  const teamWorkLogDraft = await getDraft('team-work-log');
+  teamWorkLogModule.restoreDraft(teamWorkLogDraft);
 }
 
 function renderApp() {
@@ -711,6 +725,10 @@ function showView(view) {
 
 function updateTopbar() {
   els.updateButton.classList.toggle('hidden', !hasPendingAppUpdate());
+  document.body.classList.toggle('session-worker', state.user?.role === 'worker');
+  document.body.classList.toggle('session-supervisor', state.user?.role === 'supervisor');
+  document.body.classList.toggle('session-leader-worker', state.user?.role === 'worker' && state.user?.workerClass === 'leader');
+  document.body.classList.toggle('session-normal-worker', state.user?.role === 'worker' && state.user?.workerClass !== 'leader');
 
   if (state.user) {
     const departmentName = state.user.departmentName || 'No department';

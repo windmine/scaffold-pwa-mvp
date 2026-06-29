@@ -1,5 +1,6 @@
 import {
   createSupervisorAttendance as createBackendSupervisorAttendance,
+  createSupervisorFormSubmission as createBackendSupervisorFormSubmission,
   createSupervisorTaskLog as createBackendSupervisorTaskLog,
   decideRecord as decideBackendRecord,
   exportSupervisorFormSubmissionCsv,
@@ -19,16 +20,20 @@ import {
   restoreSupervisorRecord as restoreBackendSupervisorRecord,
   updateDefaultDepartment as updateBackendDefaultDepartment,
   updateSupervisorRecord as updateBackendSupervisorRecord,
-  updateSupervisorTaskLog as updateBackendSupervisorTaskLog
+  updateSupervisorTaskLog as updateBackendSupervisorTaskLog,
+  uploadPhoto as uploadBackendPhoto
 } from './api-client.js';
 import { setDateInputValue } from './date-inputs.js';
+import { collectWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
 import {
   decideRecord as decideLocalRecord,
   getPendingApprovals,
   getReviewedApprovals,
   getTaskLogRecords
 } from './mock-api.js';
-import { todayDateInput, escapeHtml, formatDateTime } from './utils.js';
+import { todayDateInput, escapeHtml, formatDateTime, dataUrlToBlob } from './utils.js';
+
+const ADMIN_TASK_LOG_FORM_PREFIX = 'adminTaskLogFormField';
 
 function mergeReviewRecords(...recordGroups) {
   const recordsByKey = new Map();
@@ -68,6 +73,42 @@ function formatAuditAction(action) {
 function isDayworkRecord(record) {
   const text = `${record.formName || ''}`.toLowerCase();
   return text.includes('daywork') || text.includes('daily work');
+}
+
+function isSignatureDataUrl(value) {
+  return typeof value === 'string' && value.startsWith('data:image/');
+}
+
+async function uploadAdminFormSignatureAnswers(form, answers, user) {
+  const fields = form.fields || [];
+  const nextAnswers = { ...answers };
+
+  async function uploadSignature(field, target, suffix = '') {
+    const value = target?.[field.id];
+    if (!isSignatureDataUrl(value)) return;
+
+    const uploaded = await uploadBackendPhoto(
+      dataUrlToBlob(value),
+      `admin-signature-${user?.id || 'user'}-${form.id}-${field.id}${suffix}-${Date.now()}.png`
+    );
+    target[field.id] = uploaded.url;
+  }
+
+  for (const field of fields.filter((item) => item.type === 'signature' && !item.repeat)) {
+    await uploadSignature(field, nextAnswers);
+  }
+
+  for (const parent of fields.filter((item) => item.type === 'repeat')) {
+    const rows = Array.isArray(nextAnswers[parent.id]) ? nextAnswers[parent.id] : [];
+    const children = fields.filter((item) => item.repeat === parent.id && item.type === 'signature');
+    for (const [index, row] of rows.entries()) {
+      for (const child of children) {
+        await uploadSignature(child, row, `-${parent.id}-${index + 1}`);
+      }
+    }
+  }
+
+  return nextAnswers;
 }
 
 function downloadBlob(blob, filename) {
@@ -193,10 +234,65 @@ export function createSupervisorReviewModule({
     ));
   }
 
-  function renderAdminTaskLogSites() {
-    const user = adminTaskLogUsers().find(
+  function selectedAdminTaskLogUser() {
+    return adminTaskLogUsers().find(
       (item) => String(item.id) === els.adminTaskLogUser.value
     );
+  }
+
+  function selectedAdminTaskLogForm() {
+    return (state.workForms || []).find(
+      (form) => form.status === 'active' && String(form.id) === String(els.adminTaskLogFormSelect.value)
+    );
+  }
+
+  function adminTaskLogForms(user) {
+    if (!user) return [];
+    return (state.workForms || []).filter((form) => (
+      form.status === 'active'
+      && String(itemDepartmentId(form)) === String(itemDepartmentId(user))
+    ));
+  }
+
+  function renderAdminTaskLogSelectedForm() {
+    const form = selectedAdminTaskLogForm();
+    const isWorkForm = Boolean(form);
+
+    els.adminTaskLogForm.querySelectorAll('[data-admin-task-log-plain]').forEach((field) => {
+      field.classList.toggle('hidden', isWorkForm);
+      field.querySelectorAll('input, textarea, select').forEach((input) => {
+        input.disabled = isWorkForm;
+      });
+    });
+
+    els.adminTaskLogDescription.required = !isWorkForm;
+    els.adminTaskLogFormFields.classList.toggle('hidden', !isWorkForm);
+    if (form) {
+      renderWorkFormFields(els.adminTaskLogFormFields, form, {
+        idPrefix: ADMIN_TASK_LOG_FORM_PREFIX,
+        container: els.adminTaskLogFormFields
+      });
+    } else {
+      els.adminTaskLogFormFields.innerHTML = '';
+    }
+  }
+
+  function renderAdminTaskLogFormOptions() {
+    const user = selectedAdminTaskLogUser();
+    const currentFormId = els.adminTaskLogFormSelect.value;
+    const forms = adminTaskLogForms(user);
+    els.adminTaskLogFormSelect.innerHTML = [
+      '<option value="">Basic task log</option>',
+      ...forms.map((form) => `<option value="${form.id}">${escapeHtml(form.name)}</option>`)
+    ].join('');
+    els.adminTaskLogFormSelect.value = forms.some((form) => String(form.id) === currentFormId)
+      ? currentFormId
+      : '';
+    renderAdminTaskLogSelectedForm();
+  }
+
+  function renderAdminTaskLogSites() {
+    const user = selectedAdminTaskLogUser();
     const currentSiteId = els.adminTaskLogSite.value;
     const sites = user
       ? (state.sites || []).filter(
@@ -212,6 +308,7 @@ export function createSupervisorReviewModule({
       els.adminTaskLogSite.value = currentSiteId;
     }
     els.adminTaskLogSubmitButton.disabled = !user || !sites.length;
+    renderAdminTaskLogFormOptions();
   }
 
   function renderAdminTaskLogForm() {
@@ -515,36 +612,60 @@ export function createSupervisorReviewModule({
 
   async function handleAdminTaskLogSubmit(event) {
     event.preventDefault();
-    const user = adminTaskLogUsers().find(
-      (item) => String(item.id) === els.adminTaskLogUser.value
-    );
+    const user = selectedAdminTaskLogUser();
+    const form = selectedAdminTaskLogForm();
     const description = els.adminTaskLogDescription.value.trim();
-    if (!user || !els.adminTaskLogSite.value || !els.adminTaskLogDate.value || !description) {
-      renderStatusBanner('Choose a person, site, work date, and enter the task summary.', true);
+    if (!user || !els.adminTaskLogSite.value || !els.adminTaskLogDate.value) {
+      renderStatusBanner('Choose a person, site, and work date.', true);
       return;
     }
-    if (!window.confirm(`Double check: submit this approved log for ${user.name}?`)) return;
+    if (!form && !description) {
+      renderStatusBanner('Enter the task summary.', true);
+      return;
+    }
+    if (!window.confirm(
+      `Double check: submit this approved ${form ? form.name : 'log'} for ${user.name}?`
+    )) return;
 
     els.adminTaskLogSubmitButton.disabled = true;
     try {
-      await createBackendSupervisorTaskLog({
-        user_id: Number(user.id),
-        site_id: Number(els.adminTaskLogSite.value),
-        work_date: els.adminTaskLogDate.value,
-        hours_worked: els.adminTaskLogHours.value === ''
-          ? null
-          : Number(els.adminTaskLogHours.value),
-        description,
-        safety_notes: els.adminTaskLogSafety.value.trim() || null
-      });
+      if (form) {
+        const answers = collectWorkFormAnswers(form, {
+          idPrefix: ADMIN_TASK_LOG_FORM_PREFIX,
+          container: els.adminTaskLogFormFields
+        });
+        await createBackendSupervisorFormSubmission({
+          user_id: Number(user.id),
+          form_id: Number(form.id),
+          site_id: Number(els.adminTaskLogSite.value),
+          work_date: els.adminTaskLogDate.value,
+          answers: await uploadAdminFormSignatureAnswers(form, answers, user)
+        });
+      } else {
+        await createBackendSupervisorTaskLog({
+          user_id: Number(user.id),
+          site_id: Number(els.adminTaskLogSite.value),
+          work_date: els.adminTaskLogDate.value,
+          hours_worked: els.adminTaskLogHours.value === ''
+            ? null
+            : Number(els.adminTaskLogHours.value),
+          description,
+          safety_notes: els.adminTaskLogSafety.value.trim() || null
+        });
+      }
       els.adminTaskLogHours.value = '';
       els.adminTaskLogDescription.value = '';
       els.adminTaskLogSafety.value = '';
-      renderStatusBanner(`Approved log submitted for ${user.name}.`);
+      renderAdminTaskLogSelectedForm();
+      renderStatusBanner(`Approved ${form ? form.name : 'log'} submitted for ${user.name}.`);
       await renderPanel();
     } catch (error) {
       renderStatusBanner(error.message || 'Could not submit the approved log.', true);
-      renderAdminTaskLogSites();
+      if (form) {
+        els.adminTaskLogSubmitButton.disabled = false;
+      } else {
+        renderAdminTaskLogSites();
+      }
     }
   }
 
@@ -879,6 +1000,7 @@ export function createSupervisorReviewModule({
     els.manualAttendanceWorker.addEventListener('change', renderManualAttendanceSites);
     els.manualAttendanceForm.addEventListener('submit', handleManualAttendanceSubmit);
     els.adminTaskLogUser.addEventListener('change', renderAdminTaskLogSites);
+    els.adminTaskLogFormSelect.addEventListener('change', renderAdminTaskLogSelectedForm);
     els.adminTaskLogForm.addEventListener('submit', handleAdminTaskLogSubmit);
   }
 
@@ -889,6 +1011,7 @@ export function createSupervisorReviewModule({
     handleExportRecord,
     handleTrashRecord,
     renderAuditHistory,
+    renderAdminTaskLogForm,
     renderFilteredLists,
     renderPanel,
     renderTrash

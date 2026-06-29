@@ -1,15 +1,6 @@
 import { createWorkerSite as createBackendWorkerSite } from './api-client.js';
+import { createSiteMapPicker, currentPosition } from './site-map-picker.js';
 import { roundCoordinate } from './utils.js';
-
-function currentPosition() {
-  return new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 60000
-    });
-  });
-}
 
 export function createWorkerSitesModule({
   els,
@@ -21,12 +12,22 @@ export function createWorkerSitesModule({
   isBackendSessionError
 }) {
   function roundCoordinateInput(input) {
+    if (input.value.trim() === '') return NaN;
     const rounded = roundCoordinate(input.value);
     if (Number.isFinite(rounded)) {
       input.value = rounded.toFixed(6);
     }
     return rounded;
   }
+
+  const siteMapPicker = createSiteMapPicker({
+    mapElement: els.workerSiteMap,
+    latitudeInput: els.workerSiteLatitudeInput,
+    longitudeInput: els.workerSiteLongitudeInput,
+    radiusInput: els.workerSiteRadiusInput,
+    statusElement: els.workerSiteMapStatus,
+    getExistingSites: () => state.sites
+  });
 
   function setSubmitting(isSubmitting) {
     state.submittingWorkerSite = isSubmitting;
@@ -45,8 +46,7 @@ export function createWorkerSitesModule({
 
     try {
       const position = await currentPosition();
-      els.workerSiteLatitudeInput.value = roundCoordinate(position.coords.latitude).toFixed(6);
-      els.workerSiteLongitudeInput.value = roundCoordinate(position.coords.longitude).toFixed(6);
+      siteMapPicker.setCoordinates(position.coords.latitude, position.coords.longitude);
       renderStatusBanner('Current location added to the site form.');
     } catch {
       renderStatusBanner('Location permission was denied or timed out. Enter the site coordinates manually.', true);
@@ -80,8 +80,10 @@ export function createWorkerSitesModule({
 
       els.workerSiteForm.reset();
       els.workerSiteRadiusInput.value = '100';
+      siteMapPicker.reset();
       state.sites = await loadSites();
       fillSiteSelects();
+      siteMapPicker.refresh();
 
       if (createdSite?.id) {
         els.attendanceSite.value = String(createdSite.id);
@@ -104,6 +106,7 @@ export function createWorkerSitesModule({
   function bindEvents() {
     els.workerSiteForm.addEventListener('submit', handleSubmit);
     els.workerSiteUseLocationButton.addEventListener('click', useCurrentLocation);
+    siteMapPicker.bindEvents();
     els.workerSiteLatitudeInput.addEventListener('blur', () => roundCoordinateInput(els.workerSiteLatitudeInput));
     els.workerSiteLongitudeInput.addEventListener('blur', () => roundCoordinateInput(els.workerSiteLongitudeInput));
   }

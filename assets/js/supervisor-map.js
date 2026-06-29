@@ -278,8 +278,13 @@ export function createSupervisorMapModule({
     renderSelectedRecord(record);
     const marker = markerByRecordId.get(String(record.id));
     if (marker && map) {
+      const mapWidth = els.locationReviewMap.getBoundingClientRect().width;
       map.panTo(marker.getLatLng());
-      if (openPopup) marker.openTooltip();
+      if (openPopup && mapWidth >= 520) {
+        marker.openTooltip();
+      } else {
+        marker.closeTooltip();
+      }
     }
   }
 

@@ -202,6 +202,15 @@ class WorkFormSubmissionCreate(BaseModel):
     client_submission_id: Optional[str] = Field(default=None, max_length=120)
 
 
+class SupervisorWorkFormSubmissionCreate(BaseModel):
+    user_id: int = Field(ge=1)
+    form_id: int = Field(ge=1)
+    site_id: Optional[int] = Field(default=None, ge=1)
+    work_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    answers: dict = Field(default_factory=dict)
+    confirmed: bool = False
+
+
 class TeamWorkLogEntryCreate(BaseModel):
     worker_id: int = Field(ge=1)
     site_id: int = Field(ge=1)

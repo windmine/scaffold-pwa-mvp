@@ -426,6 +426,13 @@ export async function createFormSubmission(submission) {
   });
 }
 
+export async function createSupervisorFormSubmission(submission) {
+  return await apiFetch("/supervisor/form-submissions", {
+    method: "POST",
+    body: JSON.stringify({ ...submission, confirmed: true })
+  });
+}
+
 export async function getMyFormSubmissions() {
   return await apiFetch("/my-form-submissions");
 }
