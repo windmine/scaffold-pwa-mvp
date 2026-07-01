@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'leader-field-v79';
+const CACHE_VERSION = 'leader-field-v85';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -27,6 +27,10 @@ const APP_SHELL = [
   '/assets/js/worker-sites.js',
   '/assets/js/work-form-fields.js',
   '/assets/icons/leader-logo-export.png',
+  '/assets/icons/mutual-logo.svg',
+  '/assets/icons/mc-logo.svg',
+  '/assets/icons/stech-logo.svg',
+  '/assets/icons/bop-logo.svg',
   '/assets/icons/leader-icon.svg',
   '/assets/icons/icon-192.png',
   '/assets/icons/icon-512.png',

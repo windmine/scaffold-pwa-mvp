@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="220" viewBox="0 0 640 220" role="img" aria-labelledby="title">
+  <title id="title">Stech</title>
+  <rect width="640" height="220" rx="34" fill="#0b3d5c"/>
+  <path d="M74 154h110c18 0 30-8 30-22 0-15-12-21-32-25l-42-8c-35-7-54-23-54-51 0-31 27-52 70-52h94v34h-98c-18 0-29 7-29 19 0 13 11 18 31 22l42 8c37 7 57 25 57 54 0 34-28 55-72 55H74v-34Z" fill="#58d5ff"/>
+  <text x="292" y="133" font-family="Arial, Helvetica, sans-serif" font-size="66" font-weight="900" fill="#ffffff">Stech</text>
+  <path d="M300 154h220" stroke="#58d5ff" stroke-width="12" stroke-linecap="round"/>
+</svg>

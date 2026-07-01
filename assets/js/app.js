@@ -46,6 +46,17 @@ const DEFAULT_DEPARTMENTS = [
   { id: 4, name: 'Stech' },
   { id: 5, name: 'BOP' }
 ];
+const DEFAULT_BRAND_LOGO = {
+  src: '/assets/icons/leader-logo-export.png',
+  alt: 'Leader Scaffolding'
+};
+const DEPARTMENT_LOGOS = {
+  leader: DEFAULT_BRAND_LOGO,
+  mutual: { src: '/assets/icons/mutual-logo.svg', alt: 'Mutual' },
+  mc: { src: '/assets/icons/mc-logo.svg', alt: 'MC' },
+  stech: { src: '/assets/icons/stech-logo.svg', alt: 'Stech' },
+  bop: { src: '/assets/icons/bop-logo.svg', alt: 'BOP' }
+};
 
 const state = {
   user: null,
@@ -90,6 +101,7 @@ const els = {
   downloadAppButton: document.getElementById('downloadAppButton'),
   downloadAppHelp: document.getElementById('downloadAppHelp'),
   updateButton: document.getElementById('updateButton'),
+  brandLogo: document.getElementById('brandLogo'),
   logoutButton: document.getElementById('logoutButton'),
   userContext: document.getElementById('userContext'),
   userContextName: document.getElementById('userContextName'),
@@ -714,6 +726,8 @@ function showView(view) {
     supervisor: els.supervisorView
   };
 
+  document.body.dataset.activeView = view;
+
   Object.values(map).forEach((element) => {
     element.classList.add('hidden');
     element.classList.remove('active');
@@ -723,8 +737,28 @@ function showView(view) {
   map[view].classList.add('active');
 }
 
+function departmentLogoForUser(user) {
+  if (!user) return DEFAULT_BRAND_LOGO;
+  const departmentName = String(user.departmentName || '').trim().toLowerCase();
+  const departmentId = String(user.departmentId || '');
+  const departmentKey = departmentName || DEFAULT_DEPARTMENTS.find(
+    (department) => String(department.id) === departmentId
+  )?.name.toLowerCase();
+  return DEPARTMENT_LOGOS[departmentKey] || DEFAULT_BRAND_LOGO;
+}
+
+function updateBrandLogo() {
+  if (!els.brandLogo) return;
+  const logo = departmentLogoForUser(state.user);
+  if (els.brandLogo.getAttribute('src') !== logo.src) {
+    els.brandLogo.setAttribute('src', logo.src);
+  }
+  els.brandLogo.setAttribute('alt', logo.alt);
+}
+
 function updateTopbar() {
   els.updateButton.classList.toggle('hidden', !hasPendingAppUpdate());
+  updateBrandLogo();
   document.body.classList.toggle('session-worker', state.user?.role === 'worker');
   document.body.classList.toggle('session-supervisor', state.user?.role === 'supervisor');
   document.body.classList.toggle('session-leader-worker', state.user?.role === 'worker' && state.user?.workerClass === 'leader');

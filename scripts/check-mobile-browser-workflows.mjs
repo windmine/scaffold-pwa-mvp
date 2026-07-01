@@ -55,6 +55,10 @@ check('production build exists', () => [
   'dist/assets/js/team-work-log.js',
   'dist/assets/js/worker-sites.js',
   'dist/assets/icons/leader-logo-export.png',
+  'dist/assets/icons/mutual-logo.svg',
+  'dist/assets/icons/mc-logo.svg',
+  'dist/assets/icons/stech-logo.svg',
+  'dist/assets/icons/bop-logo.svg',
   'dist/assets/icons/leader-icon.svg',
   'dist/assets/icons/apple-touch-icon.png',
   'dist/assets/icons/icon-192.png',
@@ -73,6 +77,7 @@ check('production HTML keeps stable PWA links', () => (
 [
   'statusBanner',
   'themeToggleButton',
+  'brandLogo',
   'installButton',
   'downloadAppButton',
   'updateButton',
@@ -298,6 +303,9 @@ check('worker Log tab uses the Daywork work form path', () => (
   && sourceWorkerLog.includes("type: 'form'")
   && sourceWorkerLog.includes('DAYWORK_FIELD_PREFIX')
   && sourceWorkerLog.includes('selectedDayworkForm')
+  && sourceStyles.includes('#dayworkFormFields')
+  && sourceStyles.includes('overflow-x: clip')
+  && sourceStyles.includes('#dayworkFormFields .signature-canvas')
 ));
 
 check('workers can add missing sites', () => (
@@ -485,7 +493,7 @@ check('supervisors can submit approved logs for themselves or others', () => (
   && sourceSupervisorReview.includes('handleAdminTaskLogSubmit')
   && sourceSupervisorReview.includes('renderAdminTaskLogForm')
   && sourceSupervisorReview.includes('String(user.id) === String(state.user?.id)')
-  && sourceSupervisorReview.includes('Approved log submitted')
+  && sourceSupervisorReview.includes("Approved ${form ? form.name : 'log'} submitted")
   && read('assets/js/history.js').includes('Admin-entered approved log')
   && read('backend/app/main.py').includes('def create_supervisor_task_log')
   && read('backend/app/use_cases/supervisor_review.py').includes('create_supervisor_task_log')

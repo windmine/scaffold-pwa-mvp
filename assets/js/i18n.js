@@ -1,6 +1,16 @@
 const LANGUAGE_STORAGE_KEY = 'leader-language';
 const DEFAULT_LANGUAGE = 'en';
 const SUPPORTED_LANGUAGES = new Set(['en', 'zh']);
+const PROTECTED_COMPANY_NAMES = new Set([
+  'Leader',
+  'Leader Field',
+  'Leader Field Operations',
+  'Leader Scaffolding',
+  'Mutual',
+  'MC',
+  'Stech',
+  'BOP'
+]);
 
 const LANGUAGE_META = {
   en: {
@@ -570,6 +580,7 @@ function translateText(value, language = currentLanguage) {
   const trailing = raw.match(/\s*$/)?.[0] || '';
   const text = normaliseText(raw);
   if (!text) return raw;
+  if (PROTECTED_COMPANY_NAMES.has(text)) return raw;
 
   const exact = ZH_TEXT[text];
   if (exact) return `${leading}${exact}${trailing}`;

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="220" viewBox="0 0 640 220" role="img" aria-labelledby="title">
+  <title id="title">BOP</title>
+  <rect width="640" height="220" rx="34" fill="#8a3b12"/>
+  <path d="M84 156V64h78c37 0 62 17 62 47 0 29-25 45-62 45H84Zm34-29h42c18 0 29-6 29-17 0-12-11-18-29-18h-42v35Z" fill="#ffd166"/>
+  <text x="270" y="136" font-family="Arial, Helvetica, sans-serif" font-size="78" font-weight="900" letter-spacing="5" fill="#ffffff">BOP</text>
+  <path d="M84 180h470" stroke="#ffd166" stroke-width="10" stroke-linecap="round"/>
+</svg>

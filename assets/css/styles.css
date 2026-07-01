@@ -223,6 +223,21 @@ button:disabled {
   filter: var(--logo-filter);
 }
 
+body[data-active-view="login"] .brand-logo {
+  display: none;
+}
+
+body[data-active-view="login"] .topbar {
+  min-height: auto;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+body[data-active-view="login"] .brand-heading {
+  padding-left: 0;
+  border-left: 0;
+}
+
 .brand-heading {
   min-width: 0;
   padding-left: 18px;
@@ -2776,6 +2791,10 @@ body.viewer-open {
     background: var(--body-background);
   }
 
+  body[data-active-view="login"] .topbar {
+    margin-bottom: 10px;
+  }
+
   .app-shell {
     padding: 14px 12px 34px;
   }
@@ -3174,6 +3193,47 @@ body.viewer-open {
 
   .team-log-entry-header button {
     width: 100%;
+  }
+
+  #taskTab,
+  #taskTab .card,
+  #taskForm,
+  #dayworkFormFields {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  #dayworkFormFields > *,
+  #dayworkFormFields label,
+  #dayworkFormFields fieldset,
+  #dayworkFormFields section,
+  #dayworkFormFields .repeat-row,
+  #dayworkFormFields .repeat-row-fields,
+  #dayworkFormFields .signature-field {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  #dayworkFormFields .repeat-section-header,
+  #dayworkFormFields .repeat-row-header,
+  #dayworkFormFields .signature-toolbar {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  #dayworkFormFields .repeat-section-header > div,
+  #dayworkFormFields .repeat-row-header strong,
+  #dayworkFormFields .signature-toolbar strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  #dayworkFormFields .signature-canvas {
+    display: block;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .location-review-layout {

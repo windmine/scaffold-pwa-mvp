@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="220" viewBox="0 0 640 220" role="img" aria-labelledby="title">
+  <title id="title">MC</title>
+  <rect width="640" height="220" rx="34" fill="#5b2a86"/>
+  <circle cx="116" cy="110" r="56" fill="#f6c453"/>
+  <path d="M82 142V78h23l23 29 23-29h23v64h-21v-34l-20 25h-10l-20-25v34H82Z" fill="#1b1230"/>
+  <text x="220" y="133" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="900" letter-spacing="8" fill="#ffffff">MC</text>
+  <path d="M398 78h96c36 0 62 25 62 55s-26 55-62 55h-96v-26h94c20 0 35-13 35-29s-15-29-35-29h-94V78Z" fill="#c9a7ff" opacity="0.9"/>
+</svg>

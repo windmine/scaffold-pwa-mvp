@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="220" viewBox="0 0 640 220" role="img" aria-labelledby="title">
+  <title id="title">Mutual</title>
+  <rect width="640" height="220" rx="34" fill="#0f5132"/>
+  <path d="M70 146V74h30l34 41 34-41h30v72h-28v-35l-28 35h-16l-28-35v35H70Z" fill="#ffffff"/>
+  <path d="M250 74h270c28 0 50 22 50 50s-22 50-50 50H250v-28h270c12 0 22-10 22-22s-10-22-22-22H250V74Z" fill="#8de4b0"/>
+  <text x="250" y="134" font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="800" fill="#ffffff">Mutual</text>
+</svg>
