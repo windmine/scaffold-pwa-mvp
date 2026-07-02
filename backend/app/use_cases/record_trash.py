@@ -6,15 +6,14 @@ from sqlalchemy import delete
 from sqlmodel import Session, select
 
 from app.database import engine
-from app.models import AttendanceRecord, TaskLog, User
+from app.models import AttendanceRecord, TaskLog, TeamWorkLog, TeamWorkLogEntry, User, WorkFormSubmission
 from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
-    attendance_record_response,
     can_access_department,
     format_datetime,
     require_confirmed,
+    review_record_response,
     scope_statement_to_user_department,
-    task_log_response,
 )
 
 
@@ -23,6 +22,8 @@ TRASH_PURGE_INTERVAL_SECONDS = 60 * 60
 TRASH_MODELS = {
     "attendance": AttendanceRecord,
     "task": TaskLog,
+    "form": WorkFormSubmission,
+    "team_log": TeamWorkLog,
 }
 
 
@@ -32,6 +33,20 @@ def purge_expired_deleted_records(session: Session, now: datetime | None = None)
     deleted_counts = {}
 
     for record_type, model in TRASH_MODELS.items():
+        if record_type == "team_log":
+            expired_ids = session.exec(
+                select(TeamWorkLog.id).where(
+                    TeamWorkLog.deleted_at.is_not(None),
+                    TeamWorkLog.deleted_at <= cutoff,
+                )
+            ).all()
+            if expired_ids:
+                session.exec(
+                    delete(TeamWorkLogEntry)
+                    .where(TeamWorkLogEntry.team_work_log_id.in_(expired_ids))
+                    .execution_options(synchronize_session=False)
+                )
+
         result = session.exec(
             delete(model).where(
                 model.deleted_at.is_not(None),
@@ -59,17 +74,12 @@ def get_trash_model(record_type: str):
     normalized = record_type.strip().lower()
     model = TRASH_MODELS.get(normalized)
     if not model:
-        raise HTTPException(status_code=400, detail="record_type must be attendance or task")
+        raise HTTPException(status_code=400, detail="record_type must be attendance, task, form, or team_log")
     return normalized, model
 
 
 def trash_record_response(record_type: str, record, session: Session):
-    item = (
-        attendance_record_response(record, session)
-        if record_type == "attendance"
-        else task_log_response(record, session)
-    )
-    item["kind"] = record_type
+    item = review_record_response(record_type, record, session)
     item["purge_at"] = format_datetime(
         record.deleted_at + timedelta(days=TRASH_RETENTION_DAYS)
     )
@@ -175,8 +185,4 @@ def restore_record(
     )
     session.commit()
     session.refresh(record)
-    return (
-        attendance_record_response(record, session)
-        if record_type == "attendance"
-        else task_log_response(record, session)
-    )
+    return review_record_response(record_type, record, session)

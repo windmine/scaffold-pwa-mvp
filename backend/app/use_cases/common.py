@@ -232,6 +232,11 @@ def work_form_submission_response(submission: WorkFormSubmission, session: Sessi
     worker = session.get(User, submission.worker_id)
     site = session.get(Site, submission.site_id) if submission.site_id else None
     department = session.get(Department, submission.department_id) if submission.department_id else None
+    deleted_by_supervisor = (
+        session.get(User, submission.deleted_by_supervisor_id)
+        if submission.deleted_by_supervisor_id
+        else None
+    )
 
     return {
         "id": submission.id,
@@ -242,6 +247,7 @@ def work_form_submission_response(submission: WorkFormSubmission, session: Sessi
         "fields": work_form_fields(form) if form else [],
         "worker_id": submission.worker_id,
         "worker_name": worker.name if worker else f"Worker {submission.worker_id}",
+        "worker_email": worker.email if worker else None,
         "site_id": submission.site_id,
         "site_name": site.name if site else None,
         "work_date": submission.work_date,
@@ -250,6 +256,10 @@ def work_form_submission_response(submission: WorkFormSubmission, session: Sessi
         "photo_metadata": parse_json_list(submission.photo_metadata),
         "client_submission_id": submission.client_submission_id,
         "status": submission.status or "pending",
+        "deleted_at": format_datetime(submission.deleted_at) if submission.deleted_at else None,
+        "deleted_by_supervisor_id": submission.deleted_by_supervisor_id,
+        "deleted_by_supervisor_name": deleted_by_supervisor.name if deleted_by_supervisor else None,
+        "deletion_reason": submission.deletion_reason,
         "created_at": format_datetime(submission.created_at),
     }
 
@@ -257,6 +267,11 @@ def work_form_submission_response(submission: WorkFormSubmission, session: Sessi
 def team_work_log_response(log: TeamWorkLog, session: Session):
     leader = session.get(User, log.leader_id)
     department = session.get(Department, log.department_id) if log.department_id else None
+    deleted_by_supervisor = (
+        session.get(User, log.deleted_by_supervisor_id)
+        if log.deleted_by_supervisor_id
+        else None
+    )
     entries = session.exec(
         select(TeamWorkLogEntry)
         .where(TeamWorkLogEntry.team_work_log_id == log.id)
@@ -291,6 +306,10 @@ def team_work_log_response(log: TeamWorkLog, session: Session):
         "notes": log.notes,
         "client_submission_id": log.client_submission_id,
         "status": log.status or "pending",
+        "deleted_at": format_datetime(log.deleted_at) if log.deleted_at else None,
+        "deleted_by_supervisor_id": log.deleted_by_supervisor_id,
+        "deleted_by_supervisor_name": deleted_by_supervisor.name if deleted_by_supervisor else None,
+        "deletion_reason": log.deletion_reason,
         "entries": entry_items,
         "entry_count": len(entry_items),
         "member_count": len({entry["worker_id"] for entry in entry_items}),
@@ -701,10 +720,34 @@ def formula_value_from_answer(value):
             return float(duration)
         except (TypeError, ValueError):
             return 0
+    break_duration = break_answer_duration_hours(value)
+    if break_duration is not None:
+        return break_duration
     try:
         return float(value)
     except (TypeError, ValueError):
         return 0
+
+
+def break_answer_duration_hours(value):
+    if value in (None, ""):
+        return None
+
+    text = str(value).strip().lower()
+    if not text:
+        return None
+    if text in {"no break", "none", "0", "0 minutes", "0 minute"}:
+        return 0
+    if text in {"0.25", "15", "15 min", "15 mins", "15 minute", "15 minutes"}:
+        return 0.25
+    if text in {"0.5", "0.50", "30", "30 min", "30 mins", "30 minute", "30 minutes"}:
+        return 0.5
+    if text in {"0.75", "45", "45 min", "45 mins", "45 minute", "45 minutes"}:
+        return 0.75
+    if text in {"1", "1.0", "1 hour", "1 hr", "60", "60 min", "60 mins", "60 minute", "60 minutes"}:
+        return 1
+
+    return None
 
 
 def evaluate_formula_expression(expression: str, answers: dict):
@@ -1093,7 +1136,7 @@ def select_task_logs(status: Optional[str] = None, user: User | None = None):
 
 
 def select_work_form_submissions(status: Optional[str] = None, user: User | None = None):
-    statement = select(WorkFormSubmission)
+    statement = select(WorkFormSubmission).where(WorkFormSubmission.deleted_at.is_(None))
 
     if status:
         status = validate_review_status(status)
@@ -1105,7 +1148,7 @@ def select_work_form_submissions(status: Optional[str] = None, user: User | None
 
 
 def select_team_work_logs(status: Optional[str] = None, user: User | None = None):
-    statement = select(TeamWorkLog)
+    statement = select(TeamWorkLog).where(TeamWorkLog.deleted_at.is_(None))
 
     if status:
         status = validate_review_status(status)

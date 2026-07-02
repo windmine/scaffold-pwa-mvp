@@ -23,6 +23,14 @@ function enhanceDateInput(input) {
   input.parentNode.insertBefore(shell, input);
   shell.append(display, input);
 
+  shell.addEventListener('click', () => {
+    input.focus();
+    try {
+      input.showPicker?.();
+    } catch {
+      // Some browsers only allow showPicker for direct native control clicks.
+    }
+  });
   input.addEventListener('input', () => renderDateInput(input));
   input.addEventListener('change', () => renderDateInput(input));
   renderDateInput(input);

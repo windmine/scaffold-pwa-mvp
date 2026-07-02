@@ -2,8 +2,9 @@ import base64
 import csv
 import html
 import json
+import re
 from io import BytesIO, StringIO
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -15,20 +16,23 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
+from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Image as ReportLabImage
 from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from sqlmodel import Session, select
 
 from app.config import ROOT_DIR
-from app.models import AttendanceRecord, TaskLog, TeamWorkLog, User, WorkForm, WorkFormSubmission
+from app.models import Department, AttendanceRecord, TaskLog, TeamWorkLog, TeamWorkLogEntry, User, WorkForm, WorkFormSubmission
 from app.upload_storage import load_upload
 from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
     attendance_record_response,
+    break_answer_duration_hours,
     can_access_department,
     ensure_site_exists,
     normalize_approval_record_type,
     normalize_task_photo_urls,
+    normalize_work_form_photo_urls,
     require_confirmed,
     review_record_response,
     select_attendance_records,
@@ -43,6 +47,7 @@ from app.use_cases.common import (
     validate_review_status,
     work_form_submission_response,
 )
+from app.use_cases.team_work_logs import prepare_team_work_log_entries
 
 
 VALID_TASK_LOG_HTML_LAYOUTS = {"daily-log", "photo-report"}
@@ -63,6 +68,87 @@ EXPORT_LOGO_MIME_TYPES = {
     ".svg": "image/svg+xml",
     ".webp": "image/webp",
 }
+
+
+def parse_export_date(value: Optional[str], label: str):
+    if not value:
+        return None
+
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"{label} must use YYYY-MM-DD")
+
+
+def export_date_filters(date_from: Optional[str] = None, date_to: Optional[str] = None):
+    start = parse_export_date(date_from, "date_from")
+    end = parse_export_date(date_to, "date_to")
+    if start and end and start > end:
+        raise HTTPException(status_code=400, detail="date_from must be before or equal to date_to")
+    return start, end
+
+
+def record_export_date(record):
+    work_date = getattr(record, "work_date", None)
+    if work_date:
+        try:
+            return date.fromisoformat(work_date)
+        except ValueError:
+            pass
+
+    created_at = getattr(record, "created_at", None)
+    if isinstance(created_at, datetime):
+        return created_at.date()
+    if isinstance(created_at, date):
+        return created_at
+
+    return None
+
+
+def filter_records_by_date(records, date_from: Optional[str] = None, date_to: Optional[str] = None):
+    start, end = export_date_filters(date_from, date_to)
+    if not start and not end:
+        return records
+
+    filtered = []
+    for record in records:
+        record_date = record_export_date(record)
+        if record_date is None:
+            continue
+        if start and record_date < start:
+            continue
+        if end and record_date > end:
+            continue
+        filtered.append(record)
+
+    return filtered
+
+
+def filter_records_by_department(
+    records,
+    session: Session,
+    supervisor: User,
+    department_id: Optional[int] = None,
+):
+    if department_id is None:
+        return records
+
+    department = session.get(Department, department_id)
+    if not department or not can_access_department(supervisor, department_id):
+        raise HTTPException(status_code=404, detail="Department not found")
+
+    return [record for record in records if record.department_id == department_id]
+
+
+def filter_form_records(records, session: Session, supervisor: User, form_id: Optional[int] = None):
+    if form_id is None:
+        return records
+
+    form = session.get(WorkForm, form_id)
+    if not form or not can_access_department(supervisor, form.department_id):
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    return [record for record in records if record.form_id == form_id]
 
 
 def text_value(value):
@@ -522,12 +608,22 @@ def render_task_log_photo_report_page(item):
     return "".join(body)
 
 
-def export_task_logs_html(session: Session, supervisor: User, layout: str = "daily-log", status: Optional[str] = None):
+def export_task_logs_html(
+    session: Session,
+    supervisor: User,
+    layout: str = "daily-log",
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    department_id: Optional[int] = None,
+):
     layout = (layout or "daily-log").strip().lower()
     if layout not in VALID_TASK_LOG_HTML_LAYOUTS:
         raise HTTPException(status_code=400, detail="layout must be daily-log or photo-report")
 
     records = session.exec(select_task_logs(status, supervisor)).all()
+    records = filter_records_by_department(records, session, supervisor, department_id)
+    records = filter_records_by_date(records, date_from, date_to)
     items = [task_log_response(record, session) for record in records]
 
     if layout == "photo-report":
@@ -876,6 +972,452 @@ def pdf_image_flowable(image_bytes, max_width, max_height):
         return None
 
 
+DAYWORK_BLUE = colors.HexColor("#168bd2")
+DAYWORK_LINE = colors.HexColor("#d8d8d8")
+DAYWORK_LABEL_BACKGROUND = colors.HexColor("#f4f4f4")
+DAYWORK_LABEL_WIDTH = 52 * mm
+DAYWORK_VALUE_WIDTH = 124 * mm
+
+
+def daywork_pdf_styles():
+    base = getSampleStyleSheet()
+    return {
+        "heading": ParagraphStyle(
+            "DayworkHeading",
+            parent=base["Heading2"],
+            fontName="Helvetica-Bold",
+            fontSize=14,
+            leading=18,
+            textColor=DAYWORK_BLUE,
+            spaceBefore=4,
+            spaceAfter=2,
+        ),
+        "label": ParagraphStyle(
+            "DayworkLabel",
+            parent=base["BodyText"],
+            fontName="Helvetica-Bold",
+            fontSize=9,
+            leading=11,
+            textColor=colors.HexColor("#444444"),
+        ),
+        "value": ParagraphStyle(
+            "DayworkValue",
+            parent=base["BodyText"],
+            fontName="Helvetica",
+            fontSize=9,
+            leading=11,
+            textColor=colors.HexColor("#444444"),
+        ),
+        "muted": ParagraphStyle(
+            "DayworkMuted",
+            parent=base["BodyText"],
+            fontName="Helvetica",
+            fontSize=9,
+            leading=11,
+            textColor=colors.HexColor("#666666"),
+        ),
+    }
+
+
+def normalize_daywork_key(value):
+    return re.sub(r"[^a-z0-9]+", "_", text_value(value).lower()).strip("_")
+
+
+def daywork_repeat_text(repeat_rows, children, signatures, parent_label):
+    rows = repeat_rows if isinstance(repeat_rows, list) else []
+    if not rows:
+        return ""
+
+    lines = []
+    for index, repeat_row in enumerate(rows, start=1):
+        child_lines = []
+        for child in children:
+            if child.get("type") == "section":
+                continue
+            child_value = repeat_row.get(child.get("id")) if isinstance(repeat_row, dict) else None
+            label_text = child.get("label") or label_from_id(child.get("id"))
+            if child.get("type") == "signature" and child_value:
+                signatures.append({"label": f"{parent_label} row {index} - {label_text}", "src": child_value})
+                child_value = "Signed"
+            child_lines.append(f"{label_text}: {text_value(child_value) or '-'}")
+        lines.append(f"Row {index}: " + "; ".join(child_lines))
+    return "\n".join(lines)
+
+
+def daywork_answer_entries(item):
+    answers = item.get("answers") or {}
+    fields = item.get("fields") or []
+    entries = []
+    signatures = []
+    repeat_children = {}
+
+    for field in fields:
+        if field.get("repeat"):
+            repeat_children.setdefault(field["repeat"], []).append(field)
+
+    def add_entry(field_id, label, field_type, value):
+        normalized_type = (field_type or "").strip().lower()
+        if normalized_type == "section":
+            return
+        if normalized_type == "signature":
+            if value:
+                signatures.append({"label": label, "src": value})
+            return
+        entries.append({
+            "id": field_id or "",
+            "label": label or label_from_id(field_id),
+            "type": normalized_type,
+            "value": value,
+        })
+
+    if fields:
+        for field in fields:
+            if field.get("repeat"):
+                continue
+            field_id = field.get("id")
+            field_type = field.get("type")
+            label = field.get("label") or label_from_id(field_id)
+            value = answers.get(field_id)
+            if field_type == "repeat":
+                value = daywork_repeat_text(value, repeat_children.get(field_id, []), signatures, label)
+            add_entry(field_id, label, field_type, value)
+    else:
+        for key, value in answers.items():
+            label = label_from_id(key)
+            if "signature" in normalize_daywork_key(key) and isinstance(value, str):
+                signatures.append({"label": label, "src": value})
+            else:
+                add_entry(key, label, "", value)
+
+    return entries, signatures
+
+
+def daywork_take_value(entries, aliases, consumed):
+    keys = {normalize_daywork_key(alias) for alias in aliases}
+    for index, entry in enumerate(entries):
+        if index in consumed:
+            continue
+        entry_keys = {
+            normalize_daywork_key(entry.get("id")),
+            normalize_daywork_key(entry.get("label")),
+        }
+        if keys.intersection(entry_keys):
+            consumed.add(index)
+            return entry.get("value")
+    return ""
+
+
+def daywork_extra_rows(entries, consumed):
+    rows = []
+    for index, entry in enumerate(entries):
+        if index in consumed:
+            continue
+        value = entry.get("value")
+        if text_value(value):
+            rows.append((entry.get("label") or label_from_id(entry.get("id")), value))
+    return rows
+
+
+def parse_daywork_date(value):
+    raw = text_value(value)
+    if not raw:
+        return None
+
+    for parser in (
+        lambda item: datetime.fromisoformat(item.replace("Z", "+00:00")),
+        lambda item: datetime.strptime(item, "%Y-%m-%d"),
+        lambda item: datetime.strptime(item, "%d/%m/%Y"),
+        lambda item: datetime.strptime(item, "%d-%m-%Y"),
+    ):
+        try:
+            return parser(raw)
+        except ValueError:
+            continue
+    return None
+
+
+def daywork_date_label(value):
+    parsed = parse_daywork_date(value)
+    return parsed.strftime("%d/%m/%Y") if parsed else text_value(value)
+
+
+def daywork_day_label(value):
+    parsed = parse_daywork_date(value)
+    return parsed.strftime("%A") if parsed else ""
+
+
+def daywork_cell(value, styles):
+    if isinstance(value, list):
+        return value
+    return Paragraph(pdf_text(value), styles["value"])
+
+
+def daywork_table(rows, styles):
+    data = [
+        [
+            Paragraph(h(label), styles["label"]) if text_value(label) else "",
+            daywork_cell(value, styles),
+        ]
+        for label, value in rows
+    ]
+    table = Table(
+        data,
+        colWidths=[DAYWORK_LABEL_WIDTH, DAYWORK_VALUE_WIDTH],
+        hAlign="LEFT",
+        splitByRow=1,
+    )
+    table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, DAYWORK_LINE),
+        ("BACKGROUND", (0, 0), (0, -1), DAYWORK_LABEL_BACKGROUND),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    return table
+
+
+def daywork_photo_rows(item, styles):
+    urls = item.get("photo_urls") or []
+    if not urls:
+        return [("Photos", "-")]
+
+    rows = []
+    for index, url in enumerate(urls):
+        image = pdf_image_flowable(image_bytes_from_value(url), 54 * mm, 76 * mm)
+        cell = [image] if image else [Paragraph("Image unavailable", styles["muted"])]
+        rows.append(("Photos" if index == 0 else "", cell))
+    return rows
+
+
+def daywork_signature_cell(signatures, styles):
+    if not signatures:
+        return "-"
+
+    image = pdf_image_flowable(image_bytes_from_value(signatures[0].get("src")), 58 * mm, 24 * mm)
+    if image:
+        return [image]
+    return signatures[0].get("label") or "Signed"
+
+
+def daywork_submitted_by(item):
+    return item.get("worker_email") or item.get("worker_name") or "Unknown"
+
+
+def daywork_number_label(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return text_value(value)
+    if number.is_integer():
+        return str(int(number))
+    return str(round(number, 2)).rstrip("0").rstrip(".")
+
+
+def daywork_compact_time(value):
+    if isinstance(value, dict):
+        start = text_value(value.get("start")).replace(":", "")
+        end = text_value(value.get("end")).replace(":", "")
+        if start and end:
+            return f"{start}-{end}"
+    return text_value(value)
+
+
+def daywork_team_hours(row):
+    if not isinstance(row, dict):
+        return None
+    try:
+        people = float(row.get("team_people"))
+        duration = float((row.get("team_time") or {}).get("duration_hours"))
+        break_hours = daywork_team_break_hours(row)
+        return round(people * max(duration - break_hours, 0), 2)
+    except (TypeError, ValueError):
+        pass
+
+    value = row.get("team_man_hours")
+    try:
+        return round(float(value), 2)
+    except (TypeError, ValueError):
+        return None
+
+
+def daywork_team_break_hours(row):
+    if not isinstance(row, dict):
+        return 0
+
+    value = break_answer_duration_hours(row.get("team_break"))
+    return value if value is not None else 0
+
+
+def daywork_team_break_label(row):
+    if not isinstance(row, dict):
+        return ""
+
+    value = row.get("team_break")
+    if value in (None, ""):
+        return "No break"
+    return text_value(value)
+
+
+def daywork_team_duration_hours(row):
+    if not isinstance(row, dict):
+        return None
+
+    team_time = row.get("team_time") if isinstance(row.get("team_time"), dict) else {}
+    duration = team_time.get("duration_hours")
+    try:
+        return round(max(float(duration) - daywork_team_break_hours(row), 0), 2)
+    except (TypeError, ValueError):
+        pass
+
+    try:
+        people = float(row.get("team_people"))
+        hours = daywork_team_hours(row)
+        if people > 0 and hours is not None:
+            return round(hours / people, 2)
+    except (TypeError, ValueError):
+        pass
+
+    return None
+
+
+def daywork_total_man_hours_expression(teams):
+    parts = []
+    total = 0
+
+    for row in teams:
+        if not isinstance(row, dict):
+            continue
+
+        hours = daywork_team_hours(row)
+        people = row.get("team_people")
+        duration = daywork_team_duration_hours(row)
+
+        try:
+            people_number = float(people)
+        except (TypeError, ValueError):
+            people_number = None
+
+        if people_number is not None and duration is not None:
+            parts.append(f"{daywork_number_label(people_number)}men x {daywork_number_label(duration)}hours")
+            total += hours if hours is not None else round(people_number * duration, 2)
+        elif hours is not None:
+            parts.append(f"{daywork_number_label(hours)}hours")
+            total += hours
+
+    if not parts:
+        return ""
+
+    return f"{' + '.join(parts)} = {daywork_number_label(total)}hours"
+
+
+def daywork_team_detail_rows(item, entries, consumed):
+    teams = (item.get("answers") or {}).get("teams")
+    if not isinstance(teams, list) or not teams:
+        return [], ""
+
+    for index, entry in enumerate(entries):
+        if normalize_daywork_key(entry.get("id")) == "teams":
+            consumed.add(index)
+
+    rows = []
+    total = 0
+    for index, row in enumerate(teams, start=1):
+        if not isinstance(row, dict):
+            continue
+        people = row.get("team_people")
+        team_name = text_value(row.get("team_name")) or f"Team {index}"
+        if text_value(people):
+            team_name = f"{team_name} ({daywork_number_label(people)} people)"
+        rows.append((f"Team {index}", team_name))
+        rows.append((f"Working Hours-Team {index}", daywork_compact_time(row.get("team_time"))))
+        rows.append((f"Break-Team {index}", daywork_team_break_label(row)))
+
+        hours = daywork_team_hours(row)
+        if hours is not None:
+            total += hours
+
+    if not rows:
+        return [], ""
+
+    return rows, daywork_total_man_hours_expression(teams) or f"{daywork_number_label(total)}hours"
+
+
+def pdf_daywork_submission_flowables(item, styles):
+    entries, signatures = daywork_answer_entries(item)
+    consumed = set()
+
+    date_value = (
+        daywork_take_value(entries, ["date", "work_date", "work date"], consumed)
+        or item.get("work_date")
+        or item.get("created_at")
+    )
+    site_manager_name = daywork_take_value(
+        entries,
+        ["site_manager_name", "site manager name", "site manager", "manager_name", "manager name"],
+        consumed,
+    )
+
+    site_rows = [
+        ("Client", daywork_take_value(entries, ["client", "customer", "builder"], consumed)),
+        (
+            "Project/ Site",
+            daywork_take_value(entries, ["project_site", "project site", "project", "site"], consumed)
+            or item.get("site_name")
+            or "Unassigned site",
+        ),
+        ("Date", daywork_date_label(date_value)),
+        ("Day", daywork_take_value(entries, ["day"], consumed) or daywork_day_label(date_value)),
+    ]
+
+    detail_rows = [
+        ("SI number", daywork_take_value(entries, ["si_number", "si number", "si no", "site instruction number"], consumed)),
+        ("Building", daywork_take_value(entries, ["building", "building_area", "area"], consumed)),
+        ("Level", daywork_take_value(entries, ["level", "floor"], consumed)),
+        ("Gridline", daywork_take_value(entries, ["gridline", "grid line"], consumed)),
+    ]
+    team_rows, calculated_total_hours = daywork_team_detail_rows(item, entries, consumed)
+    if team_rows:
+        detail_rows.extend(team_rows)
+        detail_rows.append(("Total Man Hours--All Teams", calculated_total_hours))
+    else:
+        detail_rows.extend([
+            ("Team 1", daywork_take_value(entries, ["team_1", "team 1", "team", "crew"], consumed) or item.get("worker_name")),
+            (
+                "Working Hours-Team 1",
+                daywork_take_value(entries, ["working_hours_team_1", "working hours team 1", "working_hours", "working hours", "work_time", "work time"], consumed),
+            ),
+            (
+                "Total Man Hours--All Teams",
+                daywork_take_value(entries, ["total_man_hours_all_teams", "total man hours all teams", "total_man_hours", "total man hours", "total_worker_hours", "total worker hours", "hours_worked", "hours worked"], consumed),
+            ),
+        ])
+    detail_rows.extend([
+        (
+            "Job description",
+            daywork_take_value(entries, ["job_description", "job description", "work_completed", "work completed", "task_description", "task description", "description"], consumed),
+        ),
+        ("Dimension", daywork_take_value(entries, ["dimension", "dimensions", "measurements", "measurement"], consumed)),
+    ])
+    detail_rows.extend(daywork_extra_rows(entries, consumed))
+    detail_rows.extend(daywork_photo_rows(item, styles))
+    detail_rows.extend([
+        ("Site Manager Name", site_manager_name),
+        ("Signature", daywork_signature_cell(signatures, styles)),
+    ])
+
+    return [
+        daywork_table([("Sequence Number", item.get("id"))], styles),
+        Spacer(1, 5),
+        Paragraph("Site details:", styles["heading"]),
+        daywork_table(site_rows, styles),
+        Spacer(1, 5),
+        Paragraph("Details", styles["heading"]),
+        daywork_table(detail_rows, styles),
+    ]
+
+
 def pdf_image_grid(title, items, styles, empty_text, max_width=82 * mm, max_height=60 * mm):
     flowables = [Paragraph(h(title), styles["section"])]
     if not items:
@@ -1031,6 +1573,94 @@ def pdf_form_submission_flowables(item, styles, template):
     return flowables
 
 
+class NumberedCanvas(Canvas):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        page_count = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self.setFillColor(colors.black)
+            self.setFont("Helvetica", 9)
+            self.drawRightString(A4[0] - 17 * mm, 8 * mm, f"Page {self._pageNumber} of {page_count}")
+            Canvas.showPage(self)
+        Canvas.save(self)
+
+
+def export_daywork_pdf_document(body_flowables: list, filename: str, submitted_by: str):
+    buffer = BytesIO()
+    logo_bytes = export_logo_bytes()
+    page_width, page_height = A4
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=17 * mm,
+        leftMargin=17 * mm,
+        topMargin=47 * mm,
+        bottomMargin=18 * mm,
+        title="General Daywork Form",
+    )
+
+    def draw_daywork_header(canvas, document):
+        canvas.saveState()
+        if logo_bytes:
+            try:
+                reader = ImageReader(BytesIO(logo_bytes))
+                image_width, image_height = reader.getSize()
+                scale = min((82 * mm) / image_width, (34 * mm) / image_height)
+                draw_width = image_width * scale
+                draw_height = image_height * scale
+                canvas.drawImage(
+                    reader,
+                    document.leftMargin,
+                    page_height - 5 * mm - draw_height,
+                    width=draw_width,
+                    height=draw_height,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+            except Exception:
+                canvas.setFillColor(colors.HexColor("#2354a3"))
+                canvas.setFont("Helvetica-Bold", 20)
+                canvas.drawString(document.leftMargin, page_height - 15 * mm, "LEADER")
+                canvas.setFont("Helvetica-Bold", 15)
+                canvas.drawString(document.leftMargin, page_height - 23 * mm, "SCAFFOLDING")
+        else:
+            canvas.setFillColor(colors.HexColor("#2354a3"))
+            canvas.setFont("Helvetica-Bold", 20)
+            canvas.drawString(document.leftMargin, page_height - 15 * mm, "LEADER")
+            canvas.setFont("Helvetica-Bold", 15)
+            canvas.drawString(document.leftMargin, page_height - 23 * mm, "SCAFFOLDING")
+
+        canvas.setFillColor(colors.black)
+        canvas.setFont("Helvetica", 10.5)
+        canvas.drawRightString(page_width - document.rightMargin, page_height - 12 * mm, f"Submitted By: {text_value(submitted_by) or '-'}")
+        canvas.setFillColor(DAYWORK_BLUE)
+        canvas.setFont("Helvetica-Bold", 14)
+        canvas.drawString(document.leftMargin + 1 * mm, page_height - 43 * mm, "General Daywork Form")
+        canvas.restoreState()
+
+    doc.build(
+        body_flowables,
+        onFirstPage=draw_daywork_header,
+        onLaterPages=draw_daywork_header,
+        canvasmaker=NumberedCanvas,
+    )
+    return Response(
+        buffer.getvalue(),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        },
+    )
+
+
 def export_pdf_document(title: str, subtitle: str, body_flowables: list, filename: str):
     buffer = BytesIO()
     styles = pdf_styles()
@@ -1113,8 +1743,20 @@ def export_pdf_document(title: str, subtitle: str, body_flowables: list, filenam
     )
 
 
-def form_submission_pdf_items(session: Session, supervisor: User, status: Optional[str], template: str):
+def form_submission_pdf_items(
+    session: Session,
+    supervisor: User,
+    status: Optional[str],
+    template: str,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    form_id: Optional[int] = None,
+    department_id: Optional[int] = None,
+):
     records = session.exec(select_work_form_submissions(status, supervisor)).all()
+    records = filter_records_by_department(records, session, supervisor, department_id)
+    records = filter_form_records(records, session, supervisor, form_id)
+    records = filter_records_by_date(records, date_from, date_to)
     items = [
         review_record_response("form", record, session)
         for record in records
@@ -1124,8 +1766,19 @@ def form_submission_pdf_items(session: Session, supervisor: User, status: Option
     return items
 
 
-def export_form_submissions_html(session: Session, supervisor: User, status: Optional[str] = None):
+def export_form_submissions_html(
+    session: Session,
+    supervisor: User,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    form_id: Optional[int] = None,
+    department_id: Optional[int] = None,
+):
     records = session.exec(select_work_form_submissions(status, supervisor)).all()
+    records = filter_records_by_department(records, session, supervisor, department_id)
+    records = filter_form_records(records, session, supervisor, form_id)
+    records = filter_records_by_date(records, date_from, date_to)
     items = [
         review_record_response("form", record, session)
         for record in records
@@ -1149,9 +1802,37 @@ def export_form_submissions_pdf(
     supervisor: User,
     template: str = "submitted-form",
     status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    form_id: Optional[int] = None,
+    department_id: Optional[int] = None,
 ):
     template = normalize_form_pdf_template(template)
-    items = form_submission_pdf_items(session, supervisor, status, template)
+    items = form_submission_pdf_items(
+        session,
+        supervisor,
+        status,
+        template,
+        date_from,
+        date_to,
+        form_id,
+        department_id,
+    )
+    if template == "daywork":
+        styles = daywork_pdf_styles()
+        story = []
+        for index, item in enumerate(items):
+            if index:
+                story.append(PageBreak())
+            story.extend(pdf_daywork_submission_flowables(item, styles))
+
+        if not story:
+            story = [Paragraph("No Daywork submissions found", styles["heading"])]
+
+        filename = "daywork-submissions.pdf" if not status else f"daywork-submissions-{status}.pdf"
+        submitted_by = daywork_submitted_by(items[0]) if len(items) == 1 else "Multiple submitters"
+        return export_daywork_pdf_document(story, filename, submitted_by)
+
     styles = pdf_styles()
     story = []
 
@@ -1175,6 +1856,7 @@ def export_form_submission_html(submission_id: int, session: Session, supervisor
     record = session.get(WorkFormSubmission, submission_id)
     if (
         not record
+        or record.deleted_at is not None
         or not can_access_department(supervisor, record.department_id)
     ):
         raise HTTPException(status_code=404, detail="Form submission not found")
@@ -1198,6 +1880,7 @@ def export_form_submission_pdf(
     record = session.get(WorkFormSubmission, submission_id)
     if (
         not record
+        or record.deleted_at is not None
         or not can_access_department(supervisor, record.department_id)
     ):
         raise HTTPException(status_code=404, detail="Form submission not found")
@@ -1206,11 +1889,20 @@ def export_form_submission_pdf(
     if template == "daywork" and not is_daywork_submission(item):
         raise HTTPException(status_code=400, detail="Submission is not a Daywork form")
 
+    filename_prefix = "daywork-submission" if template == "daywork" else "work-form-submission"
+    if template == "daywork":
+        daywork_styles = daywork_pdf_styles()
+        story = pdf_daywork_submission_flowables(item, daywork_styles)
+        return export_daywork_pdf_document(
+            story,
+            f"{filename_prefix}-{item['id']}.pdf",
+            daywork_submitted_by(item),
+        )
+
     styles = pdf_styles()
-    title = "Daywork Log PDF" if template == "daywork" else item["form_name"] or "Work Form Submission"
+    title = item["form_name"] or "Work Form Submission"
     subtitle = f"Form submission #{item['id']}"
     story = pdf_form_submission_flowables(item, styles, template)
-    filename_prefix = "daywork-submission" if template == "daywork" else "work-form-submission"
     return export_pdf_document(
         title,
         subtitle,
@@ -1387,10 +2079,17 @@ def update_supervisor_attendance_record(record_id: int, data, supervisor: User, 
     return attendance_record_response(record, session)
 
 
-def export_attendance_records_csv(session: Session, supervisor: User, status: Optional[str] = None):
-    records = session.exec(
-        select_attendance_records(status, supervisor)
-    ).all()
+def export_attendance_records_csv(
+    session: Session,
+    supervisor: User,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    department_id: Optional[int] = None,
+):
+    records = session.exec(select_attendance_records(status, supervisor)).all()
+    records = filter_records_by_department(records, session, supervisor, department_id)
+    records = filter_records_by_date(records, date_from, date_to)
     output = StringIO()
     writer = csv.writer(output)
     writer.writerow([
@@ -1594,10 +2293,17 @@ def task_logs_csv_response(items, filename: str):
     )
 
 
-def export_task_logs_csv(session: Session, supervisor: User, status: Optional[str] = None):
-    records = session.exec(
-        select_task_logs(status, supervisor)
-    ).all()
+def export_task_logs_csv(
+    session: Session,
+    supervisor: User,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    department_id: Optional[int] = None,
+):
+    records = session.exec(select_task_logs(status, supervisor)).all()
+    records = filter_records_by_department(records, session, supervisor, department_id)
+    records = filter_records_by_date(records, date_from, date_to)
     items = [task_log_response(record, session) for record in records]
     filename = "task-logs.csv" if not status else f"task-logs-{status}.csv"
     return task_logs_csv_response(items, filename)
@@ -1702,13 +2408,89 @@ def form_submissions_csv_response(items, filename: str):
     )
 
 
+def export_form_submissions_csv(
+    session: Session,
+    supervisor: User,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    form_id: Optional[int] = None,
+    department_id: Optional[int] = None,
+):
+    records = session.exec(select_work_form_submissions(status, supervisor)).all()
+    records = filter_records_by_department(records, session, supervisor, department_id)
+    records = filter_form_records(records, session, supervisor, form_id)
+    records = filter_records_by_date(records, date_from, date_to)
+    items = [
+        review_record_response("form", record, session)
+        for record in records
+    ]
+    filename = "work-form-submissions.csv" if not status else f"work-form-submissions-{status}.csv"
+    return form_submissions_csv_response(items, filename)
+
+
 def export_form_submission_csv(submission_id: int, session: Session, supervisor: User):
     record = session.get(WorkFormSubmission, submission_id)
-    if not record or not can_access_department(supervisor, record.department_id):
+    if (
+        not record
+        or record.deleted_at is not None
+        or not can_access_department(supervisor, record.department_id)
+    ):
         raise HTTPException(status_code=404, detail="Form submission not found")
 
     item = review_record_response("form", record, session)
     return form_submissions_csv_response([item], f"work-form-submission-{item['id']}.csv")
+
+
+def update_supervisor_form_submission(submission_id: int, data, supervisor: User, session: Session):
+    require_confirmed(data.confirmed)
+    submission = session.get(WorkFormSubmission, submission_id)
+
+    if (
+        not submission
+        or submission.deleted_at is not None
+        or not can_access_department(supervisor, submission.department_id)
+    ):
+        raise HTTPException(status_code=404, detail="Form submission not found")
+
+    form = session.get(WorkForm, submission.form_id)
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    fields = data.model_fields_set
+    before = model_snapshot(submission)
+
+    if "site_id" in fields:
+        site = ensure_site_exists(session, data.site_id, supervisor)
+        if site and site.department_id != submission.department_id:
+            raise HTTPException(status_code=400, detail="Site must belong to the submission department")
+        submission.site_id = data.site_id
+    if "work_date" in fields:
+        submission.work_date = data.work_date
+    if "answers" in fields and data.answers is not None:
+        submission.answers_json = json.dumps(validate_work_form_answers(form, data.answers))
+    if "photo_urls" in fields and data.photo_urls is not None:
+        photo_urls = normalize_work_form_photo_urls(data.photo_urls)
+        submission.photo_urls = json.dumps(photo_urls) if photo_urls else None
+    if "status" in fields and data.status is not None:
+        submission.status = validate_review_status(data.status)
+
+    session.add(submission)
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action="form_submission_update",
+        entity_type="form",
+        entity_id=submission.id,
+        before=before,
+        after=model_snapshot(submission),
+        summary=f"Updated form submission #{submission.id}",
+        department_id=submission.department_id,
+    )
+    session.commit()
+    session.refresh(submission)
+
+    return work_form_submission_response(submission, session)
 
 
 def update_supervisor_task_log(log_id: int, data, supervisor: User, session: Session):
@@ -1763,6 +2545,74 @@ def update_supervisor_task_log(log_id: int, data, supervisor: User, session: Ses
     return task_log_response(log, session)
 
 
+def update_supervisor_team_work_log(log_id: int, data, supervisor: User, session: Session):
+    require_confirmed(data.confirmed)
+    log = session.get(TeamWorkLog, log_id)
+
+    if (
+        not log
+        or log.deleted_at is not None
+        or not can_access_department(supervisor, log.department_id)
+    ):
+        raise HTTPException(status_code=404, detail="Team work log not found")
+
+    fields = data.model_fields_set
+    before = model_snapshot(log)
+    week_start = data.week_start if "week_start" in fields and data.week_start is not None else log.week_start
+
+    if "entries" in fields and data.entries is not None:
+        prepared_entries = prepare_team_work_log_entries(
+            data.entries,
+            log.department_id,
+            week_start,
+            session,
+            allow_inactive_workers=True,
+        )
+        existing_entries = session.exec(
+            select(TeamWorkLogEntry).where(TeamWorkLogEntry.team_work_log_id == log.id)
+        ).all()
+        for entry in existing_entries:
+            session.delete(entry)
+        session.flush()
+        for entry in prepared_entries:
+            session.add(TeamWorkLogEntry(team_work_log_id=log.id, **entry))
+    elif "week_start" in fields and data.week_start is not None:
+        existing_entries = session.exec(
+            select(TeamWorkLogEntry).where(TeamWorkLogEntry.team_work_log_id == log.id)
+        ).all()
+        prepare_team_work_log_entries(
+            existing_entries,
+            log.department_id,
+            week_start,
+            session,
+            allow_inactive_workers=True,
+        )
+
+    if "week_start" in fields and data.week_start is not None:
+        log.week_start = data.week_start
+    if "notes" in fields:
+        log.notes = data.notes.strip() if data.notes else None
+    if "status" in fields and data.status is not None:
+        log.status = validate_review_status(data.status)
+
+    session.add(log)
+    add_audit_event(
+        session=session,
+        actor=supervisor,
+        action="team_log_update",
+        entity_type="team_log",
+        entity_id=log.id,
+        before=before,
+        after=model_snapshot(log),
+        summary=f"Updated team work log #{log.id}",
+        department_id=log.department_id,
+    )
+    session.commit()
+    session.refresh(log)
+
+    return review_record_response("team_log", log, session)
+
+
 def apply_review_decision(
     record_type: str,
     record_id: int,
@@ -1794,12 +2644,20 @@ def apply_review_decision(
     elif record_type == "team_log":
         record = session.get(TeamWorkLog, record_id)
 
-        if not record or not can_access_department(supervisor, record.department_id):
+        if (
+            not record
+            or record.deleted_at is not None
+            or not can_access_department(supervisor, record.department_id)
+        ):
             raise HTTPException(status_code=404, detail="Team work log not found")
     else:
         record = session.get(WorkFormSubmission, record_id)
 
-        if not record or not can_access_department(supervisor, record.department_id):
+        if (
+            not record
+            or record.deleted_at is not None
+            or not can_access_department(supervisor, record.department_id)
+        ):
             raise HTTPException(status_code=404, detail="Form submission not found")
 
     before = model_snapshot(record)

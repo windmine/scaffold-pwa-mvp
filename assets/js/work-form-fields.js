@@ -449,8 +449,21 @@ function numericValue(value) {
   if (typeof value === 'boolean') return value ? 1 : 0;
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (value && typeof value === 'object') return Number(value.duration_hours || 0) || 0;
+  const breakDuration = breakAnswerDurationHours(value);
+  if (breakDuration != null) return breakDuration;
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
+}
+
+function breakAnswerDurationHours(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (!text) return null;
+  if (['no break', 'none', '0', '0 minutes', '0 minute'].includes(text)) return 0;
+  if (['0.25', '15', '15 min', '15 mins', '15 minute', '15 minutes'].includes(text)) return 0.25;
+  if (['0.5', '0.50', '30', '30 min', '30 mins', '30 minute', '30 minutes'].includes(text)) return 0.5;
+  if (['0.75', '45', '45 min', '45 mins', '45 minute', '45 minutes'].includes(text)) return 0.75;
+  if (['1', '1.0', '1 hour', '1 hr', '60', '60 min', '60 mins', '60 minute', '60 minutes'].includes(text)) return 1;
+  return null;
 }
 
 function evaluateFormula(expression, answers) {

@@ -169,6 +169,9 @@ class WorkFormSubmission(SQLModel, table=True):
     photo_metadata: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     client_submission_id: Optional[str] = Field(default=None, index=True)
     status: str = Field(default="pending", index=True)
+    deleted_at: Optional[datetime] = Field(default=None, index=True)
+    deleted_by_supervisor_id: Optional[int] = Field(default=None, index=True)
+    deletion_reason: Optional[str] = None
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
@@ -184,6 +187,9 @@ class TeamWorkLog(SQLModel, table=True):
     notes: Optional[str] = None
     client_submission_id: Optional[str] = Field(default=None, index=True)
     status: str = Field(default="pending", index=True)
+    deleted_at: Optional[datetime] = Field(default=None, index=True)
+    deleted_by_supervisor_id: Optional[int] = Field(default=None, index=True)
+    deletion_reason: Optional[str] = None
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),

@@ -14,6 +14,8 @@ from app.use_cases.common import (
     team_work_log_response,
 )
 
+ALLOWED_BREAK_MINUTES = {0, 15, 30, 45, 60}
+
 
 def _parse_date(value: str, label: str):
     try:
@@ -43,6 +45,15 @@ def _entry_hours(start_time: str, end_time: str, break_minutes: int):
     return round(worked_minutes / 60, 2)
 
 
+def _break_minutes(value: int, row_index: int):
+    if value not in ALLOWED_BREAK_MINUTES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Row {row_index}: break must be no break, 15 minutes, 30 minutes, 45 minutes, or 1 hour",
+        )
+    return value
+
+
 def list_team_members(user: User, session: Session):
     require_leader(user)
     members = session.exec(
@@ -65,35 +76,29 @@ def list_team_members(user: User, session: Session):
     ]
 
 
-def create_team_work_log(data, leader: User, session: Session):
-    require_leader(leader)
-    department_id = department_id_for_new_record(leader, session)
-    week_start = _parse_date(data.week_start, "Week start")
+def prepare_team_work_log_entries(
+    entries,
+    department_id: int,
+    week_start_value: str,
+    session: Session,
+    allow_inactive_workers: bool = False,
+):
+    week_start = _parse_date(week_start_value, "Week start")
     if week_start.weekday() != 0:
         raise HTTPException(status_code=400, detail="Week start must be a Monday")
     week_end = week_start + timedelta(days=6)
-    client_submission_id = normalize_client_submission_id(data.client_submission_id)
-
-    if client_submission_id:
-        existing = session.exec(
-            select(TeamWorkLog).where(
-                TeamWorkLog.leader_id == leader.id,
-                TeamWorkLog.client_submission_id == client_submission_id,
-            )
-        ).first()
-        if existing:
-            return team_work_log_response(existing, session)
 
     prepared_entries = []
-    for index, raw in enumerate(data.entries, start=1):
+    for index, raw in enumerate(entries, start=1):
         worker = session.get(User, raw.worker_id)
         if (
             not worker
             or worker.role != "worker"
-            or worker.status != "active"
+            or (not allow_inactive_workers and worker.status != "active")
             or worker.department_id != department_id
         ):
-            raise HTTPException(status_code=400, detail=f"Row {index}: member is not an active worker in this department")
+            active_text = "an active worker" if not allow_inactive_workers else "a worker"
+            raise HTTPException(status_code=400, detail=f"Row {index}: member is not {active_text} in this department")
 
         site = session.get(Site, raw.site_id)
         if not site or site.department_id != department_id:
@@ -106,6 +111,7 @@ def create_team_work_log(data, leader: User, session: Session):
         description = raw.work_description.strip()
         if not description:
             raise HTTPException(status_code=400, detail=f"Row {index}: work completed is required")
+        break_minutes = _break_minutes(raw.break_minutes, index)
 
         prepared_entries.append({
             "worker_id": worker.id,
@@ -113,10 +119,36 @@ def create_team_work_log(data, leader: User, session: Session):
             "work_date": raw.work_date,
             "start_time": raw.start_time,
             "end_time": raw.end_time,
-            "break_minutes": raw.break_minutes,
-            "hours_worked": _entry_hours(raw.start_time, raw.end_time, raw.break_minutes),
+            "break_minutes": break_minutes,
+            "hours_worked": _entry_hours(raw.start_time, raw.end_time, break_minutes),
             "work_description": description,
         })
+
+    return prepared_entries
+
+
+def create_team_work_log(data, leader: User, session: Session):
+    require_leader(leader)
+    department_id = department_id_for_new_record(leader, session)
+    client_submission_id = normalize_client_submission_id(data.client_submission_id)
+
+    if client_submission_id:
+        existing = session.exec(
+            select(TeamWorkLog).where(
+                TeamWorkLog.leader_id == leader.id,
+                TeamWorkLog.client_submission_id == client_submission_id,
+                TeamWorkLog.deleted_at.is_(None),
+            )
+        ).first()
+        if existing:
+            return team_work_log_response(existing, session)
+
+    prepared_entries = prepare_team_work_log_entries(
+        data.entries,
+        department_id,
+        data.week_start,
+        session,
+    )
 
     log = TeamWorkLog(
         department_id=department_id,
@@ -151,7 +183,10 @@ def list_my_team_work_logs(leader: User, session: Session):
     require_leader(leader)
     logs = session.exec(
         select(TeamWorkLog)
-        .where(TeamWorkLog.leader_id == leader.id)
+        .where(
+            TeamWorkLog.leader_id == leader.id,
+            TeamWorkLog.deleted_at.is_(None),
+        )
         .order_by(TeamWorkLog.created_at.desc())
     ).all()
     return [team_work_log_response(log, session) for log in logs]
@@ -164,7 +199,7 @@ def list_supervisor_team_work_logs(status: str | None, supervisor: User, session
 
 def get_team_work_log(log_id: int, user: User, session: Session):
     log = session.get(TeamWorkLog, log_id)
-    if not log or not can_access_department(user, log.department_id):
+    if not log or log.deleted_at is not None or not can_access_department(user, log.department_id):
         raise HTTPException(status_code=404, detail="Team work log not found")
     if user.role == "worker" and log.leader_id != user.id:
         raise HTTPException(status_code=404, detail="Team work log not found")

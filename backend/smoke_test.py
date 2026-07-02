@@ -748,6 +748,30 @@ def main():
         )
         if duplicate_team_work_log["id"] != team_work_log["id"]:
             raise AssertionError("team log retry is idempotent: expected original log")
+        assert_status(
+            "reject unsupported team break option",
+            request(
+                "POST",
+                "/team-work-logs",
+                {
+                    "week_start": week_start,
+                    "entries": [
+                        {
+                            "worker_id": smoke_user["id"],
+                            "site_id": site["id"],
+                            "work_date": week_start,
+                            "start_time": "07:00",
+                            "end_time": "15:30",
+                            "break_minutes": 20,
+                            "work_description": "Invalid break option",
+                        }
+                    ],
+                    "client_submission_id": f"team-log-invalid-break-{timestamp}",
+                },
+                worker_token,
+            ),
+            400,
+        )
         my_team_logs = assert_status(
             "leader lists own team logs",
             request("GET", "/my-team-work-logs", token=worker_token),
@@ -767,6 +791,45 @@ def main():
         )
         if approved_team_work_log.get("status") != "approved":
             raise AssertionError("supervisor approves weekly team log: expected approved")
+        updated_team_work_log = assert_status(
+            "supervisor updates weekly team log",
+            request(
+                "PATCH",
+                f"/supervisor/team-work-logs/{team_work_log['id']}",
+                {
+                    "week_start": week_start,
+                    "notes": "Supervisor corrected crew hours",
+                    "status": "approved",
+                    "entries": [
+                        {
+                            "worker_id": smoke_user["id"],
+                            "site_id": site["id"],
+                            "work_date": week_start,
+                            "start_time": "07:00",
+                            "end_time": "16:00",
+                            "break_minutes": 30,
+                            "work_description": "Supervisor adjusted north elevation scaffold hours",
+                        },
+                        {
+                            "worker_id": worker_login["user"]["id"],
+                            "site_id": site["id"],
+                            "work_date": (now.date() - timedelta(days=now.weekday()) + timedelta(days=1)).isoformat(),
+                            "start_time": "18:00",
+                            "end_time": "02:00",
+                            "break_minutes": 30,
+                            "work_description": "Night shift handover and tie inspection",
+                        },
+                    ],
+                    "confirmed": True,
+                },
+                supervisor_token,
+            ),
+            200,
+        )
+        if updated_team_work_log.get("notes") != "Supervisor corrected crew hours":
+            raise AssertionError("supervisor updates weekly team log: expected updated notes")
+        if updated_team_work_log.get("total_hours") != 16:
+            raise AssertionError("supervisor updates weekly team log: expected recalculated total hours")
         manual_attendance_time = (
             datetime.now(timezone.utc) - timedelta(hours=8)
         ).replace(microsecond=0).isoformat()
@@ -1062,11 +1125,32 @@ def main():
                     "site_id": site["id"],
                     "work_date": now.date().isoformat(),
                     "answers": {
-                        "work_completed": "Installed bay scaffold and checked access.",
-                        "hours_worked": 8,
-                        "materials_used": "Standards, ledgers, planks",
-                        "safety_notes": "Harness checks complete",
-                        "worker_signature": signature_smoke_url,
+                        "client": "Ryman Healthcare Cambridge",
+                        "si_number": "SI-230 (Deflecting structural beam)",
+                        "building": "Area B Section 4",
+                        "level": "First level",
+                        "gridline": "Gridline G 5",
+                        "teams": [
+                            {
+                                "team_name": "Joseph Jaypee",
+                                "team_people": 2,
+                                "team_time": {"start": "07:00", "end": "11:00", "duration_hours": 4},
+                                "team_break": "30 minutes",
+                            },
+                            {
+                                "team_name": "Afternoon crew",
+                                "team_people": 3,
+                                "team_time": {"start": "12:00", "end": "15:30", "duration_hours": 3.5},
+                                "team_break": "No break",
+                            },
+                        ],
+                        "job_description": (
+                            "-Erect shoreload propping to support steel beam for repair\n"
+                            "-Erect working platform on the beam connection for repair"
+                        ),
+                        "dimension": "H-2.5m W-730mm L-730mm propping",
+                        "site_manager_name": "Quintin Snyman",
+                        "signature": signature_smoke_url,
                     },
                     "photo_urls": [form_smoke_photo_url],
                     "photo_metadata": [
@@ -1083,6 +1167,10 @@ def main():
             ),
             200,
         )
+        if daywork_submission["answers"]["teams"][0]["team_man_hours"] != 7:
+            raise AssertionError("submit daywork form: expected first team man hours to subtract break")
+        if daywork_submission["answers"]["teams"][1]["team_man_hours"] != 10.5:
+            raise AssertionError("submit daywork form: expected calculated second team man hours")
         form_submission = assert_status(
             "submit work form",
             request(
@@ -1179,6 +1267,30 @@ def main():
         )
         if approved_form_submission["status"] != "approved":
             raise AssertionError("supervisor approve form submission: expected approved status")
+        updated_form_answers = {
+            **approved_form_submission["answers"],
+            "notes": "Supervisor corrected notes",
+        }
+        updated_form_submission = assert_status(
+            "supervisor updates form submission",
+            request(
+                "PATCH",
+                f"/supervisor/form-submissions/{form_submission['id']}",
+                {
+                    "site_id": site["id"],
+                    "work_date": now.date().isoformat(),
+                    "answers": updated_form_answers,
+                    "status": "approved",
+                    "confirmed": True,
+                },
+                supervisor_token,
+            ),
+            200,
+        )
+        if updated_form_submission["answers"]["notes"] != "Supervisor corrected notes":
+            raise AssertionError("supervisor updates form submission: expected updated answer")
+        if updated_form_submission["answers"]["worker_signature"] != signature_smoke_url:
+            raise AssertionError("supervisor updates form submission: expected existing signature URL")
         approved_review_records = assert_status(
             "list approved review records",
             request("GET", "/supervisor/review-records?status=approved", token=supervisor_token),
@@ -1730,6 +1842,64 @@ def main():
             ),
             200,
         )
+        trashed_form_submission = assert_status(
+            "supervisor moves form submission to rubbish bin",
+            request(
+                "POST",
+                f"/supervisor/trash/form/{rejected_form_submission['id']}",
+                {"reason": "Duplicate form submission", "confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
+        if trashed_form_submission.get("kind") != "form":
+            raise AssertionError("supervisor moves form submission to rubbish bin: expected form kind")
+        form_records_after_trash = assert_status(
+            "trashed form submission is hidden from form list",
+            request("GET", "/supervisor/form-submissions", token=supervisor_token),
+            200,
+        )
+        if any(item["id"] == rejected_form_submission["id"] for item in form_records_after_trash):
+            raise AssertionError("trashed form submission is hidden from form list")
+        assert_status(
+            "supervisor restores form submission from rubbish bin",
+            request(
+                "POST",
+                f"/supervisor/trash/form/{rejected_form_submission['id']}/restore",
+                {"confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
+        trashed_team_log = assert_status(
+            "supervisor moves weekly team log to rubbish bin",
+            request(
+                "POST",
+                f"/supervisor/trash/team_log/{team_work_log['id']}",
+                {"reason": "Duplicate weekly team log", "confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
+        if trashed_team_log.get("kind") != "team_log":
+            raise AssertionError("supervisor moves weekly team log to rubbish bin: expected team log kind")
+        team_logs_after_trash = assert_status(
+            "trashed weekly team log is hidden from review records",
+            request("GET", "/supervisor/review-records", token=supervisor_token),
+            200,
+        )
+        if any(item["kind"] == "team_log" and item["id"] == team_work_log["id"] for item in team_logs_after_trash):
+            raise AssertionError("trashed weekly team log is hidden from review records")
+        assert_status(
+            "supervisor restores weekly team log from rubbish bin",
+            request(
+                "POST",
+                f"/supervisor/trash/team_log/{team_work_log['id']}/restore",
+                {"confirmed": True},
+                supervisor_token,
+            ),
+            200,
+        )
         pending_review_records = assert_status(
             "list pending review records",
             request("GET", "/supervisor/review-records?status=pending", token=supervisor_token),
@@ -1943,6 +2113,26 @@ def main():
             or "entry_source" not in csv_body
         ):
             raise AssertionError("export attendance csv: missing expected CSV headers")
+        filtered_csv_body = assert_status(
+            "export attendance csv filtered by date",
+            request(
+                "GET",
+                f"/supervisor/records/export.csv?date_from={now.date().isoformat()}&date_to={now.date().isoformat()}",
+                token=supervisor_token,
+            ),
+            200,
+        )
+        if "record_type" not in filtered_csv_body or "worker_name" not in filtered_csv_body:
+            raise AssertionError("export attendance csv filtered by date: missing expected CSV headers")
+        assert_status(
+            "reject reversed export date range",
+            request(
+                "GET",
+                "/supervisor/records/export.csv?date_from=2099-01-02&date_to=2099-01-01",
+                token=supervisor_token,
+            ),
+            400,
+        )
         task_csv_body = assert_status(
             "export task logs csv",
             request("GET", "/supervisor/task-logs/export.csv", token=supervisor_token),
@@ -1950,6 +2140,17 @@ def main():
         )
         if "hours_worked" not in task_csv_body or "photo_urls" not in task_csv_body:
             raise AssertionError("export task logs csv: missing expected CSV headers")
+        filtered_task_csv_body = assert_status(
+            "export task logs csv filtered by date",
+            request(
+                "GET",
+                f"/supervisor/task-logs/export.csv?date_from={now.date().isoformat()}&date_to={now.date().isoformat()}",
+                token=supervisor_token,
+            ),
+            200,
+        )
+        if "hours_worked" not in filtered_task_csv_body or "photo_urls" not in filtered_task_csv_body:
+            raise AssertionError("export task logs csv filtered by date: missing expected CSV headers")
         task_log_html = assert_status(
             "export task logs html",
             request("GET", "/supervisor/task-logs/export.html?layout=daily-log", token=supervisor_token),
@@ -1979,6 +2180,29 @@ def main():
             raise AssertionError("export form submissions html: expected section subtitle")
         if "answer_pre_start" in form_html:
             raise AssertionError("export form submissions html: section should not export as an answer")
+        filtered_form_html = assert_status(
+            "export form submissions html filtered by date and form type",
+            request(
+                "GET",
+                (
+                    "/supervisor/form-submissions/export.html"
+                    f"?form_id={smoke_form['id']}"
+                    f"&date_from={now.date().isoformat()}"
+                    f"&date_to={now.date().isoformat()}"
+                ),
+                token=supervisor_token,
+            ),
+            200,
+        )
+        if "North bay" not in filtered_form_html or "Worker signature" not in filtered_form_html:
+            raise AssertionError("export form submissions html filtered by date and form type: missing expected form content")
+        if "Ryman Healthcare Cambridge" in filtered_form_html:
+            raise AssertionError("export form submissions html filtered by date and form type: included a different form type")
+        assert_status(
+            "reject missing export form type",
+            request("GET", "/supervisor/form-submissions/export.html?form_id=999999", token=supervisor_token),
+            404,
+        )
         assert_pdf_status(
             "export submitted forms pdf",
             request_bytes("GET", "/supervisor/form-submissions/export.pdf?template=submitted-form", token=supervisor_token),
@@ -1986,6 +2210,19 @@ def main():
         assert_pdf_status(
             "export daywork pdf",
             request_bytes("GET", "/supervisor/form-submissions/export.pdf?template=daywork", token=supervisor_token),
+        )
+        assert_pdf_status(
+            "export daywork pdf filtered by date and form type",
+            request_bytes(
+                "GET",
+                (
+                    "/supervisor/form-submissions/export.pdf"
+                    f"?template=daywork&form_id={daywork_form['id']}"
+                    f"&date_from={now.date().isoformat()}"
+                    f"&date_to={now.date().isoformat()}"
+                ),
+                token=supervisor_token,
+            ),
         )
         single_task_csv_body = assert_status(
             "export single task log csv",
@@ -2047,8 +2284,14 @@ def main():
             "task_log_update",
             "task_log_manual_create",
             "team_work_log_create",
+            "team_log_update",
             "task_trash",
             "task_restore",
+            "form_submission_update",
+            "form_trash",
+            "form_restore",
+            "team_log_trash",
+            "team_log_restore",
             "review_decision",
             "default_department_update",
         }

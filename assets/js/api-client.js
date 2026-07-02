@@ -364,6 +364,13 @@ export async function getSupervisorTeamWorkLogs(status = "") {
   return await apiFetch(`/supervisor/team-work-logs${query}`);
 }
 
+export async function updateSupervisorTeamWorkLog(logId, log) {
+  return await apiFetch(`/supervisor/team-work-logs/${logId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ ...log, confirmed: true })
+  });
+}
+
 export async function updateMyTaskLog(logId, log) {
   return await apiFetch(`/my-task-logs/${logId}`, {
     method: "PATCH",
@@ -457,13 +464,29 @@ export async function createSupervisorAttendance(record) {
   });
 }
 
+function exportFilterParams(filters = {}) {
+  const normalizedFilters = typeof filters === "string" ? { status: filters } : (filters || {});
+  const params = new URLSearchParams();
+  if (normalizedFilters.status) params.set("status", normalizedFilters.status);
+  if (normalizedFilters.dateFrom) params.set("date_from", normalizedFilters.dateFrom);
+  if (normalizedFilters.dateTo) params.set("date_to", normalizedFilters.dateTo);
+  if (normalizedFilters.formId) params.set("form_id", normalizedFilters.formId);
+  if (normalizedFilters.departmentId) params.set("department_id", normalizedFilters.departmentId);
+  return params;
+}
+
+function queryString(params) {
+  const text = params.toString();
+  return text ? `?${text}` : "";
+}
+
 export async function getSupervisorReviewRecords(status = "") {
   const query = status ? `?status=${encodeURIComponent(status)}` : "";
   return await apiFetch(`/supervisor/review-records${query}`);
 }
 
-export async function exportSupervisorRecordsCsv(status = "") {
-  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+export async function exportSupervisorRecordsCsv(filters = {}) {
+  const query = queryString(exportFilterParams(filters));
   return await apiBlob(`/supervisor/records/export.csv${query}`, "CSV export failed.");
 }
 
@@ -478,14 +501,14 @@ export async function createSupervisorTaskLog(log) {
   });
 }
 
-export async function exportSupervisorTaskLogsCsv(status = "") {
-  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+export async function exportSupervisorTaskLogsCsv(filters = {}) {
+  const query = queryString(exportFilterParams(filters));
   return await apiBlob(`/supervisor/task-logs/export.csv${query}`, "Task-log CSV export failed.");
 }
 
-export async function exportSupervisorTaskLogsHtml(layout = "daily-log", status = "") {
+export async function exportSupervisorTaskLogsHtml(layout = "daily-log", filters = {}) {
   const params = new URLSearchParams({ layout });
-  if (status) params.set("status", status);
+  exportFilterParams(filters).forEach((value, key) => params.set(key, value));
   return await apiBlob(`/supervisor/task-logs/export.html?${params.toString()}`, "Task-log document export failed.");
 }
 
@@ -498,14 +521,19 @@ export async function exportSupervisorTaskLogHtml(logId, layout = "daily-log") {
   return await apiBlob(`/supervisor/task-logs/${logId}/export.html?${params.toString()}`, "Task-log document export failed.");
 }
 
-export async function exportSupervisorFormSubmissionsHtml(status = "") {
-  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+export async function exportSupervisorFormSubmissionsHtml(filters = {}) {
+  const query = queryString(exportFilterParams(filters));
   return await apiBlob(`/supervisor/form-submissions/export.html${query}`, "Form submission document export failed.");
 }
 
-export async function exportSupervisorFormSubmissionsPdf(template = "submitted-form", status = "") {
+export async function exportSupervisorFormSubmissionsCsv(filters = {}) {
+  const query = queryString(exportFilterParams(filters));
+  return await apiBlob(`/supervisor/form-submissions/export.csv${query}`, "Form submission CSV export failed.");
+}
+
+export async function exportSupervisorFormSubmissionsPdf(template = "submitted-form", filters = {}) {
   const params = new URLSearchParams({ template });
-  if (status) params.set("status", status);
+  exportFilterParams(filters).forEach((value, key) => params.set(key, value));
   return await apiBlob(`/supervisor/form-submissions/export.pdf?${params.toString()}`, "Form submission PDF export failed.");
 }
 
@@ -520,6 +548,13 @@ export async function exportSupervisorFormSubmissionHtml(submissionId) {
 export async function exportSupervisorFormSubmissionPdf(submissionId, template = "submitted-form") {
   const params = new URLSearchParams({ template });
   return await apiBlob(`/supervisor/form-submissions/${submissionId}/export.pdf?${params.toString()}`, "Form submission PDF export failed.");
+}
+
+export async function updateSupervisorFormSubmission(submissionId, submission) {
+  return await apiFetch(`/supervisor/form-submissions/${submissionId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ ...submission, confirmed: true })
+  });
 }
 
 export async function decideRecord(recordId, status, recordType = "attendance") {

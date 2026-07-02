@@ -31,9 +31,11 @@ from app.schemas import (
     TaskLogUpdateRequest,
     SupervisorTaskLogCreate,
     SupervisorWorkFormSubmissionCreate,
+    SupervisorWorkFormSubmissionUpdate,
     TaskTemplateCreate,
     TaskTemplateUpdate,
     TeamWorkLogCreate,
+    TeamWorkLogUpdateRequest,
     UserCreateRequest,
     UserStatusRequest,
     UserUpdateRequest,
@@ -125,13 +127,25 @@ DEMO_SITES = [
 DEMO_WORK_FORMS = [
     {
         "name": "Daywork log form",
-        "description": "Daily work summary for site activity.",
+        "description": "General Daywork Form with repeatable teams and calculated man-hours.",
         "fields": [
-            {"id": "work_completed", "label": "Work completed", "type": "textarea", "required": True},
-            {"id": "hours_worked", "label": "Hours worked", "type": "number", "required": True},
-            {"id": "materials_used", "label": "Materials used", "type": "textarea", "required": False},
-            {"id": "safety_notes", "label": "Safety notes", "type": "textarea", "required": False},
-            {"id": "worker_signature", "label": "Worker signature", "type": "signature", "required": True},
+            {"id": "site_details", "label": "Site details", "type": "section", "required": False},
+            {"id": "client", "label": "Client", "type": "text", "required": True},
+            {"id": "details", "label": "Details", "type": "section", "required": False},
+            {"id": "si_number", "label": "SI number", "type": "text", "required": False},
+            {"id": "building", "label": "Building", "type": "text", "required": False},
+            {"id": "level", "label": "Level", "type": "text", "required": False},
+            {"id": "gridline", "label": "Gridline", "type": "text", "required": False},
+            {"id": "teams", "label": "Teams", "type": "repeat", "required": True, "min_rows": 1, "max_rows": 8},
+            {"id": "team_name", "label": "Team", "type": "text", "required": True, "repeat": "teams"},
+            {"id": "team_people", "label": "Number of people", "type": "number", "required": True, "repeat": "teams"},
+            {"id": "team_time", "label": "Working time", "type": "time_range", "required": True, "repeat": "teams"},
+            {"id": "team_break", "label": "Break", "type": "select", "required": True, "options": ["No break", "15 minutes", "30 minutes", "45 minutes", "1 hour"], "repeat": "teams"},
+            {"id": "team_man_hours", "label": "Team man hours", "type": "formula", "formula": "team_people * (team_time - team_break)", "repeat": "teams"},
+            {"id": "job_description", "label": "Job description", "type": "textarea", "required": True},
+            {"id": "dimension", "label": "Dimension", "type": "textarea", "required": False},
+            {"id": "site_manager_name", "label": "Site Manager Name", "type": "text", "required": False},
+            {"id": "signature", "label": "Signature", "type": "signature", "required": True},
         ],
     },
     {
@@ -738,6 +752,16 @@ def get_supervisor_team_work_logs(
     return team_work_log_use_cases.list_supervisor_team_work_logs(status, supervisor, session)
 
 
+@app.patch("/supervisor/team-work-logs/{log_id}")
+def update_supervisor_team_work_log(
+    log_id: int,
+    data: TeamWorkLogUpdateRequest,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session),
+):
+    return supervisor_review_use_cases.update_supervisor_team_work_log(log_id, data, supervisor, session)
+
+
 @app.get("/task-templates")
 def get_task_templates(
     user: User = Depends(get_current_user),
@@ -884,10 +908,20 @@ def update_supervisor_record(
 @app.get("/supervisor/records/export.csv")
 def export_supervisor_records_csv(
     status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    department_id: Optional[int] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_attendance_records_csv(session, supervisor, status)
+    return supervisor_review_use_cases.export_attendance_records_csv(
+        session,
+        supervisor,
+        status,
+        date_from,
+        date_to,
+        department_id,
+    )
 
 
 @app.get("/supervisor/task-logs")
@@ -911,20 +945,41 @@ def create_supervisor_task_log(
 @app.get("/supervisor/task-logs/export.csv")
 def export_supervisor_task_logs_csv(
     status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    department_id: Optional[int] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_task_logs_csv(session, supervisor, status)
+    return supervisor_review_use_cases.export_task_logs_csv(
+        session,
+        supervisor,
+        status,
+        date_from,
+        date_to,
+        department_id,
+    )
 
 
 @app.get("/supervisor/task-logs/export.html")
 def export_supervisor_task_logs_html(
     layout: str = "daily-log",
     status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    department_id: Optional[int] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_task_logs_html(session, supervisor, layout, status)
+    return supervisor_review_use_cases.export_task_logs_html(
+        session,
+        supervisor,
+        layout,
+        status,
+        date_from,
+        date_to,
+        department_id,
+    )
 
 
 @app.get("/supervisor/task-logs/{log_id}/export.csv")
@@ -946,23 +1001,69 @@ def export_supervisor_task_log_html(
     return supervisor_review_use_cases.export_task_log_html(log_id, session, supervisor, layout)
 
 
-@app.get("/supervisor/form-submissions/export.html")
-def export_supervisor_form_submissions_html(
+@app.get("/supervisor/form-submissions/export.csv")
+def export_supervisor_form_submissions_csv(
     status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    form_id: Optional[int] = None,
+    department_id: Optional[int] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_form_submissions_html(session, supervisor, status)
+    return supervisor_review_use_cases.export_form_submissions_csv(
+        session,
+        supervisor,
+        status,
+        date_from,
+        date_to,
+        form_id,
+        department_id,
+    )
+
+
+@app.get("/supervisor/form-submissions/export.html")
+def export_supervisor_form_submissions_html(
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    form_id: Optional[int] = None,
+    department_id: Optional[int] = None,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.export_form_submissions_html(
+        session,
+        supervisor,
+        status,
+        date_from,
+        date_to,
+        form_id,
+        department_id,
+    )
 
 
 @app.get("/supervisor/form-submissions/export.pdf")
 def export_supervisor_form_submissions_pdf(
     template: str = "submitted-form",
     status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    form_id: Optional[int] = None,
+    department_id: Optional[int] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.export_form_submissions_pdf(session, supervisor, template, status)
+    return supervisor_review_use_cases.export_form_submissions_pdf(
+        session,
+        supervisor,
+        template,
+        status,
+        date_from,
+        date_to,
+        form_id,
+        department_id,
+    )
 
 
 @app.get("/supervisor/form-submissions/{submission_id}/export.csv")
@@ -991,6 +1092,16 @@ def export_supervisor_form_submission_pdf(
     session: Session = Depends(get_session)
 ):
     return supervisor_review_use_cases.export_form_submission_pdf(submission_id, session, supervisor, template)
+
+
+@app.patch("/supervisor/form-submissions/{submission_id}")
+def update_supervisor_form_submission(
+    submission_id: int,
+    data: SupervisorWorkFormSubmissionUpdate,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session)
+):
+    return supervisor_review_use_cases.update_supervisor_form_submission(submission_id, data, supervisor, session)
 
 
 @app.patch("/supervisor/task-logs/{log_id}")

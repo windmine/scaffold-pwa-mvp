@@ -211,13 +211,22 @@ class SupervisorWorkFormSubmissionCreate(BaseModel):
     confirmed: bool = False
 
 
+class SupervisorWorkFormSubmissionUpdate(BaseModel):
+    site_id: Optional[int] = Field(default=None, ge=1)
+    work_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    answers: Optional[dict] = None
+    photo_urls: Optional[list[str]] = None
+    status: Optional[str] = Field(default=None, max_length=40)
+    confirmed: bool = False
+
+
 class TeamWorkLogEntryCreate(BaseModel):
     worker_id: int = Field(ge=1)
     site_id: int = Field(ge=1)
     work_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     start_time: str = Field(pattern=r"^\d{2}:\d{2}$")
     end_time: str = Field(pattern=r"^\d{2}:\d{2}$")
-    break_minutes: int = Field(default=0, ge=0, le=1440)
+    break_minutes: int = Field(default=0, ge=0, le=60)
     work_description: str = Field(min_length=1, max_length=3000)
 
 
@@ -226,6 +235,14 @@ class TeamWorkLogCreate(BaseModel):
     notes: Optional[str] = Field(default=None, max_length=3000)
     entries: list[TeamWorkLogEntryCreate] = Field(min_length=1, max_length=150)
     client_submission_id: Optional[str] = Field(default=None, max_length=120)
+
+
+class TeamWorkLogUpdateRequest(BaseModel):
+    week_start: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    notes: Optional[str] = Field(default=None, max_length=3000)
+    entries: Optional[list[TeamWorkLogEntryCreate]] = Field(default=None, min_length=1, max_length=150)
+    status: Optional[str] = Field(default=None, max_length=40)
+    confirmed: bool = False
 
 
 class ApprovalRequest(BaseModel):

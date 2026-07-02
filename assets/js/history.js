@@ -208,6 +208,11 @@ export function createHistoryModule({
       photoUrl: record.photo_urls?.[0] || '',
       photoUrls: record.photo_urls || [],
       photoMetadata: record.photo_metadata || [],
+      deletedBySupervisorId: record.deleted_by_supervisor_id,
+      deletedBySupervisorName: record.deleted_by_supervisor_name || '',
+      deletionReason: record.deletion_reason || '',
+      deletedAt: record.deleted_at || '',
+      purgeAt: record.purge_at || '',
       createdAt: record.created_at,
       syncStatus: 'synced',
       status: record.status || 'pending',
@@ -231,6 +236,11 @@ export function createHistoryModule({
       entryCount: record.entry_count || 0,
       memberCount: record.member_count || 0,
       hoursWorked: record.total_hours == null ? '' : String(record.total_hours),
+      deletedBySupervisorId: record.deleted_by_supervisor_id,
+      deletedBySupervisorName: record.deleted_by_supervisor_name || '',
+      deletionReason: record.deletion_reason || '',
+      deletedAt: record.deleted_at || '',
+      purgeAt: record.purge_at || '',
       createdAt: record.created_at,
       syncStatus: 'synced',
       status: record.status || 'pending',
@@ -475,11 +485,14 @@ export function createHistoryModule({
 
       const actions = node.querySelector('.record-actions');
       const canShowWorkerActions = showWorkerActions && canWorkerEditRecord(record);
-      const canShowSupervisorEdit = showEditActions && (record.type === 'attendance' || record.type === 'task');
+      const canShowSupervisorEdit = (
+        showEditActions
+        && ['attendance', 'task', 'form', 'team_log'].includes(record.type)
+      );
       const canShowSupervisorTrash = (
         showTrashActions
         && record.backendRecordId
-        && (record.type === 'attendance' || record.type === 'task')
+        && ['attendance', 'task', 'form', 'team_log'].includes(record.type)
       );
       const canShowDecision = showDecisionActions && record.status === 'pending';
       const exportOptions = exportOptionsForRecord(record);

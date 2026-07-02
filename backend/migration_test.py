@@ -10,7 +10,7 @@ from sqlmodel import Session
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app.migrations import adapt_statement_for_dialect, run_migrations  # noqa: E402
-from app.models import AttendanceRecord, TaskLog, User  # noqa: E402
+from app.models import AttendanceRecord, TaskLog, TeamWorkLog, User, WorkFormSubmission  # noqa: E402
 from app.use_cases.record_trash import purge_expired_deleted_records  # noqa: E402
 
 
@@ -75,6 +75,10 @@ def assert_migration_recorded(engine):
         "0007_record_rubbish_bin",
         "0008_manual_task_logs",
         "0009_worker_classes_and_team_logs",
+        "0010_pdf_daywork_form_template",
+        "0011_multi_team_daywork_form",
+        "0012_form_and_team_log_rubbish_bin",
+        "0013_daywork_team_break_options",
     ]
     if [row[0] for row in rows] != expected_versions:
         raise AssertionError(f"schema_migrations: expected {expected_versions}")
@@ -115,6 +119,10 @@ def test_fresh_database():
             "0007_record_rubbish_bin",
             "0008_manual_task_logs",
             "0009_worker_classes_and_team_logs",
+            "0010_pdf_daywork_form_template",
+            "0011_multi_team_daywork_form",
+            "0012_form_and_team_log_rubbish_bin",
+            "0013_daywork_team_break_options",
         ]
         if applied != expected_versions:
             raise AssertionError(f"fresh migration: expected {expected_versions}, got {applied}")
@@ -162,7 +170,13 @@ def test_fresh_database():
         assert_contains(
             "fresh form submission columns",
             columns(engine, "workformsubmission"),
-            {"department_id", "photo_metadata"},
+            {
+                "department_id",
+                "photo_metadata",
+                "deleted_at",
+                "deleted_by_supervisor_id",
+                "deletion_reason",
+            },
         )
         assert_contains(
             "fresh user columns",
@@ -177,7 +191,18 @@ def test_fresh_database():
         assert_contains(
             "fresh team work log columns",
             columns(engine, "teamworklog"),
-            {"department_id", "leader_id", "week_start", "notes", "client_submission_id", "status", "created_at"},
+            {
+                "department_id",
+                "leader_id",
+                "week_start",
+                "notes",
+                "client_submission_id",
+                "status",
+                "deleted_at",
+                "deleted_by_supervisor_id",
+                "deletion_reason",
+                "created_at",
+            },
         )
         assert_contains(
             "fresh team work log entry columns",
@@ -268,6 +293,10 @@ def test_legacy_database():
             "0007_record_rubbish_bin",
             "0008_manual_task_logs",
             "0009_worker_classes_and_team_logs",
+            "0010_pdf_daywork_form_template",
+            "0011_multi_team_daywork_form",
+            "0012_form_and_team_log_rubbish_bin",
+            "0013_daywork_team_break_options",
         ]
         if applied != expected_versions:
             raise AssertionError(f"legacy migration: expected {expected_versions}, got {applied}")
@@ -322,7 +351,20 @@ def test_legacy_database():
         assert_contains(
             "legacy form submission columns",
             columns(engine, "workformsubmission"),
-            {"department_id", "status", "client_submission_id", "photo_metadata"},
+            {
+                "department_id",
+                "status",
+                "client_submission_id",
+                "photo_metadata",
+                "deleted_at",
+                "deleted_by_supervisor_id",
+                "deletion_reason",
+            },
+        )
+        assert_contains(
+            "legacy team work log columns",
+            columns(engine, "teamworklog"),
+            {"deleted_at", "deleted_by_supervisor_id", "deletion_reason"},
         )
         assert_migration_recorded(engine)
         engine.dispose()
@@ -366,19 +408,51 @@ def test_rubbish_bin_purge():
                 deleted_by_supervisor_id=supervisor.id,
                 deletion_reason="Recent duplicate",
             )
+            expired_form_submission = WorkFormSubmission(
+                department_id=1,
+                form_id=1,
+                worker_id=999,
+                answers_json="{}",
+                status="approved",
+                deleted_at=now - timedelta(days=31),
+                deleted_by_supervisor_id=supervisor.id,
+                deletion_reason="Expired duplicate",
+            )
+            retained_team_log = TeamWorkLog(
+                department_id=1,
+                leader_id=999,
+                week_start="2026-06-29",
+                status="approved",
+                deleted_at=now - timedelta(days=29),
+                deleted_by_supervisor_id=supervisor.id,
+                deletion_reason="Recent duplicate",
+            )
             session.add(expired_attendance)
             session.add(retained_task)
+            session.add(expired_form_submission)
+            session.add(retained_team_log)
             session.commit()
             expired_id = expired_attendance.id
             retained_id = retained_task.id
+            expired_form_id = expired_form_submission.id
+            retained_team_log_id = retained_team_log.id
 
             counts = purge_expired_deleted_records(session, now)
-            if counts["attendance"] != 1 or counts["task"] != 0:
+            if (
+                counts["attendance"] != 1
+                or counts["task"] != 0
+                or counts["form"] != 1
+                or counts["team_log"] != 0
+            ):
                 raise AssertionError(f"rubbish bin purge: unexpected counts {counts}")
             if session.get(AttendanceRecord, expired_id) is not None:
                 raise AssertionError("rubbish bin purge: expired attendance should be permanently deleted")
             if session.get(TaskLog, retained_id) is None:
                 raise AssertionError("rubbish bin purge: records under 30 days must be retained")
+            if session.get(WorkFormSubmission, expired_form_id) is not None:
+                raise AssertionError("rubbish bin purge: expired form submission should be permanently deleted")
+            if session.get(TeamWorkLog, retained_team_log_id) is None:
+                raise AssertionError("rubbish bin purge: recent team logs must be retained")
 
         engine.dispose()
 

@@ -9,6 +9,7 @@ import { setDateInputValue } from './date-inputs.js';
 
 const TEAM_WORK_LOG_DRAFT_KEY = 'team-work-log';
 const AUTOSAVE_DELAY_MS = 700;
+const BREAK_MINUTE_OPTIONS = [0, 15, 30, 45, 60];
 
 function mondayDateInput(value = new Date()) {
   const date = new Date(value);
@@ -66,6 +67,26 @@ function timeOptions(selected = '') {
       return ((aHours * 60) + aMinutes) - ((bHours * 60) + bMinutes);
     })
     .map((value) => `<option value="${value}"${value === selectedValue ? ' selected' : ''}>${value}</option>`)
+    .join('');
+}
+
+function normaliseBreakMinutes(value, fallback = 0) {
+  const minutes = Number(value);
+  return BREAK_MINUTE_OPTIONS.includes(minutes) ? minutes : fallback;
+}
+
+function breakLabel(minutes) {
+  if (minutes === 0) return 'No break';
+  if (minutes === 60) return '1 hour';
+  return `${minutes} minutes`;
+}
+
+function breakOptions(selected = 0) {
+  const selectedValue = normaliseBreakMinutes(selected);
+  return BREAK_MINUTE_OPTIONS
+    .map((minutes) => (
+      `<option value="${minutes}"${minutes === selectedValue ? ' selected' : ''}>${breakLabel(minutes)}</option>`
+    ))
     .join('');
 }
 
@@ -252,8 +273,10 @@ export function createTeamWorkLogModule({
           </select>
         </label>
         <label>
-          Break minutes
-          <input data-team-break type="number" min="0" max="1440" step="5" value="${escapeHtml(initial.break_minutes ?? 30)}" required />
+          Break
+          <select data-team-break required>
+            ${breakOptions(initial.break_minutes ?? 0)}
+          </select>
         </label>
         <label class="team-log-description">
           Work completed
@@ -296,7 +319,7 @@ export function createTeamWorkLogModule({
       || row.work_date !== (els.teamWorkLogWeekStart.value || mondayDateInput())
       || row.start_time !== '07:00'
       || row.end_time !== '15:30'
-      || String(row.break_minutes || '') !== '30'
+      || String(row.break_minutes ?? '0') !== '0'
     );
   }
 

@@ -86,6 +86,9 @@ SNAPSHOT_FIELDS = {
         "photo_metadata",
         "client_submission_id",
         "status",
+        "deleted_at",
+        "deleted_by_supervisor_id",
+        "deletion_reason",
         "created_at",
     ],
     TeamWorkLog: [
@@ -96,6 +99,9 @@ SNAPSHOT_FIELDS = {
         "notes",
         "client_submission_id",
         "status",
+        "deleted_at",
+        "deleted_by_supervisor_id",
+        "deletion_reason",
         "created_at",
     ],
 }

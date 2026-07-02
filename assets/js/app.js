@@ -256,6 +256,10 @@ const els = {
   exportAttendanceButton: document.getElementById('exportAttendanceButton'),
   exportTaskLogsButton: document.getElementById('exportTaskLogsButton'),
   exportDocumentSelect: document.getElementById('exportDocumentSelect'),
+  exportDateFrom: document.getElementById('exportDateFrom'),
+  exportDateTo: document.getElementById('exportDateTo'),
+  exportFormTypeSelect: document.getElementById('exportFormTypeSelect'),
+  clearExportFiltersButton: document.getElementById('clearExportFiltersButton'),
   exportDocumentButton: document.getElementById('exportDocumentButton'),
   staffUserForm: document.getElementById('staffUserForm'),
   staffNameInput: document.getElementById('staffNameInput'),
@@ -971,6 +975,10 @@ function showEditPanel(title, fields, submitLabel, onSubmit, scope = 'supervisor
   const target = getEditPanel(scope);
   target.title.textContent = title;
   target.form.innerHTML = fields.map((field) => {
+    if (field.type === 'custom') {
+      return field.html || '';
+    }
+
     if (field.type === 'select') {
       return `
         <label>

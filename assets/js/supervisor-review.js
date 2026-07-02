@@ -6,6 +6,7 @@ import {
   exportSupervisorFormSubmissionCsv,
   exportSupervisorFormSubmissionHtml,
   exportSupervisorFormSubmissionPdf,
+  exportSupervisorFormSubmissionsCsv,
   exportSupervisorFormSubmissionsHtml,
   exportSupervisorFormSubmissionsPdf,
   exportSupervisorRecordsCsv,
@@ -19,12 +20,14 @@ import {
   moveSupervisorRecordToTrash as moveBackendSupervisorRecordToTrash,
   restoreSupervisorRecord as restoreBackendSupervisorRecord,
   updateDefaultDepartment as updateBackendDefaultDepartment,
+  updateSupervisorFormSubmission as updateBackendSupervisorFormSubmission,
   updateSupervisorRecord as updateBackendSupervisorRecord,
+  updateSupervisorTeamWorkLog as updateBackendSupervisorTeamWorkLog,
   updateSupervisorTaskLog as updateBackendSupervisorTaskLog,
   uploadPhoto as uploadBackendPhoto
 } from './api-client.js';
 import { setDateInputValue } from './date-inputs.js';
-import { collectWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
+import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
 import {
   decideRecord as decideLocalRecord,
   getPendingApprovals,
@@ -34,6 +37,8 @@ import {
 import { todayDateInput, escapeHtml, formatDateTime, dataUrlToBlob } from './utils.js';
 
 const ADMIN_TASK_LOG_FORM_PREFIX = 'adminTaskLogFormField';
+const EDIT_FORM_FIELD_PREFIX = 'editFormSubmissionField';
+const TEAM_BREAK_MINUTE_OPTIONS = [0, 15, 30, 45, 60];
 
 function mergeReviewRecords(...recordGroups) {
   const recordsByKey = new Map();
@@ -75,6 +80,20 @@ function isDayworkRecord(record) {
   return text.includes('daywork') || text.includes('daily work');
 }
 
+function isDayworkForm(form) {
+  const text = `${form?.name || ''}`.toLowerCase();
+  return text.includes('daywork') || text.includes('daily work');
+}
+
+function exportUsesFormType(exportType) {
+  return [
+    'daywork-pdf',
+    'form-submissions',
+    'form-submissions-csv',
+    'form-submissions-pdf'
+  ].includes(exportType);
+}
+
 function isSignatureDataUrl(value) {
   return typeof value === 'string' && value.startsWith('data:image/');
 }
@@ -109,6 +128,64 @@ async function uploadAdminFormSignatureAnswers(form, answers, user) {
   }
 
   return nextAnswers;
+}
+
+function signatureFieldsForForm(form) {
+  return (form?.fields || []).filter((field) => field.type === 'signature');
+}
+
+function repeatSignatureFieldsForForm(form, repeatId) {
+  return signatureFieldsForForm(form).filter((field) => field.repeat === repeatId);
+}
+
+function mergeExistingSignatureAnswers(form, nextAnswers, existingAnswers = {}) {
+  const merged = { ...nextAnswers };
+
+  signatureFieldsForForm(form)
+    .filter((field) => !field.repeat)
+    .forEach((field) => {
+      if (!merged[field.id] && existingAnswers[field.id]) {
+        merged[field.id] = existingAnswers[field.id];
+      }
+    });
+
+  (form?.fields || [])
+    .filter((field) => field.type === 'repeat')
+    .forEach((parent) => {
+      const rows = Array.isArray(merged[parent.id]) ? merged[parent.id] : [];
+      const existingRows = Array.isArray(existingAnswers[parent.id]) ? existingAnswers[parent.id] : [];
+      const signatureChildren = repeatSignatureFieldsForForm(form, parent.id);
+      rows.forEach((row, index) => {
+        const existingRow = existingRows[index] || {};
+        signatureChildren.forEach((field) => {
+          if (!row[field.id] && existingRow[field.id]) {
+            row[field.id] = existingRow[field.id];
+          }
+        });
+      });
+    });
+
+  return merged;
+}
+
+function normaliseTeamBreakMinutes(value, fallback = 0) {
+  const minutes = Number(value);
+  return TEAM_BREAK_MINUTE_OPTIONS.includes(minutes) ? minutes : fallback;
+}
+
+function teamBreakLabel(minutes) {
+  if (minutes === 0) return 'No break';
+  if (minutes === 60) return '1 hour';
+  return `${minutes} minutes`;
+}
+
+function teamBreakOptions(selected = 0) {
+  const selectedValue = normaliseTeamBreakMinutes(selected);
+  return TEAM_BREAK_MINUTE_OPTIONS
+    .map((minutes) => (
+      `<option value="${minutes}"${minutes === selectedValue ? ' selected' : ''}>${teamBreakLabel(minutes)}</option>`
+    ))
+    .join('');
 }
 
 function downloadBlob(blob, filename) {
@@ -175,6 +252,140 @@ export function createSupervisorReviewModule({
 
   function itemDepartmentId(item) {
     return item?.department_id ?? item?.departmentId;
+  }
+
+  function recordActionLabel(record) {
+    if (record.type === 'attendance') {
+      return record.action === 'check_out' ? 'Check out' : 'Check in';
+    }
+    if (record.type === 'form') return 'Form submission';
+    if (record.type === 'team_log') return 'Weekly team log';
+    return 'Task log';
+  }
+
+  function recordTitleLabel(record) {
+    if (record.type === 'form') return `${record.formName || 'Work form'} - ${record.siteName || 'No site'}`;
+    if (record.type === 'team_log') return `Weekly team log - ${record.weekStart || record.workDate || 'No week'}`;
+    if (record.type === 'task') return `Task log - ${record.siteName || 'No site'}`;
+    return `${recordActionLabel(record)} - ${record.siteName || 'No site'}`;
+  }
+
+  function itemsForRecordDepartment(items, record) {
+    return (items || []).filter((item) => (
+      String(itemDepartmentId(item) ?? record.departmentId ?? state.user?.departmentId)
+        === String(record.departmentId ?? state.user?.departmentId)
+    ));
+  }
+
+  function selectOptionsHtml(options, selectedValue) {
+    return options.map((option) => (
+      `<option value="${escapeHtml(option.value)}"${String(option.value) === String(selectedValue ?? '') ? ' selected' : ''}>${escapeHtml(option.label)}</option>`
+    )).join('');
+  }
+
+  function teamLogWorkerOptions(record, selectedId, selectedName = '') {
+    const workers = itemsForRecordDepartment(state.staffUsers, record)
+      .filter((user) => user.role === 'worker');
+    const options = workers.map((user) => ({
+      value: user.id,
+      label: `${user.name}${user.status === 'resigned' ? ' - resigned' : ''}`
+    }));
+    if (selectedId && !options.some((option) => String(option.value) === String(selectedId))) {
+      options.unshift({ value: selectedId, label: selectedName || `Worker ${selectedId}` });
+    }
+    return options;
+  }
+
+  function teamLogSiteOptions(record, selectedId, selectedName = '') {
+    const sites = itemsForRecordDepartment(state.sites, record);
+    const options = sites.map((site) => ({
+      value: site.id,
+      label: `${site.name} (#${site.id})`
+    }));
+    if (selectedId && !options.some((option) => String(option.value) === String(selectedId))) {
+      options.unshift({ value: selectedId, label: selectedName || `Site ${selectedId}` });
+    }
+    return options;
+  }
+
+  function teamEntryRowHtml(record, entry = {}) {
+    return `
+      <div class="team-log-edit-row" data-edit-team-row>
+        <label>
+          Member
+          <select data-edit-team-worker>
+            ${selectOptionsHtml(teamLogWorkerOptions(record, entry.worker_id, entry.worker_name), entry.worker_id)}
+          </select>
+        </label>
+        <label>
+          Site
+          <select data-edit-team-site>
+            ${selectOptionsHtml(teamLogSiteOptions(record, entry.site_id, entry.site_name), entry.site_id)}
+          </select>
+        </label>
+        <label>
+          Date
+          <input data-edit-team-date type="date" value="${escapeHtml(entry.work_date || record.weekStart || '')}" />
+        </label>
+        <label>
+          Start
+          <input data-edit-team-start type="time" value="${escapeHtml(entry.start_time || '07:00')}" />
+        </label>
+        <label>
+          End
+          <input data-edit-team-end type="time" value="${escapeHtml(entry.end_time || '15:00')}" />
+        </label>
+        <label>
+          Break
+          <select data-edit-team-break>
+            ${teamBreakOptions(entry.break_minutes ?? 0)}
+          </select>
+        </label>
+        <label class="team-log-edit-description">
+          Work completed
+          <textarea data-edit-team-description rows="3">${escapeHtml(entry.work_description || '')}</textarea>
+        </label>
+        <button type="button" class="ghost" data-edit-team-remove>Remove</button>
+      </div>
+    `;
+  }
+
+  function bindTeamEntryEditor(record) {
+    const rows = document.getElementById('editTeamEntries');
+    const addButton = document.getElementById('editTeamAddRow');
+    if (!rows || !addButton) return;
+
+    const updateRemoveButtons = () => {
+      const rowCount = rows.querySelectorAll('[data-edit-team-row]').length;
+      rows.querySelectorAll('[data-edit-team-remove]').forEach((button) => {
+        button.disabled = rowCount <= 1;
+      });
+    };
+
+    addButton.addEventListener('click', () => {
+      rows.insertAdjacentHTML('beforeend', teamEntryRowHtml(record));
+      updateRemoveButtons();
+    });
+    rows.addEventListener('click', (event) => {
+      const removeButton = event.target.closest('[data-edit-team-remove]');
+      if (!removeButton) return;
+      removeButton.closest('[data-edit-team-row]')?.remove();
+      updateRemoveButtons();
+    });
+    updateRemoveButtons();
+  }
+
+  function collectTeamLogEditEntries() {
+    const rows = Array.from(document.querySelectorAll('#editTeamEntries [data-edit-team-row]'));
+    return rows.map((row) => ({
+      worker_id: Number(row.querySelector('[data-edit-team-worker]')?.value),
+      site_id: Number(row.querySelector('[data-edit-team-site]')?.value),
+      work_date: row.querySelector('[data-edit-team-date]')?.value || '',
+      start_time: row.querySelector('[data-edit-team-start]')?.value || '',
+      end_time: row.querySelector('[data-edit-team-end]')?.value || '',
+      break_minutes: Number(row.querySelector('[data-edit-team-break]')?.value || 0),
+      work_description: row.querySelector('[data-edit-team-description]')?.value.trim() || ''
+    }));
   }
 
   function manualAttendanceWorkers() {
@@ -336,6 +547,83 @@ export function createSupervisorReviewModule({
     renderAdminTaskLogSites();
   }
 
+  function renderExportFormTypeOptions() {
+    const currentValue = els.exportFormTypeSelect.value;
+    const exportType = els.exportDocumentSelect.value;
+    const field = els.exportFormTypeSelect.closest('label');
+    const usesFormType = exportUsesFormType(exportType);
+    field?.classList.toggle('hidden', !usesFormType);
+    els.exportFormTypeSelect.disabled = !usesFormType;
+
+    if (!usesFormType) {
+      els.exportFormTypeSelect.innerHTML = '<option value="">Form type not used</option>';
+      els.exportFormTypeSelect.value = '';
+      return;
+    }
+
+    let forms = (state.workForms || []).filter((form) => (
+      !state.departmentFocusId
+      || String(itemDepartmentId(form)) === String(state.departmentFocusId)
+    ));
+    if (exportType === 'daywork-pdf') {
+      forms = forms.filter(isDayworkForm);
+    }
+
+    const defaultLabel = exportType === 'daywork-pdf'
+      ? 'All Daywork form types'
+      : 'All submitted form types';
+
+    els.exportFormTypeSelect.innerHTML = [
+      `<option value="">${defaultLabel}</option>`,
+      ...forms.map((form) => {
+        const status = form.status === 'archived' ? ' - archived' : '';
+        return `<option value="${escapeHtml(form.id)}">${escapeHtml(form.name)}${escapeHtml(status)}</option>`;
+      })
+    ].join('');
+
+    els.exportFormTypeSelect.value = forms.some((form) => String(form.id) === currentValue)
+      ? currentValue
+      : '';
+  }
+
+  function exportDateFilters(includeFormType = false) {
+    const dateFrom = els.exportDateFrom.value;
+    const dateTo = els.exportDateTo.value;
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      throw new Error('Choose an export start date before the end date.');
+    }
+
+    const filters = { dateFrom, dateTo };
+    if (els.supervisorStatusFilter.value) {
+      filters.status = els.supervisorStatusFilter.value;
+    }
+    if (state.departmentFocusId) {
+      filters.departmentId = Number(state.departmentFocusId);
+    }
+    if (includeFormType && !els.exportFormTypeSelect.disabled && els.exportFormTypeSelect.value) {
+      filters.formId = Number(els.exportFormTypeSelect.value);
+    }
+    return filters;
+  }
+
+  async function runExport(button, action) {
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Exporting...';
+    try {
+      await action();
+    } finally {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
+
+  function clearExportFilters() {
+    setDateInputValue(els.exportDateFrom, '');
+    setDateInputValue(els.exportDateTo, '');
+    els.exportFormTypeSelect.value = '';
+  }
+
   function renderDepartmentFilter() {
     const isGlobalAdmin = Boolean(state.user?.isGlobalAdmin);
     const currentValue = state.departmentFocusId || '';
@@ -424,6 +712,7 @@ export function createSupervisorReviewModule({
     renderFocusedDashboard(usingBackend);
     renderSupervisorSites();
     await refreshWorkForms();
+    renderExportFormTypeOptions();
     await renderStaffUsers();
     renderManualAttendanceForm();
     renderAdminTaskLogForm();
@@ -460,6 +749,7 @@ export function createSupervisorReviewModule({
     renderDepartmentScopedAdminLists();
     renderManualAttendanceForm();
     renderAdminTaskLogForm();
+    renderExportFormTypeOptions();
     renderTrashList();
   }
 
@@ -476,19 +766,18 @@ export function createSupervisorReviewModule({
     els.rubbishBinCount.textContent = String(records.length);
     els.rubbishBinList.innerHTML = records.length
       ? records.map((record) => {
-        const recordLabel = record.type === 'attendance'
-          ? (record.action === 'check_out' ? 'Check out' : 'Check in')
-          : 'Task log';
+        const recordLabel = recordActionLabel(record);
         return `
           <article class="record-card rubbish-bin-record">
             <div class="record-header">
               <div>
-                <h3 class="record-title">${escapeHtml(recordLabel)} - ${escapeHtml(record.siteName)}</h3>
+                <h3 class="record-title">${escapeHtml(recordTitleLabel(record))}</h3>
                 <p class="record-meta">${escapeHtml(record.userName)} | ${escapeHtml(formatDateTime(record.createdAt))}</p>
               </div>
               <span class="badge rejected">In bin</span>
             </div>
             <div class="record-extra">
+              <p><strong>Type:</strong> ${escapeHtml(recordLabel)}</p>
               <p><strong>Reason:</strong> ${escapeHtml(record.deletionReason || 'No reason recorded.')}</p>
               <p><strong>Deleted:</strong> ${escapeHtml(formatDateTime(record.deletedAt))}${record.deletedBySupervisorName ? ` by ${escapeHtml(record.deletedBySupervisorName)}` : ''}</p>
               <p><strong>Automatic deletion:</strong> ${escapeHtml(formatDateTime(record.purgeAt))}</p>
@@ -539,13 +828,13 @@ export function createSupervisorReviewModule({
   }
 
   async function handleTrashRecord(record) {
-    if (!record.backendRecordId || !['attendance', 'task'].includes(record.type)) {
-      renderStatusBanner('Only backend attendance and task logs can be moved to the rubbish bin.', true);
+    if (!record.backendRecordId || !['attendance', 'task', 'form', 'team_log'].includes(record.type)) {
+      renderStatusBanner('Only backend review records can be moved to the rubbish bin.', true);
       return;
     }
 
     showEditPanel(
-      `Move ${record.type === 'attendance' ? 'attendance' : 'task log'} to rubbish bin`,
+      `Move ${recordActionLabel(record).toLowerCase()} to rubbish bin`,
       [{
         id: 'trashRecordReason',
         label: 'Reason for deletion',
@@ -688,9 +977,11 @@ export function createSupervisorReviewModule({
 
   async function handleExportAttendance() {
     try {
-      const blob = await exportSupervisorRecordsCsv();
-      downloadBlob(blob, `leader-attendance-${todayDateInput()}.csv`);
-      renderStatusBanner('Attendance CSV exported.');
+      await runExport(els.exportAttendanceButton, async () => {
+        const blob = await exportSupervisorRecordsCsv(exportDateFilters());
+        downloadBlob(blob, `leader-attendance-${todayDateInput()}.csv`);
+        renderStatusBanner('Attendance CSV exported.');
+      });
     } catch (error) {
       renderStatusBanner(error.message || 'Could not export attendance CSV.', true);
     }
@@ -698,9 +989,11 @@ export function createSupervisorReviewModule({
 
   async function handleExportTaskLogs() {
     try {
-      const blob = await exportSupervisorTaskLogsCsv();
-      downloadBlob(blob, `leader-task-logs-${todayDateInput()}.csv`);
-      renderStatusBanner('Task logs CSV exported.');
+      await runExport(els.exportTaskLogsButton, async () => {
+        const blob = await exportSupervisorTaskLogsCsv(exportDateFilters());
+        downloadBlob(blob, `leader-task-logs-${todayDateInput()}.csv`);
+        renderStatusBanner('Task logs CSV exported.');
+      });
     } catch (error) {
       renderStatusBanner(error.message || 'Could not export task logs CSV.', true);
     }
@@ -710,37 +1003,46 @@ export function createSupervisorReviewModule({
     const exportType = els.exportDocumentSelect.value;
 
     try {
-      if (exportType === 'task-photo-report') {
-        const blob = await exportSupervisorTaskLogsHtml('photo-report');
-        downloadBlob(blob, `leader-task-photo-report-${todayDateInput()}.html`);
-        renderStatusBanner('Task photo report exported.');
-        return;
-      }
+      await runExport(els.exportDocumentButton, async () => {
+        if (exportType === 'task-photo-report') {
+          const blob = await exportSupervisorTaskLogsHtml('photo-report', exportDateFilters());
+          downloadBlob(blob, `leader-task-photo-report-${todayDateInput()}.html`);
+          renderStatusBanner('Task photo report exported.');
+          return;
+        }
 
-      if (exportType === 'form-submissions') {
-        const blob = await exportSupervisorFormSubmissionsHtml();
-        downloadBlob(blob, `leader-work-forms-${todayDateInput()}.html`);
-        renderStatusBanner('Work form submissions exported.');
-        return;
-      }
+        if (exportType === 'form-submissions') {
+          const blob = await exportSupervisorFormSubmissionsHtml(exportDateFilters(true));
+          downloadBlob(blob, `leader-work-forms-${todayDateInput()}.html`);
+          renderStatusBanner('Work form submissions exported.');
+          return;
+        }
 
-      if (exportType === 'form-submissions-pdf') {
-        const blob = await exportSupervisorFormSubmissionsPdf('submitted-form');
-        downloadBlob(blob, `leader-work-forms-${todayDateInput()}.pdf`);
-        renderStatusBanner('Work form submissions PDF exported.');
-        return;
-      }
+        if (exportType === 'form-submissions-csv') {
+          const blob = await exportSupervisorFormSubmissionsCsv(exportDateFilters(true));
+          downloadBlob(blob, `leader-work-forms-${todayDateInput()}.csv`);
+          renderStatusBanner('Work form submissions CSV exported.');
+          return;
+        }
 
-      if (exportType === 'daywork-pdf') {
-        const blob = await exportSupervisorFormSubmissionsPdf('daywork');
-        downloadBlob(blob, `leader-daywork-${todayDateInput()}.pdf`);
-        renderStatusBanner('Daywork PDF exported.');
-        return;
-      }
+        if (exportType === 'form-submissions-pdf') {
+          const blob = await exportSupervisorFormSubmissionsPdf('submitted-form', exportDateFilters(true));
+          downloadBlob(blob, `leader-work-forms-${todayDateInput()}.pdf`);
+          renderStatusBanner('Work form submissions PDF exported.');
+          return;
+        }
 
-      const blob = await exportSupervisorTaskLogsHtml('daily-log');
-      downloadBlob(blob, `leader-daily-task-logs-${todayDateInput()}.html`);
-      renderStatusBanner('Daily task log sheets exported.');
+        if (exportType === 'daywork-pdf') {
+          const blob = await exportSupervisorFormSubmissionsPdf('daywork', exportDateFilters(true));
+          downloadBlob(blob, `leader-daywork-${todayDateInput()}.pdf`);
+          renderStatusBanner('Daywork PDF exported.');
+          return;
+        }
+
+        const blob = await exportSupervisorTaskLogsHtml('daily-log', exportDateFilters());
+        downloadBlob(blob, `leader-daily-task-logs-${todayDateInput()}.html`);
+        renderStatusBanner('Daily task log sheets exported.');
+      });
     } catch (error) {
       renderStatusBanner(error.message || 'Could not export document.', true);
     }
@@ -877,7 +1179,143 @@ export function createSupervisorReviewModule({
     }
 
     if (record.type === 'form') {
-      renderStatusBanner('Form submissions can be approved or rejected, but not adjusted here yet.', true);
+      const form = {
+        id: record.formId,
+        name: record.formName,
+        fields: record.fields || []
+      };
+      const siteOptions = [
+        { value: '', label: 'No site' },
+        ...itemsForRecordDepartment(state.sites, record).map((site) => ({
+          value: site.id,
+          label: `${site.name} (#${site.id})`
+        }))
+      ];
+
+      showEditPanel(
+        `Edit form submission: ${record.formName}`,
+        [
+          { id: 'editFormSiteId', label: 'Site', type: 'select', value: record.siteId || '', options: siteOptions },
+          { id: 'editFormWorkDate', label: 'Work date', type: 'date', value: record.workDate || '' },
+          {
+            id: 'editFormStatus',
+            label: 'Status',
+            type: 'select',
+            value: record.status || 'pending',
+            options: [
+              { value: 'pending', label: 'Pending' },
+              { value: 'approved', label: 'Approved' },
+              { value: 'rejected', label: 'Rejected' }
+            ]
+          },
+          { type: 'custom', html: '<div id="editFormAnswers" class="dynamic-fields"></div>' }
+        ],
+        'Save form',
+        async () => {
+          if (!window.confirm('Double check: save changes to this form submission?')) return;
+          try {
+            const answersContainer = document.getElementById('editFormAnswers');
+            const collectedAnswers = collectWorkFormAnswers(form, {
+              idPrefix: EDIT_FORM_FIELD_PREFIX,
+              container: answersContainer,
+              validate: false
+            });
+            const answers = mergeExistingSignatureAnswers(form, collectedAnswers, record.answers || {});
+            await updateBackendSupervisorFormSubmission(record.backendRecordId, {
+              site_id: editNumber('editFormSiteId'),
+              work_date: editValue('editFormWorkDate') || null,
+              answers: await uploadAdminFormSignatureAnswers(form, answers, { id: record.userId }),
+              status: editValue('editFormStatus')
+            });
+            closeEditPanel();
+            renderStatusBanner('Form submission updated.');
+            await renderPanel();
+          } catch (error) {
+            renderStatusBanner(error.message || 'Could not update form submission.', true);
+          }
+        }
+      );
+
+      const answersContainer = document.getElementById('editFormAnswers');
+      renderWorkFormFields(answersContainer, form, {
+        idPrefix: EDIT_FORM_FIELD_PREFIX,
+        container: answersContainer
+      });
+      populateWorkFormAnswers(form, record.answers || {}, {
+        idPrefix: EDIT_FORM_FIELD_PREFIX,
+        container: answersContainer
+      });
+      return;
+    }
+
+    if (record.type === 'team_log') {
+      const entriesHtml = (record.entries?.length ? record.entries : [{}])
+        .map((entry) => teamEntryRowHtml(record, entry))
+        .join('');
+
+      showEditPanel(
+        `Edit weekly team log: ${record.weekStart}`,
+        [
+          { id: 'editTeamWeekStart', label: 'Week start', type: 'date', value: record.weekStart || record.workDate || '' },
+          {
+            id: 'editTeamStatus',
+            label: 'Status',
+            type: 'select',
+            value: record.status || 'pending',
+            options: [
+              { value: 'pending', label: 'Pending' },
+              { value: 'approved', label: 'Approved' },
+              { value: 'rejected', label: 'Rejected' }
+            ]
+          },
+          { id: 'editTeamNotes', label: 'Notes', type: 'textarea', rows: 3, value: record.notes || '' },
+          {
+            type: 'custom',
+            html: `
+              <section class="team-log-edit-section">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Team entries</p>
+                    <h3>Member time rows</h3>
+                  </div>
+                  <button id="editTeamAddRow" type="button" class="ghost">Add row</button>
+                </div>
+                <div id="editTeamEntries" class="team-log-edit-rows">${entriesHtml}</div>
+              </section>
+            `
+          }
+        ],
+        'Save team log',
+        async () => {
+          const entries = collectTeamLogEditEntries();
+          if (!entries.length || entries.some((entry) => (
+            !entry.worker_id
+            || !entry.site_id
+            || !entry.work_date
+            || !entry.start_time
+            || !entry.end_time
+            || !entry.work_description
+          ))) {
+            renderStatusBanner('Complete every team log row before saving.', true);
+            return;
+          }
+          if (!window.confirm('Double check: save changes to this weekly team log?')) return;
+          try {
+            await updateBackendSupervisorTeamWorkLog(record.backendRecordId, {
+              week_start: editValue('editTeamWeekStart'),
+              notes: editValue('editTeamNotes') || null,
+              status: editValue('editTeamStatus'),
+              entries
+            });
+            closeEditPanel();
+            renderStatusBanner('Weekly team log updated.');
+            await renderPanel();
+          } catch (error) {
+            renderStatusBanner(error.message || 'Could not update weekly team log.', true);
+          }
+        }
+      );
+      bindTeamEntryEditor(record);
       return;
     }
 
@@ -992,6 +1430,8 @@ export function createSupervisorReviewModule({
       element.addEventListener('change', renderFilteredLists);
     });
     els.clearSupervisorFiltersButton.addEventListener('click', clearFilters);
+    els.clearExportFiltersButton.addEventListener('click', clearExportFilters);
+    els.exportDocumentSelect.addEventListener('change', renderExportFormTypeOptions);
     els.exportAttendanceButton.addEventListener('click', handleExportAttendance);
     els.exportTaskLogsButton.addEventListener('click', handleExportTaskLogs);
     els.exportDocumentButton.addEventListener('click', handleExportDocument);

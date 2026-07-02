@@ -154,7 +154,8 @@ def create_work_form_submission(data, user: User, session: Session):
         existing_submission = session.exec(
             select(WorkFormSubmission).where(
                 WorkFormSubmission.worker_id == user.id,
-                WorkFormSubmission.client_submission_id == client_submission_id
+                WorkFormSubmission.client_submission_id == client_submission_id,
+                WorkFormSubmission.deleted_at.is_(None),
             )
         ).first()
         if existing_submission:
@@ -182,7 +183,10 @@ def create_work_form_submission(data, user: User, session: Session):
 def list_my_form_submissions(user: User, session: Session):
     records = session.exec(
         select(WorkFormSubmission)
-        .where(WorkFormSubmission.worker_id == user.id)
+        .where(
+            WorkFormSubmission.worker_id == user.id,
+            WorkFormSubmission.deleted_at.is_(None),
+        )
         .order_by(WorkFormSubmission.created_at.desc())
     ).all()
 

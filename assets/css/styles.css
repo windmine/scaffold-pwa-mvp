@@ -771,12 +771,27 @@ input[type="time"] {
   letter-spacing: 0;
 }
 
-input[type="time"]::-webkit-calendar-picker-indicator {
-  width: 22px;
-  height: 22px;
+input[type="time"],
+input[type="datetime-local"] {
+  padding-right: 3rem;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  width: 24px;
+  height: 24px;
   margin-left: 8px;
-  opacity: 1;
+  padding: 3px;
+  border-radius: 999px;
+  background-color: rgba(9, 108, 245, 0.08);
+  opacity: 0.82;
   cursor: pointer;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  background-color: rgba(9, 108, 245, 0.14);
+  opacity: 1;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -801,6 +816,39 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
+.date-input-shell::before,
+.date-input-shell::after {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  content: "";
+}
+
+.date-input-shell::after {
+  inset: 0 0 0 auto;
+  width: 44px;
+  border-left: 1px solid var(--input-border);
+  background: linear-gradient(180deg, rgba(9, 108, 245, 0.08), rgba(9, 108, 245, 0.03));
+}
+
+.date-input-shell::before {
+  top: 50%;
+  right: 14px;
+  z-index: 1;
+  width: 16px;
+  height: 15px;
+  border: 2px solid var(--brand-blue);
+  border-top-width: 5px;
+  border-radius: 3px;
+  opacity: 0.78;
+  transform: translateY(-50%);
+}
+
+.date-input-shell:hover::before,
+.date-input-shell:focus-within::before {
+  opacity: 1;
+}
+
 .date-input-shell:focus-within {
   outline: 3px solid rgba(127, 181, 255, 0.72);
   outline-offset: 2px;
@@ -812,7 +860,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   min-width: 0;
   align-self: center;
   overflow: hidden;
-  padding: 0.8rem 0.9rem;
+  padding: 0.8rem 3.25rem 0.8rem 0.9rem;
   color: var(--input-text);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1109,13 +1157,17 @@ textarea {
 
 .audit-editor-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(110px, auto));
-  gap: 8px 14px;
-  margin-top: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .audit-editor-grid span {
   min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-background);
 }
 
 .audit-editor-grid small,
@@ -1137,6 +1189,31 @@ textarea {
   font-size: 0.86rem;
 }
 
+#supervisorView .audit-history-card #auditEventsList {
+  grid-template-columns: 1fr;
+}
+
+.audit-event-card {
+  display: grid;
+  gap: 12px;
+}
+
+.audit-event-card .record-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.audit-event-card .record-title {
+  overflow-wrap: anywhere;
+}
+
+.audit-event-card .record-detail {
+  margin-top: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
 .card-actions {
   margin-top: 14px;
 }
@@ -1149,12 +1226,63 @@ textarea {
   flex: 1 1 190px;
 }
 
+.exports-card {
+  display: grid;
+  gap: 12px;
+}
+
+.export-heading {
+  align-items: center;
+}
+
+.export-heading h2 {
+  margin: 0;
+}
+
+.export-heading button {
+  min-height: 40px;
+  padding: 0.5rem 0.75rem;
+}
+
 .export-tools {
   display: grid;
+  gap: 12px;
+}
+
+.export-tools label,
+.export-tools button {
+  min-width: 0;
+}
+
+.export-filter-grid,
+.export-action-grid,
+.export-document-grid {
+  display: grid;
   gap: 10px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-background);
+}
+
+.export-filter-grid,
+.export-action-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.export-document-grid {
+  grid-template-columns: 1fr;
+  align-items: end;
+}
+
+.export-document-grid button {
+  width: 100%;
+}
+
+.export-action-grid button,
+.export-document-grid button {
+  min-height: 48px;
 }
 
 .team-work-log-entries {
@@ -1375,6 +1503,34 @@ textarea {
 .team-log-entry-summary p {
   margin: 2px 0 0;
   color: var(--record-detail-text);
+}
+
+.team-log-edit-section {
+  display: grid;
+  gap: 12px;
+}
+
+.team-log-edit-rows {
+  display: grid;
+  gap: 12px;
+}
+
+.team-log-edit-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-background);
+}
+
+.team-log-edit-description {
+  grid-column: 1 / -1;
+}
+
+.team-log-edit-row button {
+  align-self: end;
 }
 
 .record-team-log {
@@ -1727,7 +1883,66 @@ body.viewer-open {
 }
 
 .admin-workspace {
+  display: grid;
+  gap: 18px;
+  align-items: start;
   min-width: 0;
+}
+
+.admin-workspace > .admin-overview-grid {
+  order: 10;
+}
+
+.admin-workspace > .admin-command-card {
+  order: 20;
+}
+
+.admin-workspace > .dashboard-scope-card {
+  order: 30;
+}
+
+.admin-workspace > .review-queue-card {
+  order: 40;
+}
+
+.admin-workspace > .location-review-card {
+  order: 50;
+}
+
+.admin-workspace > .management-analytics-card {
+  order: 60;
+}
+
+.admin-workspace > .manual-attendance-card {
+  order: 70;
+}
+
+.admin-workspace > .admin-task-log-card {
+  order: 80;
+}
+
+.admin-workspace > .sites-card {
+  order: 90;
+}
+
+.admin-workspace > .staff-users-card {
+  order: 100;
+}
+
+.admin-workspace > .work-forms-card {
+  order: 110;
+}
+
+.admin-workspace > .audit-history-card {
+  order: 120;
+}
+
+.admin-workspace > .rubbish-bin-card {
+  order: 130;
+}
+
+.admin-workspace > #supervisorEditPanel {
+  order: 140;
 }
 
 .admin-command-card {
@@ -1739,6 +1954,25 @@ body.viewer-open {
     radial-gradient(circle at top right, rgba(200, 169, 106, 0.2), transparent 34%),
     linear-gradient(110deg, rgba(9, 108, 245, 0.12), transparent 54%),
     var(--card-background);
+}
+
+.admin-home-card {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  border-left: 5px solid var(--champagne);
+  background:
+    radial-gradient(circle at top right, rgba(200, 169, 106, 0.16), transparent 34%),
+    linear-gradient(110deg, rgba(9, 108, 245, 0.1), transparent 52%),
+    var(--card-background);
+}
+
+.admin-home-header {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
 }
 
 .admin-command-content h2 {
@@ -1800,6 +2034,50 @@ body.viewer-open {
   border-color: var(--champagne);
 }
 
+.admin-home-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.admin-home-grid > .admin-home-panel:first-child {
+  order: 10;
+}
+
+.admin-home-grid > .dashboard-scope-card {
+  order: 20;
+}
+
+.admin-home-grid > .exports-card {
+  order: 40;
+}
+
+.admin-home-panel {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-background);
+}
+
+.admin-home-panel > h2,
+.admin-home-analytics h2 {
+  margin-top: 0;
+}
+
+.admin-home-grid > .dashboard-scope-card {
+  grid-column: auto;
+  grid-template-columns: 1fr;
+  border-left-width: 1px;
+  background: var(--panel-background);
+}
+
+.admin-home-analytics {
+  min-width: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
 .admin-command-card,
 .admin-overview-grid,
 .dashboard-scope-card,
@@ -1809,6 +2087,8 @@ body.viewer-open {
 .location-review-card,
 .audit-history-card,
 .work-forms-card,
+.sites-card,
+.staff-users-card,
 #supervisorEditPanel {
   scroll-margin-top: 18px;
 }
@@ -2287,6 +2567,14 @@ body.viewer-open {
   grid-column: 1 / -1;
 }
 
+.site-address-field {
+  grid-column: 1 / -1;
+}
+
+.site-address-field textarea {
+  min-height: 74px;
+}
+
 .site-map-panel {
   display: grid;
   gap: 8px;
@@ -2670,8 +2958,28 @@ body.viewer-open {
     grid-column: 1 / -1;
   }
 
-  .admin-overview-grid {
-    grid-template-columns: minmax(0, 0.9fr) minmax(420px, 1.1fr);
+  .admin-home-header {
+    grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+    align-items: center;
+  }
+
+  .admin-home-grid {
+    grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1fr);
+  }
+
+  .admin-home-grid > .admin-home-panel:first-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .admin-home-grid > .dashboard-scope-card {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .admin-home-grid > .exports-card {
+    grid-column: 1;
+    grid-row: 2;
   }
 
   .manual-attendance-form,
@@ -2701,11 +3009,11 @@ body.viewer-open {
   }
 
   .admin-workspace > .admin-overview-grid {
-    grid-column: span 7;
+    grid-column: 1 / -1;
   }
 
   .admin-workspace > .dashboard-scope-card {
-    grid-column: span 5;
+    grid-column: span 4;
     grid-template-columns: 1fr;
     align-content: start;
   }
@@ -2727,8 +3035,23 @@ body.viewer-open {
     grid-column: span 6;
   }
 
-  .admin-overview-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .admin-home-grid {
+    grid-template-columns: minmax(0, 0.85fr) minmax(300px, 0.8fr) minmax(360px, 1.1fr);
+  }
+
+  .admin-home-grid > .admin-home-panel:first-child {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .admin-home-grid > .dashboard-scope-card {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .admin-home-grid > .exports-card {
+    grid-column: 3;
+    grid-row: 1;
   }
 
   .dashboard-scope-controls {
@@ -3016,6 +3339,16 @@ body.viewer-open {
     grid-template-columns: 1fr;
   }
 
+  .export-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .export-filter-grid,
+  .export-action-grid,
+  .export-document-grid {
+    grid-template-columns: 1fr;
+  }
+
   .desktop-actions {
     display: none;
   }
@@ -3118,7 +3451,15 @@ body.viewer-open {
   }
 
   .audit-editor-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+  }
+
+  .audit-event-card .record-header {
+    grid-template-columns: 1fr;
+  }
+
+  .audit-event-card .record-header > .badge {
+    justify-self: start;
   }
 
   .dashboard-scope-card,
@@ -3174,6 +3515,10 @@ body.viewer-open {
   }
 
   .team-log-entry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .team-log-edit-row {
     grid-template-columns: 1fr;
   }
 
