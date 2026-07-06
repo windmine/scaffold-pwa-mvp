@@ -4,6 +4,12 @@ import {
   getTeamWorkLogMembers
 } from './api-client.js';
 import { clearDraft, saveDraft } from './mock-api.js';
+import {
+  selectedTeamMemberIds,
+  setupTeamMemberPicker,
+  teamMemberPickerMarkup,
+  updateTeamMemberPickerMembers
+} from './team-member-picker.js';
 import { escapeHtml, formatDateTime, uuid } from './utils.js';
 import { setDateInputValue } from './date-inputs.js';
 
@@ -103,10 +109,6 @@ export function createTeamWorkLogModule({
   let autosaveTimer = null;
   let restoringDraft = false;
 
-  function selectedMemberIds(row) {
-    return [...(row.selectedMemberIds || new Set())];
-  }
-
   function setAutosaveStatus(message, stateClass = '') {
     if (!els.teamWorkLogAutosaveStatus) return;
     els.teamWorkLogAutosaveStatus.textContent = message;
@@ -121,80 +123,17 @@ export function createTeamWorkLogModule({
     }).format(value);
   }
 
-  function renderSelectedMembers(row) {
-    const selected = selectedMemberIds(row)
-      .map((memberId) => (state.teamWorkLogMembers || []).find(
-        (member) => String(member.id) === String(memberId)
-      ))
-      .filter(Boolean);
-    const selectedContainer = row.querySelector('[data-team-selected-members]');
-    selectedContainer.innerHTML = selected.length
-      ? selected.map((member) => `
-        <button type="button" class="team-member-chip" data-remove-team-member="${member.id}">
-          ${escapeHtml(member.name)}
-          <span aria-hidden="true">&times;</span>
-        </button>
-      `).join('')
-      : '<span class="team-member-empty">No members selected yet.</span>';
-
-    selectedContainer.querySelectorAll('[data-remove-team-member]').forEach((button) => {
-      button.addEventListener('click', () => {
-        row.selectedMemberIds.delete(String(button.dataset.removeTeamMember));
-        renderMemberChoices(row);
-        renderSelectedMembers(row);
-        updateRowHours(row);
-        scheduleDraftSave();
-      });
-    });
-  }
-
-  function renderMemberChoices(row) {
-    const query = row.querySelector('[data-team-member-search]').value.trim().toLowerCase();
-    const matches = (state.teamWorkLogMembers || []).filter((member) => (
-      !query
-      || member.name.toLowerCase().includes(query)
-      || (member.worker_class || 'normal').toLowerCase().includes(query)
-    ));
-    const options = row.querySelector('[data-team-member-options]');
-    options.innerHTML = matches.length
-      ? matches.map((member) => `
-        <label class="team-member-option">
-          <input
-            type="checkbox"
-            value="${member.id}"
-            data-team-member-choice
-            ${row.selectedMemberIds.has(String(member.id)) ? 'checked' : ''}
-          />
-          <span>
-            <strong>${escapeHtml(member.name)}</strong>
-            <small>${escapeHtml(member.worker_class === 'leader' ? 'Leader' : 'Normal worker')}</small>
-          </span>
-        </label>
-      `).join('')
-      : '<div class="team-member-no-results">No members match this search.</div>';
-
-    options.querySelectorAll('[data-team-member-choice]').forEach((checkbox) => {
-      checkbox.addEventListener('change', () => {
-        if (checkbox.checked) {
-          row.selectedMemberIds.add(String(checkbox.value));
-        } else {
-          row.selectedMemberIds.delete(String(checkbox.value));
-        }
-        renderSelectedMembers(row);
-        updateRowHours(row);
-        scheduleDraftSave();
-      });
-    });
-  }
-
   function initialiseMemberPicker(row, initial = {}) {
     const initialIds = initial.worker_ids || (initial.worker_id ? [initial.worker_id] : []);
-    row.selectedMemberIds = new Set(initialIds.map(String));
-    row.querySelector('[data-team-member-search]').addEventListener('input', () => {
-      renderMemberChoices(row);
+    setupTeamMemberPicker(row.querySelector('[data-team-member-picker]'), {
+      members: state.teamWorkLogMembers || [],
+      initialIds,
+      emitInitial: false,
+      onChange: () => {
+        updateRowHours(row);
+        scheduleDraftSave();
+      }
     });
-    renderMemberChoices(row);
-    renderSelectedMembers(row);
   }
 
   function siteOptions(selected = '') {
@@ -209,7 +148,7 @@ export function createTeamWorkLogModule({
       row.querySelector('[data-team-end]').value,
       row.querySelector('[data-team-break]').value
     );
-    const memberCount = selectedMemberIds(row).length;
+    const memberCount = selectedTeamMemberIds(row.querySelector('[data-team-member-picker]')).length;
     const totalHours = hours == null ? null : Math.round((hours * memberCount) * 100) / 100;
     row.querySelector('[data-team-hours]').textContent = hours == null
       ? 'Hours: -'
@@ -240,15 +179,7 @@ export function createTeamWorkLogModule({
         <button type="button" class="ghost" data-remove-team-row>Remove</button>
       </div>
       <div class="team-log-entry-grid">
-        <fieldset class="team-member-picker">
-          <legend>Members</legend>
-          <label class="team-member-search">
-            Search members
-            <input data-team-member-search type="search" placeholder="Type a member name" autocomplete="off" />
-          </label>
-          <div class="team-selected-members" data-team-selected-members aria-live="polite"></div>
-          <div class="team-member-options" data-team-member-options></div>
-        </fieldset>
+        ${teamMemberPickerMarkup()}
         <label>
           Work date
           <input data-team-date type="date" value="${escapeHtml(initial.work_date || '')}" required />
@@ -301,7 +232,7 @@ export function createTeamWorkLogModule({
 
   function draftRows() {
     return [...els.teamWorkLogEntries.querySelectorAll('[data-team-log-row]')].map((row) => ({
-      worker_ids: selectedMemberIds(row).map(Number),
+      worker_ids: selectedTeamMemberIds(row.querySelector('[data-team-member-picker]')).map(Number),
       site_id: row.querySelector('[data-team-site]').value,
       work_date: row.querySelector('[data-team-date]').value,
       start_time: row.querySelector('[data-team-start]').value,
@@ -369,7 +300,7 @@ export function createTeamWorkLogModule({
 
   function workRows() {
     return [...els.teamWorkLogEntries.querySelectorAll('[data-team-log-row]')].map((row) => ({
-      worker_ids: selectedMemberIds(row).map(Number),
+      worker_ids: selectedTeamMemberIds(row.querySelector('[data-team-member-picker]')).map(Number),
       site_id: Number(row.querySelector('[data-team-site]').value),
       work_date: row.querySelector('[data-team-date]').value,
       start_time: row.querySelector('[data-team-start]').value,
@@ -431,8 +362,7 @@ export function createTeamWorkLogModule({
         const site = row.querySelector('[data-team-site]');
         const selectedSite = site.value;
         site.innerHTML = `<option value="">Select site</option>${siteOptions(selectedSite)}`;
-        renderMemberChoices(row);
-        renderSelectedMembers(row);
+        updateTeamMemberPickerMembers(row.querySelector('[data-team-member-picker]'), state.teamWorkLogMembers || []);
       });
     } catch (error) {
       if (isBackendSessionError(error)) {

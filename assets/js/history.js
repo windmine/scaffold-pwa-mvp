@@ -20,16 +20,71 @@ function getBackendSiteId(siteId) {
 function formAnswerSummary(record) {
   const answers = record.answers || {};
   const fields = record.fields || [];
+  const childrenByRepeat = fields.reduce((groups, field) => {
+    if (field.repeat) {
+      groups[field.repeat] = groups[field.repeat] || [];
+      groups[field.repeat].push(field);
+    }
+    return groups;
+  }, {});
   const entries = fields.length
     ? fields
       .filter((field) => !field.repeat)
-      .map((field) => [field.label || field.id, answers[field.id], field.type])
+      .map((field) => [field, answers[field.id]])
     : Object.entries(answers).map(([label, value]) => [label, value, '']);
 
   return entries
-    .filter(([, value, type]) => type !== 'section' && value !== '' && value != null && value !== false)
-    .map(([label, value, type]) => `${label}: ${formatWorkFormAnswer(value, type)}`)
+    .map(([field, value, type]) => {
+      if (typeof field === 'string') {
+        return fallbackAnswerSummaryEntry(record, field, value, type);
+      }
+      return fieldAnswerSummaryEntry(record, field, value, childrenByRepeat[field.id] || []);
+    })
+    .filter(Boolean)
     .join(' | ');
+}
+
+function fallbackAnswerSummaryEntry(record, label, value, type = '') {
+  if (isHiddenDayworkAnswer(record, label)) return '';
+  if (type === 'section' || value === '' || value == null || value === false) return '';
+  return `${label}: ${formatWorkFormAnswer(value, type)}`;
+}
+
+function fieldAnswerSummaryEntry(record, field, value, repeatChildren = []) {
+  if (field.type === 'section' || value === '' || value == null || value === false) return '';
+  if (field.type === 'repeat') {
+    return repeatAnswerSummary(record, field, value, repeatChildren);
+  }
+  return `${field.label || field.id}: ${formatWorkFormAnswer(value, field.type)}`;
+}
+
+function repeatAnswerSummary(record, field, value, children) {
+  const rows = Array.isArray(value) ? value : [];
+  if (!rows.length) return '';
+
+  const details = rows
+    .map((row, index) => {
+      const rowDetails = children.length
+        ? children
+          .filter((child) => !isHiddenDayworkAnswer(record, child.id))
+          .map((child) => {
+            const item = row?.[child.id];
+            if (child.type === 'section' || item === '' || item == null || item === false) return '';
+            return `${child.label || child.id}: ${formatWorkFormAnswer(item, child.type)}`;
+          })
+          .filter(Boolean)
+        : Object.entries(row || {})
+          .filter(([key, item]) => !isHiddenDayworkAnswer(record, key) && item !== '' && item != null && item !== false)
+          .map(([key, item]) => `${key}: ${formatWorkFormAnswer(item)}`);
+      return rowDetails.length ? `Row ${index + 1}: ${rowDetails.join(', ')}` : '';
+    })
+    .filter(Boolean);
+
+  return details.length ? `${field.label || field.id}: ${details.join('; ')}` : '';
+}
+
+function isHiddenDayworkAnswer(record, fieldId) {
+  return isDayworkRecord(record) && fieldId === 'team_people';
 }
 
 function signatureImageSources(record) {

@@ -44,6 +44,10 @@ _Avoid_: Dynamic form
 A worker-created attendance record, task log, or work form submission saved on the device first and synced to the backend when possible.
 _Avoid_: Queue item when referring to the user-facing submission
 
+**Production Deployment**:
+The preferred hosted shape for this MVP: Firebase Hosting for the PWA, Cloud Run for the FastAPI API, Cloud SQL PostgreSQL for relational data, Cloud Storage for photos/signatures, and Secret Manager for secrets.
+_Avoid_: Treating SQLite, local `backend/uploads/`, or a single VM as the recommended production target
+
 ## Relationships
 
 - A **Worker** submits many **Review Records**.
@@ -53,6 +57,7 @@ _Avoid_: Queue item when referring to the user-facing submission
 - A **Review Record** may belong to one **Site**.
 - A **Work Form** produces many **Review Records** through worker submissions.
 - An **Offline Submission** becomes a **Review Record** after it syncs to the backend.
+- A **Production Deployment** stores field data in Cloud SQL PostgreSQL and uploaded files in Cloud Storage.
 
 ## Example Dialogue
 
@@ -67,3 +72,4 @@ _Avoid_: Queue item when referring to the user-facing submission
 - "record" can mean any stored item; use **Review Record** only for items that supervisors approve or reject.
 - "queue" is an implementation detail; use **Offline Submission** when describing the worker-facing saved item.
 - "admin" can mean supervisor review or accounting payroll; use **Supervisor** for review/admin changes and **Accounting / Payroll** for wage-hour workflows.
+- "production" should not mean local SQLite with uploaded files on disk. Use **Production Deployment** when describing the Firebase Hosting / Cloud Run / Cloud SQL / Cloud Storage target.

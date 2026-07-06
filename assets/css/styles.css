@@ -108,6 +108,8 @@ html[data-theme="light"] {
 html {
   background: var(--bg);
   color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html[data-theme="light"] {
@@ -190,22 +192,31 @@ button:disabled {
 .app-shell {
   width: min(100%, 1320px);
   margin: 0 auto;
-  padding: 22px 18px 54px;
+  padding:
+    max(22px, calc(22px + env(safe-area-inset-top)))
+    max(18px, calc(18px + env(safe-area-inset-right)))
+    max(54px, calc(54px + env(safe-area-inset-bottom)))
+    max(18px, calc(18px + env(safe-area-inset-left)));
 }
 
 .topbar {
   min-height: 96px;
   display: flex;
+  flex-wrap: wrap;
   gap: 18px;
   justify-content: space-between;
   align-items: center;
+  max-width: 100%;
   color: var(--topbar-text);
   margin-bottom: 18px;
 }
 
 .brand-lockup {
   min-width: 0;
+  max-width: 100%;
+  flex: 1 1 360px;
   display: flex;
+  flex-wrap: wrap;
   gap: 18px;
   align-items: center;
 }
@@ -240,6 +251,8 @@ body[data-active-view="login"] .brand-heading {
 
 .brand-heading {
   min-width: 0;
+  max-width: 100%;
+  flex: 1 1 210px;
   padding-left: 18px;
   border-left: 1px solid var(--line-strong);
 }
@@ -249,6 +262,7 @@ body[data-active-view="login"] .brand-heading {
   font-size: clamp(1.85rem, 3vw, 3.15rem);
   line-height: 1;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .eyebrow {
@@ -264,6 +278,7 @@ body[data-active-view="login"] .brand-heading {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  max-width: 100%;
   justify-content: flex-end;
 }
 
@@ -752,6 +767,8 @@ label {
 input,
 textarea,
 select {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
   min-width: 0;
   min-height: 46px;
@@ -762,6 +779,31 @@ select {
   color: var(--input-text);
   box-shadow: 0 1px 0 rgba(8, 28, 58, 0.02);
   transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+select {
+  padding-right: 3rem;
+  color-scheme: light;
+  background-color: var(--input-background);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--input-text) 50%),
+    linear-gradient(135deg, var(--input-text) 50%, transparent 50%),
+    linear-gradient(180deg, rgba(9, 108, 245, 0.08), rgba(9, 108, 245, 0.03));
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 12px) 50%,
+    100% 0;
+  background-repeat: no-repeat;
+  background-size: 6px 6px, 6px 6px, 2.75rem 100%;
+}
+
+select option {
+  background: #ffffff;
+  color: #0d1726;
+}
+
+select:disabled {
+  opacity: 0.7;
 }
 
 input[type="time"] {
@@ -3546,6 +3588,7 @@ body.viewer-open {
   #dayworkFormFields {
     min-width: 0;
     max-width: 100%;
+    overflow-x: hidden;
     overflow-x: clip;
   }
 
@@ -3604,5 +3647,74 @@ body.viewer-open {
 
   .summary-item strong {
     text-align: left;
+  }
+}
+
+@media (max-width: 760px), (max-device-width: 760px) {
+  .app-shell {
+    max-width: 100%;
+    overflow-x: hidden;
+    padding:
+      max(14px, calc(14px + env(safe-area-inset-top)))
+      max(12px, calc(12px + env(safe-area-inset-right)))
+      max(34px, calc(34px + env(safe-area-inset-bottom)))
+      max(12px, calc(12px + env(safe-area-inset-left)));
+  }
+
+  body:not(.session-worker) .topbar {
+    width: 100%;
+    min-height: auto;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 12px;
+    overflow-x: hidden;
+  }
+
+  body:not(.session-worker) .brand-lockup {
+    width: 100%;
+    flex: 0 1 auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  body:not(.session-worker) .brand-logo {
+    width: min(100%, 232px);
+    max-width: 232px;
+    max-height: 100px;
+  }
+
+  body:not(.session-worker) .brand-heading {
+    position: static;
+    width: 100%;
+    flex: 0 1 auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    border-left: 0;
+    clip: auto;
+    clip-path: none;
+    white-space: normal;
+  }
+
+  body:not(.session-worker) .topbar-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 8px;
+    justify-content: stretch;
+  }
+
+  body:not(.session-worker) .topbar-actions button {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 380px), (max-device-width: 380px) {
+  body:not(.session-worker) .topbar-actions {
+    grid-template-columns: 1fr;
   }
 }

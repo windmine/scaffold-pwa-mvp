@@ -50,6 +50,18 @@ The worker app should remain phone-first. Payroll work should sit inside the exi
 
 Those rules need clear business definitions before implementation.
 
+## Deployment Notes
+
+The payroll/admin portal should ship inside the existing Firebase Hosting and Cloud Run deployment:
+
+- Frontend UI remains part of the Vite PWA served from Firebase Hosting.
+- Payroll summary/export APIs run in the FastAPI Cloud Run service.
+- Pay-period calculations read from Cloud SQL PostgreSQL.
+- Export files should be generated on demand by Cloud Run. Store long-lived exports in Cloud Storage only if accounting needs persistent downloadable copies.
+- Payroll logic must not change worker phone check-in/check-out behavior or offline submission sync.
+
+At roughly 100 users, payroll queries should fit the existing small-production Cloud SQL starting size. Add indexes or summary tables only after measuring slow pay-period reports.
+
 ## Data Rules
 
 - Payroll summaries should use approved records by default.

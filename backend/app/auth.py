@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+import hmac
+import secrets
 
 from typing import Optional
 
@@ -21,6 +23,8 @@ from app.models import User
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 AUTH_COOKIE_NAME = "geo_access_token"
+CSRF_COOKIE_NAME = "geo_csrf_token"
+CSRF_HEADER_NAME = "x-csrf-token"
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -44,7 +48,31 @@ def create_access_token(data: dict) -> str:
     return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
 
 
-def set_auth_cookie(response: Response, token: str):
+def create_csrf_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def csrf_token_from_auth_cookie(token: str) -> Optional[str]:
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    except JWTError:
+        return None
+
+    token_value = payload.get("csrf")
+    return token_value if isinstance(token_value, str) and token_value else None
+
+
+def csrf_tokens_match(expected: str, cookie_value: Optional[str], header_value: Optional[str]) -> bool:
+    return bool(
+        expected
+        and cookie_value
+        and header_value
+        and hmac.compare_digest(expected, cookie_value)
+        and hmac.compare_digest(expected, header_value)
+    )
+
+
+def set_auth_cookie(response: Response, token: str, csrf_token: str):
     response.set_cookie(
         key=AUTH_COOKIE_NAME,
         value=token,
@@ -54,11 +82,26 @@ def set_auth_cookie(response: Response, token: str):
         samesite="lax",
         path="/",
     )
+    response.set_cookie(
+        key=CSRF_COOKIE_NAME,
+        value=csrf_token,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        httponly=False,
+        secure=AUTH_COOKIE_SECURE,
+        samesite="lax",
+        path="/",
+    )
 
 
 def clear_auth_cookie(response: Response):
     response.delete_cookie(
         key=AUTH_COOKIE_NAME,
+        path="/",
+        secure=AUTH_COOKIE_SECURE,
+        samesite="lax",
+    )
+    response.delete_cookie(
+        key=CSRF_COOKIE_NAME,
         path="/",
         secure=AUTH_COOKIE_SECURE,
         samesite="lax",

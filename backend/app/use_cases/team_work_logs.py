@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.models import Site, TeamWorkLog, TeamWorkLogEntry, User
@@ -137,7 +138,6 @@ def create_team_work_log(data, leader: User, session: Session):
             select(TeamWorkLog).where(
                 TeamWorkLog.leader_id == leader.id,
                 TeamWorkLog.client_submission_id == client_submission_id,
-                TeamWorkLog.deleted_at.is_(None),
             )
         ).first()
         if existing:
@@ -158,23 +158,36 @@ def create_team_work_log(data, leader: User, session: Session):
         client_submission_id=client_submission_id,
         status="pending",
     )
-    session.add(log)
-    session.flush()
+    try:
+        session.add(log)
+        session.flush()
 
-    for entry in prepared_entries:
-        session.add(TeamWorkLogEntry(team_work_log_id=log.id, **entry))
+        for entry in prepared_entries:
+            session.add(TeamWorkLogEntry(team_work_log_id=log.id, **entry))
 
-    add_audit_event(
-        session=session,
-        actor=leader,
-        action="team_work_log_create",
-        entity_type="team_log",
-        entity_id=log.id,
-        after=model_snapshot(log),
-        summary=f"Submitted weekly team log for {data.week_start}",
-        department_id=department_id,
-    )
-    session.commit()
+        add_audit_event(
+            session=session,
+            actor=leader,
+            action="team_work_log_create",
+            entity_type="team_log",
+            entity_id=log.id,
+            after=model_snapshot(log),
+            summary=f"Submitted weekly team log for {data.week_start}",
+            department_id=department_id,
+        )
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        if client_submission_id:
+            existing = session.exec(
+                select(TeamWorkLog).where(
+                    TeamWorkLog.leader_id == leader.id,
+                    TeamWorkLog.client_submission_id == client_submission_id,
+                )
+            ).first()
+            if existing:
+                return team_work_log_response(existing, session)
+        raise
     session.refresh(log)
     return team_work_log_response(log, session)
 

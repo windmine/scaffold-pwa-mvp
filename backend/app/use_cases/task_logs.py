@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.models import TaskLog, TaskTemplate, User
@@ -65,7 +66,20 @@ def create_task_log(data, user: User, session: Session):
     )
 
     session.add(log)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        if client_submission_id:
+            existing_log = session.exec(
+                select(TaskLog).where(
+                    TaskLog.worker_id == user.id,
+                    TaskLog.client_submission_id == client_submission_id
+                )
+            ).first()
+            if existing_log:
+                return task_log_response(existing_log, session)
+        raise
     session.refresh(log)
 
     return task_log_response(log, session)

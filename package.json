@@ -4,10 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:phone": "vite --host 0.0.0.0 --port 5173",
-    "build": "vite build",
-    "check:mobile": "node scripts/check-mobile-browser-workflows.mjs",
+    "generate:pwa": "node scripts/generate-pwa-service-worker.mjs",
+    "dev": "npm run generate:pwa && vite",
+    "dev:phone": "npm run generate:pwa && vite --host 0.0.0.0 --port 5173",
+    "build": "npm run generate:pwa && vite build",
+    "check:mobile": "npm run check:mobile:static && npm run check:browser",
+    "check:mobile:static": "npm run generate:pwa && node scripts/check-mobile-browser-workflows.mjs",
+    "check:browser": "npm run generate:pwa && node scripts/check-browser-workflows.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "preview:phone": "vite preview --host 0.0.0.0 --port 4173"
@@ -35,6 +38,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.5.0",
+    "playwright": "^1.61.1",
     "vite": "^8.0.10"
   }
 }

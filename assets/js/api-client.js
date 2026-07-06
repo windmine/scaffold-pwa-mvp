@@ -1,5 +1,8 @@
-const TOKEN_KEY = "geo_token";
 const USER_KEY = "geo_user";
+const LEGACY_TOKEN_KEY = "geo_token";
+const CSRF_COOKIE_KEY = "geo_csrf_token";
+const CSRF_HEADER_KEY = "X-CSRF-Token";
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 function getDefaultApiBase() {
   if (["http:", "https:"].includes(window.location.protocol)) {
@@ -30,6 +33,26 @@ class ApiError extends Error {
   }
 }
 
+function clearLegacyBearerToken() {
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
+}
+
+function getCookieValue(name) {
+  const prefix = `${encodeURIComponent(name)}=`;
+  return document.cookie
+    .split(";")
+    .map((item) => item.trim())
+    .find((item) => item.startsWith(prefix))
+    ?.slice(prefix.length) || "";
+}
+
+function csrfHeadersFor(method = "GET") {
+  if (SAFE_METHODS.has(String(method || "GET").toUpperCase())) return {};
+
+  const token = getCookieValue(CSRF_COOKIE_KEY);
+  return token ? { [CSRF_HEADER_KEY]: decodeURIComponent(token) } : {};
+}
+
 function normalizeUser(user) {
   if (!user) return null;
 
@@ -49,22 +72,13 @@ function normalizeUser(user) {
   };
 }
 
-export function saveToken(token) {
-  localStorage.setItem(TOKEN_KEY, token);
-}
-
-export function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function saveSession(token, user) {
-  saveToken(token);
+export function saveSession(user) {
+  clearLegacyBearerToken();
   localStorage.setItem(USER_KEY, JSON.stringify(normalizeUser(user)));
 }
 
 export function getSession() {
-  const token = getToken();
-  if (!token) return null;
+  clearLegacyBearerToken();
 
   try {
     const rawUser = localStorage.getItem(USER_KEY);
@@ -75,34 +89,24 @@ export function getSession() {
 }
 
 export function logout() {
-  const token = getToken();
-  const headers = {};
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
   fetch(`${API_BASE}/auth/logout`, {
     method: "POST",
     credentials: "include",
-    headers
+    headers: csrfHeadersFor("POST")
   }).catch(() => {});
 
-  localStorage.removeItem(TOKEN_KEY);
+  clearLegacyBearerToken();
   localStorage.removeItem(USER_KEY);
 }
 
 async function apiFetch(path, options = {}) {
-  const token = getToken();
+  const method = options.method || "GET";
 
   const headers = {
     "Content-Type": "application/json",
+    ...csrfHeadersFor(method),
     ...(options.headers || {})
   };
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
 
   let res;
   try {
@@ -128,12 +132,7 @@ async function apiFetch(path, options = {}) {
 }
 
 async function apiBlob(path, fallbackMessage) {
-  const token = getToken();
   const headers = {};
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
 
   let res;
   try {
@@ -163,7 +162,7 @@ export async function login(email, password) {
     body: JSON.stringify({ email, password })
   });
 
-  saveSession(data.access_token, data.user);
+  saveSession(data.user);
 
   return normalizeUser(data.user);
 }
@@ -276,14 +275,10 @@ export async function updateSite(siteId, site) {
 }
 
 export async function uploadPhoto(file, filename = "photo.jpg") {
-  const token = getToken();
   const formData = new FormData();
   formData.append("file", file, filename);
 
-  const headers = {};
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+  const headers = csrfHeadersFor("POST");
 
   let res;
   try {

@@ -6,48 +6,17 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import basicSsl from '@vitejs/plugin-basic-ssl'
+import { pwaAssetCopies, writeServiceWorker } from './scripts/pwa-shell-assets.mjs'
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url))
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000'
 const useHttpsDevServer = process.env.VITE_DISABLE_HTTPS !== 'true'
 
-const pwaAssetCopies = [
-  ['sw.js', 'sw.js'],
-  ['offline.html', 'offline.html'],
-  ['manifest.webmanifest', 'manifest.webmanifest'],
-  ['assets/css/styles.css', 'assets/css/styles.css'],
-  ['assets/js/app.js', 'assets/js/app.js'],
-  ['assets/js/api-client.js', 'assets/js/api-client.js'],
-  ['assets/js/date-inputs.js', 'assets/js/date-inputs.js'],
-  ['assets/js/db.js', 'assets/js/db.js'],
-  ['assets/js/history.js', 'assets/js/history.js'],
-  ['assets/js/i18n.js', 'assets/js/i18n.js'],
-  ['assets/js/mock-api.js', 'assets/js/mock-api.js'],
-  ['assets/js/offline-submissions.js', 'assets/js/offline-submissions.js'],
-  ['assets/js/photo-viewer.js', 'assets/js/photo-viewer.js'],
-  ['assets/js/site-map-picker.js', 'assets/js/site-map-picker.js'],
-  ['assets/js/staff-sites.js', 'assets/js/staff-sites.js'],
-  ['assets/js/supervisor-analytics.js', 'assets/js/supervisor-analytics.js'],
-  ['assets/js/supervisor-map.js', 'assets/js/supervisor-map.js'],
-  ['assets/js/supervisor-review.js', 'assets/js/supervisor-review.js'],
-  ['assets/js/team-work-log.js', 'assets/js/team-work-log.js'],
-  ['assets/js/utils.js', 'assets/js/utils.js'],
-  ['assets/js/worker-attendance.js', 'assets/js/worker-attendance.js'],
-  ['assets/js/worker-form.js', 'assets/js/worker-form.js'],
-  ['assets/js/worker-log.js', 'assets/js/worker-log.js'],
-  ['assets/js/worker-sites.js', 'assets/js/worker-sites.js'],
-  ['assets/js/work-form-fields.js', 'assets/js/work-form-fields.js'],
-  ['assets/icons/leader-logo-export.png', 'assets/icons/leader-logo-export.png'],
-  ['assets/icons/mutual-logo.svg', 'assets/icons/mutual-logo.svg'],
-  ['assets/icons/mc-logo.svg', 'assets/icons/mc-logo.svg'],
-  ['assets/icons/stech-logo.svg', 'assets/icons/stech-logo.svg'],
-  ['assets/icons/bop-logo.svg', 'assets/icons/bop-logo.svg'],
-  ['assets/icons/leader-icon.svg', 'assets/icons/leader-icon.svg'],
-  ['assets/icons/apple-touch-icon.png', 'assets/icons/apple-touch-icon.png'],
-  ['assets/icons/icon-192.png', 'assets/icons/icon-192.png'],
-  ['assets/icons/icon-512.png', 'assets/icons/icon-512.png'],
-  ['assets/icons/maskable-512.png', 'assets/icons/maskable-512.png']
-]
+function localHttpsOptions() {
+  // Vite serves HTTPS through Node's HTTP/2 server. Node 24 warns when some dev
+  // middleware touches HTTP/1-only status messages, so keep local HTTPS on h1.
+  return { ALPNProtocols: ['http/1.1'] }
+}
 
 function copyPwaAssets() {
   let outDir = 'dist'
@@ -57,9 +26,11 @@ function copyPwaAssets() {
     enforce: 'post',
     configResolved(config) {
       outDir = config.build.outDir
+      writeServiceWorker(rootDir)
     },
     closeBundle() {
       const buildDir = join(rootDir, outDir)
+      writeServiceWorker(rootDir)
 
       for (const [source, target] of pwaAssetCopies) {
         const targetPath = join(buildDir, target)
@@ -88,6 +59,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     strictPort: true,
+    ...(useHttpsDevServer ? { https: localHttpsOptions() } : {}),
     proxy: {
       '/api': {
         target: apiProxyTarget,
@@ -105,6 +77,7 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 4173,
     strictPort: true,
+    ...(useHttpsDevServer ? { https: localHttpsOptions() } : {}),
     proxy: {
       '/api': {
         target: apiProxyTarget,

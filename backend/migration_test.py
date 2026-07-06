@@ -1,9 +1,11 @@
+import shutil
 import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 
@@ -29,6 +31,23 @@ EXPECTED_TABLES = {
     "auditevent",
     "schema_migrations",
 }
+
+EXPECTED_VERSIONS = [
+    "0001_initial_schema",
+    "0002_work_form_photo_metadata",
+    "0003_departments",
+    "0004_registration_verification",
+    "0005_dashboard_department_preference",
+    "0006_manual_attendance_entries",
+    "0007_record_rubbish_bin",
+    "0008_manual_task_logs",
+    "0009_worker_classes_and_team_logs",
+    "0010_pdf_daywork_form_template",
+    "0011_multi_team_daywork_form",
+    "0012_form_and_team_log_rubbish_bin",
+    "0013_daywork_team_break_options",
+    "0014_client_submission_unique_indexes",
+]
 
 
 def make_engine(db_path: Path):
@@ -59,29 +78,24 @@ def assert_contains(label: str, actual, expected):
         raise AssertionError(f"{label}: missing {sorted(missing)}")
 
 
+def copy_migrations_before_0014(target: Path):
+    source = Path(__file__).resolve().parent / "migrations" / "versions"
+    target.mkdir(parents=True, exist_ok=True)
+
+    for path in source.glob("*.py"):
+        if path.name in {"__init__.py", "0014_client_submission_unique_indexes.py"}:
+            continue
+        shutil.copy2(path, target / path.name)
+
+
 def assert_migration_recorded(engine):
     with engine.begin() as connection:
         rows = connection.exec_driver_sql(
             "SELECT version FROM schema_migrations ORDER BY version"
         ).all()
 
-    expected_versions = [
-        "0001_initial_schema",
-        "0002_work_form_photo_metadata",
-        "0003_departments",
-        "0004_registration_verification",
-        "0005_dashboard_department_preference",
-        "0006_manual_attendance_entries",
-        "0007_record_rubbish_bin",
-        "0008_manual_task_logs",
-        "0009_worker_classes_and_team_logs",
-        "0010_pdf_daywork_form_template",
-        "0011_multi_team_daywork_form",
-        "0012_form_and_team_log_rubbish_bin",
-        "0013_daywork_team_break_options",
-    ]
-    if [row[0] for row in rows] != expected_versions:
-        raise AssertionError(f"schema_migrations: expected {expected_versions}")
+    if [row[0] for row in rows] != EXPECTED_VERSIONS:
+        raise AssertionError(f"schema_migrations: expected {EXPECTED_VERSIONS}")
 
 
 def test_postgres_statement_adaptation():
@@ -109,23 +123,8 @@ def test_fresh_database():
         engine = make_engine(Path(directory) / "fresh.db")
 
         applied = run_migrations(engine)
-        expected_versions = [
-            "0001_initial_schema",
-            "0002_work_form_photo_metadata",
-            "0003_departments",
-            "0004_registration_verification",
-            "0005_dashboard_department_preference",
-            "0006_manual_attendance_entries",
-            "0007_record_rubbish_bin",
-            "0008_manual_task_logs",
-            "0009_worker_classes_and_team_logs",
-            "0010_pdf_daywork_form_template",
-            "0011_multi_team_daywork_form",
-            "0012_form_and_team_log_rubbish_bin",
-            "0013_daywork_team_break_options",
-        ]
-        if applied != expected_versions:
-            raise AssertionError(f"fresh migration: expected {expected_versions}, got {applied}")
+        if applied != EXPECTED_VERSIONS:
+            raise AssertionError(f"fresh migration: expected {EXPECTED_VERSIONS}, got {applied}")
 
         if run_migrations(engine) != []:
             raise AssertionError("fresh migration: second run should be a no-op")
@@ -283,23 +282,8 @@ def test_legacy_database():
             )
 
         applied = run_migrations(engine)
-        expected_versions = [
-            "0001_initial_schema",
-            "0002_work_form_photo_metadata",
-            "0003_departments",
-            "0004_registration_verification",
-            "0005_dashboard_department_preference",
-            "0006_manual_attendance_entries",
-            "0007_record_rubbish_bin",
-            "0008_manual_task_logs",
-            "0009_worker_classes_and_team_logs",
-            "0010_pdf_daywork_form_template",
-            "0011_multi_team_daywork_form",
-            "0012_form_and_team_log_rubbish_bin",
-            "0013_daywork_team_break_options",
-        ]
-        if applied != expected_versions:
-            raise AssertionError(f"legacy migration: expected {expected_versions}, got {applied}")
+        if applied != EXPECTED_VERSIONS:
+            raise AssertionError(f"legacy migration: expected {EXPECTED_VERSIONS}, got {applied}")
 
         assert_contains("legacy tables", inspect(engine).get_table_names(), EXPECTED_TABLES)
         assert_contains(
@@ -370,6 +354,89 @@ def test_legacy_database():
         engine.dispose()
 
     print("ok - legacy database migration")
+
+
+def assert_duplicate_rejected(session: Session, label: str, first, duplicate, allowed):
+    session.add(first)
+    session.commit()
+
+    session.add(duplicate)
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+    else:
+        raise AssertionError(f"{label}: duplicate client_submission_id should be rejected")
+
+    session.add(allowed)
+    session.commit()
+
+
+def test_client_submission_unique_indexes():
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
+        engine = make_engine(Path(directory) / "idempotency.db")
+        run_migrations(engine)
+
+        with Session(engine) as session:
+            assert_duplicate_rejected(
+                session,
+                "attendance idempotency index",
+                AttendanceRecord(worker_id=1, record_type="check_in", client_submission_id="same-attendance"),
+                AttendanceRecord(worker_id=1, record_type="check_out", client_submission_id="same-attendance"),
+                AttendanceRecord(worker_id=2, record_type="check_in", client_submission_id="same-attendance"),
+            )
+            assert_duplicate_rejected(
+                session,
+                "task-log idempotency index",
+                TaskLog(worker_id=1, description="First task", client_submission_id="same-task"),
+                TaskLog(worker_id=1, description="Duplicate task", client_submission_id="same-task"),
+                TaskLog(worker_id=2, description="Allowed task", client_submission_id="same-task"),
+            )
+            assert_duplicate_rejected(
+                session,
+                "form-submission idempotency index",
+                WorkFormSubmission(form_id=1, worker_id=1, answers_json="{}", client_submission_id="same-form"),
+                WorkFormSubmission(form_id=1, worker_id=1, answers_json="{}", client_submission_id="same-form"),
+                WorkFormSubmission(form_id=1, worker_id=2, answers_json="{}", client_submission_id="same-form"),
+            )
+            assert_duplicate_rejected(
+                session,
+                "team-work-log idempotency index",
+                TeamWorkLog(leader_id=1, week_start="2026-06-29", client_submission_id="same-team-log"),
+                TeamWorkLog(leader_id=1, week_start="2026-07-06", client_submission_id="same-team-log"),
+                TeamWorkLog(leader_id=2, week_start="2026-06-29", client_submission_id="same-team-log"),
+            )
+
+        engine.dispose()
+
+    print("ok - client submission unique indexes")
+
+
+def test_client_submission_duplicate_precheck():
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
+        root = Path(directory)
+        old_migrations_dir = root / "pre-0014-migrations"
+        copy_migrations_before_0014(old_migrations_dir)
+        engine = make_engine(root / "precheck.db")
+        run_migrations(engine, migrations_dir=old_migrations_dir)
+
+        with Session(engine) as session:
+            session.add(AttendanceRecord(worker_id=7, record_type="check_in", client_submission_id="duplicate-key"))
+            session.add(AttendanceRecord(worker_id=7, record_type="check_out", client_submission_id="duplicate-key"))
+            session.commit()
+
+        try:
+            run_migrations(engine)
+        except RuntimeError as error:
+            message = str(error)
+            if "duplicate client submission ids exist" not in message:
+                raise AssertionError(f"client submission duplicate precheck: unexpected error {message}") from error
+        else:
+            raise AssertionError("client submission duplicate precheck: migration should fail on existing duplicates")
+        finally:
+            engine.dispose()
+
+    print("ok - client submission duplicate precheck")
 
 
 def test_rubbish_bin_purge():
@@ -463,6 +530,8 @@ def main():
     test_postgres_statement_adaptation()
     test_fresh_database()
     test_legacy_database()
+    test_client_submission_unique_indexes()
+    test_client_submission_duplicate_precheck()
     test_rubbish_bin_purge()
     print("migration test passed")
     return 0

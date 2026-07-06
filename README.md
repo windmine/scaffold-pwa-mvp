@@ -10,8 +10,9 @@ This project lets field workers check in/out from a phone with location data, su
 Frontend: Vite-served PWA-style static app
 Backend: FastAPI REST API
 Database: SQLite for local development; Cloud SQL PostgreSQL for the live Cloud Run test backend
-Auth: JWT bearer tokens
+Auth: HttpOnly JWT session cookie for the browser app; bearer token response remains available for scripts/API clients
 Uploads: Local backend/uploads folder for development; private Cloud Storage bucket for live Cloud Run
+Recommended deployment: Firebase Hosting + Cloud Run + Cloud SQL PostgreSQL + Cloud Storage + Secret Manager
 Primary UI files: index.html, assets/css/styles.css, assets/js/app.js
 ```
 
@@ -41,6 +42,27 @@ Completed in this reset:
 Next step:
 
 Run the real-phone checklist against the live Firebase Hosting / Cloud Run path, then clean up test data and finish the remaining production hardening items.
+
+## Recommended Production Deployment
+
+Use the Google-native deployment path for this project:
+
+```text
+PWA frontend: Firebase Hosting serving dist/
+API backend: FastAPI container on Cloud Run
+Database: Cloud SQL for PostgreSQL
+Uploads: private Cloud Storage bucket for photos and signatures
+Secrets: Secret Manager
+Routing: Firebase Hosting rewrites /api/** and /uploads/** to Cloud Run
+```
+
+Keep the browser app same-origin through Firebase Hosting rewrites. This avoids extra CORS, cookie, and CSRF complexity for the PWA while still letting Cloud Run serve the API.
+
+For around 100 users, start with a single-zone Cloud SQL PostgreSQL instance, Cloud Run min instances `0`, and a private Cloud Storage bucket. Turn Cloud Run min instances to `1` only if cold starts are unacceptable. Move Cloud SQL to regional HA only when downtime risk is worth the extra cost.
+
+Expected small-production monthly cost is roughly `USD $70-$120`. A high-availability Cloud SQL setup can raise that to roughly `USD $130-$250+`.
+
+Do not store uploaded photos or signatures in Cloud SQL. Store files in Cloud Storage and store only URLs/metadata in PostgreSQL.
 
 ## Features
 
@@ -128,7 +150,7 @@ Worker restrictions:
 - Vite HTTPS dev server for geolocation-friendly phone testing.
 - Same-origin `/api` proxy to avoid iOS mixed-content blocking.
 - Visible Download App button with browser install prompt or Add-to-Home-Screen fallback instructions.
-- Service worker app shell cache.
+- Service worker app shell cache generated from one shared asset manifest with a content-derived cache name.
 - Offline page.
 - IndexedDB drafts and queued attendance, task-log, and work-form submissions, including photos and handwritten signature data.
 - Mobile-first layout with folded supervisor sections.
@@ -176,7 +198,11 @@ scaffold-pwa-mvp/
     production-db-runbook.md           Managed database migration and rollback runbook
 
   scripts/
+    pwa-shell-assets.mjs              Shared PWA app-shell manifest and cache-name generator
+    generate-pwa-service-worker.mjs   Writes generated sw.js from the shared manifest
+    sw-runtime.js                     Service-worker runtime logic used by the generator
     check-mobile-browser-workflows.mjs  Dependency-free PWA/mobile preflight check
+    check-browser-workflows.mjs         Playwright Chromium worker/supervisor workflow check
 
   assets/
     css/
@@ -347,6 +373,7 @@ From the project root:
 
 ```powershell
 npm install
+npx playwright install chromium
 ```
 
 Run on the computer:
@@ -387,6 +414,17 @@ Dockerfile               FastAPI Cloud Run container
 firestore.rules          Deny-all until the app intentionally uses client Firestore
 storage.rules            Deny-all for direct browser Firebase Storage access
 ```
+
+Recommended deployment order:
+
+1. Create or confirm the Cloud SQL PostgreSQL instance and database.
+2. Create a dedicated Cloud Run service account with least-privilege roles.
+3. Store `DATABASE_URL`, `GEO_SECRET_KEY`, SMTP credentials, and other secrets in Secret Manager.
+4. Configure Cloud Storage uploads and keep the bucket private.
+5. Deploy the FastAPI backend to Cloud Run and attach Cloud SQL.
+6. Run migrations and backend smoke tests against the deployed backend.
+7. Build and deploy Firebase Hosting.
+8. Run `npm.cmd run check:mobile` locally and the manual phone checklist against the hosted URL.
 
 Build and deploy the backend service first:
 
@@ -901,6 +939,10 @@ npm.cmd run build
 npm.cmd run check:mobile
 ```
 
+`npm.cmd run check:mobile` runs the static PWA/mobile preflight and then a Playwright Chromium workflow check for login, geolocation allow/deny, service-worker update prompt, IndexedDB offline queue replay, and supervisor review. The browser check starts its own temporary backend and Vite server on `127.0.0.1:8765` and `127.0.0.1:5175`, with a throwaway SQLite database and upload folder. Override those ports with `BROWSER_WORKFLOW_BACKEND_PORT` or `BROWSER_WORKFLOW_FRONTEND_PORT` if needed.
+
+PWA shell assets are maintained in `scripts/pwa-shell-assets.mjs`. `sw.js` is generated by `npm.cmd run generate:pwa`, and `npm.cmd run build`, `npm.cmd run dev`, `npm.cmd run dev:phone`, and `npm.cmd run check:mobile` run that generator before using the service worker. The service-worker cache name is derived from the app-shell file contents, so changing a listed shell asset automatically creates a new cache name.
+
 Backend import check:
 
 ```powershell
@@ -947,6 +989,7 @@ The smoke test covers:
 The mobile/browser workflow check covers:
 
 - Production PWA app-shell files and stable manifest/icon paths.
+- Generated PWA app-shell manifest, copied build assets, and service-worker cache name stay in sync.
 - Service worker network-only API/upload rules.
 - Visible service worker update-flow wiring.
 - Mobile viewport, camera/photo inputs, and active worker/supervisor UI controls.
@@ -1062,6 +1105,7 @@ Before real production use, improve:
 - Rate limiting.
 - Richer audit-history filtering/export and a dedicated audit detail view.
 - Backup and restore plan.
+- Budget alert for expected `USD $70-$120` small-production monthly spend and a second alert before the HA cost range.
 - More automated frontend and backend tests.
 - Better offline conflict resolution.
 - Production monitoring and error logging.

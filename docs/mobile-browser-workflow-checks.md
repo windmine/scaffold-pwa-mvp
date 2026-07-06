@@ -6,6 +6,30 @@ Use this checklist before calling the MVP ready for phone testing or PWA hardeni
 
 - 2026-06-04: Full real-phone workflow pass completed on the local network with no reported blocking issues.
 
+## Hosted Deployment Pass
+
+Run this after deploying the recommended production path:
+
+```text
+Firebase Hosting -> Cloud Run -> Cloud SQL PostgreSQL
+                              -> Cloud Storage uploads
+                              -> Secret Manager secrets
+```
+
+Use the hosted Firebase URL, not the local Vite URL, when checking production behavior:
+
+```text
+https://geo-attendance-system-db9ca.web.app
+```
+
+Confirm `/api/health` works through Firebase Hosting before phone testing:
+
+```powershell
+curl.exe https://geo-attendance-system-db9ca.web.app/api/health
+```
+
+Use controlled production test accounts. Do not use `/dev/seed` on production-like deployments.
+
 ## Automated Preflight
 
 From the project root:
@@ -23,7 +47,7 @@ With the backend running at `http://127.0.0.1:8000`:
 python backend\smoke_test.py
 ```
 
-`npm.cmd run check:mobile` verifies the built PWA shell, service worker output, update-flow wiring, mobile controls, same-origin proxy setup, supervisor audit-history wiring, offline work-form submission support, photo controls, and signature enforcement. It does not replace a real phone test.
+`npm.cmd run check:mobile` verifies the built PWA shell, generated service worker output, update-flow wiring, mobile controls, same-origin proxy setup, supervisor audit-history wiring, offline work-form submission support, photo controls, signature enforcement, and Playwright browser workflows. It does not replace a real phone test.
 
 ## Setup For Manual Phone Test
 
@@ -122,7 +146,9 @@ python backend\smoke_test.py
 
 - Install the app from the browser prompt or browser install menu.
 - Open the installed app and confirm login/history screens load.
-- Build and deploy a changed `sw.js` version, then reload an already-open app tab.
+- On the hosted Firebase URL, confirm the app stays same-origin for API calls through `/api/**`.
+- Upload one photo and one signature and confirm their `/uploads/...` URLs still load after refresh, proving Cloud Run is serving Cloud Storage-backed files.
+- Build and deploy a changed generated service worker, then reload an already-open app tab.
 - Confirm the topbar shows `Update App` and the status banner says a new version is ready.
 - Tap `Update App` and confirm the app reloads.
 - Confirm backend data and uploaded photos do not appear stale after refresh or reinstall.
@@ -137,3 +163,4 @@ python backend\smoke_test.py
 - Supervisor review shows synced worker records, photos, and signatures.
 - Supervisor Audit history shows recent admin/review changes and workers cannot access it.
 - The app update flow is visible and reloads only after the user taps `Update App`.
+- Hosted Firebase/Cloud Run checks pass without direct phone access to Cloud SQL or Cloud Storage.

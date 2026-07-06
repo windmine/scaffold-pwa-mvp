@@ -43,6 +43,8 @@ Create a practical geo-based field operations platform for two main user groups.
 - `src/App.jsx` exists but is a legacy React path and is not the current production UI.
 - The backend is FastAPI in `backend/app/main.py` using SQLModel models from `backend/app/models.py`.
 - Local development uses SQLite at `backend/geo_management.db`.
+- The recommended hosted deployment is Firebase Hosting for the PWA, Cloud Run for FastAPI, Cloud SQL PostgreSQL for the database, Cloud Storage for photos/signatures, and Secret Manager for secrets.
+- Production uploads must use Cloud Storage or another durable object store. Do not rely on local `backend/uploads/` for Cloud Run production storage.
 - The app currently supports backend auth, worker/supervisor roles, attendance, geolocation, site radius checks, task logs, multiple photos, task templates, staff management, resigned workers, supervisor record edits, CSV exports, dynamic work forms, form submissions, and handwritten signature fields.
 - Payroll/admin reporting is planned, not implemented yet. Keep it separate from the Review Queue: supervisors validate records, while accounting calculates/export payable hours from approved attendance.
 - PWA pieces exist: `manifest.webmanifest`, `sw.js`, `offline.html`, HTTPS Vite dev server, IndexedDB drafts, and an offline queue for attendance, task logs, and work forms with photos/signatures. Treat it as PWA-shaped but not fully production PWA-ready yet.
@@ -71,7 +73,9 @@ Expected stack:
 
 - **Frontend:** Vite-served PWA-style static app.
 - **Backend:** Python FastAPI.
-- **Database:** SQLModel / SQLAlchemy-compatible database.
+- **Database:** SQLModel / SQLAlchemy-compatible database. Use SQLite locally and Cloud SQL PostgreSQL for the Google-hosted path.
+- **Production hosting:** Firebase Hosting rewrites `/api/**` and `/uploads/**` to Cloud Run so browser auth stays same-origin.
+- **Upload storage:** local `backend/uploads/` only for development; Cloud Storage for production photos and signatures.
 - **Testing target:** local desktop browser and phone browser on the same network.
 - **Development startup example:**
   - Backend: `python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`
@@ -109,8 +113,8 @@ Current reset priorities completed:
 
 Current next priorities:
 
-1. Run the full manual phone/browser workflow checklist against a real phone on the local network.
-2. Replace lightweight SQLite startup migrations with a real migration workflow before production.
+1. Run the full manual phone/browser workflow checklist against the live Firebase Hosting / Cloud Run path.
+2. Finish production hardening: least-privilege Cloud Run service account, Cloud SQL public-IP/private-IP decision, backup restore drill, budget alerts, and production monitoring.
 3. Expand automated frontend/backend tests around the highest-risk worker and supervisor workflows.
 4. Add a desktop-first payroll/admin portal section for pay-period worker hour summaries, exception flags, and payroll CSV export.
 
@@ -125,7 +129,8 @@ Current next priorities:
 - After changing backend code, check that API routes still start correctly.
 - After changing frontend code, check that the Vite app still builds.
 - When adding a feature, update the README if setup, usage, API, or validation changes.
-- When changing frontend assets used by the app shell, bump the service worker cache version in `sw.js`.
+- When changing frontend assets used by the app shell, update `scripts/pwa-shell-assets.mjs` if the shell asset list changes and run `npm run generate:pwa`; `sw.js` and its cache name are generated.
+- When changing production deployment behavior, update `README.md`, `docs/production-db-runbook.md`, and `docs/mobile-browser-workflow-checks.md`.
 - Use clear naming for files, functions, routes, and components.
 
 ## Suggested Core Data Model

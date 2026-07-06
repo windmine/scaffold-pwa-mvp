@@ -3,11 +3,14 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+from http.cookies import SimpleCookie
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
 BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+CSRF_COOKIE_NAME = "geo_csrf_token"
+AUTH_COOKIE_NAME = "geo_access_token"
 SMOKE_IMAGE_BYTES = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 )
@@ -22,6 +25,53 @@ def request(method, path, payload=None, token=None):
         request_obj.add_header("Content-Type", "application/json")
     if token:
         request_obj.add_header("Authorization", f"Bearer {token}")
+
+    try:
+        with urlopen(request_obj, timeout=10) as response:
+            raw = response.read().decode("utf-8")
+            content_type = response.headers.get("Content-Type", "")
+            body = json.loads(raw) if raw and "application/json" in content_type else raw
+            return response.status, body
+    except HTTPError as error:
+        raw = error.read().decode("utf-8")
+        return error.code, json.loads(raw) if raw else None
+
+
+def cookies_from_headers(headers):
+    cookies = SimpleCookie()
+    for header in headers.get_all("Set-Cookie", []):
+        cookies.load(header)
+    return {key: morsel.value for key, morsel in cookies.items()}
+
+
+def login_cookie_session(email, password):
+    payload = {"email": email, "password": password}
+    body = json.dumps(payload).encode("utf-8")
+    request_obj = Request(f"{BASE_URL}/auth/login", data=body, method="POST")
+    request_obj.add_header("Accept", "application/json")
+    request_obj.add_header("Content-Type", "application/json")
+
+    with urlopen(request_obj, timeout=10) as response:
+        raw = response.read().decode("utf-8")
+        content_type = response.headers.get("Content-Type", "")
+        response_body = json.loads(raw) if raw and "application/json" in content_type else raw
+        return response.status, response_body, cookies_from_headers(response.headers)
+
+
+def request_with_cookie_session(method, path, payload=None, cookies=None, include_csrf=False):
+    body = json.dumps(payload).encode("utf-8") if payload is not None else None
+    request_obj = Request(f"{BASE_URL}{path}", data=body, method=method)
+    request_obj.add_header("Accept", "application/json")
+
+    if payload is not None:
+        request_obj.add_header("Content-Type", "application/json")
+    if cookies:
+        request_obj.add_header(
+            "Cookie",
+            "; ".join(f"{name}={value}" for name, value in cookies.items())
+        )
+    if include_csrf and cookies and cookies.get(CSRF_COOKIE_NAME):
+        request_obj.add_header("X-CSRF-Token", cookies[CSRF_COOKIE_NAME])
 
     try:
         with urlopen(request_obj, timeout=10) as response:
@@ -163,6 +213,45 @@ def main():
             raise AssertionError("super admin login: expected default Leader department")
         if not admin_login["user"].get("is_global_admin"):
             raise AssertionError("super admin login: expected seeded global admin access")
+        cookie_status, _cookie_body, worker_cookies = login_cookie_session(
+            "worker@example.com",
+            "Passw0rd!",
+        )
+        if cookie_status != 200:
+            raise AssertionError(f"cookie login: expected 200, got {cookie_status}")
+        if not worker_cookies.get(AUTH_COOKIE_NAME):
+            raise AssertionError("cookie login: expected HttpOnly auth cookie")
+        if not worker_cookies.get(CSRF_COOKIE_NAME):
+            raise AssertionError("cookie login: expected CSRF cookie")
+        csrf_site_payload = {
+            "name": f"Cookie CSRF Site {datetime.now(timezone.utc).timestamp()}",
+            "address": "1 Cookie Test Road",
+            "latitude": -36.851,
+            "longitude": 174.761,
+            "allowed_radius_m": 100,
+        }
+        assert_status(
+            "cookie session rejects missing csrf",
+            request_with_cookie_session(
+                "POST",
+                "/sites",
+                csrf_site_payload,
+                worker_cookies,
+                include_csrf=False,
+            ),
+            403,
+        )
+        assert_status(
+            "cookie session accepts csrf",
+            request_with_cookie_session(
+                "POST",
+                "/sites",
+                csrf_site_payload,
+                worker_cookies,
+                include_csrf=True,
+            ),
+            200,
+        )
         assert_status(
             "department supervisor cannot resign super admin by status route",
             request(

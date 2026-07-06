@@ -122,6 +122,8 @@ def update_site(site_id: int, data, supervisor: User, session: Session):
 def list_users(session: Session, supervisor: User):
     department_id_for_new_record(supervisor, session)
     statement = scope_statement_to_user_department(select(User), User, supervisor)
+    if not user_is_global_admin(supervisor):
+        statement = statement.where(User.is_global_admin == False)  # noqa: E712
     users = session.exec(
         statement.order_by(User.role, User.name)
     ).all()
@@ -220,6 +222,8 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
         raise HTTPException(status_code=404, detail="User not found")
     if not can_access_department(supervisor, user.department_id):
         raise HTTPException(status_code=404, detail="User not found")
+    if user.is_global_admin and not user_is_global_admin(supervisor):
+        raise HTTPException(status_code=403, detail="Only global admins can edit global admin accounts")
 
     fields = data.model_fields_set
     before = model_snapshot(user)
@@ -322,12 +326,8 @@ def update_user_status(user_id: int, data, supervisor: User, session: Session):
         raise HTTPException(status_code=404, detail="User not found")
     if not can_access_department(supervisor, user.department_id):
         raise HTTPException(status_code=404, detail="User not found")
-
-    if user.is_global_admin and not user_is_global_admin(supervisor) and status != user.status:
-        raise HTTPException(
-            status_code=403,
-            detail="Only a global admin can change a global admin account status",
-        )
+    if user.is_global_admin and not user_is_global_admin(supervisor):
+        raise HTTPException(status_code=403, detail="Only global admins can edit global admin accounts")
     if user.id == supervisor.id and status != "active":
         raise HTTPException(status_code=400, detail="You cannot resign your own supervisor account")
 

@@ -1,6 +1,7 @@
 import json
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.models import User, WorkForm, WorkFormSubmission
@@ -155,7 +156,6 @@ def create_work_form_submission(data, user: User, session: Session):
             select(WorkFormSubmission).where(
                 WorkFormSubmission.worker_id == user.id,
                 WorkFormSubmission.client_submission_id == client_submission_id,
-                WorkFormSubmission.deleted_at.is_(None),
             )
         ).first()
         if existing_submission:
@@ -174,7 +174,20 @@ def create_work_form_submission(data, user: User, session: Session):
         status="pending"
     )
     session.add(submission)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        if client_submission_id:
+            existing_submission = session.exec(
+                select(WorkFormSubmission).where(
+                    WorkFormSubmission.worker_id == user.id,
+                    WorkFormSubmission.client_submission_id == client_submission_id,
+                )
+            ).first()
+            if existing_submission:
+                return work_form_submission_response(existing_submission, session)
+        raise
     session.refresh(submission)
 
     return work_form_submission_response(submission, session)

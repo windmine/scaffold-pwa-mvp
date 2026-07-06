@@ -7,7 +7,31 @@ Use this to manage the live backend database after moving from demo SQLite to ma
 - Database: Cloud SQL for PostgreSQL or another managed PostgreSQL-compatible service.
 - App: Cloud Run service `geo-backend`.
 - Frontend: Firebase Hosting at `https://geo-attendance-system-db9ca.web.app`.
+- Uploads: private Cloud Storage bucket for photos and signatures.
+- Secrets: Secret Manager values mounted/injected into Cloud Run.
 - Migration command: `python -m app.migrations`.
+
+## Recommended Google Deployment
+
+For this MVP, keep all production pieces on the Google/Firebase path:
+
+```text
+Firebase Hosting -> /api/** and /uploads/** rewrites -> Cloud Run -> Cloud SQL PostgreSQL
+                                                     -> Cloud Storage uploads
+                                                     -> Secret Manager secrets
+```
+
+Use same-origin Firebase Hosting rewrites for browser traffic. This keeps HttpOnly cookie auth and CSRF behavior simple and avoids a separate public API domain unless there is a clear need.
+
+For around 100 users, the default starting point should be:
+
+- Cloud SQL PostgreSQL, single-zone/zonal.
+- 1 vCPU and about 3.75 GiB RAM, with 20-50 GB SSD and storage auto-increase.
+- Automated backups and PITR enabled.
+- Cloud Run min instances `0` for cost, moving to `1` only if cold starts are unacceptable.
+- Private Cloud Storage bucket for files, with only URLs/metadata stored in PostgreSQL.
+
+Expected small-production cost is roughly `USD $70-$120/month`. Regional Cloud SQL HA can push the total to roughly `USD $130-$250+/month`. Create budget alerts before enabling HA.
 
 Current checked status on 2026-06-05:
 
@@ -63,7 +87,10 @@ Google references:
 4. Enable automated backups and point-in-time recovery before storing irreplaceable data.
 5. Create a least-privilege app database user.
 6. Attach the Cloud SQL instance to Cloud Run and grant the Cloud Run service account `roles/cloudsql.client`.
-7. Set staging Cloud Run environment variables:
+7. Create or confirm a dedicated Cloud Run service account. Do not use a broad `Editor` default service account for production.
+8. Create or confirm the private Cloud Storage upload bucket and grant the Cloud Run service account only the storage access it needs.
+9. Create a budget alert around the expected `USD $70-$120/month` small-production range and a second warning before HA-level spend.
+10. Set staging Cloud Run environment variables:
 
    ```text
    DATABASE_URL=postgresql+psycopg://geo_app:URL_ENCODED_PASSWORD@/geo_management?host=/cloudsql/geo-attendance-system-db9ca:australia-southeast1:geo-attendance-system
@@ -132,6 +159,8 @@ After production deploy:
 6. Submit one worker attendance record, one task log, and one required-signature work form.
 7. Confirm the supervisor Review Queue shows those records.
 8. Approve one record, reject one record, and confirm Audit history records the decisions.
+9. Upload one photo and one signature, then confirm the returned `/uploads/...` URL is served through Cloud Run from Cloud Storage after a browser refresh.
+10. Open the hosted PWA from a real phone and repeat the core login, geolocation, offline queue, and update-flow checks from `docs/mobile-browser-workflow-checks.md`.
 
 ## Rollback
 

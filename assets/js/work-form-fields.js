@@ -1,3 +1,9 @@
+import {
+  selectedTeamMemberLabels,
+  setTeamMemberPickerSelectionFromNames,
+  setupTeamMemberPicker,
+  teamMemberPickerMarkup
+} from './team-member-picker.js';
 import { escapeHtml } from './utils.js';
 
 const DEFAULT_FIELD_PREFIX = 'workFormField';
@@ -185,11 +191,42 @@ function fieldDataAttributes(field, rowContext = null) {
   ].filter(Boolean).join(' ');
 }
 
+function usesDayworkTeamMemberPicker(field, options = {}, rowContext = null) {
+  return Boolean(
+    options.enhanceDayworkTeamMembers
+    && rowContext?.parentId === 'teams'
+    && field.id === 'team_name'
+  );
+}
+
+function usesDayworkTeamMemberCount(field, options = {}, rowContext = null) {
+  return Boolean(
+    options.enhanceDayworkTeamMembers
+    && rowContext?.parentId === 'teams'
+    && field.id === 'team_people'
+  );
+}
+
 function renderField(field, options = {}, rowContext = null) {
   const idPrefix = options.idPrefix || DEFAULT_FIELD_PREFIX;
   const required = field.required ? ' required' : '';
   const label = `${field.label}${field.required ? ' *' : ''}`;
   const attrs = fieldDataAttributes(field, rowContext);
+
+  if (usesDayworkTeamMemberPicker(field, options, rowContext)) {
+    return `
+      <div class="daywork-team-member-field" ${attrs}>
+        ${teamMemberPickerMarkup({ legend: label })}
+        <input id="${fieldInputId(field, idPrefix, rowContext)}" type="hidden" data-daywork-team-member-names />
+      </div>
+    `;
+  }
+
+  if (usesDayworkTeamMemberCount(field, options, rowContext)) {
+    return `
+      <input id="${fieldInputId(field, idPrefix, rowContext)}" type="hidden" ${attrs} data-daywork-team-member-count />
+    `;
+  }
 
   if (field.type === 'section') {
     return `
@@ -281,7 +318,7 @@ function renderField(field, options = {}, rowContext = null) {
   `;
 }
 
-function renderRepeatRow(parent, children, rowKey, idPrefix) {
+function renderRepeatRow(parent, children, rowKey, options = {}) {
   const rowContext = { parentId: parent.id, rowKey };
   return `
     <div class="repeat-row" data-repeat-row="${escapeHtml(parent.id)}" data-repeat-row-key="${escapeHtml(rowKey)}">
@@ -290,7 +327,7 @@ function renderRepeatRow(parent, children, rowKey, idPrefix) {
         <button type="button" class="ghost" data-repeat-remove="${escapeHtml(parent.id)}">Remove</button>
       </div>
       <div class="repeat-row-fields">
-        ${children.map((child) => renderField(child, { idPrefix }, rowContext)).join('')}
+        ${children.map((child) => renderField(child, options, rowContext)).join('')}
       </div>
     </div>
   `;
@@ -299,7 +336,7 @@ function renderRepeatRow(parent, children, rowKey, idPrefix) {
 function renderRepeatField(parent, children, options = {}) {
   const idPrefix = options.idPrefix || DEFAULT_FIELD_PREFIX;
   const initialRows = Math.max(minRows(parent), 1);
-  const rows = Array.from({ length: initialRows }, (_, index) => renderRepeatRow(parent, children, index, idPrefix)).join('');
+  const rows = Array.from({ length: initialRows }, (_, index) => renderRepeatRow(parent, children, index, { ...options, idPrefix })).join('');
   return `
     <section class="repeat-section" data-repeat-section="${escapeHtml(parent.id)}" data-repeat-min="${minRows(parent)}" data-repeat-max="${maxRows(parent)}" ${fieldDataAttributes(parent)}>
       <div class="repeat-section-header">
@@ -337,6 +374,7 @@ function setupWorkFormInteractions(container, form, options) {
   container._workFormController = controller;
 
   setupSignaturePads(container);
+  setupDayworkTeamMemberPickers(container, options);
 
   container.addEventListener('click', (event) => {
     const addButton = event.target.closest('[data-repeat-add]');
@@ -361,6 +399,37 @@ function setupWorkFormInteractions(container, form, options) {
   updateDynamicState(container, form, options);
 }
 
+function dayworkTeamRows(scope) {
+  const nestedRows = scope.querySelectorAll ? Array.from(scope.querySelectorAll('[data-repeat-row="teams"]')) : [];
+  return [
+    ...(scope.matches?.('[data-repeat-row="teams"]') ? [scope] : []),
+    ...nestedRows
+  ];
+}
+
+function setupDayworkTeamMemberPickers(scope, options = {}) {
+  if (!options.enhanceDayworkTeamMembers) return;
+
+  dayworkTeamRows(scope).forEach((row) => {
+    const picker = row.querySelector('[data-team-member-picker]');
+    const nameInput = row.querySelector('[data-daywork-team-member-names]');
+    const countInput = row.querySelector('[data-daywork-team-member-count]');
+    if (!picker || !nameInput || !countInput) return;
+
+    setupTeamMemberPicker(picker, {
+      members: options.teamMembers || [],
+      initialNames: nameInput.value.split(',').map((name) => name.trim()).filter(Boolean),
+      onChange: () => {
+        const labels = selectedTeamMemberLabels(picker);
+        nameInput.value = labels.join(', ');
+        countInput.value = labels.length ? String(labels.length) : '';
+        nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+        countInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+  });
+}
+
 function addRepeatRow(container, form, repeatId, options = {}, values = null) {
   const fields = normalisedFields(form);
   const parent = fields.find((field) => field.id === repeatId && field.type === 'repeat');
@@ -379,11 +448,17 @@ function addRepeatRow(container, form, repeatId, options = {}, values = null) {
 
   rowsContainer.insertAdjacentHTML(
     'beforeend',
-    renderRepeatRow(parent, repeatChildren(fields, repeatId), nextRowKey, options.idPrefix || DEFAULT_FIELD_PREFIX)
+    renderRepeatRow(
+      parent,
+      repeatChildren(fields, repeatId),
+      nextRowKey,
+      { ...options, idPrefix: options.idPrefix || DEFAULT_FIELD_PREFIX }
+    )
   );
 
   const row = rowsContainer.querySelector(`[data-repeat-row-key="${CSS.escape(String(nextRowKey))}"]`);
   setupSignaturePads(row || rowsContainer);
+  setupDayworkTeamMemberPickers(row || rowsContainer, options);
   if (row && values) populateRepeatRow(row, parent, repeatChildren(fields, repeatId), values, options);
   updateRepeatButtons(container);
   updateDynamicState(container, form, options);
@@ -618,7 +693,11 @@ function collectSingleField(field, options = {}, rowContext = null) {
     return collectSignatureAnswer(field, options, rowContext);
   }
 
-  return inputValue(field, idPrefix, rowContext);
+  const value = inputValue(field, idPrefix, rowContext);
+  if (validate && field.required && (value === '' || value == null || value === false)) {
+    throw new Error(`${field.label} is required.`);
+  }
+  return value;
 }
 
 function isEmptyRepeatRow(row) {
@@ -733,6 +812,9 @@ function populateField(field, value, idPrefix, rowContext = null) {
   } else {
     input.value = value;
   }
+
+  const picker = input.closest('[data-work-form-field]')?.querySelector('[data-team-member-picker]');
+  if (picker) setTeamMemberPickerSelectionFromNames(picker, input.value);
 }
 
 function populateRepeatRow(row, parent, children, values, options = {}) {

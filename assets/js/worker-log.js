@@ -1,5 +1,6 @@
 import { saveDraft } from './mock-api.js';
 import { submitOfflineSubmission } from './offline-submissions.js';
+import { getTeamWorkLogMembers } from './api-client.js';
 import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
 import { setDateInputValue } from './date-inputs.js';
 import { fileToDataUrl, photoMetadataFromFile, todayDateInput, uuid } from './utils.js';
@@ -28,6 +29,46 @@ export function createWorkerLogModule({
   handleSessionExpired,
   isBackendSessionError
 }) {
+  let teamMembersLoadedForUserId = null;
+  let teamMemberLoadPromise = null;
+
+  function dayworkFieldOptions() {
+    return {
+      idPrefix: DAYWORK_FIELD_PREFIX,
+      container: els.dayworkFormFields,
+      enhanceDayworkTeamMembers: true,
+      teamMembers: teamMembersLoadedForUserId === state.user?.id ? state.teamWorkLogMembers || [] : []
+    };
+  }
+
+  function shouldLoadTeamMembers() {
+    return state.user?.role === 'worker'
+      && state.user?.workerClass === 'leader'
+      && teamMembersLoadedForUserId !== state.user.id
+      && !teamMemberLoadPromise;
+  }
+
+  function ensureTeamMembersLoaded() {
+    if (!shouldLoadTeamMembers()) return;
+
+    teamMemberLoadPromise = getTeamWorkLogMembers()
+      .then((members) => {
+        state.teamWorkLogMembers = members;
+        teamMembersLoadedForUserId = state.user?.id || null;
+        renderDayworkForm();
+      })
+      .catch((error) => {
+        if (isBackendSessionError(error)) {
+          handleSessionExpired();
+          return;
+        }
+        renderStatusBanner(error.message || 'Could not load team members for Daywork.', true);
+      })
+      .finally(() => {
+        teamMemberLoadPromise = null;
+      });
+  }
+
   function selectedDayworkForm() {
     return [...state.workForms]
       .filter((form) => form.status === 'active')
@@ -54,10 +95,11 @@ export function createWorkerLogModule({
     }
 
     els.dayworkFormHint.textContent = form.description || form.name;
-    renderWorkFormFields(els.dayworkFormFields, form, { idPrefix: DAYWORK_FIELD_PREFIX, container: els.dayworkFormFields });
+    ensureTeamMembersLoaded();
+    renderWorkFormFields(els.dayworkFormFields, form, dayworkFieldOptions());
 
     if (String(state.dayworkLogDraft?.formId || '') === String(form.id)) {
-      populateWorkFormAnswers(form, state.dayworkLogDraft.answers || {}, { idPrefix: DAYWORK_FIELD_PREFIX, container: els.dayworkFormFields });
+      populateWorkFormAnswers(form, state.dayworkLogDraft.answers || {}, dayworkFieldOptions());
     }
 
     setSubmitting(false);
@@ -66,7 +108,7 @@ export function createWorkerLogModule({
   async function persistDraft() {
     const form = selectedDayworkForm();
     const answers = form
-      ? collectWorkFormAnswers(form, { idPrefix: DAYWORK_FIELD_PREFIX, validate: false, container: els.dayworkFormFields })
+      ? collectWorkFormAnswers(form, { ...dayworkFieldOptions(), validate: false })
       : {};
 
     await saveDraft('task-form', {
@@ -140,7 +182,7 @@ export function createWorkerLogModule({
         siteId: site.id,
         siteName: site.name,
         workDate: els.taskDate.value,
-        answers: await collectWorkFormAnswers(form, { idPrefix: DAYWORK_FIELD_PREFIX, container: els.dayworkFormFields }),
+        answers: await collectWorkFormAnswers(form, dayworkFieldOptions()),
         photoDataUrls: state.taskPhotoDataUrls,
         photoMetadata: state.taskPhotoMetadata || [],
         photoUrls: [],

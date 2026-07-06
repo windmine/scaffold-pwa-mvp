@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Depends, HTTPException, Request, UploadFile, File, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
 from app.config import AUTO_MIGRATE, CORS_ORIGINS, ENABLE_DEV_SEED, MAX_UPLOAD_BYTES, PRODUCTION_LIKE
@@ -44,10 +45,16 @@ from app.schemas import (
     WorkFormUpdate,
 )
 from app.auth import (
+    AUTH_COOKIE_NAME,
+    CSRF_COOKIE_NAME,
+    CSRF_HEADER_NAME,
     clear_auth_cookie,
     hash_password,
     verify_password,
     create_access_token,
+    create_csrf_token,
+    csrf_token_from_auth_cookie,
+    csrf_tokens_match,
     get_current_user,
     require_supervisor,
     set_auth_cookie,
@@ -77,11 +84,52 @@ from app.upload_storage import ensure_upload_storage_ready, load_upload, save_up
 app = FastAPI(title="Geo Management Backend")
 trash_purge_task = None
 
+SAFE_CSRF_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
+CSRF_EXEMPT_PATHS = {
+    "/auth/login",
+    "/auth/logout",
+    "/auth/register",
+    "/auth/registration/start",
+    "/auth/registration/verify",
+    "/dev/seed",
+}
+
 
 @app.middleware("http")
 async def strip_firebase_hosting_api_prefix(request, call_next):
     if request.scope["path"].startswith("/api/"):
         request.scope["path"] = request.scope["path"][4:]
+
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def protect_cookie_authenticated_writes(request: Request, call_next):
+    path = request.scope["path"]
+    if path.startswith("/api/"):
+        path = path[4:]
+
+    if (
+        request.method.upper() in SAFE_CSRF_METHODS
+        or path in CSRF_EXEMPT_PATHS
+        or request.headers.get("authorization")
+    ):
+        return await call_next(request)
+
+    auth_cookie = request.cookies.get(AUTH_COOKIE_NAME)
+    if not auth_cookie:
+        return await call_next(request)
+
+    expected_csrf_token = csrf_token_from_auth_cookie(auth_cookie)
+    if not csrf_tokens_match(
+        expected_csrf_token or "",
+        request.cookies.get(CSRF_COOKIE_NAME),
+        request.headers.get(CSRF_HEADER_NAME),
+    ):
+        return JSONResponse(
+            {"detail": "CSRF token missing or invalid"},
+            status_code=403,
+        )
 
     return await call_next(request)
 
@@ -528,11 +576,13 @@ def login(
     if (user.status or "active") != "active":
         raise HTTPException(status_code=403, detail="This account is resigned and cannot sign in")
 
+    csrf_token = create_csrf_token()
     token = create_access_token({
         "sub": user.email,
-        "role": user.role
+        "role": user.role,
+        "csrf": csrf_token,
     })
-    set_auth_cookie(response, token)
+    set_auth_cookie(response, token, csrf_token)
 
     return {
         "access_token": token,

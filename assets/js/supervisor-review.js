@@ -23,8 +23,7 @@ import {
   updateSupervisorFormSubmission as updateBackendSupervisorFormSubmission,
   updateSupervisorRecord as updateBackendSupervisorRecord,
   updateSupervisorTeamWorkLog as updateBackendSupervisorTeamWorkLog,
-  updateSupervisorTaskLog as updateBackendSupervisorTaskLog,
-  uploadPhoto as uploadBackendPhoto
+  updateSupervisorTaskLog as updateBackendSupervisorTaskLog
 } from './api-client.js';
 import { setDateInputValue } from './date-inputs.js';
 import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
@@ -34,177 +33,23 @@ import {
   getReviewedApprovals,
   getTaskLogRecords
 } from './mock-api.js';
-import { todayDateInput, escapeHtml, formatDateTime, dataUrlToBlob } from './utils.js';
+import { todayDateInput, escapeHtml, formatDateTime } from './utils.js';
+import {
+  downloadBlob,
+  exportUsesFormType,
+  formatAuditAction,
+  isDayworkForm,
+  isDayworkRecord,
+  localDateTimeInputValue,
+  mergeExistingSignatureAnswers,
+  mergeReviewRecords,
+  reviewRecordCounts,
+  teamBreakOptions,
+  uploadAdminFormSignatureAnswers
+} from './supervisor-review-utils.js';
 
 const ADMIN_TASK_LOG_FORM_PREFIX = 'adminTaskLogFormField';
 const EDIT_FORM_FIELD_PREFIX = 'editFormSubmissionField';
-const TEAM_BREAK_MINUTE_OPTIONS = [0, 15, 30, 45, 60];
-
-function mergeReviewRecords(...recordGroups) {
-  const recordsByKey = new Map();
-
-  recordGroups.flat().filter(Boolean).forEach((record) => {
-    const key = `${record.type || 'record'}:${record.backendRecordId || record.id}`;
-    recordsByKey.set(key, record);
-  });
-
-  return Array.from(recordsByKey.values())
-    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-}
-
-function reviewRecordCounts(records) {
-  return records.reduce((counts, record) => {
-    if (record.status === 'pending') counts.pending += 1;
-    if (record.status === 'approved' || record.status === 'rejected') counts.reviewed += 1;
-    if (record.type === 'attendance') counts.attendance += 1;
-    if (record.type === 'task') counts.task += 1;
-    if (record.type === 'team_log') counts.teamLog += 1;
-    if (record.type === 'form') counts.form += 1;
-    return counts;
-  }, {
-    pending: 0,
-    reviewed: 0,
-    attendance: 0,
-    task: 0,
-    teamLog: 0,
-    form: 0
-  });
-}
-
-function formatAuditAction(action) {
-  return (action || 'change').replaceAll('_', ' ');
-}
-
-function isDayworkRecord(record) {
-  const text = `${record.formName || ''}`.toLowerCase();
-  return text.includes('daywork') || text.includes('daily work');
-}
-
-function isDayworkForm(form) {
-  const text = `${form?.name || ''}`.toLowerCase();
-  return text.includes('daywork') || text.includes('daily work');
-}
-
-function exportUsesFormType(exportType) {
-  return [
-    'daywork-pdf',
-    'form-submissions',
-    'form-submissions-csv',
-    'form-submissions-pdf'
-  ].includes(exportType);
-}
-
-function isSignatureDataUrl(value) {
-  return typeof value === 'string' && value.startsWith('data:image/');
-}
-
-async function uploadAdminFormSignatureAnswers(form, answers, user) {
-  const fields = form.fields || [];
-  const nextAnswers = { ...answers };
-
-  async function uploadSignature(field, target, suffix = '') {
-    const value = target?.[field.id];
-    if (!isSignatureDataUrl(value)) return;
-
-    const uploaded = await uploadBackendPhoto(
-      dataUrlToBlob(value),
-      `admin-signature-${user?.id || 'user'}-${form.id}-${field.id}${suffix}-${Date.now()}.png`
-    );
-    target[field.id] = uploaded.url;
-  }
-
-  for (const field of fields.filter((item) => item.type === 'signature' && !item.repeat)) {
-    await uploadSignature(field, nextAnswers);
-  }
-
-  for (const parent of fields.filter((item) => item.type === 'repeat')) {
-    const rows = Array.isArray(nextAnswers[parent.id]) ? nextAnswers[parent.id] : [];
-    const children = fields.filter((item) => item.repeat === parent.id && item.type === 'signature');
-    for (const [index, row] of rows.entries()) {
-      for (const child of children) {
-        await uploadSignature(child, row, `-${parent.id}-${index + 1}`);
-      }
-    }
-  }
-
-  return nextAnswers;
-}
-
-function signatureFieldsForForm(form) {
-  return (form?.fields || []).filter((field) => field.type === 'signature');
-}
-
-function repeatSignatureFieldsForForm(form, repeatId) {
-  return signatureFieldsForForm(form).filter((field) => field.repeat === repeatId);
-}
-
-function mergeExistingSignatureAnswers(form, nextAnswers, existingAnswers = {}) {
-  const merged = { ...nextAnswers };
-
-  signatureFieldsForForm(form)
-    .filter((field) => !field.repeat)
-    .forEach((field) => {
-      if (!merged[field.id] && existingAnswers[field.id]) {
-        merged[field.id] = existingAnswers[field.id];
-      }
-    });
-
-  (form?.fields || [])
-    .filter((field) => field.type === 'repeat')
-    .forEach((parent) => {
-      const rows = Array.isArray(merged[parent.id]) ? merged[parent.id] : [];
-      const existingRows = Array.isArray(existingAnswers[parent.id]) ? existingAnswers[parent.id] : [];
-      const signatureChildren = repeatSignatureFieldsForForm(form, parent.id);
-      rows.forEach((row, index) => {
-        const existingRow = existingRows[index] || {};
-        signatureChildren.forEach((field) => {
-          if (!row[field.id] && existingRow[field.id]) {
-            row[field.id] = existingRow[field.id];
-          }
-        });
-      });
-    });
-
-  return merged;
-}
-
-function normaliseTeamBreakMinutes(value, fallback = 0) {
-  const minutes = Number(value);
-  return TEAM_BREAK_MINUTE_OPTIONS.includes(minutes) ? minutes : fallback;
-}
-
-function teamBreakLabel(minutes) {
-  if (minutes === 0) return 'No break';
-  if (minutes === 60) return '1 hour';
-  return `${minutes} minutes`;
-}
-
-function teamBreakOptions(selected = 0) {
-  const selectedValue = normaliseTeamBreakMinutes(selected);
-  return TEAM_BREAK_MINUTE_OPTIONS
-    .map((minutes) => (
-      `<option value="${minutes}"${minutes === selectedValue ? ' selected' : ''}>${teamBreakLabel(minutes)}</option>`
-    ))
-    .join('');
-}
-
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function localDateTimeInputValue(value = new Date()) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const localTime = new Date(date.getTime() - (date.getTimezoneOffset() * 60 * 1000));
-  return localTime.toISOString().slice(0, 16);
-}
 
 export function createSupervisorReviewModule({
   els,
@@ -275,6 +120,25 @@ export function createSupervisorReviewModule({
       String(itemDepartmentId(item) ?? record.departmentId ?? state.user?.departmentId)
         === String(record.departmentId ?? state.user?.departmentId)
     ));
+  }
+
+  function formFieldOptions(record, container, idPrefix) {
+    const isDaywork = isDayworkRecord(record);
+    return {
+      idPrefix,
+      container,
+      enhanceDayworkTeamMembers: isDaywork,
+      teamMembers: isDaywork
+        ? itemsForRecordDepartment(state.staffUsers, record)
+          .filter((user) => user.role === 'worker' && (user.status || 'active') === 'active')
+          .map((user) => ({
+            id: user.id,
+            name: user.name,
+            worker_class: user.worker_class || user.workerClass || 'normal',
+            department_id: user.department_id || user.departmentId
+          }))
+        : []
+    };
   }
 
   function selectOptionsHtml(options, selectedValue) {
@@ -1216,8 +1080,7 @@ export function createSupervisorReviewModule({
           try {
             const answersContainer = document.getElementById('editFormAnswers');
             const collectedAnswers = collectWorkFormAnswers(form, {
-              idPrefix: EDIT_FORM_FIELD_PREFIX,
-              container: answersContainer,
+              ...formFieldOptions(record, answersContainer, EDIT_FORM_FIELD_PREFIX),
               validate: false
             });
             const answers = mergeExistingSignatureAnswers(form, collectedAnswers, record.answers || {});
@@ -1237,14 +1100,9 @@ export function createSupervisorReviewModule({
       );
 
       const answersContainer = document.getElementById('editFormAnswers');
-      renderWorkFormFields(answersContainer, form, {
-        idPrefix: EDIT_FORM_FIELD_PREFIX,
-        container: answersContainer
-      });
-      populateWorkFormAnswers(form, record.answers || {}, {
-        idPrefix: EDIT_FORM_FIELD_PREFIX,
-        container: answersContainer
-      });
+      const options = formFieldOptions(record, answersContainer, EDIT_FORM_FIELD_PREFIX);
+      renderWorkFormFields(answersContainer, form, options);
+      populateWorkFormAnswers(form, record.answers || {}, options);
       return;
     }
 

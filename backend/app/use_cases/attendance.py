@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.models import AttendanceRecord, User
@@ -79,7 +80,20 @@ def create_attendance(data, user: User, session: Session):
     )
 
     session.add(record)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        if client_submission_id:
+            existing_record = session.exec(
+                select(AttendanceRecord).where(
+                    AttendanceRecord.worker_id == user.id,
+                    AttendanceRecord.client_submission_id == client_submission_id
+                )
+            ).first()
+            if existing_record:
+                return attendance_record_response(existing_record, session)
+        raise
     session.refresh(record)
 
     return attendance_record_response(record, session)
