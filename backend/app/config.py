@@ -24,7 +24,9 @@ def load_env_file(path: Path):
             os.environ.setdefault(key, value)
 
 
+load_env_file(ROOT_DIR / ".env.local")
 load_env_file(ROOT_DIR / ".env")
+load_env_file(BACKEND_DIR / ".env.local")
 load_env_file(BACKEND_DIR / ".env")
 
 
@@ -63,7 +65,19 @@ def path_env(name: str, default: Path):
     return path.resolve()
 
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./geo_management.db")
+def database_url_env(name: str, default: str):
+    value = os.environ.get(name, default)
+
+    if value.startswith("postgresql://"):
+        return value.replace("postgresql://", "postgresql+psycopg://", 1)
+
+    if value.startswith("postgres://"):
+        return value.replace("postgres://", "postgresql+psycopg://", 1)
+
+    return value
+
+
+DATABASE_URL = database_url_env("DATABASE_URL", "sqlite:///./geo_management.db")
 AUTO_MIGRATE = bool_env("AUTO_MIGRATE", True)
 SQL_ECHO = bool_env("SQL_ECHO", False)
 APP_ENV = os.environ.get("APP_ENV", os.environ.get("ENVIRONMENT", "development")).strip().lower()
