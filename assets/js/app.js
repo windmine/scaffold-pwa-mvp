@@ -968,6 +968,7 @@ function handleAppUpdate() {
   if (!worker) return;
 
   els.updateButton.disabled = true;
+  reloadingForServiceWorkerUpdate = true;
   renderStatusBanner('Updating app...');
   worker.postMessage({ type: 'SKIP_WAITING' });
 
@@ -991,8 +992,7 @@ function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloadingForServiceWorkerUpdate) return;
-    reloadingForServiceWorkerUpdate = true;
+    if (!reloadingForServiceWorkerUpdate) return;
     window.location.reload();
   });
 

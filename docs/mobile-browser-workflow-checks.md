@@ -28,6 +28,8 @@ Confirm `/api/health` works through Firebase Hosting before phone testing:
 curl.exe https://geo-attendance-system-db9ca.web.app/api/health
 ```
 
+After signing in through the hosted URL, confirm authenticated `/api/**` calls keep returning 200. Firebase Hosting rewrites only forward the `__session` cookie to Cloud Run, so a login response that sets another auth cookie name can look like a session that expires immediately.
+
 Use controlled production test accounts. Do not use `/dev/seed` on production-like deployments.
 
 ## Automated Preflight

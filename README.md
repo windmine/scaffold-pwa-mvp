@@ -452,6 +452,8 @@ firebase deploy --only hosting
 
 `firebase.json` rewrites `/api/**` and `/uploads/**` to the `geo-backend` Cloud Run service. FastAPI strips the `/api` prefix at runtime so existing routes like `/auth/login`, `/attendance`, and `/supervisor/audit-events` continue to work behind Firebase Hosting. Uploaded files keep stable `/uploads/...` URLs; in production the backend loads those objects from Cloud Storage.
 
+Firebase Hosting only forwards the special `__session` cookie to rewritten Cloud Run backends. Keep the HttpOnly auth cookie named `__session`; the readable CSRF cookie is only used by the browser to send the `X-CSRF-Token` header.
+
 ## Phone Testing
 
 Run two terminals.

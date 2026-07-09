@@ -278,9 +278,10 @@ function renderField(field, options = {}, rowContext = null) {
 
   if (field.type === 'checkbox') {
     return `
-      <label class="checkbox-field" ${attrs}>
+      <label class="checkbox-field form-checkbox-field" ${attrs}>
         <input id="${fieldInputId(field, idPrefix, rowContext)}" type="checkbox" />
-        <span>${escapeHtml(label)}</span>
+        <span class="form-checkbox-control" aria-hidden="true"></span>
+        <span class="form-checkbox-label">${escapeHtml(label)}</span>
       </label>
     `;
   }

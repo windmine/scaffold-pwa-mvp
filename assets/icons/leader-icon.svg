@@ -1,13 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="leader-icon-title">
-  <title id="leader-icon-title">Leader Scaffolding icon</title>
-  <rect width="512" height="512" rx="72" fill="#05070a"/>
-  <g transform="translate(50 160) scale(.54)">
-    <rect x="30" y="82" width="565" height="12" rx="2" fill="#d9e9f8"/>
-    <polygon points="584,9 671,50 584,91" fill="#6aa0ea"/>
-    <polygon points="671,50 764,91 679,130" fill="#096cf5"/>
-    <polygon points="584,91 671,50 679,130 584,177" fill="#2d86f7"/>
-    <text x="30" y="226" fill="#096cf5" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="170" font-weight="900" letter-spacing="0">LEADER</text>
-    <text x="30" y="305" fill="#a9ccff" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="88" font-weight="900" letter-spacing="0" textLength="660" lengthAdjust="spacingAndGlyphs">SCAFFOLDING</text>
-    <rect x="31" y="316" width="658" height="11" rx="1" fill="#d9e9f8"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="leader-icon-title leader-icon-desc">
+  <title id="leader-icon-title">Leader Field Operations app icon</title>
+  <desc id="leader-icon-desc">A checked site location pin above a scaffold frame.</desc>
+  <defs>
+    <linearGradient id="leader-icon-bg" x1="88" y1="32" x2="424" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#071425"/>
+      <stop offset="1" stop-color="#03070d"/>
+    </linearGradient>
+    <linearGradient id="leader-icon-pin" x1="178" y1="72" x2="336" y2="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#147cff"/>
+      <stop offset="1" stop-color="#075dcc"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="92" fill="url(#leader-icon-bg)"/>
+  <path d="M256 60c-72 0-130 57-130 128 0 88 130 190 130 190s130-102 130-190C386 117 328 60 256 60Z" fill="#d9e9f8"/>
+  <path d="M256 84c-59 0-106 46-106 104 0 72 106 159 106 159s106-87 106-159C362 130 315 84 256 84Z" fill="url(#leader-icon-pin)"/>
+  <path d="m205 189 37 37 72-78" fill="none" stroke="#fff" stroke-width="31" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M126 385h260M126 432h260" stroke="#d9e9f8" stroke-width="16"/>
+    <path d="M148 368v80M256 360v88M364 368v80" stroke="#7fb5ff" stroke-width="14"/>
+    <path d="m148 432 108-47 108 47" stroke="#c8a96a" stroke-width="12"/>
   </g>
 </svg>

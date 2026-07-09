@@ -22,7 +22,8 @@ from app.models import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-AUTH_COOKIE_NAME = "geo_access_token"
+AUTH_COOKIE_NAME = "__session"
+LEGACY_AUTH_COOKIE_NAME = "geo_access_token"
 CSRF_COOKIE_NAME = "geo_csrf_token"
 CSRF_HEADER_NAME = "x-csrf-token"
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -62,14 +63,18 @@ def csrf_token_from_auth_cookie(token: str) -> Optional[str]:
     return token_value if isinstance(token_value, str) and token_value else None
 
 
-def csrf_tokens_match(expected: str, cookie_value: Optional[str], header_value: Optional[str]) -> bool:
-    return bool(
-        expected
-        and cookie_value
-        and header_value
-        and hmac.compare_digest(expected, cookie_value)
-        and hmac.compare_digest(expected, header_value)
-    )
+def csrf_tokens_match(
+    expected: str,
+    cookie_value: Optional[str],
+    header_value: Optional[str],
+) -> bool:
+    if not expected or not header_value:
+        return False
+
+    if not hmac.compare_digest(expected, header_value):
+        return False
+
+    return not cookie_value or hmac.compare_digest(expected, cookie_value)
 
 
 def set_auth_cookie(response: Response, token: str, csrf_token: str):
@@ -96,6 +101,12 @@ def set_auth_cookie(response: Response, token: str, csrf_token: str):
 def clear_auth_cookie(response: Response):
     response.delete_cookie(
         key=AUTH_COOKIE_NAME,
+        path="/",
+        secure=AUTH_COOKIE_SECURE,
+        samesite="lax",
+    )
+    response.delete_cookie(
+        key=LEGACY_AUTH_COOKIE_NAME,
         path="/",
         secure=AUTH_COOKIE_SECURE,
         samesite="lax",

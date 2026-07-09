@@ -969,6 +969,68 @@ textarea {
   min-height: 0;
 }
 
+.form-checkbox-field {
+  min-height: 58px;
+  position: relative;
+  gap: 12px;
+  padding: 12px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-background);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.form-checkbox-field:has(input:checked) {
+  border-color: var(--brand-blue);
+  background: rgba(36, 136, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(36, 136, 255, 0.35), 0 8px 18px rgba(36, 136, 255, 0.14);
+}
+
+.form-checkbox-field:focus-within {
+  outline: 3px solid rgba(127, 181, 255, 0.72);
+  outline-offset: 2px;
+}
+
+.form-checkbox-field input {
+  width: 1px;
+  min-height: 1px;
+  position: absolute;
+  opacity: 0;
+}
+
+.form-checkbox-control {
+  width: 30px;
+  height: 30px;
+  position: relative;
+  flex: 0 0 auto;
+  border: 2px solid var(--muted);
+  border-radius: 8px;
+  background: var(--card-background);
+}
+
+.form-checkbox-field input:checked + .form-checkbox-control {
+  border-color: var(--brand-blue);
+  background: var(--brand-blue);
+}
+
+.form-checkbox-field input:checked + .form-checkbox-control::after {
+  width: 13px;
+  height: 7px;
+  position: absolute;
+  top: 7px;
+  left: 6px;
+  content: "";
+  border-bottom: 3px solid #fff;
+  border-left: 3px solid #fff;
+  transform: rotate(-45deg);
+}
+
+.form-checkbox-label {
+  min-width: 0;
+  font-weight: 900;
+}
+
 .signature-field {
   display: grid;
   gap: 8px;
@@ -1395,32 +1457,61 @@ textarea {
 
 .team-selected-members {
   display: flex;
-  min-height: 34px;
+  min-height: 42px;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 8px;
   align-items: center;
   margin-bottom: 10px;
 }
 
 .team-member-chip {
-  min-height: 32px;
+  min-height: 38px;
   display: inline-flex;
-  gap: 7px;
+  gap: 8px;
   align-items: center;
-  padding: 0.35rem 0.65rem;
-  border: 1px solid rgba(36, 136, 255, 0.42);
+  padding: 0.42rem 0.72rem;
+  border: 2px solid var(--brand-blue);
   border-radius: 999px;
-  background: rgba(36, 136, 255, 0.12);
-  color: var(--brand-blue-soft);
-  box-shadow: none;
-  font-size: 0.82rem;
+  background: var(--brand-blue);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(36, 136, 255, 0.22);
+  font-size: 0.88rem;
+  font-weight: 900;
 }
 
 .team-member-chip:hover {
-  background: rgba(36, 136, 255, 0.2);
+  border-color: var(--brand-blue-soft);
+  background: var(--brand-blue-soft);
 }
 
-.team-member-chip span {
+.team-member-chip-check {
+  width: 18px;
+  height: 18px;
+  position: relative;
+  flex: 0 0 auto;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+}
+
+.team-member-chip-check::after {
+  width: 8px;
+  height: 4px;
+  position: absolute;
+  top: 4px;
+  left: 3px;
+  content: "";
+  border-bottom: 2px solid #fff;
+  border-left: 2px solid #fff;
+  transform: rotate(-45deg);
+}
+
+.team-member-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-member-chip-remove {
   font-size: 1.1rem;
   line-height: 1;
 }
@@ -1445,32 +1536,70 @@ textarea {
 }
 
 .team-member-option {
-  min-height: 48px;
+  min-height: 56px;
+  position: relative;
   display: flex;
   flex-direction: row;
-  gap: 9px;
+  gap: 10px;
   align-items: center;
-  padding: 8px 10px;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  padding: 10px 12px;
+  border: 2px solid transparent;
+  border-radius: 8px;
   background: var(--card-background);
   color: var(--text);
   cursor: pointer;
 }
 
+.team-member-option.is-selected,
 .team-member-option:has(input:checked) {
   border-color: var(--brand-blue);
-  background: rgba(36, 136, 255, 0.12);
+  background: rgba(36, 136, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(36, 136, 255, 0.35), 0 8px 18px rgba(36, 136, 255, 0.14);
+}
+
+.team-member-option:focus-within {
+  outline: 3px solid rgba(36, 136, 255, 0.34);
+  outline-offset: 2px;
 }
 
 .team-member-option input {
-  width: 20px;
-  min-height: 20px;
-  margin: 0;
-  flex: 0 0 auto;
+  width: 1px;
+  min-height: 1px;
+  position: absolute;
+  opacity: 0;
 }
 
-.team-member-option span {
+.team-member-check {
+  width: 28px;
+  height: 28px;
+  position: relative;
+  margin: 0;
+  flex: 0 0 auto;
+  border: 2px solid var(--muted);
+  border-radius: 7px;
+  background: var(--panel-background);
+}
+
+.team-member-option.is-selected .team-member-check,
+.team-member-option input:checked + .team-member-check {
+  border-color: var(--brand-blue);
+  background: var(--brand-blue);
+}
+
+.team-member-option.is-selected .team-member-check::after,
+.team-member-option input:checked + .team-member-check::after {
+  width: 12px;
+  height: 6px;
+  position: absolute;
+  top: 7px;
+  left: 6px;
+  content: "";
+  border-bottom: 3px solid #fff;
+  border-left: 3px solid #fff;
+  transform: rotate(-45deg);
+}
+
+.team-member-option-text {
   min-width: 0;
   display: grid;
   gap: 2px;

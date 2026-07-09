@@ -1,7 +1,11 @@
 .git
 .agents
 .env
+.env.local
+*.local
+.neon
 backend/.env
+backend/.env.local
 backend/geo_management.db
 backend/uploads
 backend/app/__pycache__

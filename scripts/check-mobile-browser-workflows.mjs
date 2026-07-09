@@ -83,8 +83,10 @@ check('production build exists', () => [
 
 check('production HTML keeps stable PWA links', () => (
   distIndex.includes('href="/manifest.webmanifest"')
-  && distIndex.includes('href="/assets/icons/leader-logo-export.png"')
+  && distIndex.includes('href="/assets/icons/leader-icon.svg"')
+  && distIndex.includes('href="/assets/icons/icon-192.png?v=20260708"')
   && distIndex.includes('href="/assets/icons/apple-touch-icon.png"')
+  && distIndex.includes('src="/assets/icons/leader-logo-export.png"')
 ));
 
 [

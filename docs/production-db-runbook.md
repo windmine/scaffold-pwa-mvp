@@ -103,6 +103,8 @@ Google references:
    CORS_ORIGINS=https://geo-attendance-system-db9ca.web.app,https://geo-attendance-system-db9ca.firebaseapp.com
    ```
 
+11. Keep cookie auth compatible with Firebase Hosting rewrites. The backend auth cookie must be named `__session`; Firebase Hosting does not forward arbitrary custom cookies such as `geo_access_token` to Cloud Run. The frontend reads `geo_csrf_token` only to send the `X-CSRF-Token` header, and the backend validates that header against the CSRF value embedded in `__session`.
+
 ## Migration
 
 1. Take an on-demand backup before migrating any real data.

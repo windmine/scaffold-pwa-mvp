@@ -68,14 +68,16 @@ function renderSelectedMembers(picker) {
     ? [
       ...selected.map((member) => `
         <button type="button" class="team-member-chip" data-remove-team-member="${member.id}">
-          ${escapeHtml(member.name)}
-          <span aria-hidden="true">&times;</span>
+          <span class="team-member-chip-check" aria-hidden="true"></span>
+          <span class="team-member-chip-name">${escapeHtml(member.name)}</span>
+          <span class="team-member-chip-remove" aria-hidden="true">&times;</span>
         </button>
       `),
       ...fallbackNames.map((name, index) => `
         <button type="button" class="team-member-chip" data-remove-pending-member-index="${index}">
-          ${escapeHtml(name)}
-          <span aria-hidden="true">&times;</span>
+          <span class="team-member-chip-check" aria-hidden="true"></span>
+          <span class="team-member-chip-name">${escapeHtml(name)}</span>
+          <span class="team-member-chip-remove" aria-hidden="true">&times;</span>
         </button>
       `)
     ].join('')
@@ -112,20 +114,24 @@ function renderTeamMemberChoices(picker) {
   if (!options) return;
 
   options.innerHTML = matches.length
-    ? matches.map((member) => `
-      <label class="team-member-option">
+    ? matches.map((member) => {
+      const isSelected = selectedIds(picker).has(String(member.id));
+      return `
+      <label class="team-member-option${isSelected ? ' is-selected' : ''}">
         <input
           type="checkbox"
           value="${member.id}"
           data-team-member-choice
-          ${selectedIds(picker).has(String(member.id)) ? 'checked' : ''}
+          ${isSelected ? 'checked' : ''}
         />
-        <span>
+        <span class="team-member-check" aria-hidden="true"></span>
+        <span class="team-member-option-text">
           <strong>${escapeHtml(member.name)}</strong>
           <small>${escapeHtml(memberRoleLabel(member))}</small>
         </span>
       </label>
-    `).join('')
+    `;
+    }).join('')
     : '<div class="team-member-no-results">No members match this search.</div>';
 
   options.querySelectorAll('[data-team-member-choice]').forEach((checkbox) => {
@@ -136,6 +142,7 @@ function renderTeamMemberChoices(picker) {
       } else {
         selectedIds(picker).delete(String(checkbox.value));
       }
+      checkbox.closest('.team-member-option')?.classList.toggle('is-selected', checkbox.checked);
       renderSelectedMembers(picker);
       emitChange(picker);
     });

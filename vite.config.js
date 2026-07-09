@@ -41,8 +41,10 @@ function copyPwaAssets() {
       const indexPath = join(buildDir, 'index.html')
       const indexHtml = readFileSync(indexPath, 'utf8')
         .replace(/href="\/assets\/manifest-[^"]+\.webmanifest"/, 'href="/manifest.webmanifest"')
-        .replace(/href="\/assets\/leader-logo-export-[^"]+\.png"/, 'href="/assets/icons/leader-logo-export.png"')
+        .replace(/href="\/assets\/leader-icon-[^"]+\.svg"/, 'href="/assets/icons/leader-icon.svg"')
+        .replace(/href="\/assets\/icon-192-[^"]+\.png(\?v=20260708)?"/, 'href="/assets/icons/icon-192.png?v=20260708"')
         .replace(/href="\/assets\/apple-touch-icon-[^"]+\.png"/, 'href="/assets/icons/apple-touch-icon.png"')
+        .replace(/src="\/assets\/leader-logo-export-[^"]+\.png"/, 'src="/assets/icons/leader-logo-export.png"')
       writeFileSync(indexPath, indexHtml)
     }
   }
