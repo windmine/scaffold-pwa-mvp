@@ -997,14 +997,17 @@ textarea {
   outline-offset: 2px;
 }
 
-.form-checkbox-field input {
+.form-checkbox-field input[type="checkbox"] {
   width: 1px;
+  height: 1px;
   min-height: 1px;
   position: absolute;
   opacity: 0;
+  cursor: pointer;
 }
 
-.form-checkbox-control {
+.form-checkbox-control,
+.team-member-check {
   width: 34px;
   height: 34px;
   position: relative;
@@ -1015,13 +1018,17 @@ textarea {
   box-shadow: inset 0 0 0 2px rgba(6, 17, 31, 0.08), 0 2px 8px rgba(3, 7, 13, 0.18);
 }
 
-.form-checkbox-field input:checked + .form-checkbox-control {
+.form-checkbox-field input[type="checkbox"]:checked + .form-checkbox-control,
+.team-member-option.is-selected .team-member-check,
+.team-member-option input:checked + .team-member-check {
   border-color: var(--brand-blue);
   background: var(--brand-blue);
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22), 0 4px 12px rgba(9, 108, 245, 0.32);
 }
 
-.form-checkbox-field input:checked + .form-checkbox-control::after {
+.form-checkbox-field input[type="checkbox"]:checked + .form-checkbox-control::after,
+.team-member-option.is-selected .team-member-check::after,
+.team-member-option input:checked + .team-member-check::after {
   width: 15px;
   height: 8px;
   position: absolute;
@@ -1584,36 +1591,8 @@ textarea {
 }
 
 .team-member-check {
-  width: 34px;
-  height: 34px;
-  position: relative;
   margin: 0;
-  flex: 0 0 auto;
-  border: 3px solid var(--brand-blue-mid);
-  border-radius: 7px;
-  background: #ffffff;
-  box-shadow: inset 0 0 0 2px rgba(6, 17, 31, 0.08), 0 2px 8px rgba(3, 7, 13, 0.18);
   pointer-events: none;
-}
-
-.team-member-option.is-selected .team-member-check,
-.team-member-option input:checked + .team-member-check {
-  border-color: var(--brand-blue);
-  background: var(--brand-blue);
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22), 0 4px 12px rgba(9, 108, 245, 0.32);
-}
-
-.team-member-option.is-selected .team-member-check::after,
-.team-member-option input:checked + .team-member-check::after {
-  width: 15px;
-  height: 8px;
-  position: absolute;
-  top: 8px;
-  left: 7px;
-  content: "";
-  border-bottom: 3px solid #fff;
-  border-left: 3px solid #fff;
-  transform: rotate(-45deg);
 }
 
 .team-member-option-text {
@@ -3025,15 +3004,6 @@ html[data-theme="dark"] .site-map-picker.leaflet-container {
   color: var(--input-text);
   line-height: 1.25;
   white-space: normal;
-  cursor: pointer;
-}
-
-.location-map-toggle input[type="checkbox"] {
-  width: 24px;
-  height: 24px;
-  min-height: 24px;
-  flex: 0 0 24px;
-  accent-color: var(--brand-blue);
   cursor: pointer;
 }
 

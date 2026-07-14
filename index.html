@@ -992,13 +992,15 @@
                   To
                   <input id="locationMapDateTo" type="date" />
                 </label>
-                <label class="checkbox-field location-map-toggle">
+                <label class="checkbox-field form-checkbox-field location-map-toggle">
                   <input id="locationMapOutsideOnly" type="checkbox" />
-                  Outside site only
+                  <span class="form-checkbox-control" aria-hidden="true"></span>
+                  <span class="form-checkbox-label">Outside site only</span>
                 </label>
-                <label class="checkbox-field location-map-toggle">
+                <label class="checkbox-field form-checkbox-field location-map-toggle">
                   <input id="locationMapRouteToggle" type="checkbox" checked />
-                  Connect recorded points
+                  <span class="form-checkbox-control" aria-hidden="true"></span>
+                  <span class="form-checkbox-label">Connect recorded points</span>
                 </label>
                 <button id="clearLocationMapFiltersButton" type="button" class="ghost">Clear</button>
               </form>
@@ -1167,9 +1169,10 @@
                     <option value="5">BOP</option>
                   </select>
                 </label>
-                <label class="checkbox-field">
+                <label class="checkbox-field form-checkbox-field">
                   <input id="staffGlobalAdminInput" type="checkbox" />
-                  <span>Global admin</span>
+                  <span class="form-checkbox-control" aria-hidden="true"></span>
+                  <span class="form-checkbox-label">Global admin</span>
                 </label>
                 <button type="submit">Create user</button>
               </form>

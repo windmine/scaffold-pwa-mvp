@@ -570,9 +570,22 @@ check('dark-mode location toggles are clear and consistently sized', () => (
   sourceStyles.includes('.location-map-filters .location-map-toggle')
   && sourceStyles.includes('flex: 1 1 210px')
   && sourceStyles.includes('color: var(--input-text)')
-  && sourceStyles.includes('.location-map-toggle input[type="checkbox"]')
-  && sourceStyles.includes('accent-color: var(--brand-blue)')
+  && sourceIndex.includes('class="checkbox-field form-checkbox-field location-map-toggle"')
+  && sourceIndex.includes('class="form-checkbox-control"')
+  && sourceStyles.includes('.form-checkbox-control,')
   && sourceStyles.includes('grid-column: 1 / -1')
+));
+
+check('static checkboxes use the Daywork checkbox treatment', () => (
+  ['locationMapOutsideOnly', 'locationMapRouteToggle', 'staffGlobalAdminInput'].every((id) => {
+    const inputIndex = sourceIndex.indexOf(`id="${id}"`);
+    const labelStart = sourceIndex.lastIndexOf('<label class="checkbox-field form-checkbox-field', inputIndex);
+    const labelEnd = sourceIndex.indexOf('</label>', inputIndex);
+    if (inputIndex < 0 || labelStart < 0 || labelEnd < 0) return false;
+    const label = sourceIndex.slice(labelStart, labelEnd);
+    return label.includes('class="form-checkbox-control"')
+      && label.includes('class="form-checkbox-label"');
+  })
 ));
 
 check('management analytics and reports are wired', () => (
