@@ -962,11 +962,16 @@ textarea {
   flex-direction: row;
   gap: 10px;
   align-items: center;
+  font-weight: 800;
 }
 
-.checkbox-field input {
-  width: auto;
-  min-height: 0;
+.checkbox-field input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  flex: 0 0 24px;
+  accent-color: var(--brand-blue);
+  cursor: pointer;
 }
 
 .form-checkbox-field {
@@ -1000,26 +1005,28 @@ textarea {
 }
 
 .form-checkbox-control {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   position: relative;
   flex: 0 0 auto;
-  border: 2px solid var(--muted);
+  border: 3px solid var(--brand-blue-mid);
   border-radius: 8px;
-  background: var(--card-background);
+  background: #ffffff;
+  box-shadow: inset 0 0 0 2px rgba(6, 17, 31, 0.08), 0 2px 8px rgba(3, 7, 13, 0.18);
 }
 
 .form-checkbox-field input:checked + .form-checkbox-control {
   border-color: var(--brand-blue);
   background: var(--brand-blue);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22), 0 4px 12px rgba(9, 108, 245, 0.32);
 }
 
 .form-checkbox-field input:checked + .form-checkbox-control::after {
-  width: 13px;
-  height: 7px;
+  width: 15px;
+  height: 8px;
   position: absolute;
-  top: 7px;
-  left: 6px;
+  top: 8px;
+  left: 7px;
   content: "";
   border-bottom: 3px solid #fff;
   border-left: 3px solid #fff;
@@ -1563,36 +1570,46 @@ textarea {
 }
 
 .team-member-option input {
-  width: 1px;
-  min-height: 1px;
   position: absolute;
+  top: 50%;
+  left: 8px;
+  z-index: 1;
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  margin: 0;
   opacity: 0;
+  transform: translateY(-50%);
+  cursor: pointer;
 }
 
 .team-member-check {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   position: relative;
   margin: 0;
   flex: 0 0 auto;
-  border: 2px solid var(--muted);
+  border: 3px solid var(--brand-blue-mid);
   border-radius: 7px;
-  background: var(--panel-background);
+  background: #ffffff;
+  box-shadow: inset 0 0 0 2px rgba(6, 17, 31, 0.08), 0 2px 8px rgba(3, 7, 13, 0.18);
+  pointer-events: none;
 }
 
 .team-member-option.is-selected .team-member-check,
 .team-member-option input:checked + .team-member-check {
   border-color: var(--brand-blue);
   background: var(--brand-blue);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22), 0 4px 12px rgba(9, 108, 245, 0.32);
 }
 
 .team-member-option.is-selected .team-member-check::after,
 .team-member-option input:checked + .team-member-check::after {
-  width: 12px;
-  height: 6px;
+  width: 15px;
+  height: 8px;
   position: absolute;
-  top: 7px;
-  left: 6px;
+  top: 8px;
+  left: 7px;
   content: "";
   border-bottom: 3px solid #fff;
   border-left: 3px solid #fff;
@@ -2678,11 +2695,25 @@ body.viewer-open {
 
 .location-review-map {
   width: 100%;
+  height: clamp(420px, 58vh, 620px);
   min-height: 520px;
   overflow: hidden;
-  border: 1px solid var(--line-strong);
+  border: 2px solid var(--line-strong);
   border-radius: var(--radius);
-  background: var(--panel-background);
+  background:
+    linear-gradient(rgba(9, 108, 245, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(9, 108, 245, 0.18) 1px, transparent 1px),
+    #eef5fb;
+  background-size: 48px 48px, 48px 48px, auto;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22), 0 10px 28px rgba(3, 7, 13, 0.18);
+}
+
+html[data-theme="dark"] .location-review-map {
+  background:
+    linear-gradient(rgba(127, 181, 255, 0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(127, 181, 255, 0.2) 1px, transparent 1px),
+    #162338;
+  background-size: 48px 48px, 48px 48px, auto;
 }
 
 .location-review-map .leaflet-control-attribution {
@@ -2753,11 +2784,106 @@ body.viewer-open {
 
 .site-map-picker {
   width: 100%;
+  height: clamp(320px, 48vh, 460px);
   min-height: 360px;
   overflow: hidden;
-  border: 1px solid var(--line-strong);
+  border: 2px solid var(--line-strong);
   border-radius: var(--radius);
-  background: var(--panel-background);
+  background:
+    linear-gradient(rgba(9, 108, 245, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(9, 108, 245, 0.18) 1px, transparent 1px),
+    #eef5fb;
+  background-size: 44px 44px, 44px 44px, auto;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22), 0 8px 22px rgba(3, 7, 13, 0.16);
+}
+
+html[data-theme="dark"] .site-map-picker {
+  background:
+    linear-gradient(rgba(127, 181, 255, 0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(127, 181, 255, 0.2) 1px, transparent 1px),
+    #162338;
+  background-size: 44px 44px, 44px 44px, auto;
+}
+
+.location-review-map.leaflet-container,
+.site-map-picker.leaflet-container {
+  background-color: #eef5fb;
+  color: #06111f;
+}
+
+html[data-theme="dark"] .location-review-map.leaflet-container,
+html[data-theme="dark"] .site-map-picker.leaflet-container {
+  background-color: #162338;
+}
+
+.location-review-map .leaflet-overlay-pane svg,
+.site-map-picker .leaflet-overlay-pane svg {
+  overflow: visible;
+}
+
+.location-review-map .location-site-boundary,
+.site-map-picker .site-existing-boundary,
+.site-map-picker .site-selected-boundary {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.location-review-map .location-map-site-marker,
+.site-map-picker .site-existing-pin {
+  display: grid;
+  place-items: center;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #005fcc;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(3, 7, 13, 0.42);
+}
+
+.location-review-map .location-map-site-marker span,
+.site-map-picker .site-existing-pin span {
+  display: block;
+  padding: 0 8px;
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: 24px;
+}
+
+.location-review-map .location-map-point {
+  display: grid;
+  place-items: center;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: var(--champagne);
+  color: #06111f;
+  box-shadow: 0 6px 18px rgba(3, 7, 13, 0.44);
+}
+
+.location-review-map .location-map-point span {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.location-review-map .location-map-point.inside {
+  background: #11865e;
+  color: #ffffff;
+}
+
+.location-review-map .location-map-point.outside {
+  background: #c92d28;
+  color: #ffffff;
+}
+
+.location-review-map .location-map-point.unknown {
+  background: #ffd36f;
+  color: #06111f;
+}
+
+.location-review-map .location-map-point.checkout {
+  border-style: double;
 }
 
 .site-map-picker .leaflet-control-attribution {
@@ -2806,13 +2932,13 @@ body.viewer-open {
 }
 
 .site-map-pin span {
-  width: 22px;
-  height: 22px;
+  width: 30px;
+  height: 30px;
   display: block;
-  border: 3px solid #ffffff;
+  border: 4px solid #ffffff;
   border-radius: 999px;
   background: var(--brand-blue);
-  box-shadow: 0 4px 14px rgba(3, 7, 13, 0.38);
+  box-shadow: 0 5px 18px rgba(3, 7, 13, 0.44);
 }
 
 .site-map-status {
@@ -2882,8 +3008,8 @@ body.viewer-open {
 }
 
 .map-key.boundary {
-  color: var(--brand-blue);
-  background: rgba(36, 136, 255, 0.14);
+  color: #f7c948;
+  background: rgba(247, 201, 72, 0.28);
 }
 
 .location-map-filters .location-map-toggle {
@@ -2893,7 +3019,7 @@ body.viewer-open {
   min-width: 0;
   align-self: end;
   padding: 8px 12px;
-  border: 1px solid var(--input-border);
+  border: 2px solid var(--input-border);
   border-radius: 6px;
   background: var(--input-background);
   color: var(--input-text);
@@ -2903,11 +3029,18 @@ body.viewer-open {
 }
 
 .location-map-toggle input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  flex: 0 0 20px;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  flex: 0 0 24px;
   accent-color: var(--brand-blue);
   cursor: pointer;
+}
+
+.location-map-filters .location-map-toggle:has(input:checked) {
+  border-color: var(--brand-blue);
+  background: rgba(36, 136, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(36, 136, 255, 0.32), 0 4px 12px rgba(9, 108, 245, 0.16);
 }
 
 .location-map-filters .location-map-toggle:focus-within {
@@ -3758,11 +3891,13 @@ body.viewer-open {
   }
 
   .location-review-map {
-    min-height: 390px;
+    height: clamp(340px, 56vh, 440px);
+    min-height: 340px;
   }
 
   .site-map-picker {
-    min-height: 310px;
+    height: clamp(300px, 52vh, 380px);
+    min-height: 300px;
   }
 
   .location-history-row {

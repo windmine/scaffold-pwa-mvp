@@ -76,7 +76,9 @@ class SiteUpdateRequest(BaseModel):
 
 
 class AttendanceCreate(BaseModel):
+    worker_id: Optional[int] = Field(default=None, ge=1)
     record_type: str
+    occurred_at: Optional[datetime] = None
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
     accuracy: Optional[float] = Field(default=None, ge=0)

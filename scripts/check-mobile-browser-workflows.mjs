@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { appShell, computePwaCacheVersion, pwaAssetCopies } from './pwa-shell-assets.mjs';
 import { buildManagementAnalytics } from '../assets/js/supervisor-analytics.js';
+import { parseWorkFormFieldsInput, serialiseWorkFormFields } from '../assets/js/work-form-fields.js';
 
 const root = process.cwd();
 
@@ -37,6 +38,7 @@ const sourceIndex = read('index.html');
 const sourceApp = read('assets/js/app.js');
 const sourceApiClient = read('assets/js/api-client.js');
 const sourceSupervisorReview = read('assets/js/supervisor-review.js');
+const sourceReviewExportAdapters = read('assets/js/review-export-adapters.js');
 const sourceSupervisorAnalytics = read('assets/js/supervisor-analytics.js');
 const sourceSupervisorMap = read('assets/js/supervisor-map.js');
 const sourceWorkerLog = read('assets/js/worker-log.js');
@@ -50,6 +52,17 @@ const sourceWorkFormFields = read('assets/js/work-form-fields.js');
 const sourceDateInputs = read('assets/js/date-inputs.js');
 const sourceStyles = read('assets/css/styles.css');
 const viteConfig = read('vite.config.js');
+
+check('work form field ids survive label edits', () => {
+  const source = serialiseWorkFormFields([
+    { id: 'worker_hours', label: 'Worker hours', type: 'number', required: true },
+    { id: 'total_hours', label: 'Total hours', type: 'formula', formula: 'worker_hours * 2' }
+  ]).replace('Worker hours', 'Crew hours');
+  const parsed = parseWorkFormFieldsInput(source);
+  return parsed[0]?.id === 'worker_hours'
+    && parsed[0]?.label === 'Crew hours'
+    && parsed[1]?.formula === 'worker_hours * 2';
+});
 
 const distIndex = hasFile('dist/index.html') ? read('dist/index.html') : '';
 const distWorker = hasFile('dist/sw.js') ? read('dist/sw.js') : '';
@@ -468,8 +481,9 @@ check('PDF exports are available for Daywork and submitted forms', () => (
   && sourceApiClient.includes('/supervisor/form-submissions/export.csv')
   && sourceApiClient.includes('/supervisor/form-submissions/export.pdf')
   && sourceApiClient.includes('/supervisor/form-submissions/${submissionId}/export.pdf')
-  && read('assets/js/supervisor-review.js').includes('exportSupervisorFormSubmissionsCsv')
-  && read('assets/js/supervisor-review.js').includes('exportSupervisorFormSubmissionsPdf')
+  && sourceSupervisorReview.includes('createReviewExportAdapters')
+  && sourceReviewExportAdapters.includes('exportSupervisorFormSubmissionsCsv')
+  && sourceReviewExportAdapters.includes('exportSupervisorFormSubmissionsPdf')
   && read('assets/js/supervisor-review.js').includes('exportUsesFormType')
   && read('assets/js/supervisor-review.js').includes('isDayworkForm')
   && read('assets/js/supervisor-review.js').includes('filters.status = els.supervisorStatusFilter.value')
@@ -485,6 +499,19 @@ check('PDF exports are available for Daywork and submitted forms', () => (
   && read('backend/app/use_cases/supervisor_review.py').includes('export_form_submissions_csv')
   && read('backend/app/use_cases/supervisor_review.py').includes('export_form_submissions_pdf')
   && read('backend/app/use_cases/supervisor_review.py').includes('filter_form_records')
+  && pwaShellCopies('/assets/js/review-export-adapters.js')
+));
+
+check('Review Queue durability and policy seams are explicit', () => (
+  sourceSupervisorReview.includes("OFFLINE_READ_ONLY: 'offline_read_only'")
+  && sourceSupervisorReview.includes('requireDurableWritableRecord')
+  && !sourceSupervisorReview.includes('getPendingApprovals')
+  && !sourceSupervisorReview.includes('decideLocalRecord')
+  && sourceApiClient.includes('getSupervisorReviewQueuePage')
+  && sourceReviewExportAdapters.includes('createReviewExportAdapters')
+  && read('backend/app/use_cases/review_queue.py').includes('class ReviewRecordQuery')
+  && read('backend/app/use_cases/review_record_policy.py').includes('apply_review_decision')
+  && read('backend/app/use_cases/review_record_adapters.py').includes('REVIEW_RECORD_ADAPTERS')
 ));
 
 check('supervisor audit history is wired', () => (
@@ -504,9 +531,15 @@ check('supervisor audit history is wired', () => (
 
 check('supervisor location map review is wired', () => (
   sourceApp.includes('createSupervisorMapModule')
+  && sourceApp.includes('getSupervisorRecords')
+  && sourceApp.includes('fromBackendAttendanceRecord')
   && sourceSupervisorReview.includes('renderLocationMap')
+  && sourceSupervisorMap.includes('loadAttendanceRecords')
   && sourceSupervisorMap.includes('L.circle(')
   && sourceSupervisorMap.includes('L.polyline(')
+  && sourceSupervisorMap.includes('location-map-point')
+  && sourceSupervisorMap.includes('location-map-site-marker')
+  && sourceSupervisorMap.includes('location-site-boundary')
   && sourceSupervisorMap.includes('locationMapOutsideOnly')
   && sourceSupervisorMap.includes('onDecision(record')
   && sourceStyles.includes('.location-review-map')
@@ -526,9 +559,11 @@ check('site coordinates are rounded and map points stay compact', () => (
   && sourceSiteMapPicker.includes('draggable: true')
   && sourceSiteMapPicker.includes('L.circle(point')
   && sourceSiteMapPicker.includes('getExistingSites()')
+  && sourceSiteMapPicker.includes('site-existing-pin')
+  && sourceSiteMapPicker.includes('site-selected-boundary')
   && sourceStyles.includes('.site-map-picker')
   && pwaShellCopies('/assets/js/site-map-picker.js')
-  && sourceSupervisorMap.includes("radius: record.action === 'check_out' ? 4 : 5")
+  && sourceSupervisorMap.includes('recordIcon(record)')
 ));
 
 check('dark-mode location toggles are clear and consistently sized', () => (

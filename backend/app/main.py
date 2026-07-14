@@ -1,19 +1,30 @@
 import asyncio
 from contextlib import suppress
 import json
-from pathlib import Path
 from typing import Optional
-from urllib.parse import urlparse
-from uuid import uuid4
 
 from fastapi import FastAPI, Depends, HTTPException, Request, UploadFile, File, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
+from sqlalchemy import text
 from sqlmodel import Session, select
 
-from app.config import AUTO_MIGRATE, CORS_ORIGINS, ENABLE_DEV_SEED, MAX_UPLOAD_BYTES, PRODUCTION_LIKE
+from app.config import (
+    AUTO_MIGRATE,
+    CORS_ORIGINS,
+    ENABLE_DEV_SEED,
+    PRODUCTION_LIKE,
+    RATE_LIMIT_AUTH_REQUESTS,
+    RATE_LIMIT_AUTH_WINDOW_SECONDS,
+    RATE_LIMIT_ENABLED,
+    RATE_LIMIT_GENERAL_REQUESTS,
+    RATE_LIMIT_GENERAL_WINDOW_SECONDS,
+    RATE_LIMIT_UPLOAD_REQUESTS,
+    RATE_LIMIT_UPLOAD_WINDOW_SECONDS,
+)
 from app.database import migrate_database, get_session
-from app.models import AttendanceRecord, Department, TaskLog, User, Site, WorkForm, WorkFormSubmission
+from app.models import Department, User, Site, WorkForm
+from app.rate_limit import InMemoryRateLimiter, RateLimitRule
 from app.schemas import (
     ApprovalRequest,
     AttendanceCreate,
@@ -63,6 +74,7 @@ from app.use_cases import attendance as attendance_use_cases
 from app.use_cases import audit as audit_use_cases
 from app.use_cases import registration as registration_use_cases
 from app.use_cases import record_trash as record_trash_use_cases
+from app.use_cases import review_queue as review_queue_use_cases
 from app.use_cases import staff_site_admin as staff_site_admin_use_cases
 from app.use_cases import supervisor_review as supervisor_review_use_cases
 from app.use_cases import task_logs as task_log_use_cases
@@ -70,19 +82,50 @@ from app.use_cases import team_work_logs as team_work_log_use_cases
 from app.use_cases import work_forms as work_form_use_cases
 from app.use_cases.common import (
     DEPARTMENT_NAMES,
-    can_access_department,
     list_departments,
-    parse_json_list,
-    parse_json_object,
     upload_url,
-    user_is_global_admin,
     user_response,
 )
-from app.upload_storage import ensure_upload_storage_ready, load_upload, save_upload
+from app.upload_storage import (
+    UploadTooLargeError,
+    UploadValidationError,
+    ensure_upload_storage_ready,
+    open_authorized_upload,
+    store_verified_raster_upload,
+)
 
 
 app = FastAPI(title="Geo Management Backend")
 trash_purge_task = None
+rate_limiter = InMemoryRateLimiter(
+    enabled=RATE_LIMIT_ENABLED,
+    default_rule=RateLimitRule(
+        "general",
+        RATE_LIMIT_GENERAL_REQUESTS,
+        RATE_LIMIT_GENERAL_WINDOW_SECONDS,
+    ),
+    rules=[
+        RateLimitRule(
+            "auth",
+            RATE_LIMIT_AUTH_REQUESTS,
+            RATE_LIMIT_AUTH_WINDOW_SECONDS,
+            (
+                "/auth/login",
+                "/auth/register",
+                "/auth/registration/start",
+                "/auth/registration/verify",
+                "/auth/refresh",
+            ),
+        ),
+        RateLimitRule(
+            "upload",
+            RATE_LIMIT_UPLOAD_REQUESTS,
+            RATE_LIMIT_UPLOAD_WINDOW_SECONDS,
+            ("/photo-uploads",),
+        ),
+    ],
+    exempt_paths={"/health", "/health/ready"},
+)
 
 SAFE_CSRF_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 CSRF_EXEMPT_PATHS = {
@@ -99,6 +142,15 @@ CSRF_EXEMPT_PATHS = {
 async def strip_firebase_hosting_api_prefix(request, call_next):
     if request.scope["path"].startswith("/api/"):
         request.scope["path"] = request.scope["path"][4:]
+
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def enforce_rate_limits(request: Request, call_next):
+    limited_response = rate_limiter.check(request)
+    if limited_response:
+        return limited_response
 
     return await call_next(request)
 
@@ -134,9 +186,7 @@ async def protect_cookie_authenticated_writes(request: Request, call_next):
     return await call_next(request)
 
 
-ALLOWED_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 LOCAL_DEV_HOSTS = {"127.0.0.1", "::1", "localhost"}
-ensure_upload_storage_ready()
 
 
 app.add_middleware(
@@ -223,6 +273,7 @@ async def on_startup():
     global trash_purge_task
     if AUTO_MIGRATE:
         migrate_database()
+    ensure_upload_storage_ready(verify_lifecycle=True)
     record_trash_use_cases.purge_expired_deleted_records_with_new_session()
     trash_purge_task = asyncio.create_task(
         record_trash_use_cases.run_periodic_trash_purge()
@@ -244,6 +295,38 @@ def health():
     return {
         "status": "ok",
         "message": "Geo backend is running"
+    }
+
+
+@app.get("/health/ready")
+def readiness(session: Session = Depends(get_session)):
+    checks = {}
+    details = {}
+
+    try:
+        session.connection().execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception:
+        checks["database"] = "error"
+
+    try:
+        backend = ensure_upload_storage_ready()
+        checks["upload_storage"] = "ok"
+        details["upload_storage"] = {"backend": backend}
+    except Exception:
+        checks["upload_storage"] = "error"
+        details["upload_storage"] = {"backend": "unavailable"}
+
+    if any(value != "ok" for value in checks.values()):
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "error", "checks": checks, "details": details},
+        )
+
+    return {
+        "status": "ok",
+        "checks": checks,
+        "details": details,
     }
 
 
@@ -376,8 +459,18 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
         fields_json = json.dumps(form_data["fields"])
 
         if form:
+            try:
+                existing_fields = json.loads(form.fields_json)
+            except (TypeError, json.JSONDecodeError):
+                existing_fields = []
+            definition_changed = (
+                form.description != form_data["description"]
+                or existing_fields != form_data["fields"]
+            )
             form.description = form_data["description"]
             form.fields_json = fields_json
+            if definition_changed:
+                form.definition_version = int(form.definition_version or 1) + 1
             form.status = "active"
             form.department_id = form.department_id or leader_department.id
         else:
@@ -386,6 +479,7 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
                 name=form_data["name"],
                 description=form_data["description"],
                 fields_json=fields_json,
+                definition_version=1,
                 status="active"
             )
 
@@ -450,89 +544,22 @@ async def upload_photo(
     file: UploadFile = File(...),
     user: User = Depends(get_current_user)
 ):
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Only image uploads are allowed")
-
-    suffix = Path(file.filename or "").suffix.lower()
-    if suffix not in ALLOWED_IMAGE_SUFFIXES:
-        suffix = ".jpg"
-
-    contents = await file.read()
-    if len(contents) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Photo must be 5MB or smaller")
-
-    filename = f"{uuid4().hex}{suffix}"
-    save_upload(filename, contents, file.content_type, uploaded_by=user.id)
+    try:
+        stored = await store_verified_raster_upload(file, uploaded_by=user.id)
+    except UploadTooLargeError as error:
+        raise HTTPException(status_code=413, detail=str(error))
+    except UploadValidationError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
     return {
-        "url": upload_url(filename),
-        "filename": filename,
-        "content_type": file.content_type,
-        "size": len(contents),
-        "uploaded_by": user.id,
+        "url": upload_url(stored.filename),
+        "filename": stored.filename,
+        "content_type": stored.content_type,
+        "size": stored.size,
+        "width": stored.width,
+        "height": stored.height,
+        "uploaded_by": stored.uploaded_by,
     }
-
-
-def upload_filename_from_url(value: str):
-    if not isinstance(value, str) or not value:
-        return None
-
-    path = urlparse(value).path
-    if not path.startswith("/uploads/"):
-        return None
-
-    return Path(path).name
-
-
-def upload_values_include_filename(values, filename: str):
-    return any(upload_filename_from_url(value) == filename for value in values)
-
-
-def upload_is_referenced_by_worker(filename: str, worker_id: int, session: Session):
-    upload_path = upload_url(filename)
-    attendance = session.exec(
-        select(AttendanceRecord).where(
-            AttendanceRecord.worker_id == worker_id,
-            AttendanceRecord.photo_url == upload_path,
-        )
-    ).first()
-    if attendance:
-        return True
-
-    task_logs = session.exec(
-        select(TaskLog).where(TaskLog.worker_id == worker_id)
-    ).all()
-    for log in task_logs:
-        if log.photo_url == upload_path:
-            return True
-        if upload_values_include_filename(parse_json_list(log.photo_urls), filename):
-            return True
-
-    submissions = session.exec(
-        select(WorkFormSubmission).where(WorkFormSubmission.worker_id == worker_id)
-    ).all()
-    for submission in submissions:
-        if upload_values_include_filename(parse_json_list(submission.photo_urls), filename):
-            return True
-        if upload_values_include_filename(parse_json_object(submission.answers_json).values(), filename):
-            return True
-
-    return False
-
-
-def can_access_upload(filename: str, upload, user: User, session: Session):
-    if user.role == "supervisor":
-        if user_is_global_admin(user):
-            return True
-        if upload.uploaded_by:
-            uploader = session.get(User, upload.uploaded_by)
-            return bool(uploader and can_access_department(user, uploader.department_id))
-        return False
-
-    if upload.uploaded_by == user.id:
-        return True
-
-    return upload_is_referenced_by_worker(filename, user.id, session)
 
 
 @app.get("/uploads/{filename}")
@@ -541,21 +568,18 @@ def get_upload(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    try:
-        upload = load_upload(filename)
-    except ValueError:
-        raise HTTPException(status_code=404, detail="Upload not found")
-
+    upload = open_authorized_upload(filename, user, session)
     if not upload:
         raise HTTPException(status_code=404, detail="Upload not found")
 
-    if not can_access_upload(filename, upload, user, session):
-        raise HTTPException(status_code=404, detail="Upload not found")
-
-    return Response(
-        content=upload.content,
-        media_type=upload.content_type,
-        headers={"Cache-Control": "private, max-age=3600"},
+    return StreamingResponse(
+        upload.chunks,
+        media_type=upload.info.content_type,
+        headers={
+            "Cache-Control": "private, max-age=3600",
+            "Content-Length": str(upload.info.size),
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
@@ -623,6 +647,22 @@ def verify_registration(
 def logout(response: Response):
     clear_auth_cookie(response)
     return {"message": "Signed out"}
+
+
+@app.post("/auth/refresh")
+def refresh_session(
+    response: Response,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    csrf_token = create_csrf_token()
+    token = create_access_token({
+        "sub": user.email,
+        "role": user.role,
+        "csrf": csrf_token,
+    })
+    set_auth_cookie(response, token, csrf_token)
+    return user_response(user, session)
 
 
 @app.get("/auth/me")
@@ -917,6 +957,31 @@ def get_supervisor_review_records(
     session: Session = Depends(get_session)
 ):
     return supervisor_review_use_cases.list_review_records(session, supervisor, status)
+
+
+@app.get("/supervisor/review-queue")
+def get_supervisor_review_queue(
+    status: Optional[str] = None,
+    kind: Optional[str] = None,
+    department_id: Optional[int] = None,
+    record_date: Optional[str] = None,
+    search: Optional[str] = None,
+    cursor: Optional[str] = None,
+    page_size: int = 50,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session),
+):
+    return review_queue_use_cases.list_review_record_page(
+        session,
+        supervisor,
+        status=status,
+        kind=kind,
+        department_id=department_id,
+        record_date=record_date,
+        search=search,
+        cursor=cursor,
+        page_size=page_size,
+    )
 
 
 @app.get("/supervisor/pending-records")
@@ -1214,7 +1279,14 @@ def decide_review_record(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.apply_review_decision(record_type, record_id, data.status, supervisor, session)
+    return supervisor_review_use_cases.apply_review_decision(
+        record_type,
+        record_id,
+        data.status,
+        supervisor,
+        session,
+        comment=data.comment,
+    )
 
 
 @app.post("/supervisor/records/{record_id}/decision")
@@ -1224,4 +1296,11 @@ def decide_record(
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return supervisor_review_use_cases.apply_review_decision(data.record_type, record_id, data.status, supervisor, session)
+    return supervisor_review_use_cases.apply_review_decision(
+        data.record_type,
+        record_id,
+        data.status,
+        supervisor,
+        session,
+        comment=data.comment,
+    )

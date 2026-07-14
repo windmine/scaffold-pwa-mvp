@@ -50,6 +50,16 @@ export const state = {
   teamWorkLogMembers: [],
   supervisorRecords: {
     reviewRecords: [],
+    queueMode: 'offline_read_only',
+    queueCounts: null,
+    queueSummaryCounts: null,
+    analyticsRecords: [],
+    analyticsReady: false,
+    analyticsDepartmentId: '',
+    analyticsSnapshotAt: '',
+    nextCursor: null,
+    hasMore: false,
+    loadingMore: false,
     auditEvents: [],
     trashRecords: []
   },

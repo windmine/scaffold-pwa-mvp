@@ -5,6 +5,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.models import AttendanceRecord, User
+from app.upload_storage import (
+    cleanup_detached_record_uploads,
+    cleanup_unreferenced_uploads,
+    record_upload_urls,
+)
 from app.use_cases.common import (
     attendance_record_response,
     department_id_for_new_record,
@@ -25,9 +30,36 @@ def create_attendance(data, user: User, session: Session):
             detail="record_type must be check_in or check_out"
         )
 
+    client_submission_id = normalize_client_submission_id(data.client_submission_id)
+    offline_invariants_present = any([
+        data.worker_id is not None,
+        data.occurred_at is not None,
+        client_submission_id is not None,
+    ])
+    if offline_invariants_present and not all([
+        data.worker_id is not None,
+        data.occurred_at is not None,
+        client_submission_id is not None,
+    ]):
+        raise HTTPException(
+            status_code=400,
+            detail="worker_id, occurred_at, and client_submission_id are required together"
+        )
+    if data.worker_id is not None and data.worker_id != user.id:
+        raise HTTPException(
+            status_code=409,
+            detail="Attendance Worker does not match the authenticated Worker"
+        )
+
+    occurred_at = data.occurred_at or datetime.now(timezone.utc)
+    if occurred_at.tzinfo is None or occurred_at.utcoffset() is None:
+        raise HTTPException(status_code=400, detail="occurred_at must include a timezone")
+    occurred_at = occurred_at.astimezone(timezone.utc)
+    if occurred_at > datetime.now(timezone.utc) + timedelta(minutes=5):
+        raise HTTPException(status_code=400, detail="occurred_at cannot be in the future")
+
     site = ensure_site_exists(session, data.site_id, user)
     validate_photo_url(data.photo_url)
-    client_submission_id = normalize_client_submission_id(data.client_submission_id)
     if client_submission_id:
         existing_record = session.exec(
             select(AttendanceRecord).where(
@@ -50,7 +82,8 @@ def create_attendance(data, user: User, session: Session):
             AttendanceRecord.note == data.note,
             AttendanceRecord.photo_url == data.photo_url,
             AttendanceRecord.deleted_at.is_(None),
-            AttendanceRecord.created_at >= datetime.now(timezone.utc) - timedelta(seconds=10),
+            AttendanceRecord.created_at >= occurred_at - timedelta(seconds=10),
+            AttendanceRecord.created_at <= occurred_at + timedelta(seconds=10),
         )
         .order_by(AttendanceRecord.created_at.desc())
     ).first()
@@ -76,7 +109,8 @@ def create_attendance(data, user: User, session: Session):
         note=data.note,
         photo_url=data.photo_url,
         client_submission_id=client_submission_id,
-        status="approved" if within_site_radius is True else "pending"
+        status="approved" if within_site_radius is True else "pending",
+        created_at=occurred_at,
     )
 
     session.add(record)
@@ -108,6 +142,7 @@ def update_my_attendance_record(record_id: int, data, user: User, session: Sessi
     if record.status != "pending":
         raise HTTPException(status_code=400, detail="Only pending attendance can be edited by the worker")
 
+    previous_upload_urls = record_upload_urls(record)
     fields = data.model_fields_set
     if "record_type" in fields and data.record_type is not None:
         if data.record_type not in ["check_in", "check_out"]:
@@ -140,6 +175,7 @@ def update_my_attendance_record(record_id: int, data, user: User, session: Sessi
     session.add(record)
     session.commit()
     session.refresh(record)
+    cleanup_detached_record_uploads(previous_upload_urls, record, session)
 
     return attendance_record_response(record, session)
 
@@ -153,8 +189,10 @@ def delete_my_attendance_record(record_id: int, user: User, session: Session):
     if record.status != "pending":
         raise HTTPException(status_code=400, detail="Only pending attendance can be deleted by the worker")
 
+    upload_urls = record_upload_urls(record)
     session.delete(record)
     session.commit()
+    cleanup_unreferenced_uploads(upload_urls, session)
 
     return {"message": "Attendance record deleted"}
 

@@ -147,6 +147,7 @@ class WorkForm(SQLModel, table=True):
     name: str = Field(index=True)
     description: Optional[str] = None
     fields_json: str
+    definition_version: int = Field(default=1)
     status: str = Field(default="active", index=True)
     created_by: Optional[int] = Field(default=None, index=True)
 
@@ -165,6 +166,8 @@ class WorkFormSubmission(SQLModel, table=True):
 
     work_date: Optional[str] = None
     answers_json: str
+    form_definition_version: Optional[int] = None
+    definition_snapshot_json: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     photo_urls: Optional[str] = None
     photo_metadata: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     client_submission_id: Optional[str] = Field(default=None, index=True)

@@ -510,8 +510,7 @@ function inputValue(field, idPrefix, rowContext = null) {
     const end = document.getElementById(fieldTimeInputId(field, 'end', idPrefix, rowContext))?.value || '';
     return {
       start,
-      end,
-      duration_hours: start && end ? timeRangeDurationHours(start, end) : null
+      end
     };
   }
 
@@ -524,7 +523,11 @@ function inputValue(field, idPrefix, rowContext = null) {
 function numericValue(value) {
   if (typeof value === 'boolean') return value ? 1 : 0;
   if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (value && typeof value === 'object') return Number(value.duration_hours || 0) || 0;
+  if (value && typeof value === 'object') {
+    const serverDuration = Number(value.duration_hours);
+    if (Number.isFinite(serverDuration)) return serverDuration;
+    return timeRangeDurationHours(value.start, value.end) ?? 0;
+  }
   const breakDuration = breakAnswerDurationHours(value);
   if (breakDuration != null) return breakDuration;
   const number = Number(value);
@@ -543,6 +546,7 @@ function breakAnswerDurationHours(value) {
 }
 
 function evaluateFormula(expression, answers) {
+  // Preview only. Formula values are omitted from submissions and derived again by the API.
   const formula = String(expression || '').trim();
   if (!formula || /[^-+*/().\w\s]/.test(formula)) return '';
 
@@ -560,8 +564,8 @@ function evaluateFormula(expression, answers) {
 }
 
 function compareConditionValue(left, operator, right) {
-  const leftText = left && typeof left === 'object' && 'duration_hours' in left
-    ? String(left.duration_hours ?? '')
+  const leftText = left && typeof left === 'object'
+    ? String(numericValue(left))
     : String(left ?? '');
   const rightText = String(right || '').trim();
 
@@ -718,25 +722,26 @@ function collectRepeatAnswers(parent, children, parentAnswers, options = {}) {
   for (const row of rows) {
     const rowContext = { parentId: parent.id, rowKey: row.dataset.repeatRowKey };
     const rowAnswers = {};
+    const submittedRow = {};
 
     for (const child of children) {
-      if (child.type === 'section' || child.type === 'formula') continue;
+      if (child.type === 'section') continue;
       if (!conditionMet(child.show_if, { ...parentAnswers, ...rowAnswers })) {
         rowAnswers[child.id] = '';
+        if (child.type !== 'formula') submittedRow[child.id] = '';
         continue;
       }
-      rowAnswers[child.id] = collectSingleField(child, options, rowContext);
+      if (child.type === 'formula') {
+        rowAnswers[child.id] = evaluateFormula(child.formula, { ...parentAnswers, ...rowAnswers });
+        continue;
+      }
+      const value = collectSingleField(child, options, rowContext);
+      rowAnswers[child.id] = value;
+      submittedRow[child.id] = value;
     }
 
-    for (const child of children) {
-      if (child.type !== 'formula') continue;
-      rowAnswers[child.id] = conditionMet(child.show_if, { ...parentAnswers, ...rowAnswers })
-        ? evaluateFormula(child.formula, { ...parentAnswers, ...rowAnswers })
-        : '';
-    }
-
-    if (isEmptyRepeatRow(rowAnswers) && minRows(parent) === 0) continue;
-    values.push(rowAnswers);
+    if (isEmptyRepeatRow(submittedRow) && minRows(parent) === 0) continue;
+    values.push(submittedRow);
   }
 
   if (validate && values.length < minRows(parent)) {
@@ -751,17 +756,20 @@ function collectRepeatAnswers(parent, children, parentAnswers, options = {}) {
 
 export function collectWorkFormAnswers(form, options = {}) {
   const answers = {};
+  const submittedAnswers = {};
   const fields = normalisedFields(form);
 
   for (const field of topLevelFields(fields)) {
     if (field.type === 'section') continue;
     if (!conditionMet(field.show_if, answers)) {
       answers[field.id] = field.type === 'repeat' ? [] : '';
+      if (field.type !== 'formula') submittedAnswers[field.id] = answers[field.id];
       continue;
     }
 
     if (field.type === 'repeat') {
       answers[field.id] = collectRepeatAnswers(field, repeatChildren(fields, field.id), answers, options);
+      submittedAnswers[field.id] = answers[field.id];
       continue;
     }
 
@@ -771,9 +779,10 @@ export function collectWorkFormAnswers(form, options = {}) {
     }
 
     answers[field.id] = collectSingleField(field, options);
+    submittedAnswers[field.id] = answers[field.id];
   }
 
-  return answers;
+  return submittedAnswers;
 }
 
 function populateSignatureAnswer(field, value, idPrefix, rowContext = null) {
@@ -891,14 +900,14 @@ export function parseWorkFormFieldsInput(value) {
       const [typeRaw, labelRaw, requiredRaw = '', optionsRaw = '', ...metadataRaw] = source.split('|').map((part) => part.trim());
       const type = normaliseFieldType(typeRaw);
       const label = labelRaw || `Field ${index + 1}`;
+      const metadata = parseMetadataParts(metadataRaw);
       const field = {
-        id: fieldIdFromLabel(label, index),
+        id: fieldIdFromLabel(metadata.id || label, index),
         label,
         type,
         required: type === 'section' || type === 'formula' ? false : requiredRaw.toLowerCase() === 'required',
         options: []
       };
-      const metadata = parseMetadataParts(metadataRaw);
 
       if (childLine && currentRepeatId) {
         field.repeat = currentRepeatId;
@@ -926,7 +935,7 @@ export function parseWorkFormFieldsInput(value) {
 }
 
 function metadataParts(field) {
-  const parts = [];
+  const parts = field.id ? [`id=${field.id}`] : [];
   if (field.show_if || field.showIf) parts.push(`show_if=${field.show_if || field.showIf}`);
   if (field.type === 'repeat') {
     if (field.min_rows != null || field.minRows != null) parts.push(`min=${field.min_rows ?? field.minRows}`);

@@ -8,7 +8,7 @@ The project should stay practical: reliable local testing first, then production
 
 ## Product Vision
 
-Create a practical geo-based field operations platform for two main user groups.
+Create a practical geo-based field operations platform for three main user groups.
 
 1. **Staff / field users**
    - Log in securely.
@@ -39,15 +39,20 @@ Create a practical geo-based field operations platform for two main user groups.
 
 ## Current Implementation Notes
 
-- The active frontend path is `index.html` with `assets/js/app.js`, `assets/js/api-client.js`, `assets/js/db.js`, `assets/js/mock-api.js`, and `assets/css/styles.css`.
+- The active frontend path is `index.html` with `assets/js/app.js`, `assets/js/app-shell-state.js`, `assets/js/api-client.js`, `assets/js/db.js`, `assets/js/mock-api.js`, feature modules under `assets/js/`, and `assets/css/styles.css`.
 - `src/App.jsx` exists but is a legacy React path and is not the current production UI.
 - The backend is FastAPI in `backend/app/main.py` using SQLModel models from `backend/app/models.py`.
 - Local development uses SQLite at `backend/geo_management.db`.
-- The recommended hosted deployment is Firebase Hosting for the PWA, Cloud Run for FastAPI, Cloud SQL PostgreSQL for the database, Cloud Storage for photos/signatures, and Secret Manager for secrets.
+- The current live deployment is Firebase Hosting, Cloud Run, Neon PostgreSQL supplied through Secret Manager, and a private Cloud Storage upload bucket. The recommended all-Google target remains Firebase Hosting, Cloud Run, Cloud SQL PostgreSQL, Cloud Storage, and Secret Manager.
 - Production uploads must use Cloud Storage or another durable object store. Do not rely on local `backend/uploads/` for Cloud Run production storage.
-- The app currently supports backend auth, worker/supervisor roles, attendance, geolocation, site radius checks, task logs, multiple photos, task templates, staff management, resigned workers, supervisor record edits, CSV exports, dynamic work forms, form submissions, and handwritten signature fields.
+- The app currently supports backend auth, HttpOnly `__session` cookies with CSRF, session refresh, normal-worker/leader classes, department-scoped supervisors/global admins, attendance, geolocation, site radius checks, task logs, weekly team logs, multiple photos, task templates, staff management, resigned workers, supervisor record edits, rubbish-bin restore/purge, audit history, CSV/PDF/HTML exports, versioned Work Forms, form submissions, handwritten signatures, maps, and Management Analytics.
 - Payroll/admin reporting is planned, not implemented yet. Keep it separate from the Review Queue: supervisors validate records, while accounting calculates/export payable hours from approved attendance.
-- PWA pieces exist: `manifest.webmanifest`, `sw.js`, `offline.html`, HTTPS Vite dev server, IndexedDB drafts, and an offline queue for attendance, task logs, and work forms with photos/signatures. Treat it as PWA-shaped but not fully production PWA-ready yet.
+- The Offline Submission module owns Worker identity, capture time, client idempotency key, replay state, and partial-upload state for queued attendance, task logs, and Work Forms; attendance maps capture time to its occurrence timestamp. Do not make those separate caller responsibilities.
+- Work Form Definitions are versioned; each submission stores an immutable definition snapshot, and the backend is authoritative for time-range and formula results.
+- The Review Queue is a cursor-paginated feed of durable attendance, task, weekly team-log, and form Review Records. Its explicit offline fallback is read-only; dashboard totals and Management Analytics use a complete overview rather than the current filtered page.
+- Upload Storage owns decoded-raster verification/re-encoding, local/GCS adapter readiness, authorized streaming, and unreferenced-file cleanup.
+- PWA pieces include `manifest.webmanifest`, generated `sw.js`, `offline.html`, HTTPS Vite development, IndexedDB drafts, and the hardened offline queue. Local automated and real-phone checks are green; an automated hosted pass completed on 2026-07-14, while the full hosted real-phone/update/upload checklist and provider hardening still remain.
+- Backend production helpers include `/health/ready`, SQLAlchemy `pool_pre_ping`, configurable in-process rate limiting, focused security/storage/database tests, and the read-only `npm run check:production-hardening` GCP checker. The GCP checker does not replace Neon backup/restore and access-control checks.
 - Runtime/generated paths such as `backend/geo_management.db`, `backend/uploads/`, `backend/app/__pycache__/`, `dist/`, and `node_modules/` are not source-of-truth code changes.
 
 ## MVP Scope
@@ -59,8 +64,8 @@ The MVP should include:
 - Staff registration and login.
 - Mobile-friendly check-in/check-out flow.
 - Location capture using browser geolocation.
-- Backend API endpoints for attendance, task logs, forms, sites, and user data.
-- Database storage for users, attendance records, task logs, sites, work forms, form submissions, timestamps, coordinates, photos, and signature URLs.
+- Backend API endpoints for attendance, task logs, weekly team logs, Work Forms, Sites, uploads, review, and user data.
+- Database storage for Departments, users, attendance records, task logs, weekly team logs/entries, Sites, versioned Work Forms, immutable submission snapshots, timestamps, coordinates, upload references, and audit events.
 - Supervisor dashboard to view, search, approve, reject, and adjust records.
 - Clear error handling for login, registration, location permission, API failures, photo upload failures, and form validation.
 - README instructions for setup, environment variables, backend startup, frontend startup, phone testing, and validation.
@@ -100,7 +105,7 @@ General MVP order:
 
 Current reset goal:
 
-Make the existing local MVP reliable as an installable phone-first PWA before adding more business features. The core worker/supervisor workflows are broad enough; the next work should reduce build, cache, sync, and review-risk.
+Keep the existing MVP reliable as an installable phone-first PWA locally and through the hosted path before adding more business features. The core Worker/Supervisor workflows are broad enough; current work should reduce sync, review, deployment, and recovery risk.
 
 Current reset priorities completed:
 
@@ -110,11 +115,20 @@ Current reset priorities completed:
 4. Focused browser/mobile workflow checks cover worker, supervisor, PWA, offline, and update-flow basics.
 5. Queued offline submissions are hardened for partial upload failures, expired sessions, and duplicate sync attempts.
 6. Supervisor audit history records edits to attendance, sites, staff users, task logs, work forms, and review decisions.
+7. The Daywork team-member picker passes the focused Playwright mobile/browser workflow checks.
+8. Backend smoke testing uses the current Firebase-compatible `__session` cookie and covers readiness/session refresh.
+9. App-level readiness, session refresh, and configurable rate limiting are implemented; live GCP resource hardening is checked by a read-only script.
+10. Offline Submission ownership, capture time, attendance occurrence time, idempotency, replay state, and partial uploads are enforced behind one module interface.
+11. Upload Storage presents one verified-raster, readiness, authorization, streaming, and lifecycle-cleanup test surface for local disk and GCS.
+12. Work Form Definitions have immutable submission snapshots and server-authoritative validation, time ranges, conditions, repeats, formulas, and signatures.
+13. Review Record policy, cursor queries, explicit offline/read-only state, and export adapters are separated; dashboard and Management Analytics totals no longer depend on the visible filtered page.
+14. Database connection checkout uses `pool_pre_ping`, and authenticated Sites load only after login/session restoration succeeds.
+15. The 2026-07-14 hosted automated pass verified anonymous/login isolation, restored-session ordering, repeated Sites requests, logout, Review Queue, readiness, and new-revision logs without an observed 5xx.
 
 Current next priorities:
 
 1. Run the full manual phone/browser workflow checklist against the live Firebase Hosting / Cloud Run path.
-2. Finish production hardening: least-privilege Cloud Run service account, Cloud SQL public-IP/private-IP decision, backup restore drill, budget alerts, and production monitoring.
+2. Run `npm run check:production-hardening` against GCP and close applicable failures, then separately verify Neon least privilege, backups/PITR, restore drill, pooling limits, and monitoring.
 3. Expand automated frontend/backend tests around the highest-risk worker and supervisor workflows.
 4. Add a desktop-first payroll/admin portal section for pay-period worker hour summaries, exception flags, and payroll CSV export.
 
@@ -131,19 +145,23 @@ Current next priorities:
 - When adding a feature, update the README if setup, usage, API, or validation changes.
 - When changing frontend assets used by the app shell, update `scripts/pwa-shell-assets.mjs` if the shell asset list changes and run `npm run generate:pwa`; `sw.js` and its cache name are generated.
 - When changing production deployment behavior, update `README.md`, `docs/production-db-runbook.md`, and `docs/mobile-browser-workflow-checks.md`.
+- When changing auth, CSRF, session refresh, readiness, rate limiting, or production hardening behavior, update `backend/smoke_test.py`, `backend/security_test.py`, README, and the production runbook.
 - Use clear naming for files, functions, routes, and components.
 
 ## Suggested Core Data Model
 
 The exact schema can follow the current project, but the MVP should support these concepts.
 
-### User
+### Department / User
 
 - id
 - email
 - name
 - password hash
 - role: worker or supervisor
+- worker class: normal or leader
+- department id
+- optional global-admin access and saved dashboard focus
 - status: active or resigned
 
 ### Attendance Record
@@ -152,7 +170,7 @@ The exact schema can follow the current project, but the MVP should support thes
 - worker id
 - optional site id
 - record type: check_in or check_out
-- timestamp
+- occurrence timestamp
 - latitude
 - longitude
 - accuracy
@@ -161,6 +179,9 @@ The exact schema can follow the current project, but the MVP should support thes
 - optional note
 - optional photo URL
 - status: pending, approved, or rejected
+- client submission id for Worker replay idempotency
+- entry source and optional Supervisor creator for manual corrections
+- optional rubbish-bin metadata
 
 ### Task Log
 
@@ -173,6 +194,8 @@ The exact schema can follow the current project, but the MVP should support thes
 - safety notes
 - photo URLs
 - created timestamp
+- client submission id
+- status, entry source, and optional rubbish-bin metadata
 
 ### Work Form
 
@@ -180,6 +203,7 @@ The exact schema can follow the current project, but the MVP should support thes
 - name
 - description
 - JSON field definition list
+- current definition version
 - status: active or archived
 - created by
 - created timestamp
@@ -193,6 +217,10 @@ Supported field types:
 - select
 - checkbox
 - signature
+- section
+- time_range
+- formula
+- repeat
 
 Signature fields should be handwritten by the worker using a signature pad and saved as uploaded image URLs, not typed names.
 
@@ -205,6 +233,24 @@ Signature fields should be handwritten by the worker using a signature pad and s
 - work date
 - JSON answers
 - photo URLs
+- form definition version and immutable definition snapshot
+- client submission id
+- status and optional rubbish-bin metadata
+- created timestamp
+
+### Weekly Team Work Log
+
+- leader / Worker id and Department
+- week start
+- client submission id
+- status and optional rubbish-bin metadata
+- many member/date/site/start/finish/break/work-detail entries
+
+### Audit Event
+
+- actor and access scope
+- action and target entity
+- summary and before/after snapshots
 - created timestamp
 
 ### Site / Job Location
@@ -231,8 +277,15 @@ The project can be considered successful when:
 - A worker can submit a chosen work form.
 - Required handwritten signature fields are enforced.
 - A supervisor can view attendance, task logs, form submissions, photos, and signatures.
+- A supervisor can review weekly Team Work Logs and query pending, approved, and rejected Review Records with stable pagination.
+- Dashboard review totals and Management Analytics remain correct when the visible Review Queue is filtered or contains only one page.
+- Delayed Offline Submissions preserve the original Worker and capture time; delayed attendance preserves its occurrence timestamp, and retries do not create duplicates or cross accounts on a shared device.
+- Historical Work Form submissions retain their exact Definition snapshot after the reusable form changes.
+- Local and GCS Upload Storage adapters enforce the same raster validation, authorization, readiness, and lifecycle rules.
 - A supervisor can mark workers resigned and reactivate them without losing old records.
 - The app does not crash when location permission is denied.
+- Anonymous startup does not request protected Sites; restored sessions refresh before Sites load.
+- `/health/ready` verifies database and Upload Storage, including recovery from stale pooled database connections.
 - Setup instructions are clear enough for another developer to run the project.
 
 ## Future Features After MVP
@@ -241,12 +294,7 @@ Possible future features include:
 
 - Desktop payroll/admin portal for approved-hour summaries and payroll CSV export.
 - Payroll rules for overtime, allowances, deductions, public holidays, wage rates, and other business-specific wage calculations.
-- Production-ready PWA packaging.
-- Offline-first work-form submissions with signatures and photos.
-- Map view for attendance locations and sites.
-- Site geofencing with stricter allowed check-in radius rules.
 - Native Excel export for payroll/admin reports and submitted field records.
-- Manager approval workflows for task logs and form submissions.
 - Staff schedule or shift management.
 - Leave request management.
 - Photo requirement rules per site or form.
@@ -254,6 +302,8 @@ Possible future features include:
 - Richer audit filtering, export, and detail view.
 - Bulk staff import.
 - Integration with external HR or form systems.
+- Distributed/edge rate limiting if the service scales beyond one Cloud Run instance.
+- Stronger cross-device offline conflict resolution beyond idempotent replay.
 
 ## Codex Working Style
 
@@ -272,8 +322,17 @@ Preferred validation commands:
 ```powershell
 npm run lint
 npm run build
-python -m compileall backend\app backend\smoke_test.py
+npm run check:review-queue
+npm run check:mobile
+python -m compileall backend\app backend\smoke_test.py backend\database_test.py backend\migration_test.py backend\review_queue_test.py backend\work_form_definition_test.py backend\upload_storage_test.py backend\security_test.py
+python backend\database_test.py
+python backend\security_test.py
+python backend\upload_storage_test.py
+python backend\review_queue_test.py
+python backend\work_form_definition_test.py
+python backend\migration_test.py
 python backend\smoke_test.py
 ```
 
 The smoke test expects the backend to be running at `http://127.0.0.1:8000`.
+`npm run check:production-hardening` requires authenticated `gcloud` access and verifies GCP resource state. It does not validate Neon backups, restore readiness, roles, or pooling limits.

@@ -11,6 +11,8 @@
     "check:mobile": "npm run check:mobile:static && npm run check:browser",
     "check:mobile:static": "npm run generate:pwa && node scripts/check-mobile-browser-workflows.mjs",
     "check:browser": "npm run generate:pwa && node scripts/check-browser-workflows.mjs",
+    "check:review-queue": "node scripts/review-queue-module-test.mjs && python backend/review_queue_test.py",
+    "check:production-hardening": "powershell -ExecutionPolicy Bypass -File scripts/check-production-hardening.ps1",
     "lint": "eslint .",
     "preview": "vite preview",
     "preview:phone": "vite preview --host 0.0.0.0 --port 4173"

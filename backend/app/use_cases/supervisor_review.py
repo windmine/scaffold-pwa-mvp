@@ -19,13 +19,13 @@ from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, 
 from sqlmodel import Session, select
 
 from app.models import AttendanceRecord, TaskLog, TeamWorkLog, TeamWorkLogEntry, User, WorkForm, WorkFormSubmission
+from app.upload_storage import cleanup_detached_record_uploads, record_upload_urls
 from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
     attendance_record_response,
     break_answer_duration_hours,
     can_access_department,
     ensure_site_exists,
-    normalize_approval_record_type,
     normalize_task_photo_urls,
     normalize_work_form_photo_urls,
     require_confirmed,
@@ -36,10 +36,11 @@ from app.use_cases.common import (
     select_work_form_submissions,
     site_distance_check,
     task_log_response,
-    validate_approval_decision,
     validate_work_form_answers,
     validate_photo_url,
-    validate_review_status,
+    work_form_definition,
+    work_form_definition_snapshot_json,
+    work_form_submission_definition,
     work_form_submission_response,
 )
 from app.use_cases.supervisor_review_exports import (
@@ -58,6 +59,8 @@ from app.use_cases.supervisor_review_exports import (
     render_signature_grid,
     text_value,
 )
+from app.use_cases.review_queue import list_review_records
+from app.use_cases.review_record_policy import apply_review_decision, enforce_review_status_unchanged
 from app.use_cases.team_work_logs import prepare_team_work_log_entries
 
 
@@ -1655,32 +1658,6 @@ def export_form_submission_pdf(
     )
 
 
-def list_review_records(session: Session, supervisor: User, status: Optional[str] = None):
-    rows = []
-    rows.extend(
-        ("attendance", record)
-        for record in session.exec(select_attendance_records(status, supervisor)).all()
-    )
-    rows.extend(
-        ("task", record)
-        for record in session.exec(select_task_logs(status, supervisor)).all()
-    )
-    rows.extend(
-        ("form", record)
-        for record in session.exec(select_work_form_submissions(status, supervisor)).all()
-    )
-    rows.extend(
-        ("team_log", record)
-        for record in session.exec(select_team_work_logs(status, supervisor)).all()
-    )
-    rows.sort(key=lambda row: row[1].created_at, reverse=True)
-
-    return [
-        review_record_response(record_kind, record, session)
-        for record_kind, record in rows
-    ]
-
-
 def list_pending_attendance_records(session: Session, supervisor: User):
     records = session.exec(
         select_attendance_records("pending", supervisor)
@@ -1775,7 +1752,9 @@ def update_supervisor_attendance_record(record_id: int, data, supervisor: User, 
     ):
         raise HTTPException(status_code=404, detail="Record not found")
 
+    previous_upload_urls = record_upload_urls(record)
     fields = data.model_fields_set
+    enforce_review_status_unchanged(record, data.status, fields)
     before = model_snapshot(record)
 
     if "record_type" in fields and data.record_type is not None:
@@ -1796,9 +1775,6 @@ def update_supervisor_attendance_record(record_id: int, data, supervisor: User, 
     if "photo_url" in fields:
         validate_photo_url(data.photo_url)
         record.photo_url = data.photo_url
-    if "status" in fields and data.status is not None:
-        record.status = validate_review_status(data.status)
-
     site = ensure_site_exists(session, record.site_id, supervisor)
     record.distance_from_site_m, record.within_site_radius = site_distance_check(
         site,
@@ -1819,6 +1795,7 @@ def update_supervisor_attendance_record(record_id: int, data, supervisor: User, 
     )
     session.commit()
     session.refresh(record)
+    cleanup_detached_record_uploads(previous_upload_urls, record, session)
 
     return attendance_record_response(record, session)
 
@@ -1961,7 +1938,8 @@ def create_supervisor_work_form_submission(data, supervisor: User, session: Sess
     if site and site.department_id != target_user.department_id:
         raise HTTPException(status_code=400, detail="Site must belong to the selected user's department")
 
-    answers = validate_work_form_answers(form, data.answers)
+    definition = work_form_definition(form)
+    answers = validate_work_form_answers(definition, data.answers)
     submission = WorkFormSubmission(
         department_id=target_user.department_id,
         form_id=form.id,
@@ -1969,6 +1947,8 @@ def create_supervisor_work_form_submission(data, supervisor: User, session: Sess
         site_id=site.id if site else None,
         work_date=data.work_date,
         answers_json=json.dumps(answers),
+        form_definition_version=definition["version"],
+        definition_snapshot_json=work_form_definition_snapshot_json(form),
         status="approved",
     )
     session.add(submission)
@@ -2197,11 +2177,11 @@ def update_supervisor_form_submission(submission_id: int, data, supervisor: User
     ):
         raise HTTPException(status_code=404, detail="Form submission not found")
 
-    form = session.get(WorkForm, submission.form_id)
-    if not form:
-        raise HTTPException(status_code=404, detail="Form not found")
+    definition = work_form_submission_definition(submission, session)
 
+    previous_upload_urls = record_upload_urls(submission)
     fields = data.model_fields_set
+    enforce_review_status_unchanged(submission, data.status, fields)
     before = model_snapshot(submission)
 
     if "site_id" in fields:
@@ -2212,13 +2192,10 @@ def update_supervisor_form_submission(submission_id: int, data, supervisor: User
     if "work_date" in fields:
         submission.work_date = data.work_date
     if "answers" in fields and data.answers is not None:
-        submission.answers_json = json.dumps(validate_work_form_answers(form, data.answers))
+        submission.answers_json = json.dumps(validate_work_form_answers(definition, data.answers))
     if "photo_urls" in fields and data.photo_urls is not None:
         photo_urls = normalize_work_form_photo_urls(data.photo_urls)
         submission.photo_urls = json.dumps(photo_urls) if photo_urls else None
-    if "status" in fields and data.status is not None:
-        submission.status = validate_review_status(data.status)
-
     session.add(submission)
     add_audit_event(
         session=session,
@@ -2233,6 +2210,7 @@ def update_supervisor_form_submission(submission_id: int, data, supervisor: User
     )
     session.commit()
     session.refresh(submission)
+    cleanup_detached_record_uploads(previous_upload_urls, submission, session)
 
     return work_form_submission_response(submission, session)
 
@@ -2248,7 +2226,9 @@ def update_supervisor_task_log(log_id: int, data, supervisor: User, session: Ses
     ):
         raise HTTPException(status_code=404, detail="Task log not found")
 
+    previous_upload_urls = record_upload_urls(log)
     fields = data.model_fields_set
+    enforce_review_status_unchanged(log, data.status, fields)
     before = model_snapshot(log)
     if "description" in fields and data.description is not None:
         log.description = data.description
@@ -2269,9 +2249,6 @@ def update_supervisor_task_log(log_id: int, data, supervisor: User, session: Ses
         validate_photo_url(data.photo_url)
         log.photo_url = data.photo_url
         log.photo_urls = json.dumps([data.photo_url]) if data.photo_url else None
-    if "status" in fields and data.status is not None:
-        log.status = validate_review_status(data.status)
-
     session.add(log)
     add_audit_event(
         session=session,
@@ -2285,6 +2262,7 @@ def update_supervisor_task_log(log_id: int, data, supervisor: User, session: Ses
     )
     session.commit()
     session.refresh(log)
+    cleanup_detached_record_uploads(previous_upload_urls, log, session)
 
     return task_log_response(log, session)
 
@@ -2301,6 +2279,7 @@ def update_supervisor_team_work_log(log_id: int, data, supervisor: User, session
         raise HTTPException(status_code=404, detail="Team work log not found")
 
     fields = data.model_fields_set
+    enforce_review_status_unchanged(log, data.status, fields)
     before = model_snapshot(log)
     week_start = data.week_start if "week_start" in fields and data.week_start is not None else log.week_start
 
@@ -2336,9 +2315,6 @@ def update_supervisor_team_work_log(log_id: int, data, supervisor: User, session
         log.week_start = data.week_start
     if "notes" in fields:
         log.notes = data.notes.strip() if data.notes else None
-    if "status" in fields and data.status is not None:
-        log.status = validate_review_status(data.status)
-
     session.add(log)
     add_audit_event(
         session=session,
@@ -2355,69 +2331,3 @@ def update_supervisor_team_work_log(log_id: int, data, supervisor: User, session
     session.refresh(log)
 
     return review_record_response("team_log", log, session)
-
-
-def apply_review_decision(
-    record_type: str,
-    record_id: int,
-    status: str,
-    supervisor: User,
-    session: Session
-):
-    status = validate_approval_decision(status)
-    record_type = normalize_approval_record_type(record_type)
-
-    if record_type == "attendance":
-        record = session.get(AttendanceRecord, record_id)
-
-        if (
-            not record
-            or record.deleted_at is not None
-            or not can_access_department(supervisor, record.department_id)
-        ):
-            raise HTTPException(status_code=404, detail="Record not found")
-    elif record_type == "task":
-        record = session.get(TaskLog, record_id)
-
-        if (
-            not record
-            or record.deleted_at is not None
-            or not can_access_department(supervisor, record.department_id)
-        ):
-            raise HTTPException(status_code=404, detail="Task log not found")
-    elif record_type == "team_log":
-        record = session.get(TeamWorkLog, record_id)
-
-        if (
-            not record
-            or record.deleted_at is not None
-            or not can_access_department(supervisor, record.department_id)
-        ):
-            raise HTTPException(status_code=404, detail="Team work log not found")
-    else:
-        record = session.get(WorkFormSubmission, record_id)
-
-        if (
-            not record
-            or record.deleted_at is not None
-            or not can_access_department(supervisor, record.department_id)
-        ):
-            raise HTTPException(status_code=404, detail="Form submission not found")
-
-    before = model_snapshot(record)
-    record.status = status
-    session.add(record)
-    add_audit_event(
-        session=session,
-        actor=supervisor,
-        action="review_decision",
-        entity_type=record_type,
-        entity_id=record.id,
-        before=before,
-        after=model_snapshot(record),
-        summary=f"{status.capitalize()} {record_type} record #{record.id}",
-    )
-    session.commit()
-    session.refresh(record)
-
-    return review_record_response(record_type, record, session)

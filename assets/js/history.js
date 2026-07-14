@@ -304,23 +304,28 @@ export function createHistoryModule({
   }
 
   function fromBackendReviewRecord(record) {
+    let converted = null;
     if (record.kind === 'attendance') {
-      return fromBackendAttendanceRecord(record);
+      converted = fromBackendAttendanceRecord(record);
     }
 
     if (record.kind === 'task') {
-      return fromBackendTaskLogRecord(record);
+      converted = fromBackendTaskLogRecord(record);
     }
 
     if (record.kind === 'form') {
-      return fromBackendFormSubmissionRecord(record);
+      converted = fromBackendFormSubmissionRecord(record);
     }
 
     if (record.kind === 'team_log') {
-      return fromBackendTeamWorkLogRecord(record);
+      converted = fromBackendTeamWorkLogRecord(record);
     }
 
-    return null;
+    return converted ? {
+      ...converted,
+      durability: record.durability || 'durable',
+      readOnly: Boolean(record.read_only)
+    } : null;
   }
 
   async function getWorkerHistoryRecords() {
@@ -663,6 +668,7 @@ export function createHistoryModule({
   return {
     bindEvents,
     filterRecords,
+    fromBackendAttendanceRecord,
     fromBackendReviewRecord,
     getRecordDate,
     renderHistory,

@@ -47,6 +47,8 @@ EXPECTED_VERSIONS = [
     "0012_form_and_team_log_rubbish_bin",
     "0013_daywork_team_break_options",
     "0014_client_submission_unique_indexes",
+    "0015_work_form_definition_snapshots",
+    "0016_review_queue_indexes",
 ]
 
 
@@ -71,6 +73,22 @@ def column_details(engine, table_name: str):
     }
 
 
+def index_names(engine, table_name: str):
+    return {index["name"] for index in inspect(engine).get_indexes(table_name)}
+
+
+def assert_review_queue_indexes(engine, label: str):
+    for table_name in ("attendancerecord", "tasklog", "workformsubmission", "teamworklog"):
+        assert_contains(
+            f"{label} {table_name} review queue indexes",
+            index_names(engine, table_name),
+            {
+                f"ix_{table_name}_review_queue_department",
+                f"ix_{table_name}_review_queue_global",
+            },
+        )
+
+
 def assert_contains(label: str, actual, expected):
     missing = set(expected) - set(actual)
 
@@ -83,7 +101,12 @@ def copy_migrations_before_0014(target: Path):
     target.mkdir(parents=True, exist_ok=True)
 
     for path in source.glob("*.py"):
-        if path.name in {"__init__.py", "0014_client_submission_unique_indexes.py"}:
+        if path.name in {
+            "__init__.py",
+            "0014_client_submission_unique_indexes.py",
+            "0015_work_form_definition_snapshots.py",
+            "0016_review_queue_indexes.py",
+        }:
             continue
         shutil.copy2(path, target / path.name)
 
@@ -175,6 +198,8 @@ def test_fresh_database():
                 "deleted_at",
                 "deleted_by_supervisor_id",
                 "deletion_reason",
+                "form_definition_version",
+                "definition_snapshot_json",
             },
         )
         assert_contains(
@@ -214,7 +239,12 @@ def test_fresh_database():
             {"email", "name", "code_hash", "token_hash", "attempts", "expires_at", "verified_at", "consumed_at"},
         )
         assert_contains("fresh site columns", columns(engine, "site"), {"department_id"})
-        assert_contains("fresh workform columns", columns(engine, "workform"), {"department_id"})
+        assert_contains(
+            "fresh workform columns",
+            columns(engine, "workform"),
+            {"department_id", "definition_version"},
+        )
+        assert_review_queue_indexes(engine, "fresh")
         assert_migration_recorded(engine)
         engine.dispose()
 
@@ -277,6 +307,23 @@ def test_legacy_database():
                     answers_json VARCHAR NOT NULL,
                     photo_urls VARCHAR,
                     created_at DATETIME NOT NULL
+                )
+                """
+            )
+            connection.exec_driver_sql(
+                """
+                INSERT INTO workformsubmission (
+                    id,
+                    form_id,
+                    worker_id,
+                    answers_json,
+                    created_at
+                ) VALUES (
+                    1,
+                    1,
+                    1,
+                    '{}',
+                    '2026-01-01T00:00:00Z'
                 )
                 """
             )
@@ -343,13 +390,22 @@ def test_legacy_database():
                 "deleted_at",
                 "deleted_by_supervisor_id",
                 "deletion_reason",
+                "form_definition_version",
+                "definition_snapshot_json",
             },
         )
+        with engine.begin() as connection:
+            snapshot_row = connection.exec_driver_sql(
+                "SELECT form_definition_version, definition_snapshot_json FROM workformsubmission WHERE id = 1"
+            ).first()
+        if not snapshot_row or snapshot_row[0] != 1 or '"name":"Form 1"' not in snapshot_row[1]:
+            raise AssertionError("legacy form submission: expected frozen fallback definition snapshot")
         assert_contains(
             "legacy team work log columns",
             columns(engine, "teamworklog"),
             {"deleted_at", "deleted_by_supervisor_id", "deletion_reason"},
         )
+        assert_review_queue_indexes(engine, "legacy")
         assert_migration_recorded(engine)
         engine.dispose()
 

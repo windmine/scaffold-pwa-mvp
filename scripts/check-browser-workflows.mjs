@@ -233,6 +233,14 @@ async function myRecordCount(page) {
   });
 }
 
+async function pageWaitForRecordCount(page, expected) {
+  await page.waitForFunction(async (count) => {
+    const response = await fetch('/api/my-records', { credentials: 'include' });
+    if (!response.ok) return false;
+    return (await response.json()).length >= count;
+  }, expected, { timeout: 20000 });
+}
+
 async function waitForQueueCount(page, expected) {
   await page.waitForFunction(async (value) => {
     const db = await new Promise((resolve, reject) => {
@@ -288,6 +296,39 @@ async function waitForQueueAtLeast(page, minimum) {
       cause: error
     });
   }
+}
+
+async function queuedLocalRecords(page) {
+  return await page.evaluate(async () => {
+    const { get, getAll } = await import('/assets/js/db.js');
+    const queueItems = await getAll('queue');
+    return (await Promise.all(queueItems.map((item) => get('records', item.id)))).filter(Boolean);
+  });
+}
+
+async function setQueuedAttendanceOccurrence(page, recordId, occurredAt) {
+  await page.evaluate(async ({ id, capturedAt }) => {
+    const { get, put } = await import('/assets/js/db.js');
+    const record = await get('records', id);
+    const queueItem = await get('queue', id);
+    record.capturedAt = capturedAt;
+    record.createdAt = capturedAt;
+    record.location = { ...record.location, capturedAt };
+    await put('records', record);
+    await put('queue', {
+      ...queueItem,
+      ownerWorkerId: record.ownerWorkerId,
+      capturedAt,
+      createdAt: capturedAt
+    });
+  }, { id: recordId, capturedAt: occurredAt });
+}
+
+async function replayQueuedSubmissions(page) {
+  return await page.evaluate(async () => {
+    const { syncQueuedSubmissions } = await import('/assets/js/offline-submissions.js');
+    return await syncQueuedSubmissions();
+  });
 }
 
 async function expectNoLegacyBearerToken(page) {
@@ -349,6 +390,62 @@ async function runCheck(name, test) {
   }
 }
 
+async function checkAnonymousStartupDoesNotLoadSites(browser) {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const siteRequests = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/sites') {
+      siteRequests.push(request.url());
+    }
+  });
+
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => {
+      const status = document.querySelector('#statusBanner')?.textContent || '';
+      return document.body.dataset.activeView === 'login' && status !== 'Checking app status...';
+    });
+    await page.waitForTimeout(250);
+
+    const siteOptions = await page.locator('#attendanceSite option').allTextContents();
+    if (siteRequests.length) {
+      throw new Error(`anonymous startup requested authenticated sites: ${JSON.stringify(siteRequests)}`);
+    }
+    if (siteOptions.some((label) => label.includes('Auckland Yard') || label.includes('CBD Tower Job'))) {
+      throw new Error(`login startup exposed local demo sites: ${JSON.stringify(siteOptions)}`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkRestoredSessionLoadsSitesAfterRefresh(browser) {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    const requests = [];
+    page.on('request', (request) => {
+      const path = new URL(request.url()).pathname;
+      if (path === '/api/auth/refresh' || path === '/api/sites') requests.push(path);
+    });
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.body.dataset.activeView === 'worker');
+    await selectFirstSite(page);
+
+    const refreshIndex = requests.indexOf('/api/auth/refresh');
+    const sitesIndex = requests.indexOf('/api/sites');
+    if (refreshIndex < 0 || sitesIndex < 0 || sitesIndex < refreshIndex) {
+      throw new Error(`site loading did not follow session restoration: ${JSON.stringify(requests)}`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 async function checkLoginAndGrantedGeolocation(browser) {
   const context = await newContext(browser, {
     geolocation: { latitude: -36.8485, longitude: 174.7633, accuracy: 12 },
@@ -406,9 +503,31 @@ async function checkOfflineQueueAndReplay(browser) {
     permissions: ['geolocation']
   });
   const page = await context.newPage();
+  const secondWorkerEmail = `offline-owner-${Date.now()}@example.com`;
 
   try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await page.evaluate(async ({ email, workerPassword }) => {
+      const { createUser, getSession } = await import('/assets/js/api-client.js');
+      const supervisor = getSession();
+      await createUser({
+        name: 'Offline Replay Worker',
+        email,
+        password: workerPassword,
+        role: 'worker',
+        worker_class: 'normal',
+        department_id: supervisor.departmentId,
+        is_global_admin: false
+      });
+    }, { email: secondWorkerEmail, workerPassword: password });
+    await logout(page);
+    await page.waitForTimeout(300);
+
     await loginAs(page, 'worker@example.com', 'worker');
+    const firstWorker = await page.evaluate(async () => {
+      const { getSession } = await import('/assets/js/api-client.js');
+      return getSession();
+    });
     const beforeCount = await myRecordCount(page);
     await selectFirstSite(page);
     await captureLocation(page);
@@ -417,16 +536,90 @@ async function checkOfflineQueueAndReplay(browser) {
     await page.locator('#checkInButton').click();
     await waitForQueueAtLeast(page, 1);
 
+    let [queuedRecord] = await queuedLocalRecords(page);
+    if (!queuedRecord) throw new Error('offline attendance record was not stored');
+    if (queuedRecord.ownerWorkerId !== firstWorker.id || queuedRecord.userId !== firstWorker.id) {
+      throw new Error(`offline attendance owner was not bound to Worker A: ${JSON.stringify(queuedRecord)}`);
+    }
+    if (queuedRecord.capturedAt !== queuedRecord.location?.capturedAt) {
+      throw new Error('offline attendance did not preserve the location capture time');
+    }
+
+    const delayedOccurrence = new Date(Date.now() - (2 * 24 * 60 * 60 * 1000)).toISOString();
+    await setQueuedAttendanceOccurrence(page, queuedRecord.id, delayedOccurrence);
+    queuedRecord = (await queuedLocalRecords(page))[0];
+    const originalClientSubmissionId = queuedRecord.clientSubmissionId;
+    const retryCountBeforeAccountSwitch = queuedRecord.retryCount;
+
+    await logout(page);
     await context.setOffline(false);
-    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.waitForTimeout(300);
+    await loginAs(page, secondWorkerEmail, 'worker');
+    const secondWorkerCount = await myRecordCount(page);
+    const secondWorkerReplay = await replayQueuedSubmissions(page);
+    if (secondWorkerReplay.ownershipBlocked < 1) {
+      throw new Error(`Worker B replay did not report an ownership block: ${JSON.stringify(secondWorkerReplay)}`);
+    }
+    await waitForQueueCount(page, 1);
+    const [ownershipBlockedRecord] = await queuedLocalRecords(page);
+    if (
+      ownershipBlockedRecord.syncBlockedReason !== 'owner_mismatch'
+      || ownershipBlockedRecord.retryCount !== retryCountBeforeAccountSwitch
+      || ownershipBlockedRecord.clientSubmissionId !== originalClientSubmissionId
+    ) {
+      throw new Error(`ownership block changed retry/idempotency state: ${JSON.stringify(ownershipBlockedRecord)}`);
+    }
+    if (await myRecordCount(page) !== secondWorkerCount) {
+      throw new Error('Worker A offline attendance was written to Worker B');
+    }
+
+    await logout(page);
+    await page.waitForTimeout(300);
+    await loginAs(page, 'worker@example.com', 'worker');
     await waitForQueueCount(page, 0);
+    const syncedAttendance = await page.evaluate(async (clientSubmissionId) => {
+      const response = await fetch('/api/my-records', { credentials: 'include' });
+      if (!response.ok) throw new Error(`my-records failed: ${response.status}`);
+      return (await response.json()).find((record) => record.client_submission_id === clientSubmissionId);
+    }, originalClientSubmissionId);
+    if (!syncedAttendance || syncedAttendance.worker_id !== firstWorker.id) {
+      throw new Error(`queued attendance did not return to Worker A: ${JSON.stringify(syncedAttendance)}`);
+    }
+    if (new Date(syncedAttendance.created_at).getTime() !== new Date(delayedOccurrence).getTime()) {
+      throw new Error(`delayed attendance used sync time instead of occurrence time: ${JSON.stringify(syncedAttendance)}`);
+    }
+
+    await page.evaluate(async (recordId) => {
+      const { get, put } = await import('/assets/js/db.js');
+      const record = await get('records', recordId);
+      record.backendRecordId = null;
+      record.syncStatus = 'queued';
+      record.syncedAt = '';
+      await put('records', record);
+      await put('queue', {
+        id: record.id,
+        kind: record.type,
+        ownerWorkerId: record.ownerWorkerId,
+        capturedAt: record.capturedAt,
+        createdAt: record.createdAt,
+        syncStartedAt: ''
+      });
+    }, queuedRecord.id);
+    const replayResult = await replayQueuedSubmissions(page);
+    if (replayResult.flushed !== 1) {
+      throw new Error(`idempotent replay did not flush cleanly: ${JSON.stringify(replayResult)}`);
+    }
+    await waitForQueueCount(page, 0);
+
     await page.waitForFunction(
-      async (countBefore) => {
+      async ({ expectedCount, clientSubmissionId }) => {
         const response = await fetch('/api/my-records', { credentials: 'include' });
         if (!response.ok) return false;
-        return (await response.json()).length > countBefore;
+        const records = await response.json();
+        return records.length === expectedCount
+          && records.filter((record) => record.client_submission_id === clientSubmissionId).length === 1;
       },
-      beforeCount,
+      { expectedCount: beforeCount + 1, clientSubmissionId: originalClientSubmissionId },
       { timeout: 20000 }
     );
   } finally {
@@ -627,6 +820,7 @@ async function checkStaffGlobalAdminScoping(browser) {
 }
 
 async function checkSupervisorReview(browser) {
+  const overviewMarker = `overview-regression-${Date.now()}`;
   const workerContext = await newContext(browser, {
     geolocation: { latitude: 0, longitude: 0, accuracy: 20 },
     permissions: ['geolocation']
@@ -635,10 +829,20 @@ async function checkSupervisorReview(browser) {
 
   try {
     await loginAs(workerPage, 'worker@example.com', 'worker');
+    const initialRecordCount = await myRecordCount(workerPage);
     await selectFirstSite(workerPage);
     await captureLocation(workerPage);
+    await workerPage.locator('#attendanceNotes').evaluate((element, marker) => {
+      element.value = marker;
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+    }, overviewMarker);
     await workerPage.locator('#checkInButton').click();
     await workerPage.locator('#statusBanner').getByText('supervisor review').waitFor({ timeout: 15000 });
+    await workerContext.setGeolocation({ latitude: -36.8485, longitude: 174.7633, accuracy: 20 });
+    await selectFirstSite(workerPage);
+    await captureLocation(workerPage);
+    await workerPage.locator('#checkOutButton').click();
+    await pageWaitForRecordCount(workerPage, initialRecordCount + 2);
     await logout(workerPage);
   } finally {
     await workerContext.close();
@@ -662,8 +866,109 @@ async function checkSupervisorReview(browser) {
     if (!reviewText.includes('Demo Worker') || !reviewText.includes('Outside')) {
       throw new Error(`expected pending outside-site worker record in review queue, got: ${reviewText}`);
     }
+
+    await supervisorPage.locator('#locationMapDetails summary').click();
+    await supervisorPage.locator('#locationReviewMap .location-map-point').first().waitFor({ timeout: 15000 });
+    await supervisorPage.locator('#locationReviewMap .location-map-site-marker').first().waitFor({ timeout: 15000 });
+    await supervisorPage.locator('#locationReviewMap .location-site-boundary').first().waitFor({ timeout: 15000 });
+    const mapDebug = await supervisorPage.evaluate(() => ({
+      pointLabels: [...document.querySelectorAll('#locationReviewMap .location-map-point')]
+        .map((element) => element.textContent.trim()),
+      siteLabels: [...document.querySelectorAll('#locationReviewMap .location-map-site-marker')]
+        .map((element) => element.textContent.trim()),
+      boundaryCount: document.querySelectorAll('#locationReviewMap .location-site-boundary').length
+    }));
+    if (
+      !mapDebug.pointLabels.includes('IN')
+      || !mapDebug.pointLabels.includes('OUT')
+      || !mapDebug.siteLabels.includes('SITE')
+      || mapDebug.boundaryCount < 1
+    ) {
+      throw new Error(`location map did not render visible site/check-in markers: ${JSON.stringify(mapDebug)}`);
+    }
+
+    await supervisorPage.locator('#supervisorSearchInput').fill(overviewMarker);
+    const markedRecord = supervisorPage.locator('#reviewQueueList .record-card').filter({ hasText: overviewMarker });
+    await markedRecord.waitFor({ timeout: 15000 });
+    await markedRecord.getByRole('button', { name: 'Approve', exact: true }).click();
+    await supervisorPage.locator('#statusBanner').getByText('Record approved.').waitFor({ timeout: 15000 });
+    await supervisorPage.waitForFunction(() => {
+      const metricValue = (containerSelector, label) => {
+        const item = [...document.querySelectorAll(`${containerSelector} > *`)]
+          .find((element) => element.querySelector('span')?.textContent.trim() === label);
+        return Number(item?.querySelector('strong')?.textContent || 0);
+      };
+      return (
+        metricValue('#supervisorSummary', 'Reviewed') > 0
+        && metricValue('#analyticsMetrics', 'Records') > 0
+        && document.querySelectorAll('#reviewQueueList .record-card').length === 0
+      );
+    }, undefined, { timeout: 20000 });
   } finally {
     await supervisorContext.close();
+  }
+}
+
+async function checkOfflineReviewQueueReadOnly(browser) {
+  const context = await newContext(browser, {
+    viewport: { width: 1280, height: 900 },
+    isMobile: false,
+    hasTouch: false
+  });
+  const page = await context.newPage();
+
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await page.locator('#reviewQueueDetails').evaluate((element) => {
+      element.open = true;
+    });
+    await page.locator('#reviewQueueList .record-card').first().waitFor({ timeout: 20000 });
+    await page.evaluate(async () => {
+      const { put } = await import('/assets/js/db.js');
+      await put('records', {
+        id: 'local-only-supervisor-trap',
+        type: 'attendance',
+        userId: 'foreign-worker',
+        userName: 'LOCAL ONLY MUST NOT APPEAR',
+        siteName: 'Device-only site',
+        action: 'check_in',
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      });
+    });
+
+    await page.route('**/supervisor/review-queue**', (route) => route.abort('failed'));
+    await page.locator('#refreshSupervisorButton').click();
+    await page.locator('#reviewQueueList .review-queue-read-only').waitFor({ timeout: 20000 });
+    const offlineState = await page.evaluate(() => ({
+      text: document.querySelector('#reviewQueueList')?.textContent || '',
+      decisionButtons: [...document.querySelectorAll('#reviewQueueList .record-actions button')]
+        .filter((button) => ['Approve', 'Reject'].includes(button.textContent.trim())).length,
+      editButtons: [...document.querySelectorAll('#reviewQueueList .record-actions button')]
+        .filter((button) => button.textContent.trim() === 'Edit').length,
+      exportAttendanceDisabled: document.querySelector('#exportAttendanceButton')?.disabled,
+      exportTaskDisabled: document.querySelector('#exportTaskLogsButton')?.disabled,
+      exportDocumentDisabled: document.querySelector('#exportDocumentButton')?.disabled
+    }));
+    if (offlineState.text.includes('LOCAL ONLY MUST NOT APPEAR')) {
+      throw new Error('offline Supervisor Review Queue exposed a device-local Worker record');
+    }
+    if (
+      offlineState.decisionButtons
+      || offlineState.editButtons
+      || !offlineState.exportAttendanceDisabled
+      || !offlineState.exportTaskDisabled
+      || !offlineState.exportDocumentDisabled
+    ) {
+      throw new Error(`offline Review Queue exposed durable mutations: ${JSON.stringify(offlineState)}`);
+    }
+
+    await page.unroute('**/supervisor/review-queue**');
+    await page.locator('#refreshSupervisorButton').click();
+    await page.locator('#reviewQueueList .review-queue-read-only').waitFor({ state: 'detached', timeout: 20000 });
+    await page.locator('#reviewQueueList .record-card').first().waitFor({ timeout: 20000 });
+  } finally {
+    await context.close();
   }
 }
 
@@ -737,6 +1042,8 @@ async function main() {
   }
 
   try {
+    await runCheck('anonymous login startup does not request or expose sites', () => checkAnonymousStartupDoesNotLoadSites(browser));
+    await runCheck('restored session loads sites only after auth refresh', () => checkRestoredSessionLoadsSitesAfterRefresh(browser));
     await runCheck('browser login uses cookie session without localStorage bearer token', (async () => {
       const context = await newContext(browser);
       const page = await context.newPage();
@@ -752,8 +1059,9 @@ async function main() {
     await runCheck('Daywork team rows use searchable member picker', () => checkDayworkTeamMemberPicker(browser));
     await runCheck('Daywork history and review hide helper fields', () => checkDayworkRecordRendering(browser));
     await runCheck('staff users scope global admin controls by role', () => checkStaffGlobalAdminScoping(browser));
-    await runCheck('IndexedDB attendance queue replays after reconnect', () => checkOfflineQueueAndReplay(browser));
+    await runCheck('Offline Submission ownership, occurrence time, and idempotent replay', () => checkOfflineQueueAndReplay(browser));
     await runCheck('supervisor review shows pending outside-site worker record', () => checkSupervisorReview(browser));
+    await runCheck('offline Review Queue is explicit and read-only', () => checkOfflineReviewQueueReadOnly(browser));
     await runCheck('service worker update prompt posts SKIP_WAITING', () => checkServiceWorkerUpdatePrompt(browser));
   } finally {
     await browser.close();

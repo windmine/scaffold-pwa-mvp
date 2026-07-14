@@ -26,6 +26,10 @@ function siteRadius(site) {
   return Number.isFinite(radius) ? radius : 100;
 }
 
+function siteCoordinates(site) {
+  return [Number(site.latitude), Number(site.longitude)];
+}
+
 function markerColour(record) {
   if (record.withinSiteRadius === false) return '#f06b62';
   if (record.withinSiteRadius === true) return '#3ec98f';
@@ -37,6 +41,32 @@ function workerColour(workerId) {
   const source = String(workerId ?? 'worker');
   const hash = Array.from(source).reduce((total, char) => total + char.charCodeAt(0), 0);
   return colours[hash % colours.length];
+}
+
+function siteIcon() {
+  return L.divIcon({
+    className: 'location-map-site-marker',
+    html: '<span>SITE</span>',
+    iconSize: [58, 28],
+    iconAnchor: [29, 42],
+    tooltipAnchor: [0, -34]
+  });
+}
+
+function recordIcon(record) {
+  const radiusClass = record.withinSiteRadius == null
+    ? 'unknown'
+    : record.withinSiteRadius ? 'inside' : 'outside';
+  const actionClass = record.action === 'check_out' ? 'checkout' : 'checkin';
+  const label = record.action === 'check_out' ? 'OUT' : 'IN';
+
+  return L.divIcon({
+    className: `location-map-point ${radiusClass} ${actionClass}`,
+    html: `<span>${label}</span>`,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    tooltipAnchor: [0, -24]
+  });
 }
 
 function uniqueOptions(records, valueKey, labelKey) {
@@ -52,6 +82,8 @@ function uniqueOptions(records, valueKey, labelKey) {
 export function createSupervisorMapModule({
   els,
   state,
+  loadAttendanceRecords,
+  normaliseAttendanceRecord,
   onDecision,
   onEdit,
   refreshRecords,
@@ -62,9 +94,12 @@ export function createSupervisorMapModule({
   let recordLayer = null;
   let routeLayer = null;
   let selectedRecordId = null;
+  let locationRecords = [];
+  let hasLoadedLocationRecords = false;
+  let locationRecordsRequest = null;
   const markerByRecordId = new Map();
 
-  function attendanceRecords() {
+  function reviewAttendanceRecords() {
     return (state.supervisorRecords.reviewRecords || [])
       .filter((record) => (
         record.type === 'attendance'
@@ -76,8 +111,66 @@ export function createSupervisorMapModule({
       ));
   }
 
+  function attendanceRecords() {
+    return hasLoadedLocationRecords ? locationRecords : reviewAttendanceRecords();
+  }
+
+  async function refreshLocationRecords() {
+    if (!loadAttendanceRecords) return;
+    if (locationRecordsRequest) return await locationRecordsRequest;
+
+    locationRecordsRequest = loadAttendanceRecords()
+      .then((records) => {
+        locationRecords = records
+          .map((record) => normaliseAttendanceRecord ? normaliseAttendanceRecord(record) : record)
+          .filter((record) => (
+            record
+            && record.type === 'attendance'
+            && recordCoordinates(record)
+            && (
+              !state.departmentFocusId
+              || String(record.departmentId ?? state.user?.departmentId) === String(state.departmentFocusId)
+            )
+          ));
+        hasLoadedLocationRecords = true;
+      })
+      .finally(() => {
+        locationRecordsRequest = null;
+      });
+
+    return await locationRecordsRequest;
+  }
+
+  function ensureLocationRecordsLoaded() {
+    if (!els.locationMapDetails.open || hasLoadedLocationRecords || locationRecordsRequest || !loadAttendanceRecords) return;
+
+    refreshLocationRecords()
+      .then(() => renderPanel())
+      .catch((error) => {
+        renderStatusBanner(error.message || 'Could not load attendance map records.', true);
+      });
+  }
+
   function selectedSite(record) {
     return state.sites.find((site) => String(site.id) === String(record.siteId));
+  }
+
+  function visibleSites(records) {
+    const selectedSiteId = els.locationMapSiteFilter.value;
+    const recordSiteIds = new Set(
+      records
+        .map((record) => record.siteId)
+        .filter((siteId) => siteId != null && siteId !== '')
+        .map(String)
+    );
+    const limitToRecordSites = !selectedSiteId && recordSiteIds.size > 0;
+
+    return state.sites.filter((site) => (
+      hasCoordinates(site)
+      && (!state.departmentFocusId || String(site.department_id ?? site.departmentId) === String(state.departmentFocusId))
+      && (!selectedSiteId || String(site.id) === selectedSiteId)
+      && (!limitToRecordSites || recordSiteIds.has(String(site.id)))
+    ));
   }
 
   function filters() {
@@ -137,7 +230,7 @@ export function createSupervisorMapModule({
 
     map = L.map(els.locationReviewMap, {
       zoomControl: true,
-      preferCanvas: true
+      preferCanvas: false
     }).setView(MAP_DEFAULT_CENTRE, MAP_DEFAULT_ZOOM);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -164,33 +257,30 @@ export function createSupervisorMapModule({
   }
 
   function renderSiteBoundaries(records) {
-    const activeSiteIds = new Set(records.map((record) => String(record.siteId)));
-    const showAllSites = !els.locationMapSiteFilter.value;
-    const sites = state.sites.filter((site) => (
-      hasCoordinates(site)
-      && (!state.departmentFocusId || String(site.department_id ?? site.departmentId) === String(state.departmentFocusId))
-      && (showAllSites || activeSiteIds.has(String(site.id)))
-    ));
-
-    sites.forEach((site) => {
-      const centre = [Number(site.latitude), Number(site.longitude)];
+    visibleSites(records).forEach((site) => {
+      const centre = siteCoordinates(site);
       const radius = siteRadius(site);
       L.circle(centre, {
         radius,
-        color: '#2488ff',
-        fillColor: '#2488ff',
-        fillOpacity: 0.08,
-        weight: 2
+        color: '#ffffff',
+        opacity: 0.96,
+        fillOpacity: 0,
+        weight: 9,
+        className: 'location-site-boundary-halo',
+        interactive: false
+      }).addTo(siteLayer);
+      L.circle(centre, {
+        radius,
+        color: '#f7c948',
+        fillColor: '#f7c948',
+        fillOpacity: 0.16,
+        opacity: 1,
+        weight: 4,
+        className: 'location-site-boundary'
       })
         .bindTooltip(`${site.name}: ${radius}m boundary`)
         .addTo(siteLayer);
-      L.circleMarker(centre, {
-        radius: 4,
-        color: '#d9e9f8',
-        fillColor: '#2488ff',
-        fillOpacity: 1,
-        weight: 1
-      })
+      L.marker(centre, { icon: siteIcon(), zIndexOffset: 90 })
         .bindTooltip(site.name)
         .addTo(siteLayer);
     });
@@ -238,7 +328,13 @@ export function createSupervisorMapModule({
     const radiusResultClass = record.withinSiteRadius == null
       ? ''
       : record.withinSiteRadius ? 'site-inside' : 'site-outside';
-    const canDecide = record.status === 'pending';
+    const canMutate = (
+      state.supervisorRecords.queueMode === 'live'
+      && record.backendRecordId
+      && record.durability !== 'local_only'
+      && !record.readOnly
+    );
+    const canDecide = canMutate && record.status === 'pending';
 
     els.locationMapSelection.innerHTML = `
       <div class="record-header">
@@ -254,10 +350,12 @@ export function createSupervisorMapModule({
         <p><strong>GPS:</strong> ${escapeHtml(record.location.latitude)}, ${escapeHtml(record.location.longitude)}${record.location.accuracy == null ? '' : ` (${escapeHtml(record.location.accuracy)}m accuracy)`}</p>
         <p><strong>Notes:</strong> ${escapeHtml(record.notes || 'No notes added.')}</p>
       </div>
-      <div class="record-actions">
-        <button type="button" class="ghost" data-map-edit>Edit record</button>
-        ${canDecide ? '<button type="button" data-map-decision="approved">Approve</button><button type="button" class="secondary" data-map-decision="rejected">Reject</button>' : ''}
-      </div>
+      ${canMutate ? `
+        <div class="record-actions">
+          <button type="button" class="ghost" data-map-edit>Edit record</button>
+          ${canDecide ? '<button type="button" data-map-decision="approved">Approve</button><button type="button" class="secondary" data-map-decision="rejected">Reject</button>' : ''}
+        </div>
+      ` : '<div class="empty-state">Read-only while the durable Review Queue is offline.</div>'}
     `;
 
     els.locationMapSelection.querySelector('[data-map-edit]')?.addEventListener('click', async () => {
@@ -266,6 +364,8 @@ export function createSupervisorMapModule({
     els.locationMapSelection.querySelectorAll('[data-map-decision]').forEach((button) => {
       button.addEventListener('click', async () => {
         await onDecision(record, button.dataset.mapDecision);
+        await refreshLocationRecords();
+        renderPanel();
       });
     });
 
@@ -291,12 +391,9 @@ export function createSupervisorMapModule({
   function renderRecordMarkers(records) {
     markerByRecordId.clear();
     records.forEach((record) => {
-      const marker = L.circleMarker(recordCoordinates(record), {
-        radius: record.action === 'check_out' ? 4 : 5,
-        color: record.action === 'check_out' ? '#d9e9f8' : markerColour(record),
-        fillColor: markerColour(record),
-        fillOpacity: 0.78,
-        weight: record.action === 'check_out' ? 2 : 1.5
+      const marker = L.marker(recordCoordinates(record), {
+        icon: recordIcon(record),
+        zIndexOffset: 100
       })
         .bindTooltip(`${record.userName}: ${record.action === 'check_out' ? 'check out' : 'check in'} at ${record.siteName}`)
         .on('click', () => selectRecord(record))
@@ -337,14 +434,10 @@ export function createSupervisorMapModule({
     const bounds = L.latLngBounds();
     records.forEach((record) => bounds.extend(recordCoordinates(record)));
 
-    const activeSiteId = els.locationMapSiteFilter.value;
-    state.sites
-      .filter((site) => (
-        hasCoordinates(site)
-        && (!state.departmentFocusId || String(site.department_id ?? site.departmentId) === String(state.departmentFocusId))
-        && (!activeSiteId || String(site.id) === activeSiteId)
-      ))
-      .forEach((site) => bounds.extend([Number(site.latitude), Number(site.longitude)]));
+    visibleSites(records).forEach((site) => {
+      const centre = siteCoordinates(site);
+      bounds.extend(L.latLng(centre).toBounds(siteRadius(site) * 2));
+    });
 
     if (bounds.isValid()) {
       map.fitBounds(bounds.pad(0.18), { maxZoom: 17 });
@@ -364,10 +457,14 @@ export function createSupervisorMapModule({
     renderRoutes(records);
     renderRecordMarkers(records);
     fitMap(records);
-    window.setTimeout(() => map.invalidateSize(), 0);
+    window.setTimeout(() => {
+      map.invalidateSize();
+      fitMap(records);
+    }, 40);
   }
 
   function renderPanel() {
+    ensureLocationRecordsLoaded();
     const records = attendanceRecords();
     renderFilterOptions(records);
     const visibleRecords = filteredRecords();
@@ -394,6 +491,8 @@ export function createSupervisorMapModule({
   async function refresh() {
     try {
       await refreshRecords();
+      await refreshLocationRecords();
+      renderPanel();
     } catch (error) {
       renderStatusBanner(error.message || 'Could not refresh location review.', true);
     }

@@ -1,173 +1,217 @@
-# Production DB Runbook
+# Production Database And Deployment Runbook
 
-Use this to manage the live backend database after moving from demo SQLite to managed PostgreSQL.
+Use this runbook for managed PostgreSQL migrations, Cloud Run releases, durable uploads, verification, and rollback. Local SQLite and `backend/uploads/` are development-only.
 
-## Target
+## Deployment Truth
 
-- Database: Cloud SQL for PostgreSQL or another managed PostgreSQL-compatible service.
-- App: Cloud Run service `geo-backend`.
-- Frontend: Firebase Hosting at `https://geo-attendance-system-db9ca.web.app`.
-- Uploads: private Cloud Storage bucket for photos and signatures.
-- Secrets: Secret Manager values mounted/injected into Cloud Run.
-- Migration command: `python -m app.migrations`.
+### Current live deployment
 
-## Recommended Google Deployment
-
-For this MVP, keep all production pieces on the Google/Firebase path:
+Checked on 2026-07-14:
 
 ```text
-Firebase Hosting -> /api/** and /uploads/** rewrites -> Cloud Run -> Cloud SQL PostgreSQL
-                                                     -> Cloud Storage uploads
-                                                     -> Secret Manager secrets
+Firebase Hosting
+  /api/** and /uploads/**
+            -> Cloud Run geo-backend (australia-southeast1)
+                 -> Neon PostgreSQL via Secret Manager DATABASE_URL
+                 -> private Cloud Storage bucket geo-attendance-system-db9ca-uploads
 ```
 
-Use same-origin Firebase Hosting rewrites for browser traffic. This keeps HttpOnly cookie auth and CSRF behavior simple and avoids a separate public API domain unless there is a clear need.
+- Hosted PWA: `https://geo-attendance-system-db9ca.web.app`.
+- Cloud Run revision `geo-backend-00018-jbz` serves 100% of traffic.
+- `DATABASE_URL` and `GEO_SECRET_KEY` are injected from Secret Manager.
+- SQLAlchemy uses `pool_pre_ping` so a Neon/managed-PostgreSQL connection closed while idle is discarded before the route query.
+- Upload startup performs create/read/delete lifecycle verification; readiness then reads a stable private marker.
+- Uploaded JPEG, PNG, and WebP files are decoded and re-encoded before storage, served only after authorization, and deleted when detached and no durable reference remains.
+- `/health/ready` verifies both database access and the selected upload adapter.
+- Hosted anonymous/login Site ordering, Worker login, restored session, repeated authenticated Site requests, logout cleanup, Supervisor Review Queue, readiness, and new-revision error logs passed on 2026-07-14 without an observed 5xx.
 
-For around 100 users, the default starting point should be:
+### Recommended all-Google target
 
-- Cloud SQL PostgreSQL, single-zone/zonal.
-- 1 vCPU and about 3.75 GiB RAM, with 20-50 GB SSD and storage auto-increase.
-- Automated backups and PITR enabled.
-- Cloud Run min instances `0` for cost, moving to `1` only if cold starts are unacceptable.
-- Private Cloud Storage bucket for files, with only URLs/metadata stored in PostgreSQL.
+The preferred long-term Google-native shape replaces Neon with Cloud SQL PostgreSQL:
 
-Expected small-production cost is roughly `USD $70-$120/month`. Regional Cloud SQL HA can push the total to roughly `USD $130-$250+/month`. Create budget alerts before enabling HA.
+```text
+Firebase Hosting -> Cloud Run -> Cloud SQL PostgreSQL
+                              -> private Cloud Storage
+                              -> Secret Manager
+```
 
-Current checked status on 2026-06-05:
+The project has an earlier validated Cloud SQL instance and database, but they are not the current live database. Treat migration to Cloud SQL or retirement of those resources as an explicit infrastructure decision; do not assume the GCP resource is the data source serving production traffic.
 
-- Cloud SQL instance `geo-attendance-system` exists in `australia-southeast1`.
-- App database `geo_management` exists.
-- Staging validation database `geo_management_staging` exists.
-- Cloud Run service `geo-backend` is attached to the instance.
-- Cloud Run service account has `roles/cloudsql.client`.
-- PostgreSQL driver `psycopg[binary]` is listed in `requirements.txt`.
-- Staging migrations and backend smoke tests passed against Cloud SQL PostgreSQL through Cloud SQL Auth Proxy.
-- Secret Manager is enabled.
-- Cloud Run revision `geo-backend-00007-5fc` uses Secret Manager-backed `DATABASE_URL` and `GEO_SECRET_KEY`.
-- Live Cloud SQL database `geo_management` has migration `0001_initial_schema` applied.
-- Live backend smoke tests passed through Firebase Hosting at `https://geo-attendance-system-db9ca.web.app/api`.
-- Automated Cloud SQL backups are enabled with a `15:00` UTC backup window.
-- PITR is enabled with 7 days of transaction log retention.
-- Cloud SQL keeps 15 retained backups, retains backups on delete, and has final backup on delete enabled for 30 days.
-- Storage auto-increase is enabled.
-- On-demand backup `1780636673411` was created after PITR was enabled.
-- New photos/signatures are stored in private Cloud Storage bucket `geo-attendance-system-db9ca-uploads`.
-- Cloud Run serves stable `/uploads/...` URLs by loading objects from the bucket.
-- The upload bucket is in `australia-southeast1`, uses uniform bucket-level access, enforces public access prevention, and has 30-day soft delete.
+## Release Invariants
 
-Current remaining production hardening items:
+- Run `python -m app.migrations` against a staging database/branch before production.
+- Back up or create a restorable provider snapshot before every production migration.
+- Keep uploads in the private GCS adapter for every production-like Cloud Run revision.
+- Keep browser auth cookie name `__session`; Firebase Hosting does not forward arbitrary cookies to rewritten Cloud Run services.
+- Keep `ENABLE_DEV_SEED=false`, `AUTH_COOKIE_SECURE=true`, CSRF protection, and rate limiting enabled in production.
+- Do not run the full destructive `backend/smoke_test.py` against production. It seeds and mutates data; use it only with a disposable local/staging database.
+- Use controlled test accounts for hosted workflow checks and clean up their records afterward.
+- Verify actual Cloud Run traffic after deploy. A tagged old revision can remain pinned even when a newer revision is ready.
+- An application rollback and a database rollback are separate decisions; the previous app revision must be compatible with the migrated schema.
 
-- Cloud SQL is still `ZONAL`; use `REGIONAL` if the app needs automatic database failover.
-- Cloud SQL still has public IPv4 assigned. No authorized networks are currently listed, but plan private IP/VPC access before disabling public IPv4.
-- Cloud Run uses the default Compute Engine service account, which currently has broad project roles including `Editor`. Replace it with a dedicated least-privilege service account.
-- Existing smoke-test records may still point at fake `/uploads/...` paths that were never uploaded as real files.
-- The `geo_migration_runner` database user still exists. Rotate, remove, or formalize it before a real production launch.
-- Add monitoring alerts and run a restore drill from backup/PITR.
+## Configuration
 
-Google references:
+Production-like Cloud Run configuration should include:
 
-- Cloud Run to Cloud SQL for PostgreSQL: `https://docs.cloud.google.com/sql/docs/postgres/connect-run`
-- Cloud SQL PostgreSQL backups: `https://docs.cloud.google.com/sql/docs/postgres/backup-recovery/backups`
-- Cloud SQL PostgreSQL point-in-time recovery: `https://docs.cloud.google.com/sql/docs/postgres/backup-recovery/pitr`
+```text
+APP_ENV=production
+DATABASE_URL=<secret-manager managed PostgreSQL URL>
+GEO_SECRET_KEY=<secret-manager strong secret>
+AUTO_MIGRATE=true
+SQL_ECHO=false
+ENABLE_DEV_SEED=false
+AUTH_COOKIE_SECURE=true
+CORS_ORIGINS=https://geo-attendance-system-db9ca.web.app,https://geo-attendance-system-db9ca.firebaseapp.com
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_GENERAL_REQUESTS=300
+RATE_LIMIT_GENERAL_WINDOW_SECONDS=60
+RATE_LIMIT_AUTH_REQUESTS=30
+RATE_LIMIT_AUTH_WINDOW_SECONDS=60
+RATE_LIMIT_UPLOAD_REQUESTS=30
+RATE_LIMIT_UPLOAD_WINDOW_SECONDS=60
+UPLOAD_STORAGE_BACKEND=gcs
+UPLOAD_BUCKET=geo-attendance-system-db9ca-uploads
+UPLOAD_OBJECT_PREFIX=uploads
+MAX_UPLOAD_BYTES=5242880
+```
 
-## Preflight
+Provider notes:
 
-1. Confirm local validation passes:
+- For Neon, use a TLS-enabled application connection string appropriate to the selected compute/pooling mode and verify backup/PITR or branch-restore capability in Neon itself.
+- For Cloud SQL, prefer a private-IP/VPC or Cloud SQL connector design, a least-privilege database user, and a dedicated Cloud Run service account with `roles/cloudsql.client`.
+- Never put a database password or application secret in a checked-in command, Markdown file, image, or plain Cloud Run environment value when Secret Manager can supply it.
 
-   ```powershell
-   npm.cmd run lint
-   npm.cmd run build
-   npm.cmd run check:mobile
-   python -m compileall backend\app backend\smoke_test.py backend\migration_test.py
-   python backend\migration_test.py
-   ```
+## Local Release Preflight
 
-2. Confirm `psycopg[binary]` is installed from `requirements.txt`.
-3. For full production, create or select a non-free-trial staging Cloud SQL PostgreSQL instance in the same region as Cloud Run.
-4. Enable automated backups and point-in-time recovery before storing irreplaceable data.
-5. Create a least-privilege app database user.
-6. Attach the Cloud SQL instance to Cloud Run and grant the Cloud Run service account `roles/cloudsql.client`.
-7. Create or confirm a dedicated Cloud Run service account. Do not use a broad `Editor` default service account for production.
-8. Create or confirm the private Cloud Storage upload bucket and grant the Cloud Run service account only the storage access it needs.
-9. Create a budget alert around the expected `USD $70-$120/month` small-production range and a second warning before HA-level spend.
-10. Set staging Cloud Run environment variables:
+From the project root:
 
-   ```text
-   DATABASE_URL=postgresql+psycopg://geo_app:URL_ENCODED_PASSWORD@/geo_management?host=/cloudsql/geo-attendance-system-db9ca:australia-southeast1:geo-attendance-system
-   APP_ENV=production
-   AUTO_MIGRATE=true
-   SQL_ECHO=false
-   ENABLE_DEV_SEED=false
-   AUTH_COOKIE_SECURE=true
-   GEO_SECRET_KEY=<secret-manager-or-strong-secret>
-   CORS_ORIGINS=https://geo-attendance-system-db9ca.web.app,https://geo-attendance-system-db9ca.firebaseapp.com
-   ```
+```powershell
+npm.cmd run lint
+npm.cmd run build
+npm.cmd run check:review-queue
+npm.cmd run check:mobile
+python -m compileall backend\app backend\smoke_test.py backend\database_test.py backend\migration_test.py backend\review_queue_test.py backend\work_form_definition_test.py backend\upload_storage_test.py backend\security_test.py
+python backend\database_test.py
+python backend\security_test.py
+python backend\upload_storage_test.py
+python backend\review_queue_test.py
+python backend\work_form_definition_test.py
+python backend\migration_test.py
+```
 
-11. Keep cookie auth compatible with Firebase Hosting rewrites. The backend auth cookie must be named `__session`; Firebase Hosting does not forward arbitrary custom cookies such as `geo_access_token` to Cloud Run. The frontend reads `geo_csrf_token` only to send the `X-CSRF-Token` header, and the backend validates that header against the CSRF value embedded in `__session`.
+Then start the backend against a disposable database and run:
 
-## Migration
+```powershell
+python backend\smoke_test.py
+```
 
-1. Take an on-demand backup before migrating any real data.
-2. For local validation, start Cloud SQL Auth Proxy:
+The database test specifically proves `pool_pre_ping` recovers a poisoned returned connection. The focused tests cover upload adapter parity, Work Form snapshots/server-derived formulas, cursor-paginated Review Queue policy/query/export separation, and migrations.
 
-   ```powershell
-   cloud-sql-proxy.exe --gcloud-auth --address 127.0.0.1 --port 55433 geo-attendance-system-db9ca:australia-southeast1:geo-attendance-system
-   ```
+## Database Migration Procedure
 
-3. Run migrations against staging:
+The current migration head is `0016_review_queue_indexes`:
+
+- `0014_client_submission_unique_indexes` enforces replay idempotency for Worker submissions.
+- `0015_work_form_definition_snapshots` versions Work Form Definitions and backfills a best-available snapshot for old submissions. Post-migration submissions preserve their exact historical definition.
+- `0016_review_queue_indexes` adds Department/status/deletion/time indexes for cursor-paginated Review Queue queries without changing Review Record values.
+
+For every release:
+
+1. Confirm the intended database provider and database name. Never infer them from an old Cloud Run revision.
+2. Create a restorable backup, Neon branch, or Cloud SQL on-demand backup.
+3. Create a disposable staging database/branch from production-like schema and sanitized data where possible.
+4. Point a local/staging backend at that database through a temporary `DATABASE_URL` and run:
 
    ```powershell
    cd backend
-   $env:DATABASE_URL="postgresql+psycopg://USER:PASSWORD@127.0.0.1:55433/geo_management_staging"
    python -m app.migrations
    ```
 
-4. Run the backend smoke test against staging:
+5. Start the staging backend and run `python backend\smoke_test.py` from the repository root.
+6. Inspect `schema_migrations`, row counts, constraint failures, and application logs.
+7. Run the hosted browser workflow against a staging Cloud Run service if the migration changes data read by the UI.
+8. Apply the same migration to production only after staging passes.
+9. Keep the backup/branch until the post-release observation window finishes.
+
+For Cloud SQL proxy-based staging, a typical local connection is:
+
+```powershell
+cloud-sql-proxy.exe --gcloud-auth --address 127.0.0.1 --port 55433 PROJECT:REGION:INSTANCE
+$env:DATABASE_URL="postgresql+psycopg://USER:PASSWORD@127.0.0.1:55433/STAGING_DATABASE"
+```
+
+Do not copy that password into shell history on a shared machine; prefer a temporary secret injection method.
+
+## Cloud Run And Hosting Deployment
+
+1. Build/deploy the backend with the intended Secret Manager bindings, dedicated service account, GCS adapter, and managed PostgreSQL target.
+2. Confirm the new revision is Ready and inspect its startup/migration logs before moving traffic.
+3. Move traffic to the intended revision and verify it, for example:
 
    ```powershell
-   $env:DATABASE_URL="postgresql+psycopg://USER:PASSWORD@127.0.0.1:55433/geo_management_staging"
-   # In a second terminal, start the backend.
-   python backend\smoke_test.py
+   gcloud run services describe geo-backend --region australia-southeast1 --format="yaml(status.latestCreatedRevisionName,status.latestReadyRevisionName,status.traffic)"
    ```
 
-5. Run the real-phone checklist after staging passes:
-
-   ```text
-   docs/mobile-browser-workflow-checks.md
-   ```
-
-6. Repeat the same backup, migration, deploy, and verification sequence for production.
-
-## Verification
-
-After production deploy:
-
-1. Confirm Cloud Run is Ready.
-2. Confirm Firebase Hosting returns the app shell.
-3. Confirm the Hosting rewrite reaches the backend:
+   If an old tagged revision remains pinned and the release policy is latest-only:
 
    ```powershell
-   curl.exe https://geo-attendance-system-db9ca.web.app/api/health
+   gcloud run services update-traffic geo-backend --region australia-southeast1 --to-latest
    ```
 
-4. For automated smoke testing, run:
+4. Build and deploy the generated PWA shell:
 
    ```powershell
-   $env:API_BASE_URL="https://geo-attendance-system-db9ca.web.app/api"
-   python backend\smoke_test.py
+   npm.cmd run build
+   npx -y firebase-tools@latest deploy --only hosting
    ```
 
-5. Login with a controlled production test account, not `/dev/seed`, when doing a manual production pass.
-6. Submit one worker attendance record, one task log, and one required-signature work form.
-7. Confirm the supervisor Review Queue shows those records.
-8. Approve one record, reject one record, and confirm Audit history records the decisions.
-9. Upload one photo and one signature, then confirm the returned `/uploads/...` URL is served through Cloud Run from Cloud Storage after a browser refresh.
-10. Open the hosted PWA from a real phone and repeat the core login, geolocation, offline queue, and update-flow checks from `docs/mobile-browser-workflow-checks.md`.
+5. Recheck Cloud Run traffic and retain the previous compatible revision for rollback.
+
+## Hosted Verification
+
+Start with read-only checks through Firebase Hosting:
+
+```powershell
+curl.exe https://geo-attendance-system-db9ca.web.app/api/health
+curl.exe https://geo-attendance-system-db9ca.web.app/api/health/ready
+```
+
+Then use controlled accounts:
+
+1. Before login, confirm the app does not request `/api/sites` or display demo Sites.
+2. On a restored session, confirm `/api/auth/refresh` finishes before `/api/sites`.
+3. Repeat an authenticated `/api/sites` request after an idle period; the first request must succeed because `pool_pre_ping` recycles stale connections.
+4. Submit a Worker attendance event, Task Log, and required-signature Work Form with known test markers.
+5. Confirm the Supervisor Review Queue sees only durable records and enters explicit read-only mode if the network is removed.
+6. Approve and reject controlled pending records; verify dashboard totals and Management Analytics from the complete overview, not only the visible filtered page.
+7. Upload a photo/signature and refresh its `/uploads/...` URL to verify authorized GCS streaming.
+8. Confirm Audit history contains the controlled changes.
+9. Run the real-phone and PWA update-flow checklist in `docs/mobile-browser-workflow-checks.md`.
+10. Scan the new revision for error logs and remove controlled test data through supported application actions.
+
+## Hardening Gates
+
+Run the read-only GCP check from an authenticated admin machine:
+
+```powershell
+npm.cmd run check:production-hardening
+```
+
+It checks GCP-side concerns such as Cloud Run identity/roles, the known Cloud SQL resource, upload-bucket IAM, monitoring, and optional budget alerts. Because the current live database is Neon, also verify separately:
+
+- Neon role and connection-string least privilege.
+- Backup/PITR retention and a documented restore/branch drill.
+- Compute/pooling limits, region, scale-to-zero behaviour, and operational alerts.
+- Secret rotation and removal of unused database users.
+
+Remaining known GCP concerns include replacing the broad default Compute Engine service account, adding monitoring/budget alerts, and deciding whether to harden/migrate to or retire the legacy Cloud SQL resources. Do not treat a Cloud SQL warning as proof that live Neon is unhealthy, or a passing GCP check as proof that Neon recovery is ready.
 
 ## Rollback
 
-- If migration fails before traffic moves: keep the previous Cloud Run revision serving traffic, restore from the pre-migration backup if the DB was partially changed, fix the migration, and retry in staging first.
-- If deploy fails after migration: roll traffic back only if the old revision is compatible with the migrated schema.
-- If the schema is not backward compatible: restore or clone from the pre-migration backup, point Cloud Run back at the restored database, then roll back the service revision.
+- If staging migration fails, discard the staging database/branch, fix the migration, and repeat the full staging sequence.
+- If production migration fails before traffic moves, keep the previous revision serving and restore/branch from the pre-migration recovery point if data changed.
+- If the app fails after a backward-compatible migration, route traffic to the previous compatible revision and investigate without reverting data automatically.
+- If the schema is not backward compatible, restore or clone the pre-migration database, update the Cloud Run `DATABASE_URL` secret binding to that database, deploy/route the compatible revision, and verify readiness before serving users.
+- If uploads fail, do not switch production to local storage. Fix GCS IAM/configuration or roll back to a revision with the known-good adapter configuration.
 
-Do not manually edit production tables to repair a failed migration unless a fresh backup exists and the manual change is documented.
+Document the incident, revision, migration head, database recovery point, traffic change, and verification results. Never repair production tables manually without a fresh recovery point and an audited plan.

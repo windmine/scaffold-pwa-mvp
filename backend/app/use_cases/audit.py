@@ -73,7 +73,17 @@ SNAPSHOT_FIELDS = {
         "status",
         "created_at",
     ],
-    WorkForm: ["id", "department_id", "name", "description", "fields_json", "status", "created_by", "created_at"],
+    WorkForm: [
+        "id",
+        "department_id",
+        "name",
+        "description",
+        "fields_json",
+        "definition_version",
+        "status",
+        "created_by",
+        "created_at",
+    ],
     WorkFormSubmission: [
         "id",
         "department_id",
@@ -82,6 +92,8 @@ SNAPSHOT_FIELDS = {
         "site_id",
         "work_date",
         "answers_json",
+        "form_definition_version",
+        "definition_snapshot_json",
         "photo_urls",
         "photo_metadata",
         "client_submission_id",
@@ -117,6 +129,9 @@ def model_snapshot(model):
             value = format_datetime(value)
         elif field == "fields_json":
             data["fields"] = parse_json_list(value)
+            continue
+        elif field == "definition_snapshot_json":
+            data["definition_snapshot"] = parse_json_object(value)
             continue
         elif field == "answers_json":
             data["answers"] = parse_json_object(value)

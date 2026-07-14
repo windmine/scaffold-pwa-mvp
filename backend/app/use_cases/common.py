@@ -47,6 +47,7 @@ VALID_WORK_FORM_FIELD_TYPES = {
 MAX_WORK_FORM_FIELDS = 30
 MAX_WORK_FORM_PHOTOS = 8
 MAX_REPEAT_ROWS = 50
+WORK_FORM_DEFINITION_SCHEMA_VERSION = 1
 SAFE_FIELD_ID_PATTERN = re.compile(r"^[a-z0-9_]+$")
 SAFE_REFERENCE_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
@@ -211,6 +212,50 @@ def work_form_fields(form: WorkForm):
     return parse_json_list(form.fields_json)
 
 
+def work_form_definition(form: WorkForm):
+    return {
+        "schema_version": WORK_FORM_DEFINITION_SCHEMA_VERSION,
+        "version": int(form.definition_version or 1),
+        "name": form.name,
+        "description": form.description,
+        "fields": work_form_fields(form),
+    }
+
+
+def work_form_definition_snapshot_json(form: WorkForm):
+    return json.dumps(
+        work_form_definition(form),
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def work_form_submission_definition(submission: WorkFormSubmission, session: Session):
+    snapshot = parse_json_object(submission.definition_snapshot_json)
+    fields = snapshot.get("fields")
+
+    if isinstance(fields, list):
+        return {
+            "schema_version": int(snapshot.get("schema_version") or WORK_FORM_DEFINITION_SCHEMA_VERSION),
+            "version": int(snapshot.get("version") or submission.form_definition_version or 1),
+            "name": str(snapshot.get("name") or f"Form {submission.form_id}"),
+            "description": snapshot.get("description"),
+            "fields": fields,
+        }
+
+    form = session.get(WorkForm, submission.form_id)
+    if form:
+        return work_form_definition(form)
+
+    return {
+        "schema_version": WORK_FORM_DEFINITION_SCHEMA_VERSION,
+        "version": int(submission.form_definition_version or 1),
+        "name": f"Form {submission.form_id}",
+        "description": None,
+        "fields": [],
+    }
+
+
 def work_form_response(form: WorkForm, session: Session | None = None):
     department = session.get(Department, form.department_id) if session and form.department_id else None
 
@@ -221,6 +266,7 @@ def work_form_response(form: WorkForm, session: Session | None = None):
         "name": form.name,
         "description": form.description,
         "fields": work_form_fields(form),
+        "definition_version": int(form.definition_version or 1),
         "status": form.status,
         "created_by": form.created_by,
         "created_at": format_datetime(form.created_at),
@@ -228,7 +274,7 @@ def work_form_response(form: WorkForm, session: Session | None = None):
 
 
 def work_form_submission_response(submission: WorkFormSubmission, session: Session):
-    form = session.get(WorkForm, submission.form_id)
+    definition = work_form_submission_definition(submission, session)
     worker = session.get(User, submission.worker_id)
     site = session.get(Site, submission.site_id) if submission.site_id else None
     department = session.get(Department, submission.department_id) if submission.department_id else None
@@ -243,8 +289,11 @@ def work_form_submission_response(submission: WorkFormSubmission, session: Sessi
         "department_id": submission.department_id,
         "department_name": department.name if department else None,
         "form_id": submission.form_id,
-        "form_name": form.name if form else f"Form {submission.form_id}",
-        "fields": work_form_fields(form) if form else [],
+        "form_name": definition["name"],
+        "form_description": definition["description"],
+        "definition_version": definition["version"],
+        "definition_schema_version": definition["schema_version"],
+        "fields": definition["fields"],
         "worker_id": submission.worker_id,
         "worker_name": worker.name if worker else f"Worker {submission.worker_id}",
         "worker_email": worker.email if worker else None,
@@ -602,6 +651,21 @@ def safe_field_id(raw_id: str):
     return field_id
 
 
+CONDITION_OPERATORS = ["!=", ">=", "<=", "=", ">", "<"]
+
+
+def split_condition(condition: str):
+    for operator_text in CONDITION_OPERATORS:
+        if operator_text not in condition:
+            continue
+        field_id, expected = condition.split(operator_text, 1)
+        field_id = field_id.strip()
+        if not SAFE_REFERENCE_PATTERN.fullmatch(field_id):
+            return None
+        return field_id, operator_text, expected
+    return None
+
+
 def normalize_show_if(value):
     if value is None:
         return None
@@ -610,7 +674,7 @@ def normalize_show_if(value):
     if not condition:
         return None
 
-    if not any(operator_text in condition for operator_text in ["!=", ">=", "<=", "=", ">", "<"]):
+    if not split_condition(condition):
         raise HTTPException(status_code=400, detail="show_if must use field=value style syntax")
 
     return condition[:240]
@@ -648,6 +712,11 @@ def validate_formula_expression(expression: str, label: str):
         if isinstance(node, ast.Load):
             continue
         raise HTTPException(status_code=400, detail=f"Formula field '{label}' uses unsupported syntax")
+
+
+def formula_references(expression: str):
+    tree = ast.parse(expression, mode="eval")
+    return {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
 
 
 def normalize_formula(value, label: str):
@@ -698,15 +767,11 @@ def condition_is_met(condition: Optional[str], answers: dict):
     if not condition:
         return True
 
-    for operator_text in ["!=", ">=", "<=", "=", ">", "<"]:
-        if operator_text in condition:
-            field_id, expected = condition.split(operator_text, 1)
-            field_id = field_id.strip()
-            if not SAFE_REFERENCE_PATTERN.match(field_id):
-                return False
-            return compare_condition_value(answers.get(field_id), operator_text, expected)
-
-    return True
+    parsed = split_condition(condition)
+    if not parsed:
+        return False
+    field_id, operator_text, expected = parsed
+    return compare_condition_value(answers.get(field_id), operator_text, expected)
 
 
 def formula_value_from_answer(value):
@@ -821,6 +886,9 @@ def normalize_work_form_fields(fields):
             "options": options,
         }
 
+        if field_type in {"section", "formula"}:
+            normalized["required"] = False
+
         show_if = normalize_show_if(field.show_if)
         if show_if:
             normalized["show_if"] = show_if
@@ -851,11 +919,66 @@ def normalize_work_form_fields(fields):
         if field["type"] == "repeat" and field.get("repeat"):
             raise HTTPException(status_code=400, detail="Repeat sections cannot be nested")
 
+    validate_work_form_field_dependencies(normalized_fields)
     return normalized_fields
 
 
-def validate_work_form_answers(form: WorkForm, answers: dict):
-    fields = work_form_fields(form)
+def validate_work_form_field_dependencies(fields: list[dict]):
+    top_level_scope = set()
+    repeat_parent_scopes = {}
+
+    for field in fields:
+        if field.get("repeat"):
+            continue
+        validate_work_form_field_dependencies_in_scope(field, top_level_scope)
+        if field["type"] == "repeat":
+            repeat_parent_scopes[field["id"]] = set(top_level_scope)
+        elif field["type"] != "section":
+            top_level_scope.add(field["id"])
+
+    repeat_scopes = {repeat_id: set(scope) for repeat_id, scope in repeat_parent_scopes.items()}
+    for field in fields:
+        repeat_id = field.get("repeat")
+        if not repeat_id:
+            continue
+        scope = repeat_scopes[repeat_id]
+        validate_work_form_field_dependencies_in_scope(field, scope)
+        if field["type"] != "section":
+            scope.add(field["id"])
+
+
+def validate_work_form_field_dependencies_in_scope(field: dict, available: set[str]):
+    label = field.get("label") or field.get("id")
+    show_if = field.get("show_if")
+    if show_if:
+        reference = split_condition(show_if)[0]
+        if reference not in available:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Field '{label}' condition must reference an earlier field in the same scope",
+            )
+
+    if field.get("type") != "formula":
+        return
+
+    missing = sorted(formula_references(field.get("formula") or "") - available)
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Formula field '{label}' references unavailable field(s): {', '.join(missing)}",
+        )
+
+
+def definition_fields(definition_or_form):
+    if isinstance(definition_or_form, WorkForm):
+        return work_form_fields(definition_or_form)
+    if isinstance(definition_or_form, dict) and isinstance(definition_or_form.get("fields"), list):
+        return definition_or_form["fields"]
+    return []
+
+
+def validate_work_form_answers(definition_or_form, answers: dict):
+    fields = definition_fields(definition_or_form)
     top_level_fields = [field for field in fields if not field.get("repeat")]
     repeat_children = {}
     normalized_answers = {}
@@ -867,10 +990,16 @@ def validate_work_form_answers(form: WorkForm, answers: dict):
     for field in top_level_fields:
         field_type = field.get("type")
         field_id = field.get("id")
-        if field_type in {"section", "formula"}:
+        if field_type == "section":
             continue
         if not condition_is_met(field.get("show_if"), normalized_answers):
             normalized_answers[field_id] = [] if field_type == "repeat" else ""
+            continue
+        if field_type == "formula":
+            normalized_answers[field_id] = evaluate_formula_expression(
+                field.get("formula") or "0",
+                normalized_answers,
+            )
             continue
         if field_type == "repeat":
             normalized_answers[field_id] = validate_repeat_answer(
@@ -881,14 +1010,6 @@ def validate_work_form_answers(form: WorkForm, answers: dict):
             )
             continue
         normalized_answers[field_id] = normalize_work_form_answer(field, answers.get(field_id))
-
-    for field in top_level_fields:
-        if field.get("type") != "formula":
-            continue
-        if condition_is_met(field.get("show_if"), normalized_answers):
-            normalized_answers[field["id"]] = evaluate_formula_expression(field.get("formula") or "0", normalized_answers)
-        else:
-            normalized_answers[field["id"]] = ""
 
     return normalized_answers
 
@@ -915,22 +1036,21 @@ def validate_repeat_answer(parent_field: dict, child_fields: list[dict], raw_val
         if not isinstance(raw_row, dict):
             raise HTTPException(status_code=400, detail=f"{field_label} row {index} is invalid")
         row_answers = {}
-        scope = {**parent_answers, **raw_row}
         for child in child_fields:
-            if child.get("type") in {"section", "formula"}:
+            child_type = child.get("type")
+            if child_type == "section":
                 continue
-            if not condition_is_met(child.get("show_if"), {**scope, **row_answers}):
+            scope = {**parent_answers, **row_answers}
+            if not condition_is_met(child.get("show_if"), scope):
                 row_answers[child["id"]] = ""
+                continue
+            if child_type == "formula":
+                row_answers[child["id"]] = evaluate_formula_expression(
+                    child.get("formula") or "0",
+                    scope,
+                )
                 continue
             row_answers[child["id"]] = normalize_work_form_answer(child, raw_row.get(child["id"]))
-
-        for child in child_fields:
-            if child.get("type") != "formula":
-                continue
-            if condition_is_met(child.get("show_if"), {**scope, **row_answers}):
-                row_answers[child["id"]] = evaluate_formula_expression(child.get("formula") or "0", row_answers)
-            else:
-                row_answers[child["id"]] = ""
 
         normalized_rows.append(row_answers)
 
@@ -963,6 +1083,8 @@ def normalize_work_form_answer(field: dict, raw_value):
             value = float(value)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"{field_label} must be a number")
+        if not math.isfinite(value):
+            raise HTTPException(status_code=400, detail=f"{field_label} must be a finite number")
 
     if field_type == "select" and value:
         options = field.get("options") or []
@@ -991,21 +1113,23 @@ def normalize_time_range_answer(field_label: str, raw_value, required: bool):
     if not start and not end:
         return {}
 
-    validate_time_value(field_label, "start", start)
-    validate_time_value(field_label, "end", end)
+    start_minutes = validate_time_value(field_label, "start", start)
+    end_minutes = validate_time_value(field_label, "end", end)
+    duration_minutes = end_minutes - start_minutes
+    if duration_minutes < 0:
+        duration_minutes += 24 * 60
 
-    value = {"start": start, "end": end}
-    duration_hours = raw_value.get("duration_hours")
-    if duration_hours not in (None, ""):
-        try:
-            value["duration_hours"] = round(float(duration_hours), 2)
-        except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail=f"{field_label} duration must be a number")
-
-    return value
+    return {
+        "start": start,
+        "end": end,
+        "duration_hours": round(duration_minutes / 60, 2),
+    }
 
 
 def validate_time_value(field_label: str, part: str, value: str):
+    if not re.fullmatch(r"\d{2}:\d{2}", value):
+        raise HTTPException(status_code=400, detail=f"{field_label} {part} time is invalid")
+
     try:
         hours, minutes = value.split(":", 1)
         hours_int = int(hours)
@@ -1015,6 +1139,8 @@ def validate_time_value(field_label: str, part: str, value: str):
 
     if not 0 <= hours_int <= 23 or not 0 <= minutes_int <= 59:
         raise HTTPException(status_code=400, detail=f"{field_label} {part} time is invalid")
+
+    return hours_int * 60 + minutes_int
 
 
 def normalize_work_form_photo_urls(photo_urls: list[str]):

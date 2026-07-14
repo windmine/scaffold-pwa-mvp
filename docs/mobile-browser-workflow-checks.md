@@ -1,17 +1,24 @@
 # Mobile and Browser Workflow Checks
 
-Use this checklist before calling the MVP ready for phone testing or PWA hardening. Run the automated checks first, then do the manual phone/browser pass.
+Use this checklist before calling the MVP ready for phone testing or production use. Local automation, hosted automation, and a hosted real-phone pass are separate gates.
 
 ## Latest Manual Pass
 
 - 2026-06-04: Full real-phone workflow pass completed on the local network with no reported blocking issues.
+- The equivalent real-phone pass against the hosted Firebase URL is still pending; the 2026-07-14 hosted result below was an automated browser/API pass.
+
+## Latest Automated Pass
+
+- 2026-07-14 hosted pass: Cloud Run revision `geo-backend-00018-jbz` at 100% traffic and Firebase Hosting passed anonymous/login site isolation, worker login, restored-session ordering, five repeated authenticated site requests, logout cleanup, supervisor Review Queue, readiness, and new-revision error-log checks without a 5xx.
+- 2026-07-14: Review Queue module checks and the full Playwright workflow passed with explicit offline/read-only state, durable-only decisions/exports, and a two-source guard proving device-local Worker records never enter supervisor review.
+- 2026-07-09: `npm run check:mobile` passed after the Daywork team-member picker click target was fixed. Backend compile, security, upload storage, migration, and full smoke checks also passed locally.
 
 ## Hosted Deployment Pass
 
-Run this after deploying the recommended production path:
+Run this after deploying the hosted path:
 
 ```text
-Firebase Hosting -> Cloud Run -> Cloud SQL PostgreSQL
+Firebase Hosting -> Cloud Run -> managed PostgreSQL (current live: Neon)
                               -> Cloud Storage uploads
                               -> Secret Manager secrets
 ```
@@ -22,15 +29,26 @@ Use the hosted Firebase URL, not the local Vite URL, when checking production be
 https://geo-attendance-system-db9ca.web.app
 ```
 
-Confirm `/api/health` works through Firebase Hosting before phone testing:
+Confirm `/api/health` and `/api/health/ready` work through Firebase Hosting before phone testing:
 
 ```powershell
 curl.exe https://geo-attendance-system-db9ca.web.app/api/health
+curl.exe https://geo-attendance-system-db9ca.web.app/api/health/ready
 ```
 
 After signing in through the hosted URL, confirm authenticated `/api/**` calls keep returning 200. Firebase Hosting rewrites only forward the `__session` cookie to Cloud Run, so a login response that sets another auth cookie name can look like a session that expires immediately.
 
+Before signing in, confirm the login screen does not request `/api/sites` or briefly populate Worker site controls with local demo sites. When restoring a saved session, `/api/auth/refresh` must complete before `/api/sites` is requested.
+
+Before using real staff data, run the read-only GCP hardening gate from an authenticated admin machine:
+
+```powershell
+npm.cmd run check:production-hardening
+```
+
 Use controlled production test accounts. Do not use `/dev/seed` on production-like deployments.
+
+Because the current live database is Neon, separately verify Neon least-privilege roles, pooling/compute limits, backup/PITR retention, monitoring, and a restore/branch drill. The GCP checker cannot establish those provider guarantees.
 
 ## Automated Preflight
 
@@ -39,8 +57,15 @@ From the project root:
 ```powershell
 npm.cmd run lint
 npm.cmd run build
+npm.cmd run check:review-queue
 npm.cmd run check:mobile
-python -m compileall backend\app backend\smoke_test.py
+python -m compileall backend\app backend\smoke_test.py backend\database_test.py backend\migration_test.py backend\review_queue_test.py backend\work_form_definition_test.py backend\upload_storage_test.py backend\security_test.py
+python backend\database_test.py
+python backend\security_test.py
+python backend\upload_storage_test.py
+python backend\review_queue_test.py
+python backend\work_form_definition_test.py
+python backend\migration_test.py
 ```
 
 With the backend running at `http://127.0.0.1:8000`:
@@ -49,7 +74,7 @@ With the backend running at `http://127.0.0.1:8000`:
 python backend\smoke_test.py
 ```
 
-`npm.cmd run check:mobile` verifies the built PWA shell, generated service worker output, update-flow wiring, mobile controls, same-origin proxy setup, supervisor audit-history wiring, offline work-form submission support, photo controls, signature enforcement, and Playwright browser workflows. It does not replace a real phone test.
+`npm.cmd run check:mobile` verifies the built PWA shell, generated service worker output, update-flow wiring, mobile controls, same-origin proxy setup, supervisor audit-history wiring, explicit offline/read-only Review Queue behaviour, offline work-form submission support, photo controls, signature enforcement, and Playwright browser workflows. It does not replace a real phone test.
 
 ## Setup For Manual Phone Test
 
@@ -106,7 +131,9 @@ python backend\smoke_test.py
 - Try submitting a required-signature form without signing and confirm validation blocks it.
 - Apply History filters by type, status, text, and local date.
 - Turn off network, submit one attendance record or task log, and confirm it is queued locally.
+- While it is queued, switch to another Worker account on the same device and confirm the first Worker's record is not replayed, displayed, or reassigned as the second Worker.
 - Restore network and confirm queued submissions sync and History updates.
+- Delay one attendance replay and confirm the durable record retains its original occurrence time rather than the reconnect time; retry it and confirm the stable client submission id prevents a duplicate.
 
 ## Supervisor Browser Checks
 
@@ -114,9 +141,10 @@ python backend\smoke_test.py
 - Confirm the department filter is fixed to Leader for the department-scoped supervisor.
 - Confirm Review Queue shows attendance, task logs, weekly team logs, and form submissions together.
 - Filter Review Queue by type, status, worker/site text, and date.
+- Make the filtered visible page exclude a known approved record; confirm dashboard `Reviewed` totals still include it and Management Analytics still reports the complete authorized record set.
 - Double-tap a worker attendance action and confirm only one matching record is created.
-- Move one attendance record and one task log to the rubbish bin, confirm both disappear from active review, and verify the deletion reason and automatic deletion date.
-- Restore both records from the rubbish bin and confirm they return to active review.
+- Move controlled attendance, Task Log, Work Form Submission, and weekly Team Work Log records to the rubbish bin; confirm they disappear from active review and show a deletion reason and automatic deletion date.
+- Restore the records from the rubbish bin and confirm they return to active review.
 - Open Add missed check in / check out, select a worker and matching site, enter a past date/time and reason, and confirm the approved record appears as a manual entry with no GPS.
 - Confirm resigned workers remain selectable for historical corrections and that switching department focus updates the available workers and sites.
 - Open Submit approved log, submit one log for the signed-in supervisor and one for another accessible user, and confirm both appear as approved without review actions.
@@ -138,6 +166,8 @@ python backend\smoke_test.py
 - Edit one attendance record after the double-check confirmation.
 - Edit one task log after the double-check confirmation.
 - Create a new Work Form with a required `signature` field.
+- Include a time range, conditional field, repeatable section, and formula. Confirm the backend response contains authoritative derived values and a Definition version/snapshot.
+- Edit the reusable Work Form, reopen the old submission/export, and confirm its historical labels, fields, formulas, and signatures still use the original snapshot.
 - Archive and reactivate a Work Form.
 - Create or edit a Site and confirm radius values remain valid.
 - Mark a worker resigned, confirm they cannot sign in, then reactivate them.
@@ -160,9 +190,14 @@ python backend\smoke_test.py
 - Worker and supervisor paths complete without console-breaking errors.
 - Geolocation denial, offline state, backend outage, and photo/signature validation show clear messages.
 - Queued worker submissions sync after reconnect.
+- Queued submissions remain bound to the capturing Worker and capture time across shared-device account changes; delayed attendance retains its original occurrence time.
 - Expired sessions pause queued sync, keep the queued record, and show a sign-in-again message.
 - Retried queued submissions do not create duplicate backend Review Records.
 - Supervisor review shows synced worker records, photos, and signatures.
 - Supervisor Audit history shows recent admin/review changes and workers cannot access it.
 - The app update flow is visible and reloads only after the user taps `Update App`.
-- Hosted Firebase/Cloud Run checks pass without direct phone access to Cloud SQL or Cloud Storage.
+- Anonymous startup makes no authenticated site request, and restored sessions load sites only after authentication refresh succeeds.
+- `/api/health/ready` returns ok through Firebase Hosting and can be used for production uptime monitoring.
+- The first authenticated API request after an idle period succeeds; a stale managed PostgreSQL/Neon SSL connection is recycled before the route query.
+- Applicable `npm.cmd run check:production-hardening` findings and the separate Neon recovery/access checklist are closed or explicitly accepted before real staff data is used.
+- Hosted Firebase/Cloud Run checks pass without direct phone access to the managed PostgreSQL provider or Cloud Storage.

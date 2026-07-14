@@ -11,8 +11,10 @@ import {
   verifyRegistration as backendVerifyRegistration,
   getSession as getBackendSession,
   getCurrentUser,
+  refreshSession,
   getDepartments as getBackendDepartments,
   getSites as getBackendSites,
+  getSupervisorRecords,
   updateMyRecord as updateBackendMyRecord,
   deleteMyRecord as deleteBackendMyRecord,
   logout as clearBackendSession
@@ -184,6 +186,8 @@ supervisorReviewModule = createSupervisorReviewModule({
 supervisorMapModule = createSupervisorMapModule({
   els,
   state,
+  loadAttendanceRecords: () => getSupervisorRecords(),
+  normaliseAttendanceRecord: historyModule.fromBackendAttendanceRecord,
   onDecision: handleSupervisorDecision,
   onEdit: handleSupervisorEditRecord,
   refreshRecords: () => supervisorReviewModule.renderPanel(),
@@ -199,13 +203,15 @@ supervisorAnalyticsModule = createSupervisorAnalyticsModule({
 async function init() {
   initDateInputs();
   await initializeMockData();
-  state.sites = await loadSites();
-  fillSiteSelects();
   const authRestoreMessage = await restoreBackendSession();
   if (state.user) {
     state.departments = await loadDepartments();
     initialiseDepartmentFocus();
+    state.sites = await loadSites();
+  } else {
+    state.sites = [];
   }
+  fillSiteSelects();
   setDateInputValue(els.taskDate, todayDateInput());
   setDateInputValue(els.workFormDate, todayDateInput());
   await restoreDrafts();
@@ -252,7 +258,12 @@ async function restoreBackendSession() {
   state.user = cachedUser;
 
   try {
-    state.user = await getCurrentUser();
+    try {
+      state.user = await refreshSession();
+    } catch (refreshError) {
+      if (refreshError.status !== 403) throw refreshError;
+      state.user = await getCurrentUser();
+    }
     return '';
   } catch (error) {
     if (!navigator.onLine) {
@@ -567,6 +578,7 @@ async function handleLogin(event) {
     initialiseDepartmentFocus();
     state.sites = await loadSites();
     fillSiteSelects();
+    await syncQueueIfPossible(false);
     renderApp();
   } catch (error) {
     renderStatusBanner(error.message, false);
@@ -679,12 +691,16 @@ function resetRegistrationFlow() {
 function handleLogout() {
   clearBackendSession();
   state.user = null;
+  state.sites = [];
+  fillSiteSelects();
   renderApp();
 }
 
 function handleSessionExpired() {
   clearBackendSession();
   state.user = null;
+  state.sites = [];
+  fillSiteSelects();
   renderApp();
   renderStatusBanner('Your backend session expired. Please sign in again.');
 }

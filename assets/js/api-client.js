@@ -206,6 +206,14 @@ export async function getCurrentUser() {
   return user;
 }
 
+export async function refreshSession() {
+  const user = normalizeUser(await apiFetch("/auth/refresh", {
+    method: "POST"
+  }));
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  return user;
+}
+
 export async function updateDefaultDepartment(departmentId) {
   const user = normalizeUser(await apiFetch("/auth/default-department", {
     method: "PATCH",
@@ -478,6 +486,25 @@ function queryString(params) {
 export async function getSupervisorReviewRecords(status = "") {
   const query = status ? `?status=${encodeURIComponent(status)}` : "";
   return await apiFetch(`/supervisor/review-records${query}`);
+}
+
+export async function getSupervisorReviewQueuePage({
+  status = "",
+  kind = "",
+  departmentId = "",
+  recordDate = "",
+  search = "",
+  cursor = "",
+  pageSize = 50
+} = {}) {
+  const params = new URLSearchParams({ page_size: String(pageSize) });
+  if (status) params.set("status", status);
+  if (kind) params.set("kind", kind);
+  if (departmentId) params.set("department_id", departmentId);
+  if (recordDate) params.set("record_date", recordDate);
+  if (search) params.set("search", search);
+  if (cursor) params.set("cursor", cursor);
+  return await apiFetch(`/supervisor/review-queue?${params.toString()}`);
 }
 
 export async function exportSupervisorRecordsCsv(filters = {}) {

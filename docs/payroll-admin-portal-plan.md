@@ -1,100 +1,116 @@
 # Payroll Admin Portal Plan
 
-This plan describes the next business-facing admin area for payroll/accounting. It is not implemented yet.
+This document defines the next business-facing admin area. The Payroll portal is not implemented; the existing Management Analytics section is operational reporting and must not be presented as payroll.
 
 ## Goal
 
-Give supervisors and accounting staff a desktop-first payroll review page that turns approved attendance records into pay-period timesheet summaries.
+Add a desktop-first workflow that turns approved Attendance Records into explainable pay-period worker/day summaries and Excel-friendly exports without changing the phone-first Worker experience.
 
-The worker app should remain phone-first. Payroll work should sit inside the existing supervisor/admin area first, not in a separate application.
+Keep the responsibilities separate:
 
-## User Groups
+```text
+Review Queue        validates durable field records
+Management Analytics reports operational activity and exceptions
+Payroll             pairs approved attendance and exports payable-hour inputs
+```
 
-**Supervisor**
+## Users And Authorization
 
-- Reviews and approves attendance, task logs, and form submissions.
-- Corrects attendance records with audit history.
-- Resolves missing or suspicious field records before payroll uses them.
+The current data model has Worker and Supervisor roles; it does not yet have a distinct Accounting role. The first implementation must make an explicit product decision before exposing routes:
 
-**Accounting / Payroll**
+- Initially permit Department-scoped Supervisors and Global admins, or add a dedicated Accounting permission.
+- Apply the same Department boundary as Review Queue queries unless a dedicated cross-department payroll grant is introduced.
+- Include resigned Workers in historical periods without reactivating their accounts.
+- Audit payroll exports and any future manual payroll adjustment.
 
-- Selects a pay period.
-- Reviews approved hours by worker.
-- Checks exceptions before wages are calculated.
-- Exports a payroll-ready CSV or Excel-friendly file.
+Do not infer payroll access merely from the ability to view one Review Queue page.
 
-## Scope For First Version
+## First-Version Scope
 
-- Desktop-first `Payroll` section in the existing supervisor dashboard.
-- Pay period start/end filters.
-- Worker filter with active, resigned, and all-worker options.
-- Approved attendance records included by default.
-- Worker/day summaries that pair check-in and check-out records.
-- Total hours per worker for the selected pay period.
-- Exception flags for:
-  - Missing check-out.
-  - Duplicate check-in or check-out.
-  - Pending, rejected, or outside-site records.
-  - Manual supervisor edits.
-- CSV export for payroll/accounting review.
+- A folded `Payroll` section or desktop tab in the existing Supervisor workspace.
+- Inclusive pay-period start/end dates interpreted in an explicit business timezone.
+- Worker and Department filters, including active, resigned, and all authorized Workers.
+- Approved Attendance Records as the payable source by default.
+- Deterministic check-in/check-out pairing per Worker in occurrence-time order, including overnight pairs.
+- Worker/day rows with first check-in, last check-out, paired duration, Site context, source, and exception notes.
+- Pay-period total hours per Worker.
+- Exception flags for missing check-outs, duplicate or out-of-order events, overlapping pairs, pending/rejected or outside-site events, and manual Supervisor entries/edits.
+- CSV export generated from the same authoritative query and calculation used by the UI.
 
-## Out Of Scope For First Version
+## Explicitly Out Of Scope
 
-- Automatic wage-rate calculation.
-- Overtime rules.
-- Allowances.
-- Deductions.
-- Public holiday logic.
-- Leave requests.
-- Direct integration with accounting or HR systems.
+- Wage rates or gross/net pay.
+- Overtime, allowances, deductions, public holidays, leave, and rounding rules.
+- Inferring unpaid breaks that were not recorded by an agreed business rule.
+- Editing Review Records from the Payroll screen.
+- Direct accounting/HR integration or a persistent export archive.
+- Native XLSX until CSV behaviour and business rules are accepted.
 
-Those rules need clear business definitions before implementation.
+These rules need signed-off business definitions before implementation.
 
-## Deployment Notes
+## Data Contract
 
-The payroll/admin portal should ship inside the existing Firebase Hosting and Cloud Run deployment:
+- Use `AttendanceRecord.timestamp` as occurrence time. Do not use API creation or offline sync time to calculate hours.
+- Only approved `check_in`/`check_out` pairs count as payable by default.
+- Pending and rejected events remain visible as exceptions but contribute zero payable hours.
+- Preserve manual-entry and audit context so Accounting can explain adjusted time.
+- Do not derive payroll from Task Log hours, Work Form formula outputs, Team Work Log worker-hours, Review Queue counts, or the currently visible Review Queue page.
+- Use a stable snapshot or transaction boundary so pagination and export cannot mix records changed halfway through a calculation.
+- Return calculation metadata: timezone, inclusive period, generated time, filter scope, rule version, and source-record IDs.
+- Keep raw durations separate from any future payable rounding or break policy.
 
-- Frontend UI remains part of the Vite PWA served from Firebase Hosting.
-- Payroll summary/export APIs run in the FastAPI Cloud Run service.
-- Pay-period calculations read from Cloud SQL PostgreSQL.
-- Export files should be generated on demand by Cloud Run. Store long-lived exports in Cloud Storage only if accounting needs persistent downloadable copies.
-- Payroll logic must not change worker phone check-in/check-out behavior or offline submission sync.
+Before implementation, decide and document:
 
-At roughly 100 users, payroll queries should fit the existing small-production Cloud SQL starting size. Add indexes or summary tables only after measuring slow pay-period reports.
+1. The payroll timezone and pay-period cutoff time.
+2. Whether pairs may cross the pay-period boundary and how they are allocated.
+3. Whether multiple valid pairs on one day are summed.
+4. How daylight-saving transitions are displayed and calculated.
+5. Whether a manual approved record needs a second payroll acknowledgement.
 
-## Data Rules
+## Suggested Interface
 
-- Payroll summaries should use approved records by default.
-- Pending/rejected records should not count toward payable hours unless a supervisor explicitly resolves them.
-- Adjusted records must show audit context so accounting can see that the time was changed.
-- Resigned workers remain available in historical payroll periods.
-- The export should include worker id/name, date, site, first check-in, last check-out, total hours, status, and exception notes.
-
-## Suggested UI
-
-- Add a folded `Payroll` section or desktop tab in the supervisor/admin dashboard.
-- Keep the Review Queue as the record-validation workflow.
-- Keep Payroll as the pay-period calculation/export workflow.
-- Use a dense table layout on desktop and a simplified stacked layout on mobile.
+- Summary cards: Workers, payable hours, complete days, and unresolved exceptions.
+- Dense desktop table grouped by Worker and local work date; stacked read-only rows on mobile.
+- A visible `Export blocked` or warning state when unresolved exceptions exist, based on the chosen business policy.
+- Drill-through links to the source Attendance Records and their audit history.
+- Clear labels separating raw paired hours from future rounded/payable hours.
 
 ## Suggested Endpoints
 
 ```text
-GET /supervisor/payroll/summary?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
-GET /supervisor/payroll/export.csv?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
+GET /supervisor/payroll/summary?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&worker_id=...
+GET /supervisor/payroll/export.csv?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&worker_id=...
 ```
 
-Later, if real Excel output is required:
+The response should include rows, totals, exceptions, calculation metadata, and an opaque snapshot identifier. If exports become asynchronous or retained, design that lifecycle separately rather than returning public object URLs.
 
-```text
-GET /supervisor/payroll/export.xlsx?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
-```
+## Deployment And Operations
+
+- Keep the UI in the Vite PWA on Firebase Hosting and APIs in the FastAPI Cloud Run service.
+- Read from managed PostgreSQL through SQLModel/SQLAlchemy. The current live provider is Neon; Cloud SQL is the recommended all-Google target.
+- Preserve same-origin `/api/**` routing, HttpOnly `__session` authentication, CSRF protection, and `POST /auth/refresh` behaviour.
+- Generate CSV on demand. Use private Upload Storage only if retained exports become a requirement.
+- Measure the summary query before adding indexes, materialized summaries, or background jobs. Never compute totals from a paginated browser page.
+- Include expensive exports in rate-limit and timeout planning.
+- Validate the selected database provider's backups/restore path in addition to the GCP production-hardening checker.
+
+## Test Strategy
+
+- Unit-test pairing for empty days, one pair, multiple pairs, duplicates, missing endpoints, overnight work, period boundaries, overlaps, and daylight-saving transitions.
+- Test pending/rejected/outside-site/manual records independently from payable inclusion.
+- Test Department and Global admin authorization on summary, drill-through, and export.
+- Prove UI totals and CSV totals use the same complete snapshot with more records than one page.
+- Prove resigned Workers remain visible historically.
+- Add an integration fixture with delayed Offline Submissions whose occurrence time differs from sync time.
+- Run regression checks for Review Queue, Management Analytics, Worker attendance, and offline replay.
 
 ## Acceptance Criteria
 
-- Accounting can choose a pay period and see every worker with approved payable hours.
-- Missing check-outs and duplicate attendance records are visible before export.
-- Resigned workers still appear when they worked during the selected period.
-- Payroll export can be opened in Excel.
-- The export does not include pending or rejected records as payable hours by default.
-- The implementation does not change worker check-in/check-out behavior.
+- An authorized user can choose a pay period and see every in-scope Worker with approved paired hours.
+- Missing, duplicate, overlapping, pending, rejected, outside-site, and manual events are explainable before export.
+- Overnight and delayed-sync records are assigned by occurrence time under the documented timezone rule.
+- Resigned Workers appear for periods in which they worked.
+- CSV opens in Excel and matches the complete UI snapshot and totals.
+- Pending and rejected records contribute zero payable hours by default.
+- Source Attendance Records and audit context are traceable from every calculated row.
+- Worker check-in/out, offline replay, Review Queue, and Management Analytics behaviour remain unchanged.

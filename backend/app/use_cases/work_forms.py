@@ -21,6 +21,8 @@ from app.use_cases.common import (
     select_work_form_submissions,
     scope_statement_to_user_department,
     validate_work_form_answers,
+    work_form_definition,
+    work_form_definition_snapshot_json,
     work_form_response,
     work_form_submission_response,
 )
@@ -62,6 +64,7 @@ def create_work_form(data, supervisor: User, session: Session):
         name=name,
         description=data.description.strip() if data.description else None,
         fields_json=json.dumps(normalize_work_form_fields(data.fields)),
+        definition_version=1,
         status="active",
         created_by=supervisor.id
     )
@@ -91,6 +94,7 @@ def update_work_form(form_id: int, data, supervisor: User, session: Session):
 
     fields = data.model_fields_set
     before = model_snapshot(form)
+    definition_before = work_form_definition(form)
     previous_status = form.status
 
     if "name" in fields and data.name is not None:
@@ -119,6 +123,13 @@ def update_work_form(form_id: int, data, supervisor: User, session: Session):
             raise HTTPException(status_code=400, detail="status must be active or archived")
         form.status = status
 
+    definition_after = work_form_definition(form)
+    if any(
+        definition_before[key] != definition_after[key]
+        for key in ("name", "description", "fields")
+    ):
+        form.definition_version = definition_before["version"] + 1
+
     session.add(form)
     action = "work_form_update"
     if "status" in fields and form.status != previous_status:
@@ -142,14 +153,6 @@ def update_work_form(form_id: int, data, supervisor: User, session: Session):
 
 def create_work_form_submission(data, user: User, session: Session):
     require_leader(user)
-    form = session.get(WorkForm, data.form_id)
-    if not form or form.status != "active" or not can_access_department(user, form.department_id):
-        raise HTTPException(status_code=404, detail="Form not found")
-
-    ensure_site_exists(session, data.site_id, user)
-    answers = validate_work_form_answers(form, data.answers)
-    photo_urls = normalize_work_form_photo_urls(data.photo_urls)
-    photo_metadata = normalize_work_form_photo_metadata(photo_urls, data.photo_metadata)
     client_submission_id = normalize_client_submission_id(data.client_submission_id)
     if client_submission_id:
         existing_submission = session.exec(
@@ -161,6 +164,16 @@ def create_work_form_submission(data, user: User, session: Session):
         if existing_submission:
             return work_form_submission_response(existing_submission, session)
 
+    form = session.get(WorkForm, data.form_id)
+    if not form or form.status != "active" or not can_access_department(user, form.department_id):
+        raise HTTPException(status_code=404, detail="Form not found")
+
+    ensure_site_exists(session, data.site_id, user)
+    definition = work_form_definition(form)
+    answers = validate_work_form_answers(definition, data.answers)
+    photo_urls = normalize_work_form_photo_urls(data.photo_urls)
+    photo_metadata = normalize_work_form_photo_metadata(photo_urls, data.photo_metadata)
+
     submission = WorkFormSubmission(
         department_id=department_id_for_new_record(user, session),
         form_id=form.id,
@@ -168,6 +181,8 @@ def create_work_form_submission(data, user: User, session: Session):
         site_id=data.site_id,
         work_date=data.work_date,
         answers_json=json.dumps(answers),
+        form_definition_version=definition["version"],
+        definition_snapshot_json=work_form_definition_snapshot_json(form),
         photo_urls=json.dumps(photo_urls) if photo_urls else None,
         photo_metadata=json.dumps(photo_metadata) if photo_metadata else None,
         client_submission_id=client_submission_id,

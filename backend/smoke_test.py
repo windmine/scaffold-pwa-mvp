@@ -4,13 +4,16 @@ import os
 import sys
 from datetime import datetime, timedelta, timezone
 from http.cookies import SimpleCookie
+from io import BytesIO
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+from PIL import Image
 
 
 BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 CSRF_COOKIE_NAME = "geo_csrf_token"
-AUTH_COOKIE_NAME = "geo_access_token"
+AUTH_COOKIE_NAME = "__session"
 SMOKE_IMAGE_BYTES = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 )
@@ -127,13 +130,13 @@ def app_origin():
     return BASE_URL
 
 
-def upload_test_image(label, token, filename):
+def upload_test_file(token, filename, content_type, content):
     boundary = f"----geoSmokeBoundary{datetime.now(timezone.utc).timestamp()}"
     body = b"".join([
         f"--{boundary}\r\n".encode("utf-8"),
         f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'.encode("utf-8"),
-        b"Content-Type: image/png\r\n\r\n",
-        SMOKE_IMAGE_BYTES,
+        f"Content-Type: {content_type}\r\n\r\n".encode("utf-8"),
+        content,
         b"\r\n",
         f"--{boundary}--\r\n".encode("utf-8"),
     ])
@@ -143,8 +146,20 @@ def upload_test_image(label, token, filename):
     request_obj.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
     request_obj.add_header("Content-Length", str(len(body)))
 
-    with urlopen(request_obj, timeout=10) as response:
-        upload = json.loads(response.read().decode("utf-8"))
+    try:
+        with urlopen(request_obj, timeout=10) as response:
+            return response.status, json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        raw = error.read().decode("utf-8")
+        return error.code, json.loads(raw) if raw else None
+
+
+def upload_test_image(label, token, filename):
+    status, upload = upload_test_file(token, filename, "image/png", SMOKE_IMAGE_BYTES)
+    if status != 200:
+        raise AssertionError(f"{label}: expected 200, got {status}: {upload}")
+    if upload.get("content_type") != "image/png" or not upload.get("filename", "").endswith(".png"):
+        raise AssertionError(f"{label}: upload was not stored as canonical PNG: {upload}")
 
     try:
         with urlopen(Request(f"{app_origin()}{upload['url']}", method="GET"), timeout=10):
@@ -157,9 +172,20 @@ def upload_test_image(label, token, filename):
     fetch_request.add_header("Authorization", f"Bearer {token}")
     with urlopen(fetch_request, timeout=10) as response:
         fetched = response.read()
+        fetched_content_type = response.headers.get("Content-Type", "")
+        nosniff = response.headers.get("X-Content-Type-Options", "")
 
-    if fetched != SMOKE_IMAGE_BYTES:
-        raise AssertionError(f"{label}: fetched upload did not match uploaded bytes")
+    if "image/png" not in fetched_content_type:
+        raise AssertionError(f"{label}: expected canonical image/png, got {fetched_content_type}")
+    if nosniff.lower() != "nosniff":
+        raise AssertionError(f"{label}: upload response is missing nosniff protection")
+    try:
+        with Image.open(BytesIO(fetched)) as image:
+            if image.format != "PNG":
+                raise AssertionError(f"{label}: expected decoded PNG, got {image.format}")
+            image.verify()
+    except Exception as error:
+        raise AssertionError(f"{label}: fetched upload is not a valid raster image: {error}") from error
 
     print(f"ok - {label}")
     return upload["url"]
@@ -168,6 +194,11 @@ def upload_test_image(label, token, filename):
 def main():
     try:
         assert_status("health", request("GET", "/health"), 200)
+        readiness = assert_status("readiness", request("GET", "/health/ready"), 200)
+        if readiness.get("checks", {}).get("upload_storage") != "ok":
+            raise AssertionError(f"readiness: upload adapter is not ready: {readiness}")
+        if readiness.get("details", {}).get("upload_storage", {}).get("backend") not in {"local", "gcs"}:
+            raise AssertionError(f"readiness: upload adapter backend is missing: {readiness}")
         assert_status("seed demo data", request("POST", "/dev/seed"), 200)
 
         worker_login = assert_status(
@@ -201,6 +232,16 @@ def main():
         worker_token = worker_login["access_token"]
         supervisor_token = supervisor_login["access_token"]
         admin_token = admin_login["access_token"]
+        assert_status(
+            "reject disguised SVG upload",
+            upload_test_file(
+                worker_token,
+                "not-really-a-photo.png",
+                "image/png",
+                b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+            ),
+            400,
+        )
         if worker_login["user"].get("department_name") != "Leader":
             raise AssertionError("worker login: expected default Leader department")
         if worker_login["user"].get("worker_class") != "leader":
@@ -247,6 +288,17 @@ def main():
                 "POST",
                 "/sites",
                 csrf_site_payload,
+                worker_cookies,
+                include_csrf=True,
+            ),
+            200,
+        )
+        assert_status(
+            "cookie session refresh accepts csrf",
+            request_with_cookie_session(
+                "POST",
+                "/auth/refresh",
+                None,
                 worker_cookies,
                 include_csrf=True,
             ),
@@ -1223,7 +1275,7 @@ def main():
                             {
                                 "team_name": "Joseph Jaypee",
                                 "team_people": 2,
-                                "team_time": {"start": "07:00", "end": "11:00", "duration_hours": 4},
+                                "team_time": {"start": "07:00", "end": "11:00", "duration_hours": 99},
                                 "team_break": "30 minutes",
                             },
                             {
@@ -1271,7 +1323,7 @@ def main():
                     "work_date": now.date().isoformat(),
                     "answers": {
                         "area": "North bay",
-                        "work_window": {"start": "07:30", "end": "15:45", "duration_hours": 8.25},
+                        "work_window": {"start": "07:30", "end": "15:45", "duration_hours": 99},
                         "workers": 3,
                         "total_worker_hours": 999,
                         "result": "Pass",
@@ -1301,6 +1353,8 @@ def main():
             raise AssertionError("submit work form: expected saved answer")
         if form_submission["answers"]["work_window"]["start"] != "07:30":
             raise AssertionError("submit work form: expected saved time range answer")
+        if form_submission["answers"]["work_window"]["duration_hours"] != 8.25:
+            raise AssertionError("submit work form: expected server-derived time range duration")
         if form_submission["answers"]["total_worker_hours"] != 24.75:
             raise AssertionError("submit work form: expected recalculated formula answer")
         if form_submission["answers"]["fail_notes"] != "":
@@ -1594,13 +1648,16 @@ def main():
         )
         if template["hours_worked"] != 1.5:
             raise AssertionError("update task template: expected updated hours")
+        attendance_occurred_at = now - timedelta(days=2)
         attendance = assert_status(
             "create inside-site attendance",
             request(
                 "POST",
                 "/attendance",
                 {
+                    "worker_id": worker_login["user"]["id"],
                     "record_type": "check_in",
+                    "occurred_at": attendance_occurred_at.isoformat(),
                     "latitude": site["latitude"],
                     "longitude": site["longitude"],
                     "accuracy": 20,
@@ -1618,13 +1675,17 @@ def main():
             raise AssertionError("create attendance: expected distance from site")
         if attendance["status"] != "approved":
             raise AssertionError("create attendance: expected inside-site attendance to auto-approve")
+        if datetime.fromisoformat(attendance["created_at"].replace("Z", "+00:00")) != attendance_occurred_at:
+            raise AssertionError("create attendance: expected delayed occurrence time to be preserved")
         duplicate_attendance = assert_status(
             "dedupe duplicate attendance retry",
             request(
                 "POST",
                 "/attendance",
                 {
+                    "worker_id": worker_login["user"]["id"],
                     "record_type": "check_in",
+                    "occurred_at": attendance_occurred_at.isoformat(),
                     "latitude": site["latitude"],
                     "longitude": site["longitude"],
                     "accuracy": 20,
@@ -1638,13 +1699,51 @@ def main():
         )
         if duplicate_attendance["id"] != attendance["id"]:
             raise AssertionError("dedupe duplicate attendance retry: expected original attendance record")
+        assert_status(
+            "reject offline attendance owned by another worker",
+            request(
+                "POST",
+                "/attendance",
+                {
+                    "worker_id": smoke_user["id"],
+                    "record_type": "check_in",
+                    "occurred_at": attendance_occurred_at.isoformat(),
+                    "latitude": site["latitude"],
+                    "longitude": site["longitude"],
+                    "accuracy": 20,
+                    "site_id": site["id"],
+                    "client_submission_id": f"smoke-attendance-owner-mismatch-{timestamp}",
+                },
+                worker_token,
+            ),
+            409,
+        )
+        assert_status(
+            "reject partial offline attendance invariants",
+            request(
+                "POST",
+                "/attendance",
+                {
+                    "worker_id": worker_login["user"]["id"],
+                    "record_type": "check_in",
+                    "latitude": site["latitude"],
+                    "longitude": site["longitude"],
+                    "site_id": site["id"],
+                    "client_submission_id": f"smoke-attendance-missing-time-{timestamp}",
+                },
+                worker_token,
+            ),
+            400,
+        )
         double_tap_attendance = assert_status(
             "dedupe rapid attendance double tap",
             request(
                 "POST",
                 "/attendance",
                 {
+                    "worker_id": worker_login["user"]["id"],
                     "record_type": "check_in",
+                    "occurred_at": attendance_occurred_at.isoformat(),
                     "latitude": site["latitude"],
                     "longitude": site["longitude"],
                     "accuracy": 20,
@@ -1658,6 +1757,8 @@ def main():
         )
         if double_tap_attendance["id"] != attendance["id"]:
             raise AssertionError("dedupe rapid attendance double tap: expected original attendance record")
+        if double_tap_attendance["client_submission_id"] != attendance["client_submission_id"]:
+            raise AssertionError("dedupe rapid attendance double tap: expected original idempotency key")
         assert_status(
             "worker cannot update auto-approved attendance",
             request(
@@ -2004,6 +2105,42 @@ def main():
             for item in pending_review_records
         ):
             raise AssertionError("list pending review records: expected pending task log")
+        review_queue_page = assert_status(
+            "list paged Review Queue",
+            request(
+                "GET",
+                f"/supervisor/review-queue?status=pending&page_size=1&department_id={site['department_id']}",
+                token=supervisor_token,
+            ),
+            200,
+        )
+        if (
+            len(review_queue_page["items"]) != 1
+            or review_queue_page["durability"] != "durable"
+            or review_queue_page["read_only"] is not False
+            or review_queue_page["counts"]["pending"] < 2
+            or review_queue_page["summary_counts"]["total"] < review_queue_page["counts"]["total"]
+            or review_queue_page["summary_counts"]["reviewed"] < 1
+            or not review_queue_page["next_cursor"]
+        ):
+            raise AssertionError(
+                "list paged Review Queue: expected durable envelope, matching/summary counts, and cursor"
+            )
+        assert_status(
+            "reject malformed Review Queue cursor",
+            request("GET", "/supervisor/review-queue?cursor=not-base64", token=supervisor_token),
+            400,
+        )
+        assert_status(
+            "general edit cannot bypass Review Record decision policy",
+            request(
+                "PATCH",
+                f"/supervisor/task-logs/{task_log['id']}",
+                {"status": "approved", "confirmed": True},
+                supervisor_token,
+            ),
+            400,
+        )
         assert_status(
             "worker cannot update task log",
             request(
@@ -2039,6 +2176,16 @@ def main():
         )
         if approved_task_log["status"] != "approved":
             raise AssertionError("supervisor approve task log: expected approved status")
+        assert_status(
+            "second Review Record decision conflicts",
+            request(
+                "POST",
+                f"/supervisor/review-records/task/{task_log['id']}/decision",
+                {"status": "rejected"},
+                supervisor_token,
+            ),
+            409,
+        )
         assert_status(
             "worker cannot delete task log",
             request("DELETE", f"/my-task-logs/{task_log['id']}", token=worker_token),
@@ -2142,7 +2289,9 @@ def main():
                 "POST",
                 "/attendance",
                 {
+                    "worker_id": worker_login["user"]["id"],
                     "record_type": "check_out",
+                    "occurred_at": now.isoformat(),
                     "latitude": site["latitude"] + 0.02,
                     "longitude": site["longitude"],
                     "accuracy": 20,

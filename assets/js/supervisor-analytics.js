@@ -317,6 +317,12 @@ export function buildManagementAnalytics(records, periodDays, now = new Date()) 
   };
 }
 
+export function managementAnalyticsRecords(supervisorRecords = {}) {
+  return Array.isArray(supervisorRecords.analyticsRecords)
+    ? supervisorRecords.analyticsRecords
+    : [];
+}
+
 function periodLabel(periodDays) {
   return Number.isFinite(periodDays) ? `Last ${periodDays} days` : 'All available records';
 }
@@ -511,7 +517,7 @@ export function createSupervisorAnalyticsModule({ els, state, renderStatusBanner
   }
 
   function analytics() {
-    const focusedRecords = (state.supervisorRecords.reviewRecords || []).filter((record) => (
+    const focusedRecords = managementAnalyticsRecords(state.supervisorRecords).filter((record) => (
       !state.departmentFocusId
       || String(record.departmentId ?? state.user?.departmentId) === String(state.departmentFocusId)
     ));
@@ -524,7 +530,10 @@ export function createSupervisorAnalyticsModule({ els, state, renderStatusBanner
   function renderPanel() {
     const report = analytics();
     const label = periodLabel(selectedPeriod());
-    els.analyticsPeriodLabel.textContent = label;
+    const analyticsReady = Boolean(state.supervisorRecords.analyticsReady);
+    els.analyticsPeriodLabel.textContent = analyticsReady
+      ? label
+      : 'Complete Analytics data unavailable';
     els.analyticsExceptionCount.textContent = `${report.exceptions.length} exceptions`;
     els.analyticsMetrics.innerHTML = [
       ['Records', report.metrics.records],
@@ -546,9 +555,15 @@ export function createSupervisorAnalyticsModule({ els, state, renderStatusBanner
     renderExceptionList(els.analyticsExceptionList, report.exceptions);
     renderSites(els.analyticsSiteSummary, report.sites);
     renderFormCharts(els.analyticsFormCharts, report.formCharts);
+    els.exportManagementCsvButton.disabled = !analyticsReady;
+    els.exportManagementHtmlButton.disabled = !analyticsReady;
   }
 
   function exportCsv() {
+    if (!state.supervisorRecords.analyticsReady) {
+      renderStatusBanner('Refresh the complete Analytics dataset before exporting.', true);
+      return;
+    }
     const report = analytics();
     const label = periodLabel(selectedPeriod());
     downloadBlob(
@@ -559,6 +574,10 @@ export function createSupervisorAnalyticsModule({ els, state, renderStatusBanner
   }
 
   function exportHtml() {
+    if (!state.supervisorRecords.analyticsReady) {
+      renderStatusBanner('Refresh the complete Analytics dataset before exporting.', true);
+      return;
+    }
     const report = analytics();
     const label = periodLabel(selectedPeriod());
     downloadBlob(

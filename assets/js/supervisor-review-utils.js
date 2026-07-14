@@ -34,6 +34,52 @@ export function reviewRecordCounts(records) {
   });
 }
 
+export function reviewOverviewCounts(recordsState = {}, fallbackRecords = []) {
+  if (recordsState.queueSummaryCounts) return recordsState.queueSummaryCounts;
+  if (recordsState.analyticsReady && Array.isArray(recordsState.analyticsRecords)) {
+    return reviewRecordCounts(recordsState.analyticsRecords);
+  }
+  return reviewRecordCounts(fallbackRecords);
+}
+
+export async function loadReviewOverview({
+  loadPage,
+  mapRecord,
+  departmentId,
+  pageSize = 100
+}) {
+  const records = [];
+  const seenCursors = new Set();
+  let cursor = null;
+  let counts = null;
+  let snapshotAt = '';
+
+  while (true) {
+    const page = await loadPage({
+      departmentId,
+      pageSize,
+      ...(cursor ? { cursor } : {})
+    });
+    if (!counts) counts = page.summary_counts || page.counts || null;
+    if (!snapshotAt) snapshotAt = page.snapshot_at || '';
+    records.push(...(page.items || []).map(mapRecord).filter(Boolean));
+
+    if (!page.has_more) break;
+    const nextCursor = page.next_cursor;
+    if (!nextCursor || seenCursors.has(nextCursor)) {
+      throw new Error('Review overview pagination returned an invalid continuation cursor.');
+    }
+    seenCursors.add(nextCursor);
+    cursor = nextCursor;
+  }
+
+  return {
+    records: mergeReviewRecords(records),
+    counts,
+    snapshotAt
+  };
+}
+
 export function formatAuditAction(action) {
   return (action || 'change').replaceAll('_', ' ');
 }

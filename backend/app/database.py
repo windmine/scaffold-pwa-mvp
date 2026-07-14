@@ -4,7 +4,12 @@ from app.config import DATABASE_URL, SQL_ECHO
 
 
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, echo=SQL_ECHO, connect_args=connect_args)
+engine = create_engine(
+    DATABASE_URL,
+    echo=SQL_ECHO,
+    connect_args=connect_args,
+    pool_pre_ping=True,
+)
 
 
 def migrate_database():

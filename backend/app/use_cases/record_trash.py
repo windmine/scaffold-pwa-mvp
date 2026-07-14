@@ -15,6 +15,7 @@ from app.use_cases.common import (
     review_record_response,
     scope_statement_to_user_department,
 )
+from app.upload_storage import cleanup_unreferenced_uploads, record_upload_urls
 
 
 TRASH_RETENTION_DAYS = 30
@@ -31,15 +32,20 @@ def purge_expired_deleted_records(session: Session, now: datetime | None = None)
     now = now or datetime.now(timezone.utc)
     cutoff = now - timedelta(days=TRASH_RETENTION_DAYS)
     deleted_counts = {}
+    upload_urls = set()
 
     for record_type, model in TRASH_MODELS.items():
+        expired_records = session.exec(
+            select(model).where(
+                model.deleted_at.is_not(None),
+                model.deleted_at <= cutoff,
+            )
+        ).all()
+        for record in expired_records:
+            upload_urls.update(record_upload_urls(record))
+
         if record_type == "team_log":
-            expired_ids = session.exec(
-                select(TeamWorkLog.id).where(
-                    TeamWorkLog.deleted_at.is_not(None),
-                    TeamWorkLog.deleted_at <= cutoff,
-                )
-            ).all()
+            expired_ids = [record.id for record in expired_records]
             if expired_ids:
                 session.exec(
                     delete(TeamWorkLogEntry)
@@ -56,6 +62,7 @@ def purge_expired_deleted_records(session: Session, now: datetime | None = None)
         deleted_counts[record_type] = result.rowcount or 0
 
     session.commit()
+    cleanup_unreferenced_uploads(upload_urls, session)
     return deleted_counts
 
 

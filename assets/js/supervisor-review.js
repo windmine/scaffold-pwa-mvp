@@ -3,20 +3,9 @@ import {
   createSupervisorFormSubmission as createBackendSupervisorFormSubmission,
   createSupervisorTaskLog as createBackendSupervisorTaskLog,
   decideRecord as decideBackendRecord,
-  exportSupervisorFormSubmissionCsv,
-  exportSupervisorFormSubmissionHtml,
-  exportSupervisorFormSubmissionPdf,
-  exportSupervisorFormSubmissionsCsv,
-  exportSupervisorFormSubmissionsHtml,
-  exportSupervisorFormSubmissionsPdf,
-  exportSupervisorRecordsCsv,
-  exportSupervisorTaskLogCsv,
-  exportSupervisorTaskLogHtml,
-  exportSupervisorTaskLogsHtml,
-  exportSupervisorTaskLogsCsv,
   getSupervisorAuditEvents as getBackendSupervisorAuditEvents,
   getSupervisorTrash as getBackendSupervisorTrash,
-  getSupervisorReviewRecords as getBackendSupervisorReviewRecords,
+  getSupervisorReviewQueuePage as getBackendSupervisorReviewQueuePage,
   moveSupervisorRecordToTrash as moveBackendSupervisorRecordToTrash,
   restoreSupervisorRecord as restoreBackendSupervisorRecord,
   updateDefaultDepartment as updateBackendDefaultDepartment,
@@ -26,30 +15,31 @@ import {
   updateSupervisorTaskLog as updateBackendSupervisorTaskLog
 } from './api-client.js';
 import { setDateInputValue } from './date-inputs.js';
+import { createReviewExportAdapters } from './review-export-adapters.js';
 import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
-import {
-  decideRecord as decideLocalRecord,
-  getPendingApprovals,
-  getReviewedApprovals,
-  getTaskLogRecords
-} from './mock-api.js';
 import { todayDateInput, escapeHtml, formatDateTime } from './utils.js';
 import {
-  downloadBlob,
   exportUsesFormType,
   formatAuditAction,
   isDayworkForm,
   isDayworkRecord,
   localDateTimeInputValue,
+  loadReviewOverview,
   mergeExistingSignatureAnswers,
   mergeReviewRecords,
-  reviewRecordCounts,
+  reviewOverviewCounts,
   teamBreakOptions,
   uploadAdminFormSignatureAnswers
 } from './supervisor-review-utils.js';
 
 const ADMIN_TASK_LOG_FORM_PREFIX = 'adminTaskLogFormField';
 const EDIT_FORM_FIELD_PREFIX = 'editFormSubmissionField';
+const REVIEW_QUEUE_PAGE_SIZE = 50;
+const REVIEW_QUEUE_MODE = {
+  LIVE: 'live',
+  OFFLINE_READ_ONLY: 'offline_read_only'
+};
+const reviewExports = createReviewExportAdapters();
 
 export function createSupervisorReviewModule({
   els,
@@ -70,6 +60,27 @@ export function createSupervisorReviewModule({
   editNumber,
   siteSelectOptions
 }) {
+  let filterRefreshTimer = null;
+  let reviewQueueRequestId = 0;
+  let reviewOverviewRequestId = 0;
+
+  function reviewQueueIsReadOnly() {
+    return state.supervisorRecords.queueMode !== REVIEW_QUEUE_MODE.LIVE;
+  }
+
+  function requireDurableWritableRecord(record, action) {
+    if (
+      reviewQueueIsReadOnly()
+      || record?.readOnly
+      || record?.durability !== 'durable'
+      || !record?.backendRecordId
+    ) {
+      renderStatusBanner(`Reconnect before ${action} a durable Review Record.`, true);
+      return false;
+    }
+    return true;
+  }
+
   function getFilters() {
     return {
       query: els.supervisorSearchInput.value,
@@ -97,6 +108,17 @@ export function createSupervisorReviewModule({
 
   function itemDepartmentId(item) {
     return item?.department_id ?? item?.departmentId;
+  }
+
+  function reviewQueueQuery() {
+    const filters = getFilters();
+    return {
+      status: filters.status,
+      kind: filters.type,
+      departmentId: filters.department,
+      recordDate: filters.date,
+      search: filters.query.trim()
+    };
   }
 
   function recordActionLabel(record) {
@@ -523,10 +545,15 @@ export function createSupervisorReviewModule({
       : `Fixed to ${state.user?.departmentName || 'your department'}.`;
   }
 
-  function renderFocusedDashboard(usingBackend = state.supervisorRecords.usingBackend) {
+  function renderFocusedDashboard(queueMode = state.supervisorRecords.queueMode) {
     const reviewRecords = state.supervisorRecords.reviewRecords || [];
     const focusedRecords = departmentFocusedRecords(reviewRecords);
-    const counts = reviewRecordCounts(focusedRecords);
+    const counts = reviewOverviewCounts(state.supervisorRecords, focusedRecords);
+    const sourceLabel = queueMode === REVIEW_QUEUE_MODE.LIVE
+      ? 'Backend (durable)'
+      : reviewRecords.length
+        ? 'Last durable results (read only)'
+        : 'Unavailable (read only)';
 
     els.supervisorSummary.innerHTML = `
       <div class="summary-item"><span>Signed in as</span><strong>${escapeHtml(state.user.fullName)}</strong></div>
@@ -537,43 +564,140 @@ export function createSupervisorReviewModule({
       <div class="summary-item"><span>Task logs</span><strong>${counts.task}</strong></div>
       <div class="summary-item"><span>Team weekly logs</span><strong>${counts.teamLog}</strong></div>
       <div class="summary-item"><span>Forms</span><strong>${counts.form}</strong></div>
-      <div class="summary-item"><span>Source</span><strong>${usingBackend ? 'Backend' : 'This device'}</strong></div>
+      <div class="summary-item"><span>Source</span><strong>${sourceLabel}</strong></div>
     `;
     renderFilteredLists();
     renderLocationMap();
     renderManagementAnalytics();
   }
 
-  async function renderPanel() {
-    let reviewRecords;
-    let usingBackend = false;
+  function recordsFromPage(page) {
+    return page.items
+      .map(historyModule.fromBackendReviewRecord)
+      .filter(Boolean);
+  }
 
+  function normaliseBackendCounts(counts) {
+    if (!counts) return null;
+    return {
+      ...counts,
+      teamLog: counts.team_log ?? counts.teamLog ?? 0
+    };
+  }
+
+  function setOfflineReadOnlyQueue(error) {
+    const previous = state.supervisorRecords || {};
+    const durableRecords = (previous.reviewRecords || [])
+      .filter((record) => record.backendRecordId && record.durability !== 'local_only')
+      .map((record) => ({ ...record, durability: 'durable', readOnly: true }));
+    state.supervisorRecords = {
+      ...previous,
+      reviewRecords: durableRecords,
+      usingBackend: false,
+      queueMode: REVIEW_QUEUE_MODE.OFFLINE_READ_ONLY,
+      nextCursor: null,
+      hasMore: false,
+      loadingMore: false,
+      queueError: error?.message || 'Backend Review Queue is unreachable.'
+    };
+  }
+
+  async function refreshReviewQueue() {
+    const query = reviewQueueQuery();
+    const requestId = ++reviewQueueRequestId;
     try {
-      reviewRecords = (await getBackendSupervisorReviewRecords())
-        .map(historyModule.fromBackendReviewRecord)
-        .filter(Boolean);
-      usingBackend = true;
+      const page = await getBackendSupervisorReviewQueuePage({
+        ...query,
+        pageSize: REVIEW_QUEUE_PAGE_SIZE
+      });
+      if (requestId !== reviewQueueRequestId) return true;
+      state.supervisorRecords = {
+        ...state.supervisorRecords,
+        reviewRecords: recordsFromPage(page),
+        usingBackend: true,
+        queueMode: REVIEW_QUEUE_MODE.LIVE,
+        queueQuery: query,
+        queueCounts: normaliseBackendCounts(page.counts),
+        queueSummaryCounts: normaliseBackendCounts(page.summary_counts || page.counts),
+        snapshotAt: page.snapshot_at || '',
+        loadedAt: new Date().toISOString(),
+        nextCursor: page.next_cursor || null,
+        hasMore: Boolean(page.has_more && page.next_cursor),
+        loadingMore: false,
+        queueError: ''
+      };
     } catch (error) {
+      if (requestId !== reviewQueueRequestId) return true;
       if (error.status === 401 || error.status === 403) {
         handleSessionExpired();
-        return;
+        return false;
       }
+      setOfflineReadOnlyQueue(error);
+      renderStatusBanner('Backend Review Queue is unreachable. Only the last durable results are available read-only.', true);
+    }
+    renderFocusedDashboard();
+    return true;
+  }
 
-      const pending = await getPendingApprovals();
-      const reviewed = await getReviewedApprovals();
-      const taskLogs = await getTaskLogRecords();
-      reviewRecords = mergeReviewRecords(pending, reviewed, taskLogs);
-      renderStatusBanner('Backend approvals are unreachable. Showing records saved on this device only.', true);
+  async function refreshReviewOverview() {
+    const departmentId = state.departmentFocusId || '';
+    const requestId = ++reviewOverviewRequestId;
+    const previousDepartmentId = state.supervisorRecords.analyticsDepartmentId || '';
+    if (String(previousDepartmentId) !== String(departmentId)) {
+      state.supervisorRecords = {
+        ...state.supervisorRecords,
+        analyticsRecords: [],
+        analyticsReady: false,
+        analyticsDepartmentId: String(departmentId),
+        analyticsSnapshotAt: ''
+      };
     }
 
+    try {
+      const overview = await loadReviewOverview({
+        loadPage: getBackendSupervisorReviewQueuePage,
+        mapRecord: historyModule.fromBackendReviewRecord,
+        departmentId: departmentId || undefined
+      });
+      if (requestId !== reviewOverviewRequestId) return true;
+      state.supervisorRecords = {
+        ...state.supervisorRecords,
+        analyticsRecords: overview.records,
+        analyticsReady: true,
+        analyticsDepartmentId: String(departmentId),
+        analyticsSnapshotAt: overview.snapshotAt,
+        analyticsError: '',
+        queueSummaryCounts: normaliseBackendCounts(overview.counts)
+          || state.supervisorRecords.queueSummaryCounts
+      };
+    } catch (error) {
+      if (requestId !== reviewOverviewRequestId) return true;
+      if (error.status === 401 || error.status === 403) {
+        handleSessionExpired();
+        return false;
+      }
+      state.supervisorRecords = {
+        ...state.supervisorRecords,
+        analyticsError: error?.message || 'Complete Management Analytics data is unavailable.'
+      };
+      renderStatusBanner(
+        'Complete Management Analytics data is unavailable. Review Queue results remain usable.',
+        true
+      );
+    }
+    renderFocusedDashboard();
+    return true;
+  }
+
+  async function renderPanel() {
+    renderDepartmentFilter();
+    if (!await refreshReviewQueue()) return;
+    if (!await refreshReviewOverview()) return;
     state.supervisorRecords = {
-      reviewRecords,
-      usingBackend,
+      ...state.supervisorRecords,
       auditEvents: [],
       trashRecords: state.supervisorRecords.trashRecords || []
     };
-    renderDepartmentFilter();
-    renderFocusedDashboard(usingBackend);
     renderSupervisorSites();
     await refreshWorkForms();
     renderExportFormTypeOptions();
@@ -589,27 +713,100 @@ export function createSupervisorReviewModule({
     const focusedRecords = departmentFocusedRecords(reviewRecords);
     const filteredRecords = historyModule.filterRecords(reviewRecords, getFilters());
 
-    els.supervisorResultCount.textContent = `${filteredRecords.length}/${focusedRecords.length}`;
+    const readOnly = reviewQueueIsReadOnly();
+    const matchingTotal = state.supervisorRecords.queueCounts?.total ?? focusedRecords.length;
+    els.supervisorResultCount.textContent = `${filteredRecords.length}/${matchingTotal} matching records loaded`;
     historyModule.renderRecordsList(els.reviewQueueList, filteredRecords, {
-      showDecisionActions: true,
-      showEditActions: true,
-      showExportActions: true,
-      showTrashActions: true
+      showDecisionActions: !readOnly,
+      showEditActions: !readOnly,
+      showExportActions: !readOnly,
+      showTrashActions: !readOnly
     });
+    els.exportAttendanceButton.disabled = readOnly;
+    els.exportTaskLogsButton.disabled = readOnly;
+    els.exportDocumentButton.disabled = readOnly;
+
+    if (readOnly) {
+      const notice = document.createElement('div');
+      notice.className = 'empty-state review-queue-read-only';
+      notice.textContent = reviewRecords.length
+        ? 'Offline read-only view of the last durable results. Reconnect before approving, rejecting, editing, exporting, or deleting Review Records.'
+        : 'The durable Review Queue is unavailable offline. Unsynced Worker records are not Supervisor Review Records.';
+      els.reviewQueueList.prepend(notice);
+      return;
+    }
+
+    if (state.supervisorRecords.hasMore) {
+      const loadMoreButton = document.createElement('button');
+      loadMoreButton.type = 'button';
+      loadMoreButton.className = 'ghost review-queue-load-more';
+      loadMoreButton.textContent = state.supervisorRecords.loadingMore ? 'Loading…' : 'Load more Review Records';
+      loadMoreButton.disabled = state.supervisorRecords.loadingMore;
+      loadMoreButton.addEventListener('click', loadMoreReviewRecords);
+      els.reviewQueueList.appendChild(loadMoreButton);
+    }
   }
 
-  function clearFilters() {
+  async function loadMoreReviewRecords() {
+    const recordsState = state.supervisorRecords;
+    if (
+      recordsState.queueMode !== REVIEW_QUEUE_MODE.LIVE
+      || recordsState.loadingMore
+      || !recordsState.nextCursor
+    ) return;
+
+    const requestedCursor = recordsState.nextCursor;
+    const requestedQuery = JSON.stringify(recordsState.queueQuery || {});
+    recordsState.loadingMore = true;
+    renderFilteredLists();
+    try {
+      const page = await getBackendSupervisorReviewQueuePage({
+        ...(recordsState.queueQuery || {}),
+        cursor: recordsState.nextCursor,
+        pageSize: REVIEW_QUEUE_PAGE_SIZE
+      });
+      if (
+        state.supervisorRecords.queueMode !== REVIEW_QUEUE_MODE.LIVE
+        || state.supervisorRecords.nextCursor !== requestedCursor
+        || JSON.stringify(state.supervisorRecords.queueQuery || {}) !== requestedQuery
+      ) return;
+      const additionalRecords = recordsFromPage(page);
+      recordsState.reviewRecords = mergeReviewRecords(recordsState.reviewRecords, additionalRecords);
+      recordsState.nextCursor = page.next_cursor || null;
+      recordsState.hasMore = Boolean(page.has_more && recordsState.nextCursor);
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        handleSessionExpired();
+        return;
+      }
+      setOfflineReadOnlyQueue(error);
+      renderStatusBanner('The Review Queue went offline. Loaded durable results are now read-only.', true);
+    } finally {
+      state.supervisorRecords.loadingMore = false;
+      renderFocusedDashboard();
+    }
+  }
+
+  async function clearFilters() {
     els.supervisorSearchInput.value = '';
     els.supervisorTypeFilter.value = '';
     els.supervisorStatusFilter.value = '';
     setDateInputValue(els.supervisorDateFilter, '');
-    renderFilteredLists();
+    await refreshReviewQueue();
   }
 
-  function handleDepartmentFilterChange() {
+  function scheduleReviewQueueRefresh() {
+    window.clearTimeout(filterRefreshTimer);
+    filterRefreshTimer = window.setTimeout(() => {
+      refreshReviewQueue();
+    }, 250);
+  }
+
+  async function handleDepartmentFilterChange() {
     state.departmentFocusId = els.supervisorDepartmentFilter.value;
     renderDepartmentFilter();
-    renderFocusedDashboard();
+    if (!await refreshReviewQueue()) return;
+    if (!await refreshReviewOverview()) return;
     renderDepartmentScopedAdminLists();
     renderManualAttendanceForm();
     renderAdminTaskLogForm();
@@ -692,7 +889,8 @@ export function createSupervisorReviewModule({
   }
 
   async function handleTrashRecord(record) {
-    if (!record.backendRecordId || !['attendance', 'task', 'form', 'team_log'].includes(record.type)) {
+    if (!requireDurableWritableRecord(record, 'moving')) return;
+    if (!['attendance', 'task', 'form', 'team_log'].includes(record.type)) {
       renderStatusBanner('Only backend review records can be moved to the rubbish bin.', true);
       return;
     }
@@ -840,11 +1038,14 @@ export function createSupervisorReviewModule({
   }
 
   async function handleExportAttendance() {
+    if (reviewQueueIsReadOnly()) {
+      renderStatusBanner('Reconnect before exporting durable Review Records.', true);
+      return;
+    }
     try {
       await runExport(els.exportAttendanceButton, async () => {
-        const blob = await exportSupervisorRecordsCsv(exportDateFilters());
-        downloadBlob(blob, `leader-attendance-${todayDateInput()}.csv`);
-        renderStatusBanner('Attendance CSV exported.');
+        const message = await reviewExports.exportCollection('attendance-csv', exportDateFilters());
+        renderStatusBanner(message);
       });
     } catch (error) {
       renderStatusBanner(error.message || 'Could not export attendance CSV.', true);
@@ -852,11 +1053,14 @@ export function createSupervisorReviewModule({
   }
 
   async function handleExportTaskLogs() {
+    if (reviewQueueIsReadOnly()) {
+      renderStatusBanner('Reconnect before exporting durable Review Records.', true);
+      return;
+    }
     try {
       await runExport(els.exportTaskLogsButton, async () => {
-        const blob = await exportSupervisorTaskLogsCsv(exportDateFilters());
-        downloadBlob(blob, `leader-task-logs-${todayDateInput()}.csv`);
-        renderStatusBanner('Task logs CSV exported.');
+        const message = await reviewExports.exportCollection('task-logs-csv', exportDateFilters());
+        renderStatusBanner(message);
       });
     } catch (error) {
       renderStatusBanner(error.message || 'Could not export task logs CSV.', true);
@@ -865,47 +1069,20 @@ export function createSupervisorReviewModule({
 
   async function handleExportDocument() {
     const exportType = els.exportDocumentSelect.value;
+    if (reviewQueueIsReadOnly()) {
+      renderStatusBanner('Reconnect before exporting durable Review Records.', true);
+      return;
+    }
 
     try {
       await runExport(els.exportDocumentButton, async () => {
-        if (exportType === 'task-photo-report') {
-          const blob = await exportSupervisorTaskLogsHtml('photo-report', exportDateFilters());
-          downloadBlob(blob, `leader-task-photo-report-${todayDateInput()}.html`);
-          renderStatusBanner('Task photo report exported.');
-          return;
-        }
-
-        if (exportType === 'form-submissions') {
-          const blob = await exportSupervisorFormSubmissionsHtml(exportDateFilters(true));
-          downloadBlob(blob, `leader-work-forms-${todayDateInput()}.html`);
-          renderStatusBanner('Work form submissions exported.');
-          return;
-        }
-
-        if (exportType === 'form-submissions-csv') {
-          const blob = await exportSupervisorFormSubmissionsCsv(exportDateFilters(true));
-          downloadBlob(blob, `leader-work-forms-${todayDateInput()}.csv`);
-          renderStatusBanner('Work form submissions CSV exported.');
-          return;
-        }
-
-        if (exportType === 'form-submissions-pdf') {
-          const blob = await exportSupervisorFormSubmissionsPdf('submitted-form', exportDateFilters(true));
-          downloadBlob(blob, `leader-work-forms-${todayDateInput()}.pdf`);
-          renderStatusBanner('Work form submissions PDF exported.');
-          return;
-        }
-
-        if (exportType === 'daywork-pdf') {
-          const blob = await exportSupervisorFormSubmissionsPdf('daywork', exportDateFilters(true));
-          downloadBlob(blob, `leader-daywork-${todayDateInput()}.pdf`);
-          renderStatusBanner('Daywork PDF exported.');
-          return;
-        }
-
-        const blob = await exportSupervisorTaskLogsHtml('daily-log', exportDateFilters());
-        downloadBlob(blob, `leader-daily-task-logs-${todayDateInput()}.html`);
-        renderStatusBanner('Daily task log sheets exported.');
+        const usesFormType = ['form-submissions', 'form-submissions-csv', 'form-submissions-pdf', 'daywork-pdf']
+          .includes(exportType);
+        const message = await reviewExports.exportCollection(
+          exportType,
+          exportDateFilters(usesFormType)
+        );
+        renderStatusBanner(message);
       });
     } catch (error) {
       renderStatusBanner(error.message || 'Could not export document.', true);
@@ -913,61 +1090,11 @@ export function createSupervisorReviewModule({
   }
 
   async function handleExportRecord(record, exportType) {
-    if (!record.backendRecordId) {
-      renderStatusBanner('Only backend records can be exported.', true);
-      return;
-    }
+    if (!requireDurableWritableRecord(record, 'exporting')) return;
 
     try {
-      if (exportType === 'task-photo-report-html') {
-        const blob = await exportSupervisorTaskLogHtml(record.backendRecordId, 'photo-report');
-        downloadBlob(blob, `leader-task-log-${record.backendRecordId}-photo-report-${todayDateInput()}.html`);
-        renderStatusBanner('Task photo report exported.');
-        return;
-      }
-
-      if (exportType === 'task-csv') {
-        const blob = await exportSupervisorTaskLogCsv(record.backendRecordId);
-        downloadBlob(blob, `leader-task-log-${record.backendRecordId}-${todayDateInput()}.csv`);
-        renderStatusBanner('Task log CSV row exported.');
-        return;
-      }
-
-      if (exportType === 'form-html') {
-        const blob = await exportSupervisorFormSubmissionHtml(record.backendRecordId);
-        downloadBlob(blob, `leader-form-${record.backendRecordId}-${todayDateInput()}.html`);
-        renderStatusBanner('Form submission exported.');
-        return;
-      }
-
-      if (exportType === 'form-pdf') {
-        const blob = await exportSupervisorFormSubmissionPdf(record.backendRecordId, 'submitted-form');
-        downloadBlob(blob, `leader-form-${record.backendRecordId}-${todayDateInput()}.pdf`);
-        renderStatusBanner('Form submission PDF exported.');
-        return;
-      }
-
-      if (exportType === 'daywork-pdf') {
-        if (!isDayworkRecord(record)) {
-          renderStatusBanner('This submission is not a Daywork form.', true);
-          return;
-        }
-        const blob = await exportSupervisorFormSubmissionPdf(record.backendRecordId, 'daywork');
-        downloadBlob(blob, `leader-daywork-${record.backendRecordId}-${todayDateInput()}.pdf`);
-        renderStatusBanner('Daywork PDF exported.');
-        return;
-      }
-
-      if (exportType === 'form-csv') {
-        const blob = await exportSupervisorFormSubmissionCsv(record.backendRecordId);
-        downloadBlob(blob, `leader-form-${record.backendRecordId}-${todayDateInput()}.csv`);
-        renderStatusBanner('Form submission CSV row exported.');
-        return;
-      }
-
-      const blob = await exportSupervisorTaskLogHtml(record.backendRecordId, 'daily-log');
-      downloadBlob(blob, `leader-task-log-${record.backendRecordId}-daily-log-${todayDateInput()}.html`);
-      renderStatusBanner('Daily task log exported.');
+      const message = await reviewExports.exportRecord(record, exportType);
+      renderStatusBanner(message);
     } catch (error) {
       renderStatusBanner(error.message || 'Could not export record.', true);
     }
@@ -1022,12 +1149,9 @@ export function createSupervisorReviewModule({
   }
 
   async function handleDecision(record, decision) {
+    if (!requireDurableWritableRecord(record, decision === 'approved' ? 'approving' : 'rejecting')) return;
     try {
-      if (record.backendRecordId) {
-        await decideBackendRecord(record.backendRecordId, decision, record.type || 'attendance');
-      } else {
-        await decideLocalRecord(record.id, decision);
-      }
+      await decideBackendRecord(record.backendRecordId, decision, record.type || 'attendance');
 
       renderStatusBanner(`Record ${decision}.`);
       await renderPanel();
@@ -1037,10 +1161,7 @@ export function createSupervisorReviewModule({
   }
 
   async function handleEditRecord(record) {
-    if (!record.backendRecordId) {
-      renderStatusBanner('Only backend records can be adjusted by a supervisor.', true);
-      return;
-    }
+    if (!requireDurableWritableRecord(record, 'editing')) return;
 
     if (record.type === 'form') {
       const form = {
@@ -1061,17 +1182,6 @@ export function createSupervisorReviewModule({
         [
           { id: 'editFormSiteId', label: 'Site', type: 'select', value: record.siteId || '', options: siteOptions },
           { id: 'editFormWorkDate', label: 'Work date', type: 'date', value: record.workDate || '' },
-          {
-            id: 'editFormStatus',
-            label: 'Status',
-            type: 'select',
-            value: record.status || 'pending',
-            options: [
-              { value: 'pending', label: 'Pending' },
-              { value: 'approved', label: 'Approved' },
-              { value: 'rejected', label: 'Rejected' }
-            ]
-          },
           { type: 'custom', html: '<div id="editFormAnswers" class="dynamic-fields"></div>' }
         ],
         'Save form',
@@ -1087,8 +1197,7 @@ export function createSupervisorReviewModule({
             await updateBackendSupervisorFormSubmission(record.backendRecordId, {
               site_id: editNumber('editFormSiteId'),
               work_date: editValue('editFormWorkDate') || null,
-              answers: await uploadAdminFormSignatureAnswers(form, answers, { id: record.userId }),
-              status: editValue('editFormStatus')
+              answers: await uploadAdminFormSignatureAnswers(form, answers, { id: record.userId })
             });
             closeEditPanel();
             renderStatusBanner('Form submission updated.');
@@ -1115,17 +1224,6 @@ export function createSupervisorReviewModule({
         `Edit weekly team log: ${record.weekStart}`,
         [
           { id: 'editTeamWeekStart', label: 'Week start', type: 'date', value: record.weekStart || record.workDate || '' },
-          {
-            id: 'editTeamStatus',
-            label: 'Status',
-            type: 'select',
-            value: record.status || 'pending',
-            options: [
-              { value: 'pending', label: 'Pending' },
-              { value: 'approved', label: 'Approved' },
-              { value: 'rejected', label: 'Rejected' }
-            ]
-          },
           { id: 'editTeamNotes', label: 'Notes', type: 'textarea', rows: 3, value: record.notes || '' },
           {
             type: 'custom',
@@ -1162,7 +1260,6 @@ export function createSupervisorReviewModule({
             await updateBackendSupervisorTeamWorkLog(record.backendRecordId, {
               week_start: editValue('editTeamWeekStart'),
               notes: editValue('editTeamNotes') || null,
-              status: editValue('editTeamStatus'),
               entries
             });
             closeEditPanel();
@@ -1185,18 +1282,7 @@ export function createSupervisorReviewModule({
           { id: 'editTaskWorkDate', label: 'Work date', type: 'date', value: record.workDate || '' },
           { id: 'editTaskHours', label: 'Hours worked', type: 'number', step: '0.25', min: 0, max: 24, value: record.hoursWorked || '' },
           { id: 'editTaskDescription', label: 'Task summary', type: 'textarea', rows: 4, value: record.summary || '' },
-          { id: 'editTaskSafety', label: 'Safety notes', type: 'textarea', rows: 3, value: record.safetyNotes || '' },
-          {
-            id: 'editTaskStatus',
-            label: 'Status',
-            type: 'select',
-            value: record.status || 'pending',
-            options: [
-              { value: 'pending', label: 'Pending' },
-              { value: 'approved', label: 'Approved' },
-              { value: 'rejected', label: 'Rejected' }
-            ]
-          }
+          { id: 'editTaskSafety', label: 'Safety notes', type: 'textarea', rows: 3, value: record.safetyNotes || '' }
         ],
         'Save task log',
         async () => {
@@ -1207,8 +1293,7 @@ export function createSupervisorReviewModule({
               work_date: editValue('editTaskWorkDate') || null,
               hours_worked: editNumber('editTaskHours'),
               description: editValue('editTaskDescription'),
-              safety_notes: editValue('editTaskSafety') || null,
-              status: editValue('editTaskStatus')
+              safety_notes: editValue('editTaskSafety') || null
             });
             closeEditPanel();
             renderStatusBanner('Task log updated.');
@@ -1238,17 +1323,6 @@ export function createSupervisorReviewModule({
         { id: 'editAttendanceLatitude', label: 'Latitude', type: 'number', step: '0.000001', min: -90, max: 90, value: record.location?.latitude || '' },
         { id: 'editAttendanceLongitude', label: 'Longitude', type: 'number', step: '0.000001', min: -180, max: 180, value: record.location?.longitude || '' },
         { id: 'editAttendanceAccuracy', label: 'Accuracy metres', type: 'number', min: 0, value: record.location?.accuracy || '' },
-        {
-          id: 'editAttendanceStatus',
-          label: 'Status',
-          type: 'select',
-          value: record.status || 'pending',
-          options: [
-            { value: 'pending', label: 'Pending' },
-            { value: 'approved', label: 'Approved' },
-            { value: 'rejected', label: 'Rejected' }
-          ]
-        },
         { id: 'editAttendanceNote', label: 'Notes', type: 'textarea', rows: 4, value: record.notes || '' }
       ],
       'Save attendance',
@@ -1261,8 +1335,7 @@ export function createSupervisorReviewModule({
             latitude: editNumber('editAttendanceLatitude'),
             longitude: editNumber('editAttendanceLongitude'),
             accuracy: editNumber('editAttendanceAccuracy'),
-            note: editValue('editAttendanceNote') || null,
-            status: editValue('editAttendanceStatus')
+            note: editValue('editAttendanceNote') || null
           });
           closeEditPanel();
           renderStatusBanner('Attendance record updated.');
@@ -1284,8 +1357,8 @@ export function createSupervisorReviewModule({
       els.supervisorStatusFilter,
       els.supervisorDateFilter
     ].forEach((element) => {
-      element.addEventListener('input', renderFilteredLists);
-      element.addEventListener('change', renderFilteredLists);
+      element.addEventListener('input', scheduleReviewQueueRefresh);
+      element.addEventListener('change', scheduleReviewQueueRefresh);
     });
     els.clearSupervisorFiltersButton.addEventListener('click', clearFilters);
     els.clearExportFiltersButton.addEventListener('click', clearExportFilters);

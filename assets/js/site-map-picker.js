@@ -35,6 +35,10 @@ function siteRadius(site) {
   return Number.isFinite(radius) && radius > 0 ? radius : 100;
 }
 
+function siteCoordinates(site) {
+  return [Number(site.latitude), Number(site.longitude)];
+}
+
 export function currentPosition() {
   return new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -74,8 +78,18 @@ export function createSiteMapPicker({
     return L.divIcon({
       className: 'site-map-pin',
       html: '<span></span>',
-      iconSize: [26, 26],
-      iconAnchor: [13, 13]
+      iconSize: [38, 38],
+      iconAnchor: [19, 19]
+    });
+  }
+
+  function existingSiteIcon() {
+    return L.divIcon({
+      className: 'site-existing-pin',
+      html: '<span>SITE</span>',
+      iconSize: [56, 28],
+      iconAnchor: [28, 42],
+      tooltipAnchor: [0, -34]
     });
   }
 
@@ -98,25 +112,29 @@ export function createSiteMapPicker({
     getExistingSites()
       .filter(hasCoordinates)
       .forEach((site) => {
-        const centre = [Number(site.latitude), Number(site.longitude)];
+        const centre = siteCoordinates(site);
         const radius = siteRadius(site);
         L.circle(centre, {
           radius,
-          color: '#8fa0b8',
-          fillColor: '#8fa0b8',
-          fillOpacity: 0.06,
-          opacity: 0.75,
-          weight: 1.4
+          color: '#ffffff',
+          opacity: 0.96,
+          fillOpacity: 0,
+          weight: 9,
+          className: 'site-existing-boundary-halo',
+          interactive: false
+        }).addTo(existingLayer);
+        L.circle(centre, {
+          radius,
+          color: '#f7c948',
+          fillColor: '#f7c948',
+          fillOpacity: 0.14,
+          opacity: 1,
+          weight: 4,
+          className: 'site-existing-boundary'
         })
           .bindTooltip(`${site.name}: ${radius}m`)
           .addTo(existingLayer);
-        L.circleMarker(centre, {
-          radius: 4,
-          color: '#f8fbff',
-          fillColor: '#8fa0b8',
-          fillOpacity: 0.92,
-          weight: 1
-        })
+        L.marker(centre, { icon: existingSiteIcon(), zIndexOffset: 90 })
           .bindTooltip(site.name)
           .addTo(existingLayer);
       });
@@ -165,10 +183,12 @@ export function createSiteMapPicker({
     if (!radiusCircle) {
       radiusCircle = L.circle(point, {
         radius: radiusValue(radiusInput),
-        color: '#2488ff',
-        fillColor: '#2488ff',
-        fillOpacity: 0.12,
-        weight: 2
+        color: '#f7c948',
+        fillColor: '#f7c948',
+        fillOpacity: 0.2,
+        opacity: 1,
+        weight: 5,
+        className: 'site-selected-boundary'
       }).addTo(selectedLayer);
     } else {
       radiusCircle.setLatLng(point);
@@ -188,7 +208,9 @@ export function createSiteMapPicker({
 
     getExistingSites()
       .filter(hasCoordinates)
-      .forEach((site) => bounds.extend([Number(site.latitude), Number(site.longitude)]));
+      .forEach((site) => {
+        bounds.extend(L.circle(siteCoordinates(site), { radius: siteRadius(site) }).getBounds());
+      });
 
     if (bounds.isValid()) {
       map.fitBounds(bounds.pad(0.18), { maxZoom: selected ? SELECTED_ZOOM : 14 });
@@ -202,7 +224,7 @@ export function createSiteMapPicker({
 
     map = L.map(mapElement, {
       zoomControl: true,
-      preferCanvas: true
+      preferCanvas: false
     }).setView(DEFAULT_CENTRE, DEFAULT_ZOOM);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
