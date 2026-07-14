@@ -30,6 +30,27 @@ const LANGUAGE_META = {
 };
 
 const ZH_TEXT = {
+  'My workday': '\u6211\u7684\u5de5\u4f5c\u65e5',
+  'Live status': '\u5b9e\u65f6\u72b6\u6001',
+  'Worker tasks': '\u5de5\u4f5c\u4efb\u52a1',
+  'Three quick steps save your time and location for supervisor review.': '\u4e09\u4e2a\u7b80\u5355\u6b65\u9aa4\u5373\u53ef\u4fdd\u5b58\u65f6\u95f4\u548c\u4f4d\u7f6e\uff0c\u4f9b\u4e3b\u7ba1\u5ba1\u6838\u3002',
+  'Where are you working?': '\u60a8\u5728\u54ea\u4e2a\u5de5\u5730\u5de5\u4f5c\uff1f',
+  'Verify you are at the site.': '\u786e\u8ba4\u60a8\u5df2\u5230\u8fbe\u5de5\u5730\u3002',
+  'Save the correct shift action.': '\u4fdd\u5b58\u6b63\u786e\u7684\u73ed\u6b21\u64cd\u4f5c\u3002',
+  'Attendance': '\u8003\u52e4',
+  'Follow the highlighted step. It usually takes less than a minute.': '\u6309\u7167\u9ad8\u4eae\u6b65\u9aa4\u64cd\u4f5c\uff0c\u901a\u5e38\u4e0d\u5230\u4e00\u5206\u949f\u3002',
+  'Choose the site where you are physically working now.': '\u9009\u62e9\u60a8\u5f53\u524d\u5b9e\u9645\u5de5\u4f5c\u7684\u5de5\u5730\u3002',
+  'Your attendance keeps the captured time and location.': '\u8003\u52e4\u8bb0\u5f55\u4f1a\u4fdd\u7559\u83b7\u53d6\u7684\u65f6\u95f4\u548c\u4f4d\u7f6e\u3002',
+  'Saved securely and visible in My history after submission.': '\u5b89\u5168\u4fdd\u5b58\uff0c\u63d0\u4ea4\u540e\u53ef\u5728\u201c\u6211\u7684\u5386\u53f2\u201d\u4e2d\u67e5\u770b\u3002',
+  'Site selected': '\u5df2\u9009\u62e9\u5de5\u5730',
+  'Choose a site first': '\u8bf7\u5148\u9009\u62e9\u5de5\u5730',
+  'Tap Step 2 to confirm your current location.': '\u70b9\u51fb\u7b2c 2 \u6b65\u786e\u8ba4\u5f53\u524d\u4f4d\u7f6e\u3002',
+  'Your location can be confirmed after Step 1.': '\u5b8c\u6210\u7b2c 1 \u6b65\u540e\u5373\u53ef\u786e\u8ba4\u4f4d\u7f6e\u3002',
+  'Site check': '\u5de5\u5730\u8303\u56f4\u68c0\u67e5',
+  'Inside site area': '\u5728\u5de5\u5730\u8303\u56f4\u5185',
+  'Outside site area': '\u5728\u5de5\u5730\u8303\u56f4\u5916',
+  'Select a site to check distance': '\u9009\u62e9\u5de5\u5730\u4ee5\u68c0\u67e5\u8ddd\u79bb',
+  'Location details': '\u4f4d\u7f6e\u8be6\u60c5',
   'Task form': '\u4efb\u52a1\u8868\u5355',
   'Basic task log': '\u57fa\u672c\u4efb\u52a1\u8bb0\u5f55',
   'Choose a person, site, and work date.': '\u8bf7\u9009\u62e9\u4eba\u5458\u3001\u5de5\u5730\u548c\u5de5\u4f5c\u65e5\u671f\u3002',
@@ -514,6 +535,9 @@ const ZH_TEXT = {
 };
 
 const ZH_PATTERNS = [
+  [/^Confirmed (.+) \u00b7 accuracy about (.+)m$/, (match) => `\u5df2\u786e\u8ba4 ${match[1]} \u00b7 \u7cbe\u5ea6\u7ea6 ${match[2]} \u7c73`],
+  [/^(.+)m from (.+) \u00b7 (.+)m allowed$/, (match) => `\u8ddd ${match[2]} ${match[1]} \u7c73 \u00b7 \u5141\u8bb8 ${match[3]} \u7c73`],
+  [/^Latitude (.+) \u00b7 Longitude (.+)$/, (match) => `\u7eac\u5ea6 ${match[1]} \u00b7 \u7ecf\u5ea6 ${match[2]}`],
   [/^Approved (.+) submitted for (.+)\.$/, (match) => `${translateText(match[1], 'zh')} \u5df2\u4e3a ${match[2]} \u63d0\u4ea4\u5e76\u901a\u8fc7\u3002`],
   [/^(.+) \*$/, (match) => `${translateText(match[1], 'zh')} *`],
   [/^Verification code sent\. Development code: (.+)$/, (match) => `验证码已发送。开发验证码：${match[1]}`],

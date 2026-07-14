@@ -374,11 +374,19 @@ export function createHistoryModule({
       const attendanceToday = todayRecords.filter((record) => record.type === 'attendance').length;
       els.workerSummaryTitle.textContent = 'Today’s attendance';
       els.workerSummary.innerHTML = `
-        <div class="summary-item normal-status-row"><span>Current status</span><strong class="${isCheckedIn ? 'site-inside' : ''}">${isCheckedIn ? 'Checked in' : 'Not checked in'}</strong></div>
-        <div class="summary-item"><span>Next action</span><strong>${isCheckedIn ? 'Check out when finished' : 'Check in when you arrive'}</strong></div>
-        <div class="summary-item"><span>Attendance entries today</span><strong>${attendanceToday}</strong></div>
-        <div class="summary-item"><span>Last attendance</span><strong>${latestAttendance ? formatDateTime(latestAttendance.createdAt) : 'No attendance yet'}</strong></div>
-        ${queuedCount ? `<div class="summary-item"><span>Waiting to sync</span><strong>${queuedCount}</strong></div>` : ''}
+        <div class="worker-status-hero ${isCheckedIn ? 'is-checked-in' : 'is-checked-out'}">
+          <span class="worker-status-symbol" aria-hidden="true">${isCheckedIn ? '&#10003;' : '&#8226;'}</span>
+          <div>
+            <span>Current status</span>
+            <strong>${isCheckedIn ? 'Checked in' : 'Not checked in'}</strong>
+            <small>${isCheckedIn ? 'Check out when finished' : 'Check in when you arrive'}</small>
+          </div>
+        </div>
+        <div class="worker-summary-metrics">
+          <div class="worker-summary-metric"><span>Attendance entries today</span><strong>${attendanceToday}</strong></div>
+          <div class="worker-summary-metric"><span>Last attendance</span><strong>${latestAttendance ? formatDateTime(latestAttendance.createdAt) : 'No attendance yet'}</strong></div>
+          ${queuedCount ? `<div class="worker-summary-metric is-warning"><span>Waiting to sync</span><strong>${queuedCount}</strong></div>` : ''}
+        </div>
       `;
       return;
     }

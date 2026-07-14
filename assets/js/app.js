@@ -881,13 +881,16 @@ async function handleSupervisorExportRecord(record, exportType) {
 
 function activateTab(targetId) {
   document.querySelectorAll('.tab').forEach((button) => {
-    button.classList.toggle('active', button.dataset.tabTarget === targetId);
+    const active = button.dataset.tabTarget === targetId;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
   });
 
   document.querySelectorAll('.tab-panel').forEach((panel) => {
     const active = panel.id === targetId;
     panel.classList.toggle('active', active);
     panel.classList.toggle('hidden', !active);
+    panel.setAttribute('aria-hidden', String(!active));
   });
 }
 

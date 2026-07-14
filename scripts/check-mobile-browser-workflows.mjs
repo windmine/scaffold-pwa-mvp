@@ -203,7 +203,8 @@ check('desktop admin workspace navigation opens and links management sections', 
   && sourceStyles.includes('.admin-workspace > .review-queue-card')
   && sourceStyles.includes('.admin-home-grid')
   && sourceStyles.includes('order: 40')
-  && sourceStyles.includes('grid-template-columns: minmax(214px, 240px) minmax(0, 1fr)')
+  && sourceStyles.includes('grid-template-columns: minmax(226px, 248px) minmax(0, 1fr)')
+  && sourceStyles.includes('body.session-supervisor .topbar')
   && sourceStyles.includes('grid-template-columns: repeat(12, minmax(0, 1fr))')
   && sourceStyles.includes('@media (min-width: 1240px)')
 ));
@@ -430,16 +431,24 @@ check('normal workers are attendance-only and leaders can submit weekly team log
 
 check('normal worker UI is focused and step based', () => (
   sourceIndex.includes('class="card normal-worker-only normal-worker-guide"')
+  && sourceIndex.includes('data-attendance-progress')
+  && sourceIndex.includes('data-attendance-step="location"')
   && sourceIndex.includes('id="attendanceActionHelp"')
+  && sourceIndex.includes('class="preview-box attendance-location-preview is-empty"')
+  && sourceIndex.includes('class="normal-worker-only attendance-trust-note"')
+  && sourceIndex.includes('role="tablist" aria-label="Worker tasks"')
   && sourceIndex.includes('data-normal-label="Check in / out"')
   && sourceIndex.includes('data-normal-label="My history"')
   && sourceApp.includes("els.workerView.classList.toggle('normal-worker-mode', isNormalWorker)")
   && sourceApp.includes("element.classList.toggle('access-hidden', !isNormalWorker)")
+  && sourceApp.includes("button.setAttribute('aria-selected', String(active))")
   && sourceStyles.includes('#workerView.normal-worker-mode .tabs')
+  && sourceStyles.includes('bottom: max(78px, calc(68px + env(safe-area-inset-bottom)))')
   && sourceStyles.includes('#workerView.normal-worker-mode .history-type-filter')
   && sourceStyles.includes('.normal-worker-steps')
-  && read('assets/js/worker-attendance.js').includes('Ready. Tap the action you need.')
-  && read('assets/js/history.js').includes('Check out when finished')
+  && read('assets/js/worker-attendance.js').includes("step.classList.toggle('is-current'")
+  && read('assets/js/worker-attendance.js').includes("els.locationPreview.classList.add('is-ready')")
+  && read('assets/js/history.js').includes('class="worker-status-hero')
 ));
 
 check('worker and supervisor workflow modules are active', () => (

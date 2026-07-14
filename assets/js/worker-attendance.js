@@ -58,6 +58,22 @@ export function createWorkerAttendanceModule({
     const ready = hasSite && hasLocation;
     const usesGuidedFlow = state.user?.role === 'worker' && state.user?.workerClass !== 'leader';
 
+    const progressState = {
+      site: { complete: hasSite, current: !hasSite },
+      location: { complete: hasLocation, current: hasSite && !hasLocation },
+      action: { complete: false, current: ready }
+    };
+    document.querySelectorAll('[data-attendance-step]').forEach((step) => {
+      const stepState = progressState[step.dataset.attendanceStep] || {};
+      step.classList.toggle('is-complete', Boolean(stepState.complete));
+      step.classList.toggle('is-current', Boolean(stepState.current));
+      if (stepState.current) {
+        step.setAttribute('aria-current', 'step');
+      } else {
+        step.removeAttribute('aria-current');
+      }
+    });
+
     els.captureLocationButton.disabled = state.submittingAttendance || (usesGuidedFlow && !hasSite);
     els.checkInButton.disabled = state.submittingAttendance || (usesGuidedFlow && !ready);
     els.checkOutButton.disabled = state.submittingAttendance || (usesGuidedFlow && !ready);
@@ -74,9 +90,18 @@ export function createWorkerAttendanceModule({
 
   function renderLocationPreview() {
     if (!state.attendanceLocation) {
-      els.locationPreview.innerHTML = els.attendanceSite.value
-        ? 'No location captured yet.'
-        : 'Select a site and capture your current location.';
+      const hasSite = Boolean(els.attendanceSite.value);
+      els.locationPreview.classList.add('is-empty');
+      els.locationPreview.classList.remove('is-ready', 'is-outside');
+      els.locationPreview.innerHTML = `
+        <div class="location-preview-heading">
+          <span class="location-preview-symbol" aria-hidden="true">${hasSite ? '2' : '1'}</span>
+          <div>
+            <strong>${hasSite ? 'Site selected' : 'Choose a site first'}</strong>
+            <small>${hasSite ? 'Tap Step 2 to confirm your current location.' : 'Your location can be confirmed after Step 1.'}</small>
+          </div>
+        </div>
+      `;
       updateActionState();
       return;
     }
@@ -87,21 +112,36 @@ export function createWorkerAttendanceModule({
     const allowedRadius = site ? Number(site.allowed_radius_m || site.allowedRadiusM || 100) : null;
     const radiusMessage = site && siteCheck.distanceFromSiteM != null
       ? `
-        <br />
-        <strong>Site radius:</strong>
-        <span class="${siteCheck.withinSiteRadius ? 'site-inside' : 'site-outside'}">
-          ${siteCheck.withinSiteRadius ? 'Inside' : 'Outside'} - ${siteCheck.distanceFromSiteM}m from ${escapeHtml(site.name)} (${allowedRadius}m allowed)
-        </span>
+        <div class="location-preview-status ${siteCheck.withinSiteRadius ? 'site-inside' : 'site-outside'}">
+          <span>Site check</span>
+          <strong>${siteCheck.withinSiteRadius ? 'Inside site area' : 'Outside site area'}</strong>
+          <small>${siteCheck.distanceFromSiteM}m from ${escapeHtml(site.name)} &middot; ${allowedRadius}m allowed</small>
+        </div>
       `
-      : '<br /><strong>Site radius:</strong> Select a site to check distance before submitting.';
+      : `
+        <div class="location-preview-status">
+          <span>Site check</span>
+          <strong>Select a site to check distance</strong>
+        </div>
+      `;
+
+    els.locationPreview.classList.remove('is-empty');
+    els.locationPreview.classList.add('is-ready');
+    els.locationPreview.classList.toggle('is-outside', siteCheck.withinSiteRadius === false);
 
     els.locationPreview.innerHTML = `
-      <strong>Captured location</strong><br />
-      Latitude: ${loc.latitude}<br />
-      Longitude: ${loc.longitude}<br />
-      Accuracy: ${loc.accuracy}m<br />
-      Time: ${formatDateTime(loc.capturedAt)}
+      <div class="location-preview-heading">
+        <span class="location-preview-symbol" aria-hidden="true">&#10003;</span>
+        <div>
+          <strong>Captured location</strong>
+          <small>Confirmed ${formatDateTime(loc.capturedAt)} &middot; accuracy about ${loc.accuracy}m</small>
+        </div>
+      </div>
       ${radiusMessage}
+      <details class="location-technical-details">
+        <summary>Location details</summary>
+        <span>Latitude ${loc.latitude} &middot; Longitude ${loc.longitude}</span>
+      </details>
     `;
     updateActionState();
   }

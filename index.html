@@ -366,7 +366,13 @@
         <section id="workerView" class="view hidden">
           <div class="grid two-col worker-dashboard">
             <article class="card worker-summary-card">
-              <h2 id="workerSummaryTitle">Today</h2>
+              <div class="worker-summary-heading">
+                <div>
+                  <p class="eyebrow">My workday</p>
+                  <h2 id="workerSummaryTitle">Today</h2>
+                </div>
+                <span class="worker-live-label"><i aria-hidden="true"></i>Live status</span>
+              </div>
               <div id="workerSummary" class="summary-list"></div>
             </article>
 
@@ -383,15 +389,24 @@
           </div>
 
           <section class="card normal-worker-only normal-worker-guide">
-            <div>
+            <div class="normal-worker-guide-copy">
               <p class="eyebrow">Your attendance</p>
               <h2>Start or finish your shift</h2>
-              <p class="muted">Choose your site, confirm your location, then tap one attendance button.</p>
+              <p class="muted">Three quick steps save your time and location for supervisor review.</p>
             </div>
-            <ol class="normal-worker-steps" aria-label="Attendance steps">
-              <li><span>1</span><strong>Choose site</strong></li>
-              <li><span>2</span><strong>Confirm location</strong></li>
-              <li><span>3</span><strong>Check in or out</strong></li>
+            <ol class="normal-worker-steps" aria-label="Attendance steps" data-attendance-progress>
+              <li data-attendance-step="site" aria-current="step">
+                <span>1</span>
+                <div><strong>Choose site</strong><small>Where are you working?</small></div>
+              </li>
+              <li data-attendance-step="location">
+                <span>2</span>
+                <div><strong>Confirm location</strong><small>Verify you are at the site.</small></div>
+              </li>
+              <li data-attendance-step="action">
+                <span>3</span>
+                <div><strong>Check in or out</strong><small>Save the correct shift action.</small></div>
+              </li>
             </ol>
           </section>
 
@@ -434,41 +449,50 @@
             </form>
           </details>
 
-          <div class="tabs">
-            <button class="tab active" data-tab-target="attendanceTab" data-leader-label="Check" data-normal-label="Check in / out" type="button">Check</button>
-            <button class="tab leader-only" data-tab-target="teamLogTab" type="button">Team</button>
-            <button class="tab leader-only" data-tab-target="taskTab" type="button">Daywork</button>
-            <button class="tab leader-only" data-tab-target="formTab" type="button">Form</button>
-            <button class="tab" data-tab-target="historyTab" data-leader-label="History" data-normal-label="My history" type="button">History</button>
+          <div class="tabs" role="tablist" aria-label="Worker tasks">
+            <button class="tab active" data-tab-target="attendanceTab" data-leader-label="Check" data-normal-label="Check in / out" type="button" role="tab" aria-controls="attendanceTab" aria-selected="true">Check</button>
+            <button class="tab leader-only" data-tab-target="teamLogTab" type="button" role="tab" aria-controls="teamLogTab" aria-selected="false">Team</button>
+            <button class="tab leader-only" data-tab-target="taskTab" type="button" role="tab" aria-controls="taskTab" aria-selected="false">Daywork</button>
+            <button class="tab leader-only" data-tab-target="formTab" type="button" role="tab" aria-controls="formTab" aria-selected="false">Form</button>
+            <button class="tab" data-tab-target="historyTab" data-leader-label="History" data-normal-label="My history" type="button" role="tab" aria-controls="historyTab" aria-selected="false">History</button>
           </div>
 
-          <section id="attendanceTab" class="tab-panel active">
+          <section id="attendanceTab" class="tab-panel active" role="tabpanel">
             <article class="card attendance-card">
-              <div class="section-heading">
+              <div class="worker-task-heading">
+                <span class="worker-task-number" aria-hidden="true">1</span>
                 <div>
+                  <p class="eyebrow">Attendance</p>
                   <h2>Check in / check out</h2>
-                  <p class="muted normal-worker-only">Complete the steps in order. Notes and a photo are optional.</p>
+                  <p class="muted normal-worker-only">Follow the highlighted step. It usually takes less than a minute.</p>
                 </div>
               </div>
               <form id="attendanceForm" class="form-grid">
-                <label>
-                  <span class="normal-worker-only attendance-step-label">Step 1</span>
-                  <span data-leader-label="Site" data-normal-label="Choose today&apos;s site">Site</span>
+                <label class="attendance-site-field">
+                  <span class="attendance-field-heading">
+                    <span class="normal-worker-only attendance-step-label">Step 1</span>
+                    <span data-leader-label="Site" data-normal-label="Choose today&apos;s site">Site</span>
+                  </span>
                   <select id="attendanceSite" required></select>
+                  <small class="normal-worker-only attendance-field-help">Choose the site where you are physically working now.</small>
                 </label>
                 <div class="split-actions">
                   <button id="captureLocationButton" type="button" class="secondary" data-leader-label="Capture current location" data-normal-label="Step 2: Confirm my location">Capture current location</button>
                   <button id="saveAttendanceDraftButton" type="button" class="ghost leader-only">Save draft</button>
                 </div>
-                <div id="locationPreview" class="preview-box">No location captured yet.</div>
+                <div id="locationPreview" class="preview-box attendance-location-preview is-empty" aria-live="polite">No location captured yet.</div>
                 <div class="normal-worker-only attendance-action-guide">
                   <span class="attendance-step-label">Step 3</span>
-                  <strong id="attendanceActionHelp">Choose your site first.</strong>
+                  <div>
+                    <strong id="attendanceActionHelp">Choose your site first.</strong>
+                    <small>Your attendance keeps the captured time and location.</small>
+                  </div>
                 </div>
                 <div class="split-actions primary-actions">
-                  <button id="checkInButton" type="button" data-leader-label="Check in" data-normal-label="Check in now">Check in</button>
-                  <button id="checkOutButton" type="button" class="secondary" data-leader-label="Check out" data-normal-label="Check out now">Check out</button>
+                  <button id="checkInButton" type="button" class="attendance-submit check-in-action" data-leader-label="Check in" data-normal-label="Check in now">Check in</button>
+                  <button id="checkOutButton" type="button" class="attendance-submit check-out-action" data-leader-label="Check out" data-normal-label="Check out now">Check out</button>
                 </div>
+                <p class="normal-worker-only attendance-trust-note"><span aria-hidden="true">&#10003;</span>Saved securely and visible in My history after submission.</p>
                 <details id="attendanceDetails" class="optional-details">
                   <summary>Notes and photo</summary>
                   <div class="form-grid">
@@ -487,7 +511,7 @@
             </article>
           </section>
 
-          <section id="teamLogTab" class="tab-panel hidden leader-only">
+          <section id="teamLogTab" class="tab-panel hidden leader-only" role="tabpanel">
             <article class="card">
               <div class="section-heading">
                 <div>
@@ -529,7 +553,7 @@
             </article>
           </section>
 
-          <section id="taskTab" class="tab-panel hidden leader-only">
+          <section id="taskTab" class="tab-panel hidden leader-only" role="tabpanel">
             <article class="card">
               <h2>Daywork log</h2>
               <p id="dayworkFormHint" class="muted">Loading Daywork log form...</p>
@@ -556,7 +580,7 @@
             </article>
           </section>
 
-          <section id="formTab" class="tab-panel hidden leader-only">
+          <section id="formTab" class="tab-panel hidden leader-only" role="tabpanel">
             <article class="card">
               <h2>Work forms</h2>
               <form id="workFormSubmissionForm" class="form-grid">
@@ -585,7 +609,7 @@
             </article>
           </section>
 
-          <section id="historyTab" class="tab-panel hidden">
+          <section id="historyTab" class="tab-panel hidden" role="tabpanel">
             <article class="card">
               <div class="section-heading">
                 <h2>My history</h2>
