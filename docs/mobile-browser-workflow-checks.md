@@ -112,6 +112,7 @@ python backend\smoke_test.py
 - Create a separate Normal worker from Staff users, sign in, and confirm only Check in / out and My history remain available.
 - Confirm the normal-worker home screen shows the three-step site, location, and attendance-action guide.
 - Confirm check-in/out buttons remain disabled until a site is selected and location is captured.
+- Interrupt the Sites request and confirm authenticated workers see Sites unavailable rather than seeded demo Sites.
 - Confirm Today’s attendance clearly shows current status and the next expected action.
 - Confirm the normal worker can check in/out but cannot submit a site, task log, work form, or weekly team log through the API.
 - As the leader, open Team, select a Monday, and add several work rows across different dates and sites.
@@ -123,16 +124,20 @@ python backend\smoke_test.py
 - Tap `Download App` on the sign-in screen and confirm it either opens the browser install prompt or shows Add-to-Home-Screen instructions.
 - Deny geolocation once and confirm the app shows an error instead of crashing.
 - Allow geolocation, capture location, and confirm the site-radius preview appears.
+- Let a location capture age beyond five minutes, and switch Worker accounts on the same device, confirming neither stale nor differently-owned GPS can enable attendance.
 - Submit a check-in with notes and an optional photo.
 - Submit a check-out later and confirm both records appear in History.
 - Submit a task log with work date, hours, safety notes, and at least two photos.
+- Select an unsupported or over-5-MB image and confirm the UI rejects it before queueing or upload.
 - Open a task-log photo thumbnail and confirm previous/next photo navigation works.
 - Submit an active Work Form with a required handwritten signature and at least one photo.
 - Try submitting a required-signature form without signing and confirm validation blocks it.
 - Apply History filters by type, status, text, and local date.
 - Turn off network, submit one attendance record or task log, and confirm it is queued locally.
+- While editing Daywork or a Work Form, restore connectivity and confirm typed answers and signatures remain intact.
 - While it is queued, switch to another Worker account on the same device and confirm the first Worker's record is not replayed, displayed, or reassigned as the second Worker.
 - Restore network and confirm queued submissions sync and History updates.
+- Force an upload failure and confirm History shows the sync error with Retry and Discard controls for the owning Worker.
 - Delay one attendance replay and confirm the durable record retains its original occurrence time rather than the reconnect time; retry it and confirm the stable client submission id prevents a duplicate.
 
 ## Supervisor Browser Checks
@@ -141,6 +146,7 @@ python backend\smoke_test.py
 - Confirm the department filter is fixed to Leader for the department-scoped supervisor.
 - Confirm Review Queue shows attendance, task logs, weekly team logs, and form submissions together.
 - Filter Review Queue by type, status, worker/site text, and date.
+- For an attendance event around UTC midnight, confirm the Review Queue and attendance export assign it to the date configured by `BUSINESS_TIMEZONE` (default `Pacific/Auckland`).
 - Make the filtered visible page exclude a known approved record; confirm dashboard `Reviewed` totals still include it and Management Analytics still reports the complete authorized record set.
 - Double-tap a worker attendance action and confirm only one matching record is created.
 - Move controlled attendance, Task Log, Work Form Submission, and weekly Team Work Log records to the rubbish bin; confirm they disappear from active review and show a deletion reason and automatic deletion date.

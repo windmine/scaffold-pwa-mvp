@@ -1,8 +1,15 @@
 import { getWorkForms as getBackendWorkForms } from './api-client.js';
 import { submitOfflineSubmission } from './offline-submissions.js';
-import { collectWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
+import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
 import { setDateInputValue } from './date-inputs.js';
-import { fileToDataUrl, todayDateInput, uuid, escapeHtml, photoMetadataFromFile } from './utils.js';
+import {
+  fileToDataUrl,
+  todayDateInput,
+  uploadImageValidationError,
+  uuid,
+  escapeHtml,
+  photoMetadataFromFile
+} from './utils.js';
 
 export function createWorkerFormModule({
   els,
@@ -19,6 +26,9 @@ export function createWorkerFormModule({
   onSupervisorWorkFormsChanged = () => {},
   onWorkFormsChanged = () => {}
 }) {
+  let renderedWorkForm = null;
+  let inProgressDraft = null;
+
   function renderWorkFormOptions() {
     const selectedValue = els.workFormSelect.value;
     const options = ['<option value="">Select a form</option>']
@@ -39,22 +49,55 @@ export function createWorkerFormModule({
     return state.workForms.find((form) => String(form.id) === String(els.workFormSelect.value));
   }
 
-  function renderSelectedWorkForm() {
-    renderWorkFormFields(els.workFormFields, selectedWorkForm(), { container: els.workFormFields });
+  function captureVisibleWorkFormDraft() {
+    if (!renderedWorkForm || !els.workFormFields.children.length || state.user?.role !== 'worker') return;
+
+    try {
+      inProgressDraft = {
+        ownerWorkerId: state.user.id,
+        formId: renderedWorkForm.id,
+        answers: collectWorkFormAnswers(renderedWorkForm, {
+          container: els.workFormFields,
+          validate: false
+        })
+      };
+    } catch {
+      // Keep the last collectable answers if a live Definition changes during refresh.
+    }
+  }
+
+  function renderSelectedWorkForm(options = {}) {
+    if (options.preserveCurrent !== false) captureVisibleWorkFormDraft();
+    const form = selectedWorkForm();
+    renderWorkFormFields(els.workFormFields, form, { container: els.workFormFields });
+    renderedWorkForm = form || null;
+
+    if (
+      form
+      && String(inProgressDraft?.ownerWorkerId || '') === String(state.user?.id || '')
+      && String(inProgressDraft?.formId || '') === String(form.id)
+    ) {
+      populateWorkFormAnswers(form, inProgressDraft.answers || {}, { container: els.workFormFields });
+    }
   }
 
   async function refreshWorkForms() {
     if (!state.user) return;
+    const requestUserId = state.user.id;
 
     try {
-      state.workForms = await getBackendWorkForms();
+      const workForms = await getBackendWorkForms();
+      if (String(state.user?.id || '') !== String(requestUserId)) return;
+      captureVisibleWorkFormDraft();
+      state.workForms = workForms;
       renderWorkFormOptions();
-      renderSelectedWorkForm();
+      renderSelectedWorkForm({ preserveCurrent: false });
       onWorkFormsChanged();
       if (state.user.role === 'supervisor') {
         onSupervisorWorkFormsChanged();
       }
     } catch (error) {
+      if (String(state.user?.id || '') !== String(requestUserId)) return;
       state.workForms = [];
       renderWorkFormOptions();
       if (state.user.role === 'worker') {
@@ -66,6 +109,16 @@ export function createWorkerFormModule({
   async function handlePhotoChange(event) {
     const selectedFiles = Array.from(event.target.files || []);
     const files = selectedFiles.slice(0, maxPhotos);
+    const validationError = files.map(uploadImageValidationError).find(Boolean);
+    if (validationError) {
+      event.target.value = '';
+      state.workFormPhotoFiles = [];
+      state.workFormPhotoDataUrls = [];
+      state.workFormPhotoMetadata = [];
+      photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Form photo');
+      renderStatusBanner(validationError, true);
+      return;
+    }
     state.workFormPhotoFiles = files;
     state.workFormPhotoDataUrls = await Promise.all(files.map((file) => fileToDataUrl(file)));
     state.workFormPhotoMetadata = files.map(photoMetadataFromFile);
@@ -127,8 +180,9 @@ export function createWorkerFormModule({
       state.workFormPhotoFiles = [];
       state.workFormPhotoDataUrls = [];
       state.workFormPhotoMetadata = [];
+      inProgressDraft = null;
       photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Form photo');
-      renderSelectedWorkForm();
+      renderSelectedWorkForm({ preserveCurrent: false });
       await syncQueueIfPossible(!result.offline);
       renderStatusBanner(result.message, result.offline);
       await renderWorkerSummary();
@@ -150,8 +204,22 @@ export function createWorkerFormModule({
     els.workFormPhotos.addEventListener('change', handlePhotoChange);
   }
 
+  function clearSessionState() {
+    renderedWorkForm = null;
+    inProgressDraft = null;
+    els.workFormSubmissionForm.reset();
+    els.workFormSelect.innerHTML = '<option value="">Select a form</option>';
+    setDateInputValue(els.workFormDate, todayDateInput());
+    els.workFormFields.innerHTML = '';
+    state.workFormPhotoFiles = [];
+    state.workFormPhotoDataUrls = [];
+    state.workFormPhotoMetadata = [];
+    photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Form photo');
+  }
+
   return {
     bindEvents,
+    clearSessionState,
     refreshWorkForms,
     renderSelectedWorkForm
   };

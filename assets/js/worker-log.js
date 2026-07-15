@@ -3,7 +3,13 @@ import { submitOfflineSubmission } from './offline-submissions.js';
 import { getTeamWorkLogMembers } from './api-client.js';
 import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
 import { setDateInputValue } from './date-inputs.js';
-import { fileToDataUrl, photoMetadataFromFile, todayDateInput, uuid } from './utils.js';
+import {
+  fileToDataUrl,
+  photoMetadataFromFile,
+  todayDateInput,
+  uploadImageValidationError,
+  uuid
+} from './utils.js';
 
 const DAYWORK_FIELD_PREFIX = 'dayworkFormField';
 
@@ -31,6 +37,7 @@ export function createWorkerLogModule({
 }) {
   let teamMembersLoadedForUserId = null;
   let teamMemberLoadPromise = null;
+  let renderedDayworkForm = null;
 
   function dayworkFieldOptions() {
     return {
@@ -51,10 +58,12 @@ export function createWorkerLogModule({
   function ensureTeamMembersLoaded() {
     if (!shouldLoadTeamMembers()) return;
 
-    teamMemberLoadPromise = getTeamWorkLogMembers()
+    const requestedUserId = state.user.id;
+    const request = getTeamWorkLogMembers()
       .then((members) => {
+        if (String(state.user?.id || '') !== String(requestedUserId)) return;
         state.teamWorkLogMembers = members;
-        teamMembersLoadedForUserId = state.user?.id || null;
+        teamMembersLoadedForUserId = requestedUserId;
         renderDayworkForm();
       })
       .catch((error) => {
@@ -65,8 +74,9 @@ export function createWorkerLogModule({
         renderStatusBanner(error.message || 'Could not load team members for Daywork.', true);
       })
       .finally(() => {
-        teamMemberLoadPromise = null;
+        if (teamMemberLoadPromise === request) teamMemberLoadPromise = null;
       });
+    teamMemberLoadPromise = request;
   }
 
   function selectedDayworkForm() {
@@ -83,9 +93,30 @@ export function createWorkerLogModule({
     els.saveTaskDraftButton.disabled = isSubmitting;
   }
 
-  function renderDayworkForm() {
+  function captureVisibleDayworkDraft() {
+    if (!renderedDayworkForm || !els.dayworkFormFields.children.length || state.user?.role !== 'worker') return;
+
+    try {
+      state.dayworkLogDraft = {
+        kind: 'daywork-form',
+        ownerWorkerId: state.user.id,
+        formId: renderedDayworkForm.id,
+        siteId: els.taskSite.value,
+        workDate: els.taskDate.value,
+        answers: collectWorkFormAnswers(renderedDayworkForm, { ...dayworkFieldOptions(), validate: false }),
+        photoDataUrls: state.taskPhotoDataUrls,
+        photoMetadata: state.taskPhotoMetadata || []
+      };
+    } catch {
+      // Keep the last valid draft when a changing form cannot be collected safely.
+    }
+  }
+
+  function renderDayworkForm(options = {}) {
+    if (options.preserveCurrent !== false) captureVisibleDayworkDraft();
     const form = selectedDayworkForm();
     state.dayworkFormId = form?.id || null;
+    renderedDayworkForm = form;
 
     if (!form) {
       els.dayworkFormHint.textContent = 'No active Daywork log form is available.';
@@ -111,21 +142,35 @@ export function createWorkerLogModule({
       ? collectWorkFormAnswers(form, { ...dayworkFieldOptions(), validate: false })
       : {};
 
-    await saveDraft('task-form', {
+    const draft = {
       kind: 'daywork-form',
+      ownerWorkerId: state.user?.id,
       formId: form?.id || null,
       siteId: els.taskSite.value,
       workDate: els.taskDate.value,
       answers,
       photoDataUrls: state.taskPhotoDataUrls,
       photoMetadata: state.taskPhotoMetadata || []
-    });
+    };
+    state.dayworkLogDraft = draft;
+    await saveDraft('task-form', draft);
     renderStatusBanner('Daywork draft saved on this device.');
   }
 
   async function handlePhotoChange(event) {
     const selectedFiles = Array.from(event.target.files || []);
     const files = selectedFiles.slice(0, maxPhotos);
+    const validationError = files.map(uploadImageValidationError).find(Boolean);
+    if (validationError) {
+      event.target.value = '';
+      state.taskPhotoFiles = [];
+      state.taskPhotoDataUrls = [];
+      state.taskPhotoMetadata = [];
+      photoViewer.renderPreviews(els.taskPhotoPreview, [], 'Daywork photo');
+      await persistDraft();
+      renderStatusBanner(validationError, true);
+      return;
+    }
     state.taskPhotoFiles = files;
     state.taskPhotoDataUrls = await Promise.all(files.map((file) => fileToDataUrl(file)));
     state.taskPhotoMetadata = files.map(photoMetadataFromFile);
@@ -136,7 +181,7 @@ export function createWorkerLogModule({
     }
   }
 
-  function resetForm() {
+  function resetForm(options = {}) {
     els.taskSite.value = '';
     setDateInputValue(els.taskDate, todayDateInput());
     els.taskPhoto.value = '';
@@ -145,7 +190,12 @@ export function createWorkerLogModule({
     state.taskPhotoMetadata = [];
     state.dayworkLogDraft = null;
     photoViewer.renderPreviews(els.taskPhotoPreview, [], 'Daywork photo');
-    renderDayworkForm();
+    if (options.render !== false) {
+      renderDayworkForm({ preserveCurrent: false });
+    } else {
+      els.dayworkFormFields.innerHTML = '';
+      els.dayworkFormHint.textContent = 'Loading Daywork log form...';
+    }
   }
 
   async function handleSubmit(event) {
@@ -211,7 +261,7 @@ export function createWorkerLogModule({
   }
 
   function restoreDraft(taskDraft) {
-    if (!taskDraft) return;
+    if (!taskDraft || String(taskDraft.ownerWorkerId || '') !== String(state.user?.id || '')) return;
 
     state.dayworkLogDraft = taskDraft;
     els.taskSite.value = taskDraft.siteId || '';
@@ -222,6 +272,13 @@ export function createWorkerLogModule({
     renderDayworkForm();
   }
 
+  function clearSessionState() {
+    teamMembersLoadedForUserId = null;
+    teamMemberLoadPromise = null;
+    renderedDayworkForm = null;
+    resetForm({ render: false });
+  }
+
   function bindEvents() {
     els.taskPhoto.addEventListener('change', handlePhotoChange);
     els.taskForm.addEventListener('submit', handleSubmit);
@@ -230,6 +287,7 @@ export function createWorkerLogModule({
 
   return {
     bindEvents,
+    clearSessionState,
     refreshTaskTemplates: renderDayworkForm,
     renderDayworkForm,
     restoreDraft

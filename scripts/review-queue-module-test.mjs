@@ -17,7 +17,10 @@ const {
   loadReviewOverview,
   reviewOverviewCounts
 } = await import('../assets/js/supervisor-review-utils.js');
-const { managementAnalyticsRecords } = await import('../assets/js/supervisor-analytics.js');
+const {
+  managementAnalyticsRecords,
+  managementCsv
+} = await import('../assets/js/supervisor-analytics.js');
 
 
 function assert(condition, message) {
@@ -114,6 +117,37 @@ const selectedCounts = reviewOverviewCounts({
 });
 assert(selectedCounts.reviewed === 1, 'dashboard must use filter-independent summary counts');
 console.log('ok - Review Queue dashboard uses summary counts');
+
+const safeManagementCsv = managementCsv({
+  metrics: {
+    records: 0,
+    workers: 0,
+    sites: 1,
+    approvalRate: 0,
+    pending: 0,
+    outsideSite: 0,
+    missingCheckOut: 0,
+    loggedHours: 0
+  },
+  sites: [{
+    siteName: '=HYPERLINK("https://example.invalid")',
+    workers: 0,
+    records: [],
+    attendance: 0,
+    loggedHours: 0,
+    forms: 0,
+    approvalRate: 0,
+    exceptionCount: 0
+  }],
+  trend: [],
+  formCharts: [],
+  exceptions: []
+}, 'Last 7 days');
+assert(
+  safeManagementCsv.includes('"\'=HYPERLINK(""https://example.invalid"")"'),
+  'management CSV must neutralize spreadsheet formulas in user-controlled values'
+);
+console.log('ok - Management CSV neutralizes spreadsheet formulas');
 
 const pageRequests = [];
 const overview = await loadReviewOverview({

@@ -1,6 +1,14 @@
 import { saveDraft } from './mock-api.js';
 import { submitOfflineSubmission } from './offline-submissions.js';
-import { fileToDataUrl, formatDateTime, uuid, escapeHtml } from './utils.js';
+import {
+  ATTENDANCE_LOCATION_MAX_AGE_MS,
+  attendanceLocationIssue,
+  fileToDataUrl,
+  formatDateTime,
+  uploadImageValidationError,
+  uuid,
+  escapeHtml
+} from './utils.js';
 
 function distanceBetweenCoordinatesM(startLatitude, startLongitude, endLatitude, endLongitude) {
   const earthRadiusM = 6371000;
@@ -52,9 +60,37 @@ export function createWorkerAttendanceModule({
   handleSessionExpired,
   isBackendSessionError
 }) {
+  let locationExpiryTimer = null;
+
+  function activeWorkerId() {
+    return state.user?.role === 'worker' ? state.user.id : null;
+  }
+
+  function locationIssue() {
+    return attendanceLocationIssue(state.attendanceLocation, activeWorkerId());
+  }
+
+  function clearLocationExpiryTimer() {
+    if (locationExpiryTimer) clearTimeout(locationExpiryTimer);
+    locationExpiryTimer = null;
+  }
+
+  function scheduleLocationExpiry() {
+    clearLocationExpiryTimer();
+    if (locationIssue()) return;
+
+    const capturedAt = new Date(state.attendanceLocation.capturedAt).getTime();
+    const remainingMs = Math.max(0, capturedAt + ATTENDANCE_LOCATION_MAX_AGE_MS - Date.now());
+    locationExpiryTimer = setTimeout(() => {
+      state.attendanceLocation = null;
+      renderLocationPreview();
+      void persistDraft({ announce: false });
+    }, remainingMs + 50);
+  }
+
   function updateActionState() {
     const hasSite = Boolean(els.attendanceSite.value);
-    const hasLocation = Boolean(state.attendanceLocation);
+    const hasLocation = !locationIssue();
     const ready = hasSite && hasLocation;
     const usesGuidedFlow = state.user?.role === 'worker' && state.user?.workerClass !== 'leader';
 
@@ -89,6 +125,11 @@ export function createWorkerAttendanceModule({
   }
 
   function renderLocationPreview() {
+    if (state.attendanceLocation && locationIssue()) {
+      clearLocationExpiryTimer();
+      state.attendanceLocation = null;
+    }
+
     if (!state.attendanceLocation) {
       const hasSite = Boolean(els.attendanceSite.value);
       els.locationPreview.classList.add('is-empty');
@@ -143,20 +184,33 @@ export function createWorkerAttendanceModule({
         <span>Latitude ${loc.latitude} &middot; Longitude ${loc.longitude}</span>
       </details>
     `;
+    scheduleLocationExpiry();
     updateActionState();
   }
 
-  async function persistDraft() {
+  async function persistDraft(options = {}) {
+    const ownerWorkerId = activeWorkerId();
+    if (ownerWorkerId == null) return;
+
     await saveDraft('attendance-form', {
+      ownerWorkerId,
       siteId: els.attendanceSite.value,
       notes: els.attendanceNotes.value,
       location: state.attendanceLocation,
       photoDataUrl: state.attendancePhotoDataUrl
     });
-    renderStatusBanner('Attendance draft saved on this device.');
+    if (options.announce !== false) {
+      renderStatusBanner('Attendance draft saved on this device.');
+    }
   }
 
   async function handleCaptureLocation() {
+    const captureOwnerWorkerId = activeWorkerId();
+    clearLocationExpiryTimer();
+    state.attendanceLocation = null;
+    renderLocationPreview();
+    await persistDraft({ announce: false });
+
     if (!navigator.geolocation) {
       renderStatusBanner('Geolocation is not available in this browser.', false);
       return;
@@ -165,17 +219,26 @@ export function createWorkerAttendanceModule({
     renderStatusBanner('Capturing current location...');
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        state.attendanceLocation = {
+        if (String(activeWorkerId() || '') !== String(captureOwnerWorkerId || '')) return;
+
+        const location = {
+          ownerWorkerId: captureOwnerWorkerId,
           latitude: Number(position.coords.latitude.toFixed(6)),
           longitude: Number(position.coords.longitude.toFixed(6)),
           accuracy: Math.round(position.coords.accuracy),
           capturedAt: new Date(position.timestamp).toISOString()
         };
+        if (attendanceLocationIssue(location, captureOwnerWorkerId)) {
+          renderStatusBanner('The browser did not return a fresh location. Please capture it again.', true);
+          return;
+        }
+        state.attendanceLocation = location;
         renderLocationPreview();
-        await persistDraft();
+        await persistDraft({ announce: false });
         renderStatusBanner(`Location captured successfully with approximately ${state.attendanceLocation.accuracy}m accuracy.`);
       },
       (error) => {
+        if (String(activeWorkerId() || '') !== String(captureOwnerWorkerId || '')) return;
         renderStatusBanner(`Could not get location: ${error.message}`, false);
       },
       {
@@ -193,6 +256,16 @@ export function createWorkerAttendanceModule({
 
   async function handlePhotoChange(event) {
     const file = event.target.files?.[0];
+    const validationError = uploadImageValidationError(file);
+    if (validationError) {
+      event.target.value = '';
+      state.attendancePhotoFile = null;
+      state.attendancePhotoDataUrl = '';
+      photoViewer.renderPreview(els.attendancePhotoPreview, '', '');
+      await persistDraft({ announce: false });
+      renderStatusBanner(validationError, true);
+      return;
+    }
     state.attendancePhotoFile = file || null;
     state.attendancePhotoDataUrl = file ? await fileToDataUrl(file) : '';
     photoViewer.renderPreview(els.attendancePhotoPreview, state.attendancePhotoDataUrl, 'Attendance photo');
@@ -200,6 +273,7 @@ export function createWorkerAttendanceModule({
   }
 
   function resetForm() {
+    clearLocationExpiryTimer();
     els.attendanceSite.value = '';
     els.attendanceNotes.value = '';
     els.attendancePhoto.value = '';
@@ -218,6 +292,19 @@ export function createWorkerAttendanceModule({
     }
     if (!state.attendanceLocation) {
       renderStatusBanner('Please capture your location before submitting attendance.');
+      return;
+    }
+
+    const issue = locationIssue();
+    if (issue) {
+      state.attendanceLocation = null;
+      renderLocationPreview();
+      renderStatusBanner(
+        issue === 'stale'
+          ? 'Your captured location is more than 5 minutes old. Please capture it again.'
+          : 'This location does not belong to the signed-in Worker. Please capture it again.',
+        true
+      );
       return;
     }
 
@@ -268,15 +355,22 @@ export function createWorkerAttendanceModule({
   }
 
   function restoreDraft(attendanceDraft) {
-    if (!attendanceDraft) return;
+    if (!attendanceDraft || String(attendanceDraft.ownerWorkerId || '') !== String(activeWorkerId() || '')) return;
 
     els.attendanceSite.value = attendanceDraft.siteId || '';
     els.attendanceNotes.value = attendanceDraft.notes || '';
-    state.attendanceLocation = attendanceDraft.location || null;
+    state.attendanceLocation = attendanceLocationIssue(attendanceDraft.location, activeWorkerId())
+      ? null
+      : attendanceDraft.location;
     state.attendancePhotoDataUrl = attendanceDraft.photoDataUrl || '';
     els.attendanceDetails.open = Boolean(attendanceDraft.notes || attendanceDraft.photoDataUrl);
     renderLocationPreview();
     photoViewer.renderPreview(els.attendancePhotoPreview, state.attendancePhotoDataUrl, 'Attendance draft photo');
+  }
+
+  function clearSessionState() {
+    resetForm();
+    els.attendanceDetails.open = false;
   }
 
   function bindEvents() {
@@ -291,6 +385,7 @@ export function createWorkerAttendanceModule({
 
   return {
     bindEvents,
+    clearSessionState,
     renderLocationPreview,
     restoreDraft,
     submit

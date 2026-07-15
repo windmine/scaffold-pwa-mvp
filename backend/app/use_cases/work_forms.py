@@ -20,7 +20,9 @@ from app.use_cases.common import (
     require_worker,
     select_work_form_submissions,
     scope_statement_to_user_department,
+    validate_owned_upload_references,
     validate_work_form_answers,
+    work_form_upload_references,
     work_form_definition,
     work_form_definition_snapshot_json,
     work_form_response,
@@ -173,6 +175,11 @@ def create_work_form_submission(data, user: User, session: Session):
     answers = validate_work_form_answers(definition, data.answers)
     photo_urls = normalize_work_form_photo_urls(data.photo_urls)
     photo_metadata = normalize_work_form_photo_metadata(photo_urls, data.photo_metadata)
+    validate_owned_upload_references(
+        work_form_upload_references(definition, answers, photo_urls),
+        user,
+        session,
+    )
 
     submission = WorkFormSubmission(
         department_id=department_id_for_new_record(user, session),

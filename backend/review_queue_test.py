@@ -13,16 +13,21 @@ from app.models import (  # noqa: E402
     AttendanceRecord,
     AuditEvent,
     Department,
+    Site,
     TaskLog,
     TeamWorkLog,
     User,
     WorkForm,
     WorkFormSubmission,
 )
-from app.schemas import TaskLogUpdateRequest  # noqa: E402
+from app.schemas import AttendanceUpdateRequest, TaskLogUpdateRequest  # noqa: E402
 from app.use_cases.review_queue import list_review_record_page  # noqa: E402
 from app.use_cases.review_record_policy import apply_review_decision  # noqa: E402
-from app.use_cases.supervisor_review import update_supervisor_task_log  # noqa: E402
+from app.use_cases.supervisor_review import (  # noqa: E402
+    update_supervisor_attendance_record,
+    update_supervisor_task_log,
+)
+from app.use_cases.supervisor_review_exports import filter_records_by_date  # noqa: E402
 
 
 def assert_http_error(label, status_code, callback):
@@ -297,9 +302,159 @@ def test_review_record_decision_policy():
     print("ok - Review Record decision policy")
 
 
+def test_business_timezone_date_filters():
+    engine, session, supervisor, _, worker, _ = seeded_session()
+    try:
+        local_next_day = AttendanceRecord(
+            department_id=supervisor.department_id,
+            worker_id=worker.id,
+            record_type="check_out",
+            note="Auckland next business day",
+            status="pending",
+            created_at=datetime(2026, 7, 1, 12, 30, tzinfo=timezone.utc),
+        )
+        session.add(local_next_day)
+        session.commit()
+        session.refresh(local_next_day)
+
+        page = list_review_record_page(
+            session,
+            supervisor,
+            kind="attendance",
+            record_date="2026-07-02",
+        )
+        if [item["id"] for item in page["items"]] != [local_next_day.id]:
+            raise AssertionError(
+                "Review Queue date: expected UTC 2026-07-01 12:30 to belong to "
+                "the 2026-07-02 Pacific/Auckland business day"
+            )
+
+        exported = filter_records_by_date(
+            [local_next_day],
+            date_from="2026-07-02",
+            date_to="2026-07-02",
+        )
+        if exported != [local_next_day]:
+            raise AssertionError(
+                "attendance export date: expected occurrence time to use the business timezone"
+            )
+    finally:
+        session.close()
+        engine.dispose()
+
+    print("ok - business timezone Review Queue and export dates")
+
+
+def test_cross_department_site_and_audit_integrity():
+    engine, session, _, global_supervisor, _, _ = seeded_session()
+    try:
+        home_department = session.get(Department, global_supervisor.department_id)
+        other_department = session.exec(
+            select(Department).where(Department.name == "Other Department")
+        ).one()
+        other_worker = session.exec(
+            select(User).where(User.department_id == other_department.id, User.role == "worker")
+        ).one()
+        home_site = Site(
+            department_id=home_department.id,
+            name="Home site",
+            latitude=-36.85,
+            longitude=174.76,
+        )
+        other_site = Site(
+            department_id=other_department.id,
+            name="Other site",
+            latitude=-41.29,
+            longitude=174.78,
+        )
+        other_task = TaskLog(
+            department_id=other_department.id,
+            worker_id=other_worker.id,
+            description="Other Department task",
+            work_date="2026-07-01",
+            status="pending",
+        )
+        session.add(home_site)
+        session.add(other_site)
+        session.add(other_task)
+        session.commit()
+        for item in (home_site, other_site, other_task):
+            session.refresh(item)
+        other_attendance = session.exec(
+            select(AttendanceRecord).where(
+                AttendanceRecord.department_id == other_department.id
+            )
+        ).one()
+
+        assert_http_error(
+            "cross-department attendance Site",
+            400,
+            lambda: update_supervisor_attendance_record(
+                other_attendance.id,
+                AttendanceUpdateRequest(site_id=home_site.id, confirmed=True),
+                global_supervisor,
+                session,
+            ),
+        )
+        assert_http_error(
+            "cross-department task Site",
+            400,
+            lambda: update_supervisor_task_log(
+                other_task.id,
+                TaskLogUpdateRequest(site_id=home_site.id, confirmed=True),
+                global_supervisor,
+                session,
+            ),
+        )
+
+        update_supervisor_attendance_record(
+            other_attendance.id,
+            AttendanceUpdateRequest(site_id=other_site.id, confirmed=True),
+            global_supervisor,
+            session,
+        )
+        update_supervisor_task_log(
+            other_task.id,
+            TaskLogUpdateRequest(site_id=other_site.id, confirmed=True),
+            global_supervisor,
+            session,
+        )
+        apply_review_decision(
+            "task",
+            other_task.id,
+            "approved",
+            global_supervisor,
+            session,
+        )
+
+        events = session.exec(
+            select(AuditEvent).where(
+                AuditEvent.entity_id.in_([other_attendance.id, other_task.id]),
+                AuditEvent.action.in_([
+                    "attendance_update",
+                    "task_log_update",
+                    "review_decision",
+                ]),
+            )
+        ).all()
+        if len(events) != 3:
+            raise AssertionError("target audit Department: expected three update/decision events")
+        if any(event.department_id != other_department.id for event in events):
+            raise AssertionError(
+                "target audit Department: Global-admin actions must be filed under the record Department"
+            )
+    finally:
+        session.close()
+        engine.dispose()
+
+    print("ok - cross-Department Site and target audit integrity")
+
+
 def main():
     test_paged_review_record_query()
     test_review_record_decision_policy()
+    test_business_timezone_date_filters()
+    test_cross_department_site_and_audit_integrity()
     print("review queue test passed")
     return 0
 

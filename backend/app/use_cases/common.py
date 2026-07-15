@@ -20,6 +20,11 @@ from app.models import (
     WorkForm,
     WorkFormSubmission,
 )
+from app.upload_storage import (
+    UploadReferenceValidationError,
+    upload_filename_from_url,
+    validate_submission_upload_references,
+)
 
 
 VALID_ROLES = {"worker", "supervisor"}
@@ -611,8 +616,27 @@ def site_distance_check(
 def validate_photo_url(photo_url: Optional[str]):
     if photo_url and len(photo_url) > 500:
         raise HTTPException(status_code=400, detail="Photo URL is too long")
-    if photo_url and not photo_url.startswith("/uploads/"):
-        raise HTTPException(status_code=400, detail="Photo URL must come from /photo-uploads")
+    if photo_url:
+        filename = upload_filename_from_url(photo_url)
+        if not filename or photo_url != f"/uploads/{filename}":
+            raise HTTPException(status_code=400, detail="Photo URL must come from /photo-uploads")
+
+
+def validate_owned_upload_references(
+    values,
+    user: User,
+    session: Session,
+    already_attached=(),
+):
+    try:
+        return validate_submission_upload_references(
+            values,
+            user,
+            session,
+            already_attached=already_attached,
+        )
+    except UploadReferenceValidationError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 def normalize_task_photo_urls(
@@ -1012,6 +1036,31 @@ def validate_work_form_answers(definition_or_form, answers: dict):
         normalized_answers[field_id] = normalize_work_form_answer(field, answers.get(field_id))
 
     return normalized_answers
+
+
+def work_form_upload_references(definition_or_form, answers: dict, photo_urls=()):
+    """Collect only evidence fields, without treating ordinary text as an upload."""
+    fields = definition_fields(definition_or_form)
+    references = list(photo_urls or ())
+    repeat_signatures = {}
+
+    for field in fields:
+        repeat_id = field.get("repeat")
+        if repeat_id and field.get("type") == "signature":
+            repeat_signatures.setdefault(repeat_id, []).append(field.get("id"))
+            continue
+        if not repeat_id and field.get("type") == "signature":
+            value = answers.get(field.get("id"))
+            if value:
+                references.append(value)
+
+    for repeat_id, signature_ids in repeat_signatures.items():
+        for row in answers.get(repeat_id) or ():
+            if not isinstance(row, dict):
+                continue
+            references.extend(row.get(field_id) for field_id in signature_ids if row.get(field_id))
+
+    return references
 
 
 def validate_repeat_answer(parent_field: dict, child_fields: list[dict], raw_value, parent_answers: dict):

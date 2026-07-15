@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -95,6 +96,17 @@ RATE_LIMIT_AUTH_REQUESTS = int_env("RATE_LIMIT_AUTH_REQUESTS", 30)
 RATE_LIMIT_AUTH_WINDOW_SECONDS = int_env("RATE_LIMIT_AUTH_WINDOW_SECONDS", 60)
 RATE_LIMIT_UPLOAD_REQUESTS = int_env("RATE_LIMIT_UPLOAD_REQUESTS", 30)
 RATE_LIMIT_UPLOAD_WINDOW_SECONDS = int_env("RATE_LIMIT_UPLOAD_WINDOW_SECONDS", 60)
+
+BUSINESS_TIMEZONE_NAME = os.environ.get(
+    "BUSINESS_TIMEZONE",
+    "Pacific/Auckland",
+).strip() or "Pacific/Auckland"
+try:
+    BUSINESS_TIMEZONE = ZoneInfo(BUSINESS_TIMEZONE_NAME)
+except ZoneInfoNotFoundError as error:
+    raise RuntimeError(
+        f"BUSINESS_TIMEZONE must be a valid IANA timezone, got {BUSINESS_TIMEZONE_NAME!r}"
+    ) from error
 
 WEAK_SECRET_VALUES = {
     "",

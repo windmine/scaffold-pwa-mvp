@@ -36,10 +36,12 @@ from app.use_cases.common import (
     select_work_form_submissions,
     site_distance_check,
     task_log_response,
+    validate_owned_upload_references,
     validate_work_form_answers,
     validate_photo_url,
     work_form_definition,
     work_form_definition_snapshot_json,
+    work_form_upload_references,
     work_form_submission_definition,
     work_form_submission_response,
 )
@@ -57,6 +59,7 @@ from app.use_cases.supervisor_review_exports import (
     render_meta_grid,
     render_photo_grid,
     render_signature_grid,
+    write_spreadsheet_safe_csv_row,
     text_value,
 )
 from app.use_cases.review_queue import list_review_records
@@ -1762,7 +1765,9 @@ def update_supervisor_attendance_record(record_id: int, data, supervisor: User, 
             raise HTTPException(status_code=400, detail="record_type must be check_in or check_out")
         record.record_type = data.record_type
     if "site_id" in fields:
-        ensure_site_exists(session, data.site_id, supervisor)
+        site = ensure_site_exists(session, data.site_id, supervisor)
+        if site and site.department_id != record.department_id:
+            raise HTTPException(status_code=400, detail="Site must belong to the record department")
         record.site_id = data.site_id
     if "latitude" in fields and data.latitude is not None:
         record.latitude = data.latitude
@@ -1774,6 +1779,12 @@ def update_supervisor_attendance_record(record_id: int, data, supervisor: User, 
         record.note = data.note
     if "photo_url" in fields:
         validate_photo_url(data.photo_url)
+        validate_owned_upload_references(
+            data.photo_url,
+            supervisor,
+            session,
+            already_attached=previous_upload_urls,
+        )
         record.photo_url = data.photo_url
     site = ensure_site_exists(session, record.site_id, supervisor)
     record.distance_from_site_m, record.within_site_radius = site_distance_check(
@@ -1792,6 +1803,7 @@ def update_supervisor_attendance_record(record_id: int, data, supervisor: User, 
         before=before,
         after=model_snapshot(record),
         summary=f"Updated attendance record #{record.id}",
+        department_id=record.department_id,
     )
     session.commit()
     session.refresh(record)
@@ -1813,7 +1825,7 @@ def export_attendance_records_csv(
     records = filter_records_by_date(records, date_from, date_to)
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow([
+    write_spreadsheet_safe_csv_row(writer, [
         "id",
         "worker_id",
         "worker_name",
@@ -1836,7 +1848,7 @@ def export_attendance_records_csv(
 
     for record in records:
         item = attendance_record_response(record, session)
-        writer.writerow([
+        write_spreadsheet_safe_csv_row(writer, [
             item["id"],
             item["worker_id"],
             item["worker_name"],
@@ -1940,6 +1952,11 @@ def create_supervisor_work_form_submission(data, supervisor: User, session: Sess
 
     definition = work_form_definition(form)
     answers = validate_work_form_answers(definition, data.answers)
+    validate_owned_upload_references(
+        work_form_upload_references(definition, answers),
+        supervisor,
+        session,
+    )
     submission = WorkFormSubmission(
         department_id=target_user.department_id,
         form_id=form.id,
@@ -1971,7 +1988,7 @@ def create_supervisor_work_form_submission(data, supervisor: User, session: Sess
 def task_logs_csv_response(items, filename: str):
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow([
+    write_spreadsheet_safe_csv_row(writer, [
         "id",
         "worker_id",
         "worker_name",
@@ -1990,7 +2007,7 @@ def task_logs_csv_response(items, filename: str):
     ])
 
     for item in items:
-        writer.writerow([
+        write_spreadsheet_safe_csv_row(writer, [
             item["id"],
             item["worker_id"],
             item["worker_name"],
@@ -2091,7 +2108,7 @@ def form_submissions_csv_response(items, filename: str):
 
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow([
+    write_spreadsheet_safe_csv_row(writer, [
         "id",
         "form_id",
         "form_name",
@@ -2108,7 +2125,7 @@ def form_submissions_csv_response(items, filename: str):
 
     for item in items:
         answers = item.get("answers") or {}
-        writer.writerow([
+        write_spreadsheet_safe_csv_row(writer, [
             item["id"],
             item["form_id"],
             item["form_name"],
@@ -2192,9 +2209,22 @@ def update_supervisor_form_submission(submission_id: int, data, supervisor: User
     if "work_date" in fields:
         submission.work_date = data.work_date
     if "answers" in fields and data.answers is not None:
-        submission.answers_json = json.dumps(validate_work_form_answers(definition, data.answers))
+        answers = validate_work_form_answers(definition, data.answers)
+        validate_owned_upload_references(
+            work_form_upload_references(definition, answers),
+            supervisor,
+            session,
+            already_attached=previous_upload_urls,
+        )
+        submission.answers_json = json.dumps(answers)
     if "photo_urls" in fields and data.photo_urls is not None:
         photo_urls = normalize_work_form_photo_urls(data.photo_urls)
+        validate_owned_upload_references(
+            photo_urls,
+            supervisor,
+            session,
+            already_attached=previous_upload_urls,
+        )
         submission.photo_urls = json.dumps(photo_urls) if photo_urls else None
     session.add(submission)
     add_audit_event(
@@ -2233,7 +2263,9 @@ def update_supervisor_task_log(log_id: int, data, supervisor: User, session: Ses
     if "description" in fields and data.description is not None:
         log.description = data.description
     if "site_id" in fields:
-        ensure_site_exists(session, data.site_id, supervisor)
+        site = ensure_site_exists(session, data.site_id, supervisor)
+        if site and site.department_id != log.department_id:
+            raise HTTPException(status_code=400, detail="Site must belong to the task log department")
         log.site_id = data.site_id
     if "work_date" in fields:
         log.work_date = data.work_date
@@ -2243,10 +2275,22 @@ def update_supervisor_task_log(log_id: int, data, supervisor: User, session: Ses
         log.safety_notes = data.safety_notes
     if "photo_urls" in fields:
         photo_urls = normalize_task_photo_urls(None, data.photo_urls or [])
+        validate_owned_upload_references(
+            photo_urls,
+            supervisor,
+            session,
+            already_attached=previous_upload_urls,
+        )
         log.photo_url = photo_urls[0] if photo_urls else None
         log.photo_urls = json.dumps(photo_urls) if photo_urls else None
     elif "photo_url" in fields:
         validate_photo_url(data.photo_url)
+        validate_owned_upload_references(
+            data.photo_url,
+            supervisor,
+            session,
+            already_attached=previous_upload_urls,
+        )
         log.photo_url = data.photo_url
         log.photo_urls = json.dumps([data.photo_url]) if data.photo_url else None
     session.add(log)
@@ -2259,6 +2303,7 @@ def update_supervisor_task_log(log_id: int, data, supervisor: User, session: Ses
         before=before,
         after=model_snapshot(log),
         summary=f"Updated task log #{log.id}",
+        department_id=log.department_id,
     )
     session.commit()
     session.refresh(log)

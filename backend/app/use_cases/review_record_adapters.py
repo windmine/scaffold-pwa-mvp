@@ -1,9 +1,11 @@
 from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import String, cast, func, literal, or_
 from sqlmodel import Session, select
 
+from app.config import BUSINESS_TIMEZONE
 from app.models import (
     AttendanceRecord,
     Site,
@@ -19,6 +21,13 @@ from app.use_cases.common import review_record_response
 def _like_pattern(value: str):
     escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     return f"%{escaped}%"
+
+
+def _business_day_utc_bounds(value: str):
+    business_date = date.fromisoformat(value)
+    start = datetime.combine(business_date, time.min, BUSINESS_TIMEZONE)
+    end = datetime.combine(business_date + timedelta(days=1), time.min, BUSINESS_TIMEZONE)
+    return start.astimezone(timezone.utc), end.astimezone(timezone.utc)
 
 
 @dataclass(frozen=True)
@@ -60,8 +69,10 @@ class ReviewRecordAdapter:
             if self.record_date_field:
                 statement = statement.where(getattr(model, self.record_date_field) == record_date)
             else:
+                start, end = _business_day_utc_bounds(record_date)
                 statement = statement.where(
-                    func.substr(cast(model.created_at, String), 1, 10) == record_date
+                    model.created_at >= start,
+                    model.created_at < end,
                 )
         if search:
             statement = statement.where(self.search_predicate(search))

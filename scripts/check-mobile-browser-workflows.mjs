@@ -3,6 +3,12 @@ import { join } from 'node:path';
 import { appShell, computePwaCacheVersion, pwaAssetCopies } from './pwa-shell-assets.mjs';
 import { buildManagementAnalytics } from '../assets/js/supervisor-analytics.js';
 import { parseWorkFormFieldsInput, serialiseWorkFormFields } from '../assets/js/work-form-fields.js';
+import {
+  ATTENDANCE_LOCATION_MAX_AGE_MS,
+  MAX_UPLOAD_IMAGE_BYTES,
+  attendanceLocationIssue,
+  uploadImageValidationError
+} from '../assets/js/utils.js';
 
 const root = process.cwd();
 
@@ -42,6 +48,8 @@ const sourceReviewExportAdapters = read('assets/js/review-export-adapters.js');
 const sourceSupervisorAnalytics = read('assets/js/supervisor-analytics.js');
 const sourceSupervisorMap = read('assets/js/supervisor-map.js');
 const sourceWorkerLog = read('assets/js/worker-log.js');
+const sourceWorkerAttendance = read('assets/js/worker-attendance.js');
+const sourceWorkerForm = read('assets/js/worker-form.js');
 const sourceWorkerSites = read('assets/js/worker-sites.js');
 const sourceSiteMapPicker = read('assets/js/site-map-picker.js');
 const sourceTeamMemberPicker = read('assets/js/team-member-picker.js');
@@ -193,8 +201,59 @@ check('production HTML keeps stable PWA links', () => (
 check('mobile viewport and camera/photo controls exist', () => (
   sourceIndex.includes('name="viewport"')
   && sourceIndex.includes('capture="environment"')
-  && sourceIndex.includes('id="taskPhoto" type="file" accept="image/*" multiple')
-  && sourceIndex.includes('id="workFormPhotos" type="file" accept="image/*" multiple')
+  && sourceIndex.includes('id="attendancePhoto" type="file" accept="image/jpeg,image/png,image/webp"')
+  && sourceIndex.includes('id="taskPhoto" type="file" accept="image/jpeg,image/png,image/webp" multiple')
+  && sourceIndex.includes('id="workFormPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple')
+));
+
+check('Worker photo preflight matches the backend raster limits', () => (
+  uploadImageValidationError({ name: 'ok.jpg', type: 'image/jpeg', size: MAX_UPLOAD_IMAGE_BYTES }) === ''
+  && uploadImageValidationError({ name: 'wrong.gif', type: 'image/gif', size: 100 }).includes('JPEG, PNG, or WebP')
+  && uploadImageValidationError({ name: 'large.png', type: 'image/png', size: MAX_UPLOAD_IMAGE_BYTES + 1 }).includes('5 MB')
+  && sourceWorkerAttendance.includes('uploadImageValidationError(file)')
+  && sourceWorkerLog.includes('files.map(uploadImageValidationError).find(Boolean)')
+  && sourceWorkerForm.includes('files.map(uploadImageValidationError).find(Boolean)')
+  && sourceOfflineQueue.includes('requireValidUploadImage')
+));
+
+check('attendance GPS is Worker-owned, fresh, and invalidated between sessions', () => {
+  const now = Date.parse('2026-07-15T00:05:00.000Z');
+  const freshLocation = {
+    ownerWorkerId: 7,
+    capturedAt: new Date(now - ATTENDANCE_LOCATION_MAX_AGE_MS).toISOString()
+  };
+  return attendanceLocationIssue(freshLocation, 7, now) === ''
+    && attendanceLocationIssue(freshLocation, 8, now) === 'owner_mismatch'
+    && attendanceLocationIssue({ ...freshLocation, capturedAt: new Date(now - ATTENDANCE_LOCATION_MAX_AGE_MS - 1).toISOString() }, 7, now) === 'stale'
+    && sourceWorkerAttendance.includes('ownerWorkerId: captureOwnerWorkerId')
+    && sourceWorkerAttendance.includes('state.attendanceLocation = null;')
+    && sourceWorkerAttendance.includes('clearSessionState')
+    && sourceApp.includes('clearWorkerSessionState();');
+});
+
+check('authenticated Site loading never falls back to seeded demo Sites', () => (
+  !sourceApp.includes('getSites as getLocalSites')
+  && !sourceApp.includes('return await getLocalSites()')
+  && sourceApp.includes('if (!state.user) return [];')
+  && sourceApp.includes("'No sites available'")
+  && sourceApp.includes("'Sites unavailable - reconnect and try again'")
+));
+
+check('reconnect preserves active Daywork and Work Form DOM state', () => {
+  const onlineHandler = sourceApp.match(/window\.addEventListener\('online',[\s\S]*?\n  \}\);/)?.[0] || '';
+  return onlineHandler.includes('refreshSitesAfterReconnect')
+    && !onlineHandler.includes('renderApp();')
+    && sourceWorkerLog.includes('captureVisibleDayworkDraft')
+    && sourceWorkerForm.includes('captureVisibleWorkFormDraft')
+    && sourceWorkerForm.includes('populateWorkFormAnswers');
+});
+
+check('queued upload failures are visible and recoverable by the owning Worker', () => (
+  read('assets/js/history.js').includes('Sync needs attention.')
+  && read('assets/js/history.js').includes('Retry sync')
+  && read('assets/js/history.js').includes('Discard local copy')
+  && sourceOfflineQueue.includes('export async function discardOfflineSubmission')
+  && sourceOfflineQueue.includes('assertOwnedByWorker(record)')
 ));
 
 check('desktop admin workspace navigation opens and links management sections', () => (
@@ -329,6 +388,9 @@ check('offline queue covers worker forms, signatures, and photos', () => (
   && sourceOfflineQueue.includes('dataUrlToBlob')
   && sourceOfflineQueue.includes("record.type === 'form'")
   && sourceOfflineQueue.includes('uploadRecordPhotos')
+  && sourceOfflineQueue.includes('signatureFields.filter((item) => item.repeat)')
+  && sourceOfflineQueue.includes('answers[repeatId] = rows')
+  && sourceOfflineQueue.includes('await options.onProgress?.(record)')
 ));
 
 check('offline retry is single-flight and auth-aware', () => (
@@ -467,6 +529,7 @@ check('normal worker UI is focused and step based', () => (
   && sourceApp.includes("element.classList.toggle('access-hidden', !isNormalWorker)")
   && sourceApp.includes("button.setAttribute('aria-selected', String(active))")
   && sourceStyles.includes('#workerView.normal-worker-mode .tabs')
+  && sourceStyles.includes('top: auto')
   && sourceStyles.includes('bottom: max(78px, calc(68px + env(safe-area-inset-bottom)))')
   && sourceStyles.includes('#workerView.normal-worker-mode .history-type-filter')
   && sourceStyles.includes('.normal-worker-steps')

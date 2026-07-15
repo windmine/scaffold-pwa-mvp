@@ -2,6 +2,39 @@ export function uuid() {
   return crypto.randomUUID ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+export const ATTENDANCE_LOCATION_MAX_AGE_MS = 5 * 60 * 1000;
+export const MAX_UPLOAD_IMAGE_BYTES = 5 * 1024 * 1024;
+export const UPLOAD_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+export function attendanceLocationIssue(location, workerId, now = Date.now()) {
+  if (!location) return 'missing';
+  if (workerId == null || String(location.ownerWorkerId || '') !== String(workerId)) return 'owner_mismatch';
+
+  const capturedAt = new Date(location.capturedAt).getTime();
+  if (!Number.isFinite(capturedAt)) return 'invalid_time';
+
+  const ageMs = Number(now) - capturedAt;
+  if (ageMs < -60 * 1000) return 'invalid_time';
+  if (ageMs > ATTENDANCE_LOCATION_MAX_AGE_MS) return 'stale';
+  return '';
+}
+
+export function uploadImageValidationError(file) {
+  if (!file) return '';
+
+  const type = String(file.type || '').toLowerCase();
+  if (!UPLOAD_IMAGE_TYPES.has(type)) {
+    return `${file.name || 'This photo'} must be a JPEG, PNG, or WebP image.`;
+  }
+
+  const size = Number(file.size || 0);
+  if (!Number.isFinite(size) || size > MAX_UPLOAD_IMAGE_BYTES) {
+    return `${file.name || 'This photo'} is larger than the 5 MB upload limit.`;
+  }
+
+  return '';
+}
+
 export function todayDateInput() {
   return dateInputValue(new Date());
 }

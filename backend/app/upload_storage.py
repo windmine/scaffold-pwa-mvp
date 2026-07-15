@@ -41,6 +41,10 @@ class UploadTooLargeError(UploadValidationError):
     pass
 
 
+class UploadReferenceValidationError(ValueError):
+    """Raised when a submitted record references unavailable upload evidence."""
+
+
 @dataclass(frozen=True)
 class UploadInfo:
     filename: str
@@ -468,6 +472,44 @@ def record_upload_urls(record):
     filenames.update(_upload_filenames_in(_json_value(getattr(record, "photo_urls", None), [])))
     filenames.update(_upload_filenames_in(_json_value(getattr(record, "answers_json", None), {})))
     return {f"/uploads/{filename}" for filename in filenames}
+
+
+def validate_submission_upload_references(
+    values,
+    user: User,
+    session: Session,
+    already_attached=(),
+):
+    """Require submitted upload references to exist and belong to their submitter.
+
+    A Supervisor or Worker may retain an object already attached to the record being
+    edited. This supports corrections to historical records while preventing a new
+    record or attachment from claiming another user's unguessable upload URL.
+    """
+    filenames = sorted(_upload_filenames_in(values))
+    if not filenames:
+        return ()
+
+    attached_filenames = _upload_filenames_in(already_attached)
+    adapter = upload_adapter()
+    validated = []
+    for filename in filenames:
+        info = adapter.stat(filename)
+        if not info:
+            raise UploadReferenceValidationError(
+                "Upload reference is unavailable for the authenticated user"
+            )
+        if info.uploaded_by == user.id:
+            validated.append(filename)
+            continue
+        if filename in attached_filenames:
+            validated.append(filename)
+            continue
+        raise UploadReferenceValidationError(
+            "Upload reference is unavailable for the authenticated user"
+        )
+
+    return tuple(validated)
 
 
 def _upload_is_referenced(filename: str, session: Session, worker_id: Optional[int] = None, department_id: Optional[int] = None):

@@ -103,8 +103,8 @@ Normal workers receive a simplified attendance screen with only **Check in / out
 
 - Sign in with a backend account.
 - Register a new staff account for supervisor activation.
-- Select a job/site.
-- Capture browser geolocation.
+- Select a backend job/site. Authenticated Site loading fails closed instead of showing seeded demo Sites when the API is unavailable.
+- Capture browser geolocation. The capture is bound to the signed-in Worker and must be less than five minutes old when attendance is submitted.
 - Check in and check out with GPS coordinates, accuracy, site radius result, notes, and optional attendance photo.
 - Inside-site attendance is approved automatically; outside-site attendance stays pending for supervisor review.
 - Edit or delete own pending outside-site attendance before supervisor approval.
@@ -119,6 +119,7 @@ Normal workers receive a simplified attendance screen with only **Check in / out
 - Click any uploaded photo thumbnail to open a floating zoom viewer with previous/next controls.
 - Save offline drafts and queue offline records for later sync.
 - Keep queued records bound to the Worker who captured them, with capture time and stable client submission id retained across retries; delayed attendance also preserves its original occurrence timestamp.
+- Preserve in-progress Daywork and Work Form answers when connectivity returns, and show Retry/Discard controls for queued submissions that need corrected photos or other attention.
 
 Worker restrictions:
 
@@ -329,6 +330,7 @@ Important values:
 APP_ENV=development
 GEO_SECRET_KEY=change-this-dev-secret
 DATABASE_URL=sqlite:///./geo_management.db
+BUSINESS_TIMEZONE=Pacific/Auckland
 AUTO_MIGRATE=true
 SQL_ECHO=false
 ENABLE_DEV_SEED=true
@@ -347,6 +349,9 @@ UPLOAD_BUCKET=
 UPLOAD_OBJECT_PREFIX=uploads
 MAX_UPLOAD_BYTES=5242880
 ```
+
+`BUSINESS_TIMEZONE` must be an IANA timezone name. Attendance Review Queue and
+export date filters interpret occurrence timestamps in this timezone.
 
 `UPLOAD_STORAGE_BACKEND` is explicit: use `local` only for development and `gcs` for production-like environments. The backend does not silently switch adapters when a bucket happens to be configured.
 
@@ -1130,19 +1135,20 @@ Back online:
   Flush queued submissions to FastAPI and update the local history record.
 ```
 
-Work Form signatures are stored locally as image data while queued, then uploaded as PNG during sync. A queued record remains bound to the Worker account that captured it; switching accounts on a shared device cannot replay it as the new Worker. Capture time and client submission id survive delayed sync, and attendance sends its timezone-aware `occurred_at` so its durable timestamp is not replaced by reconnect time. The backend can return the existing record on retry. Partial upload URLs are persisted as each upload succeeds. If the session expires, sync pauses in an explicit blocked state and the record remains queued until its owning Worker signs in again.
+Work Form signatures, including signatures inside repeat rows, are stored locally as image data while queued, then uploaded as PNG during sync. A queued record remains bound to the Worker account that captured it; switching accounts on a shared device cannot replay it as the new Worker. Capture time and client submission id survive delayed sync, and attendance sends its timezone-aware `occurred_at` so its durable timestamp is not replaced by reconnect time. The backend can return the existing record on retry. Partial upload URLs are persisted as each upload succeeds. If the session expires, sync pauses in an explicit blocked state and the record remains queued until its owning Worker signs in again. Failed queued records expose their sync error in History and can be retried or discarded by their owning Worker.
 
 Current offline behavior is suitable for MVP testing, but production conflict handling still needs more work.
 
 ## Date Filtering
 
-History date filters use the user's local calendar date. For example, in New Zealand time, searching `2026-05-20` returns records shown on 20 May 2026 locally, not a UTC noon-to-noon window.
+Worker History date filters use the user's local calendar date. Supervisor attendance Review Queue and export date boundaries use `BUSINESS_TIMEZONE` (default `Pacific/Auckland`) so UTC storage does not shift morning New Zealand records onto the previous business day.
 
 ## Photo Behavior
 
 - Attendance supports one optional photo.
 - Task logs and work forms support up to 8 progress photos.
-- Uploads are identified by decoded raster content, not by the caller's filename or MIME type. Accepted inputs are single-frame JPEG, PNG, and WebP, which are re-encoded before storage to remove metadata and trailing payloads.
+- Uploads are limited to 5 MB each. The Worker UI accepts JPEG, PNG, and WebP and validates type/size before queueing; the backend identifies decoded raster content rather than trusting the caller's filename or MIME type and re-encodes accepted images to remove metadata and trailing payloads.
+- New attendance, Task Log, and Work Form evidence references must exist in Upload Storage and belong to the authenticated uploader. Supervisor corrections may retain evidence already attached to that record.
 - Uploaded photos are served from `/uploads/...`.
 - The backend checks ownership/record references before opening a local file or Cloud Storage stream and sends `X-Content-Type-Options: nosniff`.
 - Thumbnails open in a floating photo viewer.

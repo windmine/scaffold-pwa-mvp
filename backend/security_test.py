@@ -1,4 +1,6 @@
 import sys
+import csv
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -8,6 +10,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app.rate_limit import InMemoryRateLimiter, RateLimitRule, client_ip  # noqa: E402
 from app import upload_storage  # noqa: E402
+from app.use_cases.supervisor_review import task_logs_csv_response  # noqa: E402
+from app.use_cases.supervisor_review_exports import (  # noqa: E402
+    write_spreadsheet_safe_csv_row,
+)
 
 
 class FakeHeaders(dict):
@@ -95,6 +101,57 @@ def main():
         upload_storage.UPLOAD_BUCKET = original_bucket
         upload_storage.UPLOAD_DIR = original_dir
         upload_storage.PRODUCTION_LIKE = original_production_like
+
+    csv_output = StringIO()
+    csv_writer = csv.writer(csv_output)
+    risky_values = ["=1+1", "+1", "-1", "@SUM(A1)", "\t=1", "\r=1", "\n=1", "  =1", "Safe", -1]
+    write_spreadsheet_safe_csv_row(csv_writer, risky_values)
+    encoded_values = next(csv.reader(StringIO(csv_output.getvalue())))
+    assert_ok(
+        "spreadsheet formula and control prefixes are neutralized",
+        encoded_values == [
+            "'=1+1",
+            "'+1",
+            "'-1",
+            "'@SUM(A1)",
+            "'\t=1",
+            "'\r=1",
+            "'\n=1",
+            "'  =1",
+            "Safe",
+            "-1",
+        ],
+    )
+
+    task_export = task_logs_csv_response(
+        [
+            {
+                "id": 1,
+                "worker_id": 1,
+                "worker_name": "+Injected worker",
+                "site_id": None,
+                "site_name": None,
+                "work_date": "2026-07-15",
+                "hours_worked": 8,
+                "description": "=HYPERLINK(\"https://example.invalid\")",
+                "safety_notes": "\t@unsafe",
+                "photo_urls": [],
+                "entry_source": "worker",
+                "created_by_supervisor_id": None,
+                "created_by_supervisor_name": None,
+                "status": "pending",
+                "created_at": "2026-07-15T00:00:00Z",
+            }
+        ],
+        "task-log.csv",
+    )
+    task_rows = list(csv.reader(StringIO(task_export.body.decode("utf-8"))))
+    assert_ok(
+        "task CSV export applies spreadsheet-safe encoding to user text",
+        task_rows[1][2] == "'+Injected worker"
+        and task_rows[1][7].startswith("'=")
+        and task_rows[1][8].startswith("'\t"),
+    )
 
     print("security test passed")
     return 0

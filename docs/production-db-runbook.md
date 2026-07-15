@@ -57,6 +57,7 @@ Production-like Cloud Run configuration should include:
 APP_ENV=production
 DATABASE_URL=<secret-manager managed PostgreSQL URL>
 GEO_SECRET_KEY=<secret-manager strong secret>
+BUSINESS_TIMEZONE=Pacific/Auckland
 AUTO_MIGRATE=true
 SQL_ECHO=false
 ENABLE_DEV_SEED=false
@@ -77,6 +78,7 @@ MAX_UPLOAD_BYTES=5242880
 
 Provider notes:
 
+- `BUSINESS_TIMEZONE` must be an IANA timezone name and controls attendance business-date filters in the Review Queue and exports.
 - For Neon, use a TLS-enabled application connection string appropriate to the selected compute/pooling mode and verify backup/PITR or branch-restore capability in Neon itself.
 - For Cloud SQL, prefer a private-IP/VPC or Cloud SQL connector design, a least-privilege database user, and a dedicated Cloud Run service account with `roles/cloudsql.client`.
 - Never put a database password or application secret in a checked-in command, Markdown file, image, or plain Cloud Run environment value when Secret Manager can supply it.

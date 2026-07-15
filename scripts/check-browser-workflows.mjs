@@ -70,6 +70,14 @@ async function stopProcess(processState) {
       killer.on('close', resolve);
       killer.on('error', resolve);
     });
+    if (child.exitCode == null) {
+      await Promise.race([
+        new Promise((resolve) => child.once('close', resolve)),
+        delay(3000)
+      ]);
+    }
+    child.stdout?.destroy();
+    child.stderr?.destroy();
     return;
   }
 
@@ -446,6 +454,32 @@ async function checkRestoredSessionLoadsSitesAfterRefresh(browser) {
   }
 }
 
+async function checkAuthenticatedSiteFailureDoesNotExposeDemoSites(browser) {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+
+  try {
+    await page.route('**/api/sites', (route) => route.abort('failed'));
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.waitForFunction(() => (
+      document.querySelector('#attendanceSite option')?.textContent
+        ?.includes('Sites unavailable')
+    ));
+
+    const siteState = await page.evaluate(() => ({
+      options: [...document.querySelectorAll('#attendanceSite option')]
+        .filter((option) => option.value)
+        .map((option) => option.textContent),
+      placeholder: document.querySelector('#attendanceSite option')?.textContent || ''
+    }));
+    if (siteState.options.length || !siteState.placeholder.includes('Sites unavailable')) {
+      throw new Error(`Authenticated Site failure exposed selectable fallback Sites: ${JSON.stringify(siteState)}`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 async function checkLoginAndGrantedGeolocation(browser) {
   const context = await newContext(browser, {
     geolocation: { latitude: -36.8485, longitude: 174.7633, accuracy: 12 },
@@ -628,6 +662,121 @@ async function checkOfflineQueueAndReplay(browser) {
   }
 }
 
+async function checkRepeatSignatureUploadResume(browser) {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const formName = `Repeat signature retry ${Date.now()}`;
+  let uploadRequests = 0;
+  let failSecondUpload = true;
+
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    const form = await page.evaluate(async (name) => {
+      const { createWorkForm } = await import('/assets/js/api-client.js');
+      return await createWorkForm({
+        name,
+        description: 'Browser regression for resumable repeat signatures.',
+        fields: [
+          {
+            id: 'crews',
+            label: 'Crews',
+            type: 'repeat',
+            required: true,
+            min_rows: 2,
+            max_rows: 2
+          },
+          {
+            id: 'crew_signature',
+            label: 'Crew signature',
+            type: 'signature',
+            required: true,
+            repeat: 'crews'
+          }
+        ]
+      });
+    }, formName);
+    await logout(page);
+    await page.waitForTimeout(300);
+    await loginAs(page, 'worker@example.com', 'worker');
+
+    await page.route('**/api/photo-uploads', async (route) => {
+      uploadRequests += 1;
+      if (failSecondUpload && uploadRequests === 2) {
+        await route.abort('failed');
+        return;
+      }
+      await route.continue();
+    });
+
+    const queued = await page.evaluate(async (workForm) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 4;
+      canvas.height = 4;
+      const drawing = canvas.getContext('2d');
+      drawing.fillStyle = '#111827';
+      drawing.fillRect(0, 0, canvas.width, canvas.height);
+      const signature = canvas.toDataURL('image/png');
+      const id = `repeat-signature-${Date.now()}`;
+      const { submitOfflineSubmission } = await import('/assets/js/offline-submissions.js');
+      const result = await submitOfflineSubmission({
+        id,
+        type: 'form',
+        formId: workForm.id,
+        formName: workForm.name,
+        fields: workForm.fields,
+        answers: {
+          crews: [
+            { crew_signature: signature },
+            { crew_signature: signature }
+          ]
+        },
+        workDate: '2026-07-15',
+        createdAt: new Date().toISOString()
+      });
+      return {
+        id,
+        queued: result.queued,
+        firstSignature: result.record.answers.crews[0].crew_signature,
+        secondSignature: result.record.answers.crews[1].crew_signature
+      };
+    }, form);
+
+    if (
+      !queued.queued
+      || !queued.firstSignature.startsWith('/uploads/')
+      || !queued.secondSignature.startsWith('data:image/png')
+      || uploadRequests !== 2
+    ) {
+      throw new Error(`repeat signature progress was not persisted after a partial upload: ${JSON.stringify({ queued, uploadRequests })}`);
+    }
+
+    failSecondUpload = false;
+    const replay = await replayQueuedSubmissions(page);
+    if (replay.flushed !== 1 || replay.failed !== 0 || uploadRequests !== 3) {
+      throw new Error(`repeat signature retry did not resume at the unfinished row: ${JSON.stringify({ replay, uploadRequests })}`);
+    }
+
+    await waitForQueueCount(page, 0);
+    const synced = await page.evaluate(async (recordId) => {
+      const { get } = await import('/assets/js/db.js');
+      const record = await get('records', recordId);
+      return {
+        syncStatus: record?.syncStatus || '',
+        signatures: record?.answers?.crews?.map((row) => row.crew_signature) || []
+      };
+    }, queued.id);
+    if (
+      synced.syncStatus !== 'synced'
+      || synced.signatures.length !== 2
+      || synced.signatures.some((value) => !value.startsWith('/uploads/'))
+    ) {
+      throw new Error(`repeat signature retry did not finish with durable upload URLs: ${JSON.stringify(synced)}`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 async function checkDayworkTeamMemberPicker(browser) {
   const context = await newContext(browser);
   const page = await context.newPage();
@@ -723,6 +872,45 @@ async function checkDayworkRecordRendering(browser) {
     assertCleanDayworkText('supervisor review', reviewText);
   } finally {
     await supervisorContext.close();
+  }
+}
+
+async function checkReconnectPreservesWorkerForms(browser) {
+  const context = await newContext(browser);
+  const page = await context.newPage();
+  const dayworkMarker = `Daywork reconnect ${Date.now()}`;
+  const formMarker = `Inspection reconnect ${Date.now()}`;
+
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+
+    await page.locator('.tab[data-tab-target="taskTab"]').click();
+    await page.locator('#dayworkFormField_client').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#dayworkFormField_client').fill(dayworkMarker);
+
+    await page.locator('.tab[data-tab-target="formTab"]').click();
+    await page.waitForFunction(() => (
+      [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent === 'Inspection form')
+    ));
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    const inspectionInput = page.locator('#workFormFields [data-work-form-field="inspection_area"] input');
+    await inspectionInput.waitFor({ state: 'visible', timeout: 10000 });
+    await inspectionInput.fill(formMarker);
+
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.waitForFunction(() => (
+      (document.querySelector('#statusBanner')?.textContent || '').includes('back online')
+    ), null, { timeout: 20000 });
+
+    if (await page.locator('#dayworkFormField_client').inputValue() !== dayworkMarker) {
+      throw new Error('Daywork input was lost when connectivity returned');
+    }
+    if (await inspectionInput.inputValue() !== formMarker) {
+      throw new Error('Work Form input was lost when connectivity returned');
+    }
+  } finally {
+    await context.close();
   }
 }
 
@@ -1102,6 +1290,7 @@ async function main() {
   try {
     await runCheck('anonymous login startup does not request or expose sites', () => checkAnonymousStartupDoesNotLoadSites(browser));
     await runCheck('restored session loads sites only after auth refresh', () => checkRestoredSessionLoadsSitesAfterRefresh(browser));
+    await runCheck('authenticated Site failure does not expose demo Sites', () => checkAuthenticatedSiteFailureDoesNotExposeDemoSites(browser));
     await runCheck('browser login uses cookie session without localStorage bearer token', (async () => {
       const context = await newContext(browser);
       const page = await context.newPage();
@@ -1116,8 +1305,10 @@ async function main() {
     await runCheck('browser geolocation denial shows recoverable error', () => checkDeniedGeolocation(browser));
     await runCheck('Daywork team rows use searchable member picker', () => checkDayworkTeamMemberPicker(browser));
     await runCheck('Daywork history and review hide helper fields', () => checkDayworkRecordRendering(browser));
+    await runCheck('reconnect preserves in-progress Daywork and Work Form answers', () => checkReconnectPreservesWorkerForms(browser));
     await runCheck('staff users scope global admin controls by role', () => checkStaffGlobalAdminScoping(browser));
     await runCheck('Offline Submission ownership, occurrence time, and idempotent replay', () => checkOfflineQueueAndReplay(browser));
+    await runCheck('repeat signatures resume after a partial upload failure', () => checkRepeatSignatureUploadResume(browser));
     await runCheck('supervisor review shows pending outside-site worker record', () => checkSupervisorReview(browser));
     await runCheck('supervisor Review Desk is responsive', () => checkSupervisorReviewDeskLayout(browser));
     await runCheck('offline Review Queue is explicit and read-only', () => checkOfflineReviewQueueReadOnly(browser));
@@ -1139,5 +1330,6 @@ try {
   await main();
 } finally {
   await Promise.all([...children].reverse().map(stopProcess));
-  rmSync(tempDir, { recursive: true, force: true });
+  await delay(250);
+  rmSync(tempDir, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
 }

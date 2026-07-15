@@ -502,7 +502,8 @@
                     </label>
                     <label>
                       Optional site photo
-                      <input id="attendancePhoto" type="file" accept="image/*" capture="environment" />
+                      <input id="attendancePhoto" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" />
+                      <small>JPEG, PNG, or WebP; maximum 5 MB.</small>
                     </label>
                     <div id="attendancePhotoPreview" class="photo-preview hidden"></div>
                   </div>
@@ -569,7 +570,8 @@
                 <div id="dayworkFormFields" class="dynamic-fields"></div>
                 <label>
                   Progress photos
-                  <input id="taskPhoto" type="file" accept="image/*" multiple />
+                  <input id="taskPhoto" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+                  <small>JPEG, PNG, or WebP; maximum 5 MB each.</small>
                 </label>
                 <div id="taskPhotoPreview" class="photo-preview hidden"></div>
                 <div class="split-actions">
@@ -601,7 +603,8 @@
                 <div id="workFormFields" class="dynamic-fields"></div>
                 <label>
                   Photos
-                  <input id="workFormPhotos" type="file" accept="image/*" multiple />
+                  <input id="workFormPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+                  <small>JPEG, PNG, or WebP; maximum 5 MB each.</small>
                 </label>
                 <div id="workFormPhotoPreview" class="photo-preview hidden"></div>
                 <button id="submitWorkFormButton" type="submit">Submit form</button>

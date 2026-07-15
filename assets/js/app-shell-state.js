@@ -26,6 +26,7 @@ export const DEPARTMENT_LOGOS = {
 export const state = {
   user: null,
   sites: [],
+  sitesLoadError: '',
   installPrompt: null,
   waitingServiceWorker: null,
   attendanceLocation: null,

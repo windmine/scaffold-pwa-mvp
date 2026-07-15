@@ -17,6 +17,7 @@ from app.use_cases.common import (
     normalize_client_submission_id,
     require_worker,
     site_distance_check,
+    validate_owned_upload_references,
     validate_photo_url,
 )
 
@@ -69,6 +70,8 @@ def create_attendance(data, user: User, session: Session):
         ).first()
         if existing_record:
             return attendance_record_response(existing_record, session)
+
+    validate_owned_upload_references(data.photo_url, user, session)
 
     rapid_duplicate = session.exec(
         select(AttendanceRecord)
@@ -161,6 +164,12 @@ def update_my_attendance_record(record_id: int, data, user: User, session: Sessi
         record.note = data.note
     if "photo_url" in fields:
         validate_photo_url(data.photo_url)
+        validate_owned_upload_references(
+            data.photo_url,
+            user,
+            session,
+            already_attached=previous_upload_urls,
+        )
         record.photo_url = data.photo_url
 
     site = ensure_site_exists(session, record.site_id, user)

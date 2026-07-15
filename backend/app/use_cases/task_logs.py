@@ -15,6 +15,7 @@ from app.use_cases.common import (
     require_worker,
     task_log_response,
     task_template_response,
+    validate_owned_upload_references,
 )
 
 
@@ -32,6 +33,8 @@ def create_task_log(data, user: User, session: Session):
         ).first()
         if existing_log:
             return task_log_response(existing_log, session)
+
+    validate_owned_upload_references(photo_urls, user, session)
 
     rapid_duplicate = session.exec(
         select(TaskLog)

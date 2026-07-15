@@ -13,7 +13,12 @@ function numericValue(value) {
 }
 
 function csvCell(value) {
-  const text = String(value ?? '');
+  const source = String(value ?? '');
+  const firstVisible = source.replace(/^[ \t\r\n]+/, '');
+  const text = typeof value === 'string'
+    && (/^[\t\r\n]/.test(source) || /^[=+\-@]/.test(firstVisible))
+    ? `'${source}`
+    : source;
   return `"${text.replaceAll('"', '""')}"`;
 }
 
@@ -433,7 +438,7 @@ function renderFormCharts(container, charts) {
     : '<div class="empty-state">Select, checkbox, and numeric form responses will appear here.</div>';
 }
 
-function managementCsv(analytics, label) {
+export function managementCsv(analytics, label) {
   const rows = [
     ['section', 'name', 'value', 'site', 'workers', 'records', 'attendance', 'task_hours', 'forms', 'approval_rate', 'exceptions', 'date', 'detail'],
     ['report', 'period', label],

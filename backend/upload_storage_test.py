@@ -5,14 +5,25 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from google.api_core.exceptions import NotFound
+from fastapi import HTTPException
 from PIL import Image
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from app import upload_storage
-from app.models import AttendanceRecord, TaskLog, User, WorkFormSubmission
+from app.models import AttendanceRecord, TaskLog, User, WorkForm, WorkFormSubmission
+from app.schemas import (
+    AttendanceCreate,
+    SupervisorWorkFormSubmissionUpdate,
+    TaskLogCreate,
+    WorkFormSubmissionCreate,
+)
 from app.use_cases.common import upload_url
+from app.use_cases.attendance import create_attendance
 from app.use_cases.record_trash import purge_expired_deleted_records
+from app.use_cases.task_logs import create_task_log
+from app.use_cases.supervisor_review import update_supervisor_form_submission
+from app.use_cases.work_forms import create_work_form_submission
 
 
 def assert_equal(label, actual, expected):
@@ -237,9 +248,9 @@ def test_authorization_streaming_and_cleanup(tmp_dir):
     engine, session = make_session()
 
     try:
-        owner = User(department_id=1, email="owner@example.com", name="Owner", password_hash="x", role="worker")
+        owner = User(department_id=1, email="owner@example.com", name="Owner", password_hash="x", role="worker", worker_class="leader")
         referenced_worker = User(department_id=1, email="referenced@example.com", name="Referenced", password_hash="x", role="worker")
-        stranger = User(department_id=2, email="stranger@example.com", name="Stranger", password_hash="x", role="worker")
+        stranger = User(department_id=2, email="stranger@example.com", name="Stranger", password_hash="x", role="worker", worker_class="leader")
         supervisor = User(department_id=1, email="supervisor@example.com", name="Supervisor", password_hash="x", role="supervisor")
         other_supervisor = User(department_id=2, email="other-supervisor@example.com", name="Other", password_hash="x", role="supervisor")
         global_supervisor = User(department_id=2, email="global@example.com", name="Global", password_hash="x", role="supervisor", is_global_admin=True)
@@ -252,6 +263,151 @@ def test_authorization_streaming_and_cleanup(tmp_dir):
         orphan = upload_storage.store_verified_raster(raster_bytes("JPEG"), owner.id)
         shared_url = upload_url(shared.filename)
         orphan_url = upload_url(orphan.filename)
+
+        assert_raises(
+            "submission rejects a missing upload reference",
+            upload_storage.UploadReferenceValidationError,
+            lambda: upload_storage.validate_submission_upload_references(
+                "/uploads/missing.png",
+                owner,
+                session,
+            ),
+        )
+        assert_raises(
+            "submission rejects another user's upload",
+            upload_storage.UploadReferenceValidationError,
+            lambda: upload_storage.validate_submission_upload_references(
+                {"rows": [{"signature": shared_url}]},
+                stranger,
+                session,
+            ),
+        )
+        assert_equal(
+            "submission accepts nested uploads owned by its authenticated uploader",
+            upload_storage.validate_submission_upload_references(
+                {"rows": [{"signature": shared_url}]},
+                owner,
+                session,
+            ),
+            (shared.filename,),
+        )
+        assert_raises(
+            "attendance rejects a nonexistent photo object",
+            HTTPException,
+            lambda: create_attendance(
+                AttendanceCreate(
+                    record_type="check_in",
+                    latitude=-36.85,
+                    longitude=174.76,
+                    photo_url="/uploads/missing.png",
+                ),
+                owner,
+                session,
+            ),
+        )
+        assert_raises(
+            "task log rejects a photo owned by another Worker",
+            HTTPException,
+            lambda: create_task_log(
+                TaskLogCreate(
+                    description="Unowned evidence",
+                    photo_urls=[shared_url],
+                ),
+                stranger,
+                session,
+            ),
+        )
+
+        form = WorkForm(
+            department_id=stranger.department_id,
+            name="Upload evidence form",
+            fields_json=json.dumps([
+                {
+                    "id": "note",
+                    "label": "Note",
+                    "type": "text",
+                    "required": False,
+                },
+                {
+                    "id": "crews",
+                    "label": "Crews",
+                    "type": "repeat",
+                    "required": False,
+                    "min_rows": 1,
+                    "max_rows": 2,
+                },
+                {
+                    "id": "crew_signature",
+                    "label": "Crew signature",
+                    "type": "signature",
+                    "required": True,
+                    "repeat": "crews",
+                },
+            ]),
+            status="active",
+        )
+        session.add(form)
+        session.commit()
+        session.refresh(form)
+        assert_raises(
+            "nested Work Form signature rejects another Worker's object",
+            HTTPException,
+            lambda: create_work_form_submission(
+                WorkFormSubmissionCreate(
+                    form_id=form.id,
+                    answers={"crews": [{"crew_signature": shared_url}]},
+                ),
+                stranger,
+                session,
+            ),
+        )
+
+        stranger_signature = upload_storage.store_verified_raster(raster_bytes("PNG"), stranger.id)
+        assert_raises(
+            "Work Form rejects a missing top-level photo object",
+            HTTPException,
+            lambda: create_work_form_submission(
+                WorkFormSubmissionCreate(
+                    form_id=form.id,
+                    answers={
+                        "crews": [{"crew_signature": upload_url(stranger_signature.filename)}],
+                    },
+                    photo_urls=["/uploads/missing-form-photo.png"],
+                ),
+                stranger,
+                session,
+            ),
+        )
+        valid_submission = create_work_form_submission(
+            WorkFormSubmissionCreate(
+                form_id=form.id,
+                answers={
+                    "note": "/uploads/not-evidence.png",
+                    "crews": [{"crew_signature": upload_url(stranger_signature.filename)}],
+                },
+            ),
+            stranger,
+            session,
+        )
+        corrected_submission = update_supervisor_form_submission(
+            valid_submission["id"],
+            SupervisorWorkFormSubmissionUpdate(
+                answers=valid_submission["answers"],
+                confirmed=True,
+            ),
+            other_supervisor,
+            session,
+        )
+        assert_equal(
+            "Supervisor correction may retain already-attached Worker evidence",
+            corrected_submission["answers"]["crews"][0]["crew_signature"],
+            upload_url(stranger_signature.filename),
+        )
+        assert_equal(
+            "ordinary Work Form text is not mistaken for upload evidence",
+            corrected_submission["answers"]["note"],
+            "/uploads/not-evidence.png",
+        )
 
         assert_true(
             "uploader can stream own asset",

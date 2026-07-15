@@ -6,7 +6,7 @@ import {
   uploadPhoto
 } from './api-client.js';
 import { get, getAll, put, remove } from './db.js';
-import { dataUrlToBlob, uuid } from './utils.js';
+import { dataUrlToBlob, uploadImageValidationError, uuid } from './utils.js';
 
 const SUBMISSION_DRAFT_KEYS = {
   attendance: 'attendance-form',
@@ -112,6 +112,15 @@ function photoFilenameFor(record, file, index = 0, dataUrl = '') {
   return `${record.type || 'record'}-${record.id || uuid()}${suffix}.${extension.replace('jpeg', 'jpg')}`;
 }
 
+function requireValidUploadImage(file) {
+  const errorMessage = uploadImageValidationError(file);
+  if (!errorMessage) return;
+
+  const error = new Error(errorMessage);
+  error.code = 'INVALID_UPLOAD_IMAGE';
+  throw error;
+}
+
 async function uploadRecordPhotos(record, files = [], options = {}) {
   const fileList = Array.from(files || []);
   const dataUrls = Array.isArray(record.photoDataUrls)
@@ -141,6 +150,7 @@ async function uploadRecordPhotos(record, files = [], options = {}) {
     if (uploadedUrls[index]) continue;
 
     options.assertCanSync?.();
+    requireValidUploadImage(item.source);
     const uploaded = await uploadPhoto(item.source, photoFilenameFor(record, item.file, index, item.dataUrl));
     uploadedUrls[index] = uploaded.url;
     record.photoUrls = uploadedUrls.filter(Boolean);
@@ -174,18 +184,44 @@ async function uploadSignatureAnswers(record, options = {}) {
   const answers = { ...record.answers };
   const signatureFields = record.fields.filter((field) => field.type === 'signature');
 
-  for (const field of signatureFields) {
+  for (const field of signatureFields.filter((item) => !item.repeat)) {
     const value = answers[field.id];
     if (!isSignatureDataUrl(value)) continue;
 
     options.assertCanSync?.();
+    const signature = dataUrlToBlob(value);
+    requireValidUploadImage(signature);
     const uploaded = await uploadPhoto(
-      dataUrlToBlob(value),
+      signature,
       `signature-${record.userId || 'worker'}-${record.formId || 'form'}-${field.id}-${record.id || Date.now()}.png`
     );
     answers[field.id] = uploaded.url;
     record.answers = answers;
     await options.onProgress?.(record);
+  }
+
+  for (const field of signatureFields.filter((item) => item.repeat)) {
+    const repeatId = field.repeat;
+    const rows = Array.isArray(answers[repeatId])
+      ? answers[repeatId].map((row) => ({ ...(row || {}) }))
+      : [];
+
+    for (const [rowIndex, row] of rows.entries()) {
+      const value = row[field.id];
+      if (!isSignatureDataUrl(value)) continue;
+
+      options.assertCanSync?.();
+      const signature = dataUrlToBlob(value);
+      requireValidUploadImage(signature);
+      const uploaded = await uploadPhoto(
+        signature,
+        `signature-${record.userId || 'worker'}-${record.formId || 'form'}-${field.id}-${rowIndex + 1}-${record.id || Date.now()}.png`
+      );
+      row[field.id] = uploaded.url;
+      answers[repeatId] = rows;
+      record.answers = answers;
+      await options.onProgress?.(record);
+    }
   }
 
   record.answers = answers;
@@ -699,4 +735,17 @@ export async function syncQueuedSubmissions() {
   });
 
   return syncQueuePromise;
+}
+
+export async function discardOfflineSubmission(recordId) {
+  const record = await get('records', recordId);
+  if (!record) throw new Error('Offline submission was not found on this device.');
+
+  assertOwnedByWorker(record);
+  if (record.backendRecordId || record.syncStatus === 'synced') {
+    throw new Error('A synced submission cannot be discarded from the offline queue.');
+  }
+
+  await remove('queue', record.id);
+  await remove('records', record.id);
 }

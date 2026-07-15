@@ -4153,6 +4153,7 @@ html[data-theme="dark"] .site-map-picker.leaflet-container {
 
   #workerView .tabs {
     position: fixed;
+    top: auto;
     right: max(10px, env(safe-area-inset-right));
     bottom: max(8px, env(safe-area-inset-bottom));
     left: max(10px, env(safe-area-inset-left));

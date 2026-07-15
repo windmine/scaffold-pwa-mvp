@@ -1,13 +1,13 @@
 import base64
 import html
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional
 from urllib.parse import urlparse
 
 from fastapi import HTTPException
 from sqlmodel import Session
 
-from app.config import ROOT_DIR
+from app.config import BUSINESS_TIMEZONE, ROOT_DIR
 from app.models import Department, User, WorkForm
 from app.upload_storage import load_upload
 from app.use_cases.common import can_access_department
@@ -29,6 +29,25 @@ EXPORT_LOGO_MIME_TYPES = {
     ".svg": "image/svg+xml",
     ".webp": "image/webp",
 }
+SPREADSHEET_FORMULA_PREFIXES = ("=", "+", "-", "@")
+SPREADSHEET_CONTROL_PREFIXES = ("\t", "\r", "\n")
+
+
+def spreadsheet_safe_csv_cell(value):
+    """Neutralize text that spreadsheet programs may evaluate as a formula."""
+    if not isinstance(value, str) or not value:
+        return value
+
+    first_visible = value.lstrip(" \t\r\n")
+    if value.startswith(SPREADSHEET_CONTROL_PREFIXES) or first_visible.startswith(
+        SPREADSHEET_FORMULA_PREFIXES
+    ):
+        return f"'{value}"
+    return value
+
+
+def write_spreadsheet_safe_csv_row(writer, values):
+    writer.writerow([spreadsheet_safe_csv_cell(value) for value in values])
 
 
 def parse_export_date(value: Optional[str], label: str):
@@ -59,7 +78,9 @@ def record_export_date(record):
 
     created_at = getattr(record, "created_at", None)
     if isinstance(created_at, datetime):
-        return created_at.date()
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        return created_at.astimezone(BUSINESS_TIMEZONE).date()
     if isinstance(created_at, date):
         return created_at
 

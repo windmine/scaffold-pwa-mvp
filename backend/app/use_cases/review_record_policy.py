@@ -91,6 +91,7 @@ def apply_review_decision(
         before=before,
         after=model_snapshot(record),
         summary=summary,
+        department_id=record.department_id,
     )
     session.commit()
     session.refresh(record)

@@ -89,12 +89,22 @@ function isHiddenDayworkAnswer(record, fieldId) {
 
 function signatureImageSources(record) {
   const answers = record.answers || {};
-  return (record.fields || [])
+  const fields = record.fields || [];
+  const topLevel = fields
     .filter((field) => !field.repeat && field.type === 'signature' && answers[field.id])
     .map((field) => ({
       label: field.label || 'Signature',
       src: answers[field.id]
     }));
+  const repeated = fields
+    .filter((field) => field.repeat && field.type === 'signature')
+    .flatMap((field) => (Array.isArray(answers[field.repeat]) ? answers[field.repeat] : [])
+      .map((row, rowIndex) => row?.[field.id] ? {
+        label: `${field.label || 'Signature'} ${rowIndex + 1}`,
+        src: row[field.id]
+      } : null)
+      .filter(Boolean));
+  return topLevel.concat(repeated);
 }
 
 function getRecordDate(record) {
@@ -112,6 +122,7 @@ function recordSearchText(record) {
     record.action,
     record.status,
     record.syncStatus,
+    record.syncError,
     record.entrySource,
     record.createdBySupervisorName,
     record.withinSiteRadius === true ? 'inside site radius' : '',
@@ -158,6 +169,8 @@ export function createHistoryModule({
   canWorkerEditRecord,
   handleWorkerEditRecord,
   handleWorkerDeleteRecord,
+  handleRetryQueuedRecord,
+  handleDiscardQueuedRecord,
   handleSupervisorEditRecord,
   handleSupervisorTrashRecord,
   handleSupervisorDecision,
@@ -596,6 +609,12 @@ export function createHistoryModule({
           </div>
         `).join('')}</div>` : ''}
         ${record.syncStatus ? `<p><strong>Sync:</strong> ${escapeHtml(record.syncStatus)}</p>` : ''}
+        ${record.syncStatus === 'queued' && record.syncError ? `
+          <div class="edit-warning" role="alert">
+            <strong>Sync needs attention.</strong>
+            ${escapeHtml(record.syncError)} Retry when online. If a photo is rejected, discard this local submission and create it again with a JPEG, PNG, or WebP image under 5 MB.
+          </div>
+        ` : ''}
         ${signatureSources.length ? `<div class="record-signatures">${signatureSources.map((signature, index) => `
           <button class="photo-thumb" type="button" data-signature-index="${index}">
             <img src="${escapeHtml(signature.src)}" alt="${escapeHtml(signature.label)}" />
@@ -631,10 +650,31 @@ export function createHistoryModule({
         && ['attendance', 'task', 'form', 'team_log'].includes(record.type)
       );
       const canShowDecision = showDecisionActions && record.status === 'pending';
+      const canShowQueuedActions = showWorkerActions && record.syncStatus === 'queued' && !record.backendRecordId;
       const exportOptions = exportOptionsForRecord(record);
       const canShowExport = showExportActions && record.backendRecordId && exportOptions.length > 0;
-      if (canShowDecision || canShowSupervisorEdit || canShowSupervisorTrash || canShowWorkerActions || canShowExport) {
+      if (canShowDecision || canShowSupervisorEdit || canShowSupervisorTrash || canShowWorkerActions || canShowQueuedActions || canShowExport) {
         actions.classList.remove('hidden');
+      }
+
+      if (canShowQueuedActions) {
+        const retryButton = document.createElement('button');
+        retryButton.type = 'button';
+        retryButton.className = 'ghost';
+        retryButton.textContent = 'Retry sync';
+        retryButton.addEventListener('click', async () => {
+          await handleRetryQueuedRecord(record);
+        });
+
+        const discardButton = document.createElement('button');
+        discardButton.type = 'button';
+        discardButton.className = 'secondary danger-action';
+        discardButton.textContent = 'Discard local copy';
+        discardButton.addEventListener('click', async () => {
+          await handleDiscardQueuedRecord(record);
+        });
+
+        actions.append(retryButton, discardButton);
       }
 
       if (canShowWorkerActions) {

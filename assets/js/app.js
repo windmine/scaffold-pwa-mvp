@@ -1,6 +1,5 @@
 import {
   initializeMockData,
-  getSites as getLocalSites,
   getDraft,
   getLastSyncAt
 } from './mock-api.js';
@@ -19,7 +18,7 @@ import {
   deleteMyRecord as deleteBackendMyRecord,
   logout as clearBackendSession
 } from './api-client.js';
-import { syncQueuedSubmissions } from './offline-submissions.js';
+import { discardOfflineSubmission, syncQueuedSubmissions } from './offline-submissions.js';
 import { createHistoryModule } from './history.js';
 import { createPhotoViewer } from './photo-viewer.js';
 import { createStaffSitesModule } from './staff-sites.js';
@@ -69,6 +68,8 @@ const historyModule = createHistoryModule({
   canWorkerEditRecord,
   handleWorkerEditRecord,
   handleWorkerDeleteRecord,
+  handleRetryQueuedRecord,
+  handleDiscardQueuedRecord,
   handleSupervisorEditRecord,
   handleSupervisorTrashRecord,
   handleSupervisorDecision,
@@ -207,7 +208,7 @@ async function init() {
   if (state.user) {
     state.departments = await loadDepartments();
     initialiseDepartmentFocus();
-    state.sites = await loadSites();
+    state.sites = await loadSitesForSession();
   } else {
     state.sites = [];
   }
@@ -226,14 +227,20 @@ async function init() {
 }
 
 async function loadSites() {
-  try {
-    const sites = await getBackendSites();
-    if (sites.length) return sites;
-  } catch {
-    // Use local demo sites when the backend is unavailable or before seed data exists.
-  }
+  if (!state.user) return [];
 
-  return await getLocalSites();
+  const sites = await getBackendSites();
+  state.sitesLoadError = '';
+  return sites;
+}
+
+async function loadSitesForSession(options = {}) {
+  try {
+    return await loadSites();
+  } catch (error) {
+    state.sitesLoadError = error.message || 'Sites could not be loaded from the backend.';
+    return options.preserveExisting ? state.sites : [];
+  }
 }
 
 async function loadDepartments() {
@@ -321,9 +328,27 @@ function bindEvents() {
   });
 
   window.addEventListener('online', async () => {
-    await syncQueueIfPossible(true);
-    renderStatusBanner('You are back online. Queued records have been checked for sync.');
-    renderApp();
+    const syncResult = await syncQueueIfPossible(true);
+    if (!state.user) return;
+
+    await refreshSitesAfterReconnect();
+    if (state.user.role === 'worker') {
+      if (state.user.workerClass === 'leader' && !state.workForms.length) {
+        await workerForm.refreshWorkForms();
+      }
+      await historyModule.renderWorkerSummary();
+      await historyModule.renderHistory();
+    } else {
+      await supervisorReviewModule.renderPanel();
+    }
+
+    if (syncResult?.failed) {
+      renderStatusBanner(`${syncResult.failed} queued record${syncResult.failed === 1 ? '' : 's'} still need attention. Open My history to retry or discard them.`, true);
+    } else if (state.sitesLoadError) {
+      renderStatusBanner(`You are back online, but Sites are unavailable: ${state.sitesLoadError}`, true);
+    } else {
+      renderStatusBanner('You are back online. Queued records have been checked for sync.');
+    }
   });
 
   window.addEventListener('offline', () => {
@@ -391,7 +416,12 @@ function handleThemeToggle() {
 }
 
 function fillSiteSelects() {
-  const options = ['<option value="">Select a site</option>']
+  const emptyLabel = state.sitesLoadError
+    ? 'Sites unavailable - reconnect and try again'
+    : state.sites.length
+      ? 'Select a site'
+      : 'No sites available';
+  const options = [`<option value="">${escapeHtml(emptyLabel)}</option>`]
     .concat(
       state.sites.map(
         (site) => `<option value="${site.id}">${escapeHtml(site.name)} - ${escapeHtml(site.address)}</option>`
@@ -404,19 +434,51 @@ function fillSiteSelects() {
   els.workFormSite.innerHTML = options;
 }
 
+async function refreshSitesAfterReconnect() {
+  const selectedSiteIds = new Map([
+    [els.attendanceSite, els.attendanceSite.value],
+    [els.taskSite, els.taskSite.value],
+    [els.workFormSite, els.workFormSite.value]
+  ]);
+
+  state.sites = await loadSitesForSession({ preserveExisting: true });
+  fillSiteSelects();
+  selectedSiteIds.forEach((siteId, select) => {
+    if (siteId && [...select.options].some((option) => option.value === siteId)) {
+      select.value = siteId;
+    }
+  });
+  workerAttendance.renderLocationPreview();
+}
+
 function findSiteByFormValue(siteId) {
   return state.sites.find((item) => String(item.id) === String(siteId));
 }
 
 async function restoreDrafts() {
+  await restoreWorkerSubmissionDrafts();
+
+  const teamWorkLogDraft = await getDraft('team-work-log');
+  teamWorkLogModule.restoreDraft(teamWorkLogDraft);
+}
+
+async function restoreWorkerSubmissionDrafts() {
   const attendanceDraft = await getDraft('attendance-form');
   workerAttendance.restoreDraft(attendanceDraft);
 
   const taskDraft = await getDraft('task-form');
   workerLog.restoreDraft(taskDraft);
+}
 
-  const teamWorkLogDraft = await getDraft('team-work-log');
-  teamWorkLogModule.restoreDraft(teamWorkLogDraft);
+function clearWorkerSessionState() {
+  workerAttendance.clearSessionState();
+  workerLog.clearSessionState();
+  workerForm.clearSessionState();
+  state.workForms = [];
+  state.teamWorkLogMembers = [];
+  els.teamWorkLogForm.reset();
+  els.teamWorkLogEntries.innerHTML = '';
+  els.teamWorkLogHistory.innerHTML = '';
 }
 
 function renderApp() {
@@ -572,12 +634,15 @@ async function handleLogin(event) {
   event.preventDefault();
   try {
     renderStatusBanner('Signing in with the backend...');
-    state.user = await backendLogin(els.emailInput.value.trim(), els.passwordInput.value);
+    const signedInUser = await backendLogin(els.emailInput.value.trim(), els.passwordInput.value);
+    clearWorkerSessionState();
+    state.user = signedInUser;
     resetRegistrationFlow();
     state.departments = await loadDepartments();
     initialiseDepartmentFocus();
-    state.sites = await loadSites();
+    state.sites = await loadSitesForSession();
     fillSiteSelects();
+    await restoreWorkerSubmissionDrafts();
     await syncQueueIfPossible(false);
     renderApp();
   } catch (error) {
@@ -689,17 +754,21 @@ function resetRegistrationFlow() {
 }
 
 function handleLogout() {
+  clearWorkerSessionState();
   clearBackendSession();
   state.user = null;
   state.sites = [];
+  state.sitesLoadError = '';
   fillSiteSelects();
   renderApp();
 }
 
 function handleSessionExpired() {
+  clearWorkerSessionState();
   clearBackendSession();
   state.user = null;
   state.sites = [];
+  state.sitesLoadError = '';
   fillSiteSelects();
   renderApp();
   renderStatusBanner('Your backend session expired. Please sign in again.');
@@ -863,6 +932,33 @@ async function handleWorkerDeleteRecord(record) {
   }
 }
 
+async function handleRetryQueuedRecord() {
+  if (!navigator.onLine) {
+    renderStatusBanner('Reconnect to the internet before retrying this submission.', true);
+    return;
+  }
+
+  const result = await syncQueueIfPossible(true);
+  await historyModule.renderHistory();
+  await historyModule.renderWorkerSummary();
+  if (result?.failed) {
+    renderStatusBanner('Sync still failed. Check the error in My history, then discard and resubmit if the photo needs replacing.', true);
+  }
+}
+
+async function handleDiscardQueuedRecord(record) {
+  if (!window.confirm('Discard this unsynced submission from this device? You can then create it again with corrected details or photos.')) return;
+
+  try {
+    await discardOfflineSubmission(record.id);
+    renderStatusBanner('Unsynced submission discarded. You can create it again now.');
+    await historyModule.renderHistory();
+    await historyModule.renderWorkerSummary();
+  } catch (error) {
+    renderStatusBanner(error.message || 'Could not discard this offline submission.', true);
+  }
+}
+
 async function handleSupervisorEditRecord(record) {
   await supervisorReviewModule.handleEditRecord(record);
 }
@@ -898,11 +994,12 @@ async function syncQueueIfPossible(showMessage) {
   const result = await syncQueuedSubmissions();
 
   if (result.authBlocked) {
+    clearWorkerSessionState();
     clearBackendSession();
     state.user = null;
     renderApp();
     renderStatusBanner('Sign in again to sync queued submissions.', true);
-    return;
+    return result;
   }
 
   if (showMessage && result.flushed) {
@@ -916,6 +1013,8 @@ async function syncQueueIfPossible(showMessage) {
   if (showMessage && !result.flushed && !result.failed && result.skipped) {
     renderStatusBanner('Queued submissions are already syncing.');
   }
+
+  return result;
 }
 
 async function handleInstall() {
