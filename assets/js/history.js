@@ -462,6 +462,12 @@ export function createHistoryModule({
     const showWorkerActions = typeof options === 'object' && Boolean(options.showWorkerActions);
     const showExportActions = typeof options === 'object' && Boolean(options.showExportActions);
     const showTrashActions = typeof options === 'object' && Boolean(options.showTrashActions);
+    const summaryOnly = typeof options === 'object' && Boolean(options.summaryOnly);
+    const getRecordKey = typeof options?.getRecordKey === 'function'
+      ? options.getRecordKey
+      : (record) => `${record.type || 'record'}:${record.backendRecordId || record.id || ''}`;
+    const onRecordSelect = typeof options?.onRecordSelect === 'function' ? options.onRecordSelect : null;
+    const selectedRecordKey = String(options?.selectedRecordKey || '');
     container.innerHTML = '';
     if (!records.length) {
       container.innerHTML = '<div class="empty-state">No records found yet.</div>';
@@ -505,6 +511,68 @@ export function createHistoryModule({
       badge.textContent = badgeText;
       badge.className = `badge ${record.status} ${record.syncStatus}`;
       badge.title = record.syncStatus ? `Sync: ${record.syncStatus}` : '';
+
+      if (summaryOnly) {
+        const recordKey = String(getRecordKey(record));
+        const isSelected = Boolean(recordKey && recordKey === selectedRecordKey);
+        node.classList.add('review-queue-item');
+        node.classList.toggle('is-selected', isSelected);
+        node.dataset.recordKey = recordKey;
+        node.setAttribute('role', 'option');
+        node.setAttribute('aria-selected', String(isSelected));
+        node.setAttribute('aria-label', `Review ${title}`);
+        node.tabIndex = isSelected ? 0 : -1;
+
+        const signals = document.createElement('div');
+        signals.className = 'review-item-signals';
+        const addSignal = (label, className = '') => {
+          const signal = document.createElement('span');
+          signal.className = `review-item-signal ${className}`.trim();
+          signal.textContent = label;
+          signals.appendChild(signal);
+        };
+        addSignal(
+          record.type === 'attendance'
+            ? record.action === 'check_out' ? 'Check out' : 'Check in'
+            : record.type === 'form'
+              ? 'Form'
+              : record.type === 'team_log'
+                ? 'Team log'
+                : 'Task log'
+        );
+        if (record.type === 'attendance' && record.withinSiteRadius === false) {
+          addSignal('Outside site', 'is-exception');
+        }
+        if (record.entrySource === 'supervisor_manual') {
+          addSignal('Manual entry', 'is-manual');
+        }
+        node.querySelector('.record-header')?.insertAdjacentElement('afterend', signals);
+        node.querySelector('.record-extra')?.remove();
+        node.querySelector('.record-actions')?.remove();
+        if (onRecordSelect) {
+          node.addEventListener('click', () => onRecordSelect(record));
+          node.addEventListener('keydown', (event) => {
+            if (['Enter', ' '].includes(event.key)) {
+              event.preventDefault();
+              onRecordSelect(record);
+              return;
+            }
+            if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+            const items = [...container.querySelectorAll('[role="option"]')];
+            const currentIndex = items.indexOf(node);
+            const nextIndex = event.key === 'Home'
+              ? 0
+              : event.key === 'End'
+                ? items.length - 1
+                : Math.max(0, Math.min(items.length - 1, currentIndex + (event.key === 'ArrowDown' ? 1 : -1)));
+            event.preventDefault();
+            items[nextIndex]?.focus();
+            items[nextIndex]?.click();
+          });
+        }
+        container.appendChild(node);
+        return;
+      }
 
       const extra = node.querySelector('.record-extra');
       const photoSources = (Array.isArray(record.photoDataUrls) && record.photoDataUrls.length)

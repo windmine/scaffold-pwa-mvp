@@ -63,6 +63,8 @@ export function createSupervisorReviewModule({
   let filterRefreshTimer = null;
   let reviewQueueRequestId = 0;
   let reviewOverviewRequestId = 0;
+  let selectedReviewRecordKey = '';
+  let visibleReviewRecords = [];
 
   function reviewQueueIsReadOnly() {
     return state.supervisorRecords.queueMode !== REVIEW_QUEUE_MODE.LIVE;
@@ -135,6 +137,79 @@ export function createSupervisorReviewModule({
     if (record.type === 'team_log') return `Weekly team log - ${record.weekStart || record.workDate || 'No week'}`;
     if (record.type === 'task') return `Task log - ${record.siteName || 'No site'}`;
     return `${recordActionLabel(record)} - ${record.siteName || 'No site'}`;
+  }
+
+  function reviewRecordKey(record) {
+    return `${record?.type || 'record'}:${record?.backendRecordId || record?.id || ''}`;
+  }
+
+  function renderReviewDetail(record) {
+    const readOnly = reviewQueueIsReadOnly();
+    const selectedIndex = record
+      ? visibleReviewRecords.findIndex((item) => reviewRecordKey(item) === reviewRecordKey(record))
+      : -1;
+
+    els.reviewQueueModeBadge.textContent = readOnly ? 'Read only' : 'Live';
+    els.reviewQueueModeBadge.className = `badge ${readOnly ? 'rejected' : 'approved'}`;
+    els.reviewQueueSelectionPosition.textContent = record
+      ? `${selectedIndex + 1} of ${visibleReviewRecords.length}`
+      : `0 of ${visibleReviewRecords.length}`;
+    els.previousReviewRecordButton.disabled = selectedIndex <= 0;
+    els.nextReviewRecordButton.disabled = selectedIndex < 0 || selectedIndex >= visibleReviewRecords.length - 1;
+
+    if (!record) {
+      els.reviewQueueDetailTitle.textContent = 'Select a record';
+      els.reviewQueueDetail.innerHTML = `
+        <div class="empty-state review-detail-empty">
+          ${visibleReviewRecords.length
+            ? 'Choose a record from the inbox to see its full details and review actions.'
+            : 'No records match the current filters.'}
+        </div>
+      `;
+      return;
+    }
+
+    els.reviewQueueDetailTitle.textContent = recordTitleLabel(record);
+    historyModule.renderRecordsList(els.reviewQueueDetail, [record], {
+      showDecisionActions: !readOnly,
+      showEditActions: !readOnly,
+      showExportActions: !readOnly,
+      showTrashActions: !readOnly
+    });
+    const detailCard = els.reviewQueueDetail.querySelector('.record-card');
+    detailCard?.classList.add('review-detail-record-card');
+    const actions = detailCard?.querySelector('.record-actions');
+    if (actions) actions.id = 'reviewQueueActions';
+  }
+
+  function selectReviewRecord(record, { scrollOnSmallScreen = false } = {}) {
+    selectedReviewRecordKey = reviewRecordKey(record);
+    els.reviewQueueList.querySelectorAll('.review-queue-item').forEach((item) => {
+      const selected = item.dataset.recordKey === selectedReviewRecordKey;
+      item.classList.toggle('is-selected', selected);
+      item.setAttribute('aria-selected', String(selected));
+      item.tabIndex = selected ? 0 : -1;
+    });
+    renderReviewDetail(record);
+
+    if (scrollOnSmallScreen && window.matchMedia('(max-width: 979px)').matches) {
+      els.reviewQueueDetail.closest('.review-detail-shell')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+  }
+
+  function selectAdjacentReviewRecord(offset) {
+    const currentIndex = visibleReviewRecords.findIndex(
+      (record) => reviewRecordKey(record) === selectedReviewRecordKey
+    );
+    const nextRecord = visibleReviewRecords[currentIndex + offset];
+    if (!nextRecord) return;
+    selectReviewRecord(nextRecord);
+    const selectedItem = [...els.reviewQueueList.querySelectorAll('.review-queue-item')]
+      .find((item) => item.dataset.recordKey === selectedReviewRecordKey);
+    selectedItem?.scrollIntoView({ block: 'nearest' });
   }
 
   function itemsForRecordDepartment(items, record) {
@@ -716,12 +791,20 @@ export function createSupervisorReviewModule({
     const readOnly = reviewQueueIsReadOnly();
     const matchingTotal = state.supervisorRecords.queueCounts?.total ?? focusedRecords.length;
     els.supervisorResultCount.textContent = `${filteredRecords.length}/${matchingTotal} matching records loaded`;
+    visibleReviewRecords = filteredRecords;
+    const selectedRecord = filteredRecords.find(
+      (record) => reviewRecordKey(record) === selectedReviewRecordKey
+    ) || filteredRecords[0] || null;
+    selectedReviewRecordKey = selectedRecord ? reviewRecordKey(selectedRecord) : '';
+    els.reviewQueueNotice.innerHTML = '';
+    els.reviewQueuePagination.innerHTML = '';
     historyModule.renderRecordsList(els.reviewQueueList, filteredRecords, {
-      showDecisionActions: !readOnly,
-      showEditActions: !readOnly,
-      showExportActions: !readOnly,
-      showTrashActions: !readOnly
+      summaryOnly: true,
+      getRecordKey: reviewRecordKey,
+      selectedRecordKey: selectedReviewRecordKey,
+      onRecordSelect: (record) => selectReviewRecord(record, { scrollOnSmallScreen: true })
     });
+    renderReviewDetail(selectedRecord);
     els.exportAttendanceButton.disabled = readOnly;
     els.exportTaskLogsButton.disabled = readOnly;
     els.exportDocumentButton.disabled = readOnly;
@@ -732,7 +815,7 @@ export function createSupervisorReviewModule({
       notice.textContent = reviewRecords.length
         ? 'Offline read-only view of the last durable results. Reconnect before approving, rejecting, editing, exporting, or deleting Review Records.'
         : 'The durable Review Queue is unavailable offline. Unsynced Worker records are not Supervisor Review Records.';
-      els.reviewQueueList.prepend(notice);
+      els.reviewQueueNotice.appendChild(notice);
       return;
     }
 
@@ -743,7 +826,7 @@ export function createSupervisorReviewModule({
       loadMoreButton.textContent = state.supervisorRecords.loadingMore ? 'Loading…' : 'Load more Review Records';
       loadMoreButton.disabled = state.supervisorRecords.loadingMore;
       loadMoreButton.addEventListener('click', loadMoreReviewRecords);
-      els.reviewQueueList.appendChild(loadMoreButton);
+      els.reviewQueuePagination.appendChild(loadMoreButton);
     }
   }
 
@@ -1349,6 +1432,8 @@ export function createSupervisorReviewModule({
 
   function bindEvents() {
     els.refreshSupervisorButton.addEventListener('click', renderPanel);
+    els.previousReviewRecordButton.addEventListener('click', () => selectAdjacentReviewRecord(-1));
+    els.nextReviewRecordButton.addEventListener('click', () => selectAdjacentReviewRecord(1));
     els.supervisorDepartmentFilter.addEventListener('change', handleDepartmentFilterChange);
     els.saveDefaultDepartmentButton.addEventListener('click', handleSaveDefaultDepartment);
     [

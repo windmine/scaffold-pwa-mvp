@@ -30,6 +30,28 @@ const LANGUAGE_META = {
 };
 
 const ZH_TEXT = {
+  'Review desk': '\u5ba1\u6838\u5de5\u4f5c\u53f0',
+  'Validate field records': '\u5ba1\u6838\u73b0\u573a\u8bb0\u5f55',
+  'Choose a record from the inbox, review its evidence, then decide or adjust it without losing your place.': '\u4ece\u5f85\u529e\u5217\u8868\u4e2d\u9009\u62e9\u8bb0\u5f55\uff0c\u67e5\u770b\u51ed\u8bc1\u540e\u8fdb\u884c\u5ba1\u6279\u6216\u8c03\u6574\uff0c\u65e0\u9700\u53cd\u590d\u6eda\u52a8\u3002',
+  'Inbox': '\u5f85\u529e',
+  'Matching records': '\u5339\u914d\u8bb0\u5f55',
+  'Select to review': '\u9009\u62e9\u540e\u5ba1\u6838',
+  'Review records': '\u5ba1\u6838\u8bb0\u5f55',
+  'Record detail': '\u8bb0\u5f55\u8be6\u60c5',
+  'Select a record': '\u9009\u62e9\u4e00\u6761\u8bb0\u5f55',
+  'Loading': '\u52a0\u8f7d\u4e2d',
+  'Selected record navigation': '\u5df2\u9009\u8bb0\u5f55\u5bfc\u822a',
+  'Previous review record': '\u4e0a\u4e00\u6761\u5ba1\u6838\u8bb0\u5f55',
+  'Previous record': '\u4e0a\u4e00\u6761\u8bb0\u5f55',
+  'Next review record': '\u4e0b\u4e00\u6761\u5ba1\u6838\u8bb0\u5f55',
+  'Next record': '\u4e0b\u4e00\u6761\u8bb0\u5f55',
+  'Choose a record from the inbox to see its full details and review actions.': '\u4ece\u5f85\u529e\u5217\u8868\u4e2d\u9009\u62e9\u8bb0\u5f55\uff0c\u67e5\u770b\u5b8c\u6574\u8be6\u60c5\u548c\u5ba1\u6838\u64cd\u4f5c\u3002',
+  'No records match the current filters.': '\u6ca1\u6709\u7b26\u5408\u5f53\u524d\u7b5b\u9009\u6761\u4ef6\u7684\u8bb0\u5f55\u3002',
+  'Read only': '\u53ea\u8bfb',
+  'Live': '\u5b9e\u65f6',
+  'Outside site': '\u5de5\u5730\u8303\u56f4\u5916',
+  'Team log': '\u56e2\u961f\u8bb0\u5f55',
+  'Manual entry': '\u624b\u52a8\u5f55\u5165',
   'My workday': '\u6211\u7684\u5de5\u4f5c\u65e5',
   'Live status': '\u5b9e\u65f6\u72b6\u6001',
   'Worker tasks': '\u5de5\u4f5c\u4efb\u52a1',
@@ -535,6 +557,8 @@ const ZH_TEXT = {
 };
 
 const ZH_PATTERNS = [
+  [/^(\d+) of (\d+)$/, (match) => `${match[1]} / ${match[2]}`],
+  [/^Review (.+)$/, (match) => `\u5ba1\u6838 ${translateText(match[1], 'zh')}`],
   [/^Confirmed (.+) \u00b7 accuracy about (.+)m$/, (match) => `\u5df2\u786e\u8ba4 ${match[1]} \u00b7 \u7cbe\u5ea6\u7ea6 ${match[2]} \u7c73`],
   [/^(.+)m from (.+) \u00b7 (.+)m allowed$/, (match) => `\u8ddd ${match[2]} ${match[1]} \u7c73 \u00b7 \u5141\u8bb8 ${match[3]} \u7c73`],
   [/^Latitude (.+) \u00b7 Longitude (.+)$/, (match) => `\u7eac\u5ea6 ${match[1]} \u00b7 \u7ecf\u5ea6 ${match[2]}`],

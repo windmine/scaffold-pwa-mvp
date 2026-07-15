@@ -918,8 +918,12 @@
               <span id="supervisorResultCount" class="fold-count">0 records</span>
             </summary>
             <div class="fold-content">
-              <div class="section-heading">
-                <h2>Records</h2>
+              <div class="section-heading review-desk-heading">
+                <div>
+                  <p class="eyebrow">Review desk</p>
+                  <h2>Validate field records</h2>
+                  <p class="muted">Choose a record from the inbox, review its evidence, then decide or adjust it without losing your place.</p>
+                </div>
                 <button id="refreshSupervisorButton" type="button" class="ghost">Refresh</button>
               </div>
               <form id="supervisorFilterForm" class="filter-bar">
@@ -952,7 +956,39 @@
                 </label>
                 <button id="clearSupervisorFiltersButton" type="button" class="ghost">Clear</button>
               </form>
-              <div id="reviewQueueList" class="records-list"></div>
+              <div class="review-desk">
+                <section class="review-inbox" aria-labelledby="reviewInboxTitle">
+                  <div class="review-pane-heading">
+                    <div>
+                      <p class="eyebrow">Inbox</p>
+                      <h2 id="reviewInboxTitle">Matching records</h2>
+                    </div>
+                    <span class="review-pane-hint">Select to review</span>
+                  </div>
+                  <div id="reviewQueueNotice" aria-live="polite"></div>
+                  <div id="reviewQueueList" class="records-list review-queue-list" role="listbox" aria-label="Review records"></div>
+                  <div id="reviewQueuePagination" class="review-queue-pagination"></div>
+                </section>
+                <aside class="review-detail-shell" aria-labelledby="reviewQueueDetailTitle">
+                  <div class="review-pane-heading review-detail-heading">
+                    <div>
+                      <p class="eyebrow">Record detail</p>
+                      <h2 id="reviewQueueDetailTitle">Select a record</h2>
+                    </div>
+                    <span id="reviewQueueModeBadge" class="badge pending">Loading</span>
+                  </div>
+                  <div class="review-detail-navigation" aria-label="Selected record navigation">
+                    <span id="reviewQueueSelectionPosition">0 of 0</span>
+                    <div>
+                      <button id="previousReviewRecordButton" type="button" class="ghost" aria-label="Previous review record">Previous record</button>
+                      <button id="nextReviewRecordButton" type="button" class="ghost" aria-label="Next review record">Next record</button>
+                    </div>
+                  </div>
+                  <div id="reviewQueueDetail" class="records-list review-queue-detail" aria-live="polite">
+                    <div class="empty-state review-detail-empty">Choose a record from the inbox to see its full details and review actions.</div>
+                  </div>
+                </aside>
+              </div>
             </div>
           </details>
 

@@ -714,8 +714,12 @@ async function checkDayworkRecordRendering(browser) {
       element.open = true;
     });
     await supervisorPage.locator('#supervisorStatusFilter').selectOption('pending');
-    await supervisorPage.locator('#reviewQueueList .record-form').filter({ hasText: 'Daywork log form' }).first().waitFor({ timeout: 20000 });
-    const reviewText = await supervisorPage.locator('#reviewQueueList .record-form').filter({ hasText: 'Daywork log form' }).first().innerText();
+    const dayworkReviewItem = supervisorPage.locator('#reviewQueueList .record-form').filter({ hasText: 'Daywork log form' }).first();
+    await dayworkReviewItem.waitFor({ timeout: 20000 });
+    await dayworkReviewItem.click();
+    const dayworkReviewDetail = supervisorPage.locator('#reviewQueueDetail .record-form').filter({ hasText: 'Daywork log form' }).first();
+    await dayworkReviewDetail.waitFor({ timeout: 10000 });
+    const reviewText = await dayworkReviewDetail.innerText();
     assertCleanDayworkText('supervisor review', reviewText);
   } finally {
     await supervisorContext.close();
@@ -890,7 +894,19 @@ async function checkSupervisorReview(browser) {
     await supervisorPage.locator('#supervisorSearchInput').fill(overviewMarker);
     const markedRecord = supervisorPage.locator('#reviewQueueList .record-card').filter({ hasText: overviewMarker });
     await markedRecord.waitFor({ timeout: 15000 });
-    await markedRecord.getByRole('button', { name: 'Approve', exact: true }).click();
+    await markedRecord.click();
+    await markedRecord.evaluate((element) => {
+      if (element.getAttribute('aria-selected') !== 'true') {
+        throw new Error('selected Review Desk item did not expose aria-selected=true');
+      }
+    });
+    const markedDetail = supervisorPage.locator('#reviewQueueDetail .record-card').filter({ hasText: overviewMarker });
+    await markedDetail.waitFor({ timeout: 10000 });
+    const detailText = await markedDetail.innerText();
+    if (!detailText.includes('Demo Worker') || !detailText.includes('Outside')) {
+      throw new Error(`selected Review Desk detail lost record evidence: ${detailText}`);
+    }
+    await markedDetail.getByRole('button', { name: 'Approve', exact: true }).click();
     await supervisorPage.locator('#statusBanner').getByText('Record approved.').waitFor({ timeout: 15000 });
     await supervisorPage.waitForFunction(() => {
       const metricValue = (containerSelector, label) => {
@@ -902,6 +918,7 @@ async function checkSupervisorReview(browser) {
         metricValue('#supervisorSummary', 'Reviewed') > 0
         && metricValue('#analyticsMetrics', 'Records') > 0
         && document.querySelectorAll('#reviewQueueList .record-card').length === 0
+        && document.querySelector('#reviewQueueDetail .review-detail-empty')
       );
     }, undefined, { timeout: 20000 });
   } finally {
@@ -939,12 +956,12 @@ async function checkOfflineReviewQueueReadOnly(browser) {
 
     await page.route('**/supervisor/review-queue**', (route) => route.abort('failed'));
     await page.locator('#refreshSupervisorButton').click();
-    await page.locator('#reviewQueueList .review-queue-read-only').waitFor({ timeout: 20000 });
+    await page.locator('#reviewQueueNotice .review-queue-read-only').waitFor({ timeout: 20000 });
     const offlineState = await page.evaluate(() => ({
-      text: document.querySelector('#reviewQueueList')?.textContent || '',
-      decisionButtons: [...document.querySelectorAll('#reviewQueueList .record-actions button')]
+      text: document.querySelector('#reviewQueueDetails')?.textContent || '',
+      decisionButtons: [...document.querySelectorAll('#reviewQueueDetails .record-actions button')]
         .filter((button) => ['Approve', 'Reject'].includes(button.textContent.trim())).length,
-      editButtons: [...document.querySelectorAll('#reviewQueueList .record-actions button')]
+      editButtons: [...document.querySelectorAll('#reviewQueueDetails .record-actions button')]
         .filter((button) => button.textContent.trim() === 'Edit').length,
       exportAttendanceDisabled: document.querySelector('#exportAttendanceButton')?.disabled,
       exportTaskDisabled: document.querySelector('#exportTaskLogsButton')?.disabled,
@@ -965,8 +982,49 @@ async function checkOfflineReviewQueueReadOnly(browser) {
 
     await page.unroute('**/supervisor/review-queue**');
     await page.locator('#refreshSupervisorButton').click();
-    await page.locator('#reviewQueueList .review-queue-read-only').waitFor({ state: 'detached', timeout: 20000 });
+    await page.locator('#reviewQueueNotice .review-queue-read-only').waitFor({ state: 'detached', timeout: 20000 });
     await page.locator('#reviewQueueList .record-card').first().waitFor({ timeout: 20000 });
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkSupervisorReviewDeskLayout(browser) {
+  const context = await newContext(browser, {
+    viewport: { width: 1280, height: 900 },
+    isMobile: false,
+    hasTouch: false
+  });
+  const page = await context.newPage();
+
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await page.locator('#reviewQueueDetails').evaluate((element) => {
+      element.open = true;
+    });
+    await page.locator('#reviewQueueList .review-queue-item').first().waitFor({ timeout: 20000 });
+    const desktopLayout = await page.evaluate(() => {
+      const inbox = document.querySelector('.review-inbox')?.getBoundingClientRect();
+      const detail = document.querySelector('.review-detail-shell')?.getBoundingClientRect();
+      return inbox && detail ? { inbox: { x: inbox.x, y: inbox.y }, detail: { x: detail.x, y: detail.y } } : null;
+    });
+    if (!desktopLayout || desktopLayout.detail.x <= desktopLayout.inbox.x || Math.abs(desktopLayout.detail.y - desktopLayout.inbox.y) > 4) {
+      throw new Error(`Review Desk did not render side-by-side on desktop: ${JSON.stringify(desktopLayout)}`);
+    }
+
+    await page.setViewportSize({ width: 700, height: 900 });
+    const mobileLayout = await page.evaluate(() => {
+      const inbox = document.querySelector('.review-inbox')?.getBoundingClientRect();
+      const detail = document.querySelector('.review-detail-shell')?.getBoundingClientRect();
+      return inbox && detail ? {
+        inbox: { x: inbox.x, y: inbox.y, bottom: inbox.bottom },
+        detail: { x: detail.x, y: detail.y },
+        overflow: document.documentElement.scrollWidth - window.innerWidth
+      } : null;
+    });
+    if (!mobileLayout || mobileLayout.detail.y < mobileLayout.inbox.bottom || mobileLayout.overflow > 1) {
+      throw new Error(`Review Desk did not stack cleanly on a narrow viewport: ${JSON.stringify(mobileLayout)}`);
+    }
   } finally {
     await context.close();
   }
@@ -1061,6 +1119,7 @@ async function main() {
     await runCheck('staff users scope global admin controls by role', () => checkStaffGlobalAdminScoping(browser));
     await runCheck('Offline Submission ownership, occurrence time, and idempotent replay', () => checkOfflineQueueAndReplay(browser));
     await runCheck('supervisor review shows pending outside-site worker record', () => checkSupervisorReview(browser));
+    await runCheck('supervisor Review Desk is responsive', () => checkSupervisorReviewDeskLayout(browser));
     await runCheck('offline Review Queue is explicit and read-only', () => checkOfflineReviewQueueReadOnly(browser));
     await runCheck('service worker update prompt posts SKIP_WAITING', () => checkServiceWorkerUpdatePrompt(browser));
   } finally {

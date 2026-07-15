@@ -131,6 +131,14 @@ check('production HTML keeps stable PWA links', () => (
   'supervisorView',
   'adminOverview',
   'reviewQueueDetails',
+  'reviewQueueNotice',
+  'reviewQueuePagination',
+  'reviewQueueDetail',
+  'reviewQueueDetailTitle',
+  'reviewQueueModeBadge',
+  'reviewQueueSelectionPosition',
+  'previousReviewRecordButton',
+  'nextReviewRecordButton',
   'auditHistoryDetails',
   'workFormsDetails',
   'sitesDetails',
@@ -207,6 +215,22 @@ check('desktop admin workspace navigation opens and links management sections', 
   && sourceStyles.includes('body.session-supervisor .topbar')
   && sourceStyles.includes('grid-template-columns: repeat(12, minmax(0, 1fr))')
   && sourceStyles.includes('@media (min-width: 1240px)')
+));
+
+check('supervisor Review Desk uses an accessible master-detail layout', () => (
+  sourceIndex.includes('class="review-desk"')
+  && sourceIndex.includes('id="reviewQueueList" class="records-list review-queue-list" role="listbox"')
+  && sourceIndex.includes('id="reviewQueueDetail" class="records-list review-queue-detail"')
+  && sourceIndex.includes('id="previousReviewRecordButton"')
+  && sourceIndex.includes('id="nextReviewRecordButton"')
+  && read('assets/js/history.js').includes("node.classList.add('review-queue-item')")
+  && read('assets/js/history.js').includes("node.setAttribute('aria-selected', String(isSelected))")
+  && sourceSupervisorReview.includes('selectedReviewRecordKey')
+  && sourceSupervisorReview.includes('renderReviewDetail(record)')
+  && sourceSupervisorReview.includes('selectAdjacentReviewRecord')
+  && sourceStyles.includes('grid-template-columns: minmax(280px, 0.72fr) minmax(340px, 1.28fr)')
+  && sourceStyles.includes('#reviewQueueActions:not(.hidden)')
+  && sourceStyles.includes('.review-item-signal.is-exception')
 ));
 
 check('localized date inputs stay inside mobile form boundaries', () => (
