@@ -51,8 +51,8 @@ Create a practical geo-based field operations platform for three main user group
 - Work Form Definitions are versioned; each submission stores an immutable definition snapshot, and the backend is authoritative for time-range and formula results.
 - The Review Queue is a cursor-paginated feed of durable attendance, task, weekly team-log, and form Review Records. Its explicit offline fallback is read-only; dashboard totals and Management Analytics use a complete overview rather than the current filtered page.
 - Upload Storage owns decoded-raster verification/re-encoding, local/GCS adapter readiness, authorized streaming, and unreferenced-file cleanup.
-- PWA pieces include `manifest.webmanifest`, generated `sw.js`, `offline.html`, HTTPS Vite development, IndexedDB drafts, and the hardened offline queue. Local automated and real-phone checks are green; an automated hosted pass completed on 2026-07-14, while the full hosted real-phone/update/upload checklist and provider hardening still remain.
-- Backend production helpers include `/health/ready`, SQLAlchemy `pool_pre_ping`, configurable in-process rate limiting, focused security/storage/database tests, and the read-only `npm run check:production-hardening` GCP checker. The GCP checker does not replace Neon backup/restore and access-control checks.
+- PWA pieces include `manifest.webmanifest`, generated `sw.js`, `offline.html`, HTTPS Vite development, IndexedDB drafts, and the hardened offline queue. Local automated and real-phone checks are green; automated hosted passes completed on 2026-07-14 and 2026-07-15, while the full hosted real-phone/update/upload checklist still remains.
+- Backend production helpers include `/health/ready`, SQLAlchemy `pool_pre_ping`, configurable in-process rate limiting, focused security/storage/database tests, and the read-only `npm run check:production-hardening` gate. The gate verifies the live GCP topology plus current Neon and upload recovery evidence; it does not replace Neon role/pooling controls, a longer recovery window, or an operator notification destination.
 - Runtime/generated paths such as `backend/geo_management.db`, `backend/uploads/`, `backend/app/__pycache__/`, `dist/`, and `node_modules/` are not source-of-truth code changes.
 
 ## MVP Scope
@@ -124,11 +124,13 @@ Current reset priorities completed:
 13. Review Record policy, cursor queries, explicit offline/read-only state, and export adapters are separated; dashboard and Management Analytics totals no longer depend on the visible filtered page.
 14. Database connection checkout uses `pool_pre_ping`, and authenticated Sites load only after login/session restoration succeeds.
 15. The 2026-07-14 hosted automated pass verified anonymous/login isolation, restored-session ordering, repeated Sites requests, logout, Review Queue, readiness, and new-revision logs without an observed 5xx.
+16. Cloud Run serves through a dedicated least-privilege runtime identity; the default Compute identity is build-only.
+17. Hosted readiness and Cloud Run 5xx Monitoring policies are live, and current Neon PITR/upload soft-delete recovery drills are checked through sanitized evidence.
 
 Current next priorities:
 
 1. Run the full manual phone/browser workflow checklist against the live Firebase Hosting / Cloud Run path.
-2. Run `npm run check:production-hardening` against GCP and close applicable failures, then separately verify Neon least privilege, backups/PITR, restore drill, pooling limits, and monitoring.
+2. Add a verified Monitoring notification channel and billing budget, replace the Neon owner runtime credential, verify pooling limits, and choose recovery beyond the current six-hour history window.
 3. Expand automated frontend/backend tests around the highest-risk worker and supervisor workflows.
 4. Add a desktop-first payroll/admin portal section for pay-period worker hour summaries, exception flags, and payroll CSV export.
 
@@ -335,4 +337,4 @@ python backend\smoke_test.py
 ```
 
 The smoke test expects the backend to be running at `http://127.0.0.1:8000`.
-`npm run check:production-hardening` requires authenticated `gcloud` access and verifies GCP resource state. It does not validate Neon backups, restore readiness, roles, or pooling limits.
+`npm run check:production-hardening` requires authenticated `gcloud` access and current sanitized proof files. It validates the live GCP resource contract plus exact Neon/upload recovery evidence; it does not establish Neon least-privilege roles, pooling limits, longer backup retention, or notification ownership.

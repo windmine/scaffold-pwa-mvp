@@ -1,0 +1,35 @@
+{
+  "checkerType": "STATIC_IP_CHECKERS",
+  "contentMatchers": [
+    {
+      "content": "\"ok\"",
+      "jsonPathMatcher": {
+        "jsonMatcher": "EXACT_MATCH",
+        "jsonPath": "$.status"
+      },
+      "matcher": "MATCHES_JSON_PATH"
+    }
+  ],
+  "displayName": "Geo Attendance hosted readiness",
+  "httpCheck": {
+    "acceptedResponseStatusCodes": [
+      {
+        "statusValue": 200
+      }
+    ],
+    "path": "/api/health/ready",
+    "port": 443,
+    "requestMethod": "GET",
+    "useSsl": true,
+    "validateSsl": true
+  },
+  "monitoredResource": {
+    "labels": {
+      "host": "geo-attendance-system-db9ca.web.app",
+      "project_id": "geo-attendance-system-db9ca"
+    },
+    "type": "uptime_url"
+  },
+  "period": "60s",
+  "timeout": "10s"
+}

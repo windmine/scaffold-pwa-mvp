@@ -4,9 +4,10 @@ import secrets
 
 from typing import Optional
 
+import jwt
 from fastapi import Cookie, Depends, HTTPException, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
+from jwt.exceptions import PyJWTError as JWTError
 from passlib.context import CryptContext
 from sqlmodel import Session, select
 

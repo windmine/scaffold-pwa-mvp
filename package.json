@@ -12,35 +12,21 @@
     "check:mobile:static": "npm run generate:pwa && node scripts/check-mobile-browser-workflows.mjs",
     "check:browser": "npm run generate:pwa && node scripts/check-browser-workflows.mjs",
     "check:review-queue": "node scripts/review-queue-module-test.mjs && python backend/review_queue_test.py",
-    "check:production-hardening": "powershell -ExecutionPolicy Bypass -File scripts/check-production-hardening.ps1",
+    "check:production-hardening": "powershell -ExecutionPolicy Bypass -File scripts/check-production-hardening.ps1 -AllowIncidentOnlyMonitoring",
+    "check:production-hardening:strict": "powershell -ExecutionPolicy Bypass -File scripts/check-production-hardening.ps1",
     "lint": "eslint .",
     "preview": "vite preview",
     "preview:phone": "vite preview --host 0.0.0.0 --port 4173"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.9.0",
-    "cookie-parser": "^1.4.7",
-    "express": "^5.2.1",
-    "firebase": "^12.14.0",
-    "jsonwebtoken": "^9.0.3",
-    "leaflet": "^1.9.4",
-    "multer": "^2.1.1",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "react-router-dom": "^7.14.2"
+    "leaflet": "^1.9.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
-    "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.2.1",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.5.0",
     "playwright": "^1.61.1",
-    "vite": "^8.0.10"
+    "vite": "^8.1.4"
   }
 }

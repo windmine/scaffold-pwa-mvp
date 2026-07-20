@@ -1,0 +1,7 @@
+title: Geo backend upload objects
+description: Create, read, replace, and delete application upload objects
+stage: GA
+includedPermissions:
+  - storage.objects.create
+  - storage.objects.delete
+  - storage.objects.get

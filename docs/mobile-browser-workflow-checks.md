@@ -9,6 +9,9 @@ Use this checklist before calling the MVP ready for phone testing or production 
 
 ## Latest Automated Pass
 
+- 2026-07-15 current-source release pass: Cloud Run revision `geo-backend-release-20260715213211` passed zero-traffic candidate checks, moved to 100%, and passed ten post-promotion database/GCS readiness probes across direct Cloud Run and Firebase Hosting. Anonymous protected Sites returned 401 and the revision had zero ERROR/5xx logs. The Firebase preview's shell, service worker, offline page, and manifest matched the tested local build byte-for-byte before the exact preview version was cloned live.
+- 2026-07-15 operational pass: dedicated-identity Cloud Run canary passed database/upload readiness, revision `geo-backend-runtime-identity` moved to 100%, five hosted readiness calls passed after the old identity's runtime grants were removed, and the serving revision had zero observed ERROR/5xx logs in the final two-hour query. Hardened Neon PITR and exact-generation GCS soft-delete recovery drills passed; the controlled-test hardening gate passed, while the strict gate failed only for the intentionally missing notification destination.
+- 2026-07-15 local regression pass: lint, build/PWA generation, Review Queue, all static/mobile and 16 Playwright browser workflows, backend compile/database/security/upload/review/form/migration tests, dependency checks, and the full disposable-database smoke test passed.
 - 2026-07-14 hosted pass: Cloud Run revision `geo-backend-00018-jbz` at 100% traffic and Firebase Hosting passed anonymous/login site isolation, worker login, restored-session ordering, five repeated authenticated site requests, logout cleanup, supervisor Review Queue, readiness, and new-revision error-log checks without a 5xx.
 - 2026-07-14: Review Queue module checks and the full Playwright workflow passed with explicit offline/read-only state, durable-only decisions/exports, and a two-source guard proving device-local Worker records never enter supervisor review.
 - 2026-07-09: `npm run check:mobile` passed after the Daywork team-member picker click target was fixed. Backend compile, security, upload storage, migration, and full smoke checks also passed locally.
@@ -44,11 +47,14 @@ Before using real staff data, run the read-only GCP hardening gate from an authe
 
 ```powershell
 npm.cmd run check:production-hardening
+npm.cmd run check:production-hardening:strict
 ```
+
+The normal command carries the controlled-test Console-incident exception. The strict command must pass before real production use and therefore requires a verified alert notification channel.
 
 Use controlled production test accounts. Do not use `/dev/seed` on production-like deployments.
 
-Because the current live database is Neon, separately verify Neon least-privilege roles, pooling/compute limits, backup/PITR retention, monitoring, and a restore/branch drill. The GCP checker cannot establish those provider guarantees.
+The hardening checker now validates current Neon recovery evidence, but provider access and commercial guarantees still require an operator review. Before real data, replace the owner application credential, verify pooling/compute limits, protect production, and choose recovery beyond the current six-hour Free-plan history window.
 
 ## Automated Preflight
 
@@ -205,5 +211,5 @@ python backend\smoke_test.py
 - Anonymous startup makes no authenticated site request, and restored sessions load sites only after authentication refresh succeeds.
 - `/api/health/ready` returns ok through Firebase Hosting and can be used for production uptime monitoring.
 - The first authenticated API request after an idle period succeeds; a stale managed PostgreSQL/Neon SSL connection is recycled before the route query.
-- Applicable `npm.cmd run check:production-hardening` findings and the separate Neon recovery/access checklist are closed or explicitly accepted before real staff data is used.
+- Applicable `npm.cmd run check:production-hardening` findings and the remaining Neon access/retention warnings are closed or explicitly accepted before real staff data is used.
 - Hosted Firebase/Cloud Run checks pass without direct phone access to the managed PostgreSQL provider or Cloud Storage.

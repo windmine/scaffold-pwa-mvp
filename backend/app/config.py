@@ -84,7 +84,10 @@ SQL_ECHO = bool_env("SQL_ECHO", False)
 APP_ENV = os.environ.get("APP_ENV", os.environ.get("ENVIRONMENT", "development")).strip().lower()
 PRODUCTION_LIKE = APP_ENV in {"prod", "production"} or bool(os.environ.get("K_SERVICE"))
 
-JWT_SECRET_KEY = os.environ.get("GEO_SECRET_KEY", "dev-only-change-me")
+JWT_SECRET_KEY = os.environ.get(
+    "GEO_SECRET_KEY",
+    "dev-only-change-me-before-production-32-bytes",
+)
 JWT_ALGORITHM = os.environ.get("GEO_JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int_env("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24)
 ENABLE_DEV_SEED = bool_env("ENABLE_DEV_SEED", False)
@@ -111,7 +114,9 @@ except ZoneInfoNotFoundError as error:
 WEAK_SECRET_VALUES = {
     "",
     "dev-only-change-me",
+    "dev-only-change-me-before-production-32-bytes",
     "change-this-dev-secret",
+    "change-this-dev-secret-at-least-32-bytes",
     "replace-with-a-strong-production-secret",
 }
 

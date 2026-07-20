@@ -4,7 +4,6 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import { pwaAssetCopies, writeServiceWorker } from './scripts/pwa-shell-assets.mjs'
 
@@ -52,7 +51,6 @@ function copyPwaAssets() {
 
 export default defineConfig({
   plugins: [
-    react(),
     useHttpsDevServer ? basicSsl() : null,
     copyPwaAssets()
   ].filter(Boolean),

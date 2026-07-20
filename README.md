@@ -25,10 +25,11 @@ Documentation map:
 - [CONTEXT.md](CONTEXT.md): authoritative product language and module invariants.
 - [Mobile and browser workflow checks](docs/mobile-browser-workflow-checks.md): automated, hosted, and real-phone validation checklist.
 - [Production database and deployment runbook](docs/production-db-runbook.md): current live topology, migration, release, hardening, and rollback procedure.
+- [Production upload recovery policy](docs/upload-recovery-policy.md): 30-day GCS soft-delete contract, targeted/bulk restore procedure, and recovery drill.
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
-## Current Reset Status - 2026-07-14
+## Current Reset Status - 2026-07-15
 
 The reset goal is a reliable phone-first PWA with durable, explainable sync and review behaviour. The local gate, real-phone local-network pass, and automated hosted pass are green. A full real-phone pass against the hosted URL and provider hardening are still required before real staff data is trusted to the service.
 
@@ -44,9 +45,10 @@ Completed in this reset:
 - Backend schema changes now use versioned migrations recorded in `schema_migrations` instead of inline SQLite startup `ALTER TABLE` checks.
 - Cloud Run `geo-backend` currently uses Neon PostgreSQL through Secret Manager-backed `DATABASE_URL` and `GEO_SECRET_KEY`; Cloud SQL remains the recommended Google-native production direction.
 - The earlier Cloud SQL validation path passed its hosted smoke test on 2026-06-05 and had backups/PITR enabled. Those historical checks do not establish recovery readiness for the current Neon database.
-- Cloud Run revision `geo-backend-00018-jbz` serves 100% of live traffic and stores new photos/signatures in private Cloud Storage bucket `geo-attendance-system-db9ca-uploads`.
+- Cloud Run revision `geo-backend-release-20260715213211` serves 100% of live traffic as the dedicated `geo-backend-runtime` service account and stores new photos/signatures in private Cloud Storage bucket `geo-attendance-system-db9ca-uploads`.
+- The runtime identity has secret-level access to only the two backend secrets and a prefix-scoped three-permission upload role. The default Compute service account is no longer a runtime credential and retains only `roles/run.builder` for source builds.
 - The backend exposes `/health/ready`, renews cookie sessions through `POST /auth/refresh`, and has configurable in-process rate limiting for production-like environments.
-- `npm run check:production-hardening` verifies the remaining GCP launch blockers without mutating cloud resources.
+- `npm run check:production-hardening` verifies the live Neon/GCP topology without mutating cloud resources: runtime identity and IAM, secrets, upload recovery settings/exact generations, hosted readiness monitoring, Cloud Run 5xx alerting, and current Neon recovery/cleanup evidence. It explicitly permits Console-only incidents during controlled testing; `npm run check:production-hardening:strict` requires verified alert delivery.
 - The Daywork team-member picker click target now passes the Playwright mobile/browser workflow check.
 - The backend smoke test now checks the current Firebase-compatible `__session` cookie rather than the legacy `geo_access_token` cookie.
 - Upload storage now owns raster verification, adapter readiness, authorized streaming, and detached-file cleanup for both local disk and Cloud Storage.
@@ -54,12 +56,18 @@ Completed in this reset:
 - Work Form content edits create new definition versions, submissions freeze immutable snapshots, and the backend derives authoritative time ranges and formulas.
 - Review Queue policy, cursor queries, offline/read-only fallback, and exports are separate test surfaces. Dashboard totals and Management Analytics load complete durable overview data instead of the current filtered page.
 - SQLAlchemy connection checkout uses `pool_pre_ping`, and protected Sites load only after login or session restoration succeeds.
-- Local validation on 2026-07-14 passed lint, build, Review Queue, mobile/browser workflow, backend compile, database, security, upload storage, Work Form definition, migration, and full smoke tests.
+- Local validation on 2026-07-15 passed lint, production build/PWA generation, Review Queue, all mobile/browser workflows, backend compile, database, security, upload storage, Work Form definition, migration, dependency checks, and the full disposable-database smoke test.
 - The 2026-07-14 hosted deployment passed anonymous, worker, restored-session, repeated `/api/sites`, logout, supervisor Review Queue, readiness, and new-revision error-log checks without a 5xx.
+- On 2026-07-15, a no-traffic Cloud Run identity canary passed database/upload readiness, then passed five hosted readiness calls after promotion and removal of the old identity's runtime access.
+- On 2026-07-15, current source revision `geo-backend-release-20260715213211` passed a zero-traffic canary, ten post-promotion database/upload readiness checks across Cloud Run and Firebase Hosting, anonymous access isolation, and revision-scoped ERROR/5xx checks. The tested Firebase Hosting preview was then cloned byte-for-byte to live.
+- Cloud Monitoring now checks the hosted `/api/health/ready` path and has enabled incident policies for readiness failures and Cloud Run 5xx responses. A verified notification channel is still required for email/chat delivery.
+- A 2026-07-15 Neon drill created a temporary read-only branch from a five-minute-old production point, verified the migration/schema surface, and proved exact branch cleanup. The current Neon Free plan still limits history to six hours and has no scheduled snapshot backup.
+- The upload bucket enforces public-access prevention, uniform bucket-level IAM, and 30-day soft delete. A production-bucket drill proved content-preserving delete/restore and cleanup.
+- The controlled-test hardening gate passes with its explicit incident-only Monitoring exception. The strict gate has exactly one expected failure: no verified notification destination is attached yet.
 
 Next step:
 
-Run the real-phone checklist against the live Firebase Hosting / Cloud Run path, close applicable GCP findings, complete a Neon access/backup/restore review, and remove controlled test data.
+Run the real-phone checklist against the live Firebase Hosting / Cloud Run path, add a verified Monitoring notification channel and billing budget, choose longer Neon recovery or external logical backups, complete Neon least-privilege access work, and remove controlled test data.
 
 ## Recommended Production Deployment
 
@@ -309,6 +317,11 @@ dist/
 node_modules/
 ```
 
+The SQLite database is local runtime data and must stay untracked. A fresh clone
+creates its schema through the normal migration/startup flow.
+The legacy `src/` React scaffold is not a build input, so React tooling is not
+installed for the active application.
+
 ## Requirements
 
 - Node.js and npm
@@ -490,10 +503,15 @@ Build and deploy the backend service first:
 
 ```powershell
 gcloud config set project geo-attendance-system-db9ca
-gcloud run deploy geo-backend --source . --region australia-southeast1 --allow-unauthenticated
+$stamp = Get-Date -Format "yyyyMMddHHmmss"
+gcloud run deploy geo-backend --source . --region australia-southeast1 `
+  --revision-suffix "release-$stamp" --no-traffic --tag "candidate-$stamp" `
+  --service-account geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com `
+  --build-service-account projects/geo-attendance-system-db9ca/serviceAccounts/794826041820-compute@developer.gserviceaccount.com `
+  --allow-unauthenticated
 ```
 
-Set Cloud Run environment variables from `.env.firebase.example`. The current live service stores `DATABASE_URL` and `GEO_SECRET_KEY` in Secret Manager, points `DATABASE_URL` at Neon PostgreSQL, and uses Cloud Storage for uploaded photos/signatures.
+Before deploying, inspect `gcloud meta list-files-for-upload`; `.gcloudignore` and `.dockerignore` must keep local databases, uploads, environment files, and Python bytecode out of the build. Set Cloud Run environment variables from `.env.firebase.example`, preserve the Secret Manager bindings and resource limits, verify the tagged candidate, and then move 100% traffic to the exact verified revision. The current live service stores `DATABASE_URL` and `GEO_SECRET_KEY` in Secret Manager, points `DATABASE_URL` at Neon PostgreSQL, and uses Cloud Storage for uploaded photos/signatures.
 
 The Docker container runs `python -m app.migrations` before starting Uvicorn. FastAPI startup also verifies the configured upload adapter's create/read/delete lifecycle, so a revision fails fast when either database migration or upload storage configuration is unusable.
 
@@ -509,7 +527,8 @@ Then build and deploy Hosting:
 
 ```powershell
 npm.cmd run build
-npx -y firebase-tools@latest deploy --only hosting
+npx -y firebase-tools@latest hosting:channel:deploy release-YYYYMMDD-HHMMSS --expires 1d --project geo-attendance-system-db9ca
+npx -y firebase-tools@latest hosting:clone geo-attendance-system-db9ca:release-YYYYMMDD-HHMMSS geo-attendance-system-db9ca:live --project geo-attendance-system-db9ca --non-interactive
 ```
 
 `firebase.json` rewrites `/api/**` and `/uploads/**` to the `geo-backend` Cloud Run service. FastAPI strips the `/api` prefix at runtime so existing routes like `/auth/login`, `/attendance`, and `/supervisor/audit-events` continue to work behind Firebase Hosting. Uploaded files keep stable `/uploads/...` URLs; the backend authorizes the metadata before streaming private content from the selected adapter.
@@ -520,7 +539,10 @@ Production hardening checks are read-only and can be run from a machine authenti
 
 ```powershell
 npm run check:production-hardening
+npm run check:production-hardening:strict
 ```
+
+The first command carries the repository's explicit controlled-test exception for Console-only Monitoring incidents. Use the strict command before real production use; it fails until a verified notification channel is attached to both policies.
 
 To include budget-alert verification, pass the billing account directly to the script:
 
@@ -528,7 +550,7 @@ To include budget-alert verification, pass the billing account directly to the s
 powershell -ExecutionPolicy Bypass -File scripts\check-production-hardening.ps1 -BillingAccount 000000-000000-000000
 ```
 
-This check covers GCP state: Cloud Run identity/roles, the known Cloud SQL resource, upload-bucket IAM, monitoring, migration-user state, and optional budgets. The current live database is Neon, so its roles, connection/pooling limits, backups/PITR, and restore drill must be verified separately.
+The checks cover the live serving revision, identity/IAM, Secrets, upload recovery configuration and exact proof generations, recent hosted readiness, exact alert semantics, current Neon recovery evidence/branch absence, and optional budgets. They do not establish Neon least-privilege roles, pooling limits, or a recovery window longer than the provider currently supplies.
 
 ## Phone Testing
 
@@ -1049,9 +1071,10 @@ Production hardening gate:
 
 ```powershell
 npm.cmd run check:production-hardening
+npm.cmd run check:production-hardening:strict
 ```
 
-This command is read-only and requires authenticated `gcloud` access. It reports Cloud Run, the known Cloud SQL resource, IAM, storage, monitoring, migration-user, and optional budget state. It does not validate current-live Neon recovery, roles, or pooling configuration.
+These commands are read-only and require authenticated `gcloud` and Neon CLI access. The normal command carries the controlled-test incident-only exception; the strict command requires verified alert delivery. Neither establishes Neon least-privilege roles, pooling limits, or longer backup retention.
 
 
 `npm.cmd run check:review-queue` verifies Review Record export dispatch, durable-only export guards, cursor pagination, query filters and snapshots, department scope, atomic pending-only decisions, audit comments, and decision-bypass protection.
@@ -1223,18 +1246,17 @@ Check:
 Before real staff use, close or explicitly accept these remaining items:
 
 - Complete the full real-phone hosted checklist, including actual photo/signature streaming and the waiting-service-worker update flow. The automated hosted pass is green but does not replace this device pass.
-- Use a dedicated least-privilege Cloud Run service account instead of the broad default compute service account.
 - Review and rotate any remaining production credentials in Secret Manager.
-- For current-live Neon, verify least-privilege roles, connection/pooling limits, backups/PITR, monitoring, and a restore/branch drill.
+- For current-live Neon, replace the sole `neondb_owner` application credential with a least-privilege runtime role, protect the production branch, and verify connection/pooling limits.
+- The current Neon Free history window is only six hours and has no scheduled snapshots. Upgrade the recovery window or add tested encrypted logical backups before treating it as production-grade recovery.
 - Decide whether to migrate to the recommended Cloud SQL target or retire the legacy Cloud SQL resources. If migrating, settle HA and private-IP/VPC design before cutover.
 - Decide whether the built-in cookie refresh endpoint and session lifetime are enough, or whether the business needs shorter idle timeouts/revocation tracking.
 - Built-in in-process rate limiting is available; add Cloud Armor or another edge/distributed limiter if abuse protection must work consistently across many Cloud Run instances.
 - Richer audit-history filtering/export and a dedicated audit detail view.
-- Documented database backup and restore drill for the provider actually serving live traffic.
 - Budget alerts based on the selected current provider and GCP resource configuration.
 - More automated frontend and backend tests.
 - Better offline conflict resolution.
-- Production monitoring alert policies, uptime checks against `/api/health/ready`, and error logging review.
+- Add and verify at least one Monitoring notification channel; the current alert policies create Console incidents but cannot yet email or message an operator.
 
 ## Roadmap
 
@@ -1242,7 +1264,7 @@ Current next work:
 
 - Run the real-phone checklist against the live Firebase Hosting / Cloud Run / Neon / Cloud Storage path.
 - Clean up controlled hosted-test data and remove or formalize unused database users.
-- Close applicable GCP hardening findings and the separate Neon recovery/access checklist.
+- Close the remaining notification/budget findings and the Neon access/longer-retention checklist.
 - Expand automated frontend coverage beyond static workflow checks.
 - Add a desktop-first payroll/admin portal section for pay-period worker hour summaries and payroll CSV export.
 

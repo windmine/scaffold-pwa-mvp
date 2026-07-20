@@ -6,7 +6,7 @@ Use this runbook for managed PostgreSQL migrations, Cloud Run releases, durable 
 
 ### Current live deployment
 
-Checked on 2026-07-14:
+Checked on 2026-07-15:
 
 ```text
 Firebase Hosting
@@ -17,12 +17,17 @@ Firebase Hosting
 ```
 
 - Hosted PWA: `https://geo-attendance-system-db9ca.web.app`.
-- Cloud Run revision `geo-backend-00018-jbz` serves 100% of traffic.
+- Cloud Run revision `geo-backend-release-20260715213211` serves 100% of traffic as `geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com`.
 - `DATABASE_URL` and `GEO_SECRET_KEY` are injected from Secret Manager.
+- The runtime identity has no project-level role. It has secret-level accessor bindings and a custom upload role containing only `storage.objects.create`, `storage.objects.get`, and `storage.objects.delete`, restricted to `uploads/`.
+- The default Compute service account is no longer a runtime credential and retains only `roles/run.builder` for Cloud Run source builds.
 - SQLAlchemy uses `pool_pre_ping` so a Neon/managed-PostgreSQL connection closed while idle is discarded before the route query.
 - Upload startup performs create/read/delete lifecycle verification; readiness then reads a stable private marker.
 - Uploaded JPEG, PNG, and WebP files are decoded and re-encoded before storage, served only after authorization, and deleted when detached and no durable reference remains.
 - `/health/ready` verifies both database access and the selected upload adapter.
+- Cloud Monitoring checks the hosted `/api/health/ready` path and has enabled incident policies for readiness failures and Cloud Run 5xx responses. No verified notification channel is configured yet.
+- Neon PITR and GCS soft-delete recovery proofs passed on 2026-07-15. The evidence is under `docs/evidence/` and is checked by the production-hardening gate.
+- The 2026-07-15 release check made five candidate readiness calls and ten post-promotion readiness calls across Cloud Run and Firebase Hosting, confirmed 100% traffic on `geo-backend-release-20260715213211`, verified anonymous protected-Site rejection, and found zero serving-revision ERROR or HTTP 5xx logs. The Hosting preview shell, service worker, offline page, and manifest matched the local build byte-for-byte before promotion.
 - Hosted anonymous/login Site ordering, Worker login, restored session, repeated authenticated Site requests, logout cleanup, Supervisor Review Queue, readiness, and new-revision error logs passed on 2026-07-14 without an observed 5xx.
 
 ### Recommended all-Google target
@@ -47,6 +52,7 @@ The project has an earlier validated Cloud SQL instance and database, but they a
 - Do not run the full destructive `backend/smoke_test.py` against production. It seeds and mutates data; use it only with a disposable local/staging database.
 - Use controlled test accounts for hosted workflow checks and clean up their records afterward.
 - Verify actual Cloud Run traffic after deploy. A tagged old revision can remain pinned even when a newer revision is ready.
+- Keep the runtime identity separate from the source-build identity. Do not restore Editor or database/upload access to the default Compute service account.
 - An application rollback and a database rollback are separate decisions; the previous app revision must be compatible with the migrated schema.
 
 ## Configuration
@@ -82,6 +88,23 @@ Provider notes:
 - For Neon, use a TLS-enabled application connection string appropriate to the selected compute/pooling mode and verify backup/PITR or branch-restore capability in Neon itself.
 - For Cloud SQL, prefer a private-IP/VPC or Cloud SQL connector design, a least-privilege database user, and a dedicated Cloud Run service account with `roles/cloudsql.client`.
 - Never put a database password or application secret in a checked-in command, Markdown file, image, or plain Cloud Run environment value when Secret Manager can supply it.
+
+## Runtime Identity Contract
+
+The live Cloud Run service uses a dedicated runtime service account:
+
+```text
+geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com
+```
+
+Its allowed access is intentionally resource-scoped:
+
+- `roles/secretmanager.secretAccessor` on `geo-backend-database-url` and `geo-backend-jwt-secret`, granted on each Secret rather than the project.
+- `projects/geo-attendance-system-db9ca/roles/geoBackendUploadObjects` on the upload bucket, conditioned to `uploads/`.
+- The custom role definition is `ops/iam/geo-backend-upload-objects.yaml` and contains only object create, get, and delete.
+- No project Editor, Cloud SQL, Artifact Registry, logging, object-list, or object-restore role belongs to the runtime identity.
+
+Change identity through a no-traffic revision first. Verify `/health` and `/health/ready` on its tagged URL, inspect that revision's error logs, then move traffic. Only after hosted readiness passes should the old runtime identity lose Secret and bucket access. Keep `roles/run.builder` on the configured source-build identity; it is not a runtime permission.
 
 ## Local Release Preflight
 
@@ -146,28 +169,31 @@ Do not copy that password into shell history on a shared machine; prefer a tempo
 
 ## Cloud Run And Hosting Deployment
 
-1. Build/deploy the backend with the intended Secret Manager bindings, dedicated service account, GCS adapter, and managed PostgreSQL target.
-2. Confirm the new revision is Ready and inspect its startup/migration logs before moving traffic.
-3. Move traffic to the intended revision and verify it, for example:
+1. Run `gcloud meta list-files-for-upload` from the repository root. Confirm `.gcloudignore` and `.dockerignore` exclude local databases, uploads, environment files, `__pycache__`, and bytecode while retaining `Dockerfile`, `requirements.txt`, and `backend/app/main.py`.
+2. Build/deploy the backend from the repository root with zero traffic and a temporary tag. Preserve the intended Secret Manager bindings, dedicated runtime/build service accounts, GCS adapter, resource limits, and managed PostgreSQL target.
+3. Confirm the tagged revision is Ready, call both `/health` and `/health/ready`, and inspect its startup/migration and revision-scoped ERROR/5xx logs before moving traffic.
+4. Move traffic to the exact verified revision and verify it, for example:
 
    ```powershell
    gcloud run services describe geo-backend --region australia-southeast1 --format="yaml(status.latestCreatedRevisionName,status.latestReadyRevisionName,status.traffic)"
    ```
 
-   If an old tagged revision remains pinned and the release policy is latest-only:
+   Promote the exact revision that passed the tagged checks, then remove temporary tags after hosted verification:
 
    ```powershell
-   gcloud run services update-traffic geo-backend --region australia-southeast1 --to-latest
+   gcloud run services update-traffic geo-backend --region australia-southeast1 --to-revisions="VERIFIED_REVISION=100"
+   gcloud run services update-traffic geo-backend --region australia-southeast1 --clear-tags
    ```
 
-4. Build and deploy the generated PWA shell:
+5. Build the generated PWA shell, deploy it to a short-lived preview, verify the preview, and clone that exact Hosting version to live:
 
    ```powershell
    npm.cmd run build
-   npx -y firebase-tools@latest deploy --only hosting
+   npx -y firebase-tools@latest hosting:channel:deploy release-YYYYMMDD-HHMMSS --expires 1d --project geo-attendance-system-db9ca
+   npx -y firebase-tools@latest hosting:clone geo-attendance-system-db9ca:release-YYYYMMDD-HHMMSS geo-attendance-system-db9ca:live --project geo-attendance-system-db9ca --non-interactive
    ```
 
-5. Recheck Cloud Run traffic and retain the previous compatible revision for rollback.
+6. Recheck Cloud Run traffic, remove the temporary candidate tag, and retain the previous compatible revision for rollback.
 
 ## Hosted Verification
 
@@ -197,16 +223,45 @@ Run the read-only GCP check from an authenticated admin machine:
 
 ```powershell
 npm.cmd run check:production-hardening
+npm.cmd run check:production-hardening:strict
 ```
 
-It checks GCP-side concerns such as Cloud Run identity/roles, the known Cloud SQL resource, upload-bucket IAM, monitoring, and optional budget alerts. Because the current live database is Neon, also verify separately:
+The checker is provider-aware. With its default `-DatabaseProvider neon`, it verifies the dedicated runtime identity and three-permission upload role, Secret bindings, removal of the old runtime grants, bucket privacy and 30-day soft delete, exact uptime/alert policies with recent observations, current Neon branch cleanup, and the exact GCS soft-deleted proof generations. It does not treat an absent legacy Cloud SQL instance as a live-database failure. Use `-DatabaseProvider cloudsql` only after an intentional database cutover.
 
-- Neon role and connection-string least privilege.
-- Backup/PITR retention and a documented restore/branch drill.
-- Compute/pooling limits, region, scale-to-zero behaviour, and operational alerts.
-- Secret rotation and removal of unused database users.
+The normal npm command explicitly allows Console-incident-only monitoring for the controlled-test phase. The `:strict` command is the real-production gate and fails until every required policy has an enabled, verified delivery channel.
 
-Remaining known GCP concerns include replacing the broad default Compute Engine service account, adding monitoring/budget alerts, and deciding whether to harden/migrate to or retire the legacy Cloud SQL resources. Do not treat a Cloud SQL warning as proof that live Neon is unhealthy, or a passing GCP check as proof that Neon recovery is ready.
+Current warnings are operational decisions rather than hidden green checks:
+
+- The two Monitoring policies create Console incidents, but no verified email/chat notification channel is attached.
+- Neon Free retains only six hours of history and has no scheduled snapshots. The drill proves current PITR mechanics, not a production-grade recovery window.
+- The live database still uses the owner role; create a least-privilege application role, protect the production branch, and test credential rotation.
+- Pass `-BillingAccount` to include the GCP budget check.
+
+## Recovery Proofs
+
+### Neon
+
+Run the non-destructive proof from an authenticated, linked Neon CLI context:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/prove-neon-recovery.ps1 `
+  -EvidencePath docs/evidence/neon-recovery-proof-$(Get-Date -Format yyyy-MM-dd).json
+```
+
+The script uses the pinned `neon@2.32.0` CLI, selects a point five minutes inside the current history window, creates an expiring read-only branch from that historical production point, connects without printing its generated connection string, verifies read-only mode, every migration, public schema, hashed table counts, and non-empty Department/User/Site business sentinels, then deletes only the branch whose exact run ownership metadata is reverified. Store only the sanitized JSON result; never store CLI create output, debug transcripts, or a connection URI. The 2026-07-15 proof is `docs/evidence/neon-recovery-proof-2026-07-15.json`.
+
+For an actual incident, create and inspect a recovery branch before changing production. Point a no-traffic Cloud Run revision at a separately stored recovery connection Secret, verify data and readiness, and move traffic only under an incident plan. Do not reset the production branch merely to test restore mechanics.
+
+### Uploads
+
+The production upload contract and operator restore commands are in `docs/upload-recovery-policy.md`. Run its content-preserving soft-delete proof with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/prove-upload-recovery.ps1 `
+  -EvidencePath docs/evidence/upload-recovery-proof-$(Get-Date -Format yyyy-MM-dd).json
+```
+
+The proof uses a non-sensitive, run-marked fixture under `recovery-probes/`; every upload/delete has a generation precondition. It verifies the exact original soft-deleted generation, restores only that generation, downloads and SHA-256 matches the result, deletes only the owned restored generation, and proves both exact generations are soft-deleted with no live probe. The small soft-deleted generations remain until the bucket's normal 30-day hard-delete time. The 2026-07-15 proof is `docs/evidence/upload-recovery-proof-2026-07-15.json`.
 
 ## Rollback
 

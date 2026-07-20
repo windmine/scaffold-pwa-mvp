@@ -19,7 +19,10 @@ dist-ssr
 # Backend runtime data
 __pycache__/
 *.py[cod]
-backend/geo_management.db
+backend/*.db
+backend/*.db-*
+backend/*.sqlite
+backend/*.sqlite3
 backend/uploads/
 
 # Editor directories and files

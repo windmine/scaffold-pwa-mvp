@@ -1,0 +1,38 @@
+{
+    "schemaVersion":  2,
+    "provider":  "google-cloud-storage",
+    "environment":  "production",
+    "status":  "passed",
+    "failureStage":  null,
+    "primaryFailureStage":  null,
+    "projectId":  "geo-attendance-system-db9ca",
+    "bucket":  "geo-attendance-system-db9ca-uploads",
+    "policy":  {
+                   "softDeleteRetentionSeconds":  2592000,
+                   "softDeleteRetentionDays":  30,
+                   "publicAccessPrevention":  "enforced",
+                   "uniformBucketLevelAccess":  true
+               },
+    "proofObject":  {
+                        "name":  "recovery-probes/upload-recovery-proof-20260715t082004z-534f8e3a09.txt",
+                        "ownershipMarker":  "534f8e3a09284a36990d9e2837f6240c",
+                        "originalGeneration":  "1784103617574273",
+                        "restoredGeneration":  "1784103641756110",
+                        "contentSha256":  "0e52ff5ca52bc1497da536722112b99d15b2661fb4ea480348dd40e5dffc13e9"
+                    },
+    "verification":  {
+                         "bucketProjectMatched":  true,
+                         "exactOriginalGenerationSoftDeleted":  true,
+                         "restored":  true,
+                         "restoredContentMatched":  true,
+                         "finalLiveObjectAbsent":  true,
+                         "exactRestoredGenerationSoftDeleted":  true,
+                         "cleanupFailureStage":  null
+                     },
+    "startedAtUtc":  "2026-07-15T08:20:04Z",
+    "completedAtUtc":  "2026-07-15T08:21:12Z",
+    "artifactHashes":  {
+                           "proofScriptSha256":  "4c191b67862dcebe65c9d471f8360e502c8e19c6fd2ca3501076e3a9b158257f",
+                           "probeFileSha256":  "0e52ff5ca52bc1497da536722112b99d15b2661fb4ea480348dd40e5dffc13e9"
+                       }
+}

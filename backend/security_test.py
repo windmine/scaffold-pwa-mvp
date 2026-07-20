@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app.rate_limit import InMemoryRateLimiter, RateLimitRule, client_ip  # noqa: E402
 from app import upload_storage  # noqa: E402
+from app.auth import create_access_token, csrf_token_from_auth_cookie  # noqa: E402
 from app.use_cases.supervisor_review import task_logs_csv_response  # noqa: E402
 from app.use_cases.supervisor_review_exports import (  # noqa: E402
     write_spreadsheet_safe_csv_row,
@@ -47,6 +48,20 @@ def assert_rejected(label, callback):
 
 
 def main():
+    csrf_token = "dependency-cleanup-csrf"
+    access_token = create_access_token({
+        "sub": "dependency-test@example.com",
+        "csrf": csrf_token,
+    })
+    assert_ok(
+        "PyJWT access tokens preserve the CSRF claim",
+        csrf_token_from_auth_cookie(access_token) == csrf_token,
+    )
+    assert_ok(
+        "tampered PyJWT access tokens are rejected",
+        csrf_token_from_auth_cookie(f"{access_token}tampered") is None,
+    )
+
     limiter = InMemoryRateLimiter(
         enabled=True,
         default_rule=RateLimitRule("general", 2, 60),
