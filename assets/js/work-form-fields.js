@@ -8,6 +8,8 @@ import { escapeHtml } from './utils.js';
 
 const DEFAULT_FIELD_PREFIX = 'workFormField';
 const DEFAULT_REPEAT_MAX_ROWS = 12;
+const SIGNATURE_KEYBOARD_STEP = 12;
+const SIGNATURE_KEYBOARD_LARGE_STEP = 36;
 
 function fieldInputId(field, idPrefix = DEFAULT_FIELD_PREFIX, rowContext = null) {
   if (!rowContext) return `${idPrefix}_${field.id}`;
@@ -114,7 +116,17 @@ export function formatWorkFormAnswer(value, type = '') {
   return String(value);
 }
 
-function resetSignatureCanvas(canvas) {
+function signatureStatusElement(canvas) {
+  const statusId = canvas.dataset.signatureStatus;
+  return statusId ? canvas.ownerDocument.getElementById(statusId) : null;
+}
+
+function announceSignatureStatus(canvas, message) {
+  const status = signatureStatusElement(canvas);
+  if (status) status.textContent = message;
+}
+
+function resetSignatureCanvas(canvas, { announce = false } = {}) {
   const context = canvas.getContext('2d');
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.fillStyle = '#ffffff';
@@ -124,6 +136,13 @@ function resetSignatureCanvas(canvas) {
   context.lineCap = 'round';
   context.lineJoin = 'round';
   canvas.dataset.signed = 'false';
+  canvas.dataset.signatureKeyboardDrawing = 'false';
+  canvas.dataset.signatureKeyboardChanged = 'false';
+  canvas.dataset.signatureKeyboardX = String(canvas.width / 2);
+  canvas.dataset.signatureKeyboardY = String(canvas.height / 2);
+  delete canvas.dataset.restoredSignature;
+  delete canvas.dataset.signatureRestoreToken;
+  if (announce) announceSignatureStatus(canvas, 'Signature cleared. The signature pad is blank.');
 }
 
 function signaturePoint(canvas, event) {
@@ -132,6 +151,65 @@ function signaturePoint(canvas, event) {
     x: (event.clientX - rect.left) * (canvas.width / rect.width),
     y: (event.clientY - rect.top) * (canvas.height / rect.height)
   };
+}
+
+function beginSignatureEdit(canvas) {
+  if (canvas.dataset.restoredSignature) canvas.dataset.signed = 'false';
+  delete canvas.dataset.restoredSignature;
+  delete canvas.dataset.signatureRestoreToken;
+}
+
+function drawSignatureSegment(canvas, start, end) {
+  if (start.x === end.x && start.y === end.y) return false;
+
+  const context = canvas.getContext('2d');
+  context.beginPath();
+  context.moveTo(start.x, start.y);
+  context.lineTo(end.x, end.y);
+  context.stroke();
+
+  const wasSigned = canvas.dataset.signed === 'true';
+  canvas.dataset.signed = 'true';
+  canvas.removeAttribute('aria-invalid');
+  if (!wasSigned) canvas.dispatchEvent(new Event('input', { bubbles: true }));
+  return true;
+}
+
+function keyboardSignaturePoint(canvas) {
+  const x = Number(canvas.dataset.signatureKeyboardX);
+  const y = Number(canvas.dataset.signatureKeyboardY);
+  return {
+    x: Number.isFinite(x) ? x : canvas.width / 2,
+    y: Number.isFinite(y) ? y : canvas.height / 2
+  };
+}
+
+function keyboardSignatureDestination(canvas, point, key, step) {
+  const destination = { ...point };
+  if (key === 'ArrowUp') destination.y -= step;
+  if (key === 'ArrowDown') destination.y += step;
+  if (key === 'ArrowLeft') destination.x -= step;
+  if (key === 'ArrowRight') destination.x += step;
+  destination.x = Math.max(0, Math.min(canvas.width, destination.x));
+  destination.y = Math.max(0, Math.min(canvas.height, destination.y));
+  return destination;
+}
+
+function stopKeyboardSignature(canvas, { announce = true } = {}) {
+  if (canvas.dataset.signatureKeyboardDrawing !== 'true') return;
+
+  const changed = canvas.dataset.signatureKeyboardChanged === 'true';
+  canvas.dataset.signatureKeyboardDrawing = 'false';
+  canvas.dataset.signatureKeyboardChanged = 'false';
+  if (changed) canvas.dispatchEvent(new Event('change', { bubbles: true }));
+  if (announce) {
+    announceSignatureStatus(
+      canvas,
+      canvas.dataset.signed === 'true'
+        ? 'Keyboard drawing stopped. Signature captured.'
+        : 'Keyboard drawing stopped. The signature pad is still blank.'
+    );
+  }
 }
 
 function setupSignaturePads(container) {
@@ -145,6 +223,8 @@ function setupSignaturePads(container) {
 
     canvas.addEventListener('pointerdown', (event) => {
       event.preventDefault();
+      stopKeyboardSignature(canvas, { announce: false });
+      beginSignatureEdit(canvas);
       drawing = true;
       lastPoint = signaturePoint(canvas, event);
       canvas.setPointerCapture?.(event.pointerId);
@@ -154,21 +234,59 @@ function setupSignaturePads(container) {
       if (!drawing || !lastPoint) return;
       event.preventDefault();
       const point = signaturePoint(canvas, event);
-      const context = canvas.getContext('2d');
-      context.beginPath();
-      context.moveTo(lastPoint.x, lastPoint.y);
-      context.lineTo(point.x, point.y);
-      context.stroke();
-      canvas.dataset.signed = 'true';
+      drawSignatureSegment(canvas, lastPoint, point);
       lastPoint = point;
     });
 
     ['pointerup', 'pointercancel', 'pointerleave'].forEach((eventName) => {
       canvas.addEventListener(eventName, () => {
+        const completedStroke = drawing && canvas.dataset.signed === 'true';
         drawing = false;
         lastPoint = null;
+        if (completedStroke) {
+          canvas.dispatchEvent(new Event('change', { bubbles: true }));
+          announceSignatureStatus(canvas, 'Signature captured.');
+        }
       });
     });
+
+    canvas.addEventListener('keydown', (event) => {
+      const isToggleKey = event.key === ' ' || event.key === 'Enter';
+      if (isToggleKey) {
+        event.preventDefault();
+        if (event.repeat) return;
+        if (canvas.dataset.signatureKeyboardDrawing === 'true') {
+          stopKeyboardSignature(canvas);
+        } else {
+          beginSignatureEdit(canvas);
+          canvas.dataset.signatureKeyboardDrawing = 'true';
+          canvas.dataset.signatureKeyboardChanged = 'false';
+          announceSignatureStatus(canvas, 'Keyboard drawing started. Use the arrow keys to draw, then press Space, Enter or Escape to stop.');
+        }
+        return;
+      }
+
+      if (event.key === 'Escape' && canvas.dataset.signatureKeyboardDrawing === 'true') {
+        event.preventDefault();
+        stopKeyboardSignature(canvas);
+        return;
+      }
+
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      if (canvas.dataset.signatureKeyboardDrawing !== 'true') return;
+
+      event.preventDefault();
+      const point = keyboardSignaturePoint(canvas);
+      const step = event.shiftKey ? SIGNATURE_KEYBOARD_LARGE_STEP : SIGNATURE_KEYBOARD_STEP;
+      const destination = keyboardSignatureDestination(canvas, point, event.key, step);
+      if (drawSignatureSegment(canvas, point, destination)) {
+        canvas.dataset.signatureKeyboardChanged = 'true';
+        canvas.dataset.signatureKeyboardX = String(destination.x);
+        canvas.dataset.signatureKeyboardY = String(destination.y);
+      }
+    });
+
+    canvas.addEventListener('blur', () => stopKeyboardSignature(canvas, { announce: false }));
   });
 
   container.querySelectorAll('[data-signature-clear]').forEach((button) => {
@@ -176,7 +294,10 @@ function setupSignaturePads(container) {
     button.dataset.signatureClearReady = 'true';
     button.addEventListener('click', () => {
       const canvas = container.querySelector(`[data-signature-canvas="${CSS.escape(button.dataset.signatureClear)}"]`);
-      if (canvas) resetSignatureCanvas(canvas);
+      if (canvas) {
+        resetSignatureCanvas(canvas, { announce: true });
+        canvas.dispatchEvent(new Event('change', { bubbles: true }));
+      }
     });
   });
 }
@@ -288,14 +409,33 @@ function renderField(field, options = {}, rowContext = null) {
 
   if (field.type === 'signature') {
     const signatureKey = fieldInputId(field, idPrefix, rowContext);
+    const signatureLabelId = `${signatureKey}_label`;
+    const signatureInstructionsId = `${signatureKey}_instructions`;
+    const signatureStatusId = `${signatureKey}_status`;
     return `
       <div class="signature-field" data-signature-field="${escapeHtml(field.id)}" data-signature-required="${field.required ? 'true' : 'false'}" ${attrs}>
         <div class="signature-toolbar">
-          <strong>${escapeHtml(label)}</strong>
-          <button type="button" class="ghost" data-signature-clear="${escapeHtml(signatureKey)}">Clear</button>
+          <strong id="${escapeHtml(signatureLabelId)}">
+            ${escapeHtml(field.label)}${field.required ? '<span aria-hidden="true"> *</span><span class="visually-hidden"> (required)</span>' : ''}
+          </strong>
+          <button type="button" class="ghost" data-signature-clear="${escapeHtml(signatureKey)}" aria-label="Clear ${escapeHtml(field.label)} signature" aria-controls="${escapeHtml(signatureKey)}">Clear</button>
         </div>
-        <canvas id="${signatureKey}" class="signature-canvas" width="720" height="220" data-signature-canvas="${escapeHtml(signatureKey)}" aria-label="${escapeHtml(label)}"></canvas>
-        <p class="muted">Write your signature inside the box.</p>
+        <canvas
+          id="${escapeHtml(signatureKey)}"
+          class="signature-canvas"
+          width="720"
+          height="220"
+          data-signature-canvas="${escapeHtml(signatureKey)}"
+          data-signature-status="${escapeHtml(signatureStatusId)}"
+          tabindex="0"
+          role="application"
+          aria-roledescription="signature pad"
+          aria-labelledby="${escapeHtml(signatureLabelId)}"
+          aria-describedby="${escapeHtml(signatureInstructionsId)} ${escapeHtml(signatureStatusId)}"
+          aria-keyshortcuts="Space Enter ArrowUp ArrowDown ArrowLeft ArrowRight Escape"
+        ></canvas>
+        <p id="${escapeHtml(signatureInstructionsId)}" class="muted">Draw your signature inside the box. Keyboard: focus the signature pad, press Space or Enter to start, use the arrow keys to draw (hold Shift for larger moves), then press Space, Enter or Escape to stop.</p>
+        <p id="${escapeHtml(signatureStatusId)}" class="visually-hidden" data-signature-status role="status" aria-live="polite" aria-atomic="true">The signature pad is blank.</p>
       </div>
     `;
   }
@@ -463,6 +603,7 @@ function addRepeatRow(container, form, repeatId, options = {}, values = null) {
   if (row && values) populateRepeatRow(row, parent, repeatChildren(fields, repeatId), values, options);
   updateRepeatButtons(container);
   updateDynamicState(container, form, options);
+  if (!values) container.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 function removeRepeatRow(container, form, button, options = {}) {
@@ -478,6 +619,7 @@ function removeRepeatRow(container, form, button, options = {}) {
   row.remove();
   updateRepeatButtons(container);
   updateDynamicState(container, form, options);
+  container.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 function updateRepeatButtons(container) {
@@ -666,14 +808,31 @@ function updateRepeatDynamicState(container, form, parent, parentAnswers, option
   });
 }
 
+function workFormValidationError(message, fieldId) {
+  const error = new Error(message);
+  error.name = 'WorkFormValidationError';
+  error.fieldId = fieldId;
+  return error;
+}
+
 function collectSignatureAnswer(field, options = {}, rowContext = null) {
   const validate = options.validate !== false;
   const canvas = document.getElementById(fieldInputId(field, options.idPrefix, rowContext));
   if (!canvas || canvas.dataset.signed !== 'true') {
     if (field.required && validate) {
-      throw new Error(`${field.label} is required.`);
+      canvas?.setAttribute('aria-invalid', 'true');
+      throw workFormValidationError(
+        `${field.label} is required.`,
+        fieldInputId(field, options.idPrefix, rowContext)
+      );
     }
     return '';
+  }
+
+  canvas.removeAttribute('aria-invalid');
+
+  if (canvas.dataset.restoredSignature?.startsWith('data:image/')) {
+    return canvas.dataset.restoredSignature;
   }
 
   return canvas.toDataURL('image/png');
@@ -686,10 +845,16 @@ function collectSingleField(field, options = {}, rowContext = null) {
   if (field.type === 'time_range') {
     const value = inputValue(field, idPrefix, rowContext);
     if (validate && field.required && (!value.start || !value.end)) {
-      throw new Error(`${field.label} needs both start and end times.`);
+      throw workFormValidationError(
+        `${field.label} needs both start and end times.`,
+        fieldTimeInputId(field, value.start ? 'end' : 'start', idPrefix, rowContext)
+      );
     }
     if (validate && ((value.start && !value.end) || (!value.start && value.end))) {
-      throw new Error(`${field.label} needs both start and end times.`);
+      throw workFormValidationError(
+        `${field.label} needs both start and end times.`,
+        fieldTimeInputId(field, value.start ? 'end' : 'start', idPrefix, rowContext)
+      );
     }
     return value;
   }
@@ -700,7 +865,10 @@ function collectSingleField(field, options = {}, rowContext = null) {
 
   const value = inputValue(field, idPrefix, rowContext);
   if (validate && field.required && (value === '' || value == null || value === false)) {
-    throw new Error(`${field.label} is required.`);
+    throw workFormValidationError(
+      `${field.label} is required.`,
+      fieldInputId(field, idPrefix, rowContext)
+    );
   }
   return value;
 }
@@ -789,12 +957,19 @@ function populateSignatureAnswer(field, value, idPrefix, rowContext = null) {
   const canvas = document.getElementById(fieldInputId(field, idPrefix, rowContext));
   if (!canvas || typeof value !== 'string' || !value.startsWith('data:image/')) return;
 
+  const restoreToken = `${Date.now()}-${Math.random()}`;
+  canvas.dataset.signed = 'true';
+  canvas.dataset.restoredSignature = value;
+  canvas.dataset.signatureRestoreToken = restoreToken;
   const image = new Image();
   image.onload = () => {
+    if (canvas.dataset.signatureRestoreToken !== restoreToken) return;
     const context = canvas.getContext('2d');
     context.clearRect(0, 0, canvas.width, canvas.height);
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
     canvas.dataset.signed = 'true';
+    delete canvas.dataset.restoredSignature;
+    delete canvas.dataset.signatureRestoreToken;
   };
   image.src = value;
 }
@@ -850,7 +1025,7 @@ export function populateWorkFormAnswers(form, answers = {}, options = {}) {
       const values = Array.isArray(answers[field.id]) ? answers[field.id] : [];
       const existingRows = rowsContainer ? Array.from(rowsContainer.querySelectorAll(`[data-repeat-row="${CSS.escape(field.id)}"]`)) : [];
       for (let index = existingRows.length; index < Math.max(values.length, minRows(field), 1); index += 1) {
-        addRepeatRow(rowsContainer.closest('.dynamic-fields') || document, { ...form, fields }, field.id, options);
+        addRepeatRow(rowsContainer.closest('.dynamic-fields') || document, { ...form, fields }, field.id, options, {});
       }
       const rows = rowsContainer ? Array.from(rowsContainer.querySelectorAll(`[data-repeat-row="${CSS.escape(field.id)}"]`)) : [];
       rows.forEach((row, index) => populateRepeatRow(row, field, children, values[index] || {}, options));

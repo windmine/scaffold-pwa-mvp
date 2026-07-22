@@ -5,6 +5,7 @@ import { roundCoordinate } from './utils.js';
 export function createWorkerSitesModule({
   els,
   state,
+  feedback,
   loadSites,
   fillSiteSelects,
   renderStatusBanner,
@@ -30,6 +31,7 @@ export function createWorkerSitesModule({
   });
 
   function setSubmitting(isSubmitting) {
+    feedback.setButtonBusy(els.workerSiteSubmitButton, isSubmitting, 'Adding site...');
     state.submittingWorkerSite = isSubmitting;
     els.workerSiteSubmitButton.disabled = isSubmitting;
     els.workerSiteUseLocationButton.disabled = isSubmitting;
@@ -37,20 +39,34 @@ export function createWorkerSitesModule({
 
   async function useCurrentLocation() {
     if (!navigator.geolocation) {
-      renderStatusBanner('This browser does not support location capture.', true);
+      renderStatusBanner('This browser does not support location capture.', true, {
+        local: els.workerSiteFeedback,
+        tone: 'error'
+      });
       return;
     }
 
-    els.workerSiteUseLocationButton.disabled = true;
-    renderStatusBanner('Capturing current location for the new site...');
+    feedback.clearLocal(els.workerSiteFeedback);
+    feedback.setButtonBusy(els.workerSiteUseLocationButton, true, 'Capturing...');
+    renderStatusBanner('Capturing current location for the new site...', false, {
+      local: els.workerSiteFeedback,
+      tone: 'info'
+    });
 
     try {
       const position = await currentPosition();
       siteMapPicker.setCoordinates(position.coords.latitude, position.coords.longitude);
-      renderStatusBanner('Current location added to the site form.');
+      renderStatusBanner('Current location added to the site form.', false, {
+        local: els.workerSiteFeedback,
+        tone: 'success'
+      });
     } catch {
-      renderStatusBanner('Location permission was denied or timed out. Enter the site coordinates manually.', true);
+      renderStatusBanner('Location permission was denied or timed out. Enter the site coordinates manually.', true, {
+        local: els.workerSiteFeedback,
+        tone: 'error'
+      });
     } finally {
+      feedback.setButtonBusy(els.workerSiteUseLocationButton, false);
       els.workerSiteUseLocationButton.disabled = state.submittingWorkerSite;
     }
   }
@@ -64,10 +80,20 @@ export function createWorkerSitesModule({
     const allowedRadius = Number(els.workerSiteRadiusInput.value);
 
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || !Number.isFinite(allowedRadius)) {
-      renderStatusBanner('Site latitude, longitude, and radius must be valid numbers.', true);
+      const field = !Number.isFinite(latitude)
+        ? els.workerSiteLatitudeInput
+        : !Number.isFinite(longitude)
+          ? els.workerSiteLongitudeInput
+          : els.workerSiteRadiusInput;
+      renderStatusBanner('Site latitude, longitude, and radius must be valid numbers.', true, {
+        local: els.workerSiteFeedback,
+        field,
+        tone: 'error'
+      });
       return;
     }
 
+    feedback.clearLocal(els.workerSiteFeedback);
     setSubmitting(true);
     try {
       const createdSite = await createBackendWorkerSite({
@@ -91,13 +117,19 @@ export function createWorkerSitesModule({
         els.workFormSite.value = String(createdSite.id);
       }
 
-      renderStatusBanner('Site added. You can select it now.');
+      renderStatusBanner('Site added. You can select it now.', false, {
+        local: els.workerSiteFeedback,
+        tone: 'success'
+      });
     } catch (error) {
       if (isBackendSessionError(error)) {
         handleSessionExpired();
         return;
       }
-      renderStatusBanner(error.message || 'Could not add site.', true);
+      renderStatusBanner(error.message || 'Could not add site.', true, {
+        local: els.workerSiteFeedback,
+        tone: 'error'
+      });
     } finally {
       setSubmitting(false);
     }

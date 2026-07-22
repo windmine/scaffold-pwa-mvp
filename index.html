@@ -91,12 +91,17 @@
       .section-heading,
       .record-header,
       .split-actions,
-      .primary-actions,
       .tabs {
         display: flex;
         align-items: center;
         flex-wrap: wrap;
         gap: 0.75rem;
+      }
+
+      .attendance-primary-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        width: 100%;
       }
 
       .topbar {
@@ -235,7 +240,6 @@
 
         .topbar-actions,
         .split-actions,
-        .primary-actions,
         .tabs {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -250,7 +254,6 @@
       @media (max-width: 380px), (max-device-width: 380px) {
         .topbar-actions,
         .split-actions,
-        .primary-actions,
         .tabs {
           grid-template-columns: 1fr;
         }
@@ -274,6 +277,9 @@
           <span id="userContextAdminBadge" class="user-context-badge hidden">Super admin</span>
         </div>
         <div class="topbar-actions">
+          <div id="syncIndicator" class="sync-indicator" data-state="checking" role="status" aria-live="polite" aria-atomic="true">
+            <span id="syncIndicatorText">Checking connection...</span>
+          </div>
           <button id="languageToggleButton" class="language-toggle" type="button" data-language-toggle aria-pressed="false">中文</button>
           <button id="themeToggleButton" class="ghost theme-toggle" type="button" aria-pressed="true">Light mode</button>
           <button id="installButton" class="ghost hidden" type="button">Install App</button>
@@ -283,7 +289,7 @@
       </header>
 
       <main class="layout">
-        <section id="statusBanner" class="status-banner">Checking app status...</section>
+        <section id="statusBanner" class="status-banner hidden" role="status" aria-live="polite" aria-atomic="true"></section>
 
         <section id="loginView" class="card view active">
           <h2>Sign in</h2>
@@ -310,7 +316,8 @@
               Password
               <input id="passwordInput" type="password" autocomplete="current-password" required />
             </label>
-            <button type="submit">Sign in</button>
+            <button id="loginSubmitButton" type="submit">Sign in</button>
+            <div id="loginFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
           </form>
 
           <div class="form-divider"></div>
@@ -358,8 +365,9 @@
                 Password
                 <input id="registerPasswordInput" type="password" minlength="8" autocomplete="new-password" disabled required />
               </label>
-              <button type="submit" class="secondary">Create account</button>
+              <button id="registerSubmitButton" type="submit" class="secondary">Create account</button>
             </div>
+            <div id="registerFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
           </form>
         </section>
 
@@ -446,6 +454,7 @@
                 <input id="workerSiteRadiusInput" type="number" min="10" max="5000" value="100" required />
               </label>
               <button id="workerSiteSubmitButton" type="submit">Add site</button>
+              <div id="workerSiteFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
             </form>
           </details>
 
@@ -488,10 +497,17 @@
                     <small>Your attendance keeps the captured time and location.</small>
                   </div>
                 </div>
-                <div class="split-actions primary-actions">
-                  <button id="checkInButton" type="button" class="attendance-submit check-in-action" data-leader-label="Check in" data-normal-label="Check in now">Check in</button>
-                  <button id="checkOutButton" type="button" class="attendance-submit check-out-action" data-leader-label="Check out" data-normal-label="Check out now">Check out</button>
+                <div id="attendanceFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
+                <div class="attendance-primary-actions">
+                  <button id="attendancePrimaryButton" type="button" class="attendance-submit attendance-primary-action" data-attendance-action="" aria-describedby="attendanceActionHelp" disabled>Loading attendance status...</button>
                 </div>
+                <details id="attendanceCorrectionDetails" class="optional-details attendance-correction-details" hidden>
+                  <summary id="attendanceCorrectionSummary">Need a different attendance action?</summary>
+                  <div class="attendance-correction-content">
+                    <p id="attendanceCorrectionHelp" class="muted">Use this only when the suggested action does not match your actual shift.</p>
+                    <button id="attendanceCorrectionButton" type="button" class="secondary attendance-correction-action" data-attendance-action="" aria-describedby="attendanceCorrectionHelp" disabled>Use attendance correction</button>
+                  </div>
+                </details>
                 <p class="normal-worker-only attendance-trust-note"><span aria-hidden="true">&#10003;</span>Saved securely and visible in My history after submission.</p>
                 <details id="attendanceDetails" class="optional-details">
                   <summary>Notes and photo</summary>
@@ -544,6 +560,7 @@
                   <button id="submitTeamWorkLogButton" type="submit">Submit weekly team log</button>
                   <small id="teamWorkLogAutosaveStatus" class="autosave-status" aria-live="polite">Autosaves on this device.</small>
                 </div>
+                <div id="teamWorkLogFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
               </form>
               <div class="form-divider"></div>
               <div class="section-heading">
@@ -578,6 +595,7 @@
                   <button id="saveTaskDraftButton" type="button" class="ghost">Save draft</button>
                   <button id="submitTaskButton" type="submit">Submit daywork log</button>
                 </div>
+                <div id="taskFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
               </form>
             </article>
           </section>
@@ -607,7 +625,17 @@
                   <small>JPEG, PNG, or WebP; maximum 5 MB each.</small>
                 </label>
                 <div id="workFormPhotoPreview" class="photo-preview hidden"></div>
-                <button id="submitWorkFormButton" type="submit">Submit form</button>
+                <div class="work-form-submit-row">
+                  <button id="submitWorkFormButton" type="submit">Submit form</button>
+                  <p
+                    id="workFormAutosaveStatus"
+                    class="autosave-status"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                  >Changes save automatically on this device.</p>
+                </div>
+                <div id="workFormFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
               </form>
             </article>
           </section>
@@ -664,41 +692,54 @@
         </section>
 
         <section id="supervisorView" class="view hidden">
-          <nav class="admin-desktop-nav" aria-label="Admin workspace sections">
+          <nav class="admin-desktop-nav" aria-label="Supervisor workspaces">
             <div class="admin-nav-heading">
               <p class="eyebrow">Admin workspace</p>
-              <strong>Jump to</strong>
+              <strong>Choose workspace</strong>
             </div>
-            <div class="admin-nav-group">
-              <span>Review</span>
-              <a href="#adminOverview">Overview</a>
-              <a href="#dashboardScopeCard">Department scope</a>
-              <a href="#managementAnalyticsDetails">Analytics</a>
-              <a href="#reviewQueueDetails">Review queue</a>
-              <a href="#locationMapDetails">Maps</a>
-            </div>
-            <div class="admin-nav-group">
-              <span>Add records</span>
-              <a href="#manualAttendanceDetails">Attendance</a>
-              <a href="#adminTaskLogDetails">Task log</a>
-            </div>
-            <div class="admin-nav-group">
-              <span>Manage</span>
-              <a href="#sitesDetails">Sites</a>
-              <a href="#staffUsersDetails">Staff users</a>
-              <a href="#workFormsDetails">Work forms</a>
-              <a href="#auditHistoryDetails">Audit history</a>
-              <a href="#rubbishBinDetails">Rubbish bin</a>
+            <div class="admin-workspace-nav-list">
+              <a href="#adminOverview" data-admin-workspace-target="overview" aria-current="page"><strong>Overview</strong><small>Live status and scope</small></a>
+              <a href="#adminReviewWorkspace" data-admin-workspace-target="review"><strong>Review</strong><small>Queues, maps and corrections</small></a>
+              <a href="#adminReportsWorkspace" data-admin-workspace-target="reports"><strong>Reports</strong><small>Analytics and exports</small></a>
+              <a href="#adminPeopleWorkspace" data-admin-workspace-target="people"><strong>People &amp; Sites</strong><small>Teams and job locations</small></a>
+              <a href="#adminFormsWorkspace" data-admin-workspace-target="forms"><strong>Forms</strong><small>Reusable field forms</small></a>
+              <a href="#adminAuditWorkspace" data-admin-workspace-target="audit"><strong>Audit</strong><small>Changes and deleted records</small></a>
             </div>
           </nav>
 
+          <div class="admin-mobile-toolbar">
+            <div>
+              <span>Workspace</span>
+              <strong id="adminMobileWorkspaceLabel">Overview</strong>
+            </div>
+            <button id="adminMobileMenuButton" type="button" class="secondary" aria-controls="adminWorkspaceDrawer" aria-expanded="false">Workspaces</button>
+          </div>
+
+          <dialog id="adminWorkspaceDrawer" class="admin-workspace-drawer" aria-labelledby="adminWorkspaceDrawerTitle">
+            <div class="admin-drawer-heading">
+              <div>
+                <p class="eyebrow">Admin workspace</p>
+                <h2 id="adminWorkspaceDrawerTitle">Supervisor workspaces</h2>
+              </div>
+              <button id="adminWorkspaceDrawerCloseButton" type="button" class="ghost" aria-label="Close workspace navigation">Close</button>
+            </div>
+            <nav class="admin-drawer-nav" aria-label="Supervisor workspaces">
+              <a href="#adminOverview" data-admin-workspace-target="overview" aria-current="page"><strong>Overview</strong><small>Live status and scope</small></a>
+              <a href="#adminReviewWorkspace" data-admin-workspace-target="review"><strong>Review</strong><small>Queues, maps and corrections</small></a>
+              <a href="#adminReportsWorkspace" data-admin-workspace-target="reports"><strong>Reports</strong><small>Analytics and exports</small></a>
+              <a href="#adminPeopleWorkspace" data-admin-workspace-target="people"><strong>People &amp; Sites</strong><small>Teams and job locations</small></a>
+              <a href="#adminFormsWorkspace" data-admin-workspace-target="forms"><strong>Forms</strong><small>Reusable field forms</small></a>
+              <a href="#adminAuditWorkspace" data-admin-workspace-target="audit"><strong>Audit</strong><small>Changes and deleted records</small></a>
+            </nav>
+          </dialog>
+
           <div class="admin-workspace">
-            <section id="adminOverview" class="card admin-home-card admin-overview-grid">
+            <section id="adminOverview" class="card admin-home-card admin-overview-grid admin-workspace-panel" data-admin-workspace-panel="overview" aria-labelledby="adminOverviewTitle">
               <div class="admin-home-header">
                 <div class="admin-command-content">
                   <p class="eyebrow">Supervisor desk</p>
-                  <h2>Manage today&apos;s field records</h2>
-                  <p class="muted">Start with department scope, live review totals, analytics, and exports before moving into record queues.</p>
+                  <h2 id="adminOverviewTitle" tabindex="-1">Manage today&apos;s field records</h2>
+                  <p class="muted">Start with department scope and live review totals, then move into the workspace for the job at hand.</p>
                 </div>
                 <div class="admin-command-actions" aria-label="Admin quick actions">
                   <a class="admin-command-link primary" href="#reviewQueueDetails">Review queue</a>
@@ -728,8 +769,19 @@
                     <small id="supervisorDepartmentHelp" class="dashboard-scope-help"></small>
                   </div>
                 </section>
+              </div>
+            </section>
 
-                <article class="admin-home-panel exports-card">
+            <section id="adminReportsWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="reports" aria-labelledby="adminReportsWorkspaceTitle" hidden>
+              <header class="card admin-workspace-header">
+                <div>
+                  <p class="eyebrow">Reports</p>
+                  <h2 id="adminReportsWorkspaceTitle" tabindex="-1">Performance and exports</h2>
+                  <p class="muted">Track operational trends, investigate exceptions, and export records for the selected department.</p>
+                </div>
+              </header>
+              <div class="admin-reports-layout">
+                <article class="card reports-exports-card exports-card">
                   <div class="section-heading export-heading">
                     <h2>Exports</h2>
                     <button id="clearExportFiltersButton" type="button" class="ghost">Clear filters</button>
@@ -771,9 +823,8 @@
                     </div>
                   </div>
                 </article>
-              </div>
 
-              <section id="managementAnalyticsDetails" class="management-analytics-card admin-home-analytics">
+              <section id="managementAnalyticsDetails" class="card management-analytics-card admin-home-analytics">
                 <div class="section-heading">
                   <div>
                     <h2>Management analytics</h2>
@@ -825,96 +876,18 @@
                   <div id="analyticsFormCharts" class="analytics-response-grid"></div>
                 </section>
               </section>
+              </div>
             </section>
 
-          <details id="manualAttendanceDetails" class="card fold-card manual-attendance-card">
-            <summary>
-              <span>Add missed check in / check out</span>
-              <span class="fold-count">Manual entry</span>
-            </summary>
-            <div class="fold-content">
-              <div class="section-heading">
+            <section id="adminReviewWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="review" aria-labelledby="adminReviewWorkspaceTitle" hidden>
+              <header class="card admin-workspace-header">
                 <div>
-                  <h2>Add attendance for a worker</h2>
-                  <p class="muted">Use this when a worker performed the work but forgot to check in or out. The entry is approved, audit-logged, and marked as manual with no GPS result.</p>
+                  <p class="eyebrow">Review</p>
+                  <h2 id="adminReviewWorkspaceTitle" tabindex="-1">Review records and corrections</h2>
+                  <p class="muted">Validate field evidence, inspect attendance locations, and add approved corrections when records are missing.</p>
                 </div>
-              </div>
-              <form id="manualAttendanceForm" class="form-grid manual-attendance-form">
-                <label>
-                  Worker
-                  <select id="manualAttendanceWorker" required></select>
-                </label>
-                <label>
-                  Site
-                  <select id="manualAttendanceSite" required></select>
-                </label>
-                <label>
-                  Entry type
-                  <select id="manualAttendanceType" required>
-                    <option value="check_in">Check in</option>
-                    <option value="check_out">Check out</option>
-                  </select>
-                </label>
-                <label>
-                  Date and time
-                  <input id="manualAttendanceTime" type="datetime-local" required />
-                </label>
-                <label class="manual-attendance-reason">
-                  Reason for manual entry
-                  <textarea id="manualAttendanceNote" rows="3" minlength="3" maxlength="1000" placeholder="Example: Worker confirmed start time with site supervisor." required></textarea>
-                </label>
-                <button id="manualAttendanceSubmitButton" type="submit">Add attendance entry</button>
-              </form>
-            </div>
-          </details>
-
-          <details id="adminTaskLogDetails" class="card fold-card admin-task-log-card">
-            <summary>
-              <span>Submit approved log</span>
-              <span class="fold-count">Self or others</span>
-            </summary>
-            <div class="fold-content">
-              <div class="section-heading">
-                <div>
-                  <h2>Add a task log</h2>
-                  <p class="muted">Submit a log for yourself or another accessible user. Admin-entered logs are approved immediately and audit-logged.</p>
-                </div>
-              </div>
-              <form id="adminTaskLogForm" class="form-grid admin-task-log-form">
-                <label>
-                  Person
-                  <select id="adminTaskLogUser" required></select>
-                </label>
-                <label>
-                  Site
-                  <select id="adminTaskLogSite" required></select>
-                </label>
-                <label>
-                  Task form
-                  <select id="adminTaskLogFormSelect"></select>
-                </label>
-                <label>
-                  Work date
-                  <input id="adminTaskLogDate" type="date" required />
-                </label>
-                <label class="admin-task-log-plain-field" data-admin-task-log-plain>
-                  Hours worked
-                  <input id="adminTaskLogHours" type="number" min="0" max="24" step="0.25" />
-                </label>
-                <div id="adminTaskLogFormFields" class="dynamic-fields admin-task-log-fields hidden"></div>
-                <label class="admin-task-log-description admin-task-log-plain-field" data-admin-task-log-plain>
-                  Task summary
-                  <textarea id="adminTaskLogDescription" rows="4" maxlength="3000" required></textarea>
-                </label>
-                <label class="admin-task-log-safety admin-task-log-plain-field" data-admin-task-log-plain>
-                  Safety notes
-                  <textarea id="adminTaskLogSafety" rows="4" maxlength="1500"></textarea>
-                </label>
-                <button id="adminTaskLogSubmitButton" type="submit">Submit approved log</button>
-              </form>
-            </div>
-          </details>
-
+              </header>
+              <div class="admin-review-layout">
           <details id="reviewQueueDetails" class="card fold-card review-queue-card" open>
             <summary>
               <span>Review queue</span>
@@ -969,6 +942,7 @@
                     <span class="review-pane-hint">Select to review</span>
                   </div>
                   <div id="reviewQueueNotice" aria-live="polite"></div>
+                  <div id="reviewQueueFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
                   <div id="reviewQueueList" class="records-list review-queue-list" role="listbox" aria-label="Review records"></div>
                   <div id="reviewQueuePagination" class="review-queue-pagination"></div>
                 </section>
@@ -992,23 +966,6 @@
                   </div>
                 </aside>
               </div>
-            </div>
-          </details>
-
-          <details id="rubbishBinDetails" class="card fold-card rubbish-bin-card">
-            <summary>
-              <span>Rubbish bin</span>
-              <span id="rubbishBinCount" class="fold-count">0</span>
-            </summary>
-            <div class="fold-content">
-              <div class="section-heading">
-                <div>
-                  <h2>Deleted attendance and task logs</h2>
-                  <p class="muted">Records can be restored for 30 days. After that they are permanently deleted automatically.</p>
-                </div>
-                <button id="refreshRubbishBinButton" type="button" class="ghost">Refresh</button>
-              </div>
-              <div id="rubbishBinList" class="records-list"></div>
             </div>
           </details>
 
@@ -1091,7 +1048,108 @@
             </div>
           </details>
 
-          <details id="auditHistoryDetails" class="card fold-card audit-history-card">
+          <details id="manualAttendanceDetails" class="card fold-card manual-attendance-card">
+            <summary>
+              <span>Add missed check in / check out</span>
+              <span class="fold-count">Manual entry</span>
+            </summary>
+            <div class="fold-content">
+              <div class="section-heading">
+                <div>
+                  <h2>Add attendance for a worker</h2>
+                  <p class="muted">Use this when a worker performed the work but forgot to check in or out. The entry is approved, audit-logged, and marked as manual with no GPS result.</p>
+                </div>
+              </div>
+              <form id="manualAttendanceForm" class="form-grid manual-attendance-form">
+                <label>
+                  Worker
+                  <select id="manualAttendanceWorker" required></select>
+                </label>
+                <label>
+                  Site
+                  <select id="manualAttendanceSite" required></select>
+                </label>
+                <label>
+                  Entry type
+                  <select id="manualAttendanceType" required>
+                    <option value="check_in">Check in</option>
+                    <option value="check_out">Check out</option>
+                  </select>
+                </label>
+                <label>
+                  Date and time
+                  <input id="manualAttendanceTime" type="datetime-local" required />
+                </label>
+                <label class="manual-attendance-reason">
+                  Reason for manual entry
+                  <textarea id="manualAttendanceNote" rows="3" minlength="3" maxlength="1000" placeholder="Example: Worker confirmed start time with site supervisor." required></textarea>
+                </label>
+                <button id="manualAttendanceSubmitButton" type="submit">Add attendance entry</button>
+                <div id="manualAttendanceFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
+              </form>
+            </div>
+          </details>
+
+          <details id="adminTaskLogDetails" class="card fold-card admin-task-log-card">
+            <summary>
+              <span>Submit approved log</span>
+              <span class="fold-count">Self or others</span>
+            </summary>
+            <div class="fold-content">
+              <div class="section-heading">
+                <div>
+                  <h2>Add a task log</h2>
+                  <p class="muted">Submit a log for yourself or another accessible user. Admin-entered logs are approved immediately and audit-logged.</p>
+                </div>
+              </div>
+              <form id="adminTaskLogForm" class="form-grid admin-task-log-form">
+                <label>
+                  Person
+                  <select id="adminTaskLogUser" required></select>
+                </label>
+                <label>
+                  Site
+                  <select id="adminTaskLogSite" required></select>
+                </label>
+                <label>
+                  Task form
+                  <select id="adminTaskLogFormSelect"></select>
+                </label>
+                <label>
+                  Work date
+                  <input id="adminTaskLogDate" type="date" required />
+                </label>
+                <label class="admin-task-log-plain-field" data-admin-task-log-plain>
+                  Hours worked
+                  <input id="adminTaskLogHours" type="number" min="0" max="24" step="0.25" />
+                </label>
+                <div id="adminTaskLogFormFields" class="dynamic-fields admin-task-log-fields hidden"></div>
+                <label class="admin-task-log-description admin-task-log-plain-field" data-admin-task-log-plain>
+                  Task summary
+                  <textarea id="adminTaskLogDescription" rows="4" maxlength="3000" required></textarea>
+                </label>
+                <label class="admin-task-log-safety admin-task-log-plain-field" data-admin-task-log-plain>
+                  Safety notes
+                  <textarea id="adminTaskLogSafety" rows="4" maxlength="1500"></textarea>
+                </label>
+                <button id="adminTaskLogSubmitButton" type="submit">Submit approved log</button>
+                <div id="adminTaskLogFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
+              </form>
+            </div>
+          </details>
+              </div>
+            </section>
+
+            <section id="adminAuditWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="audit" aria-labelledby="adminAuditWorkspaceTitle" hidden>
+              <header class="card admin-workspace-header">
+                <div>
+                  <p class="eyebrow">Audit</p>
+                  <h2 id="adminAuditWorkspaceTitle" tabindex="-1">Audit and recovery</h2>
+                  <p class="muted">Trace recorded changes and restore recently deleted attendance or task logs.</p>
+                </div>
+              </header>
+              <div class="admin-audit-layout">
+          <details id="auditHistoryDetails" class="card fold-card audit-history-card" open>
             <summary>
               <span>Audit history</span>
               <span id="auditEventsCount" class="fold-count">0</span>
@@ -1105,21 +1163,46 @@
             </div>
           </details>
 
-          <article id="supervisorEditPanel" class="card edit-panel hidden">
-            <div class="section-heading">
-              <h2 id="editPanelTitle">Edit</h2>
-              <button id="cancelEditButton" type="button" class="ghost">Cancel</button>
+          <details id="rubbishBinDetails" class="card fold-card rubbish-bin-card">
+            <summary>
+              <span>Rubbish bin</span>
+              <span id="rubbishBinCount" class="fold-count">0</span>
+            </summary>
+            <div class="fold-content">
+              <div class="section-heading">
+                <div>
+                  <h2>Deleted attendance and task logs</h2>
+                  <p class="muted">Records can be restored for 30 days. After that they are permanently deleted automatically.</p>
+                </div>
+                <button id="refreshRubbishBinButton" type="button" class="ghost">Refresh</button>
+              </div>
+              <div id="rubbishBinList" class="records-list"></div>
             </div>
-            <form id="editPanelForm" class="form-grid"></form>
-          </article>
+          </details>
+              </div>
+            </section>
 
-          <details id="workFormsDetails" class="card fold-card work-forms-card">
+            <section id="adminFormsWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="forms" aria-labelledby="adminFormsWorkspaceTitle" hidden>
+              <header class="card admin-workspace-header">
+                <div>
+                  <p class="eyebrow">Forms</p>
+                  <h2 id="adminFormsWorkspaceTitle" tabindex="-1">Reusable work forms</h2>
+                  <p class="muted">Build, preview, version, archive, and reactivate the forms used by field teams.</p>
+                </div>
+              </header>
+              <div class="admin-forms-layout">
+          <details id="workFormsDetails" class="card fold-card work-forms-card" open>
             <summary>
               <span>Work forms</span>
               <span id="workFormsCount" class="fold-count">0</span>
             </summary>
             <div class="fold-content work-forms-content">
               <form id="workFormBuilderForm" class="form-grid">
+                <div class="work-form-builder-intro">
+                  <p class="eyebrow">New form</p>
+                  <h3>Build a work form</h3>
+                  <p class="muted">Create the questions workers will complete in the field. Advanced syntax remains available when needed.</p>
+                </div>
                 <label>
                   Form name
                   <input id="workFormNameInput" type="text" placeholder="Inspection form" required />
@@ -1128,21 +1211,56 @@
                   Description
                   <input id="workFormDescriptionInput" type="text" />
                 </label>
-                <label>
-                  Fields
-                  <textarea id="workFormFieldsInput" rows="10" placeholder="section|Pre-start checks&#10;text|Area|required&#10;time_range|Work time|required&#10;number|Workers|required&#10;formula|Total worker hours||work_time * workers&#10;select|Result|required|Pass,Fail,N/A&#10;textarea|Issue details|required||show_if=result=Fail&#10;repeat|Materials||min=0|max=12&#10;&gt;text|Material|required&#10;&gt;number|Quantity|required&#10;signature|Worker signature|required"></textarea>
-                </label>
-                <p class="builder-help">Use one field per line: section, repeat, text, textarea, number, date, time_range, select, checkbox, formula, and signature. Select options or formula expressions go in the fourth column. Add rules such as show_if=result=Fail, min=1, or max=12 in later columns. Prefix repeat fields with &gt;.</p>
+                <div id="workFormFieldBuilder" class="work-form-field-builder" data-work-form-builder>
+                  <div class="work-form-builder-toolbar">
+                    <div>
+                      <h3>Form fields</h3>
+                      <p class="muted">Add cards in the same order workers should complete them.</p>
+                    </div>
+                    <button id="addWorkFormFieldButton" type="button" class="secondary" data-add-work-form-field>Add field</button>
+                  </div>
+                  <div id="workFormBuilderFeedback" class="local-feedback hidden" data-work-form-builder-feedback role="alert" aria-live="assertive" aria-atomic="true"></div>
+                  <p id="workFormBuilderEmpty" class="work-form-builder-empty" data-work-form-builder-empty>No fields yet. Add the first field to begin.</p>
+                  <ol id="workFormFieldCards" class="work-form-field-list" data-work-form-field-list aria-label="Work form fields"></ol>
+                  <details id="workFormAdvancedDetails" class="optional-details work-form-advanced" data-work-form-advanced>
+                    <summary>Advanced: edit raw field syntax</summary>
+                    <div class="form-grid">
+                      <p class="builder-help">Use the raw pipe-delimited format only for definitions the cards do not cover. Apply changes before previewing or saving.</p>
+                      <label>
+                        Raw field syntax
+                        <textarea id="workFormFieldsInput" rows="10" data-work-form-raw spellcheck="false" placeholder="text|Area|required|id=area"></textarea>
+                      </label>
+                      <div class="form-actions">
+                        <button id="applyWorkFormRawButton" type="button" class="secondary" data-apply-work-form-raw>Apply syntax</button>
+                        <button id="discardWorkFormRawButton" type="button" class="ghost" data-discard-work-form-raw>Discard raw changes</button>
+                      </div>
+                      <div id="workFormRawFeedback" class="local-feedback hidden" data-work-form-raw-feedback role="alert" aria-live="assertive" aria-atomic="true"></div>
+                    </div>
+                  </details>
+                  <div id="workFormBuilderAnnouncement" class="visually-hidden" data-work-form-builder-announcement role="status" aria-live="polite" aria-atomic="true"></div>
+                </div>
                 <div class="form-actions">
                   <button id="workFormPreviewButton" type="button" class="ghost">Preview draft</button>
-                  <button type="submit">Create form</button>
+                  <button id="workFormSubmitButton" type="submit">Create form</button>
                 </div>
+                <div id="workFormBuilderActionFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
                 <div id="workFormDraftPreview" class="work-form-preview builder-preview hidden" aria-live="polite"></div>
               </form>
               <div id="workFormsList" class="records-list staff-users-list"></div>
             </div>
           </details>
+              </div>
+            </section>
 
+            <section id="adminPeopleWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="people" aria-labelledby="adminPeopleWorkspaceTitle" hidden>
+              <header class="card admin-workspace-header">
+                <div>
+                  <p class="eyebrow">People &amp; Sites</p>
+                  <h2 id="adminPeopleWorkspaceTitle" tabindex="-1">Teams and job locations</h2>
+                  <p class="muted">Manage staff access, employment status, site coordinates, and allowed attendance radiuses.</p>
+                </div>
+              </header>
+              <div class="admin-people-layout">
           <details id="sitesDetails" class="card fold-card sites-card">
             <summary>
               <span>Sites</span>
@@ -1189,7 +1307,7 @@
             </div>
           </details>
 
-          <details id="staffUsersDetails" class="card fold-card staff-users-card">
+          <details id="staffUsersDetails" class="card fold-card staff-users-card" open>
             <summary>
               <span>Staff users</span>
               <span id="staffUsersCount" class="fold-count">0</span>
@@ -1248,10 +1366,39 @@
               <div id="staffUsersList" class="records-list staff-users-list"></div>
             </div>
           </details>
+              </div>
+            </section>
+
+            <article id="supervisorEditPanel" class="card edit-panel hidden">
+              <div class="section-heading">
+                <h2 id="editPanelTitle">Edit</h2>
+                <button id="cancelEditButton" type="button" class="ghost">Cancel</button>
+              </div>
+              <form id="editPanelForm" class="form-grid"></form>
+            </article>
           </div>
         </section>
       </main>
     </div>
+
+    <div id="toastViewport" class="toast-viewport" role="region" aria-label="Notifications"></div>
+
+    <dialog
+      id="appUpdatePausedDialog"
+      class="confirmation-dialog"
+      aria-labelledby="appUpdatePausedTitle"
+      aria-describedby="appUpdatePausedDescription"
+    >
+      <div class="confirmation-dialog-content">
+        <p class="eyebrow">Protecting your work</p>
+        <h2 id="appUpdatePausedTitle">Update paused</h2>
+        <p id="appUpdatePausedDescription">This Work Form has changes that are not saved on this device. Updating now could lose them.</p>
+        <div class="confirmation-dialog-actions">
+          <button id="retryAppUpdateButton" type="button">Try saving again</button>
+          <button id="keepEditingWorkFormButton" type="button" class="ghost" autofocus>Keep editing</button>
+        </div>
+      </div>
+    </dialog>
 
     <div id="photoViewer" class="photo-viewer hidden" role="dialog" aria-modal="true" aria-label="Photo viewer">
       <div class="photo-viewer-backdrop" data-photo-viewer-close></div>

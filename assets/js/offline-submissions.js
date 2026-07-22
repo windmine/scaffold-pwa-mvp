@@ -465,7 +465,29 @@ async function persistLocalSubmission(record) {
 }
 
 async function clearSubmissionDraft(draftKey) {
-  await remove('drafts', draftKey);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await remove('drafts', draftKey);
+      return true;
+    } catch {
+      await new Promise((resolve) => window.setTimeout(resolve, 50 * (attempt + 1)));
+    }
+  }
+  try {
+    const submittedAt = new Date().toISOString();
+    await put('drafts', {
+      key: draftKey,
+      value: {
+        kind: 'submitted-draft-tombstone',
+        submittedAt
+      },
+      updatedAt: submittedAt
+    });
+    return true;
+  } catch (error) {
+    console.warn('A durable submission was saved, but its local draft could not be cleared.', error);
+  }
+  return false;
 }
 
 async function syncSubmission(record, options = {}) {
@@ -611,7 +633,7 @@ export async function submitOfflineSubmission(record, options = {}) {
     }
 
     await persistLocalSubmission(localRecord);
-    if (draftKey) await clearSubmissionDraft(draftKey);
+    if (draftKey) result.draftCleanupFailed = !(await clearSubmissionDraft(draftKey));
     if (authError) throw authError;
     return result;
   } else {
@@ -619,7 +641,7 @@ export async function submitOfflineSubmission(record, options = {}) {
   }
 
   await persistLocalSubmission(localRecord);
-  if (draftKey) await clearSubmissionDraft(draftKey);
+  if (draftKey) result.draftCleanupFailed = !(await clearSubmissionDraft(draftKey));
   return result;
 }
 

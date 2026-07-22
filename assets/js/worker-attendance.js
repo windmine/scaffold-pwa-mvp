@@ -51,6 +51,7 @@ function getSiteDistanceCheck(site, location) {
 export function createWorkerAttendanceModule({
   els,
   state,
+  feedback,
   photoViewer,
   findSiteByFormValue,
   renderStatusBanner,
@@ -61,6 +62,7 @@ export function createWorkerAttendanceModule({
   isBackendSessionError
 }) {
   let locationExpiryTimer = null;
+  let busyAttendanceButton = null;
 
   function activeWorkerId() {
     return state.user?.role === 'worker' ? state.user.id : null;
@@ -68,6 +70,43 @@ export function createWorkerAttendanceModule({
 
   function locationIssue() {
     return attendanceLocationIssue(state.attendanceLocation, activeWorkerId());
+  }
+
+  function expectedAttendanceAction() {
+    return ['check_in', 'check_out'].includes(state.attendanceExpectedAction)
+      ? state.attendanceExpectedAction
+      : '';
+  }
+
+  function oppositeAttendanceAction(action) {
+    return action === 'check_out' ? 'check_in' : 'check_out';
+  }
+
+  function configureContextualActions() {
+    const expectedAction = expectedAttendanceAction();
+    const hasExpectedAction = Boolean(expectedAction);
+    const correctionAction = hasExpectedAction ? oppositeAttendanceAction(expectedAction) : '';
+
+    els.attendanceCorrectionDetails.hidden = !hasExpectedAction;
+    if (!hasExpectedAction) els.attendanceCorrectionDetails.open = false;
+    if (state.submittingAttendance) return;
+
+    els.attendancePrimaryButton.dataset.attendanceAction = expectedAction;
+    els.attendancePrimaryButton.classList.toggle('check-in-action', expectedAction === 'check_in');
+    els.attendancePrimaryButton.classList.toggle('check-out-action', expectedAction === 'check_out');
+    els.attendancePrimaryButton.textContent = expectedAction === 'check_in'
+      ? 'Check in now'
+      : expectedAction === 'check_out'
+        ? 'Check out now'
+        : 'Loading attendance status...';
+
+    els.attendanceCorrectionButton.dataset.attendanceAction = correctionAction;
+    els.attendanceCorrectionButton.textContent = correctionAction === 'check_in'
+      ? 'Check in as a correction'
+      : 'Check out as a correction';
+    els.attendanceCorrectionSummary.textContent = correctionAction === 'check_in'
+      ? 'Need to check in instead?'
+      : 'Need to check out instead?';
   }
 
   function clearLocationExpiryTimer() {
@@ -93,6 +132,10 @@ export function createWorkerAttendanceModule({
     const hasLocation = !locationIssue();
     const ready = hasSite && hasLocation;
     const usesGuidedFlow = state.user?.role === 'worker' && state.user?.workerClass !== 'leader';
+    const expectedAction = expectedAttendanceAction();
+    const hasExpectedAction = Boolean(expectedAction);
+
+    configureContextualActions();
 
     const progressState = {
       site: { complete: hasSite, current: !hasSite },
@@ -111,16 +154,23 @@ export function createWorkerAttendanceModule({
     });
 
     els.captureLocationButton.disabled = state.submittingAttendance || (usesGuidedFlow && !hasSite);
-    els.checkInButton.disabled = state.submittingAttendance || (usesGuidedFlow && !ready);
-    els.checkOutButton.disabled = state.submittingAttendance || (usesGuidedFlow && !ready);
+    const attendanceActionDisabled = state.submittingAttendance
+      || !hasExpectedAction
+      || (usesGuidedFlow && !ready);
+    els.attendancePrimaryButton.disabled = attendanceActionDisabled;
+    els.attendanceCorrectionButton.disabled = attendanceActionDisabled;
     els.saveAttendanceDraftButton.disabled = state.submittingAttendance;
 
     if (els.attendanceActionHelp) {
-      els.attendanceActionHelp.textContent = !hasSite
-        ? 'Choose your site first.'
-        : !hasLocation
-          ? 'Now confirm your location.'
-          : 'Ready. Tap the action you need.';
+      els.attendanceActionHelp.textContent = !hasExpectedAction
+        ? 'Loading attendance status...'
+        : !hasSite
+          ? 'Choose your site first.'
+          : !hasLocation
+            ? 'Now confirm your location.'
+            : expectedAction === 'check_out'
+              ? 'Ready to check out.'
+              : 'Ready to check in.';
     }
   }
 
@@ -212,13 +262,23 @@ export function createWorkerAttendanceModule({
     await persistDraft({ announce: false });
 
     if (!navigator.geolocation) {
-      renderStatusBanner('Geolocation is not available in this browser.', false);
+      renderStatusBanner('Geolocation is not available in this browser.', false, {
+        local: els.attendanceFeedback,
+        tone: 'error'
+      });
       return;
     }
 
-    renderStatusBanner('Capturing current location...');
+    feedback.clearLocal(els.attendanceFeedback);
+    feedback.setButtonBusy(els.captureLocationButton, true, 'Capturing...');
+    renderStatusBanner('Capturing current location...', false, {
+      local: els.attendanceFeedback,
+      tone: 'info'
+    });
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        feedback.setButtonBusy(els.captureLocationButton, false);
+        updateActionState();
         if (String(activeWorkerId() || '') !== String(captureOwnerWorkerId || '')) return;
 
         const location = {
@@ -229,17 +289,28 @@ export function createWorkerAttendanceModule({
           capturedAt: new Date(position.timestamp).toISOString()
         };
         if (attendanceLocationIssue(location, captureOwnerWorkerId)) {
-          renderStatusBanner('The browser did not return a fresh location. Please capture it again.', true);
+          renderStatusBanner('The browser did not return a fresh location. Please capture it again.', true, {
+            local: els.attendanceFeedback,
+            tone: 'error'
+          });
           return;
         }
         state.attendanceLocation = location;
         renderLocationPreview();
         await persistDraft({ announce: false });
-        renderStatusBanner(`Location captured successfully with approximately ${state.attendanceLocation.accuracy}m accuracy.`);
+        renderStatusBanner(`Location captured successfully with approximately ${state.attendanceLocation.accuracy}m accuracy.`, false, {
+          local: els.attendanceFeedback,
+          tone: 'success'
+        });
       },
       (error) => {
+        feedback.setButtonBusy(els.captureLocationButton, false);
+        updateActionState();
         if (String(activeWorkerId() || '') !== String(captureOwnerWorkerId || '')) return;
-        renderStatusBanner(`Could not get location: ${error.message}`, false);
+        renderStatusBanner(`Could not get location: ${error.message}`, false, {
+          local: els.attendanceFeedback,
+          tone: 'error'
+        });
       },
       {
         enableHighAccuracy: true,
@@ -249,7 +320,20 @@ export function createWorkerAttendanceModule({
     );
   }
 
-  function setSubmitting(isSubmitting) {
+  function setSubmitting(isSubmitting, action = '', sourceButton = null) {
+    if (isSubmitting) {
+      state.submittingAttendance = true;
+      updateActionState();
+      busyAttendanceButton = sourceButton || els.attendancePrimaryButton;
+      feedback.setButtonBusy(
+        busyAttendanceButton,
+        true,
+        action === 'check_out' ? 'Checking out...' : 'Checking in...'
+      );
+    } else if (busyAttendanceButton) {
+      feedback.setButtonBusy(busyAttendanceButton, false);
+      busyAttendanceButton = null;
+    }
     state.submittingAttendance = isSubmitting;
     updateActionState();
   }
@@ -263,7 +347,11 @@ export function createWorkerAttendanceModule({
       state.attendancePhotoDataUrl = '';
       photoViewer.renderPreview(els.attendancePhotoPreview, '', '');
       await persistDraft({ announce: false });
-      renderStatusBanner(validationError, true);
+      renderStatusBanner(validationError, true, {
+        local: els.attendanceFeedback,
+        field: els.attendancePhoto,
+        tone: 'error'
+      });
       return;
     }
     state.attendancePhotoFile = file || null;
@@ -284,14 +372,23 @@ export function createWorkerAttendanceModule({
     photoViewer.renderPreview(els.attendancePhotoPreview, '', '');
   }
 
-  async function submit(action) {
+  async function submit(action, sourceButton = els.attendancePrimaryButton) {
     if (!state.user) return;
+    if (!['check_in', 'check_out'].includes(action)) return;
     if (!els.attendanceSite.value) {
-      renderStatusBanner('Please select a site first.');
+      renderStatusBanner('Please select a site first.', false, {
+        local: els.attendanceFeedback,
+        field: els.attendanceSite,
+        tone: 'error'
+      });
       return;
     }
     if (!state.attendanceLocation) {
-      renderStatusBanner('Please capture your location before submitting attendance.');
+      renderStatusBanner('Please capture your location before submitting attendance.', false, {
+        local: els.attendanceFeedback,
+        tone: 'error'
+      });
+      els.captureLocationButton.focus();
       return;
     }
 
@@ -303,19 +400,26 @@ export function createWorkerAttendanceModule({
         issue === 'stale'
           ? 'Your captured location is more than 5 minutes old. Please capture it again.'
           : 'This location does not belong to the signed-in Worker. Please capture it again.',
-        true
+        true,
+        { local: els.attendanceFeedback, tone: 'error' }
       );
       return;
     }
 
     const site = findSiteByFormValue(els.attendanceSite.value);
     if (!site) {
-      renderStatusBanner('Please select a valid site first.');
+      renderStatusBanner('Please select a valid site first.', false, {
+        local: els.attendanceFeedback,
+        field: els.attendanceSite,
+        tone: 'error'
+      });
       return;
     }
 
     if (state.submittingAttendance) return;
-    setSubmitting(true);
+    feedback.clearLocal(els.attendanceFeedback);
+    setSubmitting(true, action, sourceButton);
+    let submissionSucceeded = false;
 
     try {
       const localRecord = {
@@ -340,17 +444,32 @@ export function createWorkerAttendanceModule({
 
       resetForm();
       await syncQueueIfPossible(!result.offline);
-      renderStatusBanner(result.message, result.offline);
+      renderStatusBanner(result.message, result.offline, {
+        local: els.attendanceFeedback,
+        tone: result.offline ? 'warning' : 'success'
+      });
       await renderWorkerSummary();
       await renderHistory();
+      submissionSucceeded = true;
     } catch (error) {
       if (isBackendSessionError(error)) {
         handleSessionExpired();
         return;
       }
-      renderStatusBanner(error.message || 'Could not submit attendance.', true);
+      renderStatusBanner(error.message || 'Could not submit attendance.', true, {
+        local: els.attendanceFeedback,
+        tone: 'error'
+      });
     } finally {
       setSubmitting(false);
+      if (
+        submissionSucceeded
+        && sourceButton === els.attendanceCorrectionButton
+        && els.attendanceCorrectionDetails.open
+      ) {
+        els.attendanceCorrectionSummary.focus();
+        els.attendanceCorrectionDetails.open = false;
+      }
     }
   }
 
@@ -369,6 +488,9 @@ export function createWorkerAttendanceModule({
   }
 
   function clearSessionState() {
+    feedback.clearLocal(els.attendanceFeedback);
+    state.attendanceExpectedAction = '';
+    els.attendanceCorrectionDetails.open = false;
     resetForm();
     els.attendanceDetails.open = false;
   }
@@ -377,8 +499,9 @@ export function createWorkerAttendanceModule({
     els.captureLocationButton.addEventListener('click', handleCaptureLocation);
     els.attendanceSite.addEventListener('change', renderLocationPreview);
     els.saveAttendanceDraftButton.addEventListener('click', persistDraft);
-    els.checkInButton.addEventListener('click', () => submit('check_in'));
-    els.checkOutButton.addEventListener('click', () => submit('check_out'));
+    [els.attendancePrimaryButton, els.attendanceCorrectionButton].forEach((button) => {
+      button.addEventListener('click', () => submit(button.dataset.attendanceAction, button));
+    });
     els.attendancePhoto.addEventListener('change', handlePhotoChange);
     renderLocationPreview();
   }
@@ -388,6 +511,7 @@ export function createWorkerAttendanceModule({
     clearSessionState,
     renderLocationPreview,
     restoreDraft,
-    submit
+    submit,
+    updateActionState
   };
 }

@@ -99,6 +99,7 @@ function breakOptions(selected = 0) {
 export function createTeamWorkLogModule({
   els,
   state,
+  feedback,
   renderStatusBanner,
   handleSessionExpired,
   isBackendSessionError,
@@ -390,12 +391,32 @@ export function createTeamWorkLogModule({
       !row.worker_ids.length || !row.site_id || !row.work_date || !row.start_time
       || !row.end_time || !row.work_description
     ))) {
-      renderStatusBanner('Select at least one member and complete every team work row before submitting.', true);
+      const invalidRow = [...els.teamWorkLogEntries.querySelectorAll('[data-team-log-row]')]
+        .find((row) => (
+          !selectedTeamMemberIds(row.querySelector('[data-team-member-picker]')).length
+          || !row.querySelector('[data-team-site]').value
+          || !row.querySelector('[data-team-date]').value
+          || !row.querySelector('[data-team-start]').value
+          || !row.querySelector('[data-team-end]').value
+          || !row.querySelector('[data-team-description]').value.trim()
+        ));
+      const invalidField = invalidRow && (
+        !selectedTeamMemberIds(invalidRow.querySelector('[data-team-member-picker]')).length
+          ? invalidRow.querySelector('[data-team-member-search]')
+          : [...invalidRow.querySelectorAll('[data-team-site], [data-team-date], [data-team-start], [data-team-end], [data-team-description]')]
+            .find((field) => !field.value.trim())
+      );
+      renderStatusBanner('Select at least one member and complete every team work row before submitting.', true, {
+        local: els.teamWorkLogFeedback,
+        field: invalidField,
+        tone: 'error'
+      });
       return;
     }
     const entries = entriesPayload(rows);
 
-    els.submitTeamWorkLogButton.disabled = true;
+    feedback.clearLocal(els.teamWorkLogFeedback);
+    feedback.setButtonBusy(els.submitTeamWorkLogButton, true, 'Submitting weekly log...');
     try {
       await createBackendTeamWorkLog({
         week_start: els.teamWorkLogWeekStart.value,
@@ -408,15 +429,21 @@ export function createTeamWorkLogModule({
       await refresh();
       await renderWorkerSummary();
       await renderHistory();
-      renderStatusBanner('Weekly team work log submitted for supervisor review.');
+      renderStatusBanner('Weekly team work log submitted for supervisor review.', false, {
+        local: els.teamWorkLogFeedback,
+        tone: 'success'
+      });
     } catch (error) {
       if (isBackendSessionError(error)) {
         handleSessionExpired();
         return;
       }
-      renderStatusBanner(error.message || 'Could not submit the weekly team log.', true);
+      renderStatusBanner(error.message || 'Could not submit the weekly team log.', true, {
+        local: els.teamWorkLogFeedback,
+        tone: 'error'
+      });
     } finally {
-      els.submitTeamWorkLogButton.disabled = false;
+      feedback.setButtonBusy(els.submitTeamWorkLogButton, false);
     }
   }
 

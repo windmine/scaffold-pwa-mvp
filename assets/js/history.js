@@ -17,6 +17,18 @@ function getBackendSiteId(siteId) {
   return Number.isInteger(directId) ? directId : null;
 }
 
+function compareRecordsNewestFirst(left, right) {
+  const timestampDifference = new Date(right.createdAt) - new Date(left.createdAt);
+  if (timestampDifference) return timestampDifference;
+
+  const leftBackendId = Number(left.backendRecordId);
+  const rightBackendId = Number(right.backendRecordId);
+  if (Number.isInteger(leftBackendId) && Number.isInteger(rightBackendId)) {
+    return rightBackendId - leftBackendId;
+  }
+  return 0;
+}
+
 function formAnswerSummary(record) {
   const answers = record.answers || {};
   const fields = record.fields || [];
@@ -174,8 +186,11 @@ export function createHistoryModule({
   handleSupervisorEditRecord,
   handleSupervisorTrashRecord,
   handleSupervisorDecision,
-  handleSupervisorExportRecord
+  handleSupervisorExportRecord,
+  onAttendanceExpectedActionChanged = () => {}
 }) {
+  let workerSummaryRenderId = 0;
+
   function fromBackendAttendanceRecord(record) {
     const site = state.sites.find((item) => getBackendSiteId(item.id) === record.site_id);
     const hasLocation = record.latitude != null && record.longitude != null;
@@ -351,16 +366,18 @@ export function createHistoryModule({
         getLocalWorkerRecords(state.user.id)
       ]);
 
-      const queuedLocalRecords = localRecords.filter((record) => record.syncStatus === 'queued');
+      const pendingLocalRecords = localRecords.filter((record) => (
+        ['queued', 'syncing'].includes(record.syncStatus)
+      ));
       return attendanceRecords
         .map(fromBackendAttendanceRecord)
         .concat(
           taskLogs.map(fromBackendTaskLogRecord),
           formSubmissions.map(fromBackendFormSubmissionRecord),
           teamWorkLogs.map(fromBackendTeamWorkLogRecord),
-          queuedLocalRecords
+          pendingLocalRecords
         )
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        .sort(compareRecordsNewestFirst);
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
         handleSessionExpired();
@@ -374,13 +391,18 @@ export function createHistoryModule({
 
   async function renderWorkerSummary() {
     if (!state.user) return;
+    const renderId = ++workerSummaryRenderId;
+    const workerId = state.user.id;
     const records = await getWorkerHistoryRecords();
+    if (renderId !== workerSummaryRenderId || String(state.user?.id || '') !== String(workerId)) return;
     const today = todayDateInput();
     const todayRecords = records.filter((record) => getRecordDate(record) === today);
     const queuedCount = records.filter((record) => ['queued', 'syncing'].includes(record.syncStatus)).length;
     const latestCheckIn = records.find((record) => record.type === 'attendance' && record.action === 'check_in');
     const latestCheckOut = records.find((record) => record.type === 'attendance' && record.action === 'check_out');
     const latestAttendance = records.find((record) => record.type === 'attendance');
+    state.attendanceExpectedAction = latestAttendance?.action === 'check_in' ? 'check_out' : 'check_in';
+    onAttendanceExpectedActionChanged(state.attendanceExpectedAction);
 
     if (state.user.workerClass !== 'leader') {
       const isCheckedIn = latestAttendance?.action === 'check_in';
@@ -749,7 +771,7 @@ export function createHistoryModule({
         approveButton.type = 'button';
         approveButton.textContent = 'Approve';
         approveButton.addEventListener('click', async () => {
-          await handleSupervisorDecision(record, 'approved');
+          await handleSupervisorDecision(record, 'approved', approveButton);
         });
 
         const rejectButton = document.createElement('button');
@@ -757,7 +779,7 @@ export function createHistoryModule({
         rejectButton.textContent = 'Reject';
         rejectButton.className = 'secondary';
         rejectButton.addEventListener('click', async () => {
-          await handleSupervisorDecision(record, 'rejected');
+          await handleSupervisorDecision(record, 'rejected', rejectButton);
         });
 
         actions.append(approveButton, rejectButton);

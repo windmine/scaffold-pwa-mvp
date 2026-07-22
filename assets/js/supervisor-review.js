@@ -44,6 +44,7 @@ const reviewExports = createReviewExportAdapters();
 export function createSupervisorReviewModule({
   els,
   state,
+  feedback,
   historyModule,
   handleSessionExpired,
   renderStatusBanner,
@@ -65,6 +66,7 @@ export function createSupervisorReviewModule({
   let reviewOverviewRequestId = 0;
   let selectedReviewRecordKey = '';
   let visibleReviewRecords = [];
+  let decisionInProgress = false;
 
   function reviewQueueIsReadOnly() {
     return state.supervisorRecords.queueMode !== REVIEW_QUEUE_MODE.LIVE;
@@ -1018,14 +1020,24 @@ export function createSupervisorReviewModule({
     );
     const occurredAt = new Date(els.manualAttendanceTime.value);
     if (!worker || !els.manualAttendanceSite.value || Number.isNaN(occurredAt.getTime())) {
-      renderStatusBanner('Choose a worker, site, and valid attendance time.', true);
+      const field = !worker
+        ? els.manualAttendanceWorker
+        : !els.manualAttendanceSite.value
+          ? els.manualAttendanceSite
+          : els.manualAttendanceTime;
+      renderStatusBanner('Choose a worker, site, and valid attendance time.', true, {
+        local: els.manualAttendanceFeedback,
+        field,
+        tone: 'error'
+      });
       return;
     }
     if (!window.confirm(
       `Double check: add this ${els.manualAttendanceType.value === 'check_out' ? 'check out' : 'check in'} for ${worker.name}?`
     )) return;
 
-    els.manualAttendanceSubmitButton.disabled = true;
+    feedback.clearLocal(els.manualAttendanceFeedback);
+    feedback.setButtonBusy(els.manualAttendanceSubmitButton, true, 'Adding attendance...');
     try {
       await createBackendSupervisorAttendance({
         worker_id: Number(worker.id),
@@ -1036,11 +1048,19 @@ export function createSupervisorReviewModule({
       });
       els.manualAttendanceNote.value = '';
       els.manualAttendanceTime.value = localDateTimeInputValue();
-      renderStatusBanner(`Manual attendance added for ${worker.name}.`);
+      renderStatusBanner(`Manual attendance added for ${worker.name}.`, false, {
+        local: els.manualAttendanceFeedback,
+        tone: 'success'
+      });
       await renderPanel();
     } catch (error) {
-      renderStatusBanner(error.message || 'Could not add manual attendance.', true);
+      renderStatusBanner(error.message || 'Could not add manual attendance.', true, {
+        local: els.manualAttendanceFeedback,
+        tone: 'error'
+      });
       renderManualAttendanceSites();
+    } finally {
+      feedback.setButtonBusy(els.manualAttendanceSubmitButton, false);
     }
   }
 
@@ -1050,18 +1070,32 @@ export function createSupervisorReviewModule({
     const form = selectedAdminTaskLogForm();
     const description = els.adminTaskLogDescription.value.trim();
     if (!user || !els.adminTaskLogSite.value || !els.adminTaskLogDate.value) {
-      renderStatusBanner('Choose a person, site, and work date.', true);
+      const field = !user
+        ? els.adminTaskLogUser
+        : !els.adminTaskLogSite.value
+          ? els.adminTaskLogSite
+          : els.adminTaskLogDate;
+      renderStatusBanner('Choose a person, site, and work date.', true, {
+        local: els.adminTaskLogFeedback,
+        field,
+        tone: 'error'
+      });
       return;
     }
     if (!form && !description) {
-      renderStatusBanner('Enter the task summary.', true);
+      renderStatusBanner('Enter the task summary.', true, {
+        local: els.adminTaskLogFeedback,
+        field: els.adminTaskLogDescription,
+        tone: 'error'
+      });
       return;
     }
     if (!window.confirm(
       `Double check: submit this approved ${form ? form.name : 'log'} for ${user.name}?`
     )) return;
 
-    els.adminTaskLogSubmitButton.disabled = true;
+    feedback.clearLocal(els.adminTaskLogFeedback);
+    feedback.setButtonBusy(els.adminTaskLogSubmitButton, true, 'Submitting approved log...');
     try {
       if (form) {
         const answers = collectWorkFormAnswers(form, {
@@ -1091,15 +1125,25 @@ export function createSupervisorReviewModule({
       els.adminTaskLogDescription.value = '';
       els.adminTaskLogSafety.value = '';
       renderAdminTaskLogSelectedForm();
-      renderStatusBanner(`Approved ${form ? form.name : 'log'} submitted for ${user.name}.`);
+      renderStatusBanner(`Approved ${form ? form.name : 'log'} submitted for ${user.name}.`, false, {
+        local: els.adminTaskLogFeedback,
+        tone: 'success'
+      });
       await renderPanel();
     } catch (error) {
-      renderStatusBanner(error.message || 'Could not submit the approved log.', true);
+      const invalidField = error.fieldId ? document.getElementById(error.fieldId) : null;
+      renderStatusBanner(error.message || 'Could not submit the approved log.', true, {
+        local: els.adminTaskLogFeedback,
+        field: invalidField,
+        tone: 'error'
+      });
       if (form) {
         els.adminTaskLogSubmitButton.disabled = false;
       } else {
         renderAdminTaskLogSites();
       }
+    } finally {
+      feedback.setButtonBusy(els.adminTaskLogSubmitButton, false);
     }
   }
 
@@ -1231,15 +1275,36 @@ export function createSupervisorReviewModule({
     }
   }
 
-  async function handleDecision(record, decision) {
+  async function handleDecision(record, decision, button = null) {
     if (!requireDurableWritableRecord(record, decision === 'approved' ? 'approving' : 'rejecting')) return;
+    if (decisionInProgress) return;
+    decisionInProgress = true;
+    feedback.clearLocal(els.reviewQueueFeedback);
+    const siblingButtons = button
+      ? [...button.closest('.record-actions')?.querySelectorAll('button') || []]
+      : [];
+    const disabledStates = siblingButtons.map((item) => item.disabled);
+    siblingButtons.forEach((item) => { item.disabled = true; });
+    feedback.setButtonBusy(button, true, decision === 'approved' ? 'Approving...' : 'Rejecting...');
     try {
       await decideBackendRecord(record.backendRecordId, decision, record.type || 'attendance');
 
-      renderStatusBanner(`Record ${decision}.`);
+      renderStatusBanner(`Record ${decision}.`, false, {
+        local: els.reviewQueueFeedback,
+        tone: 'success'
+      });
       await renderPanel();
     } catch (error) {
-      renderStatusBanner(error.message || `Could not mark record as ${decision}.`, true);
+      renderStatusBanner(error.message || `Could not mark record as ${decision}.`, true, {
+        local: els.reviewQueueFeedback,
+        tone: 'error'
+      });
+    } finally {
+      feedback.setButtonBusy(button, false);
+      siblingButtons.forEach((item, index) => {
+        item.disabled = disabledStates[index];
+      });
+      decisionInProgress = false;
     }
   }
 

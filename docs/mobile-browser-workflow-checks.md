@@ -138,6 +138,8 @@ python backend\smoke_test.py
 - Open a task-log photo thumbnail and confirm previous/next photo navigation works.
 - Submit an active Work Form with a required handwritten signature and at least one photo.
 - Try submitting a required-signature form without signing and confirm validation blocks it.
+- Enter different values in two Work Forms, wait for each `Saved at...` receipt, switch between them, reload, and confirm each Worker/Form draft restores its own site, date, answers, signatures, and photos.
+- Make a final Work Form edit and immediately log out; sign the same Worker back in and confirm the latest draft restores. Sign in as a different Worker and confirm that draft is never shown.
 - Apply History filters by type, status, text, and local date.
 - Turn off network, submit one attendance record or task log, and confirm it is queued locally.
 - While editing Daywork or a Work Form, restore connectivity and confirm typed answers and signatures remain intact.
@@ -177,7 +179,9 @@ python backend\smoke_test.py
 - Approve one pending record and reject another pending record.
 - Edit one attendance record after the double-check confirmation.
 - Edit one task log after the double-check confirmation.
-- Create a new Work Form with a required `signature` field.
+- Create a new Work Form with field cards and a required `signature` field. Confirm type, label, required state, choice options, conditions, and repeat row controls remain usable at phone width without horizontal overflow.
+- Reorder cards with a drag handle and with Move up/down. Confirm the worker preview and saved API field order match, the move is announced, and a move that places a condition/formula before its source is rejected locally.
+- Open **Advanced: edit raw field syntax**, confirm the generated syntax retains stable `id=` metadata, and verify preview/save asks you to apply or discard staged raw edits. Apply valid syntax and confirm the cards rebuild; enter invalid syntax and confirm the previous cards remain intact with local feedback.
 - Include a time range, conditional field, repeatable section, and formula. Confirm the backend response contains authoritative derived values and a Definition version/snapshot.
 - Edit the reusable Work Form, reopen the old submission/export, and confirm its historical labels, fields, formulas, and signatures still use the original snapshot.
 - Archive and reactivate a Work Form.
@@ -194,7 +198,8 @@ python backend\smoke_test.py
 - Upload one photo and one signature and confirm their `/uploads/...` URLs still load after refresh, proving Cloud Run is serving Cloud Storage-backed files.
 - Build and deploy a changed generated service worker, then reload an already-open app tab.
 - Confirm the topbar shows `Update App` and the status banner says a new version is ready.
-- Tap `Update App` and confirm the app reloads.
+- With an unsaved Work Form edit, tap `Update App` and confirm the latest revision reaches `Saved at...` before the app reloads.
+- Simulate local draft-storage failure and confirm the update pauses without reloading, offers `Try saving again` and `Keep editing`, then proceeds only after retry succeeds.
 - Confirm backend data and uploaded photos do not appear stale after refresh or reinstall.
 
 ## Pass Criteria

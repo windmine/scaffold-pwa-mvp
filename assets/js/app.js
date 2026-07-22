@@ -32,6 +32,7 @@ import { createWorkerSitesModule } from './worker-sites.js';
 import { createTeamWorkLogModule } from './team-work-log.js';
 import { initDateInputs, setDateInputValue } from './date-inputs.js';
 import { applyLanguage, initLanguageToggle } from './i18n.js';
+import { createUiFeedback } from './ui-feedback.js';
 import { formatDateTime, todayDateInput, escapeHtml } from './utils.js';
 import {
   DEFAULT_BRAND_LOGO,
@@ -53,11 +54,22 @@ const photoViewer = createPhotoViewer({
   nextButton: els.nextPhotoButton
 });
 
+const uiFeedback = createUiFeedback({
+  syncIndicator: els.syncIndicator,
+  syncIndicatorText: els.syncIndicatorText,
+  systemBanner: els.statusBanner,
+  toastViewport: els.toastViewport,
+  translateElement: applyLanguage
+});
+
 let staffSitesModule;
 let supervisorReviewModule;
 let supervisorMapModule;
 let supervisorAnalyticsModule;
+let workerAttendance;
 let reloadingForServiceWorkerUpdate = false;
+let appUpdateAttemptInFlight = false;
+let sessionExpiryInProgress = false;
 
 const historyModule = createHistoryModule({
   els,
@@ -73,12 +85,14 @@ const historyModule = createHistoryModule({
   handleSupervisorEditRecord,
   handleSupervisorTrashRecord,
   handleSupervisorDecision,
-  handleSupervisorExportRecord
+  handleSupervisorExportRecord,
+  onAttendanceExpectedActionChanged: () => workerAttendance?.updateActionState()
 });
 
-const workerAttendance = createWorkerAttendanceModule({
+workerAttendance = createWorkerAttendanceModule({
   els,
   state,
+  feedback: uiFeedback,
   photoViewer,
   findSiteByFormValue,
   renderStatusBanner,
@@ -92,6 +106,7 @@ const workerAttendance = createWorkerAttendanceModule({
 const workerLog = createWorkerLogModule({
   els,
   state,
+  feedback: uiFeedback,
   photoViewer,
   maxPhotos: MAX_TASK_LOG_PHOTOS,
   findSiteByFormValue,
@@ -106,6 +121,7 @@ const workerLog = createWorkerLogModule({
 const workerForm = createWorkerFormModule({
   els,
   state,
+  feedback: uiFeedback,
   photoViewer,
   maxPhotos: MAX_TASK_LOG_PHOTOS,
   findSiteByFormValue,
@@ -125,6 +141,7 @@ const workerForm = createWorkerFormModule({
 const workerSites = createWorkerSitesModule({
   els,
   state,
+  feedback: uiFeedback,
   loadSites,
   fillSiteSelects,
   renderStatusBanner,
@@ -135,6 +152,7 @@ const workerSites = createWorkerSitesModule({
 const teamWorkLogModule = createTeamWorkLogModule({
   els,
   state,
+  feedback: uiFeedback,
   renderStatusBanner,
   handleSessionExpired,
   isBackendSessionError,
@@ -160,6 +178,7 @@ staffSitesModule = createStaffSitesModule({
 supervisorReviewModule = createSupervisorReviewModule({
   els,
   state,
+  feedback: uiFeedback,
   historyModule,
   handleSessionExpired,
   renderStatusBanner,
@@ -288,6 +307,18 @@ async function restoreBackendSession() {
 }
 
 function bindEvents() {
+  [
+    [els.loginForm, els.loginFeedback],
+    [els.registerForm, els.registerFeedback],
+    [els.workerSiteForm, els.workerSiteFeedback],
+    [els.attendanceForm, els.attendanceFeedback],
+    [els.teamWorkLogForm, els.teamWorkLogFeedback],
+    [els.taskForm, els.taskFeedback],
+    [els.workFormSubmissionForm, els.workFormFeedback],
+    [els.manualAttendanceForm, els.manualAttendanceFeedback],
+    [els.adminTaskLogForm, els.adminTaskLogFeedback]
+  ].forEach(([form, localFeedback]) => uiFeedback.bindFormValidation(form, localFeedback));
+
   renderThemeToggle();
   initLanguageToggle({
     button: els.languageToggleButton,
@@ -321,6 +352,11 @@ function bindEvents() {
   els.installButton.addEventListener('click', handleInstall);
   els.downloadAppButton.addEventListener('click', handleInstall);
   els.updateButton.addEventListener('click', handleAppUpdate);
+  els.retryAppUpdateButton.addEventListener('click', () => {
+    els.appUpdatePausedDialog.close();
+    void handleAppUpdate();
+  });
+  els.keepEditingWorkFormButton.addEventListener('click', keepEditingWorkForm);
   bindAdminNavigation();
 
   document.querySelectorAll('[data-tab-target]').forEach((button) => {
@@ -328,6 +364,7 @@ function bindEvents() {
   });
 
   window.addEventListener('online', async () => {
+    uiFeedback.setSyncState('syncing', 'Online - checking queued submissions');
     const syncResult = await syncQueueIfPossible(true);
     if (!state.user) return;
 
@@ -345,13 +382,17 @@ function bindEvents() {
     if (syncResult?.failed) {
       renderStatusBanner(`${syncResult.failed} queued record${syncResult.failed === 1 ? '' : 's'} still need attention. Open My history to retry or discard them.`, true);
     } else if (state.sitesLoadError) {
-      renderStatusBanner(`You are back online, but Sites are unavailable: ${state.sitesLoadError}`, true);
+      renderSystemBanner(`You are back online, but Sites are unavailable: ${state.sitesLoadError}`, {
+        tone: 'error'
+      });
     } else {
+      uiFeedback.hideSystemBanner();
       renderStatusBanner('You are back online. Queued records have been checked for sync.');
     }
   });
 
   window.addEventListener('offline', () => {
+    uiFeedback.setSyncState('offline', 'Offline - submissions will wait');
     renderStatusBanner('You are offline. New submissions will stay on this device until you reconnect.', true);
   });
 
@@ -363,27 +404,193 @@ function bindEvents() {
   });
 }
 
-function bindAdminNavigation() {
-  const links = [...document.querySelectorAll('.admin-desktop-nav a[href^="#"], .admin-command-link[href^="#"]')];
+const ADMIN_WORKSPACES = Object.freeze({
+  overview: { label: 'Overview', panelId: 'adminOverview', headingId: 'adminOverviewTitle' },
+  review: { label: 'Review', panelId: 'adminReviewWorkspace', headingId: 'adminReviewWorkspaceTitle' },
+  reports: { label: 'Reports', panelId: 'adminReportsWorkspace', headingId: 'adminReportsWorkspaceTitle' },
+  people: { label: 'People & Sites', panelId: 'adminPeopleWorkspace', headingId: 'adminPeopleWorkspaceTitle' },
+  forms: { label: 'Forms', panelId: 'adminFormsWorkspace', headingId: 'adminFormsWorkspaceTitle' },
+  audit: { label: 'Audit', panelId: 'adminAuditWorkspace', headingId: 'adminAuditWorkspaceTitle' }
+});
 
-  links.forEach((link) => {
-    link.addEventListener('click', (event) => {
-      const target = document.querySelector(link.getAttribute('href'));
-      if (!target) return;
+function closeAdminWorkspaceDrawer() {
+  if (els.adminWorkspaceDrawer.open) els.adminWorkspaceDrawer.close();
+  els.adminMobileMenuButton.setAttribute('aria-expanded', 'false');
+}
 
-      event.preventDefault();
-      if (target instanceof HTMLDetailsElement) {
-        target.open = true;
+function adminWorkspaceDestination(target) {
+  const panel = target?.matches?.('[data-admin-workspace-panel]')
+    ? target
+    : target?.closest?.('[data-admin-workspace-panel]');
+  const workspace = panel?.dataset.adminWorkspacePanel;
+  return workspace && ADMIN_WORKSPACES[workspace] ? { workspace, panel, target } : null;
+}
+
+function adminWorkspaceDestinationFromHash() {
+  let targetId;
+  try {
+    targetId = decodeURIComponent(window.location.hash.replace(/^#/, ''));
+  } catch {
+    return null;
+  }
+  return targetId ? adminWorkspaceDestination(document.getElementById(targetId)) : null;
+}
+
+function updateAdminWorkspaceHistory(targetId) {
+  if (!targetId || window.location.hash === `#${targetId}`) return;
+  const nextUrl = new URL(window.location.href);
+  nextUrl.hash = targetId;
+  window.history.pushState({ adminWorkspace: state.adminWorkspace }, '', nextUrl);
+}
+
+function activateAdminWorkspace(workspaceId, options = {}) {
+  const workspace = ADMIN_WORKSPACES[workspaceId] ? workspaceId : 'overview';
+  const config = ADMIN_WORKSPACES[workspace];
+  const panels = [...document.querySelectorAll('[data-admin-workspace-panel]')];
+  const nextPanel = document.getElementById(config.panelId);
+  if (!nextPanel) return;
+
+  if (state.adminWorkspace !== workspace && !els.supervisorEditPanel.classList.contains('hidden')) {
+    closeEditPanel();
+  }
+
+  const activeElementWillHide = panels.some((panel) => (
+    panel !== nextPanel && !panel.hidden && panel.contains(document.activeElement)
+  ));
+  panels.forEach((panel) => {
+    panel.hidden = panel !== nextPanel;
+  });
+  state.adminWorkspace = workspace;
+
+  document.querySelectorAll('[data-admin-workspace-target]').forEach((link) => {
+    if (link.dataset.adminWorkspaceTarget === workspace) {
+      link.setAttribute('aria-current', 'page');
+    } else {
+      link.removeAttribute('aria-current');
+    }
+  });
+  els.adminMobileWorkspaceLabel.textContent = config.label;
+
+  const target = options.target || nextPanel;
+  if (target instanceof HTMLDetailsElement) target.open = true;
+  closeAdminWorkspaceDrawer();
+
+  if (options.updateHistory) {
+    updateAdminWorkspaceHistory(target.id || config.panelId);
+  }
+
+  if (options.focus || activeElementWillHide) {
+    window.requestAnimationFrame(() => {
+      if (target !== nextPanel) {
+        const targetFocus = target instanceof HTMLDetailsElement
+          ? target.querySelector(':scope > summary')
+          : target;
+        if (targetFocus && !targetFocus.matches('a, button, input, select, textarea, summary, [tabindex]')) {
+          targetFocus.setAttribute('tabindex', '-1');
+        }
+        targetFocus?.focus?.({ preventScroll: true });
+        target.scrollIntoView({
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+          block: 'start'
+        });
+        return;
       }
 
-      links.forEach((item) => item.removeAttribute('aria-current'));
-      link.setAttribute('aria-current', 'location');
-      target.scrollIntoView({
+      const heading = document.getElementById(config.headingId);
+      heading?.focus({ preventScroll: true });
+      nextPanel.scrollIntoView({
         behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
         block: 'start'
       });
     });
+  }
+
+  if (workspace === 'review' && els.locationMapDetails.open) {
+    window.requestAnimationFrame(() => supervisorMapModule?.renderPanel());
+  }
+  if (workspace === 'people') {
+    window.requestAnimationFrame(() => staffSitesModule?.refreshSiteMapIfVisible());
+  }
+}
+
+function renderAdminWorkspaceFromLocation(options = {}) {
+  const destination = adminWorkspaceDestinationFromHash();
+  activateAdminWorkspace(destination?.workspace || 'overview', {
+    ...options,
+    target: destination?.target || null
   });
+}
+
+function bindAdminNavigation() {
+  document.querySelectorAll('[data-admin-workspace-target]').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      const workspace = link.dataset.adminWorkspaceTarget;
+      const target = document.querySelector(link.getAttribute('href'));
+      activateAdminWorkspace(workspace, {
+        target,
+        focus: true,
+        updateHistory: true
+      });
+    });
+  });
+
+  document.querySelectorAll('.admin-command-link[href^="#"]').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      const target = document.querySelector(link.getAttribute('href'));
+      const destination = adminWorkspaceDestination(target);
+      if (!destination) return;
+      event.preventDefault();
+      activateAdminWorkspace(destination.workspace, {
+        target,
+        focus: true,
+        updateHistory: true
+      });
+    });
+  });
+
+  els.adminMobileMenuButton.addEventListener('click', () => {
+    if (!els.adminWorkspaceDrawer.open) {
+      els.adminWorkspaceDrawer.showModal();
+      els.adminMobileMenuButton.setAttribute('aria-expanded', 'true');
+      window.requestAnimationFrame(() => {
+        els.adminWorkspaceDrawer
+          .querySelector(`[data-admin-workspace-target="${state.adminWorkspace}"]`)
+          ?.focus();
+      });
+    }
+  });
+  els.adminWorkspaceDrawerCloseButton.addEventListener('click', closeAdminWorkspaceDrawer);
+  els.adminWorkspaceDrawer.addEventListener('close', () => {
+    els.adminMobileMenuButton.setAttribute('aria-expanded', 'false');
+  });
+  els.adminWorkspaceDrawer.addEventListener('click', (event) => {
+    if (event.target === els.adminWorkspaceDrawer) closeAdminWorkspaceDrawer();
+  });
+
+  const desktopWorkspaceMedia = window.matchMedia('(min-width: 980px)');
+  desktopWorkspaceMedia.addEventListener('change', (event) => {
+    if (!event.matches || !els.adminWorkspaceDrawer.open) return;
+    closeAdminWorkspaceDrawer();
+    window.requestAnimationFrame(() => {
+      document
+        .querySelector(`.admin-desktop-nav [data-admin-workspace-target="${state.adminWorkspace}"]`)
+        ?.focus();
+    });
+  });
+  let historyNavigationFrame = 0;
+  const handleHistoryNavigation = () => {
+    window.cancelAnimationFrame(historyNavigationFrame);
+    historyNavigationFrame = window.requestAnimationFrame(() => {
+      if (document.body.dataset.activeView === 'supervisor') {
+        renderAdminWorkspaceFromLocation({ focus: true });
+      }
+    });
+  };
+  window.addEventListener('popstate', handleHistoryNavigation);
+  window.addEventListener('hashchange', handleHistoryNavigation);
+
+  activateAdminWorkspace(state.adminWorkspace);
 }
 
 function getActiveTheme() {
@@ -488,8 +695,9 @@ function renderApp() {
     if (hasPendingAppUpdate()) {
       renderAppUpdateBanner();
     } else {
-      renderStatusBanner(navigator.onLine ? 'Ready for sign in.' : 'Offline mode is active. Login still works only if this browser session already has data cached.', !navigator.onLine);
+      uiFeedback.hideSystemBanner();
     }
+    void refreshStatusBannerForSession();
     return;
   }
 
@@ -505,13 +713,18 @@ function renderApp() {
     historyModule.renderWorkerSummary();
     historyModule.renderHistory();
   } else {
+    const shouldFocusWorkspace = !els.supervisorView.contains(document.activeElement);
     showView('supervisor');
+    renderAdminWorkspaceFromLocation({ focus: shouldFocusWorkspace });
     supervisorReviewModule.renderPanel();
   }
 
   if (hasPendingAppUpdate()) {
     renderAppUpdateBanner();
+  } else if (state.sitesLoadError) {
+    renderSystemBanner(`Sites are unavailable: ${state.sitesLoadError}`, { tone: 'error' });
   } else {
+    uiFeedback.hideSystemBanner();
     refreshStatusBannerForSession();
   }
 
@@ -541,6 +754,9 @@ function renderWorkerAccess() {
 }
 
 function showView(view) {
+  const leavingSupervisor = view !== 'supervisor' && els.supervisorView.classList.contains('active');
+  if (leavingSupervisor) closeAdminWorkspaceDrawer();
+
   const map = {
     login: els.loginView,
     worker: els.workerView,
@@ -556,6 +772,10 @@ function showView(view) {
 
   map[view].classList.remove('hidden');
   map[view].classList.add('active');
+
+  if (leavingSupervisor && view === 'login') {
+    window.requestAnimationFrame(() => els.emailInput.focus());
+  }
 }
 
 function departmentLogoForUser(user) {
@@ -607,33 +827,37 @@ function updateTopbar() {
   }
 }
 
-function renderStatusBanner(message, offline = false) {
-  els.statusBanner.textContent = message;
-  els.statusBanner.classList.toggle('offline', offline);
-  applyLanguage(els.statusBanner);
+function renderStatusBanner(message, offline = false, options = {}) {
+  return uiFeedback.show(message, offline, options);
+}
+
+function renderSystemBanner(message, options = {}) {
+  uiFeedback.showSystemBanner(message, options);
 }
 
 async function refreshStatusBannerForSession() {
-  if (hasPendingAppUpdate()) {
-    renderAppUpdateBanner();
+  const lastSyncAt = await getLastSyncAt();
+  if (!navigator.onLine) {
+    uiFeedback.setSyncState('offline', 'Offline - submissions will wait');
     return;
   }
 
-  const lastSyncAt = await getLastSyncAt();
-  const base = state.user
-    ? `${state.user.fullName} is signed in as ${state.user.role}.`
-    : 'No user signed in.';
-  const syncPart = lastSyncAt ? ` Last local sync: ${formatDateTime(lastSyncAt)}.` : ' No sync has run yet.';
-  renderStatusBanner(
-    navigator.onLine ? `${base}${syncPart}` : `${base} Offline mode is active. Queued entries will sync later.`,
-    !navigator.onLine
+  uiFeedback.setSyncState(
+    'online',
+    lastSyncAt ? `Online - last sync attempt ${formatDateTime(lastSyncAt)}` : 'Online'
   );
 }
 
 async function handleLogin(event) {
   event.preventDefault();
+  if (els.loginSubmitButton.getAttribute('aria-busy') === 'true') return;
+  uiFeedback.clearLocal(els.loginFeedback);
+  uiFeedback.setButtonBusy(els.loginSubmitButton, true, 'Signing in...');
   try {
-    renderStatusBanner('Signing in with the backend...');
+    renderStatusBanner('Signing in with the backend...', false, {
+      local: els.loginFeedback,
+      tone: 'info'
+    });
     const signedInUser = await backendLogin(els.emailInput.value.trim(), els.passwordInput.value);
     clearWorkerSessionState();
     state.user = signedInUser;
@@ -644,21 +868,37 @@ async function handleLogin(event) {
     fillSiteSelects();
     await restoreWorkerSubmissionDrafts();
     await syncQueueIfPossible(false);
+    uiFeedback.clearLocal(els.loginFeedback);
     renderApp();
   } catch (error) {
-    renderStatusBanner(error.message, false);
+    renderStatusBanner(error.message, false, {
+      local: els.loginFeedback,
+      tone: 'error'
+    });
+  } finally {
+    uiFeedback.setButtonBusy(els.loginSubmitButton, false);
   }
 }
 
 async function handleRegister(event) {
   event.preventDefault();
   if (!state.registrationToken) {
-    renderStatusBanner('Verify your email before creating an account.', true);
+    renderStatusBanner('Verify your email before creating an account.', true, {
+      local: els.registerFeedback,
+      field: els.registrationCodeInput,
+      tone: 'error'
+    });
     return;
   }
 
+  if (els.registerSubmitButton.getAttribute('aria-busy') === 'true') return;
+  uiFeedback.clearLocal(els.registerFeedback);
+  uiFeedback.setButtonBusy(els.registerSubmitButton, true, 'Creating account...');
   try {
-    renderStatusBanner('Creating staff account...');
+    renderStatusBanner('Creating staff account...', false, {
+      local: els.registerFeedback,
+      tone: 'info'
+    });
     const result = await backendRegister(
       state.registrationToken,
       els.registerPasswordInput.value,
@@ -668,10 +908,17 @@ async function handleRegister(event) {
     state.user = null;
     renderApp();
     renderStatusBanner(
-      result.message || 'Account created. A supervisor must activate it before you can sign in.'
+      result.message || 'Account created. A supervisor must activate it before you can sign in.',
+      false,
+      { tone: 'success' }
     );
   } catch (error) {
-    renderStatusBanner(error.message, false);
+    renderStatusBanner(error.message, false, {
+      local: els.registerFeedback,
+      tone: 'error'
+    });
+  } finally {
+    uiFeedback.setButtonBusy(els.registerSubmitButton, false);
   }
 }
 
@@ -684,8 +931,14 @@ async function handleRegistrationStart() {
     return;
   }
 
+  if (els.sendRegistrationCodeButton.getAttribute('aria-busy') === 'true') return;
+  uiFeedback.clearLocal(els.registerFeedback);
+  uiFeedback.setButtonBusy(els.sendRegistrationCodeButton, true, 'Sending code...');
   try {
-    renderStatusBanner('Sending verification code...');
+    renderStatusBanner('Sending verification code...', false, {
+      local: els.registerFeedback,
+      tone: 'info'
+    });
     const result = await backendStartRegistration(name, email);
     state.registrationVerificationId = result.verification_id;
     state.registrationToken = '';
@@ -699,10 +952,17 @@ async function handleRegistrationStart() {
     renderStatusBanner(
       result.dev_verification_code
         ? `Verification code sent. Development code: ${result.dev_verification_code}`
-        : 'Verification code sent. Check your email.'
+        : 'Verification code sent. Check your email.',
+      false,
+      { local: els.registerFeedback, tone: 'success' }
     );
   } catch (error) {
-    renderStatusBanner(error.message, true);
+    renderStatusBanner(error.message, true, {
+      local: els.registerFeedback,
+      tone: 'error'
+    });
+  } finally {
+    uiFeedback.setButtonBusy(els.sendRegistrationCodeButton, false);
   }
 }
 
@@ -712,8 +972,14 @@ async function handleRegistrationVerify() {
     return;
   }
 
+  if (els.verifyRegistrationCodeButton.getAttribute('aria-busy') === 'true') return;
+  uiFeedback.clearLocal(els.registerFeedback);
+  uiFeedback.setButtonBusy(els.verifyRegistrationCodeButton, true, 'Verifying...');
   try {
-    renderStatusBanner('Verifying email...');
+    renderStatusBanner('Verifying email...', false, {
+      local: els.registerFeedback,
+      tone: 'info'
+    });
     const result = await backendVerifyRegistration(
       state.registrationVerificationId,
       els.registrationCodeInput.value.trim()
@@ -732,13 +998,24 @@ async function handleRegistrationVerify() {
     els.registerDepartmentSelect.disabled = false;
     els.registerPasswordInput.disabled = false;
     els.registerPasswordInput.focus();
-    renderStatusBanner('Email verified. Choose your department. A supervisor must activate the account.');
+    renderStatusBanner('Email verified. Choose your department. A supervisor must activate the account.', false, {
+      local: els.registerFeedback,
+      tone: 'success'
+    });
   } catch (error) {
-    renderStatusBanner(error.message, true);
+    renderStatusBanner(error.message, true, {
+      local: els.registerFeedback,
+      field: els.registrationCodeInput,
+      tone: 'error'
+    });
+  } finally {
+    uiFeedback.setButtonBusy(els.verifyRegistrationCodeButton, false);
   }
 }
 
 function resetRegistrationFlow() {
+  uiFeedback.clearLocal(els.registerFeedback);
+  uiFeedback.clearFieldError(els.registrationCodeInput);
   state.registrationVerificationId = null;
   state.registrationToken = '';
   els.registerForm.reset();
@@ -753,7 +1030,27 @@ function resetRegistrationFlow() {
   els.registerPasswordInput.disabled = true;
 }
 
-function handleLogout() {
+async function handleLogout() {
+  if (els.logoutButton.getAttribute('aria-busy') === 'true') return;
+  if (workerForm.hasUnsavedInput()) {
+    uiFeedback.setButtonBusy(els.logoutButton, true, 'Saving draft...');
+    try {
+      await workerForm.flushPendingDrafts();
+    } catch {
+      uiFeedback.setButtonBusy(els.logoutButton, false);
+      if (state.user?.role === 'worker' && state.user?.workerClass === 'leader') {
+        activateTab('formTab');
+        workerForm.focusUnsavedInput();
+      }
+      renderStatusBanner('Your Work Form is not saved yet. Keep editing and try again before logging out.', true, {
+        local: els.workFormFeedback,
+        tone: 'error'
+      });
+      return;
+    }
+    uiFeedback.setButtonBusy(els.logoutButton, false);
+  }
+  uiFeedback.clearAll();
   clearWorkerSessionState();
   clearBackendSession();
   state.user = null;
@@ -763,15 +1060,48 @@ function handleLogout() {
   renderApp();
 }
 
-function handleSessionExpired() {
-  clearWorkerSessionState();
-  clearBackendSession();
-  state.user = null;
-  state.sites = [];
-  state.sitesLoadError = '';
-  fillSiteSelects();
-  renderApp();
-  renderStatusBanner('Your backend session expired. Please sign in again.');
+function handleSessionExpired(message = 'Your backend session expired. Please sign in again.') {
+  if (sessionExpiryInProgress) return;
+  sessionExpiryInProgress = true;
+
+  const finish = () => {
+    uiFeedback.clearAll();
+    clearWorkerSessionState();
+    clearBackendSession();
+    state.user = null;
+    state.sites = [];
+    state.sitesLoadError = '';
+    fillSiteSelects();
+    renderApp();
+    renderStatusBanner(message);
+    sessionExpiryInProgress = false;
+  };
+
+  if (state.submittingWorkForm) {
+    window.setTimeout(() => {
+      sessionExpiryInProgress = false;
+      handleSessionExpired(message);
+    }, 150);
+    return;
+  }
+
+  if (workerForm.hasUnsavedInput()) {
+    void workerForm.flushPendingDrafts()
+      .then(finish)
+      .catch(() => {
+        sessionExpiryInProgress = false;
+        if (state.user?.role === 'worker' && state.user?.workerClass === 'leader') {
+          activateTab('formTab');
+          workerForm.focusUnsavedInput();
+        }
+        renderStatusBanner('Your session expired, but this Work Form is not saved on this device. Keep this page open and try saving again.', true, {
+          local: els.workFormFeedback,
+          tone: 'error'
+        });
+      });
+    return;
+  }
+  finish();
 }
 
 function isBackendSessionError(error) {
@@ -967,8 +1297,8 @@ async function handleSupervisorTrashRecord(record) {
   await supervisorReviewModule.handleTrashRecord(record);
 }
 
-async function handleSupervisorDecision(record, decision) {
-  await supervisorReviewModule.handleDecision(record, decision);
+async function handleSupervisorDecision(record, decision, button) {
+  await supervisorReviewModule.handleDecision(record, decision, button);
 }
 
 async function handleSupervisorExportRecord(record, exportType) {
@@ -991,15 +1321,25 @@ function activateTab(targetId) {
 }
 
 async function syncQueueIfPossible(showMessage) {
+  if (state.user && navigator.onLine) {
+    uiFeedback.setSyncState('syncing', 'Online - syncing');
+  }
   const result = await syncQueuedSubmissions();
 
   if (result.authBlocked) {
-    clearWorkerSessionState();
-    clearBackendSession();
-    state.user = null;
-    renderApp();
-    renderStatusBanner('Sign in again to sync queued submissions.', true);
+    handleSessionExpired('Sign in again to sync queued submissions.');
     return result;
+  }
+
+  if (!navigator.onLine) {
+    uiFeedback.setSyncState('offline', 'Offline - submissions will wait');
+  } else if (result.failed || result.ownershipBlocked || result.invalidBlocked) {
+    const attentionCount = result.failed + result.ownershipBlocked + result.invalidBlocked;
+    uiFeedback.setSyncState('attention', `Online - ${attentionCount} submission${attentionCount === 1 ? '' : 's'} need attention`);
+  } else if (!result.noActiveWorker) {
+    uiFeedback.setSyncState('synced', result.flushed ? `Online - ${result.flushed} synced` : 'Online - queue checked');
+  } else {
+    uiFeedback.setSyncState('online', 'Online');
   }
 
   if (showMessage && result.flushed) {
@@ -1072,7 +1412,9 @@ function hasPendingAppUpdate() {
 }
 
 function renderAppUpdateBanner() {
-  renderStatusBanner('A new app version is ready. Tap Update App to reload when you are ready.');
+  renderSystemBanner('A new app version is ready. Your Work Form will be saved before the app reloads.', {
+    tone: 'info'
+  });
 }
 
 function showServiceWorkerUpdate(worker) {
@@ -1081,15 +1423,66 @@ function showServiceWorkerUpdate(worker) {
   renderAppUpdateBanner();
 }
 
-function handleAppUpdate() {
-  const worker = state.waitingServiceWorker;
-  if (!worker) return;
+function showAppUpdatePausedDialog(message) {
+  els.appUpdatePausedDescription.textContent = message
+    || 'This Work Form has changes that are not saved on this device. Updating now could lose them.';
+  applyLanguage(els.appUpdatePausedDialog);
+  if (!els.appUpdatePausedDialog.open) els.appUpdatePausedDialog.showModal();
+  window.requestAnimationFrame(() => els.keepEditingWorkFormButton.focus());
+}
 
-  els.updateButton.disabled = true;
+function keepEditingWorkForm() {
+  if (els.appUpdatePausedDialog.open) els.appUpdatePausedDialog.close();
+  if (state.user?.role === 'worker' && state.user?.workerClass === 'leader') {
+    activateTab('formTab');
+    window.requestAnimationFrame(() => workerForm.focusUnsavedInput());
+  }
+}
+
+async function handleAppUpdate() {
+  let worker = state.waitingServiceWorker;
+  if (!worker || appUpdateAttemptInFlight) return;
+
+  appUpdateAttemptInFlight = true;
+  uiFeedback.setButtonBusy(els.updateButton, true, 'Saving before update...');
+  let draftReadiness;
+  try {
+    draftReadiness = await workerForm.prepareForAppUpdate();
+  } catch {
+    draftReadiness = {
+      safe: false,
+      message: 'This Work Form has changes that are not saved on this device. Updating now could lose them.'
+    };
+  }
+  if (!draftReadiness.safe) {
+    appUpdateAttemptInFlight = false;
+    uiFeedback.setButtonBusy(els.updateButton, false);
+    showAppUpdatePausedDialog(draftReadiness.message);
+    return;
+  }
+
+  worker = state.waitingServiceWorker;
+  if (!worker) {
+    workerForm.cancelAppUpdatePreparation();
+    appUpdateAttemptInFlight = false;
+    uiFeedback.setButtonBusy(els.updateButton, false);
+    renderSystemBanner('The app update is no longer waiting. Your Work Form draft is saved.', { tone: 'info' });
+    return;
+  }
+
+  try {
+    worker.postMessage({ type: 'SKIP_WAITING' });
+  } catch {
+    workerForm.cancelAppUpdatePreparation();
+    appUpdateAttemptInFlight = false;
+    uiFeedback.setButtonBusy(els.updateButton, false);
+    renderSystemBanner('Could not start the app update. Your Work Form draft is saved; try Update App again.', {
+      tone: 'error'
+    });
+    return;
+  }
   reloadingForServiceWorkerUpdate = true;
-  renderStatusBanner('Updating app...');
-  worker.postMessage({ type: 'SKIP_WAITING' });
-
+  renderSystemBanner('Draft saved. Updating app...', { tone: 'info' });
   window.setTimeout(() => {
     window.location.reload();
   }, 5000);
@@ -1139,5 +1532,7 @@ function registerServiceWorker() {
 
 init().catch((error) => {
   console.error(error);
-  renderStatusBanner('The app could not start correctly. Check the browser console for details.');
+  renderSystemBanner('The app could not start correctly. Check the browser console for details.', {
+    tone: 'error'
+  });
 });

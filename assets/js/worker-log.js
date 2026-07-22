@@ -25,6 +25,7 @@ function dayworkScore(form) {
 export function createWorkerLogModule({
   els,
   state,
+  feedback,
   photoViewer,
   maxPhotos,
   findSiteByFormValue,
@@ -88,6 +89,7 @@ export function createWorkerLogModule({
   }
 
   function setSubmitting(isSubmitting) {
+    feedback.setButtonBusy(els.submitTaskButton, isSubmitting, 'Submitting daywork...');
     state.submittingTask = isSubmitting;
     els.submitTaskButton.disabled = isSubmitting || !selectedDayworkForm();
     els.saveTaskDraftButton.disabled = isSubmitting;
@@ -154,7 +156,10 @@ export function createWorkerLogModule({
     };
     state.dayworkLogDraft = draft;
     await saveDraft('task-form', draft);
-    renderStatusBanner('Daywork draft saved on this device.');
+    renderStatusBanner('Daywork draft saved on this device.', false, {
+      local: els.taskFeedback,
+      tone: 'success'
+    });
   }
 
   async function handlePhotoChange(event) {
@@ -168,7 +173,11 @@ export function createWorkerLogModule({
       state.taskPhotoMetadata = [];
       photoViewer.renderPreviews(els.taskPhotoPreview, [], 'Daywork photo');
       await persistDraft();
-      renderStatusBanner(validationError, true);
+      renderStatusBanner(validationError, true, {
+        local: els.taskFeedback,
+        field: els.taskPhoto,
+        tone: 'error'
+      });
       return;
     }
     state.taskPhotoFiles = files;
@@ -177,7 +186,10 @@ export function createWorkerLogModule({
     photoViewer.renderPreviews(els.taskPhotoPreview, state.taskPhotoDataUrls, 'Daywork photo', state.taskPhotoMetadata);
     await persistDraft();
     if (selectedFiles.length > maxPhotos) {
-      renderStatusBanner(`Daywork logs can include up to ${maxPhotos} photos. The first ${maxPhotos} were kept.`, true);
+      renderStatusBanner(`Daywork logs can include up to ${maxPhotos} photos. The first ${maxPhotos} were kept.`, true, {
+        local: els.taskFeedback,
+        tone: 'warning'
+      });
     }
   }
 
@@ -204,21 +216,34 @@ export function createWorkerLogModule({
 
     const form = selectedDayworkForm();
     if (!form) {
-      renderStatusBanner('No active Daywork log form is available.', true);
+      renderStatusBanner('No active Daywork log form is available.', true, {
+        local: els.taskFeedback,
+        tone: 'error'
+      });
       return;
     }
 
     if (!els.taskSite.value || !els.taskDate.value) {
-      renderStatusBanner('Site and work date are required.', true);
+      const field = !els.taskSite.value ? els.taskSite : els.taskDate;
+      renderStatusBanner('Site and work date are required.', true, {
+        local: els.taskFeedback,
+        field,
+        tone: 'error'
+      });
       return;
     }
 
     const site = findSiteByFormValue(els.taskSite.value);
     if (!site) {
-      renderStatusBanner('Please select a valid site first.', true);
+      renderStatusBanner('Please select a valid site first.', true, {
+        local: els.taskFeedback,
+        field: els.taskSite,
+        tone: 'error'
+      });
       return;
     }
 
+    feedback.clearLocal(els.taskFeedback);
     setSubmitting(true);
     try {
       const localRecord = {
@@ -246,7 +271,10 @@ export function createWorkerLogModule({
 
       resetForm();
       await syncQueueIfPossible(!result.offline);
-      renderStatusBanner(result.message, result.offline);
+      renderStatusBanner(result.message, result.offline, {
+        local: els.taskFeedback,
+        tone: result.offline ? 'warning' : 'success'
+      });
       await renderWorkerSummary();
       await renderHistory();
     } catch (error) {
@@ -254,7 +282,12 @@ export function createWorkerLogModule({
         handleSessionExpired();
         return;
       }
-      renderStatusBanner(error.message || 'Could not submit Daywork log.', true);
+      const invalidField = error.fieldId ? document.getElementById(error.fieldId) : null;
+      renderStatusBanner(error.message || 'Could not submit Daywork log.', true, {
+        local: els.taskFeedback,
+        field: invalidField,
+        tone: 'error'
+      });
     } finally {
       setSubmitting(false);
     }
@@ -273,6 +306,7 @@ export function createWorkerLogModule({
   }
 
   function clearSessionState() {
+    feedback.clearLocal(els.taskFeedback);
     teamMembersLoadedForUserId = null;
     teamMemberLoadPromise = null;
     renderedDayworkForm = null;

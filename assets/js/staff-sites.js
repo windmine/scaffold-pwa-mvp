@@ -9,7 +9,9 @@ import {
   updateWorkForm as updateBackendWorkForm
 } from './api-client.js';
 import { createSiteMapPicker, currentPosition } from './site-map-picker.js';
-import { parseWorkFormFieldsInput, renderWorkFormFields, serialiseWorkFormFields } from './work-form-fields.js';
+import { setButtonBusy } from './ui-feedback.js';
+import { createWorkFormBuilder, workFormBuilderMarkup } from './work-form-builder.js';
+import { renderWorkFormFields } from './work-form-fields.js';
 import { escapeHtml, roundCoordinate } from './utils.js';
 
 export function createStaffSitesModule({
@@ -26,6 +28,10 @@ export function createStaffSitesModule({
   editValue,
   editNumber
 }) {
+  const workFormBuilder = createWorkFormBuilder(els.workFormFieldBuilder, {
+    onChange: () => refreshOpenDraftWorkFormPreview()
+  });
+
   function roundCoordinateInput(input) {
     if (input.value.trim() === '') return NaN;
     const rounded = roundCoordinate(input.value);
@@ -110,7 +116,9 @@ export function createStaffSitesModule({
   });
 
   function refreshSiteMapIfVisible() {
-    if (els.siteMap?.closest('details')?.open) siteMapPicker.refresh();
+    if (els.siteMap?.closest('details')?.open && els.siteMap.getClientRects().length) {
+      siteMapPicker.refresh();
+    }
   }
 
   function siteSelectOptions() {
@@ -255,11 +263,10 @@ export function createStaffSitesModule({
   async function handleWorkFormCreate(event) {
     event.preventDefault();
 
-    const fields = parseWorkFormFieldsInput(els.workFormFieldsInput.value);
-    if (!fields.length) {
-      renderStatusBanner('Add at least one form field.', true);
-      return;
-    }
+    if (!workFormBuilder.validate({ focus: true })) return;
+    const fields = workFormBuilder.getFields();
+    if (els.workFormSubmitButton.getAttribute('aria-busy') === 'true') return;
+    setButtonBusy(els.workFormSubmitButton, true, 'Creating form...');
 
     try {
       await createBackendWorkForm({
@@ -268,12 +275,21 @@ export function createStaffSitesModule({
         fields
       });
       els.workFormBuilderForm.reset();
+      workFormBuilder.reset();
       hideDraftWorkFormPreview();
-      renderStatusBanner('Work form created.');
+      renderStatusBanner('Work form created.', false, {
+        local: els.workFormBuilderActionFeedback,
+        tone: 'success'
+      });
       await refreshWorkForms();
       await refreshSupervisorAuditHistory?.();
     } catch (error) {
-      renderStatusBanner(error.message || 'Could not create work form.', true);
+      renderStatusBanner(error.message || 'Could not create work form.', true, {
+        local: els.workFormBuilderActionFeedback,
+        tone: 'error'
+      });
+    } finally {
+      setButtonBusy(els.workFormSubmitButton, false);
     }
   }
 
@@ -283,7 +299,7 @@ export function createStaffSitesModule({
       name: els.workFormNameInput.value.trim() || 'Untitled work form',
       description: els.workFormDescriptionInput.value.trim() || '',
       status: 'draft',
-      fields: parseWorkFormFieldsInput(els.workFormFieldsInput.value)
+      fields: workFormBuilder.getFields()
     };
   }
 
@@ -329,6 +345,9 @@ export function createStaffSitesModule({
       enhanceDayworkTeamMembers: isDayworkForm(form),
       teamMembers: activeWorkerTeamMembers()
     });
+    preview.querySelectorAll('[data-work-form-preview-fields] [required]').forEach((control) => {
+      control.removeAttribute('required');
+    });
   }
 
   function renderDraftWorkFormPreview() {
@@ -352,6 +371,7 @@ export function createStaffSitesModule({
   function handleDraftWorkFormPreviewToggle() {
     if (!els.workFormDraftPreview) return;
     if (els.workFormDraftPreview.classList.contains('hidden')) {
+      if (!workFormBuilder.validate({ focus: true })) return;
       showDraftWorkFormPreview();
       return;
     }
@@ -364,6 +384,7 @@ export function createStaffSitesModule({
   }
 
   async function handleWorkFormEdit(form) {
+    let editBuilder;
     showEditPanel(
       `Edit work form: ${form.name}`,
       [
@@ -371,20 +392,18 @@ export function createStaffSitesModule({
         { id: 'editWorkFormDescription', label: 'Description', value: form.description || '' },
         {
           id: 'editWorkFormFields',
-          label: 'Fields',
-          type: 'textarea',
-          rows: 9,
-          value: serialiseWorkFormFields(form.fields || [])
+          type: 'custom',
+          html: workFormBuilderMarkup()
         }
       ],
       'Save form',
       async () => {
+        if (!editBuilder.validate({ focus: true })) return;
         if (!window.confirm(`Double check: save changes to form "${form.name}"?`)) return;
-        const fields = parseWorkFormFieldsInput(editValue('editWorkFormFields'));
-        if (!fields.length) {
-          renderStatusBanner('Add at least one form field.', true);
-          return;
-        }
+        const fields = editBuilder.getFields();
+        const submitButton = els.editPanelForm.querySelector('button[type="submit"]');
+        if (submitButton?.getAttribute('aria-busy') === 'true') return;
+        setButtonBusy(submitButton, true, 'Saving form...');
 
         try {
           await updateBackendWorkForm(form.id, {
@@ -398,8 +417,14 @@ export function createStaffSitesModule({
           await refreshSupervisorAuditHistory?.();
         } catch (error) {
           renderStatusBanner(error.message || 'Could not update work form.', true);
+        } finally {
+          setButtonBusy(submitButton, false);
         }
       }
+    );
+    editBuilder = createWorkFormBuilder(
+      els.editPanelForm.querySelector('[data-work-form-builder]'),
+      { fields: form.fields || [] }
     );
   }
 
@@ -730,7 +755,6 @@ export function createStaffSitesModule({
     els.workFormPreviewButton?.addEventListener('click', handleDraftWorkFormPreviewToggle);
     els.workFormNameInput?.addEventListener('input', refreshOpenDraftWorkFormPreview);
     els.workFormDescriptionInput?.addEventListener('input', refreshOpenDraftWorkFormPreview);
-    els.workFormFieldsInput?.addEventListener('input', refreshOpenDraftWorkFormPreview);
     els.siteSearchInput.addEventListener('input', renderSupervisorSites);
     els.staffSearchInput.addEventListener('input', renderFilteredStaffUsers);
     els.staffRoleSelect.addEventListener('change', () => {
@@ -740,6 +764,7 @@ export function createStaffSitesModule({
 
   return {
     bindEvents,
+    refreshSiteMapIfVisible,
     renderFilteredStaffUsers,
     renderStaffUsers,
     renderSupervisorSites,

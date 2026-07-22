@@ -127,7 +127,9 @@ Normal workers receive a simplified attendance screen with only **Check in / out
 - Click any uploaded photo thumbnail to open a floating zoom viewer with previous/next controls.
 - Save offline drafts and queue offline records for later sync.
 - Keep queued records bound to the Worker who captured them, with capture time and stable client submission id retained across retries; delayed attendance also preserves its original occurrence timestamp.
+- Autosave each Work Form draft on this device by Worker and Form, including site, date, answers, signatures, and photos; show the confirmed save time and restore the matching draft after a reload or logout.
 - Preserve in-progress Daywork and Work Form answers when connectivity returns, and show Retry/Discard controls for queued submissions that need corrected photos or other attention.
+- Save pending Work Form changes before activating an app update; pause the update with a retry path if local draft storage fails.
 
 Worker restrictions:
 
@@ -661,8 +663,9 @@ photos
 3. Select a site and work date.
 4. Fill in the form fields.
 5. Select optional photos from the phone photo picker.
-6. Submit the form.
-7. The submission is saved as pending approval and appears in worker history and supervisor review.
+6. Wait for the inline `Saved at...` receipt when you need confirmation that the current draft is protected on this device.
+7. Submit the form. A successful online or queued submission clears only this Worker/Form draft.
+8. The submission is saved as pending approval and appears in worker history and supervisor review.
 
 Built-in seeded examples:
 
@@ -686,9 +689,13 @@ Each weekly log accepts up to 150 work rows. The week must start on Monday and e
 ### Supervisor Form Builder
 
 1. Sign in as supervisor.
-2. Open the Work forms section.
+2. Open the **Forms** workspace and expand **Work forms**.
 3. Enter the form name and optional description.
-4. Add one field per line in this format:
+4. Choose **Add field**, then set the card's field type, worker-facing label, and required state. Choice fields expose their options; repeating groups expose row limits and nested field cards.
+5. Turn on **Only show in some cases** to select an earlier field, comparison, and value. Conditions and formulas can reference only earlier fields in the same form or repeating group.
+6. Drag a card by its handle, or use its Move up/down buttons. Preview the form, then choose **Create form**. Editing an existing form opens the same card builder and preserves its stable field keys.
+
+The routine workflow does not require syntax. For definitions that need direct source editing, open **Advanced: edit raw field syntax**. Raw changes are staged until **Apply syntax** is selected; preview and save remain blocked while unapplied raw changes exist. The compatibility format is:
 
 ```text
 type|Label|required|options-or-formula|rules
@@ -712,7 +719,7 @@ repeat|Materials|||min=0|max=12
 signature|Worker signature|required
 ```
 
-Supported field types are `section`, `repeat`, `text`, `textarea`, `number`, `date`, `time_range`, `select`, `checkbox`, `formula`, and `signature`. Prefix repeat children with `>`. Later columns may contain `show_if=result=Fail`, `min=1`, or `max=12`. A required signature uses a touch-friendly pad and uploads a PNG. The browser previews formulas, but the backend revalidates source answers and stores authoritative time-range durations and formula results. Content edits increment the Definition version; every submission retains an immutable Definition snapshot, so archive/reactivate or later edits cannot relabel history.
+Supported field types are `section`, `repeat`, `text`, `textarea`, `number`, `date`, `time_range`, `select`, `checkbox`, `formula`, and `signature`. Prefix repeat children with `>`. Later columns may contain `id=result`, `show_if=result=Fail`, `min=1`, or `max=12`. Labels cannot contain `|`, and choice options cannot contain commas or `|` because those characters delimit the raw compatibility format. A required signature uses a touch-friendly pad and uploads a PNG. The browser previews formulas, but the backend revalidates source answers and stores authoritative time-range durations and formula results. Content edits increment the Definition version; every submission retains an immutable Definition snapshot, so archive/reactivate or later edits cannot relabel history.
 
 ### Supervisor Review
 

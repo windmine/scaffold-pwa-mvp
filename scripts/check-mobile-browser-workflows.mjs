@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { appShell, computePwaCacheVersion, pwaAssetCopies } from './pwa-shell-assets.mjs';
 import { buildManagementAnalytics } from '../assets/js/supervisor-analytics.js';
+import { validateWorkFormBuilderFields } from '../assets/js/work-form-builder.js';
 import { parseWorkFormFieldsInput, serialiseWorkFormFields } from '../assets/js/work-form-fields.js';
 import {
   ATTENDANCE_LOCATION_MAX_AGE_MS,
@@ -54,8 +55,11 @@ const sourceWorkerSites = read('assets/js/worker-sites.js');
 const sourceSiteMapPicker = read('assets/js/site-map-picker.js');
 const sourceTeamMemberPicker = read('assets/js/team-member-picker.js');
 const sourceTeamWorkLog = read('assets/js/team-work-log.js');
+const sourceUiFeedback = read('assets/js/ui-feedback.js');
 const sourceWorker = read('sw.js');
 const sourceOfflineQueue = read('assets/js/offline-submissions.js');
+const sourcePhotoViewer = read('assets/js/photo-viewer.js');
+const sourceWorkFormBuilder = read('assets/js/work-form-builder.js');
 const sourceWorkFormFields = read('assets/js/work-form-fields.js');
 const sourceDateInputs = read('assets/js/date-inputs.js');
 const sourceStyles = read('assets/css/styles.css');
@@ -70,6 +74,29 @@ check('work form field ids survive label edits', () => {
   return parsed[0]?.id === 'worker_hours'
     && parsed[0]?.label === 'Crew hours'
     && parsed[1]?.formula === 'worker_hours * 2';
+});
+
+check('advanced work form syntax round-trips visual field data', () => {
+  const source = [
+    'select|Result|required|Pass,Fail,N/A|id=result',
+    'textarea|Issue details|required||id=issue_details|show_if=result=Fail',
+    'repeat|Materials|||id=materials;min=1;max=4',
+    '>number|Quantity|required||id=quantity',
+    '>formula|Double quantity||quantity * 2|id=double_quantity'
+  ].join('\n');
+  const parsed = parseWorkFormFieldsInput(source);
+  const roundTripped = parseWorkFormFieldsInput(serialiseWorkFormFields(parsed));
+  const validation = validateWorkFormBuilderFields(roundTripped);
+
+  return validation.valid
+    && roundTripped[0]?.id === 'result'
+    && roundTripped[0]?.options?.join('|') === 'Pass|Fail|N/A'
+    && roundTripped[1]?.show_if === 'result=Fail'
+    && roundTripped[2]?.min_rows === 1
+    && roundTripped[2]?.max_rows === 4
+    && roundTripped[3]?.repeat === 'materials'
+    && roundTripped[4]?.repeat === 'materials'
+    && roundTripped[4]?.formula === 'quantity * 2';
 });
 
 const distIndex = hasFile('dist/index.html') ? read('dist/index.html') : '';
@@ -87,7 +114,9 @@ check('production build exists', () => [
   'dist/assets/js/site-map-picker.js',
   'dist/assets/js/team-member-picker.js',
   'dist/assets/js/team-work-log.js',
+  'dist/assets/js/ui-feedback.js',
   'dist/assets/js/worker-sites.js',
+  'dist/assets/js/work-form-builder.js',
   'dist/assets/icons/leader-logo-export.png',
   'dist/assets/icons/mutual-logo.svg',
   'dist/assets/icons/mc-logo.svg',
@@ -112,12 +141,17 @@ check('production HTML keeps stable PWA links', () => (
 
 [
   'statusBanner',
+  'syncIndicator',
+  'syncIndicatorText',
+  'toastViewport',
   'themeToggleButton',
   'brandLogo',
   'installButton',
   'downloadAppButton',
   'updateButton',
   'loginForm',
+  'loginSubmitButton',
+  'loginFeedback',
   'registerForm',
   'sendRegistrationCodeButton',
   'registrationCodeFields',
@@ -135,11 +169,23 @@ check('production HTML keeps stable PWA links', () => (
   'addTeamWorkLogEntryButton',
   'submitTeamWorkLogButton',
   'teamWorkLogAutosaveStatus',
+  'teamWorkLogFeedback',
   'teamWorkLogHistory',
   'supervisorView',
+  'adminMobileWorkspaceLabel',
+  'adminMobileMenuButton',
+  'adminWorkspaceDrawer',
+  'adminWorkspaceDrawerCloseButton',
+  'adminOverview',
+  'adminReviewWorkspace',
+  'adminReportsWorkspace',
+  'adminPeopleWorkspace',
+  'adminFormsWorkspace',
+  'adminAuditWorkspace',
   'adminOverview',
   'reviewQueueDetails',
   'reviewQueueNotice',
+  'reviewQueueFeedback',
   'reviewQueuePagination',
   'reviewQueueDetail',
   'reviewQueueDetailTitle',
@@ -157,10 +203,15 @@ check('production HTML keeps stable PWA links', () => (
   'staffWorkerClassSelect',
   'attendanceSite',
   'captureLocationButton',
-  'checkInButton',
-  'checkOutButton',
+  'attendancePrimaryButton',
+  'attendanceCorrectionDetails',
+  'attendanceCorrectionSummary',
+  'attendanceCorrectionButton',
+  'attendanceFeedback',
   'taskForm',
+  'taskFeedback',
   'workFormSubmissionForm',
+  'workFormFeedback',
   'reviewQueueList',
   'manualAttendanceDetails',
   'manualAttendanceForm',
@@ -170,6 +221,7 @@ check('production HTML keeps stable PWA links', () => (
   'manualAttendanceTime',
   'manualAttendanceNote',
   'manualAttendanceSubmitButton',
+  'manualAttendanceFeedback',
   'adminTaskLogDetails',
   'adminTaskLogForm',
   'adminTaskLogUser',
@@ -177,6 +229,7 @@ check('production HTML keeps stable PWA links', () => (
   'adminTaskLogDate',
   'adminTaskLogDescription',
   'adminTaskLogSubmitButton',
+  'adminTaskLogFeedback',
   'rubbishBinDetails',
   'rubbishBinCount',
   'rubbishBinList',
@@ -231,6 +284,22 @@ check('attendance GPS is Worker-owned, fresh, and invalidated between sessions',
     && sourceApp.includes('clearWorkerSessionState();');
 });
 
+check('action feedback separates sync, system, toast, local, field, and busy states', () => (
+  sourceIndex.includes('id="syncIndicator"')
+  && sourceIndex.includes('id="toastViewport"')
+  && sourceIndex.includes('data-local-feedback')
+  && sourceIndex.includes('id="statusBanner" class="status-banner hidden" role="status" aria-live="polite"')
+  && sourceUiFeedback.includes('function setSyncState')
+  && sourceUiFeedback.includes('function showToast')
+  && sourceUiFeedback.includes('function showLocal')
+  && sourceUiFeedback.includes('function setFieldError')
+  && sourceUiFeedback.includes("button.setAttribute('aria-busy', 'true')")
+  && sourceStyles.includes('.sync-indicator')
+  && sourceStyles.includes('.toast-viewport')
+  && sourceStyles.includes('.local-feedback')
+  && sourceStyles.includes('.field-error')
+));
+
 check('authenticated Site loading never falls back to seeded demo Sites', () => (
   !sourceApp.includes('getSites as getLocalSites')
   && !sourceApp.includes('return await getLocalSites()')
@@ -248,6 +317,27 @@ check('reconnect preserves active Daywork and Work Form DOM state', () => {
     && sourceWorkerForm.includes('populateWorkFormAnswers');
 });
 
+check('Work Form drafts autosave per Worker and form before app updates', () => (
+  sourceIndex.includes('id="workFormAutosaveStatus"')
+  && sourceIndex.includes('id="appUpdatePausedDialog"')
+  && sourceWorkerForm.includes("const WORK_FORM_DRAFT_PREFIX = 'work-form-draft'")
+  && sourceWorkerForm.includes("kind: 'work-form'")
+  && sourceWorkerForm.includes('ownerWorkerId')
+  && sourceWorkerForm.includes('definitionVersion')
+  && sourceWorkerForm.includes('photoDataUrls')
+  && sourceWorkerForm.includes('savedAt')
+  && sourceWorkerForm.includes('hasUnsavedInput')
+  && sourceWorkerForm.includes('flushPendingDrafts')
+  && sourceWorkerForm.includes('prepareForAppUpdate')
+  && sourceWorkerForm.includes("window.addEventListener('beforeunload'")
+  && sourceWorkerForm.includes('els.workFormFields.inert = true')
+  && sourceApp.includes('await workerForm.flushPendingDrafts()')
+  && sourceApp.includes('await workerForm.prepareForAppUpdate()')
+  && sourceApp.indexOf('await workerForm.prepareForAppUpdate()')
+    < sourceApp.indexOf("worker.postMessage({ type: 'SKIP_WAITING' })")
+  && sourceWorkFormFields.includes("new Event('change', { bubbles: true })")
+));
+
 check('queued upload failures are visible and recoverable by the owning Worker', () => (
   read('assets/js/history.js').includes('Sync needs attention.')
   && read('assets/js/history.js').includes('Retry sync')
@@ -256,24 +346,29 @@ check('queued upload failures are visible and recoverable by the owning Worker',
   && sourceOfflineQueue.includes('assertOwnedByWorker(record)')
 ));
 
-check('desktop admin workspace navigation opens and links management sections', () => (
+check('supervisor navigation exposes six responsive workspaces', () => (
   sourceIndex.includes('class="admin-desktop-nav"')
+  && sourceIndex.includes('class="admin-mobile-toolbar"')
+  && sourceIndex.includes('id="adminWorkspaceDrawer"')
   && sourceIndex.includes('class="admin-workspace"')
-  && sourceIndex.includes('class="card admin-home-card admin-overview-grid"')
-  && sourceIndex.includes('href="#dashboardScopeCard"')
+  && ['overview', 'review', 'reports', 'people', 'forms', 'audit'].every((workspace) => (
+    sourceIndex.includes(`data-admin-workspace-target="${workspace}"`)
+    && sourceIndex.includes(`data-admin-workspace-panel="${workspace}"`)
+  ))
   && sourceIndex.includes('href="#reviewQueueDetails"')
-  && sourceIndex.includes('href="#staffUsersDetails"')
-  && sourceIndex.indexOf('href="#dashboardScopeCard"') < sourceIndex.indexOf('href="#managementAnalyticsDetails"')
-  && sourceIndex.indexOf('href="#managementAnalyticsDetails"') < sourceIndex.indexOf('href="#reviewQueueDetails"')
   && sourceApp.includes('bindAdminNavigation()')
+  && sourceApp.includes('activateAdminWorkspace')
+  && sourceApp.includes("setAttribute('aria-current', 'page')")
+  && sourceApp.includes('showModal()')
   && sourceApp.includes('target instanceof HTMLDetailsElement')
-  && sourceStyles.includes('.admin-workspace > .review-queue-card')
-  && sourceStyles.includes('.admin-home-grid')
-  && sourceStyles.includes('order: 40')
+  && sourceApp.includes('refreshSiteMapIfVisible')
+  && read('assets/js/staff-sites.js').includes('els.siteMap.getClientRects().length')
+  && sourceStyles.includes('.admin-workspace-panel[hidden]')
+  && sourceStyles.includes('.admin-mobile-toolbar')
+  && sourceStyles.includes('.admin-workspace-drawer')
   && sourceStyles.includes('grid-template-columns: minmax(226px, 248px) minmax(0, 1fr)')
   && sourceStyles.includes('body.session-supervisor .topbar')
-  && sourceStyles.includes('grid-template-columns: repeat(12, minmax(0, 1fr))')
-  && sourceStyles.includes('@media (min-width: 1240px)')
+  && sourceStyles.includes('@media (max-width: 979px)')
 ));
 
 check('supervisor Review Desk uses an accessible master-detail layout', () => (
@@ -427,15 +522,44 @@ check('partial uploads persist progress before retry', () => (
   && sourceOfflineQueue.includes('onProgress: persistLocalSubmission')
 ));
 
-check('required handwritten signatures are rendered and enforced', () => (
+check('required handwritten signatures are enforced and keyboard operable', () => (
   sourceWorkFormFields.includes('data-signature-canvas')
   && sourceWorkFormFields.includes('canvas.toDataURL')
   && sourceWorkFormFields.includes('field.required')
-  && sourceWorkFormFields.includes('throw new Error(`${field.label} is required.`)')
+  && sourceWorkFormFields.includes('throw workFormValidationError(')
+  && sourceWorkFormFields.includes("error.name = 'WorkFormValidationError'")
+  && sourceWorkFormFields.includes('error.fieldId = fieldId')
+  && sourceWorkFormFields.includes("canvas.addEventListener('keydown'")
+  && sourceWorkFormFields.includes("event.key === ' ' || event.key === 'Enter'")
+  && sourceWorkFormFields.includes("'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'")
+  && sourceWorkFormFields.includes('role="application"')
+  && sourceWorkFormFields.includes('aria-roledescription="signature pad"')
+  && sourceWorkFormFields.includes('data-signature-status role="status" aria-live="polite"')
+  && sourceStyles.includes('.signature-canvas:focus-visible')
+));
+
+check('photo viewer traps focus and restores its opener', () => (
+  sourcePhotoViewer.includes("event.key === 'Tab'")
+  && sourcePhotoViewer.includes('restoreFocusTarget')
+  && sourcePhotoViewer.includes('getFocusableElements()')
+  && sourcePhotoViewer.includes('handleFocusIn')
+  && sourcePhotoViewer.includes('disableBackgroundInteraction()')
+  && sourcePhotoViewer.includes('restoreBackgroundInteraction()')
+  && sourcePhotoViewer.includes("sibling.setAttribute('inert', '')")
+  && sourcePhotoViewer.includes('if (bound) return')
+));
+
+check('primary action gradient stops use the AA palette', () => (
+  sourceStyles.includes('linear-gradient(180deg, var(--brand-blue), var(--brand-blue-dark))')
+  && sourceStyles.includes('linear-gradient(180deg, #1470dc, #0864d8)')
+  && sourceStyles.includes('linear-gradient(180deg, #1470dc, var(--brand-blue))')
+  && !sourceStyles.includes('linear-gradient(180deg, #2488ff, var(--brand-blue-dark))')
+  && !sourceStyles.includes('linear-gradient(180deg, #3c96ff, #0864d8)')
+  && !sourceStyles.includes('linear-gradient(180deg, #3f96ff, var(--brand-blue))')
 ));
 
 check('advanced work form fields and photo timestamps are wired', () => (
-  sourceIndex.includes('time_range|Work time|required')
+  sourceWorkFormBuilder.includes("value: 'time_range'")
   && sourceWorkFormFields.includes("field.type === 'section'")
   && sourceWorkFormFields.includes("field.type === 'time_range'")
   && sourceWorkFormFields.includes("field.type === 'repeat'")
@@ -538,6 +662,21 @@ check('normal worker UI is focused and step based', () => (
   && read('assets/js/history.js').includes('class="worker-status-hero')
 ));
 
+check('attendance exposes one contextual primary action and a correction path', () => (
+  sourceIndex.includes('class="attendance-primary-actions"')
+  && sourceIndex.includes('id="attendancePrimaryButton"')
+  && sourceIndex.includes('id="attendanceCorrectionDetails"')
+  && sourceIndex.includes('id="attendanceCorrectionButton"')
+  && !sourceIndex.includes('id="checkInButton"')
+  && !sourceIndex.includes('id="checkOutButton"')
+  && sourceWorkerAttendance.includes('configureContextualActions')
+  && sourceWorkerAttendance.includes("state.attendanceExpectedAction")
+  && sourceWorkerAttendance.includes("button.dataset.attendanceAction")
+  && read('assets/js/history.js').includes('onAttendanceExpectedActionChanged')
+  && sourceStyles.includes('.attendance-primary-actions')
+  && sourceStyles.includes('.attendance-correction-details')
+));
+
 check('worker and supervisor workflow modules are active', () => (
   includesAll(sourceApp, [
     'createWorkerAttendanceModule',
@@ -596,6 +735,28 @@ check('PDF exports are available for Daywork and submitted forms', () => (
   && read('backend/app/use_cases/supervisor_review.py').includes('export_form_submissions_pdf')
   && read('backend/app/use_cases/supervisor_review.py').includes('filter_form_records')
   && pwaShellCopies('/assets/js/review-export-adapters.js')
+));
+
+check('supervisors build work forms with accessible draggable field cards', () => (
+  sourceIndex.includes('id="workFormFieldBuilder"')
+  && sourceIndex.includes('id="workFormAdvancedDetails"')
+  && sourceIndex.includes('id="workFormFieldsInput"')
+  && sourceIndex.includes('data-work-form-field-list')
+  && sourceWorkFormBuilder.includes('data-field-drag-handle')
+  && sourceWorkFormBuilder.includes('data-move-field="up"')
+  && sourceWorkFormBuilder.includes('data-field-property="condition-field"')
+  && sourceWorkFormBuilder.includes('Apply or discard the pending raw syntax')
+  && read('assets/js/staff-sites.js').includes('createWorkFormBuilder')
+  && sourceStyles.includes('.work-form-field-card')
+  && pwaShellCopies('/assets/js/work-form-builder.js')
+));
+
+check('New Form field checkboxes use the accessible app control', () => (
+  sourceWorkFormBuilder.includes('class="checkbox-field form-checkbox-field work-form-required-toggle"')
+  && sourceWorkFormBuilder.includes('class="checkbox-field form-checkbox-field work-form-condition-toggle"')
+  && sourceWorkFormBuilder.includes('<span class="form-checkbox-control" aria-hidden="true"></span>')
+  && sourceWorkFormBuilder.includes('<span class="form-checkbox-label">Required</span>')
+  && sourceWorkFormBuilder.includes('<span class="form-checkbox-label">Only show in some cases</span>')
 ));
 
 check('Review Queue durability and policy seams are explicit', () => (
