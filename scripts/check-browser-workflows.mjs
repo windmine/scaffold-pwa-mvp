@@ -452,6 +452,12 @@ async function checkAnonymousStartupDoesNotLoadSites(browser) {
     await page.waitForTimeout(250);
 
     const siteOptions = await page.locator('#attendanceSite option').allTextContents();
+    if (await page.locator('#registrationPanel').isVisible()) {
+      throw new Error('public registration panel is visible during the invited-account pilot');
+    }
+    if (!(await page.locator('#invitedAccountNotice').getByText('Invited accounts only.').isVisible())) {
+      throw new Error('invited-account guidance is not visible on the sign-in screen');
+    }
     if (siteRequests.length) {
       throw new Error(`anonymous startup requested authenticated sites: ${JSON.stringify(siteRequests)}`);
     }
@@ -2567,6 +2573,179 @@ async function checkServiceWorkerUpdatePrompt(browser) {
   }
 }
 
+async function checkChineseTranslation(browser) {
+  const initChinese = () => localStorage.setItem('leader-language', 'zh');
+  const anonymousContext = await newContext(browser, { initScript: initChinese });
+  const anonymousPage = await anonymousContext.newPage();
+
+  try {
+    await anonymousPage.goto('/', { waitUntil: 'domcontentloaded' });
+    await anonymousPage.waitForFunction(() => (
+      document.body.dataset.activeView === 'login'
+      && document.querySelector('#syncIndicator')?.dataset.state !== 'checking'
+    ));
+
+    const chromeState = await anonymousPage.evaluate(() => ({
+      language: document.documentElement.lang,
+      notifications: document.querySelector('#toastViewport')?.getAttribute('aria-label') || ''
+    }));
+    if (chromeState.language !== 'zh-Hans' || chromeState.notifications !== '通知') {
+      throw new Error(`Chinese app chrome was incomplete: ${JSON.stringify(chromeState)}`);
+    }
+
+    await anonymousPage.locator('#loginSubmitButton').click();
+    await anonymousPage.locator('#loginFeedback').getByText('请填写此字段。').waitFor({ timeout: 5000 });
+    if (await anonymousPage.locator('#loginFeedback').getByText('Please fill out this field.').count()) {
+      throw new Error('required-field feedback remained in English');
+    }
+
+    await anonymousPage.locator('#emailInput').fill('not-an-email');
+    await anonymousPage.locator('#passwordInput').fill(password);
+    await anonymousPage.locator('#loginSubmitButton').click();
+    await anonymousPage.locator('#loginFeedback').getByText('请输入有效的电子邮箱地址。').waitFor({ timeout: 5000 });
+
+    await anonymousPage.locator('#emailInput').fill('missing-user@example.com');
+    await anonymousPage.locator('#loginSubmitButton').click();
+    await anonymousPage.locator('#loginFeedback').getByText('电子邮箱或密码错误').waitFor({ timeout: 10000 });
+
+    if ((await anonymousPage.locator('#loginSubmitButton').innerText()).trim() !== '登录') {
+      throw new Error('login button lost its Chinese label after the busy cycle');
+    }
+    await anonymousPage.locator('#languageToggleButton').click();
+    await anonymousPage.waitForFunction(() => document.documentElement.lang === 'en-NZ');
+    const restoredLoginLabel = (await anonymousPage.locator('#loginSubmitButton').innerText()).trim();
+    if (restoredLoginLabel !== 'Sign in') {
+      throw new Error(`login button did not restore its canonical English label after the busy cycle: ${restoredLoginLabel}`);
+    }
+  } finally {
+    await anonymousContext.close();
+  }
+
+  const supervisorContext = await newContext(browser, {
+    initScript: initChinese,
+    isMobile: false,
+    hasTouch: false,
+    viewport: { width: 1280, height: 900 }
+  });
+  const page = await supervisorContext.newPage();
+
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#addWorkFormFieldButton').click();
+    const fieldCard = page.locator('#workFormFieldCards > [data-work-form-field-card]').first();
+    await fieldCard.waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(() => (
+      document.querySelector('#workFormFieldCards')?.getAttribute('aria-label') === '工作表单字段'
+    ));
+
+    const builderState = await fieldCard.evaluate((card) => ({
+      text: card.innerText,
+      labelPlaceholder: card.querySelector('[data-field-property="label"]')?.getAttribute('placeholder') || '',
+      dragTitle: card.querySelector('[data-field-drag-handle]')?.getAttribute('title') || '',
+      dragLabel: card.querySelector('[data-field-drag-handle]')?.getAttribute('aria-label') || ''
+    }));
+    if (
+      builderState.labelPlaceholder !== '员工需要填写什么？'
+      || builderState.dragTitle !== '拖动排序'
+      || builderState.dragLabel !== '拖动未命名字段'
+      || /\b(?:Field type|Required|Remove|New field)\b/.test(builderState.text)
+    ) {
+      throw new Error(`Chinese Work Form builder was incomplete: ${JSON.stringify(builderState)}`);
+    }
+
+    await fieldCard.locator('[data-field-property="type"]').selectOption('select');
+    await page.locator('#workFormPreviewButton').click();
+    const multiError = await fieldCard.locator('[data-work-form-field-error]').innerText();
+    if (
+      !multiError.includes('请为此字段添加标签。')
+      || !multiError.includes('选择题至少需要一个选项。')
+      || /\b(?:Add|label|field|Choice|needs|option)\b/i.test(multiError)
+    ) {
+      throw new Error(`multi-error Work Form validation was not fully translated: ${multiError}`);
+    }
+
+    const signatureState = await page.evaluate(async () => {
+      const { applyLanguage } = await import('/assets/js/i18n.js');
+      const { renderWorkFormFields } = await import('/assets/js/work-form-fields.js');
+      const fixture = document.createElement('section');
+      fixture.id = 'chineseSignatureFixture';
+      document.body.append(fixture);
+      renderWorkFormFields(fixture, {
+        fields: [{ id: 'approval', label: 'Approval', type: 'signature', required: true }]
+      }, { container: fixture, idPrefix: 'chineseSignature' });
+      applyLanguage(fixture);
+      const canvas = fixture.querySelector('[data-signature-canvas]');
+      const descriptions = (canvas.getAttribute('aria-describedby') || '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((id) => document.getElementById(id)?.textContent || '');
+      return {
+        roleDescription: canvas.getAttribute('aria-roledescription'),
+        descriptions,
+        requiredText: fixture.querySelector('.visually-hidden')?.textContent.trim() || ''
+      };
+    });
+    if (
+      signatureState.roleDescription !== '签名板'
+      || signatureState.requiredText !== '（必填）'
+      || signatureState.descriptions.some((text) => /\b(?:Keyboard|signature pad|blank)\b/i.test(text))
+    ) {
+      throw new Error(`Chinese signature instructions were incomplete: ${JSON.stringify(signatureState)}`);
+    }
+
+    const signatureCanvas = page.locator('#chineseSignature_approval');
+    await signatureCanvas.focus();
+    await page.keyboard.press('Space');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => (
+      document.querySelector('#chineseSignature_approval_status')?.textContent === '键盘绘制已停止。签名已记录。'
+    ));
+
+    const photoState = await page.evaluate(async () => {
+      const { createPhotoViewer } = await import('/assets/js/photo-viewer.js');
+      const fixture = document.createElement('section');
+      fixture.className = 'hidden';
+      fixture.innerHTML = '<button data-photo-viewer-close>close</button><button data-previous>previous</button><button data-next>next</button><img><p></p>';
+      document.body.append(fixture);
+      const image = fixture.querySelector('img');
+      const caption = fixture.querySelector('p');
+      const viewer = createPhotoViewer({
+        viewer: fixture,
+        image,
+        caption,
+        closeButton: fixture.querySelector('[data-photo-viewer-close]'),
+        previousButton: fixture.querySelector('[data-previous]'),
+        nextButton: fixture.querySelector('[data-next]')
+      });
+      viewer.open([
+        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==',
+        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
+      ], 0, 'Photo');
+      const result = { alt: image.alt, caption: caption.textContent };
+      viewer.close();
+      fixture.remove();
+      return result;
+    });
+    if (photoState.alt !== '照片 1' || photoState.caption !== '照片 1 / 2') {
+      throw new Error(`dynamic photo text was not translated: ${JSON.stringify(photoState)}`);
+    }
+
+    await page.locator('#languageToggleButton').click();
+    await page.waitForFunction(() => document.documentElement.lang === 'en-NZ');
+    const restored = await page.evaluate(() => ({
+      notifications: document.querySelector('#toastViewport')?.getAttribute('aria-label') || '',
+      builderLabel: document.querySelector('#workFormFieldCards')?.getAttribute('aria-label') || ''
+    }));
+    if (restored.notifications !== 'Notifications' || restored.builderLabel !== 'Work form fields') {
+      throw new Error(`English labels were not restored after language toggle: ${JSON.stringify(restored)}`);
+    }
+  } finally {
+    await supervisorContext.close();
+  }
+}
+
 async function main() {
   await setupServers();
 
@@ -2581,6 +2760,7 @@ async function main() {
 
   try {
     await runCheck('action feedback is local, busy, announced, and separate from sync state', () => checkAccessibleActionFeedback(browser));
+    await runCheck('Chinese translation covers validation, forms, signatures, and photos', () => checkChineseTranslation(browser));
     await runCheck('required signatures are fully keyboard accessible', () => checkKeyboardAccessibleRequiredSignature(browser));
     await runCheck('photo viewer traps and restores focus', () => checkPhotoViewerFocusManagement(browser));
     await runCheck('primary action gradients meet WCAG AA contrast', () => checkPrimaryGradientContrast(browser));

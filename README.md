@@ -105,12 +105,12 @@ Worker accounts have two field classes:
 - **Normal worker:** check in, check out, and review their attendance history.
 - **Leader:** all normal-worker attendance functions plus weekly team logs, Daywork logs, reusable work forms, and missing-site creation.
 
-New self-registered accounts start as normal workers. A supervisor can promote or return a worker between Normal worker and Leader from Staff users without changing the account's department or historical records.
+During the invited-account pilot, a supervisor creates and activates Worker accounts from Staff users. New Workers start as normal workers. A supervisor can promote or return a worker between Normal worker and Leader without changing the account's department or historical records.
 
 Normal workers receive a simplified attendance screen with only **Check in / out** and **My history** navigation. The attendance card guides them through site, location, and action steps, and prevents submission until the required site and location are ready.
 
 - Sign in with a backend account.
-- Register a new staff account for supervisor activation.
+- Use an invited account created and activated by a supervisor.
 - Select a backend job/site. Authenticated Site loading fails closed instead of showing seeded demo Sites when the API is unavailable.
 - Capture browser geolocation. The capture is bound to the signed-in Worker and must be less than five minutes old when attendance is submitted.
 - Check in and check out with GPS coordinates, accuracy, site radius result, notes, and optional attendance photo.
@@ -789,7 +789,7 @@ GET  /departments
 `GET /departments` returns the fixed active department list: Leader, Mutual, MC, Stech, BOP.
 `POST /auth/refresh` renews the HttpOnly `__session` cookie and readable CSRF cookie for an authenticated browser session.
 
-Worker self-registration is a three-step flow:
+Public self-registration is temporarily hidden during the invited-account pilot. Supervisors create and activate pilot users from Staff users. The registration API remains available for a later re-enable and implements this three-step flow:
 
 1. `POST /auth/registration/start` sends a six-digit email verification code.
 2. `POST /auth/registration/verify` verifies that code and returns a short-lived registration token plus the active department choices.

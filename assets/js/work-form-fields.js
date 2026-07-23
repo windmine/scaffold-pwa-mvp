@@ -4,6 +4,7 @@ import {
   setupTeamMemberPicker,
   teamMemberPickerMarkup
 } from './team-member-picker.js';
+import { setTranslatableText } from './i18n.js';
 import { escapeHtml } from './utils.js';
 
 const DEFAULT_FIELD_PREFIX = 'workFormField';
@@ -123,7 +124,7 @@ function signatureStatusElement(canvas) {
 
 function announceSignatureStatus(canvas, message) {
   const status = signatureStatusElement(canvas);
-  if (status) status.textContent = message;
+  if (status) setTranslatableText(status, message);
 }
 
 function resetSignatureCanvas(canvas, { announce = false } = {}) {

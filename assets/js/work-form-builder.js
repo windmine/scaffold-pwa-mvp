@@ -1,4 +1,10 @@
 import { parseWorkFormFieldsInput, serialiseWorkFormFields } from './work-form-fields.js';
+import {
+  applyLanguage,
+  setTranslatableText,
+  setTranslatableTextParts,
+  translateText
+} from './i18n.js';
 import { escapeHtml } from './utils.js';
 
 const MAX_FIELDS = 30;
@@ -503,13 +509,13 @@ export function createWorkFormBuilder(root, { fields: initialFields = [], onChan
   }
 
   function setFeedback(message = '', tone = 'error') {
-    feedback.textContent = message;
+    setTranslatableText(feedback, message);
     feedback.dataset.tone = tone;
     feedback.classList.toggle('hidden', !message);
   }
 
   function setRawFeedback(message = '', tone = 'error') {
-    rawFeedback.textContent = message;
+    setTranslatableText(rawFeedback, message);
     rawFeedback.dataset.tone = tone;
     rawFeedback.classList.toggle('hidden', !message);
   }
@@ -517,7 +523,7 @@ export function createWorkFormBuilder(root, { fields: initialFields = [], onChan
   function announce(message) {
     announcement.textContent = '';
     window.requestAnimationFrame(() => {
-      announcement.textContent = message;
+      setTranslatableText(announcement, message);
     });
   }
 
@@ -538,6 +544,7 @@ export function createWorkFormBuilder(root, { fields: initialFields = [], onChan
       .join('');
     empty.classList.toggle('hidden', groups.length > 0);
     syncRaw();
+    applyLanguage(root);
   }
 
   function prepareVisualMutation() {
@@ -623,7 +630,7 @@ export function createWorkFormBuilder(root, { fields: initialFields = [], onChan
     }
     const field = normaliseField({
       id: uniqueFieldId(),
-      label: 'New field',
+      label: '',
       type: 'text',
       required: false,
       options: [],
@@ -642,7 +649,7 @@ export function createWorkFormBuilder(root, { fields: initialFields = [], onChan
     render();
     emitChange();
     root.querySelector(`[data-field-id="${CSS.escape(field.id)}"] [data-field-property="label"]`)?.select();
-    announce(`Added ${repeatId ? 'group ' : ''}field ${field.label}.`);
+    announce(`Added ${repeatId ? 'group ' : ''}field ${field.label || 'Untitled field'}.`);
   }
 
   function removeField(fieldId) {
@@ -650,7 +657,7 @@ export function createWorkFormBuilder(root, { fields: initialFields = [], onChan
     const field = fieldById(fieldId);
     if (!field) return;
     const children = field.type === 'repeat' ? fields.filter((item) => item.repeat === field.id) : [];
-    if (children.length && !window.confirm(`Remove "${field.label}" and its ${children.length} group field${children.length === 1 ? '' : 's'}?`)) {
+    if (children.length && !window.confirm(translateText(`Remove "${field.label}" and its ${children.length} group field${children.length === 1 ? '' : 's'}?`))) {
       return;
     }
     const candidate = fields.filter((item) => item.id !== field.id && item.repeat !== field.id);
@@ -681,7 +688,7 @@ export function createWorkFormBuilder(root, { fields: initialFields = [], onChan
     const losesData = (field.type === 'select' && field.options.length)
       || (field.type === 'formula' && field.formula)
       || children.length;
-    if (losesData && !window.confirm('Changing this field type will remove its type-specific settings. Continue?')) {
+    if (losesData && !window.confirm(translateText('Changing this field type will remove its type-specific settings. Continue?'))) {
       select.value = field.type;
       return false;
     }
@@ -712,7 +719,10 @@ export function createWorkFormBuilder(root, { fields: initialFields = [], onChan
 
     if (property === 'label') {
       field.label = target.value;
-      card.querySelector('[data-field-summary-label]').textContent = target.value || 'Untitled field';
+      setTranslatableText(
+        card.querySelector('[data-field-summary-label]'),
+        target.value || 'Untitled field'
+      );
     } else if (property === 'options') {
       field.options = target.value.split(/\r?\n/).map((option) => option.trim()).filter(Boolean);
     } else if (property === 'formula') {
@@ -792,7 +802,7 @@ export function createWorkFormBuilder(root, { fields: initialFields = [], onChan
       if (!card) return;
       card.classList.add('has-error');
       const error = card.querySelector('[data-work-form-field-error]');
-      error.textContent = messages.join(' ');
+      setTranslatableTextParts(error, messages);
       error.classList.remove('hidden');
       card.querySelector('[data-field-property="label"]')?.setAttribute('aria-invalid', 'true');
     });

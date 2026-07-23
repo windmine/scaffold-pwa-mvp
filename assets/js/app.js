@@ -31,7 +31,7 @@ import { createWorkerLogModule } from './worker-log.js';
 import { createWorkerSitesModule } from './worker-sites.js';
 import { createTeamWorkLogModule } from './team-work-log.js';
 import { initDateInputs, setDateInputValue } from './date-inputs.js';
-import { applyLanguage, initLanguageToggle } from './i18n.js';
+import { applyLanguage, initLanguageToggle, translateText } from './i18n.js';
 import { createUiFeedback } from './ui-feedback.js';
 import { formatDateTime, todayDateInput, escapeHtml } from './utils.js';
 import {
@@ -1222,7 +1222,7 @@ async function handleWorkerEditRecord(record) {
     ],
     'Save attendance',
     async () => {
-      if (!window.confirm('Save changes to this pending check-in/check-out?')) return;
+      if (!window.confirm(translateText('Save changes to this pending check-in/check-out?'))) return;
       try {
         await updateBackendMyRecord(record.backendRecordId, {
           record_type: editValue('workerEditAttendanceType'),
@@ -1250,7 +1250,7 @@ async function handleWorkerDeleteRecord(record) {
     return;
   }
 
-  if (!window.confirm('Delete this pending check-in/check-out?')) return;
+  if (!window.confirm(translateText('Delete this pending check-in/check-out?'))) return;
 
   try {
     await deleteBackendMyRecord(record.backendRecordId);
@@ -1277,7 +1277,7 @@ async function handleRetryQueuedRecord() {
 }
 
 async function handleDiscardQueuedRecord(record) {
-  if (!window.confirm('Discard this unsynced submission from this device? You can then create it again with corrected details or photos.')) return;
+  if (!window.confirm(translateText('Discard this unsynced submission from this device? You can then create it again with corrected details or photos.'))) return;
 
   try {
     await discardOfflineSubmission(record.id);

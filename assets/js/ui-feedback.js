@@ -1,3 +1,5 @@
+import { getTranslatableText, setTranslatableText } from './i18n.js';
+
 const VALID_TONES = new Set(['info', 'success', 'warning', 'error']);
 
 const ERROR_MESSAGE_PATTERN = /could not|cannot|failed|denied|invalid|expired|is required|must be|required\.|please (?:select|capture|choose|enter)|choose a|enter a|no active|unavailable|not support|does not belong|more than \d+ minutes old|reconnect before/i;
@@ -21,14 +23,22 @@ function mergeDescribedBy(currentValue, nextId) {
   return [...new Set(`${currentValue || ''} ${nextId}`.trim().split(/\s+/).filter(Boolean))].join(' ');
 }
 
+function validationFeedbackMessage(control) {
+  if (control.validity?.valueMissing) return 'Please fill out this field.';
+  if (control.validity?.typeMismatch && control.getAttribute('type') === 'email') {
+    return 'Enter a valid email address.';
+  }
+  return 'Check this field and try again.';
+}
+
 export function setButtonBusy(button, isBusy, busyLabel = 'Working...') {
   if (!button) return;
 
   if (isBusy) {
     if (button.getAttribute('aria-busy') === 'true') return;
-    button.dataset.feedbackLabel = button.textContent || '';
+    button.dataset.feedbackLabel = getTranslatableText(button);
     button.dataset.feedbackWasDisabled = String(button.disabled);
-    button.textContent = busyLabel;
+    setTranslatableText(button, busyLabel);
     button.disabled = true;
     button.setAttribute('aria-busy', 'true');
     button.classList.add('is-busy');
@@ -36,7 +46,7 @@ export function setButtonBusy(button, isBusy, busyLabel = 'Working...') {
   }
 
   if (button.dataset.feedbackLabel !== undefined) {
-    button.textContent = button.dataset.feedbackLabel;
+    setTranslatableText(button, button.dataset.feedbackLabel);
   }
   const wasDisabled = button.dataset.feedbackWasDisabled === 'true';
   delete button.dataset.feedbackLabel;
@@ -248,7 +258,7 @@ export function createUiFeedback({
       const control = event.target;
       event.preventDefault();
       if (!(control instanceof HTMLElement) || form.querySelector(':invalid') !== control) return;
-      const message = control.validationMessage || 'Check this field and try again.';
+      const message = validationFeedbackMessage(control);
       show(message, {
         local: localTarget,
         field: control,

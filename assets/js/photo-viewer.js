@@ -1,3 +1,4 @@
+import { setTranslatableAttribute, setTranslatableText } from './i18n.js';
 import { escapeHtml } from './utils.js';
 
 export function createPhotoViewer({
@@ -98,10 +99,11 @@ export function createPhotoViewer({
     const count = sources.length;
 
     image.src = sources[index] || '';
-    image.alt = `${title} ${index + 1}`;
-    caption.textContent = count > 1
-      ? `${title} ${index + 1} of ${count}`
-      : title;
+    setTranslatableAttribute(image, 'alt', `${title} ${index + 1}`);
+    setTranslatableText(
+      caption,
+      count > 1 ? `${title} ${index + 1} of ${count}` : title
+    );
     previousButton.disabled = count < 2;
     nextButton.disabled = count < 2;
   }

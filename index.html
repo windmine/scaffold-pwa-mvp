@@ -295,8 +295,8 @@
           <h2>Sign in</h2>
           <p class="muted">Sign in to continue.</p>
 
-          <div class="demo-box">
-            <p>Use the account provided by your supervisor, or register a worker account below.</p>
+          <div id="invitedAccountNotice" class="demo-box" role="note">
+            <p><strong>Invited accounts only.</strong> Sign in with the account provided by your supervisor. Contact your supervisor if you need access.</p>
           </div>
 
           <div class="install-box">
@@ -320,55 +320,57 @@
             <div id="loginFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
           </form>
 
-          <div class="form-divider"></div>
+          <div id="registrationPanel" hidden aria-hidden="true">
+            <div class="form-divider"></div>
 
-          <h3>Create staff account</h3>
-          <p class="muted">Verify your email before choosing a department.</p>
-          <form id="registerForm" class="form-grid">
-            <label>
-              Name
-              <input id="registerNameInput" type="text" autocomplete="name" required />
-            </label>
-            <label>
-              Email
-              <input id="registerEmailInput" type="email" autocomplete="email" required />
-            </label>
-            <button id="sendRegistrationCodeButton" type="button" class="secondary">Send verification code</button>
-
-            <div id="registrationCodeFields" class="form-grid hidden">
+            <h3>Create staff account</h3>
+            <p class="muted">Verify your email before choosing a department.</p>
+            <form id="registerForm" class="form-grid">
               <label>
-                Verification code
-                <input
-                  id="registrationCodeInput"
-                  type="text"
-                  inputmode="numeric"
-                  autocomplete="one-time-code"
-                  pattern="[0-9]{6}"
-                  maxlength="6"
-                  disabled
-                  required
-                />
+                Name
+                <input id="registerNameInput" type="text" autocomplete="name" required />
               </label>
-              <div class="form-actions">
-                <button id="verifyRegistrationCodeButton" type="button">Verify email</button>
-                <button id="restartRegistrationButton" type="button" class="ghost">Start over</button>
+              <label>
+                Email
+                <input id="registerEmailInput" type="email" autocomplete="email" required />
+              </label>
+              <button id="sendRegistrationCodeButton" type="button" class="secondary">Send verification code</button>
+
+              <div id="registrationCodeFields" class="form-grid hidden">
+                <label>
+                  Verification code
+                  <input
+                    id="registrationCodeInput"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="one-time-code"
+                    pattern="[0-9]{6}"
+                    maxlength="6"
+                    disabled
+                    required
+                  />
+                </label>
+                <div class="form-actions">
+                  <button id="verifyRegistrationCodeButton" type="button">Verify email</button>
+                  <button id="restartRegistrationButton" type="button" class="ghost">Start over</button>
+                </div>
               </div>
-            </div>
 
-            <div id="registrationCompletionFields" class="form-grid hidden">
-              <p class="registration-verified">Email verified. Choose your department. A supervisor must activate the account.</p>
-              <label>
-                Department
-                <select id="registerDepartmentSelect" disabled required></select>
-              </label>
-              <label>
-                Password
-                <input id="registerPasswordInput" type="password" minlength="8" autocomplete="new-password" disabled required />
-              </label>
-              <button id="registerSubmitButton" type="submit" class="secondary">Create account</button>
-            </div>
-            <div id="registerFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
-          </form>
+              <div id="registrationCompletionFields" class="form-grid hidden">
+                <p class="registration-verified">Email verified. Choose your department. A supervisor must activate the account.</p>
+                <label>
+                  Department
+                  <select id="registerDepartmentSelect" disabled required></select>
+                </label>
+                <label>
+                  Password
+                  <input id="registerPasswordInput" type="password" minlength="8" autocomplete="new-password" disabled required />
+                </label>
+                <button id="registerSubmitButton" type="submit" class="secondary">Create account</button>
+              </div>
+              <div id="registerFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
+            </form>
+          </div>
         </section>
 
         <section id="workerView" class="view hidden">

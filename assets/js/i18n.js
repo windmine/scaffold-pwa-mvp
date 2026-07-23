@@ -11,6 +11,11 @@ const PROTECTED_COMPANY_NAMES = new Set([
   'Stech',
   'BOP'
 ]);
+const PROTECTED_TECHNICAL_TEXT = new Set([
+  'text|Area|required|id=area',
+  'Pass Fail N/A',
+  'work_time * workers'
+]);
 
 const LANGUAGE_META = {
   en: {
@@ -90,6 +95,159 @@ const ZH_TEXT = {
   'These cards repeat together for each row.': '\u8fd9\u4e9b\u5361\u7247\u4f1a\u5728\u6bcf\u4e00\u884c\u4e2d\u4e00\u8d77\u91cd\u590d\u3002',
   'Add group field': '\u6dfb\u52a0\u7ec4\u5185\u5b57\u6bb5',
   'No group fields yet.': '\u5c1a\u65e0\u7ec4\u5185\u5b57\u6bb5\u3002',
+  'Work form fields': '工作表单字段',
+  'Use the raw pipe-delimited format only for definitions the cards do not cover. Apply changes before previewing or saving.': '仅在字段卡不支持定义时使用原始竖线分隔格式。预览或保存前请先应用更改。',
+  'Time range': '时间段',
+  'Choose a value': '请选择一个值',
+  'Add an answer field before this card to create a condition.': '请先在此字段卡前添加一个答题字段，再创建显示条件。',
+  'Add an answer field before this card before creating a condition.': '请先在此字段卡前添加一个答题字段，再创建显示条件。',
+  '(one per line)': '（每行一个）',
+  'Formula': '公式',
+  'Use earlier field keys with +, −, ×, ÷ and parentheses.': '使用前面字段的键，并配合 +、−、×、÷ 和括号。',
+  'Untitled field': '未命名字段',
+  'New field': '新字段',
+  'Drag to reorder': '拖动排序',
+  'What should the worker enter?': '员工需要填写什么？',
+  'Field key:': '字段键：',
+  'Field keys can use lowercase letters, numbers, and underscores only.': '字段键只能使用小写字母、数字和下划线。',
+  'Add a label for this field.': '请为此字段添加标签。',
+  'Repeating groups cannot be nested.': '重复组不能嵌套。',
+  'Pending raw changes were discarded because a field card was edited.': '由于编辑了字段卡，待处理的原始语法更改已被放弃。',
+  'Pending raw syntax discarded.': '待处理的原始语法已放弃。',
+  'Fields can only be moved within the same group.': '字段只能在同一组内移动。',
+  'Changing this field type will remove its type-specific settings. Continue?': '更改字段类型将删除该类型的专用设置。是否继续？',
+  'Apply or discard the pending raw syntax before previewing or saving.': '预览或保存前，请应用或放弃待处理的原始语法。',
+  'Raw syntax applied to the field cards.': '原始语法已应用到字段卡。',
+  'Raw syntax applied.': '原始语法已应用。',
+  'Raw changes discarded.': '原始语法更改已放弃。',
+  'Raw syntax changes discarded.': '原始语法更改已放弃。',
+  'Raw changes are pending. Apply or discard them before saving.': '原始语法有待处理的更改。保存前请应用或放弃这些更改。',
+  '(required)': '（必填）',
+  'signature pad': '签名板',
+  'Draw your signature inside the box. Keyboard: focus the signature pad, press Space or Enter to start, use the arrow keys to draw (hold Shift for larger moves), then press Space, Enter or Escape to stop.': '请在框内签名。键盘操作：聚焦签名板，按空格键或回车键开始，使用方向键绘制（按住 Shift 可加大移动距离），然后按空格键、回车键或 Escape 键停止。',
+  'The signature pad is blank.': '签名板为空。',
+  'Signature captured.': '签名已记录。',
+  'Signature cleared. The signature pad is blank.': '签名已清除。签名板为空。',
+  'Keyboard drawing started. Use the arrow keys to draw, then press Space, Enter or Escape to stop.': '已开始键盘绘制。请使用方向键绘制，然后按空格键、回车键或 Escape 键停止。',
+  'Keyboard drawing stopped. Signature captured.': '键盘绘制已停止。签名已记录。',
+  'Keyboard drawing stopped. The signature pad is still blank.': '键盘绘制已停止。签名板仍为空。',
+  'Manage today\'s field records': '管理今日现场记录',
+  'Add missed check in / check out': '补录签到 / 签退',
+  'Add attendance': '添加考勤',
+  'Add attendance for a worker': '为员工添加考勤',
+  'Use this when a worker performed the work but forgot to check in or out. The entry is approved, audit-logged, and marked as manual with no GPS result.': '员工已工作但忘记签到或签退时，请使用此功能。该记录会立即通过审核、写入审计日志，并标记为没有 GPS 结果的手动记录。',
+  'Example: Worker confirmed start time with site supervisor.': '示例：员工已向工地主管确认开始时间。',
+  'Add attendance entry': '添加考勤记录',
+  'Submit approved log': '提交已批准日志',
+  'Self or others': '本人或他人',
+  'Add a task log': '添加任务日志',
+  'Submit a log for yourself or another accessible user. Admin-entered logs are approved immediately and audit-logged.': '为自己或其他有权限的用户提交日志。管理员录入的日志会立即通过审核并写入审计日志。',
+  'Rubbish bin': '回收站',
+  'Deleted attendance and task logs': '已删除的考勤和任务日志',
+  'Records can be restored for 30 days. After that they are permanently deleted automatically.': '记录可在 30 天内恢复，之后将自动永久删除。',
+  'Notifications': '通知',
+  'All records': '全部记录',
+  'All sites': '全部工地',
+  'All statuses': '全部状态',
+  'All workers': '全部员工',
+  'Attendance locations': '考勤位置',
+  'Autosaves on this device.': '自动保存在本设备上。',
+  'Choose the department to review': '选择要审核的部门',
+  'Connect recorded points': '连接已记录的点',
+  'Current view': '当前视图',
+  'Dashboard scope': '仪表板范围',
+  'Date and time': '日期和时间',
+  'Daywork': '日工',
+  'Entry type': '记录类型',
+  'Exception analytics': '异常分析',
+  'Exceptions': '异常',
+  'Export management CSV': '导出管理 CSV',
+  'Export printable report': '导出可打印报告',
+  'Inside site': '工地范围内',
+  'JPEG, PNG, or WebP; maximum 5 MB each.': '支持 JPEG、PNG 或 WebP；每张最大 5 MB。',
+  'JPEG, PNG, or WebP; maximum 5 MB.': '支持 JPEG、PNG 或 WebP；最大 5 MB。',
+  'Last 7 days': '最近 7 天',
+  'Last 30 days': '最近 30 天',
+  'Last 90 days': '最近 90 天',
+  'Leader only': '仅领班',
+  'Location map': '位置地图',
+  'Management analytics': '管理分析',
+  'Management summaries use accessible review records. Open check-ins are marked missing after 12 hours. Logged task hours are operational figures, not payroll-approved hours.': '管理汇总使用有权限查看的审核记录。未签退的签到会在 12 小时后标记为缺失。任务日志工时仅用于运营统计，并非工资核准工时。',
+  'Maps and location review': '地图与位置审核',
+  'Member work rows': '成员工作行',
+  'Add member row': '添加成员行',
+  'My submitted team logs': '我提交的团队日志',
+  'No map point selected.': '尚未选择地图点。',
+  'No radius result': '暂无范围结果',
+  'No sites available': '暂无可用工地',
+  'Open weekly team log': '打开周团队日志',
+  'Outside site only': '仅工地范围外',
+  'Person': '人员',
+  'Productivity and site summary': '生产效率与工地汇总',
+  'Reason for manual entry': '手动录入原因',
+  'Record trend': '记录趋势',
+  'Recorded changes and submissions': '已记录的变更和提交',
+  'Recorded location history': '已记录的位置历史',
+  'Reporting period': '报告周期',
+  'Save as default view': '保存为默认视图',
+  'Search and select one or more members per row. Add another row when the site, hours, or work activity changes.': '在每行搜索并选择一名或多名成员。工地、工时或工作内容变化时，请添加另一行。',
+  'Select an attendance point or history row to review it.': '选择考勤点或历史记录行进行查看。',
+  'Select several members in one row when they worked the same site, hours, and activity. Members can appear under different leaders in the same week.': '多名成员在同一工地、相同时段从事相同工作时，可在同一行选择。成员在同一周内可以出现在不同领班名下。',
+  'Select, checkbox, and numeric responses are summarised automatically.': '选择题、复选框和数字回答会自动汇总。',
+  'Submit weekly team log': '提交周团队日志',
+  'Submitted work forms CSV': '已提交工作表单 CSV',
+  'Supervisor desk': '主管工作台',
+  'Team weekly logs': '团队周日志',
+  'This changes review records, maps, analytics, sites, staff, and forms. It does not change your home department.': '这会更改审核记录、地图、分析、工地、员工和表单的查看范围，但不会更改您的所属部门。',
+  'Week notes': '本周备注',
+  'Week starting Monday': '周一开始的一周',
+  'Weekly team work log': '周团队工作日志',
+  'Worker class': '员工类别',
+  'Review recorded check-in/out points and site boundaries. Dashed lines connect recorded events; they are not continuous GPS routes.': '审核已记录的签到/签退点和工地边界。虚线连接已记录的事件，并不代表连续的 GPS 路线。',
+  'Site boundary': '工地边界',
+  'Form response charts': '表单回答图表',
+  'Expanded record photo': '放大的记录照片',
+  'Admin quick actions': '管理快捷操作',
+  'Attendance location map': '考勤位置地图',
+  'Attendance steps': '考勤步骤',
+  'Map legend': '地图图例',
+  'Missing site map picker': '缺失工地地图选择器',
+  'Site map picker': '工地地图选择器',
+  'Weather, access, crew changes, or general notes': '天气、进场、班组变更或一般备注',
+  'Working...': '处理中...',
+  'Check this field and try again.': '请检查此字段后重试。',
+  'Please fill out this field.': '请填写此字段。',
+  'Enter a valid email address.': '请输入有效的电子邮箱地址。',
+  'Enter a valid email address': '请输入有效的电子邮箱地址',
+  'Invalid email or password': '电子邮箱或密码错误',
+  'This account is resigned and cannot sign in': '此账号已离职，无法登录',
+  'Name is required': '姓名为必填项',
+  'A user with this email already exists': '使用此电子邮箱的用户已存在',
+  'mark this worker resigned': '将此员工标记为离职',
+  'reactivate this worker': '重新启用此员工',
+  'Creating form...': '正在创建表单...',
+  'Saving form...': '正在保存表单...',
+  'Choose a worker, site, and valid attendance time.': '请选择员工、工地和有效的考勤时间。',
+  'Could not add manual attendance.': '无法添加手动考勤记录。',
+  'Could not submit the approved log.': '无法提交已批准日志。',
+  'Select at least one member and complete every team work row before submitting.': '提交前，请至少选择一名成员并完整填写每一行团队工作记录。',
+  'Weekly team work log submitted for supervisor review.': '周团队工作日志已提交主管审核。',
+  'Could not submit the weekly team log.': '无法提交周团队日志。',
+  'The browser did not return a fresh location. Please capture it again.': '浏览器未返回最新位置。请重新获取位置。',
+  'This draft was saved with an earlier form version. Review it before submitting.': '此草稿使用较早的表单版本保存。提交前请检查。',
+  'Could not prepare these photos. Choose them again before leaving this page.': '无法处理这些照片。离开此页面前请重新选择。',
+  'Could not capture this Work Form draft.': '无法保存此工作表单草稿。',
+  'Wait for the Work Form submission to finish.': '请等待工作表单提交完成。',
+  'This Work Form still has unsaved changes.': '此工作表单仍有未保存的更改。',
+  'Save changes to this pending check-in/check-out?': '是否保存对此待处理签到/签退记录的更改？',
+  'Delete this pending check-in/check-out?': '是否删除此待处理的签到/签退记录？',
+  'Discard this unsynced submission from this device? You can then create it again with corrected details or photos.': '是否从本设备放弃此未同步提交？之后可使用更正后的详细信息或照片重新创建。',
+  'Double check: restore this record to the active review history?': '请再次确认：是否将此记录恢复到有效审核历史？',
+  'Double check: hide this record and keep it in the rubbish bin for 30 days?': '请再次确认：是否隐藏此记录并在回收站中保留 30 天？',
+  'Double check: save changes to this form submission?': '请再次确认：是否保存对此表单提交的更改？',
+  'Double check: save changes to this weekly team log?': '请再次确认：是否保存对此周团队日志的更改？',
+  'Double check: save changes to this task log?': '请再次确认：是否保存对此任务日志的更改？',
+  'Double check: save changes to this check-in/check-out record?': '请再次确认：是否保存对此签到/签退记录的更改？',
   'Review desk': '\u5ba1\u6838\u5de5\u4f5c\u53f0',
   'Validate field records': '\u5ba1\u6838\u73b0\u573a\u8bb0\u5f55',
   'Choose a record from the inbox, review its evidence, then decide or adjust it without losing your place.': '\u4ece\u5f85\u529e\u5217\u8868\u4e2d\u9009\u62e9\u8bb0\u5f55\uff0c\u67e5\u770b\u51ed\u8bc1\u540e\u8fdb\u884c\u5ba1\u6279\u6216\u8c03\u6574\uff0c\u65e0\u9700\u53cd\u590d\u6eda\u52a8\u3002',
@@ -194,7 +352,8 @@ const ZH_TEXT = {
   'Log out': '退出登录',
   'Sign in': '登录',
   'Sign in to continue.': '请登录后继续。',
-  'Use the account provided by your supervisor, or register a worker account below.': '请使用主管提供的账号登录，也可以在下面注册员工账号。',
+  'Invited accounts only.': '仅限受邀账号。',
+  'Sign in with the account provided by your supervisor. Contact your supervisor if you need access.': '请使用主管提供的账号登录。如需访问权限，请联系您的主管。',
   'Example: Queen Street Fitout': '示例：Queen Street Fitout',
   'Street address or site note': '街道地址或工地备注',
   'Example: unloading scaffold tubes, setting base plates, final site clean-up': '示例：卸脚手架管、安装底座、最后清理工地',
@@ -633,6 +792,7 @@ const ZH_TEXT = {
   'End time': '结束时间',
   'Select': '选择',
   'Signature': '签名',
+  'signature': '签名',
   'Write your signature inside the box.': '请在框内手写签名。',
   'Signed': '已签名',
   'Yes': '是',
@@ -670,6 +830,61 @@ const ZH_TEXT = {
 const ZH_PATTERNS = [
   [/^(\d+) of (\d+)$/, (match) => `${match[1]} / ${match[2]}`],
   [/^Saved at (.+)\.( Draft restored on this device\.)?$/, (match) => `已于 ${match[1]} 保存。${match[2] ? '已恢复本设备上的草稿。' : ''}`],
+  [/^(\d+) exceptions?$/, (match) => `${match[1]} 个异常`],
+  [/^(\d+) points?$/, (match) => `${match[1]} 个点`],
+  [/^Review recorded for (.+)\.$/, (match) => `审核为 ${match[1]} 记录的内容。`],
+  [/^Clear (.+) signature$/, (match) => {
+    const label = match[1].replace(/\s+signature$/i, '');
+    return `清除${translateText(label, 'zh')}签名`;
+  }],
+  [/^Drag (.+)$/, (match) => `拖动${translateText(match[1], 'zh')}`],
+  [/^Move (.+) (up|down)$/, (match) => `${match[2] === 'up' ? '上移' : '下移'}${translateText(match[1], 'zh')}`],
+  [/^Fields inside (.+)$/, (match) => `${translateText(match[1], 'zh')}内的字段`],
+  [/^Unavailable field \((.+)\)$/, (match) => `不可用字段（${match[1]}）`],
+  [/^(.+) has an invalid condition\.$/, (match) => `${translateText(match[1], 'zh')}的显示条件无效。`],
+  [/^(.+) must come after the field used by its condition\.$/, (match) => `${translateText(match[1], 'zh')}必须位于显示条件所使用的字段之后。`],
+  [/^(.+) needs a formula\.$/, (match) => `${translateText(match[1], 'zh')}需要填写公式。`],
+  [/^(.+) uses unsupported formula characters\.$/, (match) => `${translateText(match[1], 'zh')}使用了不支持的公式字符。`],
+  [/^(.+) must come after: (.+)\.$/, (match) => `${translateText(match[1], 'zh')}必须位于以下字段之后：${match[2]}。`],
+  [/^Forms can include up to (\d+) fields\.$/, (match) => `每个表单最多可包含 ${match[1]} 个字段。`],
+  [/^Field key "(.+)" is duplicated\.$/, (match) => `字段键“${match[1]}”重复。`],
+  [/^(.+)… is longer than 160 characters\.$/, (match) => `${translateText(match[1], 'zh')}…超过 160 个字符。`],
+  [/^(.+) cannot include the \| character\.$/, (match) => `${translateText(match[1], 'zh')}不能包含 | 字符。`],
+  [/^(.+) has an unsupported type\.$/, (match) => `${translateText(match[1], 'zh')}使用了不支持的字段类型。`],
+  [/^(.+) needs at least one option\.$/, (match) => `${translateText(match[1], 'zh')}至少需要一个选项。`],
+  [/^(.+) options cannot include commas or \| characters\.$/, (match) => `${translateText(match[1], 'zh')}的选项不能包含逗号或 | 字符。`],
+  [/^(.+) belongs to a missing repeating group\.$/, (match) => `${translateText(match[1], 'zh')}属于不存在的重复组。`],
+  [/^(.+) minimum rows must be 0-(\d+)\.$/, (match) => `${translateText(match[1], 'zh')}的最少行数必须为 0-${match[2]}。`],
+  [/^(.+) maximum rows must be 1-(\d+)\.$/, (match) => `${translateText(match[1], 'zh')}的最多行数必须为 1-${match[2]}。`],
+  [/^(.+) maximum must be at least its minimum\.$/, (match) => `${translateText(match[1], 'zh')}的最大值不能小于最小值。`],
+  [/^Line (\d+) needs a type and label\.$/, (match) => `第 ${match[1]} 行需要字段类型和标签。`],
+  [/^Line (\d+) is not below a repeating group\.$/, (match) => `第 ${match[1]} 行不在重复组下方。`],
+  [/^Could not move field\. (.+)$/, (match) => `无法移动字段。${translateText(match[1], 'zh')}`],
+  [/^Move cancelled\. (.+)$/, (match) => `移动已取消。${translateText(match[1], 'zh')}`],
+  [/^Moved (.+) to position (\d+) of (\d+)\.$/, (match) => `已将${translateText(match[1], 'zh')}移动到第 ${match[2]} 位，共 ${match[3]} 位。`],
+  [/^Added (group )?field (.+)\.$/, (match) => `已添加${match[1] ? '组内' : ''}字段${translateText(match[2], 'zh')}。`],
+  [/^Remove "(.+)" and its (\d+) group fields?\?$/, (match) => `是否移除“${translateText(match[1], 'zh')}”及其 ${match[2]} 个组内字段？`],
+  [/^Could not remove field\. (.+)$/, (match) => `无法移除字段。${translateText(match[1], 'zh')}`],
+  [/^Remove cancelled\. (.+)$/, (match) => `移除已取消。${translateText(match[1], 'zh')}`],
+  [/^Remove (.+)$/, (match) => `移除${translateText(match[1], 'zh')}`],
+  [/^Removed (.+)\.$/, (match) => `已移除${translateText(match[1], 'zh')}。`],
+  [/^You are back online, but Sites are unavailable: (.+)$/, (match) => `网络已恢复，但工地数据不可用：${translateText(match[1], 'zh')}`],
+  [/^Sites are unavailable: (.+)$/, (match) => `工地数据不可用：${translateText(match[1], 'zh')}`],
+  [/^Online - last sync attempt (.+)$/, (match) => `在线 - 上次同步尝试：${match[1]}`],
+  [/^Online - (\d+) submissions? need attention$/, (match) => `在线 - ${match[1]} 条提交需要处理`],
+  [/^Online - (\d+) synced$/, (match) => `在线 - 已同步 ${match[1]} 条`],
+  [/^Manual attendance added for (.+)\.$/, (match) => `已为 ${match[1]} 添加手动考勤记录。`],
+  [/^(.+) The submitted draft could not be cleared from this device; do not submit it again after reloading\.$/, (match) => `${translateText(match[1], 'zh')} 已提交的草稿无法从本设备清除；重新加载后请勿再次提交。`],
+  [/^Please include an '@' in the email address\..*$/, () => '请输入包含“@”的有效电子邮箱地址。'],
+  [/^Please enter a part following '@'\..*$/, () => '请输入“@”后面的邮箱地址部分。'],
+  [/^Double check: save changes to form "(.+)"\?$/, (match) => `请再次确认：是否保存对表单“${match[1]}”的更改？`],
+  [/^Double check: (archive|activate) "(.+)"\?$/, (match) => `请再次确认：是否${match[1] === 'archive' ? '归档' : '启用'}“${match[2]}”？`],
+  [/^Double check: (.+)\? Their previous records will stay attached to this account\.$/, (match) => `请再次确认：${translateText(match[1], 'zh')}？其以前的记录仍会关联到此账号。`],
+  [/^Double check: save changes to user "(.+)"\?$/, (match) => `请再次确认：是否保存对用户“${match[1]}”的更改？`],
+  [/^Double check: save changes to site "(.+)"\?$/, (match) => `请再次确认：是否保存对工地“${match[1]}”的更改？`],
+  [/^Double check: add this (check out|check in) for (.+)\?$/, (match) => `请再次确认：是否为 ${match[2]} 添加此次${match[1] === 'check out' ? '签退' : '签到'}？`],
+  [/^Double check: submit this approved (.+) for (.+)\?$/, (match) => `请再次确认：是否为 ${match[2]} 提交已批准的${translateText(match[1], 'zh')}？`],
+  [/^(.+) (\d+) of (\d+)$/, (match) => `${translateText(match[1], 'zh')} ${match[2]} / ${match[3]}`],
   [/^Review (.+)$/, (match) => `\u5ba1\u6838 ${translateText(match[1], 'zh')}`],
   [/^Confirmed (.+) \u00b7 accuracy about (.+)m$/, (match) => `\u5df2\u786e\u8ba4 ${match[1]} \u00b7 \u7cbe\u5ea6\u7ea6 ${match[2]} \u7c73`],
   [/^(.+)m from (.+) \u00b7 (.+)m allowed$/, (match) => `\u8ddd ${match[2]} ${match[1]} \u7c73 \u00b7 \u5141\u8bb8 ${match[3]} \u7c73`],
@@ -695,14 +910,13 @@ const ZH_PATTERNS = [
   [/^(.+) of (.+) records$/, (match) => `${match[1]} / ${match[2]} 条记录`],
   [/^Record (approved|rejected)\.$/, (match) => `记录已${match[1] === 'approved' ? '通过' : '拒绝'}。`],
   [/^Could not mark record as (approved|rejected)\.$/, (match) => `无法将记录标记为${match[1] === 'approved' ? '通过' : '拒绝'}。`],
-  [/^Check in - (.+)$/, (match) => `签到 - ${match[1]}`],
-  [/^Check out - (.+)$/, (match) => `签退 - ${match[1]}`],
-  [/^Task log - (.+)$/, (match) => `任务记录 - ${match[1]}`],
-  [/^(.+) - (.+)$/, (match) => `${match[1]} - ${match[2]}`],
+  [/^Check in - (.+)$/, (match) => `签到 - ${translateText(match[1], 'zh')}`],
+  [/^Check out - (.+)$/, (match) => `签退 - ${translateText(match[1], 'zh')}`],
+  [/^Task log - (.+)$/, (match) => `任务记录 - ${translateText(match[1], 'zh')}`],
   [/^(worker|supervisor) global$/, (match) => `${ZH_TEXT[match[1]] || match[1]} ${ZH_TEXT['global admin'] || '全局管理员'}`],
-  [/^Worker (.+)$/, (match) => `员工 ${match[1]}`],
-  [/^Site (.+)$/, (match) => `工地 ${match[1]}`],
-  [/^Form (.+)$/, (match) => `表单 ${match[1]}`],
+  [/^Worker (.+)$/, (match) => `员工 ${translateText(match[1], 'zh')}`],
+  [/^Site (.+)$/, (match) => `工地 ${translateText(match[1], 'zh')}`],
+  [/^Form (.+)$/, (match) => `表单 ${translateText(match[1], 'zh')}`],
   [/^ID (.+) \| (.+)$/, (match) => `编号 ${match[1]} | ${match[2]}`],
   [/^Lat (.+), Lng (.+)$/, (match) => `纬度 ${match[1]}，经度 ${match[2]}`],
   [/^Work date: (.+)$/, (match) => `工作日期：${match[1]}`],
@@ -713,6 +927,7 @@ const ZH_PATTERNS = [
   [/^Outside - (.+)m from site$/, (match) => `范围外 - 距工地 ${match[1]} 米`],
   [/^Inside - (.+)m from (.+) \((.+)m allowed\)$/, (match) => `范围内 - 距 ${match[2]} ${match[1]} 米（允许 ${match[3]} 米）`],
   [/^Outside - (.+)m from (.+) \((.+)m allowed\)$/, (match) => `范围外 - 距 ${match[2]} ${match[1]} 米（允许 ${match[3]} 米）`],
+  [/^(.+) - (.+)$/, (match) => `${translateText(match[1], 'zh')} - ${translateText(match[2], 'zh')}`],
   [/^Latitude: (.+)$/, (match) => `纬度：${match[1]}`],
   [/^Longitude: (.+)$/, (match) => `经度：${match[1]}`],
   [/^Accuracy: (.+)m$/, (match) => `精度：${match[1]} 米`],
@@ -728,9 +943,10 @@ const ZH_PATTERNS = [
   [/^(.+) needs at least (.+) row\(s\)\.$/, (match) => `${match[1]} 至少需要 ${match[2]} 行。`],
   [/^(.+) can include up to (.+) row\(s\)\.$/, (match) => `${match[1]} 最多可包含 ${match[2]} 行。`],
   [/^(.+) row$/, (match) => `${match[1]} 行`],
-  [/^(.+) signature$/, (match) => `${match[1]} 签名`],
+  [/^(.+) signature$/, (match) => `${translateText(match[1], 'zh')} 签名`],
   [/^Photo (.+) of (.+)$/, (match) => `照片 ${match[1]} / ${match[2]}`],
-  [/^Record photo (.+)$/, (match) => `记录照片 ${match[1]}`]
+  [/^Record photo (.+)$/, (match) => `记录照片 ${match[1]}`],
+  [/^(.+) (\d+)$/, (match) => `${translateText(match[1], 'zh')} ${match[2]}`]
 ];
 
 const originalTextNodes = new WeakMap();
@@ -764,7 +980,7 @@ function normaliseText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
-function translateText(value, language = currentLanguage) {
+export function translateText(value, language = currentLanguage) {
   const raw = String(value ?? '');
   if (language === 'en') return raw;
 
@@ -772,7 +988,7 @@ function translateText(value, language = currentLanguage) {
   const trailing = raw.match(/\s*$/)?.[0] || '';
   const text = normaliseText(raw);
   if (!text) return raw;
-  if (PROTECTED_COMPANY_NAMES.has(text)) return raw;
+  if (PROTECTED_COMPANY_NAMES.has(text) || PROTECTED_TECHNICAL_TEXT.has(text)) return raw;
 
   const exact = ZH_TEXT[text];
   if (exact) return `${leading}${exact}${trailing}`;
@@ -833,7 +1049,48 @@ function translateAttribute(element, attribute) {
 }
 
 function translateElement(element) {
-  ['placeholder', 'title', 'aria-label', 'alt'].forEach((attribute) => translateAttribute(element, attribute));
+  ['placeholder', 'title', 'aria-label', 'aria-roledescription', 'alt']
+    .forEach((attribute) => translateAttribute(element, attribute));
+}
+
+export function setTranslatableText(element, value) {
+  setTranslatableTextParts(element, [value]);
+}
+
+export function setTranslatableTextParts(element, values) {
+  if (!element) return;
+
+  element.textContent = '';
+  (Array.isArray(values) ? values : [values]).forEach((value, index) => {
+    const original = `${index ? ' ' : ''}${String(value ?? '')}`;
+    const node = element.ownerDocument.createTextNode(original);
+    originalTextNodes.set(node, original);
+    node.nodeValue = currentLanguage === 'en' ? original : translateText(original, currentLanguage);
+    element.appendChild(node);
+  });
+}
+
+export function getTranslatableText(element) {
+  if (!element) return '';
+
+  const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const values = [];
+  let node = walker.nextNode();
+  while (node) {
+    values.push(originalTextNodes.get(node) ?? node.nodeValue ?? '');
+    node = walker.nextNode();
+  }
+  return values.join('');
+}
+
+export function setTranslatableAttribute(element, attribute, value) {
+  if (!element || !attribute) return;
+
+  const original = String(value ?? '');
+  const store = attributeStoreFor(element);
+  store[attribute] = original;
+  const nextValue = currentLanguage === 'en' ? original : translateText(original, currentLanguage);
+  element.setAttribute(attribute, nextValue);
 }
 
 function translateTree(root = document.body) {
@@ -857,7 +1114,9 @@ function translateTree(root = document.body) {
       node = walker.nextNode();
     }
 
-    (textRoot || document.body).querySelectorAll?.('[placeholder], [title], [aria-label], [alt]').forEach(translateElement);
+    (textRoot || document.body)
+      .querySelectorAll?.('[placeholder], [title], [aria-label], [aria-roledescription], [alt]')
+      .forEach(translateElement);
   } finally {
     isApplying = false;
   }

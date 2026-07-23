@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { runInNewContext } from 'node:vm';
 import { appShell, computePwaCacheVersion, pwaAssetCopies } from './pwa-shell-assets.mjs';
 import { buildManagementAnalytics } from '../assets/js/supervisor-analytics.js';
 import { validateWorkFormBuilderFields } from '../assets/js/work-form-builder.js';
@@ -41,6 +42,33 @@ function pwaShellCopies(publicPath) {
   return appShell.includes(publicPath) && pwaAssetCopies.some(([, copyTarget]) => copyTarget === target);
 }
 
+function loadI18nTestApi(source) {
+  try {
+    const executableSource = source.replace(
+      /\bexport\s+(?=(?:async\s+)?function|const|let|class)/g,
+      ''
+    );
+    return runInNewContext(
+      `${executableSource}\n; ({ LANGUAGE_META, ZH_TEXT, translateText })`,
+      Object.create(null),
+      { timeout: 1000 }
+    );
+  } catch {
+    return null;
+  }
+}
+
+const CHINESE_ENCODING_ARTIFACT_PATTERN = /[\uFFFD\uE000-\uF8FF]|(?:\u00C2|\u00C3|\u00E2\u20AC|\u00EF\u00BF\u00BD|\u00F0\u0178)|(?:\u951B|\u9286|\u9225|\u9435|\u74A7|\u59AB|\u7EDB|\u7F01|\u93B4|\u935C|\u9377|\u93BB|\u705D|\u6D60|\u7BA0|\u5B95)/u;
+
+function isCompleteChineseTranslation(api, source, forbiddenEnglish = /[A-Za-z]{2,}/) {
+  const translated = api?.translateText?.(source, 'zh');
+  return typeof translated === 'string'
+    && translated !== source
+    && /[\u3400-\u9FFF]/u.test(translated)
+    && !CHINESE_ENCODING_ARTIFACT_PATTERN.test(translated)
+    && !forbiddenEnglish.test(translated);
+}
+
 const sourceIndex = read('index.html');
 const sourceApp = read('assets/js/app.js');
 const sourceApiClient = read('assets/js/api-client.js');
@@ -62,8 +90,85 @@ const sourcePhotoViewer = read('assets/js/photo-viewer.js');
 const sourceWorkFormBuilder = read('assets/js/work-form-builder.js');
 const sourceWorkFormFields = read('assets/js/work-form-fields.js');
 const sourceDateInputs = read('assets/js/date-inputs.js');
+const sourceI18n = read('assets/js/i18n.js');
 const sourceStyles = read('assets/css/styles.css');
 const viteConfig = read('vite.config.js');
+const i18nTestApi = loadI18nTestApi(sourceI18n);
+
+check('Chinese catalogue is valid Unicode without mojibake or replacement artifacts', () => {
+  if (!i18nTestApi) return false;
+  const sourceKeys = [...sourceI18n.matchAll(/^\s*'((?:\\.|[^'])*)':/gm)]
+    .map((match) => match[1]);
+  const catalogueValues = [
+    ...Object.values(i18nTestApi.ZH_TEXT || {}),
+    ...Object.values(i18nTestApi.LANGUAGE_META?.zh || {})
+  ];
+  return sourceKeys.length === new Set(sourceKeys).size
+    && catalogueValues.length > 0
+    && catalogueValues.every((value) => (
+      typeof value === 'string'
+      && !CHINESE_ENCODING_ARTIFACT_PATTERN.test(value)
+      && !value.includes('?')
+    ));
+});
+
+check('Chinese catalogue fully translates high-value UI labels instead of mixed English', () => [
+  ['Add member row', /\b(?:Add|member|row)\b/i],
+  ['Worker class', /\b(?:Worker|class)\b/i],
+  ['Review recorded for Test User.', /\b(?:Review|recorded|for)\b/i],
+  ['Site boundary', /\b(?:Site|boundary)\b/i],
+  ['Form response charts', /\b(?:Form|response|charts)\b/i],
+  ['Notifications', /\bNotifications\b/i],
+  ['Record photo 1', /\b(?:Record|photo)\b/i],
+  ['Inside - 12m from site', /\b(?:Inside|from|site)\b/i],
+  ['Outside - 40m from Queen Street (30m allowed)', /\b(?:Outside|from|allowed)\b/i],
+  ['Check in - Site signature', /\b(?:Check|in|Site|signature)\b/i],
+  ['Remove "Crew" and its 2 group fields?', /\b(?:Remove|and|its|group|fields)\b/i],
+  ['Double check: mark this worker resigned? Their previous records will stay attached to this account.', /\b(?:Double|check|mark|this|worker|resigned|Their|previous|records|will|stay|attached|account)\b/i],
+  ['Double check: reactivate this worker? Their previous records will stay attached to this account.', /\b(?:Double|check|reactivate|this|worker|Their|previous|records|will|stay|attached|account)\b/i],
+  ['Invalid email or password', /\b(?:Invalid|email|or|password)\b/i],
+  ['This account is resigned and cannot sign in', /\b(?:This|account|is|resigned|and|cannot|sign|in)\b/i],
+  ['Enter a valid email address', /\b(?:Enter|valid|email|address)\b/i],
+  ['Name is required', /\b(?:Name|is|required)\b/i],
+  ['A user with this email already exists', /\b(?:user|with|this|email|already|exists)\b/i],
+  ['Working...', /\bWorking\b/i],
+  ['Check this field and try again.', /\b(?:Check|this|field|and|try|again)\b/i]
+].every(([source, forbiddenEnglish]) => (
+  isCompleteChineseTranslation(i18nTestApi, source, forbiddenEnglish)
+)));
+
+check('Chinese catalogue translates keyboard signature instructions and live status', () => [
+  ['(required)', /\brequired\b/i],
+  ['signature pad', /\b(?:signature|pad)\b/i],
+  ['Clear Worker signature', /\b(?:Clear|Worker|signature)\b/i],
+  [
+    'The signature pad is blank.',
+    /\b(?:The|signature|pad|is|blank)\b/i
+  ],
+  [
+    'Draw your signature inside the box. Keyboard: focus the signature pad, press Space or Enter to start, use the arrow keys to draw (hold Shift for larger moves), then press Space, Enter or Escape to stop.',
+    /\b(?:Draw|your|signature|inside|box|Keyboard|focus|the|pad|press|to|start|use|arrow|keys|hold|for|larger|moves|then|stop)\b/i
+  ],
+  [
+    'Keyboard drawing started. Use the arrow keys to draw, then press Space, Enter or Escape to stop.',
+    /\b(?:Keyboard|drawing|started|Use|the|arrow|keys|to|draw|then|press|or|stop)\b/i
+  ],
+  [
+    'Keyboard drawing stopped. Signature captured.',
+    /\b(?:Keyboard|drawing|stopped|Signature|captured)\b/i
+  ],
+  [
+    'Keyboard drawing stopped. The signature pad is still blank.',
+    /\b(?:Keyboard|drawing|stopped|The|signature|pad|is|still|blank)\b/i
+  ],
+  ['Signature captured.', /\b(?:Signature|captured)\b/i],
+  [
+    'Signature cleared. The signature pad is blank.',
+    /\b(?:Signature|cleared|The|pad|is|blank)\b/i
+  ]
+].every(([source, forbiddenEnglish]) => (
+  isCompleteChineseTranslation(i18nTestApi, source, forbiddenEnglish)
+)));
 
 check('work form field ids survive label edits', () => {
   const source = serialiseWorkFormFields([
@@ -137,6 +242,12 @@ check('production HTML keeps stable PWA links', () => (
   && distIndex.includes('href="/assets/icons/icon-192.png?v=20260708"')
   && distIndex.includes('href="/assets/icons/apple-touch-icon.png"')
   && distIndex.includes('src="/assets/icons/leader-logo-export.png"')
+));
+
+check('public registration is hidden for invited accounts', () => (
+  sourceIndex.includes('id="invitedAccountNotice"')
+  && sourceIndex.includes('<strong>Invited accounts only.</strong>')
+  && sourceIndex.includes('id="registrationPanel" hidden aria-hidden="true"')
 ));
 
 [

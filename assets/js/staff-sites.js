@@ -9,6 +9,7 @@ import {
   updateWorkForm as updateBackendWorkForm
 } from './api-client.js';
 import { createSiteMapPicker, currentPosition } from './site-map-picker.js';
+import { translateText } from './i18n.js';
 import { setButtonBusy } from './ui-feedback.js';
 import { createWorkFormBuilder, workFormBuilderMarkup } from './work-form-builder.js';
 import { renderWorkFormFields } from './work-form-fields.js';
@@ -399,7 +400,7 @@ export function createStaffSitesModule({
       'Save form',
       async () => {
         if (!editBuilder.validate({ focus: true })) return;
-        if (!window.confirm(`Double check: save changes to form "${form.name}"?`)) return;
+        if (!window.confirm(translateText(`Double check: save changes to form "${form.name}"?`))) return;
         const fields = editBuilder.getFields();
         const submitButton = els.editPanelForm.querySelector('button[type="submit"]');
         if (submitButton?.getAttribute('aria-busy') === 'true') return;
@@ -492,7 +493,7 @@ export function createStaffSitesModule({
       statusButton.textContent = form.status === 'active' ? 'Archive' : 'Activate';
       statusButton.addEventListener('click', async () => {
         const nextStatus = form.status === 'active' ? 'archived' : 'active';
-        if (!window.confirm(`Double check: ${nextStatus === 'archived' ? 'archive' : 'activate'} "${form.name}"?`)) return;
+        if (!window.confirm(translateText(`Double check: ${nextStatus === 'archived' ? 'archive' : 'activate'} "${form.name}"?`))) return;
         try {
           await updateBackendWorkForm(form.id, { status: nextStatus });
           renderStatusBanner(nextStatus === 'active' ? 'Work form activated.' : 'Work form archived.');
@@ -565,7 +566,7 @@ export function createStaffSitesModule({
 
   async function handleUserStatusChange(user, status) {
     const label = status === 'resigned' ? 'mark this worker resigned' : 'reactivate this worker';
-    if (!window.confirm(`Double check: ${label}? Their previous records will stay attached to this account.`)) return;
+    if (!window.confirm(translateText(`Double check: ${label}? Their previous records will stay attached to this account.`))) return;
 
     try {
       await updateBackendUserStatus(user.id, status);
@@ -642,7 +643,7 @@ export function createStaffSitesModule({
       fields,
       'Save user',
       async () => {
-        if (!window.confirm(`Double check: save changes to user "${user.email}"?`)) return;
+        if (!window.confirm(translateText(`Double check: save changes to user "${user.email}"?`))) return;
 
         const newPassword = editValue('editUserPassword');
         const payload = {
@@ -699,7 +700,7 @@ export function createStaffSitesModule({
       ],
       'Save site',
       async () => {
-        if (!window.confirm(`Double check: save changes to site "${site.name}"?`)) return;
+        if (!window.confirm(translateText(`Double check: save changes to site "${site.name}"?`))) return;
         try {
           await updateBackendSite(site.id, {
             name: editValue('editSiteName'),

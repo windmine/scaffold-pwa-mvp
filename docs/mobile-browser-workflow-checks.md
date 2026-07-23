@@ -113,6 +113,7 @@ python backend\smoke_test.py
 
 ## Worker Phone Checks
 
+- Confirm the sign-in screen says `Invited accounts only` and does not show public registration controls.
 - Login as `worker@example.com / Passw0rd!`.
 - Confirm the seeded account shows a Leader badge and provides Team, Daywork, Form, and missing-site controls.
 - Create a separate Normal worker from Staff users, sign in, and confirm only Check in / out and My history remain available.

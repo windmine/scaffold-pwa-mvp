@@ -15,6 +15,7 @@ import {
   updateSupervisorTaskLog as updateBackendSupervisorTaskLog
 } from './api-client.js';
 import { setDateInputValue } from './date-inputs.js';
+import { translateText } from './i18n.js';
 import { createReviewExportAdapters } from './review-export-adapters.js';
 import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
 import { todayDateInput, escapeHtml, formatDateTime } from './utils.js';
@@ -963,7 +964,7 @@ export function createSupervisorReviewModule({
   }
 
   async function handleRestoreRecord(recordType, recordId) {
-    if (!window.confirm('Double check: restore this record to the active review history?')) return;
+    if (!window.confirm(translateText('Double check: restore this record to the active review history?'))) return;
     try {
       await restoreBackendSupervisorRecord(recordType, recordId);
       renderStatusBanner('Record restored from the rubbish bin.');
@@ -996,7 +997,7 @@ export function createSupervisorReviewModule({
           renderStatusBanner('Enter a reason for moving this record to the rubbish bin.', true);
           return;
         }
-        if (!window.confirm('Double check: hide this record and keep it in the rubbish bin for 30 days?')) return;
+        if (!window.confirm(translateText('Double check: hide this record and keep it in the rubbish bin for 30 days?'))) return;
         try {
           await moveBackendSupervisorRecordToTrash(
             record.type,
@@ -1032,9 +1033,9 @@ export function createSupervisorReviewModule({
       });
       return;
     }
-    if (!window.confirm(
+    if (!window.confirm(translateText(
       `Double check: add this ${els.manualAttendanceType.value === 'check_out' ? 'check out' : 'check in'} for ${worker.name}?`
-    )) return;
+    ))) return;
 
     feedback.clearLocal(els.manualAttendanceFeedback);
     feedback.setButtonBusy(els.manualAttendanceSubmitButton, true, 'Adding attendance...');
@@ -1090,9 +1091,9 @@ export function createSupervisorReviewModule({
       });
       return;
     }
-    if (!window.confirm(
+    if (!window.confirm(translateText(
       `Double check: submit this approved ${form ? form.name : 'log'} for ${user.name}?`
-    )) return;
+    ))) return;
 
     feedback.clearLocal(els.adminTaskLogFeedback);
     feedback.setButtonBusy(els.adminTaskLogSubmitButton, true, 'Submitting approved log...');
@@ -1334,7 +1335,7 @@ export function createSupervisorReviewModule({
         ],
         'Save form',
         async () => {
-          if (!window.confirm('Double check: save changes to this form submission?')) return;
+          if (!window.confirm(translateText('Double check: save changes to this form submission?'))) return;
           try {
             const answersContainer = document.getElementById('editFormAnswers');
             const collectedAnswers = collectWorkFormAnswers(form, {
@@ -1403,7 +1404,7 @@ export function createSupervisorReviewModule({
             renderStatusBanner('Complete every team log row before saving.', true);
             return;
           }
-          if (!window.confirm('Double check: save changes to this weekly team log?')) return;
+          if (!window.confirm(translateText('Double check: save changes to this weekly team log?'))) return;
           try {
             await updateBackendSupervisorTeamWorkLog(record.backendRecordId, {
               week_start: editValue('editTeamWeekStart'),
@@ -1434,7 +1435,7 @@ export function createSupervisorReviewModule({
         ],
         'Save task log',
         async () => {
-          if (!window.confirm('Double check: save changes to this task log?')) return;
+          if (!window.confirm(translateText('Double check: save changes to this task log?'))) return;
           try {
             await updateBackendSupervisorTaskLog(record.backendRecordId, {
               site_id: editNumber('editTaskSiteId'),
@@ -1475,7 +1476,7 @@ export function createSupervisorReviewModule({
       ],
       'Save attendance',
       async () => {
-        if (!window.confirm('Double check: save changes to this check-in/check-out record?')) return;
+        if (!window.confirm(translateText('Double check: save changes to this check-in/check-out record?'))) return;
         try {
           await updateBackendSupervisorRecord(record.backendRecordId, {
             record_type: editValue('editAttendanceType'),
