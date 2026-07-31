@@ -29,9 +29,9 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
-## Current Reset Status - 2026-07-15
+## Current Reset Status - 2026-07-31
 
-The reset goal is a reliable phone-first PWA with durable, explainable sync and review behaviour. The local gate, real-phone local-network pass, and automated hosted pass are green. A full real-phone pass against the hosted URL and provider hardening are still required before real staff data is trusted to the service.
+The reset goal is a reliable phone-first PWA with durable, explainable sync and review behaviour. The current local gate, real-phone local-network pass, and historical automated hosted pass are green. The current invited-account frontend is not yet deployed, the full hosted real-phone pass is still pending, and the remaining provider hardening must be closed or accepted before real staff data is trusted to the service.
 
 Completed in this reset:
 
@@ -56,18 +56,22 @@ Completed in this reset:
 - Work Form content edits create new definition versions, submissions freeze immutable snapshots, and the backend derives authoritative time ranges and formulas.
 - Review Queue policy, cursor queries, offline/read-only fallback, and exports are separate test surfaces. Dashboard totals and Management Analytics load complete durable overview data instead of the current filtered page.
 - SQLAlchemy connection checkout uses `pool_pre_ping`, and protected Sites load only after login or session restoration succeeds.
-- Local validation on 2026-07-15 passed lint, production build/PWA generation, Review Queue, all mobile/browser workflows, backend compile, database, security, upload storage, Work Form definition, migration, dependency checks, and the full disposable-database smoke test.
+- Public registration is hidden in commit `b9aa05d` for the invited-account pilot. Supervisors create and activate Workers from Staff users; the verified-registration API remains implemented and tested for a later re-enable.
+- The current Staff users flow is account provisioning, not a complete invitation handoff: the Supervisor must choose and communicate each initial password. There is no expiring, single-use invitation or Worker-set-password flow yet.
+- Local validation on 2026-07-31 passed lint, production build/PWA generation, Review Queue, all static/mobile checks, 25 Playwright browser workflows, backend compile, database, security, upload storage, Work Form definition, migration, and the full disposable-database smoke test.
+- On 2026-07-31, `npm audit --omit=dev` found zero production dependency vulnerabilities and `python -m pip check` found no broken requirements. The full development audit found one high-severity `brace-expansion` advisory through ESLint/minimatch; update the development toolchain before treating dependency checks as completely green.
 - The 2026-07-14 hosted deployment passed anonymous, worker, restored-session, repeated `/api/sites`, logout, supervisor Review Queue, readiness, and new-revision error-log checks without a 5xx.
 - On 2026-07-15, a no-traffic Cloud Run identity canary passed database/upload readiness, then passed five hosted readiness calls after promotion and removal of the old identity's runtime access.
 - On 2026-07-15, current source revision `geo-backend-release-20260715213211` passed a zero-traffic canary, ten post-promotion database/upload readiness checks across Cloud Run and Firebase Hosting, anonymous access isolation, and revision-scoped ERROR/5xx checks. The tested Firebase Hosting preview was then cloned byte-for-byte to live.
 - Cloud Monitoring now checks the hosted `/api/health/ready` path and has enabled incident policies for readiness failures and Cloud Run 5xx responses. A verified notification channel is still required for email/chat delivery.
 - A 2026-07-15 Neon drill created a temporary read-only branch from a five-minute-old production point, verified the migration/schema surface, and proved exact branch cleanup. The current Neon Free plan still limits history to six hours and has no scheduled snapshot backup.
 - The upload bucket enforces public-access prevention, uniform bucket-level IAM, and 30-day soft delete. A production-bucket drill proved content-preserving delete/restore and cleanup.
-- The controlled-test hardening gate passes with its explicit incident-only Monitoring exception. The strict gate has exactly one expected failure: no verified notification destination is attached yet.
+- The 2026-07-31 controlled-test hardening gate passed with three warnings: incident-only Monitoring, six-hour Neon retention, and the skipped billing-budget check. The strict gate failed exactly where expected because no enabled, verified notification destination is attached.
+- The 2026-07-31 live readiness response reports both database and GCS Upload Storage as healthy, and Cloud Run still serves revision `geo-backend-release-20260715213211`. Firebase Hosting does not match the current build: live `index.html` and `sw.js` hashes differ, and the live page still exposes `Create staff account`.
 
 Next step:
 
-Run the real-phone checklist against the live Firebase Hosting / Cloud Run path, add a verified Monitoring notification channel and billing budget, choose longer Neon recovery or external logical backups, complete Neon least-privilege access work, and remove controlled test data.
+Deploy commit `b9aa05d` through a Firebase preview for controlled pilot accounts and verify exact shell/service-worker parity plus invited-only login. Before broader onboarding, add an expiring, single-use invitation so each Worker sets their own password; email delivery needs a transactional email provider, while another authenticated private delivery channel is possible if designed explicitly. Then run the real-phone checklist against the live Firebase Hosting / Cloud Run path. Also add a verified Monitoring notification channel and billing budget, choose longer Neon recovery or external logical backups, complete Neon least-privilege access work, resolve the development-only npm advisory, and remove controlled test data.
 
 ## Recommended Production Deployment
 
@@ -105,7 +109,7 @@ Worker accounts have two field classes:
 - **Normal worker:** check in, check out, and review their attendance history.
 - **Leader:** all normal-worker attendance functions plus weekly team logs, Daywork logs, reusable work forms, and missing-site creation.
 
-During the invited-account pilot, a supervisor creates and activates Worker accounts from Staff users. New Workers start as normal workers. A supervisor can promote or return a worker between Normal worker and Leader without changing the account's department or historical records.
+During the invited-account pilot, a supervisor creates and activates Worker accounts from Staff users. New Workers start as normal workers. A supervisor can promote or return a worker between Normal worker and Leader without changing the account's department or historical records. The current form requires the supervisor to choose the initial password and communicate it securely; Workers cannot yet complete an expiring invitation and set their own password.
 
 Normal workers receive a simplified attendance screen with only **Check in / out** and **My history** navigation. The attendance card guides them through site, location, and action steps, and prevents submission until the required site and location are ready.
 
@@ -114,6 +118,7 @@ Normal workers receive a simplified attendance screen with only **Check in / out
 - Select a backend job/site. Authenticated Site loading fails closed instead of showing seeded demo Sites when the API is unavailable.
 - Capture browser geolocation. The capture is bound to the signed-in Worker and must be less than five minutes old when attendance is submitted.
 - Check in and check out with GPS coordinates, accuracy, site radius result, notes, and optional attendance photo.
+- Check-in and check-out remain explicit Worker actions. The PWA does not continuously track location or automatically submit attendance when crossing a Site boundary.
 - Inside-site attendance is approved automatically; outside-site attendance stays pending for supervisor review.
 - Edit or delete own pending outside-site attendance before supervisor approval.
 - Leaders submit Daywork logs through the active Daywork log form, including work date, site, dynamic fields, signatures, time ranges, and up to 8 progress photos.
@@ -229,6 +234,7 @@ scaffold-pwa-mvp/
     mobile-browser-workflow-checks.md  Focused manual phone/browser workflow checks
     payroll-admin-portal-plan.md       Planned desktop payroll/admin workflow
     production-db-runbook.md           Managed database migration and rollback runbook
+    upload-recovery-policy.md          GCS soft-delete and restore contract
 
   scripts/
     pwa-shell-assets.mjs              Shared PWA app-shell manifest and cache-name generator
@@ -248,9 +254,11 @@ scaffold-pwa-mvp/
       db.js                   IndexedDB wrapper
       date-inputs.js          Local date input helpers
       history.js              Worker history and shared record rendering module
+      i18n.js                 English/Chinese UI catalogue and language switching
       mock-api.js             Offline/local fallback data
       offline-submissions.js  Offline submission queue and sync module
       photo-viewer.js         Photo thumbnail and zoom viewer module
+      site-map-picker.js      Shared Site coordinate/radius map picker
       staff-sites.js          Supervisor staff, site, and form admin module
       supervisor-review.js    Supervisor Review Queue state and interaction module
       supervisor-review-utils.js Complete Review Queue overview and rendering helpers
@@ -259,11 +267,13 @@ scaffold-pwa-mvp/
       supervisor-analytics.js Management analytics module
       team-member-picker.js   Searchable team member selector for team logs and Daywork rows
       team-work-log.js        Weekly multi-member team log module
+      ui-feedback.js          Local validation, busy, banner, and toast feedback
       utils.js
       worker-attendance.js    Worker attendance capture module
       worker-form.js          Worker dynamic form submission module
       worker-log.js           Worker Daywork log submission module
       worker-sites.js         Worker missing-site creation module
+      work-form-builder.js    Accessible card-based Work Form Definition builder
       work-form-fields.js     Work form field rendering and signature module
     icons/
 
@@ -293,6 +303,7 @@ scaffold-pwa-mvp/
         supervisor_review.py  Compatibility review, edit, and document rendering use cases
         supervisor_review_exports.py Export adapter dispatch and guards
         record_trash.py       Rubbish-bin lifecycle and purge use cases
+        registration.py       Dormant verified-registration and activation flow
         staff_site_admin.py   Staff user and site admin use cases
     database_test.py          SQLAlchemy pool health regression script
     migration_test.py         Migration workflow regression script
@@ -494,7 +505,7 @@ Recommended deployment order:
 
 1. Create or confirm the Cloud SQL PostgreSQL instance and database.
 2. Create a dedicated Cloud Run service account with least-privilege roles.
-3. Store `DATABASE_URL`, `GEO_SECRET_KEY`, SMTP credentials, and other secrets in Secret Manager.
+3. Store `DATABASE_URL`, `GEO_SECRET_KEY`, and other runtime secrets in Secret Manager. SMTP is not needed only for the current Supervisor-set-password account flow. Verified email registration or a single-use email invitation requires a transactional email provider and protected credentials.
 4. Configure Cloud Storage uploads, keep the bucket private, and grant the Cloud Run service account object create, read, and delete access for the configured prefix.
 5. Deploy the FastAPI backend to Cloud Run and attach Cloud SQL.
 6. Run migrations and the mutating backend smoke test against a disposable staging database/service; use controlled non-seeding checks against production.
@@ -789,14 +800,16 @@ GET  /departments
 `GET /departments` returns the fixed active department list: Leader, Mutual, MC, Stech, BOP.
 `POST /auth/refresh` renews the HttpOnly `__session` cookie and readable CSRF cookie for an authenticated browser session.
 
-Public self-registration is temporarily hidden during the invited-account pilot. Supervisors create and activate pilot users from Staff users. The registration API remains available for a later re-enable and implements this three-step flow:
+Public self-registration is temporarily hidden during the invited-account pilot. Supervisors create and activate pilot users from Staff users. The registration endpoints remain callable for a later re-enable, but they are not exposed in the UI or supported as the current pilot onboarding path. They implement three API steps plus Supervisor activation:
 
 1. `POST /auth/registration/start` sends a six-digit email verification code.
 2. `POST /auth/registration/verify` verifies that code and returns a short-lived registration token plus the active department choices.
 3. `POST /auth/register` accepts the registration token, password, and selected `department_id`, then creates the worker with `resigned` status.
 4. A supervisor reviews and reactivates the worker before the worker can sign in.
 
-Verification codes expire, are attempt-limited, and cannot be reused. In local development, `REGISTRATION_EXPOSE_CODE=true` returns `dev_verification_code` so the flow can be tested without SMTP. Production never exposes the code and requires `SMTP_HOST` and `SMTP_FROM_EMAIL`.
+Verification codes expire, are attempt-limited, and cannot be reused. In local development, `REGISTRATION_EXPOSE_CODE=true` returns `dev_verification_code` so the dormant flow can be tested without SMTP. Production never exposes the code; configure `SMTP_HOST` and `SMTP_FROM_EMAIL` before verified email registration is exposed again.
+
+The active Staff users flow is not yet a true invitation handoff: the Supervisor supplies the initial password. To remove that manual password step, add expiring, single-use invitation records plus a Worker password-setup page and endpoint. Deliver the token through transactional email or another authenticated private channel; do not put reusable or long-lived credentials in the invitation.
 
 ### Worker Attendance
 
@@ -1074,6 +1087,14 @@ npm.cmd run check:review-queue
 npm.cmd run check:mobile
 ```
 
+Dependency checks:
+
+```powershell
+npm.cmd audit --omit=dev
+npm.cmd audit
+python -m pip check
+```
+
 Production hardening gate:
 
 ```powershell
@@ -1081,12 +1102,21 @@ npm.cmd run check:production-hardening
 npm.cmd run check:production-hardening:strict
 ```
 
-These commands are read-only and require authenticated `gcloud` and Neon CLI access. The normal command carries the controlled-test incident-only exception; the strict command requires verified alert delivery. Neither establishes Neon least-privilege roles, pooling limits, or longer backup retention.
+The hardening commands are read-only and require authenticated `gcloud` and Neon CLI access. The normal command carries the controlled-test incident-only exception; the strict command requires verified alert delivery. Neither establishes Neon least-privilege roles, pooling limits, or longer backup retention.
+
+Latest complete check on 2026-07-31:
+
+- All functional frontend/backend checks and the disposable-database smoke test passed.
+- Production npm dependencies reported zero vulnerabilities; Python requirements were consistent.
+- The full development npm audit reported one high-severity `brace-expansion` advisory through ESLint/minimatch.
+- Hosted `/api/health/ready` reported database and GCS as healthy.
+- The controlled-test production-hardening gate passed with warnings; the strict gate failed because no enabled, verified Monitoring notification channel is attached.
+- Local `dist/index.html` and `dist/sw.js` did not match Firebase Hosting. The live page still showed public registration, so commit `b9aa05d` must be deployed and parity-checked before hosted phone testing.
 
 
 `npm.cmd run check:review-queue` verifies Review Record export dispatch, durable-only export guards, cursor pagination, query filters and snapshots, department scope, atomic pending-only decisions, audit comments, and decision-bypass protection.
 
-`npm.cmd run check:mobile` runs the static PWA/mobile preflight and then a Playwright Chromium workflow check for login, geolocation allow/deny, service-worker update prompt, IndexedDB offline queue replay, and supervisor review. Login coverage verifies that an anonymous startup neither requests authenticated sites nor exposes demo site options, and that a saved session refreshes before sites are loaded. Its Review Queue scenario verifies that a disconnected supervisor sees only the last durable records in explicit read-only mode; device-local Worker records never become reviewable. The browser check starts its own temporary backend and Vite server on `127.0.0.1:8765` and `127.0.0.1:5175`, with a throwaway SQLite database and upload folder. Override those ports with `BROWSER_WORKFLOW_BACKEND_PORT` or `BROWSER_WORKFLOW_FRONTEND_PORT` if needed.
+`npm.cmd run check:mobile` runs the static PWA/mobile preflight and then 25 Playwright Chromium workflow checks for invited-only login, Chinese localisation, accessibility, geolocation allow/deny, service-worker update prompts, IndexedDB offline queue replay, and Supervisor review. Login coverage verifies that public registration stays hidden, an anonymous startup neither requests authenticated Sites nor exposes demo Site options, and a saved session refreshes before Sites are loaded. Its Review Queue scenario verifies that a disconnected Supervisor sees only the last durable records in explicit read-only mode; device-local Worker records never become reviewable. The browser check starts its own temporary backend and Vite server on `127.0.0.1:8765` and `127.0.0.1:5175`, with a throwaway SQLite database and upload folder. Override those ports with `BROWSER_WORKFLOW_BACKEND_PORT` or `BROWSER_WORKFLOW_FRONTEND_PORT` if needed.
 
 `backend/database_test.py` poisons a returned pooled connection and proves the next query succeeds through `pool_pre_ping`. `backend/upload_storage_test.py`, `backend/work_form_definition_test.py`, and `backend/review_queue_test.py` are the focused local/GCS storage-contract, immutable Definition/server-formula, and Review Queue policy/query/export test surfaces.
 
@@ -1141,6 +1171,7 @@ The smoke test covers:
 The mobile/browser workflow check covers:
 
 - Production PWA app-shell files and stable manifest/icon paths.
+- Invited-account guidance is visible and public registration remains hidden.
 - Generated PWA app-shell manifest, copied build assets, and service-worker cache name stay in sync.
 - Service worker network-only API/upload rules.
 - Visible service worker update-flow wiring.
@@ -1252,6 +1283,8 @@ Check:
 
 Before real staff use, close or explicitly accept these remaining items:
 
+- Deploy commit `b9aa05d` and verify Firebase Hosting matches local `index.html`/`sw.js`; the 2026-07-31 live page still exposed public registration.
+- Replace Supervisor-chosen initial passwords with an expiring, single-use Worker password-setup invitation before onboarding beyond controlled pilot accounts.
 - Complete the full real-phone hosted checklist, including actual photo/signature streaming and the waiting-service-worker update flow. The automated hosted pass is green but does not replace this device pass.
 - Review and rotate any remaining production credentials in Secret Manager.
 - For current-live Neon, replace the sole `neondb_owner` application credential with a least-privilege runtime role, protect the production branch, and verify connection/pooling limits.
@@ -1262,6 +1295,7 @@ Before real staff use, close or explicitly accept these remaining items:
 - Richer audit-history filtering/export and a dedicated audit detail view.
 - Budget alerts based on the selected current provider and GCP resource configuration.
 - More automated frontend and backend tests.
+- Update the development toolchain to clear the high-severity `brace-expansion` advisory reported through ESLint/minimatch; production dependencies currently audit clean.
 - Better offline conflict resolution.
 - Add and verify at least one Monitoring notification channel; the current alert policies create Console incidents but cannot yet email or message an operator.
 
@@ -1269,6 +1303,8 @@ Before real staff use, close or explicitly accept these remaining items:
 
 Current next work:
 
+- Deploy the current invited-account build through a preview channel and verify exact live parity before promotion.
+- If automatic attendance is pursued, start with consent-based foreground arrival/departure reminders and one-tap confirmation. Reliable background geofencing when the PWA is closed requires native platform capability plus permission, battery, anti-spoofing, and audit validation.
 - Run the real-phone checklist against the live Firebase Hosting / Cloud Run / Neon / Cloud Storage path.
 - Clean up controlled hosted-test data and remove or formalize unused database users.
 - Close the remaining notification/budget findings and the Neon access/longer-retention checklist.

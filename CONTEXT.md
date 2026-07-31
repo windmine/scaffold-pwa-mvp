@@ -1,6 +1,6 @@
 # Leader Field Operations Context
 
-This file defines the product language for the geo-attendance and field-record MVP. Use these terms consistently in modules, routes, UI copy, tests, and documentation.
+This file defines the product language for the geo-attendance and field-record MVP. Use these terms consistently in modules, routes, UI copy, tests, and documentation. Status reviewed on 2026-07-31.
 
 ## People And Scope
 
@@ -19,6 +19,10 @@ _Avoid_: Supervisor when the person is still submitting field records
 **Supervisor**:
 An admin user who manages Sites, Workers, Work Form Definitions, and Review Records within one Department.
 _Avoid_: Admin when the workflow is specifically record review
+
+**Invited account**:
+A Worker account provisioned and activated by a Supervisor during the pilot. In the current implementation the Supervisor must also choose and communicate the initial password; a single-use invitation and Worker-set-password flow is not implemented. The public registration UI is hidden, while the dormant verified-registration API remains callable but is not supported as the pilot onboarding path.
+_Avoid_: Self-registered account when describing current pilot access
 
 **Global admin**:
 A Supervisor who may focus the dashboard on any Department or all Departments. The saved dashboard focus does not change the account's home Department.
@@ -104,6 +108,8 @@ _Avoid_: Offline review with mutable decisions
 **Current live deployment**:
 Firebase Hosting for the PWA, Cloud Run for FastAPI, Neon PostgreSQL supplied through Secret Manager, and a private Cloud Storage upload bucket. Browser traffic stays same-origin through `/api/**` and `/uploads/**` Hosting rewrites.
 
+As checked on 2026-07-31, backend and Upload Storage readiness are healthy, but the live Hosting shell does not match commit `b9aa05d`: live `index.html` and `sw.js` differ from the current build and public registration is still visible. Do not describe invited-only onboarding as deployed until parity is verified.
+
 **Recommended Google deployment**:
 Firebase Hosting, Cloud Run, Cloud SQL PostgreSQL, private Cloud Storage, and Secret Manager. This remains the preferred all-Google target; it is not the database currently serving live traffic.
 
@@ -111,8 +117,8 @@ Firebase Hosting, Cloud Run, Cloud SQL PostgreSQL, private Cloud Storage, and Se
 `GET /health/ready`, which verifies database access and the selected upload adapter. It is stronger than the liveness-only `/health` route.
 
 **Production Hardening Gate**:
-The read-only `npm run check:production-hardening` GCP validation. It checks Cloud Run identity, legacy/recommended Cloud SQL state, upload-bucket IAM, monitoring, and optional budget configuration. Neon backup, restore, pooling, and access controls require their own provider checks.
-_Avoid_: Calling the app production-ready based only on local tests or this GCP-only gate
+The provider-aware, read-only `npm run check:production-hardening` validation. It checks Cloud Run identity, provider selection, upload-bucket IAM, monitoring, optional budget configuration, and exact sanitized Neon/GCS recovery evidence. It does not establish a least-privilege Neon runtime role, pooling limits, longer retention, or notification ownership.
+_Avoid_: Calling the app production-ready based only on local tests or the controlled-test gate
 
 **Session Refresh**:
 `POST /auth/refresh`, which renews the HttpOnly `__session` cookie and CSRF cookie without browser bearer-token storage. Authentication restoration must finish before protected data such as Sites is loaded.
@@ -121,6 +127,7 @@ _Avoid_: Refresh token unless a separate revocable refresh-token store exists
 ## Relationships
 
 - A **Worker** belongs to one **Department** and creates field records owned by that Worker.
+- A **Supervisor** provisions and activates an **Invited account** during the pilot and currently sets its initial password; public self-registration is not exposed in the UI or supported as the pilot onboarding path, although its API remains callable.
 - An **Offline Submission** keeps its owning Worker, capture time, and **Client Submission ID**; attendance also carries its **Occurrence time** into the durable **Review Record**.
 - A **Supervisor** approves or rejects pending **Review Records** in the **Review Queue** within their Department scope.
 - A **Global admin** may query the same records across one or all Departments.
@@ -140,4 +147,6 @@ _Avoid_: Refresh token unless a separate revocable refresh-token store exists
 - "admin" can mean Supervisor review or Accounting / Payroll; name the workflow.
 - "timestamp" can mean occurrence, backend creation, or sync time; use the specific term.
 - "production" must identify either the **Current live deployment** or the **Recommended Google deployment**.
+- "registration" must distinguish the hidden, dormant verified-registration API from active **Invited account** provisioning.
+- "geolocation" currently means a Worker-triggered attendance capture, not continuous background tracking or automatic geofence check-in/out.
 - "production-ready" requires provider hardening and live phone/browser checks, not only build, smoke, or readiness success.

@@ -2,6 +2,8 @@
 
 This policy applies to production photos, handwritten signatures, and other evidence stored in `gs://geo-attendance-system-db9ca-uploads`. Local `backend/uploads/` is development-only and is not a recovery source.
 
+Status reviewed on 2026-07-31: the recovery contract is unchanged. The 2026-07-15 exact-generation restore proof still passes the 30-day hardening gate; run the next monthly proof by 2026-08-14 or immediately after any bucket/IAM change.
+
 ## Protection Contract
 
 - Cloud Storage soft delete stays enabled for at least 30 days (`2592000` seconds).
@@ -21,7 +23,7 @@ powershell -ExecutionPolicy Bypass -File scripts/prove-upload-recovery.ps1 `
 npm.cmd run check:production-hardening
 ```
 
-The latest non-secret drill result is stored in `docs/evidence/upload-recovery-proof-2026-07-15.json`.
+The latest non-secret drill result is stored in `docs/evidence/upload-recovery-proof-2026-07-15.json` and was revalidated by the read-only hardening gate on 2026-07-31.
 
 ## Targeted Restore
 

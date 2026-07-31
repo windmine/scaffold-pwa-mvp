@@ -9,6 +9,8 @@ Use this checklist before calling the MVP ready for phone testing or production 
 
 ## Latest Automated Pass
 
+- 2026-07-31 committed-source local pass at `b9aa05d`: lint, production build/PWA generation, Review Queue, all static/mobile checks, 25 Playwright Chromium workflows, backend compile/database/security/upload/form/migration tests, and the full disposable-database smoke test passed. The invited-account notice was visible and the public registration panel stayed hidden. Production npm dependencies and Python consistency checks passed; the full development npm audit reported one high-severity `brace-expansion` advisory through ESLint/minimatch.
+- 2026-07-31 live read-only pass: Firebase Hosting returned 200 and `/api/health/ready` reported database and GCS as healthy. The controlled-test hardening gate passed with incident-only Monitoring, six-hour Neon retention, and skipped-budget warnings; the strict gate failed because no verified notification channel is attached. Live `index.html` and `sw.js` did not match the current build, and the live page still exposed public registration.
 - 2026-07-15 current-source release pass: Cloud Run revision `geo-backend-release-20260715213211` passed zero-traffic candidate checks, moved to 100%, and passed ten post-promotion database/GCS readiness probes across direct Cloud Run and Firebase Hosting. Anonymous protected Sites returned 401 and the revision had zero ERROR/5xx logs. The Firebase preview's shell, service worker, offline page, and manifest matched the tested local build byte-for-byte before the exact preview version was cloned live.
 - 2026-07-15 operational pass: dedicated-identity Cloud Run canary passed database/upload readiness, revision `geo-backend-runtime-identity` moved to 100%, five hosted readiness calls passed after the old identity's runtime grants were removed, and the serving revision had zero observed ERROR/5xx logs in the final two-hour query. Hardened Neon PITR and exact-generation GCS soft-delete recovery drills passed; the controlled-test hardening gate passed, while the strict gate failed only for the intentionally missing notification destination.
 - 2026-07-15 local regression pass: lint, build/PWA generation, Review Queue, all static/mobile and 16 Playwright browser workflows, backend compile/database/security/upload/review/form/migration tests, dependency checks, and the full disposable-database smoke test passed.
@@ -41,7 +43,9 @@ curl.exe https://geo-attendance-system-db9ca.web.app/api/health/ready
 
 After signing in through the hosted URL, confirm authenticated `/api/**` calls keep returning 200. Firebase Hosting rewrites only forward the `__session` cookie to Cloud Run, so a login response that sets another auth cookie name can look like a session that expires immediately.
 
-Before signing in, confirm the login screen does not request `/api/sites` or briefly populate Worker site controls with local demo sites. When restoring a saved session, `/api/auth/refresh` must complete before `/api/sites` is requested.
+Before signing in, confirm the login screen says `Invited accounts only`, the public registration panel is absent, and the page does not request `/api/sites` or briefly populate Worker site controls with local demo Sites. When restoring a saved session, `/api/auth/refresh` must complete before `/api/sites` is requested.
+
+As of the 2026-07-31 check, this invited-only shell is not live: Firebase Hosting still serves an older `index.html`/`sw.js` and exposes `Create staff account`. Deploy the current preview, compare its shell hashes with local `dist/`, and promote only that tested version before beginning the hosted device checklist.
 
 Before using real staff data, run the read-only GCP hardening gate from an authenticated admin machine:
 
@@ -52,7 +56,7 @@ npm.cmd run check:production-hardening:strict
 
 The normal command carries the controlled-test Console-incident exception. The strict command must pass before real production use and therefore requires a verified alert notification channel.
 
-Use controlled production test accounts. Do not use `/dev/seed` on production-like deployments.
+Use controlled production test accounts. The current Staff users flow requires a Supervisor to set the initial password; communicate controlled-test credentials through a secure private channel. A single-use Worker password-setup invitation is not implemented or covered by this checklist. Do not use `/dev/seed` on production-like deployments.
 
 The hardening checker now validates current Neon recovery evidence, but provider access and commercial guarantees still require an operator review. Before real data, replace the owner application credential, verify pooling/compute limits, protect production, and choose recovery beyond the current six-hour Free-plan history window.
 
@@ -80,7 +84,7 @@ With the backend running at `http://127.0.0.1:8000`:
 python backend\smoke_test.py
 ```
 
-`npm.cmd run check:mobile` verifies the built PWA shell, generated service worker output, update-flow wiring, mobile controls, same-origin proxy setup, supervisor audit-history wiring, explicit offline/read-only Review Queue behaviour, offline work-form submission support, photo controls, signature enforcement, and Playwright browser workflows. It does not replace a real phone test.
+`npm.cmd run check:mobile` verifies the built PWA shell, invited-only login, generated service worker output, update-flow wiring, mobile controls, same-origin proxy setup, Supervisor audit-history wiring, explicit offline/read-only Review Queue behaviour, offline Work Form submission support, photo controls, signature enforcement, and 25 Playwright Chromium workflows. It does not replace a real phone test.
 
 ## Setup For Manual Phone Test
 
@@ -205,6 +209,7 @@ python backend\smoke_test.py
 
 ## Pass Criteria
 
+- The sign-in screen identifies invited-account access and public registration controls are not visible.
 - Worker and supervisor paths complete without console-breaking errors.
 - Geolocation denial, offline state, backend outage, and photo/signature validation show clear messages.
 - Queued worker submissions sync after reconnect.
@@ -219,3 +224,4 @@ python backend\smoke_test.py
 - The first authenticated API request after an idle period succeeds; a stale managed PostgreSQL/Neon SSL connection is recycled before the route query.
 - Applicable `npm.cmd run check:production-hardening` findings and the remaining Neon access/retention warnings are closed or explicitly accepted before real staff data is used.
 - Hosted Firebase/Cloud Run checks pass without direct phone access to the managed PostgreSQL provider or Cloud Storage.
+- The deployed `index.html` and `sw.js` match the tested release build, and the full hosted real-phone/photo/signature/update-flow checklist is completed rather than inferred from automation.

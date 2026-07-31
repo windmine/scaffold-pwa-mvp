@@ -2,6 +2,8 @@
 
 This document defines the next business-facing admin area. The Payroll portal is not implemented; the existing Management Analytics section is operational reporting and must not be presented as payroll.
 
+Status reviewed on 2026-07-31: the portal remains planned only; the active `index.html` application has no Payroll workspace or API routes. Any Payroll content in `premium-preview.html` is a design preview, not a deployed feature.
+
 ## Goal
 
 Add a desktop-first workflow that turns approved Attendance Records into explainable pay-period worker/day summaries and Excel-friendly exports without changing the phone-first Worker experience.

@@ -6,7 +6,7 @@ Use this runbook for managed PostgreSQL migrations, Cloud Run releases, durable 
 
 ### Current live deployment
 
-Checked on 2026-07-15:
+Backend topology and readiness rechecked on 2026-07-31:
 
 ```text
 Firebase Hosting
@@ -18,6 +18,7 @@ Firebase Hosting
 
 - Hosted PWA: `https://geo-attendance-system-db9ca.web.app`.
 - Cloud Run revision `geo-backend-release-20260715213211` serves 100% of traffic as `geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com`.
+- Hosted `/api/health/ready` reports database and GCS as healthy, but the Firebase shell does not match commit `b9aa05d`: live `index.html` and `sw.js` hashes differ from local `dist/`, and the live page still exposes public registration.
 - `DATABASE_URL` and `GEO_SECRET_KEY` are injected from Secret Manager.
 - The runtime identity has no project-level role. It has secret-level accessor bindings and a custom upload role containing only `storage.objects.create`, `storage.objects.get`, and `storage.objects.delete`, restricted to `uploads/`.
 - The default Compute service account is no longer a runtime credential and retains only `roles/run.builder` for Cloud Run source builds.
@@ -51,6 +52,7 @@ The project has an earlier validated Cloud SQL instance and database, but they a
 - Keep `ENABLE_DEV_SEED=false`, `AUTH_COOKIE_SECURE=true`, CSRF protection, and rate limiting enabled in production.
 - Do not run the full destructive `backend/smoke_test.py` against production. It seeds and mutates data; use it only with a disposable local/staging database.
 - Use controlled test accounts for hosted workflow checks and clean up their records afterward.
+- During the invited-account pilot, require the tested login shell to show `Invited accounts only` and keep the public registration panel hidden. Verify preview/local shell parity before promotion. The current Staff users flow still makes the Supervisor set each initial password; do not describe it as a complete invitation handoff.
 - Verify actual Cloud Run traffic after deploy. A tagged old revision can remain pinned even when a newer revision is ready.
 - Keep the runtime identity separate from the source-build identity. Do not restore Editor or database/upload access to the default Compute service account.
 - An application rollback and a database rollback are separate decisions; the previous app revision must be compatible with the migrated schema.
@@ -84,6 +86,7 @@ MAX_UPLOAD_BYTES=5242880
 
 Provider notes:
 
+- SMTP configuration is not required only for the current Supervisor-set-password account flow. Add a transactional email provider and protected credentials before enabling verified email registration or single-use email invitations. If invitation tokens use another delivery channel, require authenticated private delivery, expiry, one-time use, and auditability.
 - `BUSINESS_TIMEZONE` must be an IANA timezone name and controls attendance business-date filters in the Review Queue and exports.
 - For Neon, use a TLS-enabled application connection string appropriate to the selected compute/pooling mode and verify backup/PITR or branch-restore capability in Neon itself.
 - For Cloud SQL, prefer a private-IP/VPC or Cloud SQL connector design, a least-privilege database user, and a dedicated Cloud Run service account with `roles/cloudsql.client`.
@@ -122,6 +125,9 @@ python backend\upload_storage_test.py
 python backend\review_queue_test.py
 python backend\work_form_definition_test.py
 python backend\migration_test.py
+npm.cmd audit --omit=dev
+npm.cmd audit
+python -m pip check
 ```
 
 Then start the backend against a disposable database and run:
@@ -131,6 +137,8 @@ python backend\smoke_test.py
 ```
 
 The database test specifically proves `pool_pre_ping` recovers a poisoned returned connection. The focused tests cover upload adapter parity, Work Form snapshots/server-derived formulas, cursor-paginated Review Queue policy/query/export separation, and migrations.
+
+The 2026-07-31 local preflight passed all functional checks and the disposable-database smoke test. Production npm dependencies and Python requirements were clean; the full development npm audit reported one high-severity `brace-expansion` advisory through ESLint/minimatch.
 
 ## Database Migration Procedure
 
@@ -206,7 +214,7 @@ curl.exe https://geo-attendance-system-db9ca.web.app/api/health/ready
 
 Then use controlled accounts:
 
-1. Before login, confirm the app does not request `/api/sites` or display demo Sites.
+1. Before login, confirm the app says `Invited accounts only`, hides public registration, does not request `/api/sites`, and does not display demo Sites.
 2. On a restored session, confirm `/api/auth/refresh` finishes before `/api/sites`.
 3. Repeat an authenticated `/api/sites` request after an idle period; the first request must succeed because `pool_pre_ping` recycles stale connections.
 4. Submit a Worker attendance event, Task Log, and required-signature Work Form with known test markers.
@@ -230,8 +238,12 @@ The checker is provider-aware. With its default `-DatabaseProvider neon`, it ver
 
 The normal npm command explicitly allows Console-incident-only monitoring for the controlled-test phase. The `:strict` command is the real-production gate and fails until every required policy has an enabled, verified delivery channel.
 
+On 2026-07-31, the controlled-test gate passed with three warnings (incident-only Monitoring, six-hour Neon retention, and skipped budget verification). The strict gate failed its notification-channel requirement and therefore remains red for real production use.
+
 Current warnings are operational decisions rather than hidden green checks:
 
+- Firebase Hosting does not yet match commit `b9aa05d`; deploy and verify the invited-account shell before hosted device testing.
+- The current Supervisor provisioning form requires an initial password; implement a single-use Worker password-setup invitation before scaling beyond controlled accounts.
 - The two Monitoring policies create Console incidents, but no verified email/chat notification channel is attached.
 - Neon Free retains only six hours of history and has no scheduled snapshots. The drill proves current PITR mechanics, not a production-grade recovery window.
 - The live database still uses the owner role; create a least-privilege application role, protect the production branch, and test credential rotation.

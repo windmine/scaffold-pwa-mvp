@@ -46,6 +46,7 @@ Create a practical geo-based field operations platform for three main user group
 - The current live deployment is Firebase Hosting, Cloud Run, Neon PostgreSQL supplied through Secret Manager, and a private Cloud Storage upload bucket. The recommended all-Google target remains Firebase Hosting, Cloud Run, Cloud SQL PostgreSQL, Cloud Storage, and Secret Manager.
 - Production uploads must use Cloud Storage or another durable object store. Do not rely on local `backend/uploads/` for Cloud Run production storage.
 - The app currently supports backend auth, HttpOnly `__session` cookies with CSRF, session refresh, normal-worker/leader classes, department-scoped supervisors/global admins, attendance, geolocation, site radius checks, task logs, weekly team logs, multiple photos, task templates, staff management, resigned workers, supervisor record edits, rubbish-bin restore/purge, audit history, CSV/PDF/HTML exports, versioned Work Forms, form submissions, handwritten signatures, maps, and Management Analytics.
+- During the invited-account pilot, the public registration panel is hidden and Supervisors create and activate Worker accounts from Staff users. The current Staff users flow still requires the Supervisor to choose and communicate each initial password; a single-use invitation and Worker-set-password flow is not implemented yet. The verified-registration API remains callable and regression-tested for a later re-enable, but it is not exposed in the UI or supported as the pilot onboarding path.
 - Payroll/admin reporting is planned, not implemented yet. Keep it separate from the Review Queue: supervisors validate records, while accounting calculates/export payable hours from approved attendance.
 - The Offline Submission module owns Worker identity, capture time, client idempotency key, replay state, and partial-upload state for queued attendance, task logs, and Work Forms; attendance maps capture time to its occurrence timestamp. Do not make those separate caller responsibilities.
 - Work Form Definitions are versioned; each submission stores an immutable definition snapshot, and the backend is authoritative for time-range and formula results.
@@ -53,6 +54,8 @@ Create a practical geo-based field operations platform for three main user group
 - Upload Storage owns decoded-raster verification/re-encoding, local/GCS adapter readiness, authorized streaming, and unreferenced-file cleanup.
 - PWA pieces include `manifest.webmanifest`, generated `sw.js`, `offline.html`, HTTPS Vite development, IndexedDB drafts, and the hardened offline queue. Local automated and real-phone checks are green; automated hosted passes completed on 2026-07-14 and 2026-07-15, while the full hosted real-phone/update/upload checklist still remains.
 - Backend production helpers include `/health/ready`, SQLAlchemy `pool_pre_ping`, configurable in-process rate limiting, focused security/storage/database tests, and the read-only `npm run check:production-hardening` gate. The gate verifies the live GCP topology plus current Neon and upload recovery evidence; it does not replace Neon role/pooling controls, a longer recovery window, or an operator notification destination.
+- The complete 2026-07-31 local gate passed at commit `b9aa05d`: lint, production build, Review Queue, 25 Playwright browser workflows, backend compile/database/security/upload/form/migration tests, and a disposable-database smoke test. Production npm dependencies and Python dependency consistency passed; the full development npm audit reports one high-severity `brace-expansion` advisory through ESLint/minimatch.
+- The 2026-07-31 live check confirmed healthy database/GCS readiness and the same serving Cloud Run revision, but Firebase Hosting does not match commit `b9aa05d`: its `index.html` and `sw.js` hashes differ and the live page still exposes public registration. Deploy and verify the current invited-account build before the hosted phone pass.
 - Runtime/generated paths such as `backend/geo_management.db`, `backend/uploads/`, `backend/app/__pycache__/`, `dist/`, and `node_modules/` are not source-of-truth code changes.
 
 ## MVP Scope
@@ -61,13 +64,13 @@ The MVP should include:
 
 - User authentication.
 - Role-based behaviour for workers and supervisors.
-- Staff registration and login.
+- Supervisor-provisioned invited Worker accounts and reliable login.
 - Mobile-friendly check-in/check-out flow.
 - Location capture using browser geolocation.
 - Backend API endpoints for attendance, task logs, weekly team logs, Work Forms, Sites, uploads, review, and user data.
 - Database storage for Departments, users, attendance records, task logs, weekly team logs/entries, Sites, versioned Work Forms, immutable submission snapshots, timestamps, coordinates, upload references, and audit events.
 - Supervisor dashboard to view, search, approve, reject, and adjust records.
-- Clear error handling for login, registration, location permission, API failures, photo upload failures, and form validation.
+- Clear error handling for login, invited-account provisioning, location permission, API failures, photo upload failures, and form validation. Keep the dormant verified-registration API errors tested separately.
 - README instructions for setup, environment variables, backend startup, frontend startup, phone testing, and validation.
 
 ## Preferred Technical Direction
@@ -93,7 +96,7 @@ Do not replace the whole stack unless the current implementation clearly require
 General MVP order:
 
 1. Make the project run locally without errors.
-2. Make login and registration reliable.
+2. Make invited-account provisioning and login reliable; keep dormant verified registration safe for a later re-enable.
 3. Make phone testing work on the same local network.
 4. Stabilise geolocation check-in/check-out.
 5. Store attendance and task/form records correctly in the backend database.
@@ -126,13 +129,17 @@ Current reset priorities completed:
 15. The 2026-07-14 hosted automated pass verified anonymous/login isolation, restored-session ordering, repeated Sites requests, logout, Review Queue, readiness, and new-revision logs without an observed 5xx.
 16. Cloud Run serves through a dedicated least-privilege runtime identity; the default Compute identity is build-only.
 17. Hosted readiness and Cloud Run 5xx Monitoring policies are live, and current Neon PITR/upload soft-delete recovery drills are checked through sanitized evidence.
+18. Public registration is hidden for the invited-account pilot, invited-account guidance is translated, and static/Playwright checks prevent the registration panel from reappearing.
+19. The 2026-07-31 full local release gate passed on commit `b9aa05d`.
 
 Current next priorities:
 
-1. Run the full manual phone/browser workflow checklist against the live Firebase Hosting / Cloud Run path.
-2. Add a verified Monitoring notification channel and billing budget, replace the Neon owner runtime credential, verify pooling limits, and choose recovery beyond the current six-hour history window.
-3. Expand automated frontend/backend tests around the highest-risk worker and supervisor workflows.
-4. Add a desktop-first payroll/admin portal section for pay-period worker hour summaries, exception flags, and payroll CSV export.
+1. Deploy commit `b9aa05d` through a Firebase preview for controlled pilot accounts and verify `index.html`/`sw.js` parity plus invited-only login before promoting it live.
+2. Before broader onboarding, replace Supervisor-chosen initial passwords with an expiring, single-use invitation and Worker password-setup flow. Email delivery requires a transactional email provider; another authenticated private delivery channel may be used if it is designed and audited explicitly.
+3. Run the full manual phone/browser workflow checklist against the live Firebase Hosting / Cloud Run path.
+4. Add a verified Monitoring notification channel and billing budget, replace the Neon owner runtime credential, verify pooling limits, and choose recovery beyond the current six-hour history window.
+5. Resolve the development-only `brace-expansion` audit advisory and expand automated frontend/backend tests around the highest-risk Worker and Supervisor workflows.
+6. Add a desktop-first payroll/admin portal section for pay-period worker hour summaries, exception flags, and payroll CSV export.
 
 ## Important Behaviour Rules
 
@@ -268,7 +275,8 @@ Signature fields should be handwritten by the worker using a signature pad and s
 
 The project can be considered successful when:
 
-- A new user can register or be created.
+- A Supervisor can create and activate an invited Worker, and that Worker can sign in without using public self-registration.
+- Before invited accounts are used beyond a controlled pilot, a Worker can set their own password through an expiring, single-use invitation instead of receiving a Supervisor-chosen password.
 - A staff user can log in from a phone.
 - The phone can open the frontend using the local network IP.
 - The staff user can check in with location permission enabled.
@@ -299,6 +307,7 @@ Possible future features include:
 - Native Excel export for payroll/admin reports and submitted field records.
 - Staff schedule or shift management.
 - Leave request management.
+- Consent-based geofence arrival/departure reminders. Do not promise reliable background automatic check-in/out from the browser PWA; true background automation requires native platform capability, explicit permissions, anti-spoofing controls, and real-device battery/OS validation.
 - Photo requirement rules per site or form.
 - Push notifications.
 - Richer audit filtering, export, and detail view.
@@ -326,6 +335,9 @@ npm run lint
 npm run build
 npm run check:review-queue
 npm run check:mobile
+npm audit --omit=dev
+npm audit
+python -m pip check
 python -m compileall backend\app backend\smoke_test.py backend\database_test.py backend\migration_test.py backend\review_queue_test.py backend\work_form_definition_test.py backend\upload_storage_test.py backend\security_test.py
 python backend\database_test.py
 python backend\security_test.py
