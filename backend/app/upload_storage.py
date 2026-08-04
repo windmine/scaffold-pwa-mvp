@@ -13,6 +13,7 @@ from uuid import uuid4
 from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlmodel import Session, select
 
+from app.authorization import user_is_global_admin
 from app.config import (
     MAX_UPLOAD_BYTES,
     PRODUCTION_LIKE,
@@ -544,7 +545,7 @@ def _upload_is_referenced(filename: str, session: Session, worker_id: Optional[i
 
 
 def can_access_upload(filename: str, info: UploadInfo, user: User, session: Session):
-    if bool(getattr(user, "is_global_admin", False)):
+    if user_is_global_admin(user):
         return True
     if user.role == "supervisor":
         if info.uploaded_by:

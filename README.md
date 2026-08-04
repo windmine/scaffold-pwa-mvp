@@ -58,6 +58,7 @@ Completed in this reset:
 - SQLAlchemy connection checkout uses `pool_pre_ping`, and protected Sites load only after login or session restoration succeeds.
 - Public registration is hidden in commit `b9aa05d` for the invited-account pilot. Supervisors create and activate Workers from Staff users; the verified-registration API remains implemented and tested for a later re-enable.
 - The current Staff users flow is account provisioning, not a complete invitation handoff: the Supervisor must choose and communicate each initial password. There is no expiring, single-use invitation or Worker-set-password flow yet.
+- Global-admin access is Supervisor-only. The Staff UI clears and disables it for Workers, authorization ignores invalid Worker flags, the API validates the final role/access combination, and migration `0017_global_admin_supervisor_invariant` revokes invalid legacy flags before enforcing the database invariant.
 - Local validation on 2026-07-31 passed lint, production build/PWA generation, Review Queue, all static/mobile checks, 25 Playwright browser workflows, backend compile, database, security, upload storage, Work Form definition, migration, and the full disposable-database smoke test.
 - On 2026-07-31, `npm audit --omit=dev` found zero production dependency vulnerabilities and `python -m pip check` found no broken requirements. The full development audit found one high-severity `brace-expansion` advisory through ESLint/minimatch; update the development toolchain before treating dependency checks as completely green.
 - The 2026-07-14 hosted deployment passed anonymous, worker, restored-session, repeated `/api/sites`, logout, supervisor Review Queue, readiness, and new-revision error-log checks without a 5xx.
@@ -171,6 +172,7 @@ Worker restrictions:
 - Search sites.
 - Create worker/supervisor users in the supervisor's own department, or in any department when signed in as a global admin.
 - Edit staff name, email, role, status, department, global-admin access, or reset password with double-check confirmation.
+- Assign global-admin access only to Supervisor accounts. Changing an account to Worker clears that access in the UI and must remove it in the same backend update.
 - View and search staff users.
 - Mark workers resigned so they cannot sign in.
 - Reactivate resigned workers without losing previous records.
@@ -953,6 +955,8 @@ PATCH /supervisor/work-forms/{form_id}
 
 Supervisor edit/archive routes require `confirmed: true` in the request body.
 
+`is_global_admin=true` is valid only when the account's final `role` is `supervisor`. Create/update requests that would leave a Worker with global access return `400`; non-global supervisors attempting to grant the flag return `403`. An authorized global admin may atomically change another global Supervisor to a Worker only by setting `is_global_admin=false` in the same update.
+
 ## Example Requests
 
 ### Login
@@ -1116,7 +1120,7 @@ Latest complete check on 2026-07-31:
 
 `npm.cmd run check:review-queue` verifies Review Record export dispatch, durable-only export guards, cursor pagination, query filters and snapshots, department scope, atomic pending-only decisions, audit comments, and decision-bypass protection.
 
-`npm.cmd run check:mobile` runs the static PWA/mobile preflight and then 25 Playwright Chromium workflow checks for invited-only login, Chinese localisation, accessibility, geolocation allow/deny, service-worker update prompts, IndexedDB offline queue replay, and Supervisor review. Login coverage verifies that public registration stays hidden, an anonymous startup neither requests authenticated Sites nor exposes demo Site options, and a saved session refreshes before Sites are loaded. Its Review Queue scenario verifies that a disconnected Supervisor sees only the last durable records in explicit read-only mode; device-local Worker records never become reviewable. The browser check starts its own temporary backend and Vite server on `127.0.0.1:8765` and `127.0.0.1:5175`, with a throwaway SQLite database and upload folder. Override those ports with `BROWSER_WORKFLOW_BACKEND_PORT` or `BROWSER_WORKFLOW_FRONTEND_PORT` if needed.
+`npm.cmd run check:mobile` runs the static PWA/mobile preflight and then 26 Playwright Chromium workflow checks for invited-only login, Chinese localisation, accessibility, geolocation allow/deny, service-worker update prompts, IndexedDB offline queue replay, role-safe global-admin controls, and Supervisor review. Login coverage verifies that public registration stays hidden, an anonymous startup neither requests authenticated Sites nor exposes demo Site options, and a saved session refreshes before Sites are loaded. Its Review Queue scenario verifies that a disconnected Supervisor sees only the last durable records in explicit read-only mode; device-local Worker records never become reviewable. The browser check starts its own temporary backend and Vite server on `127.0.0.1:8765` and `127.0.0.1:5175`, with a throwaway SQLite database and upload folder. Override those ports with `BROWSER_WORKFLOW_BACKEND_PORT` or `BROWSER_WORKFLOW_FRONTEND_PORT` if needed.
 
 `backend/database_test.py` poisons a returned pooled connection and proves the next query succeeds through `pool_pre_ping`. `backend/upload_storage_test.py`, `backend/work_form_definition_test.py`, and `backend/review_queue_test.py` are the focused local/GCS storage-contract, immutable Definition/server-formula, and Review Queue policy/query/export test surfaces.
 

@@ -9,6 +9,7 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
+from app.authorization import user_is_global_admin
 from app.models import (
     AttendanceRecord,
     Department,
@@ -460,7 +461,7 @@ def user_response(user: User, session: Session | None = None):
         "role": user.role,
         "worker_class": user.worker_class if user.role == "worker" else None,
         "status": user.status or "active",
-        "is_global_admin": bool(user.is_global_admin),
+        "is_global_admin": user_is_global_admin(user),
     }
 
 
@@ -481,10 +482,6 @@ def require_leader(user: User):
     require_worker(user)
     if (user.worker_class or "normal") != "leader":
         raise HTTPException(status_code=403, detail="Leader only")
-
-
-def user_is_global_admin(user: User):
-    return bool(getattr(user, "is_global_admin", False))
 
 
 def can_access_department(user: User, department_id: Optional[int]):
@@ -545,6 +542,14 @@ def validate_user_input(email: str, name: str, password: str, role: str):
         raise HTTPException(status_code=400, detail="Role must be worker or supervisor")
 
     return email, name, role
+
+
+def validate_global_admin_role(role: str, is_global_admin: bool):
+    if is_global_admin and role != "supervisor":
+        raise HTTPException(
+            status_code=400,
+            detail="Global admin access requires the Supervisor role",
+        )
 
 
 def validate_worker_class(worker_class: Optional[str]):

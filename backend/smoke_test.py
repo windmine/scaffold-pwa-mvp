@@ -538,6 +538,70 @@ def main():
             400,
         )
 
+        assert_status(
+            "global admin cannot create Worker with global admin access",
+            request(
+                "POST",
+                "/supervisor/users",
+                {
+                    "name": f"Invalid Global Worker {timestamp}",
+                    "email": f"invalid-global-worker-{timestamp}@example.com",
+                    "password": "Passw0rd!",
+                    "role": "worker",
+                    "worker_class": "normal",
+                    "is_global_admin": True,
+                },
+                admin_token,
+            ),
+            400,
+        )
+        role_invariant_user = assert_status(
+            "global admin creates global Supervisor",
+            request(
+                "POST",
+                "/supervisor/users",
+                {
+                    "name": f"Role Invariant Supervisor {timestamp}",
+                    "email": f"role-invariant-supervisor-{timestamp}@example.com",
+                    "password": "Passw0rd!",
+                    "role": "supervisor",
+                    "is_global_admin": True,
+                },
+                admin_token,
+            ),
+            200,
+        )
+        if role_invariant_user.get("role") != "supervisor" or not role_invariant_user.get("is_global_admin"):
+            raise AssertionError("global admin creates global Supervisor: expected Supervisor global admin")
+        assert_status(
+            "global Supervisor cannot become Worker while retaining global access",
+            request(
+                "PATCH",
+                f"/supervisor/users/{role_invariant_user['id']}",
+                {"role": "worker", "confirmed": True},
+                admin_token,
+            ),
+            400,
+        )
+        role_invariant_user = assert_status(
+            "global Supervisor can atomically remove global access and become Worker",
+            request(
+                "PATCH",
+                f"/supervisor/users/{role_invariant_user['id']}",
+                {
+                    "role": "worker",
+                    "worker_class": "normal",
+                    "department_id": role_invariant_user["department_id"],
+                    "is_global_admin": False,
+                    "confirmed": True,
+                },
+                admin_token,
+            ),
+            200,
+        )
+        if role_invariant_user.get("role") != "worker" or role_invariant_user.get("is_global_admin"):
+            raise AssertionError("atomic global access removal: expected non-global Worker")
+
         smoke_user = assert_status(
             "create resignable worker",
             request(
@@ -602,6 +666,23 @@ def main():
             200,
         )
         mutual_supervisor_token = mutual_supervisor_login["access_token"]
+        assert_status(
+            "department supervisor cannot create global admin",
+            request(
+                "POST",
+                "/supervisor/users",
+                {
+                    "name": f"Unauthorized Global Supervisor {timestamp}",
+                    "email": f"unauthorized-global-supervisor-{timestamp}@example.com",
+                    "password": "Passw0rd!",
+                    "role": "supervisor",
+                    "department_id": mutual_department["id"],
+                    "is_global_admin": True,
+                },
+                mutual_supervisor_token,
+            ),
+            403,
+        )
         mutual_worker = assert_status(
             "department supervisor creates same-department worker",
             request(

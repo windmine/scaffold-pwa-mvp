@@ -1054,6 +1054,7 @@ async function handleLogout() {
   clearWorkerSessionState();
   clearBackendSession();
   state.user = null;
+  staffSitesModule.resetSession();
   state.sites = [];
   state.sitesLoadError = '';
   fillSiteSelects();
@@ -1069,6 +1070,7 @@ function handleSessionExpired(message = 'Your backend session expired. Please si
     clearWorkerSessionState();
     clearBackendSession();
     state.user = null;
+    staffSitesModule.resetSession();
     state.sites = [];
     state.sitesLoadError = '';
     fillSiteSelects();

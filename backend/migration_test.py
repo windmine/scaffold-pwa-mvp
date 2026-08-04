@@ -49,6 +49,7 @@ EXPECTED_VERSIONS = [
     "0014_client_submission_unique_indexes",
     "0015_work_form_definition_snapshots",
     "0016_review_queue_indexes",
+    "0017_global_admin_supervisor_invariant",
 ]
 
 
@@ -106,7 +107,18 @@ def copy_migrations_before_0014(target: Path):
             "0014_client_submission_unique_indexes.py",
             "0015_work_form_definition_snapshots.py",
             "0016_review_queue_indexes.py",
+            "0017_global_admin_supervisor_invariant.py",
         }:
+            continue
+        shutil.copy2(path, target / path.name)
+
+
+def copy_migrations_before_0017(target: Path):
+    source = Path(__file__).resolve().parent / "migrations" / "versions"
+    target.mkdir(parents=True, exist_ok=True)
+
+    for path in source.glob("*.py"):
+        if path.name in {"__init__.py", "0017_global_admin_supervisor_invariant.py"}:
             continue
         shutil.copy2(path, target / path.name)
 
@@ -412,6 +424,159 @@ def test_legacy_database():
     print("ok - legacy database migration")
 
 
+def assert_statement_rejected(engine, label: str, statement: str):
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(statement)
+    except IntegrityError:
+        return
+    raise AssertionError(f"{label}: expected database integrity rejection")
+
+
+def test_global_admin_supervisor_invariant_migration():
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
+        root = Path(directory)
+        old_migrations_dir = root / "pre-0017-migrations"
+        copy_migrations_before_0017(old_migrations_dir)
+        engine = make_engine(root / "global-admin-invariant.db")
+        applied_before = run_migrations(engine, migrations_dir=old_migrations_dir)
+        if applied_before != EXPECTED_VERSIONS[:-1]:
+            raise AssertionError(
+                f"global admin invariant setup: expected {EXPECTED_VERSIONS[:-1]}, got {applied_before}"
+            )
+
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                """
+                INSERT INTO "user" (
+                    email, name, password_hash, role, status, department_id,
+                    is_global_admin, worker_class
+                ) VALUES (
+                    'legacy-global-worker@example.com', 'Legacy Global Worker', 'test',
+                    'worker', 'active', 1, TRUE, 'normal'
+                )
+                """
+            )
+            connection.exec_driver_sql(
+                """
+                INSERT INTO "user" (
+                    email, name, password_hash, role, status, department_id,
+                    is_global_admin, worker_class
+                ) VALUES (
+                    'legacy-noncanonical-global-worker@example.com',
+                    'Legacy Noncanonical Global Worker', 'test',
+                    'worker', 'active', 1, 2, 'normal'
+                )
+                """
+            )
+            connection.exec_driver_sql(
+                """
+                INSERT INTO "user" (
+                    email, name, password_hash, role, status, department_id,
+                    is_global_admin, worker_class
+                ) VALUES (
+                    'valid-global-supervisor@example.com', 'Valid Global Supervisor', 'test',
+                    'supervisor', 'active', 1, TRUE, NULL
+                )
+                """
+            )
+
+        applied = run_migrations(engine)
+        if applied != ["0017_global_admin_supervisor_invariant"]:
+            raise AssertionError(f"global admin invariant migration: unexpected versions {applied}")
+
+        with engine.begin() as connection:
+            repaired_worker = connection.exec_driver_sql(
+                "SELECT role, is_global_admin FROM \"user\" "
+                "WHERE email = 'legacy-global-worker@example.com'"
+            ).first()
+            retained_supervisor = connection.exec_driver_sql(
+                "SELECT role, is_global_admin FROM \"user\" "
+                "WHERE email = 'valid-global-supervisor@example.com'"
+            ).first()
+            repaired_noncanonical_worker = connection.exec_driver_sql(
+                "SELECT role, is_global_admin FROM \"user\" "
+                "WHERE email = 'legacy-noncanonical-global-worker@example.com'"
+            ).first()
+        if repaired_worker != ("worker", 0):
+            raise AssertionError(f"global admin invariant repair: unexpected Worker row {repaired_worker}")
+        if retained_supervisor != ("supervisor", 1):
+            raise AssertionError(
+                f"global admin invariant repair: valid Supervisor changed {retained_supervisor}"
+            )
+        if repaired_noncanonical_worker != ("worker", 0):
+            raise AssertionError(
+                "global admin invariant repair: noncanonical truthy Worker flag "
+                f"was retained {repaired_noncanonical_worker}"
+            )
+
+        assert_statement_rejected(
+            engine,
+            "global admin invariant insert",
+            """
+            INSERT INTO "user" (
+                email, name, password_hash, role, status, department_id,
+                is_global_admin, worker_class
+            ) VALUES (
+                'rejected-global-worker@example.com', 'Rejected Global Worker', 'test',
+                'worker', 'active', 1, TRUE, 'normal'
+            )
+            """,
+        )
+        assert_statement_rejected(
+            engine,
+            "global admin invariant update",
+            """
+            UPDATE "user"
+            SET role = 'worker'
+            WHERE email = 'valid-global-supervisor@example.com'
+            """,
+        )
+        assert_statement_rejected(
+            engine,
+            "global admin invariant noncanonical truthy insert",
+            """
+            INSERT INTO "user" (
+                email, name, password_hash, role, status, department_id,
+                is_global_admin, worker_class
+            ) VALUES (
+                'rejected-noncanonical-global-worker@example.com',
+                'Rejected Noncanonical Global Worker', 'test',
+                'worker', 'active', 1, 2, 'normal'
+            )
+            """,
+        )
+        assert_statement_rejected(
+            engine,
+            "global admin invariant noncanonical truthy update",
+            """
+            UPDATE "user"
+            SET is_global_admin = 2
+            WHERE email = 'legacy-global-worker@example.com'
+            """,
+        )
+
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                """
+                UPDATE "user"
+                SET role = 'worker', is_global_admin = FALSE, worker_class = 'normal'
+                WHERE email = 'valid-global-supervisor@example.com'
+                """
+            )
+            downgraded = connection.exec_driver_sql(
+                "SELECT role, is_global_admin, worker_class FROM \"user\" "
+                "WHERE email = 'valid-global-supervisor@example.com'"
+            ).first()
+        if downgraded != ("worker", 0, "normal"):
+            raise AssertionError(f"global admin invariant atomic downgrade: unexpected row {downgraded}")
+
+        assert_migration_recorded(engine)
+        engine.dispose()
+
+    print("ok - global admin access requires the Supervisor role")
+
+
 def assert_duplicate_rejected(session: Session, label: str, first, duplicate, allowed):
     session.add(first)
     session.commit()
@@ -586,6 +751,7 @@ def main():
     test_postgres_statement_adaptation()
     test_fresh_database()
     test_legacy_database()
+    test_global_admin_supervisor_invariant_migration()
     test_client_submission_unique_indexes()
     test_client_submission_duplicate_precheck()
     test_rubbish_bin_purge()

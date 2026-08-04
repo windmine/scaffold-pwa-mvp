@@ -1293,11 +1293,171 @@ async function checkStaffGlobalAdminScoping(browser) {
           ? !globalAdminLabel.classList.contains('hidden') && getComputedStyle(globalAdminLabel).display !== 'none'
           : null,
         globalAdminInputDisabled: document.querySelector('#staffGlobalAdminInput')?.disabled ?? null,
+        globalAdminInputChecked: document.querySelector('#staffGlobalAdminInput')?.checked ?? null,
+        workerClassDisabled: document.querySelector('#staffWorkerClassSelect')?.disabled ?? null,
         departmentSelectDisabled: document.querySelector('#staffDepartmentSelect')?.disabled ?? null
       };
     });
-    if (!adminControls.globalAdminLabelVisible || adminControls.globalAdminInputDisabled || adminControls.departmentSelectDisabled) {
-      throw new Error(`global admin lost global staff controls: ${JSON.stringify(adminControls)}`);
+    if (
+      !adminControls.globalAdminLabelVisible
+      || adminControls.globalAdminInputDisabled !== true
+      || adminControls.globalAdminInputChecked
+      || adminControls.workerClassDisabled
+      || adminControls.departmentSelectDisabled
+    ) {
+      throw new Error(`Worker create role did not constrain global admin access: ${JSON.stringify(adminControls)}`);
+    }
+
+    await adminPage.locator('#staffRoleSelect').selectOption('supervisor');
+    const supervisorCreateControls = await adminPage.evaluate(() => ({
+      globalAdminInputDisabled: document.querySelector('#staffGlobalAdminInput')?.disabled ?? null,
+      workerClassDisabled: document.querySelector('#staffWorkerClassSelect')?.disabled ?? null
+    }));
+    if (supervisorCreateControls.globalAdminInputDisabled || !supervisorCreateControls.workerClassDisabled) {
+      throw new Error(`Supervisor create role did not enable global admin access: ${JSON.stringify(supervisorCreateControls)}`);
+    }
+
+    await adminPage.locator('label:has(#staffGlobalAdminInput) .form-checkbox-control').click();
+    await adminPage.locator('#staffRoleSelect').selectOption('worker');
+    const resetCreateControls = await adminPage.evaluate(() => ({
+      globalAdminInputDisabled: document.querySelector('#staffGlobalAdminInput')?.disabled ?? null,
+      globalAdminInputChecked: document.querySelector('#staffGlobalAdminInput')?.checked ?? null,
+      workerClassDisabled: document.querySelector('#staffWorkerClassSelect')?.disabled ?? null
+    }));
+    if (
+      resetCreateControls.globalAdminInputDisabled !== true
+      || resetCreateControls.globalAdminInputChecked
+      || resetCreateControls.workerClassDisabled
+    ) {
+      throw new Error(`Worker create role retained global admin access: ${JSON.stringify(resetCreateControls)}`);
+    }
+
+    const demoWorkerCard = adminPage.locator('#staffUsersList .record-card')
+      .filter({ hasText: 'Demo Worker' })
+      .first();
+    await demoWorkerCard.getByRole('button', { name: 'Edit user' }).click();
+    await adminPage.locator('#editUserRole').waitFor({ state: 'visible', timeout: 10000 });
+    const initialEditControls = await adminPage.evaluate(() => ({
+      globalAdminValue: document.querySelector('#editUserGlobalAdmin')?.value ?? null,
+      globalAdminDisabled: document.querySelector('#editUserGlobalAdmin')?.disabled ?? null,
+      workerClassDisabled: document.querySelector('#editUserWorkerClass')?.disabled ?? null
+    }));
+    if (
+      initialEditControls.globalAdminValue !== 'false'
+      || initialEditControls.globalAdminDisabled !== true
+      || initialEditControls.workerClassDisabled
+    ) {
+      throw new Error(`Worker edit role did not constrain global admin access: ${JSON.stringify(initialEditControls)}`);
+    }
+
+    await adminPage.locator('#editUserRole').selectOption('supervisor');
+    if (
+      await adminPage.locator('#editUserGlobalAdmin').isDisabled()
+      || !await adminPage.locator('#editUserWorkerClass').isDisabled()
+    ) {
+      throw new Error('Supervisor edit role did not enable global admin access');
+    }
+    await adminPage.locator('#editUserGlobalAdmin').selectOption('true');
+    await adminPage.locator('#editUserRole').selectOption('worker');
+    const resetEditControls = await adminPage.evaluate(() => ({
+      globalAdminValue: document.querySelector('#editUserGlobalAdmin')?.value ?? null,
+      globalAdminDisabled: document.querySelector('#editUserGlobalAdmin')?.disabled ?? null,
+      workerClassDisabled: document.querySelector('#editUserWorkerClass')?.disabled ?? null
+    }));
+    if (
+      resetEditControls.globalAdminValue !== 'false'
+      || resetEditControls.globalAdminDisabled !== true
+      || resetEditControls.workerClassDisabled
+    ) {
+      throw new Error(`Worker edit role retained global admin access: ${JSON.stringify(resetEditControls)}`);
+    }
+
+    await adminPage.locator('#staffRoleSelect').selectOption('supervisor');
+    await adminPage.locator('label:has(#staffGlobalAdminInput) .form-checkbox-control').click();
+    await adminPage.locator('#staffSearchInput').fill('privileged state must clear');
+    await adminPage.locator('#editUserRole').selectOption('supervisor');
+    await adminPage.locator('#editUserGlobalAdmin').selectOption('true');
+    await logout(adminPage);
+
+    const loggedOutStaffState = await adminPage.evaluate(() => ({
+      count: document.querySelector('#staffUsersCount')?.textContent?.trim() ?? null,
+      listText: document.querySelector('#staffUsersList')?.textContent?.trim() ?? null,
+      editPanelHidden: document.querySelector('#supervisorEditPanel')?.classList.contains('hidden') ?? null,
+      editPanelEmpty: !(document.querySelector('#editPanelForm')?.textContent || '').trim()
+    }));
+    if (
+      loggedOutStaffState.count !== '0'
+      || loggedOutStaffState.listText !== ''
+      || !loggedOutStaffState.editPanelHidden
+      || !loggedOutStaffState.editPanelEmpty
+    ) {
+      throw new Error(`Staff data survived logout: ${JSON.stringify(loggedOutStaffState)}`);
+    }
+
+    await adminPage.locator('#emailInput').fill('supervisor@example.com');
+    await adminPage.locator('#passwordInput').fill(password);
+    await adminPage.locator('#loginForm button[type="submit"]').click();
+    await adminPage.waitForFunction(() => document.body.dataset.activeView === 'supervisor', null, { timeout: 20000 });
+    await adminPage.locator('#supervisorView').waitFor({ state: 'visible', timeout: 20000 });
+    await openAdminWorkspace(adminPage, 'people');
+    await adminPage.locator('#staffUsersDetails').evaluate((element) => {
+      element.open = true;
+    });
+    await adminPage.locator('#staffUsersList .record-card').filter({ hasText: 'Demo Worker' }).first().waitFor({ timeout: 20000 });
+
+    const resetSessionControls = await adminPage.evaluate(() => ({
+      role: document.querySelector('#staffRoleSelect')?.value ?? null,
+      globalAdminChecked: document.querySelector('#staffGlobalAdminInput')?.checked ?? null,
+      globalAdminDisabled: document.querySelector('#staffGlobalAdminInput')?.disabled ?? null,
+      search: document.querySelector('#staffSearchInput')?.value ?? null,
+      editPanelHidden: document.querySelector('#supervisorEditPanel')?.classList.contains('hidden') ?? null,
+      editPanelEmpty: !(document.querySelector('#editPanelForm')?.textContent || '').trim()
+    }));
+    if (
+      resetSessionControls.role !== 'worker'
+      || resetSessionControls.globalAdminChecked
+      || resetSessionControls.globalAdminDisabled !== true
+      || resetSessionControls.search !== ''
+      || !resetSessionControls.editPanelHidden
+      || !resetSessionControls.editPanelEmpty
+    ) {
+      throw new Error(`Staff privilege controls survived logout: ${JSON.stringify(resetSessionControls)}`);
+    }
+
+    const departmentReloginText = await adminPage.locator('#staffUsersList').innerText();
+    if (departmentReloginText.includes('Super Admin') || departmentReloginText.includes('global admin')) {
+      throw new Error(`department Supervisor inherited global staff data: "${departmentReloginText}"`);
+    }
+
+    await logout(adminPage);
+    await adminPage.locator('#emailInput').fill('admin@example.com');
+    await adminPage.locator('#passwordInput').fill(password);
+    await adminPage.locator('#loginForm button[type="submit"]').click();
+    await adminPage.waitForFunction(() => document.body.dataset.activeView === 'supervisor', null, { timeout: 20000 });
+    await openAdminWorkspace(adminPage, 'people');
+    await adminPage.locator('#staffUsersDetails').evaluate((element) => {
+      element.open = true;
+    });
+    await adminPage.locator('#staffUsersList .record-card').filter({ hasText: 'Super Admin' }).first().waitFor({ timeout: 20000 });
+
+    const selfCard = adminPage.locator('#staffUsersList .record-card')
+      .filter({ hasText: 'Super Admin' })
+      .first();
+    await selfCard.getByRole('button', { name: 'Edit user' }).click();
+    await adminPage.locator('#editUserRole').waitFor({ state: 'visible', timeout: 10000 });
+    const selfEditControls = await adminPage.evaluate(() => ({
+      role: document.querySelector('#editUserRole')?.value ?? null,
+      roleDisabled: document.querySelector('#editUserRole')?.disabled ?? null,
+      globalAdminValue: document.querySelector('#editUserGlobalAdmin')?.value ?? null,
+      globalAdminDisabled: document.querySelector('#editUserGlobalAdmin')?.disabled ?? null
+    }));
+    if (
+      selfEditControls.role !== 'supervisor'
+      || selfEditControls.roleDisabled !== true
+      || selfEditControls.globalAdminValue !== 'true'
+      || selfEditControls.globalAdminDisabled !== true
+    ) {
+      throw new Error(`Self-edit exposed an invalid global-admin transition: ${JSON.stringify(selfEditControls)}`);
     }
   } finally {
     await adminContext.close();
@@ -1639,6 +1799,138 @@ async function checkSupervisorReview(browser) {
     }, undefined, { timeout: 20000 });
   } finally {
     await supervisorContext.close();
+  }
+}
+
+async function checkSupervisorMapDepartmentSwitch(browser) {
+  const context = await newContext(browser, {
+    viewport: { width: 1280, height: 900 },
+    isMobile: false,
+    hasTouch: false
+  });
+  const page = await context.newPage();
+  const alphaWorkerId = 910001;
+  const betaWorkerId = 920001;
+
+  try {
+    await loginAs(page, 'admin@example.com', 'supervisor');
+
+    const departments = await page.locator('#supervisorDepartmentFilter option[value]:not([value=""])')
+      .evaluateAll((options) => options.map((option) => ({
+        label: option.textContent.trim(),
+        value: option.value
+      })));
+    const alphaDepartment = departments.find((department) => department.label === 'Leader');
+    const betaDepartment = departments.find((department) => department.label === 'Mutual');
+    if (!alphaDepartment || !betaDepartment) {
+      throw new Error(`map department regression needs Leader and Mutual options: ${JSON.stringify(departments)}`);
+    }
+
+    const locationRecords = [
+      {
+        id: 910001,
+        department_id: Number(alphaDepartment.value),
+        department_name: alphaDepartment.label,
+        worker_id: alphaWorkerId,
+        worker_name: 'Map Alpha Worker',
+        site_id: null,
+        site_name: 'Alpha Site',
+        record_type: 'check_in',
+        latitude: -36.8485,
+        longitude: 174.7633,
+        accuracy: 8,
+        distance_from_site_m: 12,
+        within_site_radius: true,
+        note: 'Alpha map scope fixture',
+        status: 'pending',
+        entry_source: 'worker',
+        created_at: new Date(Date.now() - 60000).toISOString()
+      },
+      {
+        id: 920001,
+        department_id: Number(betaDepartment.value),
+        department_name: betaDepartment.label,
+        worker_id: betaWorkerId,
+        worker_name: 'Map Beta Worker',
+        site_id: null,
+        site_name: 'Beta Site',
+        record_type: 'check_out',
+        latitude: -36.7585,
+        longitude: 174.8533,
+        accuracy: 10,
+        distance_from_site_m: 18,
+        within_site_radius: true,
+        note: 'Beta map scope fixture',
+        status: 'pending',
+        entry_source: 'worker',
+        created_at: new Date().toISOString()
+      }
+    ];
+    await page.route('**/api/supervisor/records*', async (route) => {
+      const url = new URL(route.request().url());
+      if (route.request().method() !== 'GET' || url.pathname !== '/api/supervisor/records') {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(locationRecords)
+      });
+    });
+
+    await page.locator('#supervisorDepartmentFilter').selectOption(alphaDepartment.value);
+    await openAdminWorkspace(page, 'review');
+    await page.locator('#locationMapDetails summary').click();
+    const alphaRow = page.locator('#locationMapHistory .location-history-row')
+      .filter({ hasText: 'Map Alpha Worker' });
+    await alphaRow.waitFor({ timeout: 15000 });
+    if (await page.locator('#locationMapHistory').getByText('Map Beta Worker').count()) {
+      throw new Error('Mutual map record appeared while Leader department was selected');
+    }
+    if (await page.locator('#locationReviewMap .location-map-point').count() !== 1) {
+      throw new Error('Leader map scope did not render exactly one attendance point');
+    }
+
+    await page.locator('#locationMapWorkerFilter').selectOption(String(alphaWorkerId));
+    await alphaRow.click();
+    await page.locator('#locationMapSelection').getByText('Map Alpha Worker').waitFor({ timeout: 10000 });
+    if (await page.locator('#locationMapHistory .location-history-row.selected').count() !== 1) {
+      throw new Error('Leader map point was not selected before changing department');
+    }
+
+    await openAdminWorkspace(page, 'overview');
+    await page.locator('#supervisorDepartmentFilter').selectOption(betaDepartment.value);
+    await openAdminWorkspace(page, 'review');
+    await page.waitForFunction(({ alphaName, betaName }) => {
+      const historyText = document.querySelector('#locationMapHistory')?.textContent || '';
+      const selectionText = document.querySelector('#locationMapSelection')?.textContent || '';
+      return (
+        historyText.includes(betaName)
+        && !historyText.includes(alphaName)
+        && selectionText.includes('Select an attendance point or history row to review it.')
+        && !selectionText.includes(alphaName)
+        && document.querySelector('#locationMapWorkerFilter')?.value === ''
+        && document.querySelectorAll('#locationMapHistory .location-history-row.selected').length === 0
+        && document.querySelectorAll('#locationReviewMap .location-map-point').length === 1
+      );
+    }, { alphaName: 'Map Alpha Worker', betaName: 'Map Beta Worker' }, { timeout: 20000 });
+
+    const selectionActionCount = await page.locator(
+      '#locationMapSelection [data-map-edit], #locationMapSelection [data-map-decision]'
+    ).count();
+    if (selectionActionCount) {
+      throw new Error('out-of-scope map selection kept record actions after changing department');
+    }
+    const betaRow = page.locator('#locationMapHistory .location-history-row')
+      .filter({ hasText: 'Map Beta Worker' });
+    await betaRow.click();
+    await page.locator('#locationMapSelection').getByText('Map Beta Worker').waitFor({ timeout: 10000 });
+    if (await page.locator('#locationMapHistory .location-history-row.selected').count() !== 1) {
+      throw new Error('Mutual map point could not be selected after changing department');
+    }
+  } finally {
+    await context.close();
   }
 }
 
@@ -2788,6 +3080,7 @@ async function main() {
     await runCheck('Offline Submission ownership, occurrence time, and idempotent replay', () => checkOfflineQueueAndReplay(browser));
     await runCheck('repeat signatures resume after a partial upload failure', () => checkRepeatSignatureUploadResume(browser));
     await runCheck('supervisor review shows pending outside-site worker record', () => checkSupervisorReview(browser));
+    await runCheck('department switching replaces map points and clears stale selection', () => checkSupervisorMapDepartmentSwitch(browser));
     await runCheck('supervisor workspaces remain navigable on desktop and mobile', () => checkSupervisorWorkspaceNavigation(browser));
     await runCheck('supervisor Review Desk is responsive', () => checkSupervisorReviewDeskLayout(browser));
     await runCheck('offline Review Queue is explicit and read-only', () => checkOfflineReviewQueueReadOnly(browser));

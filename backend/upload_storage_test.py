@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
 from google.api_core.exceptions import NotFound
 from fastapi import HTTPException
@@ -430,6 +431,16 @@ def test_authorization_streaming_and_cleanup(tmp_dir):
         assert_true(
             "global supervisor can stream",
             upload_storage.open_authorized_upload(shared.filename, global_supervisor, session) is not None,
+        )
+        malformed_global_worker = SimpleNamespace(
+            id=stranger.id,
+            department_id=stranger.department_id,
+            role="worker",
+            is_global_admin=True,
+        )
+        assert_true(
+            "malformed Worker global-admin flag cannot bypass upload scope",
+            not upload_storage.can_access_upload(shared.filename, shared, malformed_global_worker, session),
         )
 
         nested_submission = WorkFormSubmission(

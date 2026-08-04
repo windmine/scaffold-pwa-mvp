@@ -891,6 +891,7 @@ export function createSupervisorReviewModule({
   async function handleDepartmentFilterChange() {
     state.departmentFocusId = els.supervisorDepartmentFilter.value;
     renderDepartmentFilter();
+    renderLocationMap();
     if (!await refreshReviewQueue()) return;
     if (!await refreshReviewOverview()) return;
     renderDepartmentScopedAdminLists();

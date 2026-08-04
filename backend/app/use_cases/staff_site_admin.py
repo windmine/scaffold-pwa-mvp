@@ -17,6 +17,7 @@ from app.use_cases.common import (
     site_response,
     user_is_global_admin,
     user_response,
+    validate_global_admin_role,
     validate_user_input,
     validate_worker_class,
 )
@@ -147,6 +148,7 @@ def create_user_account(
     commit: bool = True,
 ):
     email, name, role = validate_user_input(email, name, password, role)
+    validate_global_admin_role(role, is_global_admin)
     if status not in VALID_USER_STATUSES:
         raise HTTPException(status_code=400, detail="status must be active or resigned")
     existing_user = session.exec(
@@ -179,6 +181,8 @@ def create_user_account(
 
 def create_staff_user(data, supervisor: User, session: Session):
     supervisor_department_id = department_id_for_new_record(supervisor, session)
+    if data.is_global_admin and not user_is_global_admin(supervisor):
+        raise HTTPException(status_code=403, detail="Only global admins can grant global admin access")
     if (
         data.department_id
         and not user_is_global_admin(supervisor)
@@ -226,6 +230,34 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
         raise HTTPException(status_code=403, detail="Only global admins can edit global admin accounts")
 
     fields = data.model_fields_set
+    next_role = user.role
+    if "role" in fields and data.role is not None:
+        next_role = data.role.strip().lower()
+        if next_role not in VALID_ROLES:
+            raise HTTPException(status_code=400, detail="Role must be worker or supervisor")
+        if user.id == supervisor.id and next_role != "supervisor":
+            raise HTTPException(status_code=400, detail="You cannot remove your own supervisor role")
+
+    next_is_global_admin = user.is_global_admin
+    if "is_global_admin" in fields and data.is_global_admin is not None:
+        if not user_is_global_admin(supervisor):
+            if data.is_global_admin != user.is_global_admin:
+                raise HTTPException(status_code=403, detail="Only global admins can change global admin access")
+        elif user.id == supervisor.id and data.is_global_admin is False:
+            raise HTTPException(status_code=400, detail="You cannot remove your own global admin access")
+        next_is_global_admin = data.is_global_admin
+
+    validate_global_admin_role(next_role, next_is_global_admin)
+
+    next_department_id = user.department_id
+    if "department_id" in fields and data.department_id is not None:
+        if not user_is_global_admin(supervisor):
+            if data.department_id != user.department_id:
+                raise HTTPException(status_code=403, detail="Only global admins can move users between departments")
+        else:
+            department = ensure_department_exists(session, data.department_id)
+            next_department_id = department.id
+
     before = model_snapshot(user)
     changed_fields = sorted(field for field in fields if field != "confirmed")
 
@@ -249,13 +281,8 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
         user.name = name
 
     if "role" in fields and data.role is not None:
-        role = data.role.strip().lower()
-        if role not in VALID_ROLES:
-            raise HTTPException(status_code=400, detail="Role must be worker or supervisor")
-        if user.id == supervisor.id and role != "supervisor":
-            raise HTTPException(status_code=400, detail="You cannot remove your own supervisor role")
-        user.role = role
-        user.worker_class = (user.worker_class or "normal") if role == "worker" else None
+        user.role = next_role
+        user.worker_class = (user.worker_class or "normal") if next_role == "worker" else None
 
     if "worker_class" in fields and data.worker_class is not None:
         if user.role != "worker":
@@ -276,21 +303,10 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
         user.status = status
 
     if "department_id" in fields and data.department_id is not None:
-        if not user_is_global_admin(supervisor):
-            if data.department_id != user.department_id:
-                raise HTTPException(status_code=403, detail="Only global admins can move users between departments")
-        else:
-            department = ensure_department_exists(session, data.department_id)
-            user.department_id = department.id
+        user.department_id = next_department_id
 
     if "is_global_admin" in fields and data.is_global_admin is not None:
-        if not user_is_global_admin(supervisor):
-            if data.is_global_admin != user.is_global_admin:
-                raise HTTPException(status_code=403, detail="Only global admins can change global admin access")
-        else:
-            if user.id == supervisor.id and data.is_global_admin is False:
-                raise HTTPException(status_code=400, detail="You cannot remove your own global admin access")
-            user.is_global_admin = data.is_global_admin
+        user.is_global_admin = next_is_global_admin
 
     if "password" in fields and data.password:
         if len(data.password.encode("utf-8")) > 72:

@@ -97,22 +97,27 @@ export function createSupervisorMapModule({
   let locationRecords = [];
   let hasLoadedLocationRecords = false;
   let locationRecordsRequest = null;
+  let renderedDepartmentFocusId = null;
   const markerByRecordId = new Map();
+
+  function matchesDepartmentFocus(record) {
+    return (
+      !state.departmentFocusId
+      || String(record.departmentId ?? state.user?.departmentId) === String(state.departmentFocusId)
+    );
+  }
 
   function reviewAttendanceRecords() {
     return (state.supervisorRecords.reviewRecords || [])
       .filter((record) => (
         record.type === 'attendance'
         && recordCoordinates(record)
-        && (
-          !state.departmentFocusId
-          || String(record.departmentId ?? state.user?.departmentId) === String(state.departmentFocusId)
-        )
       ));
   }
 
   function attendanceRecords() {
-    return hasLoadedLocationRecords ? locationRecords : reviewAttendanceRecords();
+    const records = hasLoadedLocationRecords ? locationRecords : reviewAttendanceRecords();
+    return records.filter(matchesDepartmentFocus);
   }
 
   async function refreshLocationRecords() {
@@ -127,10 +132,6 @@ export function createSupervisorMapModule({
             record
             && record.type === 'attendance'
             && recordCoordinates(record)
-            && (
-              !state.departmentFocusId
-              || String(record.departmentId ?? state.user?.departmentId) === String(state.departmentFocusId)
-            )
           ));
         hasLoadedLocationRecords = true;
       })
@@ -465,6 +466,11 @@ export function createSupervisorMapModule({
 
   function renderPanel() {
     ensureLocationRecordsLoaded();
+    const departmentFocusId = String(state.departmentFocusId || '');
+    if (departmentFocusId !== renderedDepartmentFocusId) {
+      selectedRecordId = null;
+      renderedDepartmentFocusId = departmentFocusId;
+    }
     const records = attendanceRecords();
     renderFilterOptions(records);
     const visibleRecords = filteredRecords();

@@ -53,6 +53,7 @@ The project has an earlier validated Cloud SQL instance and database, but they a
 - Do not run the full destructive `backend/smoke_test.py` against production. It seeds and mutates data; use it only with a disposable local/staging database.
 - Use controlled test accounts for hosted workflow checks and clean up their records afterward.
 - During the invited-account pilot, require the tested login shell to show `Invited accounts only` and keep the public registration panel hidden. Verify preview/local shell parity before promotion. The current Staff users flow still makes the Supervisor set each initial password; do not describe it as a complete invitation handoff.
+- Keep global-admin access Supervisor-only. Migration `0017_global_admin_supervisor_invariant` revokes `is_global_admin` from any legacy non-Supervisor row, then installs a database invariant; the application also ignores such invalid flags before the migration runs.
 - Verify actual Cloud Run traffic after deploy. A tagged old revision can remain pinned even when a newer revision is ready.
 - Keep the runtime identity separate from the source-build identity. Do not restore Editor or database/upload access to the default Compute service account.
 - An application rollback and a database rollback are separate decisions; the previous app revision must be compatible with the migrated schema.
@@ -142,11 +143,12 @@ The 2026-07-31 local preflight passed all functional checks and the disposable-d
 
 ## Database Migration Procedure
 
-The current migration head is `0016_review_queue_indexes`:
+The current migration head is `0017_global_admin_supervisor_invariant`:
 
 - `0014_client_submission_unique_indexes` enforces replay idempotency for Worker submissions.
 - `0015_work_form_definition_snapshots` versions Work Form Definitions and backfills a best-available snapshot for old submissions. Post-migration submissions preserve their exact historical definition.
 - `0016_review_queue_indexes` adds Department/status/deletion/time indexes for cursor-paginated Review Queue queries without changing Review Record values.
+- `0017_global_admin_supervisor_invariant` revokes malformed legacy Global Admin flags from non-Supervisor accounts, then enforces the Supervisor-only invariant for future writes.
 
 For every release:
 

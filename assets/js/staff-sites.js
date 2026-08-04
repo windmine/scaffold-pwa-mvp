@@ -85,6 +85,17 @@ export function createStaffSitesModule({
       : Number(state.user?.departmentId);
   }
 
+  function syncStaffCreateRoleControls() {
+    const isWorker = els.staffRoleSelect.value === 'worker';
+    const canAssignGlobalAdmin = Boolean(state.user?.isGlobalAdmin && !isWorker);
+    const globalAdminLabel = els.staffGlobalAdminInput.closest('label');
+
+    els.staffWorkerClassSelect.disabled = !isWorker;
+    globalAdminLabel?.classList.toggle('hidden', !state.user?.isGlobalAdmin);
+    if (!canAssignGlobalAdmin) els.staffGlobalAdminInput.checked = false;
+    els.staffGlobalAdminInput.disabled = !canAssignGlobalAdmin;
+  }
+
   function renderStaffCreateControls() {
     const options = departmentSelectOptions();
     els.staffDepartmentSelect.innerHTML = options
@@ -96,10 +107,17 @@ export function createStaffSitesModule({
     if (selectedDepartmentId) els.staffDepartmentSelect.value = String(selectedDepartmentId);
     els.staffDepartmentSelect.disabled = !state.user?.isGlobalAdmin;
 
-    const globalAdminLabel = els.staffGlobalAdminInput.closest('label');
-    globalAdminLabel?.classList.toggle('hidden', !state.user?.isGlobalAdmin);
-    els.staffGlobalAdminInput.checked = state.user?.isGlobalAdmin ? els.staffGlobalAdminInput.checked : false;
-    els.staffGlobalAdminInput.disabled = !state.user?.isGlobalAdmin;
+    syncStaffCreateRoleControls();
+  }
+
+  function resetSession() {
+    els.staffUserForm.reset();
+    els.staffSearchInput.value = '';
+    state.staffUsers = [];
+    els.staffUsersCount.textContent = '0';
+    els.staffUsersList.innerHTML = '';
+    closeEditPanel();
+    renderStaffCreateControls();
   }
 
   function matchesDepartmentFocus(item) {
@@ -580,6 +598,7 @@ export function createStaffSitesModule({
 
   async function handleStaffUserEdit(user) {
     const isGlobalAdmin = Boolean(user.is_global_admin || user.isGlobalAdmin);
+    const isSelf = String(user.id) === String(state.user?.id);
     if (isGlobalAdmin && !state.user?.isGlobalAdmin) {
       renderStatusBanner('Only global admins can edit global admin accounts.', true);
       return;
@@ -617,7 +636,7 @@ export function createStaffSitesModule({
       }] : []),
       ...(state.user?.isGlobalAdmin ? [{
         id: 'editUserGlobalAdmin',
-        label: 'Global admin',
+        label: 'Global admin (Supervisor only)',
         type: 'select',
         value: user.is_global_admin || user.isGlobalAdmin ? 'true' : 'false',
         options: [
@@ -656,7 +675,10 @@ export function createStaffSitesModule({
 
         if (state.user?.isGlobalAdmin) {
           payload.department_id = editNumber('editUserDepartmentId');
-          payload.is_global_admin = editValue('editUserGlobalAdmin') === 'true';
+          payload.is_global_admin = (
+            payload.role === 'supervisor'
+            && editValue('editUserGlobalAdmin') === 'true'
+          );
         }
         if (newPassword) {
           payload.password = newPassword;
@@ -686,6 +708,20 @@ export function createStaffSitesModule({
         }
       }
     );
+
+    const editRoleSelect = document.getElementById('editUserRole');
+    const editWorkerClassSelect = document.getElementById('editUserWorkerClass');
+    const editGlobalAdminSelect = document.getElementById('editUserGlobalAdmin');
+    const syncStaffEditRoleControls = () => {
+      const isWorker = editRoleSelect.value === 'worker';
+      editWorkerClassSelect.disabled = !isWorker;
+      editRoleSelect.disabled = isSelf;
+      if (!editGlobalAdminSelect) return;
+      if (isWorker) editGlobalAdminSelect.value = 'false';
+      editGlobalAdminSelect.disabled = isSelf || isWorker;
+    };
+    editRoleSelect.addEventListener('change', syncStaffEditRoleControls);
+    syncStaffEditRoleControls();
   }
 
   async function handleSiteEdit(site) {
@@ -726,16 +762,22 @@ export function createStaffSitesModule({
   async function handleStaffUserCreate(event) {
     event.preventDefault();
     try {
+      const role = els.staffRoleSelect.value;
       await createBackendUser({
         name: els.staffNameInput.value.trim(),
         email: els.staffEmailInput.value.trim(),
         password: els.staffPasswordInput.value,
-        role: els.staffRoleSelect.value,
-        worker_class: els.staffRoleSelect.value === 'worker' ? els.staffWorkerClassSelect.value : 'normal',
+        role,
+        worker_class: role === 'worker' ? els.staffWorkerClassSelect.value : 'normal',
         department_id: staffCreateDepartmentId(),
-        is_global_admin: state.user?.isGlobalAdmin ? els.staffGlobalAdminInput.checked : false
+        is_global_admin: Boolean(
+          state.user?.isGlobalAdmin
+          && role === 'supervisor'
+          && els.staffGlobalAdminInput.checked
+        )
       });
       els.staffUserForm.reset();
+      syncStaffCreateRoleControls();
       renderStatusBanner('Staff user created.');
       await renderStaffUsers();
       await refreshSupervisorAuditHistory?.();
@@ -758,14 +800,13 @@ export function createStaffSitesModule({
     els.workFormDescriptionInput?.addEventListener('input', refreshOpenDraftWorkFormPreview);
     els.siteSearchInput.addEventListener('input', renderSupervisorSites);
     els.staffSearchInput.addEventListener('input', renderFilteredStaffUsers);
-    els.staffRoleSelect.addEventListener('change', () => {
-      els.staffWorkerClassSelect.disabled = els.staffRoleSelect.value !== 'worker';
-    });
+    els.staffRoleSelect.addEventListener('change', syncStaffCreateRoleControls);
   }
 
   return {
     bindEvents,
     refreshSiteMapIfVisible,
+    resetSession,
     renderFilteredStaffUsers,
     renderStaffUsers,
     renderSupervisorSites,

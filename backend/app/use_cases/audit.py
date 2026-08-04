@@ -14,7 +14,12 @@ from app.models import (
     WorkForm,
     WorkFormSubmission,
 )
-from app.use_cases.common import format_datetime, parse_json_list, parse_json_object
+from app.use_cases.common import (
+    format_datetime,
+    parse_json_list,
+    parse_json_object,
+    user_is_global_admin,
+)
 
 
 SNAPSHOT_FIELDS = {
@@ -189,7 +194,7 @@ def audit_event_response(event: AuditEvent, session: Session):
         else None
     )
     actor_role = actor.role if actor else None
-    actor_is_global_admin = bool(actor.is_global_admin) if actor else False
+    actor_is_global_admin = user_is_global_admin(actor) if actor else False
     if actor_is_global_admin:
         actor_access_level = "Global admin"
     elif actor_role == "supervisor":
@@ -237,7 +242,7 @@ def list_audit_events(
         statement = statement.where(AuditEvent.entity_type == entity_type.strip().lower())
     if actor_id:
         statement = statement.where(AuditEvent.actor_id == actor_id)
-    if not supervisor.is_global_admin:
+    if not user_is_global_admin(supervisor):
         statement = statement.where(AuditEvent.department_id == supervisor.department_id)
 
     events = session.exec(

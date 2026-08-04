@@ -72,10 +72,12 @@ function isCompleteChineseTranslation(api, source, forbiddenEnglish = /[A-Za-z]{
 const sourceIndex = read('index.html');
 const sourceApp = read('assets/js/app.js');
 const sourceApiClient = read('assets/js/api-client.js');
+const sourceAuthorization = read('backend/app/authorization.py');
 const sourceSupervisorReview = read('assets/js/supervisor-review.js');
 const sourceReviewExportAdapters = read('assets/js/review-export-adapters.js');
 const sourceSupervisorAnalytics = read('assets/js/supervisor-analytics.js');
 const sourceSupervisorMap = read('assets/js/supervisor-map.js');
+const sourceStaffSites = read('assets/js/staff-sites.js');
 const sourceWorkerLog = read('assets/js/worker-log.js');
 const sourceWorkerAttendance = read('assets/js/worker-attendance.js');
 const sourceWorkerForm = read('assets/js/worker-form.js');
@@ -131,6 +133,9 @@ check('Chinese catalogue fully translates high-value UI labels instead of mixed 
   ['Enter a valid email address', /\b(?:Enter|valid|email|address)\b/i],
   ['Name is required', /\b(?:Name|is|required)\b/i],
   ['A user with this email already exists', /\b(?:user|with|this|email|already|exists)\b/i],
+  ['Global admin (Supervisor only)', /\b(?:Global|admin|Supervisor|only)\b/i],
+  ['Global admin access requires the Supervisor role', /\b(?:Global|admin|access|requires|the|Supervisor|role)\b/i],
+  ['Only global admins can grant global admin access', /\b(?:Only|global|admins|can|grant|admin|access)\b/i],
   ['Working...', /\bWorking\b/i],
   ['Check this field and try again.', /\b(?:Check|this|field|and|try|again)\b/i]
 ].every(([source, forbiddenEnglish]) => (
@@ -1089,6 +1094,30 @@ check('department supervisors cannot view or edit global admins', () => (
   && read('assets/js/staff-sites.js').includes('globalAdminLabel?.classList.toggle')
   && read('assets/js/staff-sites.js').includes('state.user?.isGlobalAdmin || !(user.is_global_admin || user.isGlobalAdmin)')
   && read('scripts/check-browser-workflows.mjs').includes('staff users scope global admin controls by role')
+));
+
+check('global admin access requires the Supervisor role', () => (
+  sourceStaffSites.includes('function syncStaffCreateRoleControls()')
+  && sourceStaffSites.includes('syncStaffEditRoleControls')
+  && sourceStaffSites.includes("payload.role === 'supervisor'")
+  && sourceStaffSites.includes("role === 'supervisor'")
+  && read('backend/app/use_cases/common.py').includes('def validate_global_admin_role')
+  && sourceAuthorization.includes('getattr(user, "role", None) == "supervisor"')
+  && read('backend/app/upload_storage.py').includes('if user_is_global_admin(user):')
+  && read('backend/app/use_cases/audit.py').includes('if not user_is_global_admin(supervisor):')
+  && read('backend/app/use_cases/staff_site_admin.py').includes(
+    'validate_global_admin_role(next_role, next_is_global_admin)'
+  )
+  && read('backend/app/models.py').includes('ck_user_global_admin_requires_supervisor')
+  && read('backend/migrations/versions/0017_global_admin_supervisor_invariant.py').includes(
+    'trg_user_global_admin_supervisor_update'
+  )
+  && read('backend/security_test.py').includes(
+    'Worker global-admin flags do not grant effective global access'
+  )
+  && read('backend/smoke_test.py').includes(
+    'global Supervisor cannot become Worker while retaining global access'
+  )
 ));
 
 const failures = [];

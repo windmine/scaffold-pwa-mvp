@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import Column, Text
+from sqlalchemy import CheckConstraint, Column, Text
 from sqlmodel import SQLModel, Field
 
 
@@ -17,6 +17,13 @@ class Department(SQLModel, table=True):
 
 
 class User(SQLModel, table=True):
+    __table_args__ = (
+        CheckConstraint(
+            "NOT is_global_admin OR COALESCE(role, '') = 'supervisor'",
+            name="ck_user_global_admin_requires_supervisor",
+        ),
+    )
+
     id: Optional[int] = Field(default=None, primary_key=True)
 
     department_id: Optional[int] = Field(default=None, index=True)

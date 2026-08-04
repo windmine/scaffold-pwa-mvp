@@ -1593,6 +1593,24 @@ textarea {
   cursor: pointer;
 }
 
+.form-checkbox-field:has(input:disabled) {
+  border-color: var(--line);
+  background: var(--soft-panel-background);
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.form-checkbox-field input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+}
+
+.form-checkbox-field input[type="checkbox"]:disabled + .form-checkbox-control {
+  border-color: var(--muted);
+  background: var(--soft-panel-background);
+  box-shadow: none;
+}
+
 .form-checkbox-control,
 .team-member-check {
   width: 34px;

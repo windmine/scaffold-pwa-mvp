@@ -5,12 +5,20 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
+from fastapi import HTTPException
+
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app.rate_limit import InMemoryRateLimiter, RateLimitRule, client_ip  # noqa: E402
 from app import upload_storage  # noqa: E402
 from app.auth import create_access_token, csrf_token_from_auth_cookie  # noqa: E402
+from app.use_cases.common import (  # noqa: E402
+    can_access_department,
+    user_is_global_admin,
+    user_response,
+    validate_global_admin_role,
+)
 from app.use_cases.supervisor_review import task_logs_csv_response  # noqa: E402
 from app.use_cases.supervisor_review_exports import (  # noqa: E402
     write_spreadsheet_safe_csv_row,
@@ -47,7 +55,50 @@ def assert_rejected(label, callback):
     raise AssertionError(label)
 
 
+def assert_http_rejected(label, callback, expected_detail):
+    try:
+        callback()
+    except HTTPException as error:
+        assert_ok(
+            label,
+            error.status_code == 400 and error.detail == expected_detail,
+        )
+        return
+    raise AssertionError(label)
+
+
 def main():
+    hybrid_worker = SimpleNamespace(
+        id=1,
+        role="worker",
+        worker_class="normal",
+        is_global_admin=True,
+        department_id=1,
+        dashboard_department_id=None,
+        email="malformed-worker@example.com",
+        name="Malformed Worker",
+        status="active",
+    )
+    global_supervisor = SimpleNamespace(role="supervisor", is_global_admin=True, department_id=1)
+    assert_ok(
+        "Worker global-admin flags do not grant effective global access",
+        not user_is_global_admin(hybrid_worker)
+        and not can_access_department(hybrid_worker, 2)
+        and not user_response(hybrid_worker)["is_global_admin"],
+    )
+    assert_ok(
+        "Supervisor global-admin flags grant cross-department access",
+        user_is_global_admin(global_supervisor)
+        and can_access_department(global_supervisor, 2),
+    )
+    validate_global_admin_role("supervisor", True)
+    validate_global_admin_role("worker", False)
+    assert_http_rejected(
+        "global admin access requires the Supervisor role",
+        lambda: validate_global_admin_role("worker", True),
+        "Global admin access requires the Supervisor role",
+    )
+
     csrf_token = "dependency-cleanup-csrf"
     access_token = create_access_token({
         "sub": "dependency-test@example.com",
