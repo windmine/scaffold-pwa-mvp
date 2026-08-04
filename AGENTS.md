@@ -52,10 +52,10 @@ Create a practical geo-based field operations platform for three main user group
 - Work Form Definitions are versioned; each submission stores an immutable definition snapshot, and the backend is authoritative for time-range and formula results.
 - The Review Queue is a cursor-paginated feed of durable attendance, task, weekly team-log, and form Review Records. Its explicit offline fallback is read-only; dashboard totals and Management Analytics use a complete overview rather than the current filtered page.
 - Upload Storage owns decoded-raster verification/re-encoding, local/GCS adapter readiness, authorized streaming, and unreferenced-file cleanup.
-- PWA pieces include `manifest.webmanifest`, generated `sw.js`, `offline.html`, HTTPS Vite development, IndexedDB drafts, and the hardened offline queue. Local automated and real-phone checks are green; automated hosted passes completed on 2026-07-14 and 2026-07-15, while the full hosted real-phone/update/upload checklist still remains.
+- PWA pieces include `manifest.webmanifest`, generated `sw.js`, `offline.html`, HTTPS Vite development, IndexedDB drafts, and the hardened offline queue. Local automated and real-phone checks are green; automated hosted passes completed on 2026-07-14, 2026-07-15, and 2026-08-04, while the full hosted real-phone/update/upload checklist still remains.
 - Backend production helpers include `/health/ready`, SQLAlchemy `pool_pre_ping`, configurable in-process rate limiting, focused security/storage/database tests, and the read-only `npm run check:production-hardening` gate. The gate verifies the live GCP topology plus current Neon and upload recovery evidence; it does not replace Neon role/pooling controls, a longer recovery window, or an operator notification destination.
 - The complete 2026-07-31 local gate passed at commit `b9aa05d`: lint, production build, Review Queue, 25 Playwright browser workflows, backend compile/database/security/upload/form/migration tests, and a disposable-database smoke test. Production npm dependencies and Python dependency consistency passed; the full development npm audit reports one high-severity `brace-expansion` advisory through ESLint/minimatch.
-- The 2026-07-31 live check confirmed healthy database/GCS readiness and the same serving Cloud Run revision, but Firebase Hosting does not match commit `b9aa05d`: its `index.html` and `sw.js` hashes differ and the live page still exposes public registration. Deploy and verify the current invited-account build before the hosted phone pass.
+- The 2026-08-04 release deployed commit `38220e9` as Cloud Run revision `geo-backend-release-20260804152130` and Firebase Hosting version `6eea51a351ebab2b`. Candidate and post-promotion readiness, exact shell/service-worker/offline/manifest parity, invited-only login, hidden registration, anonymous Site isolation, Supervisor-only Global Admin controls, and logout passed; the full hosted real-phone/update/upload checklist remains.
 - Runtime/generated paths such as `backend/geo_management.db`, `backend/uploads/`, `backend/app/__pycache__/`, `dist/`, and `node_modules/` are not source-of-truth code changes.
 
 ## MVP Scope
@@ -131,15 +131,15 @@ Current reset priorities completed:
 17. Hosted readiness and Cloud Run 5xx Monitoring policies are live, and current Neon PITR/upload soft-delete recovery drills are checked through sanitized evidence.
 18. Public registration is hidden for the invited-account pilot, invited-account guidance is translated, and static/Playwright checks prevent the registration panel from reappearing.
 19. The 2026-07-31 full local release gate passed on commit `b9aa05d`.
+20. Commit `38220e9` passed the expanded 2026-08-04 local release gate and was deployed through a verified no-traffic Cloud Run candidate and exact Firebase Hosting preview-to-live clone.
 
 Current next priorities:
 
-1. Deploy commit `b9aa05d` through a Firebase preview for controlled pilot accounts and verify `index.html`/`sw.js` parity plus invited-only login before promoting it live.
+1. Run the full manual phone/browser workflow checklist against the live Firebase Hosting / Cloud Run path, including actual photo/signature streaming and the waiting-service-worker update flow.
 2. Before broader onboarding, replace Supervisor-chosen initial passwords with an expiring, single-use invitation and Worker password-setup flow. Email delivery requires a transactional email provider; another authenticated private delivery channel may be used if it is designed and audited explicitly.
-3. Run the full manual phone/browser workflow checklist against the live Firebase Hosting / Cloud Run path.
-4. Add a verified Monitoring notification channel and billing budget, replace the Neon owner runtime credential, verify pooling limits, and choose recovery beyond the current six-hour history window.
-5. Resolve the development-only `brace-expansion` audit advisory and expand automated frontend/backend tests around the highest-risk Worker and Supervisor workflows.
-6. Add a desktop-first payroll/admin portal section for pay-period worker hour summaries, exception flags, and payroll CSV export.
+3. Add a verified Monitoring notification channel and billing budget, replace the Neon owner runtime credential, verify pooling limits, and choose recovery beyond the current six-hour history window.
+4. Resolve the development-only `brace-expansion` audit advisory and expand automated frontend/backend tests around the highest-risk Worker and Supervisor workflows.
+5. Add a desktop-first payroll/admin portal section for pay-period worker hour summaries, exception flags, and payroll CSV export.
 
 ## Important Behaviour Rules
 

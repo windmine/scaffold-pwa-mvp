@@ -108,7 +108,7 @@ _Avoid_: Offline review with mutable decisions
 **Current live deployment**:
 Firebase Hosting for the PWA, Cloud Run for FastAPI, Neon PostgreSQL supplied through Secret Manager, and a private Cloud Storage upload bucket. Browser traffic stays same-origin through `/api/**` and `/uploads/**` Hosting rewrites.
 
-As checked on 2026-07-31, backend and Upload Storage readiness are healthy, but the live Hosting shell does not match commit `b9aa05d`: live `index.html` and `sw.js` differ from the current build and public registration is still visible. Do not describe invited-only onboarding as deployed until parity is verified.
+As checked on 2026-08-04, Cloud Run revision `geo-backend-release-20260804152130` serves 100% and backend/Upload Storage readiness are healthy. Firebase Hosting version `6eea51a351ebab2b` exactly matches the verified commit `38220e9` build for the shell, service worker, offline page, and manifest. Invited-only onboarding is deployed, public registration is hidden, and Global Admin access is limited to Supervisors in both the UI and backend. The full hosted real-phone/update/upload checklist is still pending.
 
 **Recommended Google deployment**:
 Firebase Hosting, Cloud Run, Cloud SQL PostgreSQL, private Cloud Storage, and Secret Manager. This remains the preferred all-Google target; it is not the database currently serving live traffic.

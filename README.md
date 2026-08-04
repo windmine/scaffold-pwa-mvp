@@ -29,9 +29,9 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
-## Current Reset Status - 2026-07-31
+## Current Reset Status - 2026-08-04
 
-The reset goal is a reliable phone-first PWA with durable, explainable sync and review behaviour. The current local gate, real-phone local-network pass, and historical automated hosted pass are green. The current invited-account frontend is not yet deployed, the full hosted real-phone pass is still pending, and the remaining provider hardening must be closed or accepted before real staff data is trusted to the service.
+The reset goal is a reliable phone-first PWA with durable, explainable sync and review behaviour. The current local gate, real-phone local-network pass, and 2026-08-04 automated hosted release pass are green. The invited-account frontend is deployed, while the full hosted real-phone pass is still pending and the remaining provider hardening must be closed or accepted before real staff data is trusted to the service.
 
 Completed in this reset:
 
@@ -45,7 +45,7 @@ Completed in this reset:
 - Backend schema changes now use versioned migrations recorded in `schema_migrations` instead of inline SQLite startup `ALTER TABLE` checks.
 - Cloud Run `geo-backend` currently uses Neon PostgreSQL through Secret Manager-backed `DATABASE_URL` and `GEO_SECRET_KEY`; Cloud SQL remains the recommended Google-native production direction.
 - The earlier Cloud SQL validation path passed its hosted smoke test on 2026-06-05 and had backups/PITR enabled. Those historical checks do not establish recovery readiness for the current Neon database.
-- Cloud Run revision `geo-backend-release-20260715213211` serves 100% of live traffic as the dedicated `geo-backend-runtime` service account and stores new photos/signatures in private Cloud Storage bucket `geo-attendance-system-db9ca-uploads`.
+- Cloud Run revision `geo-backend-release-20260804152130` serves 100% of live traffic as the dedicated `geo-backend-runtime` service account and stores new photos/signatures in private Cloud Storage bucket `geo-attendance-system-db9ca-uploads`.
 - The runtime identity has secret-level access to only the two backend secrets and a prefix-scoped three-permission upload role. The default Compute service account is no longer a runtime credential and retains only `roles/run.builder` for source builds.
 - The backend exposes `/health/ready`, renews cookie sessions through `POST /auth/refresh`, and has configurable in-process rate limiting for production-like environments.
 - `npm run check:production-hardening` verifies the live Neon/GCP topology without mutating cloud resources: runtime identity and IAM, secrets, upload recovery settings/exact generations, hosted readiness monitoring, Cloud Run 5xx alerting, and current Neon recovery/cleanup evidence. It explicitly permits Console-only incidents during controlled testing; `npm run check:production-hardening:strict` requires verified alert delivery.
@@ -56,23 +56,27 @@ Completed in this reset:
 - Work Form content edits create new definition versions, submissions freeze immutable snapshots, and the backend derives authoritative time ranges and formulas.
 - Review Queue policy, cursor queries, offline/read-only fallback, and exports are separate test surfaces. Dashboard totals and Management Analytics load complete durable overview data instead of the current filtered page.
 - SQLAlchemy connection checkout uses `pool_pre_ping`, and protected Sites load only after login or session restoration succeeds.
-- Public registration is hidden in commit `b9aa05d` for the invited-account pilot. Supervisors create and activate Workers from Staff users; the verified-registration API remains implemented and tested for a later re-enable.
+- Public registration is hidden in the deployed commit `38220e9` for the invited-account pilot. Supervisors create and activate Workers from Staff users; the verified-registration API remains implemented and tested for a later re-enable.
 - The current Staff users flow is account provisioning, not a complete invitation handoff: the Supervisor must choose and communicate each initial password. There is no expiring, single-use invitation or Worker-set-password flow yet.
 - Global-admin access is Supervisor-only. The Staff UI clears and disables it for Workers, authorization ignores invalid Worker flags, the API validates the final role/access combination, and migration `0017_global_admin_supervisor_invariant` revokes invalid legacy flags before enforcing the database invariant.
+- Local validation on 2026-08-04 passed lint, production build/PWA generation, Review Queue, all static/mobile checks, 26 Playwright browser workflows, backend database/security/upload/review/form/migration tests, the full disposable-database smoke test, production dependency audit, and Python dependency consistency.
 - Local validation on 2026-07-31 passed lint, production build/PWA generation, Review Queue, all static/mobile checks, 25 Playwright browser workflows, backend compile, database, security, upload storage, Work Form definition, migration, and the full disposable-database smoke test.
 - On 2026-07-31, `npm audit --omit=dev` found zero production dependency vulnerabilities and `python -m pip check` found no broken requirements. The full development audit found one high-severity `brace-expansion` advisory through ESLint/minimatch; update the development toolchain before treating dependency checks as completely green.
 - The 2026-07-14 hosted deployment passed anonymous, worker, restored-session, repeated `/api/sites`, logout, supervisor Review Queue, readiness, and new-revision error-log checks without a 5xx.
 - On 2026-07-15, a no-traffic Cloud Run identity canary passed database/upload readiness, then passed five hosted readiness calls after promotion and removal of the old identity's runtime access.
 - On 2026-07-15, current source revision `geo-backend-release-20260715213211` passed a zero-traffic canary, ten post-promotion database/upload readiness checks across Cloud Run and Firebase Hosting, anonymous access isolation, and revision-scoped ERROR/5xx checks. The tested Firebase Hosting preview was then cloned byte-for-byte to live.
+- On 2026-08-04, commit `38220e9` was pushed and deployed as Cloud Run revision `geo-backend-release-20260804152130`. Five candidate readiness cycles and ten post-promotion database/GCS readiness probes passed, the new revision had no observed ERROR or HTTP 5xx logs, and all temporary traffic tags were removed after promotion to 100%.
+- Firebase Hosting preview `release-20260804152130` was verified before its exact version `6eea51a351ebab2b` was cloned live. Local, preview, and live SHA-256 hashes match for `index.html`, `sw.js`, `offline.html`, and `manifest.webmanifest`; invited-only login, hidden registration, anonymous Site isolation, Supervisor-only Global Admin controls, and logout passed the controlled hosted browser check.
 - Cloud Monitoring now checks the hosted `/api/health/ready` path and has enabled incident policies for readiness failures and Cloud Run 5xx responses. A verified notification channel is still required for email/chat delivery.
 - A 2026-07-15 Neon drill created a temporary read-only branch from a five-minute-old production point, verified the migration/schema surface, and proved exact branch cleanup. The current Neon Free plan still limits history to six hours and has no scheduled snapshot backup.
+- The 2026-08-04 Neon release checks applied migration head `0017_global_admin_supervisor_invariant` to a disposable PostgreSQL branch before production, retained an expiring read-only pre-release branch through the observation window, and generated a fresh sanitized point-in-time recovery proof with exact cleanup verification.
 - The upload bucket enforces public-access prevention, uniform bucket-level IAM, and 30-day soft delete. A production-bucket drill proved content-preserving delete/restore and cleanup.
-- The 2026-07-31 controlled-test hardening gate passed with three warnings: incident-only Monitoring, six-hour Neon retention, and the skipped billing-budget check. The strict gate failed exactly where expected because no enabled, verified notification destination is attached.
-- The 2026-07-31 live readiness response reports both database and GCS Upload Storage as healthy, and Cloud Run still serves revision `geo-backend-release-20260715213211`. Firebase Hosting does not match the current build: live `index.html` and `sw.js` hashes differ, and the live page still exposes `Create staff account`.
+- The 2026-08-04 controlled-test hardening gate passed with three warnings: incident-only Monitoring, six-hour Neon retention, and the skipped billing-budget check. The strict gate remains unsuitable for sign-off because no enabled, verified notification destination is attached.
+- The 2026-08-04 live readiness response reports both database and GCS Upload Storage as healthy. Cloud Run serves revision `geo-backend-release-20260804152130`, and Firebase Hosting exactly matches the verified invited-account build.
 
 Next step:
 
-Deploy commit `b9aa05d` through a Firebase preview for controlled pilot accounts and verify exact shell/service-worker parity plus invited-only login. Before broader onboarding, add an expiring, single-use invitation so each Worker sets their own password; email delivery needs a transactional email provider, while another authenticated private delivery channel is possible if designed explicitly. Then run the real-phone checklist against the live Firebase Hosting / Cloud Run path. Also add a verified Monitoring notification channel and billing budget, choose longer Neon recovery or external logical backups, complete Neon least-privilege access work, resolve the development-only npm advisory, and remove controlled test data.
+Run the full real-phone checklist against the live Firebase Hosting / Cloud Run path, including actual photo/signature streaming and the waiting-service-worker update flow. Before broader onboarding, add an expiring, single-use invitation so each Worker sets their own password; email delivery needs a transactional email provider, while another authenticated private delivery channel is possible if designed explicitly. Also add a verified Monitoring notification channel and billing budget, choose longer Neon recovery or external logical backups, complete Neon least-privilege access work, resolve the development-only npm advisory, and remove controlled test data.
 
 ## Recommended Production Deployment
 
@@ -1108,14 +1112,14 @@ npm.cmd run check:production-hardening:strict
 
 The hardening commands are read-only and require authenticated `gcloud` and Neon CLI access. The normal command carries the controlled-test incident-only exception; the strict command requires verified alert delivery. Neither establishes Neon least-privilege roles, pooling limits, or longer backup retention.
 
-Latest complete check on 2026-07-31:
+Latest complete release check on 2026-08-04:
 
-- All functional frontend/backend checks and the disposable-database smoke test passed.
+- Commit `38220e9` passed all functional frontend/backend checks and the disposable-database smoke test before deployment.
 - Production npm dependencies reported zero vulnerabilities; Python requirements were consistent.
 - The full development npm audit reported one high-severity `brace-expansion` advisory through ESLint/minimatch.
 - Hosted `/api/health/ready` reported database and GCS as healthy.
 - The controlled-test production-hardening gate passed with warnings; the strict gate failed because no enabled, verified Monitoring notification channel is attached.
-- Local `dist/index.html` and `dist/sw.js` did not match Firebase Hosting. The live page still showed public registration, so commit `b9aa05d` must be deployed and parity-checked before hosted phone testing.
+- Cloud Run revision `geo-backend-release-20260804152130` serves 100%, and Firebase Hosting version `6eea51a351ebab2b` exactly matches the verified local build and preview for the shell, service worker, offline page, and manifest.
 
 
 `npm.cmd run check:review-queue` verifies Review Record export dispatch, durable-only export guards, cursor pagination, query filters and snapshots, department scope, atomic pending-only decisions, audit comments, and decision-bypass protection.
@@ -1287,7 +1291,6 @@ Check:
 
 Before real staff use, close or explicitly accept these remaining items:
 
-- Deploy commit `b9aa05d` and verify Firebase Hosting matches local `index.html`/`sw.js`; the 2026-07-31 live page still exposed public registration.
 - Replace Supervisor-chosen initial passwords with an expiring, single-use Worker password-setup invitation before onboarding beyond controlled pilot accounts.
 - Complete the full real-phone hosted checklist, including actual photo/signature streaming and the waiting-service-worker update flow. The automated hosted pass is green but does not replace this device pass.
 - Review and rotate any remaining production credentials in Secret Manager.
