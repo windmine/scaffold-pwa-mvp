@@ -5,7 +5,13 @@ import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'vite'
 import basicSsl from '@vitejs/plugin-basic-ssl'
-import { pwaAssetCopies, writeServiceWorker } from './scripts/pwa-shell-assets.mjs'
+import {
+  appShell,
+  computePwaCacheVersion,
+  pwaAssetCopies,
+  renderServiceWorker,
+  writeServiceWorker
+} from './scripts/pwa-shell-assets.mjs'
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url))
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000'
@@ -15,6 +21,14 @@ function localHttpsOptions() {
   // Vite serves HTTPS through Node's HTTP/2 server. Node 24 warns when some dev
   // middleware touches HTTP/1-only status messages, so keep local HTTPS on h1.
   return { ALPNProtocols: ['http/1.1'] }
+}
+
+function productionAppShell(indexHtml) {
+  const builtEntrypoints = [...indexHtml.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)="(\/[^"#?]+(?:[?#][^"]*)?)"/gi)]
+    .map((match) => match[1].split(/[?#]/, 1)[0])
+    .filter((publicPath) => /\.(?:css|js)$/i.test(publicPath))
+
+  return [...new Set([...appShell, ...builtEntrypoints])]
 }
 
 function copyPwaAssets() {
@@ -45,6 +59,14 @@ function copyPwaAssets() {
         .replace(/href="\/assets\/apple-touch-icon-[^"]+\.png"/, 'href="/assets/icons/apple-touch-icon.png"')
         .replace(/src="\/assets\/leader-logo-export-[^"]+\.png"/, 'src="/assets/icons/leader-logo-export.png"')
       writeFileSync(indexPath, indexHtml)
+
+      const productionShell = productionAppShell(indexHtml)
+      const cacheVersion = computePwaCacheVersion(buildDir, productionShell)
+      writeFileSync(
+        join(buildDir, 'sw.js'),
+        renderServiceWorker(rootDir, { shell: productionShell, cacheVersion }),
+        'utf8'
+      )
     }
   }
 }

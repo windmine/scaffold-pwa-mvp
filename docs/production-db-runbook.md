@@ -19,6 +19,7 @@ Firebase Hosting
 - Hosted PWA: `https://geo-attendance-system-db9ca.web.app`.
 - Cloud Run revision `geo-backend-release-20260804152130` serves 100% of traffic as `geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com`.
 - Hosted `/api/health/ready` reports database and GCS as healthy. Firebase Hosting version `6eea51a351ebab2b` matches the verified commit `38220e9` build for `index.html`, `sw.js`, `offline.html`, and `manifest.webmanifest`, and serves the invited-only login with public registration hidden.
+- The 2026-08-05 cold-offline source change is not part of that live Hosting version yet; verify it through a preview before promotion.
 - `DATABASE_URL` and `GEO_SECRET_KEY` are injected from Secret Manager.
 - The runtime identity has no project-level role. It has secret-level accessor bindings and a custom upload role containing only `storage.objects.create`, `storage.objects.get`, and `storage.objects.delete`, restricted to `uploads/`.
 - The default Compute service account is no longer a runtime credential and retains only `roles/run.builder` for Cloud Run source builds.
@@ -131,6 +132,8 @@ npm.cmd audit --omit=dev
 npm.cmd audit
 python -m pip check
 ```
+
+`npm.cmd run check:mobile` now builds before checking and starts both the normal Vite test server and a `dist/` production preview. The production service worker must list the hashed JavaScript/CSS entrypoints referenced by `dist/index.html`, serve cached `index.html` only for `/` and `/index.html` navigation failures, and keep API/auth/upload paths network-only. Its cold-launch workflow must close the last online Worker page, reopen the preview offline, restore only the matching Worker/Department Site snapshot, and queue attendance successfully. Default temporary ports are backend `8765`, development frontend `5175`, and preview `4175`.
 
 Then start the backend against a disposable database and run:
 
@@ -245,7 +248,7 @@ On 2026-08-04, the controlled-test gate passed with three warnings (incident-onl
 
 Current warnings are operational decisions rather than hidden green checks:
 
-- The automated hosted release pass is green, but the full real-phone hosted checklist still needs actual photo/signature streaming and waiting-service-worker update verification.
+- The automated 2026-08-04 hosted release pass is green, but current cold-offline source is not live yet. The next hosted phone pass must verify killed/refreshed offline launch, queued attendance replay, actual photo/signature streaming, and the waiting-service-worker update flow.
 - The current Supervisor provisioning form requires an initial password; implement a single-use Worker password-setup invitation before scaling beyond controlled accounts.
 - The two Monitoring policies create Console incidents, but no verified email/chat notification channel is attached.
 - Neon Free retains only six hours of history and has no scheduled snapshots. The drill proves current PITR mechanics, not a production-grade recovery window.

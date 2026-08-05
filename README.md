@@ -37,6 +37,8 @@ Completed in this reset:
 
 - `npm run build` produces a `dist/` that serves the service worker, offline page, manifest, and icon assets from the paths used by the app.
 - The service worker never returns cached `/api`, `/auth`, `/photo-uploads`, or `/uploads` responses as if they were fresh backend data.
+- Current source returns the verified cached application for cold offline `/` and `/index.html` launches while leaving protected/API navigations network-only. The production service worker also precaches Vite's hashed JavaScript and CSS entrypoints instead of relying on a prior controlled reload.
+- A successful authenticated Worker Site load writes an IndexedDB snapshot keyed to that Worker and Department. Cold offline startup can use that snapshot for a new queued check-in; another Worker, a Worker without a Department, demo data, and Supervisor scope cannot supply it. Logout, invalid authorization, or an observed account/Department scope change removes the applicable snapshot, and the backend re-authorizes the Site and recalculates distance/radius on sync.
 - Workers can complete check-in/out, Daywork logs, and work forms with signatures/photos on a phone, including graceful geolocation-denied and offline/queued states.
 - Supervisors can review the resulting attendance, task logs, form submissions, photos, and signatures from the unified Review Queue.
 - A browser/mobile validation checklist or automated check covers the main worker and supervisor paths.
@@ -59,6 +61,7 @@ Completed in this reset:
 - Public registration is hidden in the deployed commit `38220e9` for the invited-account pilot. Supervisors create and activate Workers from Staff users; the verified-registration API remains implemented and tested for a later re-enable.
 - The current Staff users flow is account provisioning, not a complete invitation handoff: the Supervisor must choose and communicate each initial password. There is no expiring, single-use invitation or Worker-set-password flow yet.
 - Global-admin access is Supervisor-only. The Staff UI clears and disables it for Workers, authorization ignores invalid Worker flags, the API validates the final role/access combination, and migration `0017_global_admin_supervisor_invariant` revokes invalid legacy flags before enforcing the database invariant.
+- On 2026-08-05, current source passed lint, the production build/static PWA checks, and all 27 Playwright workflows, including the production-preview cold offline launch and queued-attendance regression. This source change has not yet been promoted to Firebase Hosting.
 - Local validation on 2026-08-04 passed lint, production build/PWA generation, Review Queue, all static/mobile checks, 26 Playwright browser workflows, backend database/security/upload/review/form/migration tests, the full disposable-database smoke test, production dependency audit, and Python dependency consistency.
 - Local validation on 2026-07-31 passed lint, production build/PWA generation, Review Queue, all static/mobile checks, 25 Playwright browser workflows, backend compile, database, security, upload storage, Work Form definition, migration, and the full disposable-database smoke test.
 - On 2026-07-31, `npm audit --omit=dev` found zero production dependency vulnerabilities and `python -m pip check` found no broken requirements. The full development audit found one high-severity `brace-expansion` advisory through ESLint/minimatch; update the development toolchain before treating dependency checks as completely green.
@@ -76,7 +79,7 @@ Completed in this reset:
 
 Next step:
 
-Run the full real-phone checklist against the live Firebase Hosting / Cloud Run path, including actual photo/signature streaming and the waiting-service-worker update flow. Before broader onboarding, add an expiring, single-use invitation so each Worker sets their own password; email delivery needs a transactional email provider, while another authenticated private delivery channel is possible if designed explicitly. Also add a verified Monitoring notification channel and billing budget, choose longer Neon recovery or external logical backups, complete Neon least-privilege access work, resolve the development-only npm advisory, and remove controlled test data.
+Deploy current source through a Firebase preview and verify its generated shell, hashed entrypoints, cold offline launch, and queued-attendance replay before promoting that exact version. Then run the full hosted real-phone checklist, including actual photo/signature streaming and the waiting-service-worker update flow. Before broader onboarding, add an expiring, single-use invitation so each Worker sets their own password; email delivery needs a transactional email provider, while another authenticated private delivery channel is possible if designed explicitly. Also add a verified Monitoring notification channel and billing budget, choose longer Neon recovery or external logical backups, complete Neon least-privilege access work, resolve the development-only npm advisory, and remove controlled test data.
 
 ## Recommended Production Deployment
 
@@ -195,7 +198,8 @@ Worker restrictions:
 - Same-origin `/api` proxy to avoid iOS mixed-content blocking.
 - Visible Download App button with browser install prompt or Add-to-Home-Screen fallback instructions.
 - Service worker app shell cache generated from one shared asset manifest with a content-derived cache name.
-- Offline page.
+- Cached production-app cold launch for installed Workers, with the static offline page reserved for an incomplete/corrupt shell cache.
+- Worker/Department-scoped saved Sites for new offline attendance capture, cleared on logout or invalid authorization.
 - IndexedDB drafts and queued attendance, task-log, and work-form submissions, including photos and handwritten signature data.
 - Mobile-first layout with folded supervisor sections.
 - Black default theme with a persistent light/dark mode toggle.
@@ -1124,11 +1128,11 @@ Latest complete release check on 2026-08-04:
 
 `npm.cmd run check:review-queue` verifies Review Record export dispatch, durable-only export guards, cursor pagination, query filters and snapshots, department scope, atomic pending-only decisions, audit comments, and decision-bypass protection.
 
-`npm.cmd run check:mobile` runs the static PWA/mobile preflight and then 26 Playwright Chromium workflow checks for invited-only login, Chinese localisation, accessibility, geolocation allow/deny, service-worker update prompts, IndexedDB offline queue replay, role-safe global-admin controls, and Supervisor review. Login coverage verifies that public registration stays hidden, an anonymous startup neither requests authenticated Sites nor exposes demo Site options, and a saved session refreshes before Sites are loaded. Its Review Queue scenario verifies that a disconnected Supervisor sees only the last durable records in explicit read-only mode; device-local Worker records never become reviewable. The browser check starts its own temporary backend and Vite server on `127.0.0.1:8765` and `127.0.0.1:5175`, with a throwaway SQLite database and upload folder. Override those ports with `BROWSER_WORKFLOW_BACKEND_PORT` or `BROWSER_WORKFLOW_FRONTEND_PORT` if needed.
+`npm.cmd run check:mobile` first builds the production PWA, runs the static PWA/mobile preflight, and then runs 27 Playwright Chromium workflow checks for invited-only login, Chinese localisation, accessibility, geolocation allow/deny, cold offline launch, service-worker update prompts, IndexedDB offline queue replay, role-safe global-admin controls, and Supervisor review. The cold-launch regression uses a production preview: it logs in online, verifies the built JS/CSS entrypoints are in the install cache, closes the last page, reopens offline, restores the same Worker/Department Site snapshot, captures location, and creates a queued attendance record; protected API navigation remains network-only. Login coverage verifies that public registration stays hidden, an anonymous startup neither requests authenticated Sites nor exposes demo Site options, and a saved session refreshes before Sites are loaded. Its Review Queue scenario verifies that a disconnected Supervisor sees only the last durable records in explicit read-only mode; device-local Worker records never become reviewable. The browser check starts a temporary backend, Vite development server, and production preview on `127.0.0.1:8765`, `127.0.0.1:5175`, and `127.0.0.1:4175`, with a throwaway SQLite database and upload folder. Override those ports with `BROWSER_WORKFLOW_BACKEND_PORT`, `BROWSER_WORKFLOW_FRONTEND_PORT`, or `BROWSER_WORKFLOW_PREVIEW_PORT` if needed.
 
 `backend/database_test.py` poisons a returned pooled connection and proves the next query succeeds through `pool_pre_ping`. `backend/upload_storage_test.py`, `backend/work_form_definition_test.py`, and `backend/review_queue_test.py` are the focused local/GCS storage-contract, immutable Definition/server-formula, and Review Queue policy/query/export test surfaces.
 
-PWA shell assets are maintained in `scripts/pwa-shell-assets.mjs`. `sw.js` is generated by `npm.cmd run generate:pwa`, and `npm.cmd run build`, `npm.cmd run dev`, `npm.cmd run dev:phone`, and `npm.cmd run check:mobile` run that generator before using the service worker. The service-worker cache name is derived from the app-shell file contents, so changing a listed shell asset automatically creates a new cache name.
+PWA shell assets are maintained in `scripts/pwa-shell-assets.mjs`. `sw.js` is generated by `npm.cmd run generate:pwa`, and `npm.cmd run build`, `npm.cmd run dev`, `npm.cmd run dev:phone`, and `npm.cmd run check:mobile` run that generator before using the service worker. The source service-worker cache name is derived from the listed app-shell contents; the production build then adds its hashed JavaScript/CSS entrypoints and derives the deployed cache name from the completed `dist/` shell.
 
 Backend import check:
 
@@ -1182,6 +1186,7 @@ The mobile/browser workflow check covers:
 - Invited-account guidance is visible and public registration remains hidden.
 - Generated PWA app-shell manifest, copied build assets, and service-worker cache name stay in sync.
 - Service worker network-only API/upload rules.
+- Production-preview cold offline launch, Worker/Department Site-snapshot isolation, and creation of a queued attendance record after closing the last app page.
 - Visible service worker update-flow wiring.
 - Mobile viewport, camera/photo inputs, and active worker/supervisor UI controls.
 - Supervisor audit-history UI/API wiring.
@@ -1205,6 +1210,8 @@ Back online:
 ```
 
 Work Form signatures, including signatures inside repeat rows, are stored locally as image data while queued, then uploaded as PNG during sync. A queued record remains bound to the Worker account that captured it; switching accounts on a shared device cannot replay it as the new Worker. Capture time and client submission id survive delayed sync, and attendance sends its timezone-aware `occurred_at` so its durable timestamp is not replaced by reconnect time. The backend can return the existing record on retry. Partial upload URLs are persisted as each upload succeeds. If the session expires, sync pauses in an explicit blocked state and the record remains queued until its owning Worker signs in again. Failed queued records expose their sync error in History and can be retried or discarded by their owning Worker.
+
+After one successful authenticated Site load, current source stores only that Worker's Department-scoped Site snapshot. A later installed-PWA cold launch can open the cached production application, use those saved Sites, capture geolocation, and queue attendance without network access. Protected routes and uploads remain network-only, and sync still requires the backend to re-authorize the Site and recalculate its current distance/radius result. Explicit logout removes the matching saved Site snapshot as well as the local identity; invalid authorization and an observed account/Department scope change also remove the applicable snapshot. A device that never completed an authenticated Site load cannot start a new offline attendance record.
 
 Current offline behavior is suitable for MVP testing, but production conflict handling still needs more work.
 

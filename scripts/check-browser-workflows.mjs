@@ -11,8 +11,10 @@ const backendDir = join(root, 'backend');
 const tempDir = mkdtempSync(join(tmpdir(), 'scaffold-pwa-browser-workflows-'));
 const backendPort = Number(process.env.BROWSER_WORKFLOW_BACKEND_PORT || 8765);
 const frontendPort = Number(process.env.BROWSER_WORKFLOW_FRONTEND_PORT || 5175);
+const previewPort = Number(process.env.BROWSER_WORKFLOW_PREVIEW_PORT || 4175);
 const backendBase = `http://127.0.0.1:${backendPort}`;
 const appBase = `http://127.0.0.1:${frontendPort}`;
+const productionAppBase = `http://127.0.0.1:${previewPort}`;
 const password = 'Passw0rd!';
 const workflowFilter = String(process.env.BROWSER_WORKFLOW_ONLY || '').trim().toLowerCase();
 
@@ -162,11 +164,30 @@ async function setupServers() {
   });
 
   await waitForHttp(appBase);
+
+  startProcess('frontend-preview', process.execPath, [
+    join(root, 'node_modules', 'vite', 'bin', 'vite.js'),
+    'preview',
+    '--host',
+    '127.0.0.1',
+    '--port',
+    String(previewPort),
+    '--strictPort'
+  ], {
+    cwd: root,
+    env: {
+      ...process.env,
+      VITE_DISABLE_HTTPS: 'true',
+      VITE_API_PROXY_TARGET: backendBase
+    }
+  });
+
+  await waitForHttp(productionAppBase);
 }
 
 async function newContext(browser, options = {}) {
   const context = await browser.newContext({
-    baseURL: appBase,
+    baseURL: options.baseURL || appBase,
     viewport: options.viewport || { width: 390, height: 844 },
     isMobile: options.isMobile ?? true,
     hasTouch: options.hasTouch ?? true,
@@ -2249,6 +2270,248 @@ async function checkSupervisorWorkspaceNavigation(browser) {
   }
 }
 
+async function checkColdOfflineWorkerLaunch(browser) {
+  const context = await newContext(browser, {
+    baseURL: productionAppBase,
+    geolocation: { latitude: -36.8485, longitude: 174.7633 },
+    permissions: ['geolocation'],
+    serviceWorkers: 'allow'
+  });
+  let page = await context.newPage();
+  let workerId = '';
+
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.waitForFunction(async () => {
+      const registration = await navigator.serviceWorker.getRegistration();
+      return document.body.dataset.activeView === 'worker'
+        && registration?.active?.state === 'activated'
+        && Boolean(navigator.serviceWorker.controller)
+        && Boolean(await caches.match('/index.html'))
+        && document.querySelectorAll('#attendanceSite option[value]:not([value=""])').length > 0;
+    }, null, { timeout: 30000 });
+    workerId = await page.evaluate(() => {
+      try {
+        return String(JSON.parse(localStorage.getItem('geo_user') || 'null')?.id || '');
+      } catch {
+        return '';
+      }
+    });
+    if (!workerId) throw new Error('online setup did not retain the Worker identity');
+    const cachedShellState = await page.evaluate(async () => {
+      const entrypoints = [
+        ...[...document.querySelectorAll('script[src]')].map((element) => new URL(element.src).pathname),
+        ...[...document.querySelectorAll('link[rel="stylesheet"][href]')]
+          .map((element) => new URL(element.href).pathname)
+      ];
+      const cacheEntries = [];
+      for (const cacheName of await caches.keys()) {
+        const cache = await caches.open(cacheName);
+        cacheEntries.push(...(await cache.keys()).map((request) => new URL(request.url).pathname));
+      }
+      const missingEntrypoints = entrypoints.filter((publicPath) => !cacheEntries.includes(publicPath));
+      const unmatchedEntrypoints = [];
+      const entrypointDiagnostics = [];
+      for (const publicPath of entrypoints) {
+        const matched = await caches.match(publicPath);
+        const matchedIgnoringVary = await caches.match(publicPath, { ignoreVary: true });
+        if (!matched) unmatchedEntrypoints.push(publicPath);
+        entrypointDiagnostics.push({
+          publicPath,
+          matched: Boolean(matched),
+          matchedIgnoringVary: Boolean(matchedIgnoringVary),
+          vary: matchedIgnoringVary?.headers.get('vary') || ''
+        });
+      }
+      const currentUser = JSON.parse(localStorage.getItem('geo_user') || 'null');
+      const {
+        loadWorkerSiteSnapshot,
+        saveWorkerSiteSnapshot
+      } = await import('/assets/js/offline-site-snapshot.js');
+      const ownSnapshot = await loadWorkerSiteSnapshot(currentUser);
+      const otherWorkerSnapshot = await loadWorkerSiteSnapshot({
+        ...currentUser,
+        id: `${currentUser.id}-other`
+      });
+      const otherDepartmentSnapshot = await loadWorkerSiteSnapshot({
+        ...currentUser,
+        departmentId: `${currentUser.departmentId}-other`
+      });
+      const missingDepartmentUser = { ...currentUser, departmentId: null };
+      const missingDepartmentSnapshot = await loadWorkerSiteSnapshot(missingDepartmentUser);
+      const missingDepartmentSaved = await saveWorkerSiteSnapshot(missingDepartmentUser, ownSnapshot?.sites || []);
+      return {
+        cacheNames: await caches.keys(),
+        index: Boolean(await caches.match('/index.html')),
+        entrypoints,
+        missingEntrypoints,
+        unmatchedEntrypoints,
+        entrypointDiagnostics,
+        cacheEntries,
+        snapshotIsolation: {
+          ownSiteCount: ownSnapshot?.sites.length || 0,
+          otherWorkerRejected: otherWorkerSnapshot === null,
+          otherDepartmentRejected: otherDepartmentSnapshot === null,
+          missingDepartmentRejected: missingDepartmentSnapshot === null && !missingDepartmentSaved
+        }
+      };
+    });
+    if (
+      !cachedShellState.index
+      || cachedShellState.missingEntrypoints.length
+      || cachedShellState.unmatchedEntrypoints.length
+      || !cachedShellState.snapshotIsolation.ownSiteCount
+      || !cachedShellState.snapshotIsolation.otherWorkerRejected
+      || !cachedShellState.snapshotIsolation.otherDepartmentRejected
+      || !cachedShellState.snapshotIsolation.missingDepartmentRejected
+    ) {
+      throw new Error(`production app shell or Worker Site snapshot isolation was incomplete: ${JSON.stringify(cachedShellState)}`);
+    }
+
+    await page.close();
+    await context.setOffline(true);
+    page = await context.newPage();
+    const pageErrors = [];
+    const consoleErrors = [];
+    const failedRequests = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
+    page.on('console', (message) => {
+      if (message.type() === 'error') consoleErrors.push(message.text());
+    });
+    page.on('requestfailed', (request) => failedRequests.push({
+      url: request.url(),
+      error: request.failure()?.errorText || ''
+    }));
+    await page.goto('/index.html?cold-offline-launch=1', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.body.dataset.activeView === 'worker', null, { timeout: 10000 })
+      .catch(() => {});
+
+    const coldLaunchState = await page.evaluate(async (entrypoints) => {
+      const cacheEntries = [];
+      for (const cacheName of await caches.keys()) {
+        const cache = await caches.open(cacheName);
+        cacheEntries.push(...(await cache.keys()).map((request) => new URL(request.url).pathname));
+      }
+      const protectedPrefixes = [
+        '/api',
+        '/auth',
+        '/photo-uploads',
+        '/uploads',
+        '/supervisor',
+        '/attendance',
+        '/my-records',
+        '/task-logs',
+        '/task-templates',
+        '/team-work-log-members',
+        '/team-work-logs',
+        '/my-team-work-logs',
+        '/work-forms',
+        '/form-submissions',
+        '/sites',
+        '/dev',
+        '/health'
+      ];
+      return {
+        title: document.title,
+        online: navigator.onLine,
+        controlled: Boolean(navigator.serviceWorker?.controller),
+        activeView: document.body.dataset.activeView || '',
+        siteOptions: [...document.querySelectorAll('#attendanceSite option[value]:not([value=""])')]
+          .map((option) => ({ value: option.value, label: option.textContent?.trim() || '' })),
+        offlineHeadingVisible: [...document.querySelectorAll('h1')]
+          .some((heading) => heading.textContent?.trim() === 'You are offline'),
+        systemFeedback: document.querySelector('#statusBanner')?.textContent?.trim() || '',
+        cacheNames: await caches.keys(),
+        protectedCacheEntries: cacheEntries.filter((pathname) => protectedPrefixes.some((prefix) => (
+          pathname === prefix || pathname.startsWith(`${prefix}/`)
+        ))),
+        entrypointCacheState: await Promise.all(entrypoints.map(async (publicPath) => {
+          const response = await caches.match(publicPath);
+          return {
+            publicPath,
+            matched: Boolean(response),
+            status: response?.status || 0,
+            type: response?.type || '',
+            contentType: response?.headers.get('content-type') || '',
+            vary: response?.headers.get('vary') || ''
+          };
+        }))
+      };
+    }, cachedShellState.entrypoints);
+    const failedStaticRequests = failedRequests.filter(({ url }) => {
+      const pathname = new URL(url).pathname;
+      return pathname.startsWith('/assets/')
+        || pathname === '/manifest.webmanifest'
+        || pathname === '/offline.html';
+    });
+    if (
+      coldLaunchState.online
+      || !coldLaunchState.controlled
+      || coldLaunchState.activeView !== 'worker'
+      || coldLaunchState.offlineHeadingVisible
+      || !coldLaunchState.siteOptions.length
+      || coldLaunchState.protectedCacheEntries.length
+      || pageErrors.length
+      || failedStaticRequests.length
+    ) {
+      throw new Error(`cold offline launch did not restore the Worker app and saved Sites: ${JSON.stringify({
+        ...coldLaunchState,
+        pageErrors,
+        consoleErrors,
+        failedRequests,
+        failedStaticRequests
+      })}`);
+    }
+
+    await page.locator('#attendanceSite').selectOption({ index: 1 });
+    await captureLocation(page);
+    await page.waitForFunction(() => !document.querySelector('#attendancePrimaryButton')?.disabled);
+    await page.locator('#attendancePrimaryButton').click();
+    await page.waitForFunction(async (expectedWorkerId) => {
+      const { getAll } = await import('/assets/js/db.js');
+      const records = await getAll('records');
+      return records.some((record) => (
+        record.type === 'attendance'
+        && String(record.ownerWorkerId) === String(expectedWorkerId)
+        && record.syncStatus === 'queued'
+        && !record.backendRecordId
+      ));
+    }, workerId, { timeout: 15000, polling: 100 });
+
+    const protectedNavigation = await context.newPage();
+    let protectedPathServedAppShell = false;
+    try {
+      await protectedNavigation.goto('/api/my-records', {
+        waitUntil: 'domcontentloaded',
+        timeout: 5000
+      });
+      protectedPathServedAppShell = await protectedNavigation.evaluate(() => (
+        document.title === 'Leader Field Operations'
+        || Boolean(document.querySelector('#workerView'))
+      ));
+    } catch {
+      // Network-only navigation is expected to fail while the browser is offline.
+    } finally {
+      await protectedNavigation.close();
+    }
+    if (protectedPathServedAppShell) {
+      throw new Error('offline API navigation incorrectly received the cached application shell');
+    }
+
+    const snapshotCleared = await page.evaluate(async () => {
+      const user = JSON.parse(localStorage.getItem('geo_user') || 'null');
+      const { clearWorkerSiteSnapshot, loadWorkerSiteSnapshot } = await import('/assets/js/offline-site-snapshot.js');
+      await clearWorkerSiteSnapshot(user);
+      return (await loadWorkerSiteSnapshot(user)) === null;
+    });
+    if (!snapshotCleared) {
+      throw new Error('Worker Site snapshot cleanup did not remove the scoped offline data');
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 function installWaitingServiceWorkerMock() {
   window.__serviceWorkerMessages = [];
   const listeners = new Map();
@@ -3084,6 +3347,7 @@ async function main() {
     await runCheck('supervisor workspaces remain navigable on desktop and mobile', () => checkSupervisorWorkspaceNavigation(browser));
     await runCheck('supervisor Review Desk is responsive', () => checkSupervisorReviewDeskLayout(browser));
     await runCheck('offline Review Queue is explicit and read-only', () => checkOfflineReviewQueueReadOnly(browser));
+    await runCheck('installed Worker app cold-launches offline and queues attendance', () => checkColdOfflineWorkerLaunch(browser));
     await runCheck('Work Form autosave protects drafts and app updates', () => checkWorkFormAutosaveAndUpdateProtection(browser));
     await runCheck('service worker update prompt posts SKIP_WAITING', () => checkServiceWorkerUpdatePrompt(browser));
   } finally {

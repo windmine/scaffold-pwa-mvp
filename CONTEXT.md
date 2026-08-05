@@ -72,6 +72,10 @@ _Avoid_: Error when the item may be legitimate but unresolved
 A Worker-owned attendance, task-log, or Work Form submission captured on one device and synced to the backend when possible. The module owns the Worker identity, capture time, stable Client Submission ID, replay state, and partial-upload state; attendance maps capture time to its Occurrence time.
 _Avoid_: Queue item when referring to the user-facing submission
 
+**Offline Site snapshot**:
+The last successfully authenticated Site list stored in IndexedDB for one Worker and Department. It allows that Worker to select a Site after a cold offline PWA launch; it never comes from demo data, is not available without an exact Worker/Department scope, and is cleared on logout, invalid authorization, or an observed scope change. It remains non-authoritative because the backend rechecks Site access and radius when the queued attendance syncs.
+_Avoid_: A global Site cache or treating saved coordinates/radius as approval authority
+
 **Occurrence time**:
 The timezone-aware time a Worker performed an attendance action. Offline attendance sends it as `occurred_at`; it remains stable across delayed sync and is distinct from backend sync time. Task and form business timing continues to use their explicit work date and other form fields.
 _Avoid_: Sync time
@@ -110,6 +114,8 @@ Firebase Hosting for the PWA, Cloud Run for FastAPI, Neon PostgreSQL supplied th
 
 As checked on 2026-08-04, Cloud Run revision `geo-backend-release-20260804152130` serves 100% and backend/Upload Storage readiness are healthy. Firebase Hosting version `6eea51a351ebab2b` exactly matches the verified commit `38220e9` build for the shell, service worker, offline page, and manifest. Invited-only onboarding is deployed, public registration is hidden, and Global Admin access is limited to Supervisors in both the UI and backend. The full hosted real-phone/update/upload checklist is still pending.
 
+Current source after that release adds cached-app cold offline launch and a Worker/Department-scoped Offline Site snapshot. Treat it as local source behavior until a new Firebase preview is verified and promoted.
+
 **Recommended Google deployment**:
 Firebase Hosting, Cloud Run, Cloud SQL PostgreSQL, private Cloud Storage, and Secret Manager. This remains the preferred all-Google target; it is not the database currently serving live traffic.
 
@@ -129,6 +135,7 @@ _Avoid_: Refresh token unless a separate revocable refresh-token store exists
 - A **Worker** belongs to one **Department** and creates field records owned by that Worker.
 - A **Supervisor** provisions and activates an **Invited account** during the pilot and currently sets its initial password; public self-registration is not exposed in the UI or supported as the pilot onboarding path, although its API remains callable.
 - An **Offline Submission** keeps its owning Worker, capture time, and **Client Submission ID**; attendance also carries its **Occurrence time** into the durable **Review Record**.
+- An **Offline Site snapshot** may guide a new offline attendance capture, but the backend remains authoritative for Site access, current radius, distance, and durable acceptance when the **Offline Submission** syncs.
 - A **Supervisor** approves or rejects pending **Review Records** in the **Review Queue** within their Department scope.
 - A **Global admin** may query the same records across one or all Departments.
 - A **Work Form Definition** has versions; every Work Form Submission stores a **Definition snapshot**.

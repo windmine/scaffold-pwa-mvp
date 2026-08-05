@@ -9,6 +9,7 @@ Use this checklist before calling the MVP ready for phone testing or production 
 
 ## Latest Automated Pass
 
+- 2026-08-05 current-source local pass, not yet deployed: lint, production build/static PWA checks, and all 27 Playwright Chromium workflows passed. The new production-preview workflow installed the built service worker, verified hashed JS/CSS entrypoints in Cache Storage, closed the last page, reopened offline, restored the matching Worker/Department Site snapshot, captured location, and created a queued attendance record. An offline navigation to `/api/my-records` did not receive the cached application shell.
 - 2026-08-04 production release pass at commit `38220e9`: the current source passed lint, production build/PWA generation, Review Queue, all static/mobile checks, 26 Playwright Chromium workflows, backend database/security/upload/review/form/migration tests, and a disposable-database smoke test. Migration `0017_global_admin_supervisor_invariant` passed on a disposable Neon branch before release. Cloud Run revision `geo-backend-release-20260804152130` passed five candidate readiness cycles and ten post-promotion database/GCS readiness probes with no observed revision-scoped ERROR or HTTP 5xx logs. Firebase Hosting version `6eea51a351ebab2b` exactly matched the verified preview and local build for the shell, service worker, offline page, and manifest; invited-only login, hidden registration, anonymous Site isolation, Supervisor-only Global Admin controls, and logout passed the hosted browser check.
 - 2026-07-31 committed-source local pass at `b9aa05d`: lint, production build/PWA generation, Review Queue, all static/mobile checks, 25 Playwright Chromium workflows, backend compile/database/security/upload/form/migration tests, and the full disposable-database smoke test passed. The invited-account notice was visible and the public registration panel stayed hidden. Production npm dependencies and Python consistency checks passed; the full development npm audit reported one high-severity `brace-expansion` advisory through ESLint/minimatch.
 - 2026-07-31 historical live read-only pass: Firebase Hosting returned 200 and `/api/health/ready` reported database and GCS as healthy. The controlled-test hardening gate passed with incident-only Monitoring, six-hour Neon retention, and skipped-budget warnings; the strict gate failed because no verified notification channel was attached. Live `index.html` and `sw.js` did not match that current build, and the live page still exposed public registration. The 2026-08-04 release above resolved this deployment mismatch.
@@ -46,7 +47,7 @@ After signing in through the hosted URL, confirm authenticated `/api/**` calls k
 
 Before signing in, confirm the login screen says `Invited accounts only`, the public registration panel is absent, and the page does not request `/api/sites` or briefly populate Worker site controls with local demo Sites. When restoring a saved session, `/api/auth/refresh` must complete before `/api/sites` is requested.
 
-As of the 2026-07-31 check, this invited-only shell is not live: Firebase Hosting still serves an older `index.html`/`sw.js` and exposes `Create staff account`. Deploy the current preview, compare its shell hashes with local `dist/`, and promote only that tested version before beginning the hosted device checklist.
+The invited-only shell was promoted on 2026-08-04 and public registration is hidden live. The 2026-08-05 cold-offline source change is newer than that Hosting version: deploy it to a preview, compare the preview shell/service-worker hashes with local `dist/`, complete the cold-launch steps below, and promote only that tested version.
 
 Before using real staff data, run the read-only GCP hardening gate from an authenticated admin machine:
 
@@ -85,7 +86,7 @@ With the backend running at `http://127.0.0.1:8000`:
 python backend\smoke_test.py
 ```
 
-`npm.cmd run check:mobile` verifies the built PWA shell, invited-only login, generated service worker output, update-flow wiring, mobile controls, same-origin proxy setup, Supervisor audit-history wiring, explicit offline/read-only Review Queue behaviour, offline Work Form submission support, photo controls, signature enforcement, and 25 Playwright Chromium workflows. It does not replace a real phone test.
+`npm.cmd run check:mobile` builds the production PWA, verifies its generated shell/cache, and runs 27 Playwright Chromium workflows. Coverage includes invited-only login, update-flow wiring, mobile controls, same-origin proxy setup, Supervisor audit history, explicit offline/read-only Review Queue behaviour, offline Work Form support, photo controls, signature enforcement, and a production-preview cold launch that creates queued attendance after the final page is closed. The workflow uses temporary backend, development frontend, and production-preview ports `8765`, `5175`, and `4175`; override them with `BROWSER_WORKFLOW_BACKEND_PORT`, `BROWSER_WORKFLOW_FRONTEND_PORT`, and `BROWSER_WORKFLOW_PREVIEW_PORT`. It does not replace a real phone test.
 
 ## Setup For Manual Phone Test
 
@@ -200,6 +201,9 @@ python backend\smoke_test.py
 
 - Install the app from the browser prompt or browser install menu.
 - Open the installed app and confirm login/history screens load.
+- While online, sign in as a Worker and confirm the current Site list has loaded. Fully close the installed app, enable airplane mode, and reopen it. Confirm the Worker application opens instead of the static offline page and only that Worker's saved Sites are selectable.
+- Capture location and submit attendance while still offline. Confirm History shows the record as queued, then fully close/reopen or refresh once more offline and confirm the Worker app and queued record remain available.
+- Reconnect, reopen the app, and confirm the queued attendance syncs once without changing its capture/occurrence time. Confirm the backend applies current Site authorization and radius rather than trusting the saved snapshot.
 - On the hosted Firebase URL, confirm the app stays same-origin for API calls through `/api/**`.
 - Upload one photo and one signature and confirm their `/uploads/...` URLs still load after refresh, proving Cloud Run is serving Cloud Storage-backed files.
 - Build and deploy a changed generated service worker, then reload an already-open app tab.
@@ -214,6 +218,7 @@ python backend\smoke_test.py
 - Worker and supervisor paths complete without console-breaking errors.
 - Geolocation denial, offline state, backend outage, and photo/signature validation show clear messages.
 - Queued worker submissions sync after reconnect.
+- A killed or refreshed installed PWA cold-launches the Worker application offline, restores only the matching Worker/Department Site snapshot, and can create a queued attendance record; protected API/upload paths never receive cached application content. Logout and invalid authorization remove the matching saved Site data.
 - Queued submissions remain bound to the capturing Worker and capture time across shared-device account changes; delayed attendance retains its original occurrence time.
 - Expired sessions pause queued sync, keep the queued record, and show a sign-in-again message.
 - Retried queued submissions do not create duplicate backend Review Records.

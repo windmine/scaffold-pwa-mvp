@@ -79,6 +79,11 @@ function isCacheableResponse(response, request) {
   return response && response.ok && response.type === 'basic' && responseContentMatchesRequest(request, response);
 }
 
+function isAppShellNavigation(request) {
+  const url = new URL(request.url);
+  return url.origin === self.location.origin && ['/', '/index.html'].includes(url.pathname);
+}
+
 function appShellRequest(path) {
   const headers = {};
 
@@ -106,7 +111,12 @@ async function cacheAppShell() {
 
 async function cacheFirst(request) {
   const cache = await caches.open(CACHE_VERSION);
-  const cached = await cache.match(request);
+  const requestPath = new URL(request.url).pathname;
+  // Install-time fetches and built page requests can differ on response Vary headers such as Origin.
+  // Versioned, same-origin app-shell entries are safe to match by their exact URL across that difference.
+  const cached = await cache.match(request, {
+    ignoreVary: APP_SHELL.includes(requestPath)
+  });
 
   if (cached) return cached;
 
@@ -143,18 +153,23 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method !== 'GET') return;
 
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).catch(async () => {
-        const cache = await caches.open(CACHE_VERSION);
-        return cache.match('/offline.html');
-      })
-    );
+  if (isNetworkOnlyRequest(request)) {
+    event.respondWith(fetch(request));
     return;
   }
 
-  if (isNetworkOnlyRequest(request)) {
-    event.respondWith(fetch(request));
+  if (request.mode === 'navigate') {
+    if (!isAppShellNavigation(request)) return;
+
+    event.respondWith(
+      fetch(request).catch(async () => {
+        const cache = await caches.open(CACHE_VERSION);
+        return await cache.match('/index.html')
+          || await cache.match('/')
+          || await cache.match('/offline.html')
+          || Response.error();
+      })
+    );
     return;
   }
 
