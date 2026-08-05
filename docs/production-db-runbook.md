@@ -18,8 +18,7 @@ Firebase Hosting
 
 - Hosted PWA: `https://geo-attendance-system-db9ca.web.app`.
 - Cloud Run revision `geo-backend-release-20260804152130` serves 100% of traffic as `geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com`.
-- Hosted `/api/health/ready` reports database and GCS as healthy. Firebase Hosting version `6eea51a351ebab2b` matches the verified commit `38220e9` build for `index.html`, `sw.js`, `offline.html`, and `manifest.webmanifest`, and serves the invited-only login with public registration hidden.
-- The 2026-08-05 cold-offline source change is not part of that live Hosting version yet; verify it through a preview before promotion.
+- Hosted `/api/health/ready` reports database and GCS as healthy. Firebase Hosting version `ba8c1689c2d0e121` matches the verified commit `9db3477` build for `index.html`, `sw.js`, `offline.html`, and `manifest.webmanifest`, serves the invited-only login with public registration hidden, and contains the cold-offline Worker shell.
 - `DATABASE_URL` and `GEO_SECRET_KEY` are injected from Secret Manager.
 - The runtime identity has no project-level role. It has secret-level accessor bindings and a custom upload role containing only `storage.objects.create`, `storage.objects.get`, and `storage.objects.delete`, restricted to `uploads/`.
 - The default Compute service account is no longer a runtime credential and retains only `roles/run.builder` for Cloud Run source builds.
@@ -30,6 +29,7 @@ Firebase Hosting
 - Cloud Monitoring checks the hosted `/api/health/ready` path and has enabled incident policies for readiness failures and Cloud Run 5xx responses. No verified notification channel is configured yet.
 - Neon PITR passed again on 2026-08-04 at migration head `0017_global_admin_supervisor_invariant`; the GCS soft-delete recovery proof remains current. Sanitized evidence is under `docs/evidence/` and is checked by the production-hardening gate.
 - The 2026-08-04 release created a one-day read-only Neon backup branch, proved migration `0017` on a disposable PostgreSQL branch, and then deployed commit `38220e9` as a no-traffic Cloud Run candidate. Five candidate readiness cycles and ten post-promotion direct/hosted readiness probes passed, no revision-scoped ERROR or HTTP 5xx logs were observed, and all temporary traffic tags were removed after promotion. Firebase preview `release-20260804152130` was verified for asset hashes and invited-account behavior before its exact version was cloned live.
+- The 2026-08-05 frontend-only release deployed commit `9db3477` through Firebase preview `release-20260805155240`, verified local/preview SHA-256 parity and the hashed app-shell entrypoints, then cloned exact Hosting version `ba8c1689c2d0e121` live. Local/preview/live hashes matched for the shell, service worker, offline page, and manifest; five live readiness probes, invited-only/hidden-registration checks, cold-offline shell rules, and anonymous Site isolation passed. Cloud Run and its database/upload configuration were unchanged.
 - The 2026-07-15 release check made five candidate readiness calls and ten post-promotion readiness calls across Cloud Run and Firebase Hosting, confirmed 100% traffic on `geo-backend-release-20260715213211`, verified anonymous protected-Site rejection, and found zero serving-revision ERROR or HTTP 5xx logs. The Hosting preview shell, service worker, offline page, and manifest matched the local build byte-for-byte before promotion.
 - Hosted anonymous/login Site ordering, Worker login, restored session, repeated authenticated Site requests, logout cleanup, Supervisor Review Queue, readiness, and new-revision error logs passed on 2026-07-14 without an observed 5xx.
 
@@ -244,11 +244,11 @@ The checker is provider-aware. With its default `-DatabaseProvider neon`, it ver
 
 The normal npm command explicitly allows Console-incident-only monitoring for the controlled-test phase. The `:strict` command is the real-production gate and fails until every required policy has an enabled, verified delivery channel.
 
-On 2026-08-04, the controlled-test gate passed with three warnings (incident-only Monitoring, six-hour Neon retention, and skipped budget verification). The strict gate remains red for real production use because no verified notification channel is attached.
+On 2026-08-05, the controlled-test gate passed with three warnings (incident-only Monitoring, six-hour Neon retention, and skipped budget verification). The strict gate remains red for real production use because no verified notification channel is attached.
 
 Current warnings are operational decisions rather than hidden green checks:
 
-- The automated 2026-08-04 hosted release pass is green, but current cold-offline source is not live yet. The next hosted phone pass must verify killed/refreshed offline launch, queued attendance replay, actual photo/signature streaming, and the waiting-service-worker update flow.
+- The automated 2026-08-05 frontend release pass is green and the cold-offline shell is live. The remaining hosted phone pass must verify killed/refreshed offline launch, queued attendance replay, actual photo/signature streaming, and the waiting-service-worker update flow on a real installed device.
 - The current Supervisor provisioning form requires an initial password; implement a single-use Worker password-setup invitation before scaling beyond controlled accounts.
 - The two Monitoring policies create Console incidents, but no verified email/chat notification channel is attached.
 - Neon Free retains only six hours of history and has no scheduled snapshots. The drill proves current PITR mechanics, not a production-grade recovery window.
