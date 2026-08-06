@@ -24,8 +24,33 @@ function distanceBetweenCoordinatesM(startLatitude, startLongitude, endLatitude,
   return earthRadiusM * c;
 }
 
+function siteDistanceFromLocationM(site, location) {
+  if (!site || !location) return null;
+
+  const coordinateValues = [site.latitude, site.longitude, location.latitude, location.longitude];
+  if (coordinateValues.some((value) => value == null || String(value).trim() === '')) return null;
+
+  const siteLatitude = Number(site.latitude);
+  const siteLongitude = Number(site.longitude);
+  const locationLatitude = Number(location.latitude);
+  const locationLongitude = Number(location.longitude);
+  if (![siteLatitude, siteLongitude, locationLatitude, locationLongitude].every(Number.isFinite)) {
+    return null;
+  }
+
+  return Math.round(
+    distanceBetweenCoordinatesM(
+      siteLatitude,
+      siteLongitude,
+      locationLatitude,
+      locationLongitude
+    )
+  );
+}
+
 function getSiteDistanceCheck(site, location) {
-  if (!site || !location || site.latitude == null || site.longitude == null) {
+  const distanceFromSiteM = siteDistanceFromLocationM(site, location);
+  if (distanceFromSiteM == null) {
     return {
       distanceFromSiteM: null,
       withinSiteRadius: null
@@ -33,19 +58,65 @@ function getSiteDistanceCheck(site, location) {
   }
 
   const allowedRadius = Number(site.allowed_radius_m || site.allowedRadiusM || 100);
-  const distanceFromSiteM = Math.round(
-    distanceBetweenCoordinatesM(
-      Number(site.latitude),
-      Number(site.longitude),
-      Number(location.latitude),
-      Number(location.longitude)
-    )
-  );
-
   return {
     distanceFromSiteM,
     withinSiteRadius: distanceFromSiteM <= allowedRadius
   };
+}
+
+export function prioritizeAttendanceSites(sites = [], context = {}) {
+  const openCheckInSiteId = String(context.openCheckInSiteId || '');
+  const recentSiteRanks = new Map(
+    (context.recentSiteIds || []).map((siteId, index) => [String(siteId), index])
+  );
+  const locationCoordinates = context.location
+    ? [context.location.latitude, context.location.longitude]
+    : [];
+  const hasLocation = locationCoordinates.length === 2
+    && locationCoordinates.every((value) => (
+      value != null
+      && String(value).trim() !== ''
+      && Number.isFinite(Number(value))
+    ));
+
+  return sites
+    .map((site, originalIndex) => ({
+      site,
+      originalIndex,
+      siteId: String(site.id),
+      distanceM: hasLocation ? siteDistanceFromLocationM(site, context.location) : null
+    }))
+    .sort((left, right) => {
+      const leftIsOpen = openCheckInSiteId && left.siteId === openCheckInSiteId;
+      const rightIsOpen = openCheckInSiteId && right.siteId === openCheckInSiteId;
+      if (leftIsOpen !== rightIsOpen) return leftIsOpen ? -1 : 1;
+
+      if (hasLocation) {
+        const leftHasDistance = left.distanceM != null;
+        const rightHasDistance = right.distanceM != null;
+        if (leftHasDistance !== rightHasDistance) return leftHasDistance ? -1 : 1;
+        if (leftHasDistance && left.distanceM !== right.distanceM) {
+          return left.distanceM - right.distanceM;
+        }
+      }
+
+      const leftRecentRank = recentSiteRanks.get(left.siteId);
+      const rightRecentRank = recentSiteRanks.get(right.siteId);
+      const leftIsRecent = leftRecentRank != null;
+      const rightIsRecent = rightRecentRank != null;
+      if (leftIsRecent !== rightIsRecent) return leftIsRecent ? -1 : 1;
+      if (leftIsRecent && leftRecentRank !== rightRecentRank) {
+        return leftRecentRank - rightRecentRank;
+      }
+
+      const nameOrder = String(left.site.name || '').localeCompare(
+        String(right.site.name || ''),
+        'en',
+        { sensitivity: 'base' }
+      );
+      return nameOrder || left.originalIndex - right.originalIndex;
+    })
+    .map(({ site }) => site);
 }
 
 export function createWorkerAttendanceModule({
@@ -63,6 +134,13 @@ export function createWorkerAttendanceModule({
 }) {
   let locationExpiryTimer = null;
   let busyAttendanceButton = null;
+  let attendanceContext = {
+    openCheckInId: '',
+    openCheckInSiteId: '',
+    recentSiteIds: [],
+    hasCompletedOwnAttendance: false
+  };
+  let handledOpenCheckInId = '';
 
   function activeWorkerId() {
     return state.user?.role === 'worker' ? state.user.id : null;
@@ -76,6 +154,78 @@ export function createWorkerAttendanceModule({
     return ['check_in', 'check_out'].includes(state.attendanceExpectedAction)
       ? state.attendanceExpectedAction
       : '';
+  }
+
+  function renderGuideState() {
+    if (!els.normalWorkerGuide) return;
+    const compact = state.user?.role === 'worker'
+      && state.user?.workerClass !== 'leader'
+      && attendanceContext.hasCompletedOwnAttendance;
+    els.normalWorkerGuide.classList.toggle('is-compact', Boolean(compact));
+    els.normalWorkerGuide.dataset.guideState = compact ? 'compact' : 'full';
+  }
+
+  function siteOptionLabel(site) {
+    const name = String(site.name || `Site ${site.id}`);
+    const address = String(site.address || '').trim();
+    return address ? `${name} - ${address}` : name;
+  }
+
+  function renderSiteOptions() {
+    const selectedSiteId = String(els.attendanceSite.value || '');
+    const freshLocation = locationIssue() ? null : state.attendanceLocation;
+    const openCheckInSiteId = expectedAttendanceAction() === 'check_out'
+      ? attendanceContext.openCheckInSiteId
+      : '';
+    const orderedSites = prioritizeAttendanceSites(state.sites, {
+      openCheckInSiteId,
+      recentSiteIds: attendanceContext.recentSiteIds,
+      location: freshLocation
+    });
+    const emptyLabel = state.sitesLoadError
+      ? 'Sites unavailable - reconnect and try again'
+      : orderedSites.length
+        ? 'Select a site'
+        : 'No sites available';
+
+    els.attendanceSite.innerHTML = [
+      `<option value="">${escapeHtml(emptyLabel)}</option>`,
+      ...orderedSites.map((site) => (
+        `<option value="${escapeHtml(String(site.id))}">${escapeHtml(siteOptionLabel(site))}</option>`
+      ))
+    ].join('');
+
+    const selectedSiteExists = selectedSiteId
+      && orderedSites.some((site) => String(site.id) === selectedSiteId);
+    if (selectedSiteExists) {
+      els.attendanceSite.value = selectedSiteId;
+    }
+
+    const openCheckInId = String(attendanceContext.openCheckInId || '');
+    const openSiteExists = openCheckInSiteId
+      && orderedSites.some((site) => String(site.id) === openCheckInSiteId);
+    if (openCheckInId && handledOpenCheckInId !== openCheckInId) {
+      if (selectedSiteExists) {
+        handledOpenCheckInId = openCheckInId;
+      } else if (openSiteExists) {
+        els.attendanceSite.value = openCheckInSiteId;
+        handledOpenCheckInId = openCheckInId;
+      }
+    }
+  }
+
+  function setAttendanceContext(nextContext = {}) {
+    attendanceContext = {
+      openCheckInId: String(nextContext.openCheckInId || ''),
+      openCheckInSiteId: String(nextContext.openCheckInSiteId || ''),
+      recentSiteIds: (nextContext.recentSiteIds || []).map(String),
+      hasCompletedOwnAttendance: Boolean(nextContext.hasCompletedOwnAttendance)
+    };
+    state.attendanceExpectedAction = ['check_in', 'check_out'].includes(nextContext.expectedAction)
+      ? nextContext.expectedAction
+      : '';
+    renderGuideState();
+    renderLocationPreview();
   }
 
   function oppositeAttendanceAction(action) {
@@ -179,6 +329,7 @@ export function createWorkerAttendanceModule({
       clearLocationExpiryTimer();
       state.attendanceLocation = null;
     }
+    renderSiteOptions();
 
     if (!state.attendanceLocation) {
       const hasSite = Boolean(els.attendanceSite.value);
@@ -490,6 +641,14 @@ export function createWorkerAttendanceModule({
   function clearSessionState() {
     feedback.clearLocal(els.attendanceFeedback);
     state.attendanceExpectedAction = '';
+    attendanceContext = {
+      openCheckInId: '',
+      openCheckInSiteId: '',
+      recentSiteIds: [],
+      hasCompletedOwnAttendance: false
+    };
+    handledOpenCheckInId = '';
+    renderGuideState();
     els.attendanceCorrectionDetails.open = false;
     resetForm();
     els.attendanceDetails.open = false;
@@ -510,7 +669,9 @@ export function createWorkerAttendanceModule({
     bindEvents,
     clearSessionState,
     renderLocationPreview,
+    renderSiteOptions,
     restoreDraft,
+    setAttendanceContext,
     submit,
     updateActionState
   };

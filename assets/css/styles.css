@@ -581,6 +581,10 @@ p,
   font-size: clamp(1.5rem, 2.4vw, 2rem);
 }
 
+#loginForm {
+  margin-top: 14px;
+}
+
 .fold-card {
   padding: 0;
   overflow: clip;
@@ -980,6 +984,48 @@ p,
   font-size: 0.76rem;
   font-weight: 700;
   line-height: 1.3;
+}
+
+.normal-worker-guide.is-compact {
+  grid-template-columns: 1fr;
+  gap: 0;
+  margin-top: 10px;
+  padding: 10px 12px;
+}
+
+.normal-worker-guide.is-compact .normal-worker-guide-copy,
+.normal-worker-guide.is-compact .normal-worker-steps small {
+  display: none;
+}
+
+.normal-worker-guide.is-compact .normal-worker-steps {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.normal-worker-guide.is-compact .normal-worker-steps li {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  justify-items: start;
+  align-items: center;
+  min-height: 44px;
+  padding: 7px 8px;
+  border-width: 1px;
+  text-align: left;
+}
+
+.normal-worker-guide.is-compact .normal-worker-steps li > div {
+  display: block;
+}
+
+.normal-worker-guide.is-compact .normal-worker-steps span {
+  padding: 0.16rem 0.42rem;
+  font-size: 0.72rem;
+}
+
+.normal-worker-guide.is-compact .normal-worker-steps strong {
+  font-size: 0.82rem;
+  line-height: 1.15;
 }
 
 .worker-task-heading {

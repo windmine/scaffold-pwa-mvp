@@ -133,6 +133,7 @@ export const els = {
   attendanceCorrectionButton: document.getElementById('attendanceCorrectionButton'),
   attendanceFeedback: document.getElementById('attendanceFeedback'),
   attendanceActionHelp: document.getElementById('attendanceActionHelp'),
+  normalWorkerGuide: document.getElementById('normalWorkerGuide'),
   workerSummary: document.getElementById('workerSummary'),
   workerSummaryTitle: document.getElementById('workerSummaryTitle'),
   historyList: document.getElementById('historyList'),

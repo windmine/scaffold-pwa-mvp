@@ -19,6 +19,7 @@ import {
   logout as clearBackendSession
 } from './api-client.js';
 import { discardOfflineSubmission, syncQueuedSubmissions } from './offline-submissions.js';
+import { clearWorkerAttendanceSnapshot } from './offline-attendance-snapshot.js';
 import {
   clearWorkerSiteSnapshot,
   loadWorkerSiteSnapshot,
@@ -91,7 +92,7 @@ const historyModule = createHistoryModule({
   handleSupervisorTrashRecord,
   handleSupervisorDecision,
   handleSupervisorExportRecord,
-  onAttendanceExpectedActionChanged: () => workerAttendance?.updateActionState()
+  onAttendanceContextChanged: (context) => workerAttendance?.setAttendanceContext(context)
 });
 
 workerAttendance = createWorkerAttendanceModule({
@@ -271,7 +272,7 @@ async function loadSitesForSession(options = {}) {
   } catch (error) {
     state.sitesLoadError = error.message || 'Sites could not be loaded from the backend.';
     if (state.user?.role === 'worker' && [401, 403].includes(error.status)) {
-      await discardWorkerSiteSnapshot(state.user);
+      await discardWorkerOfflineSnapshots(state.user);
     } else if (state.user?.role === 'worker') {
       try {
         const snapshot = await loadWorkerSiteSnapshot(state.user);
@@ -287,12 +288,11 @@ async function loadSitesForSession(options = {}) {
   }
 }
 
-async function discardWorkerSiteSnapshot(user) {
-  try {
-    await clearWorkerSiteSnapshot(user);
-  } catch {
-    // Local cleanup must not block logout or backend-session recovery.
-  }
+async function discardWorkerOfflineSnapshots(user) {
+  await Promise.allSettled([
+    clearWorkerSiteSnapshot(user),
+    clearWorkerAttendanceSnapshot(user)
+  ]);
 }
 
 async function loadDepartments() {
@@ -332,7 +332,7 @@ async function restoreBackendSession() {
         || String(refreshedUser.departmentId || '') !== String(cachedUser.departmentId || '')
       )
     ) {
-      await discardWorkerSiteSnapshot(cachedUser);
+      await discardWorkerOfflineSnapshots(cachedUser);
     }
     state.user = refreshedUser;
     return '';
@@ -342,7 +342,7 @@ async function restoreBackendSession() {
     }
 
     if (error.status === 401 || error.status === 403) {
-      await discardWorkerSiteSnapshot(state.user);
+      await discardWorkerOfflineSnapshots(state.user);
       clearBackendSession();
       state.user = null;
       return 'Your saved backend session expired. Please sign in again.';
@@ -682,7 +682,7 @@ function fillSiteSelects() {
     )
     .join('');
 
-  els.attendanceSite.innerHTML = options;
+  workerAttendance.renderSiteOptions();
   els.taskSite.innerHTML = options;
   els.workFormSite.innerHTML = options;
 }
@@ -1097,10 +1097,11 @@ async function handleLogout() {
     uiFeedback.setButtonBusy(els.logoutButton, false);
   }
   uiFeedback.clearAll();
-  await discardWorkerSiteSnapshot(state.user);
+  const signedOutUser = state.user;
+  state.user = null;
   clearWorkerSessionState();
   clearBackendSession();
-  state.user = null;
+  await discardWorkerOfflineSnapshots(signedOutUser);
   staffSitesModule.resetSession();
   state.sites = [];
   state.sitesLoadError = '';
@@ -1113,11 +1114,12 @@ function handleSessionExpired(message = 'Your backend session expired. Please si
   sessionExpiryInProgress = true;
 
   const finish = () => {
-    void discardWorkerSiteSnapshot(state.user);
+    const expiredUser = state.user;
+    state.user = null;
+    void discardWorkerOfflineSnapshots(expiredUser);
     uiFeedback.clearAll();
     clearWorkerSessionState();
     clearBackendSession();
-    state.user = null;
     staffSitesModule.resetSession();
     state.sites = [];
     state.sitesLoadError = '';

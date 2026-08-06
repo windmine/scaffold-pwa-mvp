@@ -299,14 +299,6 @@
             <p><strong>Invited accounts only.</strong> Sign in with the account provided by your supervisor. Contact your supervisor if you need access.</p>
           </div>
 
-          <div class="install-box">
-            <div>
-              <strong>Use it like an app</strong>
-              <p id="downloadAppHelp" class="install-help">Download this app to your home screen from a supported browser.</p>
-            </div>
-            <button id="downloadAppButton" type="button" class="secondary">Download App</button>
-          </div>
-
           <form id="loginForm" class="form-grid">
             <label>
               Email
@@ -319,6 +311,14 @@
             <button id="loginSubmitButton" type="submit">Sign in</button>
             <div id="loginFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
           </form>
+
+          <div class="install-box">
+            <div>
+              <strong>Use it like an app</strong>
+              <p id="downloadAppHelp" class="install-help">Download this app to your home screen from a supported browser.</p>
+            </div>
+            <button id="downloadAppButton" type="button" class="secondary">Download App</button>
+          </div>
 
           <div id="registrationPanel" hidden aria-hidden="true">
             <div class="form-divider"></div>
@@ -398,7 +398,7 @@
             </article>
           </div>
 
-          <section class="card normal-worker-only normal-worker-guide">
+          <section id="normalWorkerGuide" class="card normal-worker-only normal-worker-guide">
             <div class="normal-worker-guide-copy">
               <p class="eyebrow">Your attendance</p>
               <h2>Start or finish your shift</h2>

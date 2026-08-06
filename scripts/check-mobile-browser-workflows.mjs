@@ -88,6 +88,7 @@ const sourceTeamWorkLog = read('assets/js/team-work-log.js');
 const sourceUiFeedback = read('assets/js/ui-feedback.js');
 const sourceWorker = read('sw.js');
 const sourceOfflineQueue = read('assets/js/offline-submissions.js');
+const sourceOfflineAttendanceSnapshot = read('assets/js/offline-attendance-snapshot.js');
 const sourceOfflineSiteSnapshot = read('assets/js/offline-site-snapshot.js');
 const sourcePhotoViewer = read('assets/js/photo-viewer.js');
 const sourceWorkFormBuilder = read('assets/js/work-form-builder.js');
@@ -255,6 +256,16 @@ check('public registration is hidden for invited accounts', () => (
   && sourceIndex.includes('<strong>Invited accounts only.</strong>')
   && sourceIndex.includes('id="registrationPanel" hidden aria-hidden="true"')
 ));
+
+check('login form precedes the install promotion', () => {
+  const loginFormIndex = sourceIndex.indexOf('id="loginForm"');
+  const loginFormEndIndex = sourceIndex.indexOf('</form>', loginFormIndex);
+  const installPromotionIndex = sourceIndex.indexOf('class="install-box"');
+  return loginFormIndex >= 0
+    && loginFormEndIndex >= 0
+    && installPromotionIndex >= 0
+    && loginFormEndIndex < installPromotionIndex;
+});
 
 [
   'statusBanner',
@@ -603,18 +614,28 @@ check('production service worker uses the current app shell rules', () => (
   && distWorker.includes('isAppShellNavigation(request)')
 ));
 
-check('cold offline launch restores only a Worker-scoped cached Site snapshot', () => {
+check('cold offline launch restores only Worker-scoped cached Site and attendance context', () => {
   const fetchHandler = sourceWorker.match(/self\.addEventListener\('fetch'[\s\S]*?\n}\);/)?.[0] || '';
   return sourceApp.includes("from './offline-site-snapshot.js'")
+    && sourceApp.includes("from './offline-attendance-snapshot.js'")
     && sourceApp.includes('await saveWorkerSiteSnapshot(state.user, sites)')
     && sourceApp.includes('await loadWorkerSiteSnapshot(state.user)')
-    && sourceApp.includes('await discardWorkerSiteSnapshot(state.user)')
+    && sourceApp.includes('discardWorkerOfflineSnapshots')
     && sourceOfflineSiteSnapshot.includes("const SNAPSHOT_KEY_PREFIX = 'worker-site-snapshot'")
     && sourceOfflineSiteSnapshot.includes('ownerWorkerId: scope.workerId')
     && sourceOfflineSiteSnapshot.includes('departmentId: scope.departmentId')
     && sourceOfflineSiteSnapshot.includes('export async function clearWorkerSiteSnapshot(user)')
     && sourceOfflineSiteSnapshot.includes('if (user?.role !== \'worker\' || !workerId || !departmentId) return null')
+    && sourceOfflineAttendanceSnapshot.includes("const SNAPSHOT_KEY_PREFIX = 'worker-attendance-snapshot'")
+    && sourceOfflineAttendanceSnapshot.includes('ownerWorkerId: scope.workerId')
+    && sourceOfflineAttendanceSnapshot.includes('departmentId: scope.departmentId')
+    && sourceOfflineAttendanceSnapshot.includes('export async function clearWorkerAttendanceSnapshot(user)')
+    && read('assets/js/history.js').includes('await saveWorkerAttendanceSnapshot(worker, records)')
+    && read('assets/js/history.js').includes('attendanceSnapshotWriteChain')
+    && read('assets/js/history.js').includes('requestId <= lastAttendanceSnapshotRequestId')
+    && read('assets/js/history.js').includes('await loadWorkerAttendanceSnapshot(worker)')
     && appShell.includes('/assets/js/offline-site-snapshot.js')
+    && appShell.includes('/assets/js/offline-attendance-snapshot.js')
     && fetchHandler.indexOf('isNetworkOnlyRequest(request)') >= 0
     && fetchHandler.indexOf('isNetworkOnlyRequest(request)') < fetchHandler.indexOf("request.mode === 'navigate'")
     && sourceWorker.includes("cache.match('/index.html')")
@@ -790,7 +811,7 @@ check('normal workers are attendance-only and leaders can submit weekly team log
 ));
 
 check('normal worker UI is focused and step based', () => (
-  sourceIndex.includes('class="card normal-worker-only normal-worker-guide"')
+  sourceIndex.includes('id="normalWorkerGuide" class="card normal-worker-only normal-worker-guide"')
   && sourceIndex.includes('data-attendance-progress')
   && sourceIndex.includes('data-attendance-step="location"')
   && sourceIndex.includes('id="attendanceActionHelp"')
@@ -807,9 +828,24 @@ check('normal worker UI is focused and step based', () => (
   && sourceStyles.includes('bottom: max(78px, calc(68px + env(safe-area-inset-bottom)))')
   && sourceStyles.includes('#workerView.normal-worker-mode .history-type-filter')
   && sourceStyles.includes('.normal-worker-steps')
+  && sourceStyles.includes('.normal-worker-guide.is-compact')
   && read('assets/js/worker-attendance.js').includes("step.classList.toggle('is-current'")
+  && sourceWorkerAttendance.includes("dataset.guideState = compact ? 'compact' : 'full'")
+  && read('assets/js/history.js').includes('hasCompletedOwnAttendance')
   && read('assets/js/worker-attendance.js').includes("els.locationPreview.classList.add('is-ready')")
   && read('assets/js/history.js').includes('class="worker-status-hero')
+));
+
+check('attendance defaults checkout to the open Site and prioritises recent or nearest Sites', () => (
+  sourceWorkerAttendance.includes('function renderSiteOptions()')
+  && sourceWorkerAttendance.includes('prioritizeAttendanceSites')
+  && sourceWorkerAttendance.includes('openCheckInSiteId')
+  && sourceWorkerAttendance.includes('recentSiteIds')
+  && sourceWorkerAttendance.includes('handledOpenCheckInId')
+  && sourceWorkerAttendance.includes('siteDistanceFromLocationM')
+  && read('assets/js/history.js').includes('buildWorkerAttendanceContext')
+  && read('assets/js/history.js').includes('openCheckInsBySite')
+  && sourceApp.includes('workerAttendance.renderSiteOptions()')
 ));
 
 check('attendance exposes one contextual primary action and a correction path', () => (
@@ -822,7 +858,7 @@ check('attendance exposes one contextual primary action and a correction path', 
   && sourceWorkerAttendance.includes('configureContextualActions')
   && sourceWorkerAttendance.includes("state.attendanceExpectedAction")
   && sourceWorkerAttendance.includes("button.dataset.attendanceAction")
-  && read('assets/js/history.js').includes('onAttendanceExpectedActionChanged')
+  && read('assets/js/history.js').includes('onAttendanceContextChanged')
   && sourceStyles.includes('.attendance-primary-actions')
   && sourceStyles.includes('.attendance-correction-details')
 ));

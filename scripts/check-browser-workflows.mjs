@@ -479,6 +479,21 @@ async function checkAnonymousStartupDoesNotLoadSites(browser) {
     if (!(await page.locator('#invitedAccountNotice').getByText('Invited accounts only.').isVisible())) {
       throw new Error('invited-account guidance is not visible on the sign-in screen');
     }
+    const loginPrecedesInstallInDom = await page.locator('#loginView').evaluate((view) => {
+      const loginForm = view.querySelector('#loginForm');
+      const installPromotion = view.querySelector('.install-box');
+      return Boolean(loginForm
+        && installPromotion
+        && (loginForm.compareDocumentPosition(installPromotion) & Node.DOCUMENT_POSITION_FOLLOWING));
+    });
+    const loginFormBox = await page.locator('#loginForm').boundingBox();
+    const installPromotionBox = await page.locator('#loginView .install-box').boundingBox();
+    if (!loginPrecedesInstallInDom
+      || !loginFormBox
+      || !installPromotionBox
+      || loginFormBox.y + loginFormBox.height > installPromotionBox.y) {
+      throw new Error(`install promotion appears before the primary login form: ${JSON.stringify({ loginPrecedesInstallInDom, loginFormBox, installPromotionBox })}`);
+    }
     if (siteRequests.length) {
       throw new Error(`anonymous startup requested authenticated sites: ${JSON.stringify(siteRequests)}`);
     }
@@ -803,6 +818,367 @@ async function checkContextualAttendanceAction(browser) {
     ) {
       throw new Error(`attendance action did not advance after submission: ${JSON.stringify(completedState)}`);
     }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkNormalWorkerAttendanceShortcuts(browser) {
+  const context = await newContext(browser, {
+    geolocation: { latitude: -36.7832, longitude: 174.7631, accuracy: 10 },
+    permissions: ['geolocation']
+  });
+  const page = await context.newPage();
+  const workerEmail = `attendance-shortcuts-${Date.now()}@example.com`;
+  const secondWorkerEmail = `attendance-scope-${Date.now()}@example.com`;
+
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await page.evaluate(async ({ email, secondEmail, workerPassword }) => {
+      const { createUser, getSession } = await import('/assets/js/api-client.js');
+      const supervisor = getSession();
+      await createUser({
+        name: 'Attendance Shortcut Worker',
+        email,
+        password: workerPassword,
+        role: 'worker',
+        worker_class: 'normal',
+        department_id: supervisor.departmentId,
+        is_global_admin: false
+      });
+      await createUser({
+        name: 'Attendance Scope Worker',
+        email: secondEmail,
+        password: workerPassword,
+        role: 'worker',
+        worker_class: 'normal',
+        department_id: supervisor.departmentId,
+        is_global_admin: false
+      });
+    }, {
+      email: workerEmail,
+      secondEmail: secondWorkerEmail,
+      workerPassword: password
+    });
+    await logout(page);
+    await page.waitForTimeout(300);
+    await loginAs(page, workerEmail, 'worker');
+
+    await page.waitForFunction(() => (
+      document.querySelector('#attendancePrimaryButton')?.dataset.attendanceAction === 'check_in'
+      && document.querySelector('#normalWorkerGuide')?.dataset.guideState === 'full'
+    ), null, { timeout: 15000 });
+
+    const deduplicatedContext = await page.evaluate(async () => {
+      const { buildWorkerAttendanceContext } = await import('/assets/js/history.js');
+      return buildWorkerAttendanceContext([
+        {
+          id: 101,
+          clientSubmissionId: 'duplicate-check-in',
+          type: 'attendance',
+          siteId: 1,
+          action: 'check_in',
+          createdAt: '2026-08-07T08:00:00.000Z',
+          source: 'backend'
+        },
+        {
+          id: 'local-duplicate',
+          clientSubmissionId: 'duplicate-check-in',
+          type: 'attendance',
+          siteId: 1,
+          action: 'check_in',
+          createdAt: '2026-08-07T08:00:00.000Z',
+          syncStatus: 'queued',
+          source: 'local'
+        },
+        {
+          id: 102,
+          clientSubmissionId: 'matching-check-out',
+          type: 'attendance',
+          siteId: 1,
+          action: 'check_out',
+          createdAt: '2026-08-07T17:00:00.000Z',
+          source: 'backend'
+        }
+      ]);
+    });
+    if (deduplicatedContext.hasOpenCheckIn || deduplicatedContext.expectedAction !== 'check_in') {
+      throw new Error(`backend/local attendance retry was counted twice: ${JSON.stringify(deduplicatedContext)}`);
+    }
+
+    const sites = await page.evaluate(async () => {
+      const response = await fetch('/api/sites', { credentials: 'include' });
+      if (!response.ok) throw new Error(`sites failed: ${response.status}`);
+      return response.json();
+    });
+    const auckland = sites.find((site) => site.name === 'Auckland Yard');
+    const northShore = sites.find((site) => site.name === 'North Shore Warehouse');
+    if (!auckland || !northShore) {
+      throw new Error(`attendance shortcut fixture Sites are missing: ${JSON.stringify(sites)}`);
+    }
+
+    const initialLayout = await page.evaluate(() => {
+      const guide = document.querySelector('#normalWorkerGuide');
+      const siteSelect = document.querySelector('#attendanceSite');
+      const guideBox = guide?.getBoundingClientRect();
+      const siteBox = siteSelect?.getBoundingClientRect();
+      return {
+        guideState: guide?.dataset.guideState || '',
+        guideHeight: guideBox?.height || 0,
+        siteDocumentTop: siteBox ? siteBox.top + window.scrollY : 0
+      };
+    });
+    if (initialLayout.guideState !== 'full' || initialLayout.guideHeight < 100) {
+      throw new Error(`fresh normal Worker did not receive the full guide: ${JSON.stringify(initialLayout)}`);
+    }
+
+    await page.locator('#attendanceSite').selectOption(String(auckland.id));
+    await captureLocation(page);
+    await page.waitForFunction(({ nearestSiteId, selectedSiteId }) => {
+      const select = document.querySelector('#attendanceSite');
+      const firstSiteOption = [...(select?.options || [])].find((option) => option.value);
+      return firstSiteOption?.value === nearestSiteId && select?.value === selectedSiteId;
+    }, {
+      nearestSiteId: String(northShore.id),
+      selectedSiteId: String(auckland.id)
+    });
+
+    await page.locator('#attendanceSite').selectOption(String(northShore.id));
+    await page.locator('#locationPreview').getByText('Inside site area').waitFor({ timeout: 5000 });
+    const initialRecordCount = await myRecordCount(page);
+    await page.locator('#attendancePrimaryButton').click();
+    await pageWaitForRecordCount(page, initialRecordCount + 1);
+    await page.waitForFunction((siteId) => (
+      document.querySelector('#attendancePrimaryButton')?.dataset.attendanceAction === 'check_out'
+      && document.querySelector('#attendanceSite')?.value === siteId
+      && document.querySelector('#normalWorkerGuide')?.dataset.guideState === 'compact'
+    ), String(northShore.id), { timeout: 15000 });
+
+    const compactLayout = await page.evaluate(() => {
+      const guide = document.querySelector('#normalWorkerGuide');
+      const siteSelect = document.querySelector('#attendanceSite');
+      const guideBox = guide?.getBoundingClientRect();
+      const siteBox = siteSelect?.getBoundingClientRect();
+      return {
+        guideState: guide?.dataset.guideState || '',
+        guideHeight: guideBox?.height || 0,
+        siteDocumentTop: siteBox ? siteBox.top + window.scrollY : 0
+      };
+    });
+    if (
+      compactLayout.guideState !== 'compact'
+      || compactLayout.guideHeight >= initialLayout.guideHeight
+      || compactLayout.siteDocumentTop > initialLayout.siteDocumentTop - 80
+    ) {
+      throw new Error(`first attendance did not compact the guide enough: ${JSON.stringify({ initialLayout, compactLayout })}`);
+    }
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction((siteId) => (
+      document.body.dataset.activeView === 'worker'
+      && document.querySelector('#attendancePrimaryButton')?.dataset.attendanceAction === 'check_out'
+      && document.querySelector('#attendanceSite')?.value === siteId
+      && document.querySelector('#normalWorkerGuide')?.dataset.guideState === 'compact'
+    ), String(northShore.id), { timeout: 20000 });
+
+    await page.evaluate(async () => {
+      const { getAll, remove } = await import('/assets/js/db.js');
+      const records = await getAll('records');
+      await Promise.all(records
+        .filter((record) => record.type === 'attendance')
+        .map((record) => remove('records', record.id)));
+    });
+    await page.route('**/api/my-records', (route) => route.abort('failed'));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction((siteId) => (
+      document.body.dataset.activeView === 'worker'
+      && document.querySelector('#attendancePrimaryButton')?.dataset.attendanceAction === 'check_out'
+      && document.querySelector('#attendanceSite')?.value === siteId
+      && document.querySelector('#normalWorkerGuide')?.dataset.guideState === 'compact'
+    ), String(northShore.id), { timeout: 20000 });
+    await page.unroute('**/api/my-records');
+
+    await page.locator('#attendanceSite').selectOption(String(auckland.id));
+    await captureLocation(page);
+    const openSiteState = await page.evaluate(() => {
+      const select = document.querySelector('#attendanceSite');
+      return {
+        selectedSiteId: select?.value || '',
+        firstSiteId: [...(select?.options || [])].find((option) => option.value)?.value || ''
+      };
+    });
+    if (
+      openSiteState.selectedSiteId !== String(auckland.id)
+      || openSiteState.firstSiteId !== String(northShore.id)
+    ) {
+      throw new Error(`open-Site priority overwrote an explicit Site choice: ${JSON.stringify(openSiteState)}`);
+    }
+
+    await page.locator('#attendanceSite').selectOption(String(northShore.id));
+    await page.locator('#attendancePrimaryButton').click();
+    await pageWaitForRecordCount(page, initialRecordCount + 2);
+    await page.waitForFunction((recentSiteId) => {
+      const select = document.querySelector('#attendanceSite');
+      const firstSiteOption = [...(select?.options || [])].find((option) => option.value);
+      return document.querySelector('#attendancePrimaryButton')?.dataset.attendanceAction === 'check_in'
+        && select?.value === ''
+        && firstSiteOption?.value === recentSiteId
+        && document.querySelector('#normalWorkerGuide')?.dataset.guideState === 'compact';
+    }, String(northShore.id), { timeout: 15000 });
+
+    const snapshotRaceFixture = await page.evaluate(async (siteId) => {
+      const { getSession } = await import('/assets/js/api-client.js');
+      const response = await fetch('/api/my-records', { credentials: 'include' });
+      if (!response.ok) throw new Error(`attendance race fixture failed: ${response.status}`);
+      const records = await response.json();
+      const worker = getSession();
+      return {
+        records,
+        newerRecord: {
+          id: 9000001,
+          worker_id: worker.id,
+          worker_name: worker.fullName,
+          department_id: worker.departmentId,
+          site_id: Number(siteId),
+          site_name: 'Snapshot Race Site',
+          record_type: 'check_in',
+          latitude: -36.7832,
+          longitude: 174.7631,
+          accuracy: 10,
+          distance_from_site_m: 5,
+          within_site_radius: true,
+          note: 'Newest snapshot marker',
+          status: 'pending',
+          entry_source: 'worker',
+          client_submission_id: 'newest-snapshot-marker',
+          created_at: new Date(Date.now() + 60000).toISOString()
+        }
+      };
+    }, String(northShore.id));
+
+    let releaseOlderHistory;
+    let markOlderHistorySeen;
+    let markOlderHistoryDone;
+    let markNewerHistoryDone;
+    const olderHistoryGate = new Promise((resolve) => { releaseOlderHistory = resolve; });
+    const olderHistorySeen = new Promise((resolve) => { markOlderHistorySeen = resolve; });
+    const olderHistoryDone = new Promise((resolve) => { markOlderHistoryDone = resolve; });
+    const newerHistoryDone = new Promise((resolve) => { markNewerHistoryDone = resolve; });
+    let historyRaceRequestCount = 0;
+    await page.route('**/api/my-records', async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      historyRaceRequestCount += 1;
+      if (historyRaceRequestCount === 1) {
+        markOlderHistorySeen();
+        await olderHistoryGate;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(snapshotRaceFixture.records)
+        });
+        markOlderHistoryDone();
+        return;
+      }
+      if (historyRaceRequestCount === 2) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            snapshotRaceFixture.newerRecord,
+            ...snapshotRaceFixture.records
+          ])
+        });
+        markNewerHistoryDone();
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.locator('#refreshHistoryButton').evaluate((button) => button.click());
+    await olderHistorySeen;
+    await page.locator('#refreshHistoryButton').evaluate((button) => button.click());
+    await newerHistoryDone;
+    await page.waitForFunction(() => (
+      document.querySelector('#historyList')?.textContent?.includes('Newest snapshot marker')
+    ), null, { timeout: 10000 });
+    releaseOlderHistory();
+    await olderHistoryDone;
+    await delay(250);
+    const orderedSnapshot = await page.evaluate(async () => {
+      const { getSession } = await import('/assets/js/api-client.js');
+      const { loadWorkerAttendanceSnapshot } = await import('/assets/js/offline-attendance-snapshot.js');
+      return loadWorkerAttendanceSnapshot(getSession());
+    });
+    if (
+      !orderedSnapshot?.records?.some(
+        (record) => record.clientSubmissionId === 'newest-snapshot-marker'
+      )
+      || !await page.locator('#historyList').getByText('Newest snapshot marker').count()
+    ) {
+      throw new Error(`older history response replaced newer state: ${JSON.stringify(orderedSnapshot)}`);
+    }
+    await page.unroute('**/api/my-records');
+
+    const staleAccountRecord = {
+      ...snapshotRaceFixture.newerRecord,
+      id: 9000002,
+      note: 'STALE WORKER A RECORD',
+      client_submission_id: 'stale-worker-a-record',
+      created_at: new Date(Date.now() + 120000).toISOString()
+    };
+    let releaseStaleAccountHistory;
+    let markStaleAccountHistorySeen;
+    let markStaleAccountHistoryDone;
+    const staleAccountGate = new Promise((resolve) => { releaseStaleAccountHistory = resolve; });
+    const staleAccountHistorySeen = new Promise((resolve) => { markStaleAccountHistorySeen = resolve; });
+    const staleAccountHistoryDone = new Promise((resolve) => { markStaleAccountHistoryDone = resolve; });
+    let holdStaleAccountHistory = true;
+    await page.route('**/api/my-records', async (route) => {
+      if (route.request().method() !== 'GET' || !holdStaleAccountHistory) {
+        await route.continue();
+        return;
+      }
+      markStaleAccountHistorySeen();
+      await staleAccountGate;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([staleAccountRecord])
+      });
+      markStaleAccountHistoryDone();
+    });
+    await page.locator('#refreshHistoryButton').evaluate((button) => button.click());
+    await staleAccountHistorySeen;
+    await logout(page);
+    holdStaleAccountHistory = false;
+    await page.locator('#emailInput').fill(secondWorkerEmail);
+    await page.locator('#passwordInput').fill(password);
+    await page.locator('#loginSubmitButton').click();
+    await page.waitForFunction(() => document.body.dataset.activeView === 'worker', null, { timeout: 20000 });
+    await page.locator('#workerView').waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForFunction(() => document.querySelector('#historyList .empty-state'), null, {
+      timeout: 15000
+    });
+    releaseStaleAccountHistory();
+    await staleAccountHistoryDone;
+    await delay(250);
+    const scopedHistoryState = await page.evaluate(async () => {
+      const { getSession } = await import('/assets/js/api-client.js');
+      return {
+        email: getSession()?.email || '',
+        historyText: document.querySelector('#historyList')?.textContent || ''
+      };
+    });
+    if (
+      scopedHistoryState.email !== secondWorkerEmail
+      || scopedHistoryState.historyText.includes('STALE WORKER A RECORD')
+    ) {
+      throw new Error(`previous Worker history crossed account scope: ${JSON.stringify(scopedHistoryState)}`);
+    }
+    await page.unroute('**/api/my-records');
   } finally {
     await context.close();
   }
@@ -3334,6 +3710,7 @@ async function main() {
     }));
     await runCheck('browser geolocation grant enables attendance capture', () => checkLoginAndGrantedGeolocation(browser));
     await runCheck('attendance presents one contextual action with a secondary correction path', () => checkContextualAttendanceAction(browser));
+    await runCheck('normal Worker guide compacts and Site priority follows attendance context', () => checkNormalWorkerAttendanceShortcuts(browser));
     await runCheck('browser geolocation denial shows recoverable error', () => checkDeniedGeolocation(browser));
     await runCheck('Daywork team rows use searchable member picker', () => checkDayworkTeamMemberPicker(browser));
     await runCheck('Daywork history and review hide helper fields', () => checkDayworkRecordRendering(browser));

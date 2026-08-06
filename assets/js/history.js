@@ -6,6 +6,10 @@ import {
 } from './api-client.js';
 import { getWorkerRecords as getLocalWorkerRecords } from './mock-api.js';
 import { normaliseRecordPhotoUrls } from './offline-submissions.js';
+import {
+  loadWorkerAttendanceSnapshot,
+  saveWorkerAttendanceSnapshot
+} from './offline-attendance-snapshot.js';
 import { dateInputValue, formatDateTime, todayDateInput, escapeHtml } from './utils.js';
 import { formatWorkFormAnswer } from './work-form-fields.js';
 import { setDateInputValue } from './date-inputs.js';
@@ -172,6 +176,125 @@ export function filterRecords(records, filters) {
   });
 }
 
+function attendanceClientSubmissionId(record) {
+  return String(record?.clientSubmissionId || record?.client_submission_id || '').trim();
+}
+
+function attendanceRecordIdentity(record) {
+  return String(
+    attendanceClientSubmissionId(record)
+    || record.id
+    || record.backendRecordId
+    || `${record.siteId ?? 'unassigned'}:${record.createdAt || ''}`
+  );
+}
+
+function isBackendAttendanceRecord(record) {
+  return String(record?.source || '').startsWith('backend');
+}
+
+function mergeDuplicateAttendanceRecords(left, right) {
+  const backendRecord = isBackendAttendanceRecord(right)
+    ? right
+    : isBackendAttendanceRecord(left)
+      ? left
+      : null;
+  const localRecord = backendRecord === right ? left : right;
+  if (!backendRecord) return left;
+
+  const hasPendingLocalRetry = ['queued', 'syncing'].includes(localRecord?.syncStatus);
+  return {
+    ...localRecord,
+    ...backendRecord,
+    clientSubmissionId: attendanceClientSubmissionId(backendRecord)
+      || attendanceClientSubmissionId(localRecord),
+    syncStatus: hasPendingLocalRetry ? localRecord.syncStatus : backendRecord.syncStatus,
+    syncError: hasPendingLocalRetry ? (localRecord.syncError || '') : (backendRecord.syncError || ''),
+    syncStartedAt: hasPendingLocalRetry ? (localRecord.syncStartedAt || '') : ''
+  };
+}
+
+function deduplicateAttendanceRecords(records = []) {
+  const unkeyedRecords = [];
+  const recordsByClientSubmissionId = new Map();
+
+  records
+    .filter((record) => record.type === 'attendance' && ['check_in', 'check_out'].includes(record.action))
+    .forEach((record) => {
+      const clientSubmissionId = attendanceClientSubmissionId(record);
+      if (!clientSubmissionId) {
+        unkeyedRecords.push(record);
+        return;
+      }
+      const existing = recordsByClientSubmissionId.get(clientSubmissionId);
+      recordsByClientSubmissionId.set(
+        clientSubmissionId,
+        existing ? mergeDuplicateAttendanceRecords(existing, record) : record
+      );
+    });
+
+  return unkeyedRecords
+    .concat([...recordsByClientSubmissionId.values()])
+    .sort(compareRecordsNewestFirst);
+}
+
+function mergeWorkerHistoryRecords(...recordGroups) {
+  const records = recordGroups.flat().filter(Boolean);
+  const nonAttendanceRecords = records.filter((record) => record.type !== 'attendance');
+  return nonAttendanceRecords
+    .concat(deduplicateAttendanceRecords(records))
+    .sort(compareRecordsNewestFirst);
+}
+
+export function buildWorkerAttendanceContext(records = []) {
+  const attendanceRecords = deduplicateAttendanceRecords(records);
+  const recentSiteIds = [];
+  const seenSiteIds = new Set();
+
+  attendanceRecords.forEach((record) => {
+    if (record.siteId == null || String(record.siteId) === '') return;
+    const siteId = String(record.siteId);
+    if (seenSiteIds.has(siteId)) return;
+    seenSiteIds.add(siteId);
+    recentSiteIds.push(siteId);
+  });
+
+  const openCheckInsBySite = new Map();
+  attendanceRecords.slice().reverse().forEach((record) => {
+    const siteId = record.siteId == null || String(record.siteId) === ''
+      ? 'unassigned'
+      : String(record.siteId);
+    const openCheckIns = openCheckInsBySite.get(siteId) || [];
+    if (record.action === 'check_in') {
+      openCheckIns.push(record);
+      openCheckInsBySite.set(siteId, openCheckIns);
+    } else if (openCheckIns.length) {
+      openCheckIns.pop();
+      if (openCheckIns.length) {
+        openCheckInsBySite.set(siteId, openCheckIns);
+      } else {
+        openCheckInsBySite.delete(siteId);
+      }
+    }
+  });
+
+  const openCheckIn = [...openCheckInsBySite.values()]
+    .flat()
+    .sort(compareRecordsNewestFirst)[0] || null;
+
+  return {
+    expectedAction: openCheckIn ? 'check_out' : 'check_in',
+    openCheckInId: openCheckIn ? attendanceRecordIdentity(openCheckIn) : '',
+    openCheckInSiteId: openCheckIn?.siteId == null ? '' : String(openCheckIn.siteId),
+    recentSiteIds,
+    hasCompletedOwnAttendance: attendanceRecords.some(
+      (record) => record.entrySource !== 'supervisor_manual'
+    ),
+    hasOpenCheckIn: Boolean(openCheckIn),
+    latestAttendance: attendanceRecords[0] || null
+  };
+}
+
 export function createHistoryModule({
   els,
   state,
@@ -187,9 +310,25 @@ export function createHistoryModule({
   handleSupervisorTrashRecord,
   handleSupervisorDecision,
   handleSupervisorExportRecord,
-  onAttendanceExpectedActionChanged = () => {}
+  onAttendanceContextChanged = () => {}
 }) {
   let workerSummaryRenderId = 0;
+  let workerHistoryRenderId = 0;
+  let workerHistoryRequestId = 0;
+  let lastAttendanceSnapshotRequestId = 0;
+  let attendanceSnapshotWriteChain = Promise.resolve();
+
+  async function saveAttendanceSnapshotInOrder(worker, records, requestId, scopeStillActive) {
+    const snapshotWrite = attendanceSnapshotWriteChain
+      .catch(() => {})
+      .then(async () => {
+        if (requestId <= lastAttendanceSnapshotRequestId || !scopeStillActive()) return;
+        await saveWorkerAttendanceSnapshot(worker, records);
+        lastAttendanceSnapshotRequestId = requestId;
+      });
+    attendanceSnapshotWriteChain = snapshotWrite;
+    await snapshotWrite;
+  }
 
   function fromBackendAttendanceRecord(record) {
     const site = state.sites.find((item) => getBackendSiteId(item.id) === record.site_id);
@@ -216,6 +355,7 @@ export function createHistoryModule({
       } : null,
       distanceFromSiteM: record.distance_from_site_m,
       withinSiteRadius: record.within_site_radius,
+      clientSubmissionId: record.client_submission_id || '',
       entrySource: record.entry_source || 'worker',
       createdBySupervisorId: record.created_by_supervisor_id,
       createdBySupervisorName: record.created_by_supervisor_name || '',
@@ -357,55 +497,92 @@ export function createHistoryModule({
   }
 
   async function getWorkerHistoryRecords() {
+    const worker = state.user;
+    if (!worker || worker.role !== 'worker') return [];
+    const requestId = ++workerHistoryRequestId;
+    const workerScopeStillActive = () => (
+      state.user?.role === 'worker'
+      && String(state.user.id) === String(worker.id)
+      && String(state.user.departmentId || '') === String(worker.departmentId || '')
+    );
+
     try {
       const [attendanceRecords, taskLogs, formSubmissions, teamWorkLogs, localRecords] = await Promise.all([
         getBackendMyAttendanceRecords(),
         getBackendMyTaskLogs(),
         getBackendMyFormSubmissions(),
-        state.user.workerClass === 'leader' ? getBackendMyTeamWorkLogs() : Promise.resolve([]),
-        getLocalWorkerRecords(state.user.id)
+        worker.workerClass === 'leader' ? getBackendMyTeamWorkLogs() : Promise.resolve([]),
+        getLocalWorkerRecords(worker.id)
       ]);
 
+      const backendAttendanceRecords = attendanceRecords.map(fromBackendAttendanceRecord);
+      if (!workerScopeStillActive()) return [];
       const pendingLocalRecords = localRecords.filter((record) => (
         ['queued', 'syncing'].includes(record.syncStatus)
       ));
-      return attendanceRecords
-        .map(fromBackendAttendanceRecord)
-        .concat(
-          taskLogs.map(fromBackendTaskLogRecord),
-          formSubmissions.map(fromBackendFormSubmissionRecord),
-          teamWorkLogs.map(fromBackendTeamWorkLogRecord),
-          pendingLocalRecords
-        )
-        .sort(compareRecordsNewestFirst);
+      try {
+        await saveAttendanceSnapshotInOrder(
+          worker,
+          backendAttendanceRecords,
+          requestId,
+          workerScopeStillActive
+        );
+      } catch {
+        // A failed local snapshot must not block live history.
+      }
+      if (!workerScopeStillActive()) return [];
+      return mergeWorkerHistoryRecords(
+        backendAttendanceRecords,
+        taskLogs.map(fromBackendTaskLogRecord),
+        formSubmissions.map(fromBackendFormSubmissionRecord),
+        teamWorkLogs.map(fromBackendTeamWorkLogRecord),
+        pendingLocalRecords
+      );
     } catch (error) {
+      if (!workerScopeStillActive()) {
+        return [];
+      }
       if (error.status === 401 || error.status === 403) {
         handleSessionExpired();
         return [];
       }
 
       renderStatusBanner('Backend history is unreachable. Showing records saved on this device only.', true);
-      return await getLocalWorkerRecords(state.user.id);
+      const localRecords = await getLocalWorkerRecords(worker.id);
+      let snapshotRecords = [];
+      try {
+        snapshotRecords = (await loadWorkerAttendanceSnapshot(worker))?.records || [];
+      } catch {
+        // Fall back to current device records when the snapshot is unavailable.
+      }
+      return mergeWorkerHistoryRecords(snapshotRecords, localRecords);
     }
   }
 
   async function renderWorkerSummary() {
-    if (!state.user) return;
+    if (state.user?.role !== 'worker') return;
     const renderId = ++workerSummaryRenderId;
     const workerId = state.user.id;
+    const workerDepartmentId = state.user.departmentId;
     const records = await getWorkerHistoryRecords();
-    if (renderId !== workerSummaryRenderId || String(state.user?.id || '') !== String(workerId)) return;
+    if (
+      renderId !== workerSummaryRenderId
+      || state.user?.role !== 'worker'
+      || String(state.user?.id || '') !== String(workerId)
+      || String(state.user?.departmentId || '') !== String(workerDepartmentId || '')
+    ) return;
     const today = todayDateInput();
     const todayRecords = records.filter((record) => getRecordDate(record) === today);
     const queuedCount = records.filter((record) => ['queued', 'syncing'].includes(record.syncStatus)).length;
     const latestCheckIn = records.find((record) => record.type === 'attendance' && record.action === 'check_in');
     const latestCheckOut = records.find((record) => record.type === 'attendance' && record.action === 'check_out');
-    const latestAttendance = records.find((record) => record.type === 'attendance');
-    state.attendanceExpectedAction = latestAttendance?.action === 'check_in' ? 'check_out' : 'check_in';
-    onAttendanceExpectedActionChanged(state.attendanceExpectedAction);
+    const attendanceContext = buildWorkerAttendanceContext(records);
+    const latestAttendance = attendanceContext.latestAttendance;
+    state.attendanceExpectedAction = attendanceContext.expectedAction;
+    onAttendanceContextChanged(attendanceContext);
 
     if (state.user.workerClass !== 'leader') {
-      const isCheckedIn = latestAttendance?.action === 'check_in';
+      const isCheckedIn = attendanceContext.hasOpenCheckIn;
       const attendanceToday = todayRecords.filter((record) => record.type === 'attendance').length;
       els.workerSummaryTitle.textContent = 'Today’s attendance';
       els.workerSummary.innerHTML = `
@@ -446,8 +623,18 @@ export function createHistoryModule({
   }
 
   async function renderHistory() {
-    if (!state.user) return;
-    state.historyRecords = await getWorkerHistoryRecords();
+    if (state.user?.role !== 'worker') return;
+    const renderId = ++workerHistoryRenderId;
+    const workerId = state.user.id;
+    const workerDepartmentId = state.user.departmentId;
+    const records = await getWorkerHistoryRecords();
+    if (
+      renderId !== workerHistoryRenderId
+      || state.user?.role !== 'worker'
+      || String(state.user?.id || '') !== String(workerId)
+      || String(state.user?.departmentId || '') !== String(workerDepartmentId || '')
+    ) return;
+    state.historyRecords = records;
     renderFilteredHistory();
   }
 

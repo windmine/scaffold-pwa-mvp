@@ -16,6 +16,7 @@ export const appShell = Object.freeze([
   '/assets/js/history.js',
   '/assets/js/i18n.js',
   '/assets/js/mock-api.js',
+  '/assets/js/offline-attendance-snapshot.js',
   '/assets/js/offline-site-snapshot.js',
   '/assets/js/offline-submissions.js',
   '/assets/js/photo-viewer.js',
