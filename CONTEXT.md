@@ -1,6 +1,6 @@
 # Leader Field Operations Context
 
-This file defines the product language for the geo-attendance and field-record MVP. Use these terms consistently in modules, routes, UI copy, tests, and documentation. Status reviewed on 2026-07-31.
+This file defines the product language for the geo-attendance and field-record MVP. Use these terms consistently in modules, routes, UI copy, tests, and documentation. Status reviewed on 2026-08-07.
 
 ## People And Scope
 
@@ -76,6 +76,10 @@ _Avoid_: Queue item when referring to the user-facing submission
 The last successfully authenticated Site list stored in IndexedDB for one Worker and Department. It allows that Worker to select a Site after a cold offline PWA launch; it never comes from demo data, is not available without an exact Worker/Department scope, and is cleared on logout, invalid authorization, or an observed scope change. It remains non-authoritative because the backend rechecks Site access and radius when the queued attendance syncs.
 _Avoid_: A global Site cache or treating saved coordinates/radius as approval authority
 
+**Offline Attendance snapshot**:
+The last successfully authenticated backend attendance context stored in IndexedDB for one Worker and Department. It contains the minimal attendance fields needed to restore the open check-in, recent Site ordering, expected action, and first-use guide state after a cold offline launch; it excludes notes, photos, and coordinates. Writes are ordered and scope-checked so an older response or previous account cannot replace the active Worker's context. It is cleared with the Offline Site snapshot on logout, invalid authorization, or an observed scope change, and remains non-authoritative because the backend owns durable attendance.
+_Avoid_: A cross-account attendance cache or a replacement for backend attendance history
+
 **Occurrence time**:
 The timezone-aware time a Worker performed an attendance action. Offline attendance sends it as `occurred_at`; it remains stable across delayed sync and is distinct from backend sync time. Task and form business timing continues to use their explicit work date and other form fields.
 _Avoid_: Sync time
@@ -112,7 +116,7 @@ _Avoid_: Offline review with mutable decisions
 **Current live deployment**:
 Firebase Hosting for the PWA, Cloud Run for FastAPI, Neon PostgreSQL supplied through Secret Manager, and a private Cloud Storage upload bucket. Browser traffic stays same-origin through `/api/**` and `/uploads/**` Hosting rewrites.
 
-As checked on 2026-08-05, Cloud Run revision `geo-backend-release-20260804152130` still serves 100% and backend/Upload Storage readiness are healthy. Firebase Hosting version `ba8c1689c2d0e121` exactly matches the verified commit `9db3477` build for the shell, service worker, offline page, and manifest. Cached-app cold offline launch and the Worker/Department-scoped Offline Site snapshot are deployed; invited-only onboarding remains live, public registration is hidden, and Global Admin access is limited to Supervisors in both the UI and backend. The full hosted real-phone/update/upload checklist is still pending.
+As checked on 2026-08-07, Cloud Run revision `geo-backend-release-20260804152130` still serves 100% and backend/Upload Storage readiness are healthy. Frontend commit `bbee643` was verified through Firebase preview `release-20260807120117` at `https://geo-attendance-system-db9ca--release-20260807120117-texdr4u7.web.app`, then exact Hosting version `1e831c0aa589a08d` was cloned live. The local gate passed lint, production build/static checks, 28 Playwright workflows, Review Queue checks, production npm audit with zero findings, Python dependency consistency, and the controlled production-hardening gate with its three known warnings. Local, preview, and live hashes matched for the index, service worker, offline page, and manifest; five live readiness probes reported database and GCS readiness, anonymous Sites returned 401, and invited-only/hidden-registration, login-before-install, hashed service-worker entrypoint, and scoped attendance-snapshot checks passed. The deployed Worker UI compacts its first-use guide after attendance use, defaults checkout to the open check-in Site, and orders Sites by open shift then fresh-location proximity or recent use while preserving explicit selection. The full hosted real-phone/update/upload checklist is still pending.
 
 **Recommended Google deployment**:
 Firebase Hosting, Cloud Run, Cloud SQL PostgreSQL, private Cloud Storage, and Secret Manager. This remains the preferred all-Google target; it is not the database currently serving live traffic.
@@ -134,6 +138,7 @@ _Avoid_: Refresh token unless a separate revocable refresh-token store exists
 - A **Supervisor** provisions and activates an **Invited account** during the pilot and currently sets its initial password; public self-registration is not exposed in the UI or supported as the pilot onboarding path, although its API remains callable.
 - An **Offline Submission** keeps its owning Worker, capture time, and **Client Submission ID**; attendance also carries its **Occurrence time** into the durable **Review Record**.
 - An **Offline Site snapshot** may guide a new offline attendance capture, but the backend remains authoritative for Site access, current radius, distance, and durable acceptance when the **Offline Submission** syncs.
+- An **Offline Attendance snapshot** may restore open-shift and Site-priority context for the same Worker and Department, but the backend remains authoritative for durable attendance history.
 - A **Supervisor** approves or rejects pending **Review Records** in the **Review Queue** within their Department scope.
 - A **Global admin** may query the same records across one or all Departments.
 - A **Work Form Definition** has versions; every Work Form Submission stores a **Definition snapshot**.

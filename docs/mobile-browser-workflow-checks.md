@@ -5,10 +5,11 @@ Use this checklist before calling the MVP ready for phone testing or production 
 ## Latest Manual Pass
 
 - 2026-06-04: Full real-phone workflow pass completed on the local network with no reported blocking issues.
-- The equivalent real-phone pass against the hosted Firebase URL is still pending; the 2026-08-05 release result below is an automated local-browser and hosted HTTP/API pass.
+- The equivalent real-phone pass against the hosted Firebase URL is still pending; the 2026-08-07 release result below is an automated local-browser and hosted HTTP/API pass.
 
 ## Latest Automated Pass
 
+- 2026-08-07 frontend release pass at commit `bbee643`: lint, production build/static PWA checks, Review Queue checks, all 28 Playwright Chromium workflows, production dependency audit with zero findings, Python dependency consistency, and the controlled production-hardening gate passed with the three known warnings for incident-only Monitoring, six-hour Neon retention, and skipped budget verification. Firebase preview `release-20260807120117` at `https://geo-attendance-system-db9ca--release-20260807120117-texdr4u7.web.app` was verified before exact Hosting version `1e831c0aa589a08d` was cloned live. Local, preview, and live SHA-256 hashes matched for `index.html` (`a0c8c1c16cdfb58fb29c0ef976ba8d7c645ffee20de5f7bd3e85df7f3f1dc004`), `sw.js` (`ab4fa2b49094970b26d8e7eb41fe63a42c8a303c8c330429ee68e588b2a9149e`), `offline.html` (`5034e9dd2d5df27e72c356632a8e984fa0ea389adfcf1870dafe0b3d64837ff2`), and `manifest.webmanifest` (`24b60cb58ae8a220b51b3e52cc16aa0360d87f0f63f4e9c713fab0d6b990d35e`). Five live readiness probes reported database and GCS healthy; anonymous Sites returned 401; invited-only/hidden-registration state, login-before-install ordering, and generated service-worker assets passed. Normal Workers now get a compact guide after first use, checkout defaults to the open check-in's Site, Sites prioritize recent/nearest choices, and scoped attendance snapshots resist account-switch races. Cloud Run remained unchanged at `geo-backend-release-20260804152130`; the full hosted real-phone checklist remains pending.
 - 2026-08-05 frontend release pass at commit `9db3477`: lint, production build/static PWA checks, Review Queue checks, all 27 Playwright Chromium workflows, production dependency audit, Python dependency consistency, and the controlled production-hardening gate passed. The production-preview workflow installed the built service worker, verified hashed JS/CSS entrypoints in Cache Storage, closed the last page, reopened offline, restored the matching Worker/Department Site snapshot, captured location, and created a queued attendance record. Firebase preview `release-20260805155240` matched local hashes before exact Hosting version `ba8c1689c2d0e121` was cloned live; live hashes, five readiness probes, invited-only/hidden-registration state, cold-offline shell rules, and anonymous Site isolation passed afterward.
 - 2026-08-04 production release pass at commit `38220e9`: the current source passed lint, production build/PWA generation, Review Queue, all static/mobile checks, 26 Playwright Chromium workflows, backend database/security/upload/review/form/migration tests, and a disposable-database smoke test. Migration `0017_global_admin_supervisor_invariant` passed on a disposable Neon branch before release. Cloud Run revision `geo-backend-release-20260804152130` passed five candidate readiness cycles and ten post-promotion database/GCS readiness probes with no observed revision-scoped ERROR or HTTP 5xx logs. Firebase Hosting version `6eea51a351ebab2b` exactly matched the verified preview and local build for the shell, service worker, offline page, and manifest; invited-only login, hidden registration, anonymous Site isolation, Supervisor-only Global Admin controls, and logout passed the hosted browser check.
 - 2026-07-31 committed-source local pass at `b9aa05d`: lint, production build/PWA generation, Review Queue, all static/mobile checks, 25 Playwright Chromium workflows, backend compile/database/security/upload/form/migration tests, and the full disposable-database smoke test passed. The invited-account notice was visible and the public registration panel stayed hidden. Production npm dependencies and Python consistency checks passed; the full development npm audit reported one high-severity `brace-expansion` advisory through ESLint/minimatch.
@@ -47,7 +48,7 @@ After signing in through the hosted URL, confirm authenticated `/api/**` calls k
 
 Before signing in, confirm the login screen says `Invited accounts only`, the public registration panel is absent, and the page does not request `/api/sites` or briefly populate Worker site controls with local demo Sites. When restoring a saved session, `/api/auth/refresh` must complete before `/api/sites` is requested.
 
-The invited-only shell and cold-offline update are live in Firebase Hosting version `ba8c1689c2d0e121`. Local, preview, and live shell hashes match. Complete the manual installed-phone cold-launch, replay, photo/signature, and update-flow steps below before treating the hosted device gate as complete.
+The invited-only shell, login-before-install ordering, and scoped cold-offline update are live in Firebase Hosting version `1e831c0aa589a08d`. Local, preview, and live shell hashes match. Complete the manual installed-phone cold-launch, replay, photo/signature, and update-flow steps below before treating the hosted device gate as complete.
 
 Before using real staff data, run the read-only GCP hardening gate from an authenticated admin machine:
 
@@ -86,7 +87,7 @@ With the backend running at `http://127.0.0.1:8000`:
 python backend\smoke_test.py
 ```
 
-`npm.cmd run check:mobile` builds the production PWA, verifies its generated shell/cache, and runs 27 Playwright Chromium workflows. Coverage includes invited-only login, update-flow wiring, mobile controls, same-origin proxy setup, Supervisor audit history, explicit offline/read-only Review Queue behaviour, offline Work Form support, photo controls, signature enforcement, and a production-preview cold launch that creates queued attendance after the final page is closed. The workflow uses temporary backend, development frontend, and production-preview ports `8765`, `5175`, and `4175`; override them with `BROWSER_WORKFLOW_BACKEND_PORT`, `BROWSER_WORKFLOW_FRONTEND_PORT`, and `BROWSER_WORKFLOW_PREVIEW_PORT`. It does not replace a real phone test.
+`npm.cmd run check:mobile` builds the production PWA, verifies its generated shell/cache, and runs 28 Playwright Chromium workflows. Coverage includes invited-only login, update-flow wiring, mobile controls, same-origin proxy setup, Supervisor audit history, explicit offline/read-only Review Queue behaviour, offline Work Form support, photo controls, signature enforcement, Normal Worker guide/Site priority/default-checkout behavior, scoped attendance-context restoration, and a production-preview cold launch that creates queued attendance after the final page is closed. The workflow uses temporary backend, development frontend, and production-preview ports `8765`, `5175`, and `4175`; override them with `BROWSER_WORKFLOW_BACKEND_PORT`, `BROWSER_WORKFLOW_FRONTEND_PORT`, and `BROWSER_WORKFLOW_PREVIEW_PORT`. It does not replace a real phone test.
 
 ## Setup For Manual Phone Test
 
@@ -123,7 +124,8 @@ python backend\smoke_test.py
 - Login as `worker@example.com / Passw0rd!`.
 - Confirm the seeded account shows a Leader badge and provides Team, Daywork, Form, and missing-site controls.
 - Create a separate Normal worker from Staff users, sign in, and confirm only Check in / out and My history remain available.
-- Confirm the normal-worker home screen shows the three-step site, location, and attendance-action guide.
+- Confirm the normal-worker home screen shows the full three-step Site, Location, and attendance-action guide before first use, then compacts it after the Worker's first attendance event so the controls appear sooner.
+- Confirm checkout defaults to the open check-in's Site. Without a fresh location, confirm recently used Sites rank first; after location capture, confirm nearer Sites rank first without replacing an explicit current selection.
 - Confirm check-in/out buttons remain disabled until a site is selected and location is captured.
 - Interrupt the Sites request and confirm authenticated workers see Sites unavailable rather than seeded demo Sites.
 - Confirm Today’s attendance clearly shows current status and the next expected action.
@@ -218,7 +220,7 @@ python backend\smoke_test.py
 - Worker and supervisor paths complete without console-breaking errors.
 - Geolocation denial, offline state, backend outage, and photo/signature validation show clear messages.
 - Queued worker submissions sync after reconnect.
-- A killed or refreshed installed PWA cold-launches the Worker application offline, restores only the matching Worker/Department Site snapshot, and can create a queued attendance record; protected API/upload paths never receive cached application content. Logout and invalid authorization remove the matching saved Site data.
+- A killed or refreshed installed PWA cold-launches the Worker application offline, restores only the matching Worker/Department Site and attendance snapshots, and can create a queued attendance record; protected API/upload paths never receive cached application content. Logout, invalid authorization, account switches, and Department-scope changes cannot expose another Worker's saved context and remove matching saved data where required.
 - Queued submissions remain bound to the capturing Worker and capture time across shared-device account changes; delayed attendance retains its original occurrence time.
 - Expired sessions pause queued sync, keep the queued record, and show a sign-in-again message.
 - Retried queued submissions do not create duplicate backend Review Records.
