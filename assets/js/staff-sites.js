@@ -33,6 +33,42 @@ export function createStaffSitesModule({
     onChange: () => refreshOpenDraftWorkFormPreview()
   });
 
+  function setCreatePanelOpen(
+    button,
+    panel,
+    focusTarget,
+    isOpen,
+    { restoreFocus = true } = {}
+  ) {
+    if (!button || !panel) return;
+    const focusWasInside = panel.contains(document.activeElement);
+    panel.hidden = !isOpen;
+    button.setAttribute('aria-expanded', String(isOpen));
+    button.disabled = isOpen;
+
+    if (isOpen) {
+      window.requestAnimationFrame(() => focusTarget?.focus());
+    } else if (restoreFocus && focusWasInside) {
+      window.requestAnimationFrame(() => button.focus());
+    }
+  }
+
+  function clearCreateFeedback(target) {
+    if (!target) return;
+    target.textContent = '';
+    target.classList.add('hidden');
+    target.removeAttribute('data-tone');
+    target.setAttribute('role', 'status');
+    target.setAttribute('aria-live', 'polite');
+  }
+
+  function shouldRestoreCreateFocus(panel) {
+    const activeElement = document.activeElement;
+    return panel.contains(activeElement)
+      || activeElement === document.body
+      || activeElement === document.documentElement;
+  }
+
   function roundCoordinateInput(input) {
     if (input.value.trim() === '') return NaN;
     const rounded = roundCoordinate(input.value);
@@ -110,14 +146,80 @@ export function createStaffSitesModule({
     syncStaffCreateRoleControls();
   }
 
-  function resetSession() {
+  function resetStaffUserCreate() {
     els.staffUserForm.reset();
+    renderStaffCreateControls();
+  }
+
+  function resetWorkFormCreate() {
+    els.workFormBuilderForm.reset();
+    workFormBuilder.reset();
+    const advancedDetails = els.workFormCreatePanel.querySelector('[data-work-form-advanced]');
+    if (advancedDetails) advancedDetails.open = false;
+    hideDraftWorkFormPreview();
+    clearCreateFeedback(els.workFormBuilderActionFeedback);
+  }
+
+  function openStaffUserCreate() {
+    setCreatePanelOpen(
+      els.addStaffUserButton,
+      els.staffUserCreatePanel,
+      els.staffNameInput,
+      true
+    );
+  }
+
+  function cancelStaffUserCreate() {
+    resetStaffUserCreate();
+    setCreatePanelOpen(
+      els.addStaffUserButton,
+      els.staffUserCreatePanel,
+      els.staffNameInput,
+      false
+    );
+  }
+
+  function openWorkFormCreate() {
+    setCreatePanelOpen(
+      els.addWorkFormButton,
+      els.workFormCreatePanel,
+      els.workFormNameInput,
+      true
+    );
+  }
+
+  function cancelWorkFormCreate() {
+    resetWorkFormCreate();
+    setCreatePanelOpen(
+      els.addWorkFormButton,
+      els.workFormCreatePanel,
+      els.workFormNameInput,
+      false
+    );
+  }
+
+  function resetSession() {
+    resetStaffUserCreate();
+    resetWorkFormCreate();
     els.staffSearchInput.value = '';
     state.staffUsers = [];
     els.staffUsersCount.textContent = '0';
     els.staffUsersList.innerHTML = '';
+    setCreatePanelOpen(
+      els.addStaffUserButton,
+      els.staffUserCreatePanel,
+      els.staffNameInput,
+      false,
+      { restoreFocus: false }
+    );
+    setCreatePanelOpen(
+      els.addWorkFormButton,
+      els.workFormCreatePanel,
+      els.workFormNameInput,
+      false,
+      { restoreFocus: false }
+    );
     closeEditPanel();
-    renderStaffCreateControls();
   }
 
   function matchesDepartmentFocus(item) {
@@ -201,15 +303,19 @@ export function createStaffSitesModule({
     refreshSiteMapIfVisible();
   }
 
-  async function renderStaffUsers() {
+  async function renderStaffUsers({ preserveOnError = false, reportError = true } = {}) {
     try {
       renderStaffCreateControls();
       state.staffUsers = await getBackendUsers();
       renderFilteredStaffUsers();
+      return true;
     } catch (error) {
-      els.staffUsersCount.textContent = '-';
-      els.staffUsersList.innerHTML = '<div class="empty-state">Staff users are unavailable.</div>';
-      renderStatusBanner(error.message || 'Could not load staff users.', true);
+      if (!preserveOnError) {
+        els.staffUsersCount.textContent = '-';
+        els.staffUsersList.innerHTML = '<div class="empty-state">Staff users are unavailable.</div>';
+      }
+      if (reportError) renderStatusBanner(error.message || 'Could not load staff users.', true);
+      return false;
     }
   }
 
@@ -285,7 +391,10 @@ export function createStaffSitesModule({
     if (!workFormBuilder.validate({ focus: true })) return;
     const fields = workFormBuilder.getFields();
     if (els.workFormSubmitButton.getAttribute('aria-busy') === 'true') return;
+    let created = false;
+    let restoreFocus = false;
     setButtonBusy(els.workFormSubmitButton, true, 'Creating form...');
+    els.cancelWorkFormCreateButton.disabled = true;
 
     try {
       await createBackendWorkForm({
@@ -293,22 +402,44 @@ export function createStaffSitesModule({
         description: els.workFormDescriptionInput.value.trim() || null,
         fields
       });
-      els.workFormBuilderForm.reset();
-      workFormBuilder.reset();
-      hideDraftWorkFormPreview();
-      renderStatusBanner('Work form created.', false, {
-        local: els.workFormBuilderActionFeedback,
-        tone: 'success'
-      });
-      await refreshWorkForms();
+      created = true;
+      restoreFocus = shouldRestoreCreateFocus(els.workFormCreatePanel);
+      resetWorkFormCreate();
+      setCreatePanelOpen(
+        els.addWorkFormButton,
+        els.workFormCreatePanel,
+        els.workFormNameInput,
+        false,
+        { restoreFocus: false }
+      );
+      els.addWorkFormButton.disabled = true;
+      renderStatusBanner('Work form created.');
+      const workFormsRefreshed = await refreshWorkForms();
+      if (!workFormsRefreshed) {
+        throw new Error('Work form created, but the updated list could not load.');
+      }
       await refreshSupervisorAuditHistory?.();
     } catch (error) {
-      renderStatusBanner(error.message || 'Could not create work form.', true, {
-        local: els.workFormBuilderActionFeedback,
-        tone: 'error'
-      });
+      if (created) {
+        renderStatusBanner(error.message || 'Work form created, but the updated list could not load.', true);
+      } else {
+        renderStatusBanner(error.message || 'Could not create work form.', true, {
+          local: els.workFormBuilderActionFeedback,
+          tone: 'error'
+        });
+      }
     } finally {
       setButtonBusy(els.workFormSubmitButton, false);
+      els.cancelWorkFormCreateButton.disabled = false;
+      els.addWorkFormButton.disabled = !els.workFormCreatePanel.hidden;
+      if (
+        created
+        && restoreFocus
+        && els.workFormCreatePanel.hidden
+        && shouldRestoreCreateFocus(els.workFormCreatePanel)
+      ) {
+        window.requestAnimationFrame(() => els.addWorkFormButton.focus());
+      }
     }
   }
 
@@ -761,6 +892,12 @@ export function createStaffSitesModule({
 
   async function handleStaffUserCreate(event) {
     event.preventDefault();
+    if (els.staffUserSubmitButton.getAttribute('aria-busy') === 'true') return;
+    let created = false;
+    let restoreFocus = false;
+    setButtonBusy(els.staffUserSubmitButton, true, 'Creating staff account...');
+    els.cancelStaffUserCreateButton.disabled = true;
+
     try {
       const role = els.staffRoleSelect.value;
       await createBackendUser({
@@ -776,24 +913,60 @@ export function createStaffSitesModule({
           && els.staffGlobalAdminInput.checked
         )
       });
-      els.staffUserForm.reset();
-      syncStaffCreateRoleControls();
+      created = true;
+      restoreFocus = shouldRestoreCreateFocus(els.staffUserCreatePanel);
+      resetStaffUserCreate();
+      setCreatePanelOpen(
+        els.addStaffUserButton,
+        els.staffUserCreatePanel,
+        els.staffNameInput,
+        false,
+        { restoreFocus: false }
+      );
+      els.addStaffUserButton.disabled = true;
       renderStatusBanner('Staff user created.');
-      await renderStaffUsers();
+      const staffUsersRefreshed = await renderStaffUsers({
+        preserveOnError: true,
+        reportError: false
+      });
+      if (!staffUsersRefreshed) {
+        throw new Error('Staff user created, but the updated list could not load.');
+      }
       await refreshSupervisorAuditHistory?.();
     } catch (error) {
-      renderStatusBanner(error.message || 'Could not create staff user.', true);
+      renderStatusBanner(
+        error.message || (created
+          ? 'Staff user created, but the updated list could not load.'
+          : 'Could not create staff user.'),
+        true
+      );
+    } finally {
+      setButtonBusy(els.staffUserSubmitButton, false);
+      els.cancelStaffUserCreateButton.disabled = false;
+      els.addStaffUserButton.disabled = !els.staffUserCreatePanel.hidden;
+      if (
+        created
+        && restoreFocus
+        && els.staffUserCreatePanel.hidden
+        && shouldRestoreCreateFocus(els.staffUserCreatePanel)
+      ) {
+        window.requestAnimationFrame(() => els.addStaffUserButton.focus());
+      }
     }
   }
 
   function bindEvents() {
     renderStaffCreateControls();
+    els.addStaffUserButton.addEventListener('click', openStaffUserCreate);
+    els.cancelStaffUserCreateButton.addEventListener('click', cancelStaffUserCreate);
     els.staffUserForm.addEventListener('submit', handleStaffUserCreate);
     els.siteForm.addEventListener('submit', handleSiteCreate);
     els.siteUseLocationButton.addEventListener('click', useCurrentLocationForSite);
     siteMapPicker.bindEvents();
     els.siteLatitudeInput.addEventListener('blur', () => roundCoordinateInput(els.siteLatitudeInput));
     els.siteLongitudeInput.addEventListener('blur', () => roundCoordinateInput(els.siteLongitudeInput));
+    els.addWorkFormButton.addEventListener('click', openWorkFormCreate);
+    els.cancelWorkFormCreateButton.addEventListener('click', cancelWorkFormCreate);
     els.workFormBuilderForm.addEventListener('submit', handleWorkFormCreate);
     els.workFormPreviewButton?.addEventListener('click', handleDraftWorkFormPreviewToggle);
     els.workFormNameInput?.addEventListener('input', refreshOpenDraftWorkFormPreview);

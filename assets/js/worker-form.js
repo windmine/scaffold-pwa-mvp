@@ -460,24 +460,26 @@ export function createWorkerFormModule({
   }
 
   async function refreshWorkForms() {
-    if (!state.user) return;
+    if (!state.user) return false;
     const requestUserId = state.user.id;
 
     try {
       const workForms = await getBackendWorkForms();
-      if (String(state.user?.id || '') !== String(requestUserId)) return;
+      if (String(state.user?.id || '') !== String(requestUserId)) return false;
       state.workForms = workForms;
       renderWorkFormOptions();
       await renderSelectedWorkForm({ preserveCurrent: false });
       onWorkFormsChanged();
       if (state.user.role === 'supervisor') onSupervisorWorkFormsChanged();
+      return true;
     } catch (error) {
-      if (String(state.user?.id || '') !== String(requestUserId)) return;
-      state.workForms = [];
-      renderWorkFormOptions();
+      if (String(state.user?.id || '') !== String(requestUserId)) return false;
       if (state.user.role === 'worker') {
+        state.workForms = [];
+        renderWorkFormOptions();
         renderStatusBanner(error.message || 'Could not load work forms.', true);
       }
+      return false;
     }
   }
 

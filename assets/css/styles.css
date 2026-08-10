@@ -1916,6 +1916,59 @@ textarea {
   flex-basis: 100%;
 }
 
+.admin-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.admin-list-toolbar .filter-bar {
+  min-width: min(100%, 280px);
+  flex: 1 1 320px;
+  margin: 0;
+}
+
+.admin-list-toolbar > button {
+  flex: 0 0 auto;
+}
+
+.admin-create-panel {
+  margin-bottom: 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-background);
+}
+
+.admin-create-panel[hidden] {
+  display: none !important;
+}
+
+.admin-create-intro {
+  margin-bottom: 14px;
+}
+
+.admin-create-intro .eyebrow,
+.admin-create-intro h3 {
+  margin-top: 0;
+}
+
+.admin-create-intro h3 {
+  margin-bottom: 0;
+}
+
+.admin-create-panel > #staffUserForm > .form-actions {
+  grid-column: 1 / -1;
+}
+
+.work-forms-content > .records-list,
+.staff-users-card .fold-content > .records-list {
+  margin-top: 0;
+}
+
 .edit-panel {
   border-left: 5px solid var(--champagne);
 }
@@ -4948,16 +5001,6 @@ html[data-theme="dark"] .site-map-picker.leaflet-container {
     align-items: start;
   }
 
-  .work-forms-content {
-    display: grid;
-    grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
-    gap: 20px;
-    align-items: start;
-  }
-
-  .work-forms-content > .records-list {
-    margin-top: 0;
-  }
 }
 
 @media (min-width: 1480px) {
@@ -5312,6 +5355,14 @@ html[data-theme="dark"] .site-map-picker.leaflet-container {
   .record-header {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .admin-list-toolbar {
+    align-items: stretch;
+  }
+
+  .admin-list-toolbar > button {
+    width: 100%;
   }
 
   .review-inbox,

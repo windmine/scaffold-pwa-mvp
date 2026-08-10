@@ -120,7 +120,7 @@ Worker accounts have two field classes:
 - **Normal worker:** check in, check out, and review their attendance history.
 - **Leader:** all normal-worker attendance functions plus weekly team logs, Daywork logs, reusable work forms, and missing-site creation.
 
-During the invited-account pilot, a supervisor creates and activates Worker accounts from Staff users. New Workers start as normal workers. A supervisor can promote or return a worker between Normal worker and Leader without changing the account's department or historical records. The current form requires the supervisor to choose the initial password and communicate it securely; Workers cannot yet complete an expiring invitation and set their own password.
+During the invited-account pilot, a supervisor opens **People & Sites > Staff users**, searches the existing list, and chooses **Add staff** to create and activate a Worker account. New Workers start as normal workers. A supervisor can promote or return a worker between Normal worker and Leader without changing the account's department or historical records. The current form requires the supervisor to choose the initial password and communicate it securely; Workers cannot yet complete an expiring invitation and set their own password.
 
 Normal workers receive a simplified attendance screen with only **Check in / out** and **My history** navigation. The attendance card shows the full Site → Location → Check in guide initially, then compacts it after the Worker has attendance history so the controls appear sooner. Checkout defaults to the Site of the open check-in; otherwise Sites prioritise the nearest option after a fresh location capture or recently used Sites when location is unavailable, while preserving an explicit current selection. Submission remains blocked until the required Site and location are ready.
 
@@ -714,7 +714,7 @@ Each weekly log accepts up to 150 work rows. The week must start on Monday and e
 
 1. Sign in as supervisor.
 2. Open the **Forms** workspace and expand **Work forms**.
-3. Enter the form name and optional description.
+3. Review the saved-form list, choose **Add work form**, then enter the form name and optional description.
 4. Choose **Add field**, then set the card's field type, worker-facing label, and required state. Choice fields expose their options; repeating groups expose row limits and nested field cards.
 5. Turn on **Only show in some cases** to select an earlier field, comparison, and value. Conditions and formulas can reference only earlier fields in the same form or repeating group.
 6. Drag a card by its handle, or use its Move up/down buttons. Preview the form, then choose **Create form**. Editing an existing form opens the same card builder and preserves its stable field keys.

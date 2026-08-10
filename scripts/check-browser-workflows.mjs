@@ -1616,6 +1616,22 @@ async function checkStaffGlobalAdminScoping(browser) {
       element.open = true;
     });
     await supervisorPage.locator('#staffUsersList .record-card').first().waitFor({ timeout: 20000 });
+    const departmentCreateState = await supervisorPage.evaluate(() => ({
+      panelHidden: document.querySelector('#staffUserCreatePanel')?.hidden ?? null,
+      expanded: document.querySelector('#addStaffUserButton')?.getAttribute('aria-expanded'),
+      addDisabled: document.querySelector('#addStaffUserButton')?.disabled ?? null,
+      searchVisible: document.querySelector('#staffSearchInput')?.getClientRects().length > 0,
+      listVisible: document.querySelector('#staffUsersList')?.getClientRects().length > 0
+    }));
+    if (
+      !departmentCreateState.panelHidden
+      || departmentCreateState.expanded !== 'false'
+      || departmentCreateState.addDisabled
+      || !departmentCreateState.searchVisible
+      || !departmentCreateState.listVisible
+    ) {
+      throw new Error(`department Staff list did not start list-first: ${JSON.stringify(departmentCreateState)}`);
+    }
     const departmentListText = await supervisorPage.locator('#staffUsersList').innerText();
     if (departmentListText.includes('Super Admin') || departmentListText.includes('global admin')) {
       throw new Error(`department admin staff list exposed global admin account: "${departmentListText}"`);
@@ -1683,6 +1699,45 @@ async function checkStaffGlobalAdminScoping(browser) {
       element.open = true;
     });
     await adminPage.locator('#staffUsersList .record-card').filter({ hasText: 'Super Admin' }).first().waitFor({ timeout: 20000 });
+    const initialStaffCreateState = await adminPage.evaluate(() => ({
+      panelHidden: document.querySelector('#staffUserCreatePanel')?.hidden ?? null,
+      expanded: document.querySelector('#addStaffUserButton')?.getAttribute('aria-expanded'),
+      addDisabled: document.querySelector('#addStaffUserButton')?.disabled ?? null,
+      searchVisible: document.querySelector('#staffSearchInput')?.getClientRects().length > 0,
+      listVisible: document.querySelector('#staffUsersList')?.getClientRects().length > 0
+    }));
+    if (
+      !initialStaffCreateState.panelHidden
+      || initialStaffCreateState.expanded !== 'false'
+      || initialStaffCreateState.addDisabled
+      || !initialStaffCreateState.searchVisible
+      || !initialStaffCreateState.listVisible
+    ) {
+      throw new Error(`Staff creation was not behind Add: ${JSON.stringify(initialStaffCreateState)}`);
+    }
+
+    await adminPage.locator('#addStaffUserButton').click();
+    await adminPage.waitForFunction(() => (
+      document.querySelector('#staffUserCreatePanel')?.hidden === false
+      && document.querySelector('#addStaffUserButton')?.getAttribute('aria-expanded') === 'true'
+      && document.querySelector('#addStaffUserButton')?.disabled === true
+      && document.activeElement?.id === 'staffNameInput'
+    ));
+    await adminPage.locator('#staffNameInput').fill('Discarded staff draft');
+    await adminPage.locator('#staffPasswordInput').fill('DiscardedPassword1!');
+    await adminPage.locator('#cancelStaffUserCreateButton').click();
+    await adminPage.waitForFunction(() => (
+      document.querySelector('#staffUserCreatePanel')?.hidden === true
+      && document.querySelector('#addStaffUserButton')?.getAttribute('aria-expanded') === 'false'
+      && document.querySelector('#addStaffUserButton')?.disabled === false
+      && document.activeElement?.id === 'addStaffUserButton'
+    ));
+    if (await adminPage.locator('#staffNameInput').inputValue() || await adminPage.locator('#staffPasswordInput').inputValue()) {
+      throw new Error('Cancel Staff creation did not clear its draft fields');
+    }
+
+    await adminPage.locator('#addStaffUserButton').click();
+    await adminPage.waitForFunction(() => document.activeElement?.id === 'staffNameInput');
     const adminControls = await adminPage.evaluate(() => {
       const globalAdminLabel = document.querySelector('#staffGlobalAdminInput')?.closest('label');
       return {
@@ -1729,6 +1784,127 @@ async function checkStaffGlobalAdminScoping(browser) {
       throw new Error(`Worker create role retained global admin access: ${JSON.stringify(resetCreateControls)}`);
     }
 
+    const createdStaffName = `Created Staff ${Date.now()}`;
+    const createdStaffEmail = `created-staff-${Date.now()}@example.com`;
+    await adminPage.locator('#staffNameInput').fill(createdStaffName);
+    await adminPage.locator('#staffEmailInput').fill(createdStaffEmail);
+    await adminPage.locator('#staffPasswordInput').fill('CreatedStaffPassword1!');
+
+    let rejectNextStaffCreate = true;
+    await adminPage.route('**/api/supervisor/users', async (route) => {
+      const request = route.request();
+      const isCreate = request.method() === 'POST'
+        && new URL(request.url()).pathname === '/api/supervisor/users';
+      if (isCreate && rejectNextStaffCreate) {
+        rejectNextStaffCreate = false;
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Simulated Staff create failure.' })
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await adminPage.locator('#staffUserSubmitButton').click();
+    await adminPage.waitForFunction(() => (
+      document.querySelector('#staffUserSubmitButton')?.getAttribute('aria-busy') === 'true'
+      && document.querySelector('#cancelStaffUserCreateButton')?.disabled === true
+      && document.querySelector('#addStaffUserButton')?.disabled === true
+    ));
+    await adminPage.locator('#toastViewport .toast')
+      .filter({ hasText: 'Simulated Staff create failure.' })
+      .waitFor({ timeout: 10000 });
+    const failedStaffCreateState = await adminPage.evaluate(() => ({
+      panelHidden: document.querySelector('#staffUserCreatePanel')?.hidden ?? null,
+      addDisabled: document.querySelector('#addStaffUserButton')?.disabled ?? null,
+      cancelDisabled: document.querySelector('#cancelStaffUserCreateButton')?.disabled ?? null,
+      submitBusy: document.querySelector('#staffUserSubmitButton')?.getAttribute('aria-busy'),
+      name: document.querySelector('#staffNameInput')?.value || '',
+      email: document.querySelector('#staffEmailInput')?.value || ''
+    }));
+    if (
+      failedStaffCreateState.panelHidden
+      || !failedStaffCreateState.addDisabled
+      || failedStaffCreateState.cancelDisabled
+      || failedStaffCreateState.submitBusy !== null
+      || failedStaffCreateState.name !== createdStaffName
+      || failedStaffCreateState.email !== createdStaffEmail
+    ) {
+      throw new Error(`failed Staff creation hid or cleared the retry state: ${JSON.stringify(failedStaffCreateState)}`);
+    }
+
+    const createStaffRequestPromise = adminPage.waitForRequest((request) => (
+      request.method() === 'POST'
+      && new URL(request.url()).pathname === '/api/supervisor/users'
+    ), { timeout: 8000 });
+    await adminPage.locator('#staffUserSubmitButton').click();
+    await createStaffRequestPromise;
+    await adminPage.locator('#toastViewport .toast')
+      .filter({ hasText: 'Staff user created.' })
+      .waitFor({ timeout: 20000 });
+    await adminPage.waitForFunction(() => (
+      document.querySelector('#staffUserCreatePanel')?.hidden === true
+      && document.querySelector('#addStaffUserButton')?.getAttribute('aria-expanded') === 'false'
+      && document.querySelector('#addStaffUserButton')?.disabled === false
+      && document.activeElement?.id === 'addStaffUserButton'
+    ));
+    await adminPage.locator('#staffUsersList .record-card')
+      .filter({ hasText: createdStaffName })
+      .first()
+      .waitFor({ timeout: 20000 });
+    await adminPage.unroute('**/api/supervisor/users');
+
+    await adminPage.locator('#addStaffUserButton').click();
+    const refreshWarningStaffName = `Refresh Warning Staff ${Date.now()}`;
+    await adminPage.locator('#staffNameInput').fill(refreshWarningStaffName);
+    await adminPage.locator('#staffEmailInput').fill(`refresh-warning-${Date.now()}@example.com`);
+    await adminPage.locator('#staffPasswordInput').fill('RefreshWarningPassword1!');
+    let staffCreateCompleted = false;
+    await adminPage.route('**/api/supervisor/users', async (route) => {
+      const request = route.request();
+      const pathname = new URL(request.url()).pathname;
+      if (request.method() === 'POST' && pathname === '/api/supervisor/users') {
+        staffCreateCompleted = true;
+        await route.continue();
+        return;
+      }
+      if (staffCreateCompleted && request.method() === 'GET' && pathname === '/api/supervisor/users') {
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Simulated Staff list refresh failure.' })
+        });
+        return;
+      }
+      await route.continue();
+    });
+    await adminPage.locator('#staffUserSubmitButton').click();
+    await adminPage.locator('#toastViewport .toast')
+      .filter({ hasText: 'Staff user created, but the updated list could not load.' })
+      .waitFor({ timeout: 20000 });
+    await adminPage.waitForFunction(() => document.activeElement?.id === 'addStaffUserButton');
+    const refreshFailureState = await adminPage.evaluate((previousName) => ({
+      panelHidden: document.querySelector('#staffUserCreatePanel')?.hidden ?? null,
+      addDisabled: document.querySelector('#addStaffUserButton')?.disabled ?? null,
+      listPreserved: [...document.querySelectorAll('#staffUsersList .record-card')]
+        .some((card) => card.textContent.includes(previousName)),
+      unavailableShown: document.querySelector('#staffUsersList')?.textContent?.includes('Staff users are unavailable.') ?? null,
+      activeElementId: document.activeElement?.id || ''
+    }), createdStaffName);
+    if (
+      !refreshFailureState.panelHidden
+      || refreshFailureState.addDisabled
+      || !refreshFailureState.listPreserved
+      || refreshFailureState.unavailableShown
+      || refreshFailureState.activeElementId !== 'addStaffUserButton'
+    ) {
+      throw new Error(`Staff refresh failure did not preserve the prior list and completion state: ${JSON.stringify(refreshFailureState)}`);
+    }
+    await adminPage.unroute('**/api/supervisor/users');
+
     const demoWorkerCard = adminPage.locator('#staffUsersList .record-card')
       .filter({ hasText: 'Demo Worker' })
       .first();
@@ -1769,6 +1945,8 @@ async function checkStaffGlobalAdminScoping(browser) {
       throw new Error(`Worker edit role retained global admin access: ${JSON.stringify(resetEditControls)}`);
     }
 
+    await adminPage.locator('#addStaffUserButton').click();
+    await adminPage.waitForFunction(() => document.activeElement?.id === 'staffNameInput');
     await adminPage.locator('#staffRoleSelect').selectOption('supervisor');
     await adminPage.locator('label:has(#staffGlobalAdminInput) .form-checkbox-control').click();
     await adminPage.locator('#staffSearchInput').fill('privileged state must clear');
@@ -1779,12 +1957,18 @@ async function checkStaffGlobalAdminScoping(browser) {
     const loggedOutStaffState = await adminPage.evaluate(() => ({
       count: document.querySelector('#staffUsersCount')?.textContent?.trim() ?? null,
       listText: document.querySelector('#staffUsersList')?.textContent?.trim() ?? null,
+      createPanelHidden: document.querySelector('#staffUserCreatePanel')?.hidden ?? null,
+      createExpanded: document.querySelector('#addStaffUserButton')?.getAttribute('aria-expanded'),
+      createAddDisabled: document.querySelector('#addStaffUserButton')?.disabled ?? null,
       editPanelHidden: document.querySelector('#supervisorEditPanel')?.classList.contains('hidden') ?? null,
       editPanelEmpty: !(document.querySelector('#editPanelForm')?.textContent || '').trim()
     }));
     if (
       loggedOutStaffState.count !== '0'
       || loggedOutStaffState.listText !== ''
+      || !loggedOutStaffState.createPanelHidden
+      || loggedOutStaffState.createExpanded !== 'false'
+      || loggedOutStaffState.createAddDisabled
       || !loggedOutStaffState.editPanelHidden
       || !loggedOutStaffState.editPanelEmpty
     ) {
@@ -1807,6 +1991,9 @@ async function checkStaffGlobalAdminScoping(browser) {
       globalAdminChecked: document.querySelector('#staffGlobalAdminInput')?.checked ?? null,
       globalAdminDisabled: document.querySelector('#staffGlobalAdminInput')?.disabled ?? null,
       search: document.querySelector('#staffSearchInput')?.value ?? null,
+      createPanelHidden: document.querySelector('#staffUserCreatePanel')?.hidden ?? null,
+      createExpanded: document.querySelector('#addStaffUserButton')?.getAttribute('aria-expanded'),
+      createAddDisabled: document.querySelector('#addStaffUserButton')?.disabled ?? null,
       editPanelHidden: document.querySelector('#supervisorEditPanel')?.classList.contains('hidden') ?? null,
       editPanelEmpty: !(document.querySelector('#editPanelForm')?.textContent || '').trim()
     }));
@@ -1815,6 +2002,9 @@ async function checkStaffGlobalAdminScoping(browser) {
       || resetSessionControls.globalAdminChecked
       || resetSessionControls.globalAdminDisabled !== true
       || resetSessionControls.search !== ''
+      || !resetSessionControls.createPanelHidden
+      || resetSessionControls.createExpanded !== 'false'
+      || resetSessionControls.createAddDisabled
       || !resetSessionControls.editPanelHidden
       || !resetSessionControls.editPanelEmpty
     ) {
@@ -1878,6 +2068,70 @@ async function checkSupervisorWorkFormCardBuilder(browser) {
     await page.locator('#workFormsDetails').evaluate((element) => {
       element.open = true;
     });
+
+    await page.locator('#workFormsList .record-form').first().waitFor({ timeout: 20000 });
+    const initialCreateState = await page.evaluate(() => {
+      const content = document.querySelector('.work-forms-content')?.getBoundingClientRect();
+      const list = document.querySelector('#workFormsList')?.getBoundingClientRect();
+      return {
+        panelHidden: document.querySelector('#workFormCreatePanel')?.hidden ?? null,
+        expanded: document.querySelector('#addWorkFormButton')?.getAttribute('aria-expanded'),
+        addDisabled: document.querySelector('#addWorkFormButton')?.disabled ?? null,
+        listVisible: document.querySelector('#workFormsList')?.getClientRects().length > 0,
+        listWidthRatio: content?.width && list?.width ? list.width / content.width : 0
+      };
+    });
+    if (
+      !initialCreateState.panelHidden
+      || initialCreateState.expanded !== 'false'
+      || initialCreateState.addDisabled
+      || !initialCreateState.listVisible
+      || initialCreateState.listWidthRatio < 0.9
+    ) {
+      throw new Error(`Work Form creation was not list-first: ${JSON.stringify(initialCreateState)}`);
+    }
+
+    await page.locator('#addWorkFormButton').click();
+    await page.waitForFunction(() => (
+      document.querySelector('#workFormCreatePanel')?.hidden === false
+      && document.querySelector('#addWorkFormButton')?.getAttribute('aria-expanded') === 'true'
+      && document.querySelector('#addWorkFormButton')?.disabled === true
+      && document.activeElement?.id === 'workFormNameInput'
+    ));
+    await page.locator('#workFormNameInput').fill('Discarded work form draft');
+    await page.locator('#addWorkFormFieldButton').click();
+    await page.locator('#workFormFieldCards > [data-work-form-field-card] [data-field-property="label"]').fill('Discarded field');
+    await page.locator('#workFormPreviewButton').click();
+    await page.locator('#workFormDraftPreview').waitFor({ state: 'visible' });
+    await page.locator('#workFormAdvancedDetails > summary').click();
+    await page.locator('#cancelWorkFormCreateButton').click();
+    await page.waitForFunction(() => (
+      document.querySelector('#workFormCreatePanel')?.hidden === true
+      && document.querySelector('#addWorkFormButton')?.getAttribute('aria-expanded') === 'false'
+      && document.querySelector('#addWorkFormButton')?.disabled === false
+      && document.activeElement?.id === 'addWorkFormButton'
+    ));
+    const cancelledDraftState = await page.evaluate(() => ({
+      name: document.querySelector('#workFormNameInput')?.value || '',
+      fieldCards: document.querySelectorAll('#workFormFieldCards > [data-work-form-field-card]').length,
+      advancedOpen: document.querySelector('#workFormAdvancedDetails')?.open ?? null,
+      previewHidden: document.querySelector('#workFormDraftPreview')?.classList.contains('hidden') ?? null,
+      builderFeedback: document.querySelector('#workFormBuilderFeedback')?.textContent?.trim() || '',
+      actionFeedback: document.querySelector('#workFormBuilderActionFeedback')?.textContent?.trim() || ''
+    }));
+    if (
+      cancelledDraftState.name
+      || cancelledDraftState.fieldCards
+      || cancelledDraftState.advancedOpen
+      || !cancelledDraftState.previewHidden
+      || cancelledDraftState.builderFeedback
+      || cancelledDraftState.actionFeedback
+    ) {
+      throw new Error(`Cancel Work Form creation did not reset its draft controls: ${JSON.stringify(cancelledDraftState)}`);
+    }
+
+    await page.locator('#addWorkFormButton').click();
+    await page.waitForFunction(() => document.activeElement?.id === 'workFormNameInput');
 
     const addFieldButton = page.locator('#addWorkFormFieldButton');
     const topLevelCards = page.locator('#workFormFieldCards > [data-work-form-field-card]');
@@ -2026,6 +2280,50 @@ async function checkSupervisorWorkFormCardBuilder(browser) {
       throw new Error('conditional field did not appear for Fail');
     }
 
+    let rejectNextWorkFormCreate = true;
+    await page.route('**/api/supervisor/work-forms', async (route) => {
+      const request = route.request();
+      const isCreate = request.method() === 'POST'
+        && new URL(request.url()).pathname === '/api/supervisor/work-forms';
+      if (isCreate && rejectNextWorkFormCreate) {
+        rejectNextWorkFormCreate = false;
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Simulated Work Form create failure.' })
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.locator('#workFormSubmitButton').click();
+    await page.waitForFunction(() => (
+      document.querySelector('#workFormSubmitButton')?.getAttribute('aria-busy') === 'true'
+      && document.querySelector('#cancelWorkFormCreateButton')?.disabled === true
+      && document.querySelector('#addWorkFormButton')?.disabled === true
+    ));
+    await page.locator('#workFormBuilderActionFeedback')
+      .getByText('Simulated Work Form create failure.')
+      .waitFor({ timeout: 10000 });
+    const failedCreateState = await page.evaluate(() => ({
+      panelHidden: document.querySelector('#workFormCreatePanel')?.hidden ?? null,
+      addDisabled: document.querySelector('#addWorkFormButton')?.disabled ?? null,
+      cancelDisabled: document.querySelector('#cancelWorkFormCreateButton')?.disabled ?? null,
+      submitBusy: document.querySelector('#workFormSubmitButton')?.getAttribute('aria-busy'),
+      fieldCards: document.querySelectorAll('#workFormFieldCards > [data-work-form-field-card]').length
+    }));
+    if (
+      failedCreateState.panelHidden
+      || !failedCreateState.addDisabled
+      || failedCreateState.cancelDisabled
+      || failedCreateState.submitBusy !== null
+      || failedCreateState.fieldCards !== 3
+    ) {
+      throw new Error(`failed Work Form creation hid or cleared the retry state: ${JSON.stringify(failedCreateState)}`);
+    }
+
     const createRequestPromise = page.waitForRequest((request) => (
       request.method() === 'POST'
       && new URL(request.url()).pathname === '/api/supervisor/work-forms'
@@ -2044,7 +2342,14 @@ async function checkSupervisorWorkFormCardBuilder(browser) {
       throw new Error(`${error.message}; state=${JSON.stringify(debug)}; pageErrors=${JSON.stringify(pageErrors)}`);
     });
     const createPayload = createRequest.postDataJSON();
-    await page.locator('#workFormBuilderActionFeedback').getByText('Work form created.').waitFor({ timeout: 20000 });
+    await page.locator('#toastViewport .toast').filter({ hasText: 'Work form created.' }).waitFor({ timeout: 20000 });
+    await page.waitForFunction(() => (
+      document.querySelector('#workFormCreatePanel')?.hidden === true
+      && document.querySelector('#addWorkFormButton')?.getAttribute('aria-expanded') === 'false'
+      && document.querySelector('#addWorkFormButton')?.disabled === false
+      && document.activeElement?.id === 'addWorkFormButton'
+    ));
+    await page.unroute('**/api/supervisor/work-forms');
 
     const expectedOrder = [resultId, noteId, issueId];
     if (createPayload.fields.map((field) => field.id).join('|') !== expectedOrder.join('|')) {
@@ -2608,6 +2913,77 @@ async function checkSupervisorWorkspaceNavigation(browser) {
     ) {
       throw new Error(`mobile People & Sites navigation lost state or focus: ${JSON.stringify(peopleState)}`);
     }
+
+    await page.locator('#staffUsersList .record-card').first().waitFor({ timeout: 20000 });
+    const mobileStaffCreateState = await page.evaluate(() => {
+      const toolbar = document.querySelector('.staff-users-card .admin-list-toolbar')?.getBoundingClientRect();
+      const addButton = document.querySelector('#addStaffUserButton')?.getBoundingClientRect();
+      return {
+        panelHidden: document.querySelector('#staffUserCreatePanel')?.hidden ?? null,
+        expanded: document.querySelector('#addStaffUserButton')?.getAttribute('aria-expanded'),
+        addDisabled: document.querySelector('#addStaffUserButton')?.disabled ?? null,
+        listVisible: document.querySelector('#staffUsersList')?.getClientRects().length > 0,
+        fullWidthAction: Boolean(toolbar && addButton && Math.abs(toolbar.width - addButton.width) <= 1),
+        overflow: document.documentElement.scrollWidth - window.innerWidth
+      };
+    });
+    if (
+      !mobileStaffCreateState.panelHidden
+      || mobileStaffCreateState.expanded !== 'false'
+      || mobileStaffCreateState.addDisabled
+      || !mobileStaffCreateState.listVisible
+      || !mobileStaffCreateState.fullWidthAction
+      || mobileStaffCreateState.overflow > 1
+    ) {
+      throw new Error(`mobile Staff Add action did not keep the list primary: ${JSON.stringify(mobileStaffCreateState)}`);
+    }
+
+    await page.locator('#addStaffUserButton').click();
+    await page.waitForFunction(() => document.activeElement?.id === 'staffNameInput');
+    if (await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth) > 1) {
+      throw new Error('mobile Staff creation panel caused horizontal overflow');
+    }
+    await page.locator('#cancelStaffUserCreateButton').click();
+    await page.waitForFunction(() => document.activeElement?.id === 'addStaffUserButton');
+
+    await page.locator('#adminMobileMenuButton').click();
+    await page.locator('#adminWorkspaceDrawer [data-admin-workspace-target="forms"]').click();
+    await page.locator('[data-admin-workspace-panel="forms"]').waitFor({ state: 'visible' });
+    await page.locator('#workFormsList .record-form').first().waitFor({ timeout: 20000 });
+    const mobileWorkFormCreateState = await page.evaluate(() => {
+      const toolbar = document.querySelector('.work-forms-card .admin-list-toolbar')?.getBoundingClientRect();
+      const addButton = document.querySelector('#addWorkFormButton')?.getBoundingClientRect();
+      return {
+        panelHidden: document.querySelector('#workFormCreatePanel')?.hidden ?? null,
+        expanded: document.querySelector('#addWorkFormButton')?.getAttribute('aria-expanded'),
+        addDisabled: document.querySelector('#addWorkFormButton')?.disabled ?? null,
+        listVisible: document.querySelector('#workFormsList')?.getClientRects().length > 0,
+        fullWidthAction: Boolean(toolbar && addButton && Math.abs(toolbar.width - addButton.width) <= 1),
+        overflow: document.documentElement.scrollWidth - window.innerWidth
+      };
+    });
+    if (
+      !mobileWorkFormCreateState.panelHidden
+      || mobileWorkFormCreateState.expanded !== 'false'
+      || mobileWorkFormCreateState.addDisabled
+      || !mobileWorkFormCreateState.listVisible
+      || !mobileWorkFormCreateState.fullWidthAction
+      || mobileWorkFormCreateState.overflow > 1
+    ) {
+      throw new Error(`mobile Work Form Add action did not keep the list primary: ${JSON.stringify(mobileWorkFormCreateState)}`);
+    }
+
+    await page.locator('#addWorkFormButton').click();
+    await page.waitForFunction(() => document.activeElement?.id === 'workFormNameInput');
+    if (await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth) > 1) {
+      throw new Error('mobile Work Form creation panel caused horizontal overflow');
+    }
+    await page.locator('#cancelWorkFormCreateButton').click();
+    await page.waitForFunction(() => document.activeElement?.id === 'addWorkFormButton');
+
+    await page.locator('#adminMobileMenuButton').click();
+    await page.locator('#adminWorkspaceDrawer [data-admin-workspace-target="people"]').click();
+    await page.locator('[data-admin-workspace-panel="people"]').waitFor({ state: 'visible' });
 
     await page.locator('#adminMobileMenuButton').click();
     await page.keyboard.press('Escape');
@@ -3562,7 +3938,23 @@ async function checkChineseTranslation(browser) {
 
   try {
     await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'people');
+    if ((await page.locator('#addStaffUserButton').innerText()).trim() !== '添加员工') {
+      throw new Error('Add Staff action was not translated before opening the form');
+    }
+    await page.locator('#addStaffUserButton').click();
+    await page.locator('#staffUserCreatePanel').waitFor({ state: 'visible' });
+    if ((await page.locator('#staffUserCreateTitle').innerText()).trim() !== '添加员工用户') {
+      throw new Error('Add Staff heading was not translated inside the revealed form');
+    }
+    await page.locator('#cancelStaffUserCreateButton').click();
+    await page.locator('#staffUserCreatePanel').waitFor({ state: 'hidden' });
+
     await openAdminWorkspace(page, 'forms');
+    if ((await page.locator('#addWorkFormButton').innerText()).trim() !== '添加工作表单') {
+      throw new Error('Add Work Form action was not translated before opening the builder');
+    }
+    await page.locator('#addWorkFormButton').click();
     await page.locator('#addWorkFormFieldButton').click();
     const fieldCard = page.locator('#workFormFieldCards > [data-work-form-field-card]').first();
     await fieldCard.waitFor({ state: 'visible', timeout: 10000 });

@@ -1199,10 +1199,24 @@
               <span id="workFormsCount" class="fold-count">0</span>
             </summary>
             <div class="fold-content work-forms-content">
-              <form id="workFormBuilderForm" class="form-grid">
+              <div class="admin-list-toolbar">
+                <button
+                  id="addWorkFormButton"
+                  type="button"
+                  aria-controls="workFormCreatePanel"
+                  aria-expanded="false"
+                >Add work form</button>
+              </div>
+              <section
+                id="workFormCreatePanel"
+                class="admin-create-panel"
+                aria-labelledby="workFormCreateTitle"
+                hidden
+              >
+                <form id="workFormBuilderForm" class="form-grid">
                 <div class="work-form-builder-intro">
                   <p class="eyebrow">New form</p>
-                  <h3>Build a work form</h3>
+                  <h3 id="workFormCreateTitle">Build a work form</h3>
                   <p class="muted">Create the questions workers will complete in the field. Advanced syntax remains available when needed.</p>
                 </div>
                 <label>
@@ -1244,10 +1258,12 @@
                 <div class="form-actions">
                   <button id="workFormPreviewButton" type="button" class="ghost">Preview draft</button>
                   <button id="workFormSubmitButton" type="submit">Create form</button>
+                  <button id="cancelWorkFormCreateButton" type="button" class="ghost">Cancel</button>
                 </div>
                 <div id="workFormBuilderActionFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
                 <div id="workFormDraftPreview" class="work-form-preview builder-preview hidden" aria-live="polite"></div>
-              </form>
+                </form>
+              </section>
               <div id="workFormsList" class="records-list staff-users-list"></div>
             </div>
           </details>
@@ -1315,7 +1331,31 @@
               <span id="staffUsersCount" class="fold-count">0</span>
             </summary>
             <div class="fold-content">
-              <form id="staffUserForm" class="form-grid">
+              <div class="admin-list-toolbar">
+                <form class="filter-bar compact-filter">
+                  <label>
+                    Find user
+                    <input id="staffSearchInput" type="search" placeholder="Name, email, role, status" />
+                  </label>
+                </form>
+                <button
+                  id="addStaffUserButton"
+                  type="button"
+                  aria-controls="staffUserCreatePanel"
+                  aria-expanded="false"
+                >Add staff</button>
+              </div>
+              <section
+                id="staffUserCreatePanel"
+                class="admin-create-panel"
+                aria-labelledby="staffUserCreateTitle"
+                hidden
+              >
+                <div class="admin-create-intro">
+                  <p class="eyebrow">New account</p>
+                  <h3 id="staffUserCreateTitle">Add staff user</h3>
+                </div>
+                <form id="staffUserForm" class="form-grid">
                 <label>
                   Name
                   <input id="staffNameInput" type="text" autocomplete="name" required />
@@ -1357,14 +1397,12 @@
                   <span class="form-checkbox-control" aria-hidden="true"></span>
                   <span class="form-checkbox-label">Global admin (Supervisor only)</span>
                 </label>
-                <button type="submit">Create user</button>
-              </form>
-              <form class="filter-bar compact-filter">
-                <label>
-                  Find user
-                  <input id="staffSearchInput" type="search" placeholder="Name, email, role, status" />
-                </label>
-              </form>
+                <div class="form-actions">
+                  <button id="staffUserSubmitButton" type="submit">Create user</button>
+                  <button id="cancelStaffUserCreateButton" type="button" class="ghost">Cancel</button>
+                </div>
+                </form>
+              </section>
               <div id="staffUsersList" class="records-list staff-users-list"></div>
             </div>
           </details>

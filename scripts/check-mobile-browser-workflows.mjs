@@ -117,6 +117,9 @@ check('Chinese catalogue is valid Unicode without mojibake or replacement artifa
 });
 
 check('Chinese catalogue fully translates high-value UI labels instead of mixed English', () => [
+  ['Add work form', /\b(?:Add|work|form)\b/i],
+  ['Add staff', /\b(?:Add|staff)\b/i],
+  ['Add staff user', /\b(?:Add|staff|user)\b/i],
   ['Add member row', /\b(?:Add|member|row)\b/i],
   ['Worker class', /\b(?:Worker|class)\b/i],
   ['Review recorded for Test User.', /\b(?:Review|recorded|for)\b/i],
@@ -267,6 +270,34 @@ check('login form precedes the install promotion', () => {
     && loginFormEndIndex < installPromotionIndex;
 });
 
+check('Staff and Work Form creation stay behind accessible Add actions', () => {
+  const workFormAddIndex = sourceIndex.indexOf('id="addWorkFormButton"');
+  const workFormPanelIndex = sourceIndex.indexOf('id="workFormCreatePanel"');
+  const workFormListIndex = sourceIndex.indexOf('id="workFormsList"');
+  const staffSearchIndex = sourceIndex.indexOf('id="staffSearchInput"');
+  const staffAddIndex = sourceIndex.indexOf('id="addStaffUserButton"');
+  const staffPanelIndex = sourceIndex.indexOf('id="staffUserCreatePanel"');
+  const staffListIndex = sourceIndex.indexOf('id="staffUsersList"');
+
+  return workFormAddIndex >= 0
+    && workFormAddIndex < workFormPanelIndex
+    && workFormPanelIndex < workFormListIndex
+    && staffSearchIndex >= 0
+    && staffSearchIndex < staffAddIndex
+    && staffAddIndex < staffPanelIndex
+    && staffPanelIndex < staffListIndex
+    && /id="addWorkFormButton"[\s\S]*?aria-controls="workFormCreatePanel"[\s\S]*?aria-expanded="false"/.test(sourceIndex)
+    && /id="workFormCreatePanel"[\s\S]*?hidden/.test(sourceIndex)
+    && /id="addStaffUserButton"[\s\S]*?aria-controls="staffUserCreatePanel"[\s\S]*?aria-expanded="false"/.test(sourceIndex)
+    && /id="staffUserCreatePanel"[\s\S]*?hidden/.test(sourceIndex)
+    && sourceStaffSites.includes('function setCreatePanelOpen(')
+    && sourceStaffSites.includes('button.disabled = isOpen')
+    && sourceStaffSites.includes('els.cancelWorkFormCreateButton.disabled = true')
+    && sourceStaffSites.includes('els.cancelStaffUserCreateButton.disabled = true')
+    && sourceStyles.includes('.admin-create-panel[hidden]')
+    && !sourceStyles.includes('grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr)');
+});
+
 [
   'statusBanner',
   'syncIndicator',
@@ -323,11 +354,18 @@ check('login form precedes the install promotion', () => {
   'nextReviewRecordButton',
   'auditHistoryDetails',
   'workFormsDetails',
+  'addWorkFormButton',
+  'workFormCreatePanel',
+  'cancelWorkFormCreateButton',
   'sitesDetails',
   'siteUseLocationButton',
   'siteMap',
   'siteMapStatus',
   'staffUsersDetails',
+  'addStaffUserButton',
+  'staffUserCreatePanel',
+  'staffUserSubmitButton',
+  'cancelStaffUserCreateButton',
   'staffWorkerClassSelect',
   'attendanceSite',
   'captureLocationButton',
