@@ -29,9 +29,9 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
-## Current Reset Status - 2026-08-10
+## Current Reset Status - 2026-08-11
 
-The reset goal is a reliable phone-first PWA with durable, explainable sync and review behaviour. The current local gate, historical real-phone local-network pass, and 2026-08-10 automated hosted release pass are green. The invited-account and cold-offline frontend is deployed, while the full hosted real-phone pass is still pending and the remaining provider hardening must be closed or accepted before real staff data is trusted to the service.
+The reset goal is a reliable phone-first PWA with durable, explainable sync and review behaviour. The current local gate, historical real-phone local-network pass, and 2026-08-11 automated hosted release pass are green. The invited-account and cold-offline frontend is deployed, while the full hosted real-phone pass is still pending and the remaining provider hardening must be closed or accepted before real staff data is trusted to the service.
 
 Completed in this reset:
 
@@ -58,7 +58,7 @@ Completed in this reset:
 - Work Form content edits create new definition versions, submissions freeze immutable snapshots, and the backend derives authoritative time ranges and formulas.
 - Review Queue policy, cursor queries, offline/read-only fallback, and exports are separate test surfaces. Dashboard totals and Management Analytics load complete durable overview data instead of the current filtered page.
 - SQLAlchemy connection checkout uses `pool_pre_ping`, and protected Sites load only after login or session restoration succeeds.
-- Public registration remains hidden in deployed commit `b2dec22` for the invited-account pilot. Supervisors create and activate Workers from Staff users; the verified-registration API remains implemented and tested for a later re-enable.
+- Public registration remains hidden in deployed commit `9a6260e` for the invited-account pilot. Supervisors create and activate Workers from Staff users; the verified-registration API remains implemented and tested for a later re-enable.
 - The current Staff users flow is account provisioning, not a complete invitation handoff: the Supervisor must choose and communicate each initial password. There is no expiring, single-use invitation or Worker-set-password flow yet.
 - Global-admin access is Supervisor-only. The Staff UI clears and disables it for Workers, authorization ignores invalid Worker flags, the API validates the final role/access combination, and migration `0017_global_admin_supervisor_invariant` revokes invalid legacy flags before enforcing the database invariant.
 - On 2026-08-05, commit `9db3477` passed lint, production build/static PWA checks, Review Queue checks, all 27 Playwright workflows, the production dependency audit, Python dependency consistency, and the controlled production-hardening gate. The production-preview cold offline launch and queued-attendance regression passed locally.
@@ -75,12 +75,14 @@ Completed in this reset:
 - The 2026-08-07 hosted pass verified the service-worker entrypoints and offline attendance snapshot, invited-only login with registration hidden, login before the install promotion, anonymous Sites returning 401, and five healthy readiness probes. This was a frontend-only release; Cloud Run remained unchanged.
 - On 2026-08-10, commit `b2dec22` passed lint, production build/static PWA checks, all 28 Playwright workflows, Review Queue checks, the production dependency audit, Python dependency consistency, and the controlled production-hardening gate. Firebase Hosting preview `release-20260810172537` was verified before exact version `6b499ef514142a09` was cloned live. Local, preview, and live SHA-256 hashes matched: `index.html` `ba207851e18aca98c38d65de58846000d66a67d8e966a903683af4f15a1c4b3a`, `sw.js` `416375288e8623f514eeeee833b17661a84dcbbd5543f09e3fdb590964339fac`, `offline.html` `5034e9dd2d5df27e72c356632a8e984fa0ea389adfcf1870dafe0b3d64837ff2`, and `manifest.webmanifest` `24b60cb58ae8a220b51b3e52cc16aa0360d87f0f63f4e9c713fab0d6b990d35e`.
 - The 2026-08-10 hosted pass verified the generated service-worker entrypoints and scoped offline snapshots, invited-only login with registration hidden, login before the install promotion, hidden-by-default Staff and Work Form creation panels, anonymous Sites returning 401, correct PWA cache headers, and five healthy readiness probes on both preview and live. This was a frontend-only release; Cloud Run remained unchanged.
+- On 2026-08-11, commit `9a6260e` passed lint, production build/static PWA checks, all 28 Playwright workflows, Review Queue checks, the production dependency audit, Python dependency consistency, and the controlled production-hardening gate. Firebase Hosting preview `release-20260811125326` at `https://geo-attendance-system-db9ca--release-20260811125326-agkq8qbo.web.app` was verified before exact version `4766134daf955917` was cloned live. Local, preview, and live SHA-256 hashes matched: `index.html` `20720598a574dd734e7465039cf393a7747298d1b96e2f8f43c2ff9c5b10558a`, `sw.js` `b95e22af6eb580c6ed52594215dd9ccda6647eae1c8da44f137ee269472a0bb1`, `offline.html` `5034e9dd2d5df27e72c356632a8e984fa0ea389adfcf1870dafe0b3d64837ff2`, `manifest.webmanifest` `24b60cb58ae8a220b51b3e52cc16aa0360d87f0f63f4e9c713fab0d6b990d35e`, and `assets/js/confirmation-dialog.js` `f488758b9ce098c263f4727b091a5772f4cdf5cdbf01f7b27772e234f0f68f58`.
+- The 2026-08-11 hosted pass verified all 47 generated app-shell paths plus `sw.js`, cache `leader-field-eada87cecf8c`, the confirmation-dialog module and both scoped offline snapshots, invited-only login with registration hidden, login before installation, anonymous Sites returning 401, correct PWA cache headers, and five healthy readiness probes on both preview and live. The full development audit reported three toolchain-only vulnerabilities—high-severity `brace-expansion` and `nanoid`, plus moderate-severity `postcss`—while the production audit remained clean. This was a frontend-only release; Cloud Run remained unchanged.
 - Cloud Monitoring now checks the hosted `/api/health/ready` path and has enabled incident policies for readiness failures and Cloud Run 5xx responses. A verified notification channel is still required for email/chat delivery.
 - A 2026-07-15 Neon drill created a temporary read-only branch from a five-minute-old production point, verified the migration/schema surface, and proved exact branch cleanup. The current Neon Free plan still limits history to six hours and has no scheduled snapshot backup.
 - The 2026-08-04 Neon release checks applied migration head `0017_global_admin_supervisor_invariant` to a disposable PostgreSQL branch before production, retained an expiring read-only pre-release branch through the observation window, and generated a fresh sanitized point-in-time recovery proof with exact cleanup verification.
 - The upload bucket enforces public-access prevention, uniform bucket-level IAM, and 30-day soft delete. A production-bucket drill proved content-preserving delete/restore and cleanup.
-- The 2026-08-10 controlled-test hardening gate passed with three warnings: incident-only Monitoring, six-hour Neon retention, and the skipped billing-budget check. The strict gate remains unsuitable for sign-off because no enabled, verified notification destination is attached.
-- The 2026-08-10 live readiness responses report both database and GCS Upload Storage as healthy. Cloud Run remains on revision `geo-backend-release-20260804152130`, and Firebase Hosting version `6b499ef514142a09` exactly matches the verified commit `b2dec22` build.
+- The 2026-08-11 controlled-test hardening gate passed with three warnings: incident-only Monitoring, six-hour Neon retention, and the skipped billing-budget check. The strict gate remains unsuitable for sign-off because no enabled, verified notification destination is attached.
+- The 2026-08-11 live readiness responses report both database and GCS Upload Storage as healthy. Cloud Run remains on revision `geo-backend-release-20260804152130`, and Firebase Hosting version `4766134daf955917` exactly matches the verified commit `9a6260e` build.
 
 Next step:
 
@@ -1121,12 +1123,12 @@ npm.cmd run check:production-hardening:strict
 
 The hardening commands are read-only and require authenticated `gcloud` and Neon CLI access. The normal command carries the controlled-test incident-only exception; the strict command requires verified alert delivery. Neither establishes Neon least-privilege roles, pooling limits, or longer backup retention.
 
-Latest frontend release check on 2026-08-10:
+Latest frontend release check on 2026-08-11:
 
-- Commit `b2dec22` passed lint, production build/PWA generation, Review Queue checks, and all 28 Playwright workflows before deployment.
-- Production npm dependencies reported zero vulnerabilities. The full development audit reported two advisories: high-severity `brace-expansion` through ESLint/minimatch and moderate-severity `postcss`.
-- Firebase preview `release-20260810172537` and live Hosting version `6b499ef514142a09` matched the verified local build exactly for `index.html`, `sw.js`, `offline.html`, and `manifest.webmanifest`; the hashes are recorded in the current reset status above.
-- Five preview and five live `/api/health/ready` probes reported database and GCS as healthy. Anonymous Sites returned 401, invited-only login remained visible with registration hidden, the login form preceded the install promotion, the Staff and Work Form creation panels started hidden behind Add actions, and the deployed service worker contained its hashed entrypoints and scoped offline snapshots.
+- Commit `9a6260e` passed lint, production build/PWA generation, Review Queue checks, and all 28 Playwright workflows before deployment.
+- Production npm dependencies reported zero vulnerabilities and Python dependencies were consistent. The full development audit reported three toolchain-only vulnerabilities: high-severity `brace-expansion` and `nanoid`, plus moderate-severity `postcss`.
+- Firebase preview `release-20260811125326` and live Hosting version `4766134daf955917` matched the verified local build across all 47 generated app-shell paths plus `sw.js`; the five named hashes are recorded in the current reset status above.
+- Five preview and five live `/api/health/ready` probes reported database and GCS as healthy. Anonymous Sites returned 401, invited-only login remained visible with registration hidden, the login form preceded the install promotion, and the deployed service worker contained its hashed entrypoints, scoped offline snapshots, and confirmation-dialog module. Local Playwright coverage verified cancel-first focus, Escape and Cancel behavior, focus restoration, and exactly one mutation only after confirmation; no authenticated hosted mutation was performed.
 - The controlled-test production-hardening gate passed with three warnings; the strict gate still fails because no enabled, verified Monitoring notification channel is attached. Cloud Run revision `geo-backend-release-20260804152130` remains unchanged at 100%.
 
 
@@ -1321,7 +1323,7 @@ Before real staff use, close or explicitly accept these remaining items:
 
 Current next work:
 
-- Complete the full real-phone hosted cold-offline, photo/signature streaming, and waiting-service-worker update checklist against Hosting version `6b499ef514142a09`.
+- Complete the full real-phone hosted cold-offline, photo/signature streaming, and waiting-service-worker update checklist against Hosting version `4766134daf955917`.
 - If automatic attendance is pursued, start with consent-based foreground arrival/departure reminders and one-tap confirmation. Reliable background geofencing when the PWA is closed requires native platform capability plus permission, battery, anti-spoofing, and audit validation.
 - Run the real-phone checklist against the live Firebase Hosting / Cloud Run / Neon / Cloud Storage path.
 - Clean up controlled hosted-test data and remove or formalize unused database users.
