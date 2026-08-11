@@ -1608,6 +1608,11 @@ async function checkStaffGlobalAdminScoping(browser) {
     hasTouch: false
   });
   const supervisorPage = await supervisorContext.newPage();
+  const nativeDialogs = [];
+  supervisorPage.on('dialog', async (dialog) => {
+    nativeDialogs.push({ message: dialog.message(), type: dialog.type() });
+    await dialog.dismiss();
+  });
 
   try {
     await loginAs(supervisorPage, 'supervisor@example.com', 'supervisor');
@@ -1665,6 +1670,73 @@ async function checkStaffGlobalAdminScoping(browser) {
       throw new Error(`department admin create form allowed department switching: ${JSON.stringify(departmentControls)}`);
     }
 
+    const statusRequests = [];
+    await supervisorPage.route('**/api/supervisor/users/*/status', async (route) => {
+      const request = route.request();
+      if (request.method() !== 'POST') {
+        await route.continue();
+        return;
+      }
+      statusRequests.push(request.postDataJSON());
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({})
+      });
+    });
+
+    const workerCard = supervisorPage.locator('#staffUsersList .record-card')
+      .filter({ hasText: 'worker@example.com' })
+      .first();
+    const resignButton = workerCard.getByRole('button', { name: 'Mark resigned' });
+    await resignButton.waitFor({ state: 'visible', timeout: 10000 });
+    await resignButton.focus();
+    await resignButton.click();
+    const confirmationDialog = supervisorPage.locator('#confirmationDialog');
+    await confirmationDialog.waitFor({ state: 'visible', timeout: 5000 });
+    await supervisorPage.waitForFunction(() => document.activeElement?.id === 'confirmationDialogCancelButton');
+    await supervisorPage.keyboard.press('Escape');
+    await confirmationDialog.waitFor({ state: 'hidden', timeout: 5000 });
+    await supervisorPage.waitForTimeout(100);
+    const cancelState = await supervisorPage.evaluate(() => ({
+      focusedText: document.activeElement?.textContent?.trim(),
+      dialogOpen: document.querySelector('#confirmationDialog')?.open
+    }));
+    if (statusRequests.length || cancelState.dialogOpen || cancelState.focusedText !== 'Mark resigned') {
+      throw new Error(`cancelled account status change was not side-effect free: ${JSON.stringify({ cancelState, statusRequests })}`);
+    }
+
+    await resignButton.click();
+    await confirmationDialog.waitFor({ state: 'visible', timeout: 5000 });
+    const statusRequestPromise = supervisorPage.waitForRequest((request) => (
+      request.method() === 'POST'
+      && /\/api\/supervisor\/users\/\d+\/status$/.test(new URL(request.url()).pathname)
+    ));
+    await supervisorPage.locator('#confirmationDialogConfirmButton').click();
+    await supervisorPage.waitForFunction(() => (
+      [...document.querySelectorAll('#staffUsersList .record-card')]
+        .find((card) => card.textContent.includes('worker@example.com'))
+        ?.querySelector('button[aria-busy="true"]')?.disabled === true
+    ));
+    await supervisorPage.keyboard.press('Enter');
+    const statusRequest = await statusRequestPromise;
+    await statusRequest.response();
+    await supervisorPage.waitForFunction(() => (
+      [...document.querySelectorAll('#staffUsersList .record-card')]
+        .find((card) => card.textContent.includes('worker@example.com'))
+        ?.querySelector('button')?.getClientRects().length > 0
+    ));
+    if (
+      statusRequests.length !== 1
+      || statusRequests[0]?.status !== 'resigned'
+      || statusRequests[0]?.confirmed !== true
+      || statusRequest.postDataJSON()?.status !== 'resigned'
+    ) {
+      throw new Error(`confirmed account status change did not send exactly one request: ${JSON.stringify(statusRequests)}`);
+    }
+    await supervisorPage.unroute('**/api/supervisor/users/*/status');
+
     await openAdminWorkspace(supervisorPage, 'forms');
     await supervisorPage.locator('#workFormsDetails').evaluate((element) => {
       element.open = true;
@@ -1680,6 +1752,9 @@ async function checkStaffGlobalAdminScoping(browser) {
     const previewText = await dayworkFormCard.locator('[data-work-form-preview]').innerText();
     if (previewText.includes('Number of people') || previewText.includes('team_people')) {
       throw new Error(`Daywork work-form preview exposed helper field: "${previewText}"`);
+    }
+    if (nativeDialogs.length) {
+      throw new Error(`staff status change used native dialogs: ${JSON.stringify(nativeDialogs)}`);
     }
   } finally {
     await supervisorContext.close();
@@ -2060,7 +2135,12 @@ async function checkSupervisorWorkFormCardBuilder(browser) {
   const page = await context.newPage();
   const formName = `Card builder ${Date.now()}`;
   const pageErrors = [];
+  const nativeDialogs = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
+  page.on('dialog', async (dialog) => {
+    nativeDialogs.push({ message: dialog.message(), type: dialog.type() });
+    await dialog.dismiss();
+  });
 
   try {
     await loginAs(page, 'supervisor@example.com', 'supervisor');
@@ -2371,12 +2451,95 @@ async function checkSupervisorWorkFormCardBuilder(browser) {
     await editResultCard.locator('[data-field-property="label"]').fill('Inspection result');
     await editResultCard.locator('[data-field-property="options"]').fill('Pass\nFail\nN/A\nBlocked');
 
+    const confirmationDialog = page.locator('#confirmationDialog');
+    const editTypeSelect = editResultCard.locator('[data-field-property="type"]');
+    await editTypeSelect.focus();
+    await editTypeSelect.selectOption('text');
+    await confirmationDialog.waitFor({ state: 'visible', timeout: 5000 });
+    await page.waitForFunction(() => document.activeElement?.id === 'confirmationDialogCancelButton');
+    const lossyDialogState = await page.evaluate(() => ({
+      title: document.querySelector('#confirmationDialogTitle')?.textContent?.trim(),
+      message: document.querySelector('#confirmationDialogDescription')?.textContent?.trim(),
+      confirmLabel: document.querySelector('#confirmationDialogConfirmButton')?.textContent?.trim(),
+      focusedId: document.activeElement?.id
+    }));
+    if (
+      lossyDialogState.title !== 'Change field type?'
+      || !lossyDialogState.message?.includes('current options')
+      || lossyDialogState.confirmLabel !== 'Change field type'
+      || lossyDialogState.focusedId !== 'confirmationDialogCancelButton'
+    ) {
+      throw new Error(`lossy field change did not use the accessible app dialog: ${JSON.stringify(lossyDialogState)}`);
+    }
+
+    await page.keyboard.press('Escape');
+    await confirmationDialog.waitFor({ state: 'hidden', timeout: 5000 });
+    const cancelledTypeState = await page.evaluate((fieldId) => {
+      const card = document.querySelector(`#supervisorEditPanel [data-field-id="${CSS.escape(fieldId)}"]`);
+      return {
+        type: card?.querySelector('[data-field-property="type"]')?.value,
+        options: card?.querySelector('[data-field-property="options"]')?.value,
+        focusedProperty: document.activeElement?.dataset?.fieldProperty
+      };
+    }, resultId);
+    if (
+      cancelledTypeState.type !== 'select'
+      || cancelledTypeState.options !== 'Pass\nFail\nN/A\nBlocked'
+      || cancelledTypeState.focusedProperty !== 'type'
+    ) {
+      throw new Error(`cancelled field change lost data or focus: ${JSON.stringify(cancelledTypeState)}`);
+    }
+
+    await editTypeSelect.selectOption('text');
+    await confirmationDialog.waitFor({ state: 'visible', timeout: 5000 });
+    await page.locator('#confirmationDialogConfirmButton').click();
+    await confirmationDialog.waitFor({ state: 'hidden', timeout: 5000 });
+    const confirmedTypeState = await page.evaluate((fieldId) => {
+      const card = document.querySelector(`#supervisorEditPanel [data-field-id="${CSS.escape(fieldId)}"]`);
+      return {
+        type: card?.querySelector('[data-field-property="type"]')?.value,
+        hasOptions: Boolean(card?.querySelector('[data-field-property="options"]'))
+      };
+    }, resultId);
+    if (confirmedTypeState.type !== 'text' || confirmedTypeState.hasOptions) {
+      throw new Error(`confirmed field change did not remove its choice settings: ${JSON.stringify(confirmedTypeState)}`);
+    }
+
+    const rebuiltTypeSelect = editPanel.locator(`[data-field-id="${resultId}"] [data-field-property="type"]`);
+    await rebuiltTypeSelect.selectOption('select');
+    await editPanel.locator(`[data-field-id="${resultId}"] [data-field-property="options"]`).fill('Pass\nFail\nN/A\nBlocked');
+
+    await page.locator('#languageToggleButton').click();
+    await page.waitForFunction(() => document.documentElement.dataset.language === 'zh');
+    await rebuiltTypeSelect.focus();
+    await rebuiltTypeSelect.selectOption('text');
+    await confirmationDialog.waitFor({ state: 'visible', timeout: 5000 });
+    await page.waitForFunction(() => document.activeElement?.id === 'confirmationDialogCancelButton');
+    const chineseDialogState = await page.evaluate(() => ({
+      title: document.querySelector('#confirmationDialogTitle')?.textContent?.trim(),
+      message: document.querySelector('#confirmationDialogDescription')?.textContent?.trim(),
+      confirmLabel: document.querySelector('#confirmationDialogConfirmButton')?.textContent?.trim(),
+      cancelLabel: document.querySelector('#confirmationDialogCancelButton')?.textContent?.trim()
+    }));
+    if (
+      !Object.values(chineseDialogState).every((value) => /[\u3400-\u9fff]/u.test(value || ''))
+      || Object.values(chineseDialogState).some((value) => /\b(?:Change|field|type|This|removes|current|options|formula|grouped|from|draft|Confirm|Cancel)\b/i.test(value || ''))
+    ) {
+      throw new Error(`confirmation dialog was not fully translated: ${JSON.stringify(chineseDialogState)}`);
+    }
+    await page.locator('#confirmationDialogCancelButton').click();
+    await confirmationDialog.waitFor({ state: 'hidden', timeout: 5000 });
+    await page.locator('#languageToggleButton').click();
+    await page.waitForFunction(() => document.documentElement.dataset.language === 'en');
+
     const updateRequestPromise = page.waitForRequest((request) => (
       request.method() === 'PATCH'
       && /\/api\/supervisor\/work-forms\/\d+$/.test(new URL(request.url()).pathname)
     ));
-    page.once('dialog', (dialog) => dialog.accept());
     await editPanel.locator('button[type="submit"]').click();
+    if (await confirmationDialog.getAttribute('open') !== null) {
+      throw new Error('routine Work Form save opened a confirmation dialog');
+    }
     const updateRequest = await updateRequestPromise;
     const updatePayload = updateRequest.postDataJSON();
     await page.locator('#toastViewport .toast').filter({ hasText: 'Work form updated.' }).waitFor({ timeout: 20000 });
@@ -2394,6 +2557,27 @@ async function checkSupervisorWorkFormCardBuilder(browser) {
     const updatedSummary = await page.locator('#workFormsList .record-form').filter({ hasText: formName }).first().innerText();
     if (!updatedSummary.includes('Inspection result')) {
       throw new Error(`updated form list did not reflect card edits: ${updatedSummary}`);
+    }
+
+    const updatedCard = page.locator('#workFormsList .record-form').filter({ hasText: formName }).first();
+    const archiveRequestPromise = page.waitForRequest((request) => (
+      request.method() === 'PATCH'
+      && /\/api\/supervisor\/work-forms\/\d+$/.test(new URL(request.url()).pathname)
+      && request.postDataJSON()?.status === 'archived'
+    ));
+    await updatedCard.getByRole('button', { name: 'Archive' }).click();
+    if (await confirmationDialog.getAttribute('open') !== null) {
+      throw new Error('reversible Work Form archive opened a confirmation dialog');
+    }
+    const archiveRequest = await archiveRequestPromise;
+    if (archiveRequest.postDataJSON()?.status !== 'archived') {
+      throw new Error(`Work Form archive sent the wrong payload: ${archiveRequest.postData()}`);
+    }
+    await page.locator('#workFormsList .record-form').filter({ hasText: formName })
+      .getByRole('button', { name: 'Activate' })
+      .waitFor({ state: 'visible', timeout: 20000 });
+    if (nativeDialogs.length) {
+      throw new Error(`native browser dialogs were used: ${JSON.stringify(nativeDialogs)}`);
     }
   } finally {
     await context.close();

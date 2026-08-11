@@ -11,6 +11,7 @@ export const appShell = Object.freeze([
   '/assets/js/app-shell-state.js',
   '/assets/js/app.js',
   '/assets/js/api-client.js',
+  '/assets/js/confirmation-dialog.js',
   '/assets/js/date-inputs.js',
   '/assets/js/db.js',
   '/assets/js/history.js',

@@ -2,7 +2,7 @@
 
 Mobile-first geo-attendance and field daywork logging MVP for Leader Scaffolding-style operations.
 
-This project lets field workers check in/out from a phone with location data, submit Daywork logs and custom work forms with progress photos, and review their own synced history. Supervisors can manage sites, staff, reusable work forms, attendance review, backend record adjustments with double-check confirmation, audit history, CSV exports, and print-ready HTML exports for logs and submitted forms. The next business-facing direction is a desktop payroll/admin section that helps accounting calculate approved worker hours by pay period.
+This project lets field workers check in/out from a phone with location data, submit Daywork logs and custom work forms with progress photos, and review their own synced history. Supervisors can manage sites, staff, reusable work forms, attendance review, backend record adjustments with consistent in-app confirmation for consequential actions, audit history, CSV exports, and print-ready HTML exports for logs and submitted forms. Pending-attendance and Work Form saves, rubbish-bin restores, and Work Form archive/activate actions do not add a second confirmation step. The next business-facing direction is a desktop payroll/admin section that helps accounting calculate approved worker hours by pay period.
 
 ## Current Version
 
@@ -167,13 +167,13 @@ Worker restrictions:
 - Preview worker-facing forms from the supervisor Work Forms builder before saving, and from the saved Work Forms list before editing or activating them.
 - View worker work-form submissions and attached photo galleries.
 - Approve or reject pending outside-site attendance, Task Logs, weekly Team Work Logs, and Work Form Submissions.
-- Adjust attendance records with double-check confirmation.
+- Adjust durable attendance records through an in-app confirmation dialog that explains the reporting and audit impact.
 - Add a missed worker check-in or check-out with the original date/time and a required reason. Manual entries are approved, audit-logged, visibly marked, and do not claim a GPS result.
 - Submit an approved task log for themselves or another accessible user. Admin-entered logs are visibly marked and audit-logged, with no separate approval step.
 - Set a worker's field class to Normal worker or Leader.
 - Review and approve weekly team logs containing many member/date/site/time/work rows.
 - Move attendance, Task Logs, Work Form Submissions, or weekly Team Work Logs to a Department-scoped rubbish bin after entering a reason and confirming the action. Records can be restored for 30 days before automatic permanent deletion.
-- Adjust submitted task logs with double-check confirmation.
+- Adjust submitted task logs through the same consequential-action dialog.
 - Create and edit sites, including allowed check-in radius.
 - Review attendance on a map with site-radius boundaries, inside/outside markers, worker/site/date/status filters, and map-based approve/reject controls.
 - View each worker's recorded attendance-point history and connect those events as straight reference lines; the app does not collect continuous background routes.
@@ -183,7 +183,7 @@ Worker restrictions:
 - Export the selected management period as CSV or a print-ready HTML management report.
 - Search sites.
 - Create worker/supervisor users in the supervisor's own department, or in any department when signed in as a global admin.
-- Edit staff name, email, role, status, department, global-admin access, or reset password with double-check confirmation.
+- Edit staff name, email, role, status, department, global-admin access, or reset password through an in-app confirmation that calls out the immediate sign-in and data-access impact.
 - Assign global-admin access only to Supervisor accounts. Changing an account to Worker clears that access in the UI and must remove it in the same backend update.
 - View and search staff users.
 - Mark workers resigned so they cannot sign in.
@@ -754,17 +754,17 @@ Supported field types are `section`, `repeat`, `text`, `textarea`, `number`, `da
 3. Use the Review Queue as the durable feed for outside-site attendance, Task Logs, weekly Team Work Logs, and Work Form Submissions. Pending is the decision workload; approved and rejected history remain queryable.
 4. Filter by worker/site text, record type, status, or date.
 5. Check worker, site, timestamp, location/site radius where applicable, notes, photos, and signatures.
-6. If a worker forgot to check in or out but performed the work, open Add missed check in / check out, choose the worker/site/type/original time, enter the reason, and confirm the manual entry.
-7. Open Submit approved log to enter a task log for yourself or another accessible user. Confirm it appears immediately as approved.
-8. Use Move to bin on an incorrect attendance, Task Log, Work Form Submission, or weekly Team Work Log, enter the reason, and complete the double-check confirmation.
-9. Open Rubbish bin to restore a record within 30 days. Expired records are permanently removed automatically.
+6. If a worker forgot to check in or out but performed the work, open Add missed check in / check out, choose the worker/site/type/original time, enter the reason, and complete the in-app confirmation for creating an immediately approved record without Worker GPS evidence.
+7. Open Submit approved log to enter a task log for yourself or another accessible user, complete the in-app confirmation, and confirm it appears immediately as approved.
+8. Use Move to bin on an incorrect attendance, Task Log, Work Form Submission, or weekly Team Work Log, enter the reason, and complete the in-app data-loss confirmation.
+9. Open Rubbish bin to restore a record within 30 days. Restore is immediate and does not ask for a redundant confirmation; expired records are permanently removed automatically.
 10. Approve or reject pending review records.
 11. Open Maps and location review, inspect site boundaries and outside-site points, and filter recorded location history by worker, site, status, or date.
 12. Optionally connect recorded points to compare event order. These straight lines are not continuous travel tracking or road routes.
 13. Open Management analytics and review trends, exceptions, site productivity, and form-response summaries for 7, 30, 90, or all available days. Confirm recent open check-ins are not marked missing until they are at least 12 hours old.
 14. Export the management summary as CSV or print-ready HTML. Logged task hours remain separate from payroll-approved hours.
 15. After filtering or paging Review Queue, confirm dashboard totals and Management Analytics still reflect the complete authorized data set.
-16. Use edit controls only after double-check confirmation.
+16. Use edit controls for durable submitted records only after the in-app dialog explains their audit and reporting impact. Ordinary pending-attendance and reusable Work Form saves proceed directly from their explicit Save button.
 17. Open Audit history and confirm recent review/edit/admin changes appear.
 18. Export attendance CSV, task logs, daily sheets, photo reports, or submitted work-form sheets when needed.
 
@@ -871,7 +871,7 @@ POST /supervisor/trash/{record_type}/{record_id}
 POST /supervisor/trash/{record_type}/{record_id}/restore
 ```
 
-Attendance, Task Logs, Work Form Submissions, and weekly Team Work Logs require a deletion reason and confirmation before entering the rubbish bin. Deleted records are hidden from Worker history, Review Queue, maps, analytics, and exports. They remain restorable for 30 days; startup/hourly cleanup then permanently removes them and cleans up any newly unreferenced uploads.
+Attendance, Task Logs, Work Form Submissions, and weekly Team Work Logs require a deletion reason and an in-app confirmation before entering the rubbish bin. Deleted records are hidden from Worker history, Review Queue, maps, analytics, and exports. They remain directly restorable for 30 days; startup/hourly cleanup then permanently removes them and cleans up any newly unreferenced uploads.
 
 ### Worker Task Templates
 

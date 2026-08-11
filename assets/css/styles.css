@@ -2368,6 +2368,8 @@ textarea {
 .confirmation-dialog {
   width: min(calc(100% - 32px), 460px);
   max-width: none;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
   padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: 16px;
@@ -2401,6 +2403,19 @@ textarea {
 
 .confirmation-dialog-actions button {
   flex: 1 1 170px;
+}
+
+.confirmation-dialog-confirm[data-tone="danger"] {
+  border: 1px solid var(--danger);
+  background: var(--danger);
+  color: var(--primary);
+  box-shadow: 0 12px 28px rgba(240, 107, 98, 0.22);
+}
+
+.confirmation-dialog-confirm[data-tone="danger"]:hover {
+  border-color: var(--danger);
+  background: var(--danger);
+  filter: brightness(0.92);
 }
 
 .team-log-entry-summary {

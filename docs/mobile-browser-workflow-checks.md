@@ -167,11 +167,11 @@ python backend\smoke_test.py
 - For an attendance event around UTC midnight, confirm the Review Queue and attendance export assign it to the date configured by `BUSINESS_TIMEZONE` (default `Pacific/Auckland`).
 - Make the filtered visible page exclude a known approved record; confirm dashboard `Reviewed` totals still include it and Management Analytics still reports the complete authorized record set.
 - Double-tap a worker attendance action and confirm only one matching record is created.
-- Move controlled attendance, Task Log, Work Form Submission, and weekly Team Work Log records to the rubbish bin; confirm they disappear from active review and show a deletion reason and automatic deletion date.
-- Restore the records from the rubbish bin and confirm they return to active review.
-- Open Add missed check in / check out, select a worker and matching site, enter a past date/time and reason, and confirm the approved record appears as a manual entry with no GPS.
+- Move controlled attendance, Task Log, Work Form Submission, and weekly Team Work Log records to the rubbish bin. Confirm the app dialog focuses Cancel first, Escape/Cancel sends no request and restores focus to the trigger, and the destructive action button sends one request. Confirm the records then disappear from active review and show a deletion reason and automatic deletion date.
+- Restore the records from the rubbish bin and confirm they return to active review without a redundant confirmation dialog.
+- Open Add missed check in / check out, select a worker and matching site, enter a past date/time and reason, complete the app confirmation dialog, and confirm the approved record appears as a manual entry with no GPS.
 - Confirm resigned workers remain selectable for historical corrections and that switching department focus updates the available workers and sites.
-- Open Submit approved log, submit one log for the signed-in supervisor and one for another accessible user, and confirm both appear as approved without review actions.
+- Open Submit approved log, complete the app confirmation dialog, submit one log for the signed-in supervisor and one for another accessible user, and confirm both appear as approved without review actions.
 - Switch department focus and confirm the approved-log person/site selectors follow the selected department.
 - Open Maps and location review and confirm attendance points, site-radius circles, and the recorded location history appear.
 - Filter the map by worker, site, status, date range, and outside-site-only.
@@ -187,16 +187,17 @@ python backend\smoke_test.py
 - Save `All departments` as the default, sign out/in, and confirm the all-department dashboard view is restored.
 - Open submitted photos and signatures from review records.
 - Approve one pending record and reject another pending record.
-- Edit one attendance record after the double-check confirmation.
-- Edit one task log after the double-check confirmation.
+- Edit one durable attendance record after the app dialog explains that the audited change can affect reporting.
+- Edit one durable task log after the same app confirmation.
 - Create a new Work Form with field cards and a required `signature` field. Confirm type, label, required state, choice options, conditions, and repeat row controls remain usable at phone width without horizontal overflow.
 - Reorder cards with a drag handle and with Move up/down. Confirm the worker preview and saved API field order match, the move is announced, and a move that places a condition/formula before its source is rejected locally.
 - Open **Advanced: edit raw field syntax**, confirm the generated syntax retains stable `id=` metadata, and verify preview/save asks you to apply or discard staged raw edits. Apply valid syntax and confirm the cards rebuild; enter invalid syntax and confirm the previous cards remain intact with local feedback.
 - Include a time range, conditional field, repeatable section, and formula. Confirm the backend response contains authoritative derived values and a Definition version/snapshot.
-- Edit the reusable Work Form, reopen the old submission/export, and confirm its historical labels, fields, formulas, and signatures still use the original snapshot.
-- Archive and reactivate a Work Form.
-- Create or edit a Site and confirm radius values remain valid.
-- Mark a worker resigned, confirm they cannot sign in, then reactivate them.
+- Change a choice/formula/repeating-group field type in the Work Form builder. Confirm Cancel preserves its options/formula/children and Confirm applies the lossy draft change. Confirm the dialog copy is fully translated when Chinese is selected.
+- Edit and save the reusable Work Form without a redundant confirmation, reopen the old submission/export, and confirm its historical labels, fields, formulas, and signatures still use the original snapshot.
+- Archive and reactivate a Work Form without a redundant confirmation dialog.
+- Create or edit a Site, complete the geofence-impact app confirmation, and confirm radius values remain valid.
+- Mark a worker resigned through the access-impact app confirmation, confirm they cannot sign in, then reactivate them through the matching confirmation.
 - Confirm a department supervisor has no resign action for a global admin and both status-update API paths reject the attempt.
 - Open Audit history and confirm recent changes show editor name, group, access level, action, and timestamp.
 

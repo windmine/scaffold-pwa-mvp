@@ -880,7 +880,7 @@ export function createHistoryModule({
         discardButton.className = 'secondary danger-action';
         discardButton.textContent = 'Discard local copy';
         discardButton.addEventListener('click', async () => {
-          await handleDiscardQueuedRecord(record);
+          await handleDiscardQueuedRecord(record, discardButton);
         });
 
         actions.append(retryButton, discardButton);
@@ -900,7 +900,7 @@ export function createHistoryModule({
         deleteButton.className = 'secondary';
         deleteButton.textContent = 'Delete';
         deleteButton.addEventListener('click', async () => {
-          await handleWorkerDeleteRecord(record);
+          await handleWorkerDeleteRecord(record, deleteButton);
         });
 
         actions.append(editButton, deleteButton);

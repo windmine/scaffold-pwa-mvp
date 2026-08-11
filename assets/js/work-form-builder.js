@@ -2,8 +2,7 @@ import { parseWorkFormFieldsInput, serialiseWorkFormFields } from './work-form-f
 import {
   applyLanguage,
   setTranslatableText,
-  setTranslatableTextParts,
-  translateText
+  setTranslatableTextParts
 } from './i18n.js';
 import { escapeHtml } from './utils.js';
 
@@ -477,7 +476,11 @@ function rawLineErrors(value) {
   return errors;
 }
 
-export function createWorkFormBuilder(root, { fields: initialFields = [], onChange } = {}) {
+export function createWorkFormBuilder(root, {
+  fields: initialFields = [],
+  onChange,
+  confirmAction = async () => false
+} = {}) {
   if (!root) throw new Error('Work Form builder root is required.');
   if (!root.matches('[data-work-form-builder]')) {
     root.innerHTML = workFormBuilderMarkup();
@@ -652,14 +655,19 @@ export function createWorkFormBuilder(root, { fields: initialFields = [], onChan
     announce(`Added ${repeatId ? 'group ' : ''}field ${field.label || 'Untitled field'}.`);
   }
 
-  function removeField(fieldId) {
-    prepareVisualMutation();
+  async function removeField(fieldId) {
     const field = fieldById(fieldId);
     if (!field) return;
     const children = field.type === 'repeat' ? fields.filter((item) => item.repeat === field.id) : [];
-    if (children.length && !window.confirm(translateText(`Remove "${field.label}" and its ${children.length} group field${children.length === 1 ? '' : 's'}?`))) {
+    if (children.length && !await confirmAction({
+      title: 'Remove repeating group?',
+      message: 'This removes the repeating group and every field inside it from this draft.',
+      confirmLabel: 'Remove group',
+      tone: 'danger'
+    })) {
       return;
     }
+    prepareVisualMutation();
     const candidate = fields.filter((item) => item.id !== field.id && item.repeat !== field.id);
     const validation = validateWorkFormBuilderFields(candidate);
     const dependencyError = validation.errors.find((message) => message.includes('must come after'));
@@ -683,13 +691,19 @@ export function createWorkFormBuilder(root, { fields: initialFields = [], onChan
     field.show_if = current.fieldId ? `${current.fieldId}${current.operator}${current.expected}` : '';
   }
 
-  function handleTypeChange(field, nextType, select) {
+  async function handleTypeChange(field, nextType, select) {
     const children = field.type === 'repeat' ? fields.filter((item) => item.repeat === field.id) : [];
     const losesData = (field.type === 'select' && field.options.length)
       || (field.type === 'formula' && field.formula)
       || children.length;
-    if (losesData && !window.confirm(translateText('Changing this field type will remove its type-specific settings. Continue?'))) {
+    if (losesData && !await confirmAction({
+      title: 'Change field type?',
+      message: 'This removes current options, formula, or grouped fields from this draft.',
+      confirmLabel: 'Change field type',
+      tone: 'danger'
+    })) {
       select.value = field.type;
+      select.focus({ preventScroll: true });
       return false;
     }
     if (children.length) fields = fields.filter((item) => item.repeat !== field.id);
@@ -739,21 +753,22 @@ export function createWorkFormBuilder(root, { fields: initialFields = [], onChan
     emitChange();
   }
 
-  function handleFieldChange(target) {
+  async function handleFieldChange(target) {
     const card = target.closest('[data-work-form-field-card]');
     const field = fieldById(card?.dataset.fieldId);
     const property = target.dataset.fieldProperty;
     if (!field || !property) return;
-    prepareVisualMutation();
 
     if (property === 'type') {
-      if (!handleTypeChange(field, target.value, target)) return;
+      if (!await handleTypeChange(field, target.value, target)) return;
+      prepareVisualMutation();
       fields = canonicalFields(fields);
       render();
       emitChange();
       root.querySelector(`[data-field-id="${CSS.escape(field.id)}"] [data-field-property="type"]`)?.focus();
       return;
     }
+    prepareVisualMutation();
     if (property === 'required') {
       field.required = target.checked;
       render();
@@ -873,7 +888,7 @@ export function createWorkFormBuilder(root, { fields: initialFields = [], onChan
     }
     const removeButton = event.target.closest('[data-remove-work-form-field]');
     if (removeButton) {
-      removeField(removeButton.closest('[data-work-form-field-card]').dataset.fieldId);
+      void removeField(removeButton.closest('[data-work-form-field-card]').dataset.fieldId);
       return;
     }
     if (event.target.closest('[data-apply-work-form-raw]')) applyRaw();
@@ -892,7 +907,7 @@ export function createWorkFormBuilder(root, { fields: initialFields = [], onChan
 
   root.addEventListener('change', (event) => {
     if (event.target.matches('[data-work-form-raw]')) return;
-    handleFieldChange(event.target);
+    void handleFieldChange(event.target);
   }, { signal });
 
   root.addEventListener('toggle', (event) => {

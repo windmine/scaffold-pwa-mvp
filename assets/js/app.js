@@ -27,6 +27,7 @@ import {
 } from './offline-site-snapshot.js';
 import { createHistoryModule } from './history.js';
 import { createPhotoViewer } from './photo-viewer.js';
+import { createConfirmationDialog } from './confirmation-dialog.js';
 import { createStaffSitesModule } from './staff-sites.js';
 import { createSupervisorAnalyticsModule } from './supervisor-analytics.js';
 import { createSupervisorMapModule } from './supervisor-map.js';
@@ -37,7 +38,7 @@ import { createWorkerLogModule } from './worker-log.js';
 import { createWorkerSitesModule } from './worker-sites.js';
 import { createTeamWorkLogModule } from './team-work-log.js';
 import { initDateInputs, setDateInputValue } from './date-inputs.js';
-import { applyLanguage, initLanguageToggle, translateText } from './i18n.js';
+import { applyLanguage, initLanguageToggle } from './i18n.js';
 import { createUiFeedback } from './ui-feedback.js';
 import { formatDateTime, todayDateInput, escapeHtml } from './utils.js';
 import {
@@ -67,6 +68,16 @@ const uiFeedback = createUiFeedback({
   toastViewport: els.toastViewport,
   translateElement: applyLanguage
 });
+
+const confirmationDialog = createConfirmationDialog({
+  dialog: els.confirmationDialog,
+  title: els.confirmationDialogTitle,
+  description: els.confirmationDialogDescription,
+  confirmButton: els.confirmationDialogConfirmButton,
+  cancelButton: els.confirmationDialogCancelButton,
+  translateElement: applyLanguage
+});
+const confirmAction = (options) => confirmationDialog.confirm(options);
 
 let staffSitesModule;
 let supervisorReviewModule;
@@ -178,7 +189,8 @@ staffSitesModule = createStaffSitesModule({
   showEditPanel,
   closeEditPanel,
   editValue,
-  editNumber
+  editNumber,
+  confirmAction
 });
 
 supervisorReviewModule = createSupervisorReviewModule({
@@ -206,7 +218,8 @@ supervisorReviewModule = createSupervisorReviewModule({
   closeEditPanel,
   editValue,
   editNumber,
-  siteSelectOptions: () => staffSitesModule.siteSelectOptions()
+  siteSelectOptions: () => staffSitesModule.siteSelectOptions(),
+  confirmAction
 });
 
 supervisorMapModule = createSupervisorMapModule({
@@ -1096,6 +1109,8 @@ async function handleLogout() {
     }
     uiFeedback.setButtonBusy(els.logoutButton, false);
   }
+  confirmationDialog.cancel({ restoreFocus: false });
+  if (els.appUpdatePausedDialog.open) els.appUpdatePausedDialog.close();
   uiFeedback.clearAll();
   const signedOutUser = state.user;
   state.user = null;
@@ -1114,6 +1129,8 @@ function handleSessionExpired(message = 'Your backend session expired. Please si
   sessionExpiryInProgress = true;
 
   const finish = () => {
+    confirmationDialog.cancel({ restoreFocus: false });
+    if (els.appUpdatePausedDialog.open) els.appUpdatePausedDialog.close();
     const expiredUser = state.user;
     state.user = null;
     void discardWorkerOfflineSnapshots(expiredUser);
@@ -1184,6 +1201,7 @@ function closeEditPanel(scope = 'supervisor') {
 
 function showEditPanel(title, fields, submitLabel, onSubmit, scope = 'supervisor') {
   const target = getEditPanel(scope);
+  let submitInFlight = false;
   target.title.textContent = title;
   target.form.innerHTML = fields.map((field) => {
     if (field.type === 'custom') {
@@ -1217,7 +1235,7 @@ function showEditPanel(title, fields, submitLabel, onSubmit, scope = 'supervisor
       </label>
     `;
   }).join('') + `
-    <div class="edit-warning">Double check before saving. This changes backend records.</div>
+    <div class="edit-warning">Review the fields before saving. This changes backend records.</div>
     <div class="split-actions">
       <button type="submit">${escapeHtml(submitLabel)}</button>
       <button id="${scope}SecondaryCancelEditButton" type="button" class="ghost">Cancel</button>
@@ -1228,7 +1246,13 @@ function showEditPanel(title, fields, submitLabel, onSubmit, scope = 'supervisor
 
   target.form.onsubmit = async (event) => {
     event.preventDefault();
-    await onSubmit();
+    if (submitInFlight) return;
+    submitInFlight = true;
+    try {
+      await onSubmit();
+    } finally {
+      submitInFlight = false;
+    }
   };
   document.getElementById(`${scope}SecondaryCancelEditButton`).addEventListener('click', () => closeEditPanel(scope));
 }
@@ -1274,7 +1298,6 @@ async function handleWorkerEditRecord(record) {
     ],
     'Save attendance',
     async () => {
-      if (!window.confirm(translateText('Save changes to this pending check-in/check-out?'))) return;
       try {
         await updateBackendMyRecord(record.backendRecordId, {
           record_type: editValue('workerEditAttendanceType'),
@@ -1296,14 +1319,21 @@ async function handleWorkerEditRecord(record) {
   );
 }
 
-async function handleWorkerDeleteRecord(record) {
+async function handleWorkerDeleteRecord(record, triggerButton) {
+  if (triggerButton?.getAttribute('aria-busy') === 'true') return;
   if (!canWorkerEditRecord(record)) {
     renderStatusBanner('This record cannot be deleted here.', true);
     return;
   }
 
-  if (!window.confirm(translateText('Delete this pending check-in/check-out?'))) return;
+  if (!await confirmAction({
+    title: 'Delete pending attendance?',
+    message: 'This permanently removes the pending attendance record and its photos. This cannot be undone.',
+    confirmLabel: 'Delete attendance',
+    tone: 'danger'
+  })) return;
 
+  uiFeedback.setButtonBusy(triggerButton, true, 'Working...');
   try {
     await deleteBackendMyRecord(record.backendRecordId);
     renderStatusBanner('Attendance deleted.');
@@ -1311,6 +1341,8 @@ async function handleWorkerDeleteRecord(record) {
     await historyModule.renderWorkerSummary();
   } catch (error) {
     renderStatusBanner(error.message || 'Could not delete record.', true);
+  } finally {
+    uiFeedback.setButtonBusy(triggerButton, false);
   }
 }
 
@@ -1328,9 +1360,16 @@ async function handleRetryQueuedRecord() {
   }
 }
 
-async function handleDiscardQueuedRecord(record) {
-  if (!window.confirm(translateText('Discard this unsynced submission from this device? You can then create it again with corrected details or photos.'))) return;
+async function handleDiscardQueuedRecord(record, triggerButton) {
+  if (triggerButton?.getAttribute('aria-busy') === 'true') return;
+  if (!await confirmAction({
+    title: 'Discard unsynced submission?',
+    message: 'This permanently removes the device-only submission and its queued photo progress. It cannot be recovered.',
+    confirmLabel: 'Discard submission',
+    tone: 'danger'
+  })) return;
 
+  uiFeedback.setButtonBusy(triggerButton, true, 'Working...');
   try {
     await discardOfflineSubmission(record.id);
     renderStatusBanner('Unsynced submission discarded. You can create it again now.');
@@ -1338,6 +1377,8 @@ async function handleDiscardQueuedRecord(record) {
     await historyModule.renderWorkerSummary();
   } catch (error) {
     renderStatusBanner(error.message || 'Could not discard this offline submission.', true);
+  } finally {
+    uiFeedback.setButtonBusy(triggerButton, false);
   }
 }
 

@@ -1424,6 +1424,24 @@
     <div id="toastViewport" class="toast-viewport" role="region" aria-label="Notifications"></div>
 
     <dialog
+      id="confirmationDialog"
+      class="confirmation-dialog"
+      aria-modal="true"
+      aria-labelledby="confirmationDialogTitle"
+      aria-describedby="confirmationDialogDescription"
+    >
+      <div class="confirmation-dialog-content">
+        <p class="eyebrow">Please confirm</p>
+        <h2 id="confirmationDialogTitle">Confirm action</h2>
+        <p id="confirmationDialogDescription">Review the details before continuing.</p>
+        <div class="confirmation-dialog-actions">
+          <button id="confirmationDialogCancelButton" type="button" class="ghost" autofocus>Cancel</button>
+          <button id="confirmationDialogConfirmButton" type="button" class="confirmation-dialog-confirm">Confirm</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog
       id="appUpdatePausedDialog"
       class="confirmation-dialog"
       aria-labelledby="appUpdatePausedTitle"

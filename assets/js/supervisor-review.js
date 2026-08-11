@@ -15,7 +15,6 @@ import {
   updateSupervisorTaskLog as updateBackendSupervisorTaskLog
 } from './api-client.js';
 import { setDateInputValue } from './date-inputs.js';
-import { translateText } from './i18n.js';
 import { createReviewExportAdapters } from './review-export-adapters.js';
 import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
 import { todayDateInput, escapeHtml, formatDateTime } from './utils.js';
@@ -60,7 +59,8 @@ export function createSupervisorReviewModule({
   closeEditPanel,
   editValue,
   editNumber,
-  siteSelectOptions
+  siteSelectOptions,
+  confirmAction = async () => false
 }) {
   let filterRefreshTimer = null;
   let reviewQueueRequestId = 0;
@@ -84,6 +84,14 @@ export function createSupervisorReviewModule({
       return false;
     }
     return true;
+  }
+
+  function confirmOfficialRecordChange() {
+    return confirmAction({
+      title: 'Save official record changes?',
+      message: 'This changes a durable Review Record. The update is audit-logged and can affect reporting.',
+      confirmLabel: 'Save official record'
+    });
   }
 
   function getFilters() {
@@ -941,7 +949,7 @@ export function createSupervisorReviewModule({
     els.rubbishBinList.querySelectorAll('[data-restore-record]').forEach((button) => {
       button.addEventListener('click', async () => {
         const [recordType, recordId] = button.dataset.restoreRecord.split(':');
-        await handleRestoreRecord(recordType, Number(recordId));
+        await handleRestoreRecord(recordType, Number(recordId), button);
       });
     });
   }
@@ -964,14 +972,17 @@ export function createSupervisorReviewModule({
     }
   }
 
-  async function handleRestoreRecord(recordType, recordId) {
-    if (!window.confirm(translateText('Double check: restore this record to the active review history?'))) return;
+  async function handleRestoreRecord(recordType, recordId, triggerButton) {
+    if (triggerButton?.getAttribute('aria-busy') === 'true') return;
+    feedback.setButtonBusy(triggerButton, true, 'Working...');
     try {
       await restoreBackendSupervisorRecord(recordType, recordId);
       renderStatusBanner('Record restored from the rubbish bin.');
       await renderPanel();
     } catch (error) {
       renderStatusBanner(error.message || 'Could not restore the record.', true);
+    } finally {
+      feedback.setButtonBusy(triggerButton, false);
     }
   }
 
@@ -998,7 +1009,12 @@ export function createSupervisorReviewModule({
           renderStatusBanner('Enter a reason for moving this record to the rubbish bin.', true);
           return;
         }
-        if (!window.confirm(translateText('Double check: hide this record and keep it in the rubbish bin for 30 days?'))) return;
+        if (!await confirmAction({
+          title: 'Move record to the rubbish bin?',
+          message: 'This hides the record from active review for up to 30 days. It can be restored before permanent deletion.',
+          confirmLabel: 'Move record',
+          tone: 'danger'
+        })) return;
         try {
           await moveBackendSupervisorRecordToTrash(
             record.type,
@@ -1034,9 +1050,11 @@ export function createSupervisorReviewModule({
       });
       return;
     }
-    if (!window.confirm(translateText(
-      `Double check: add this ${els.manualAttendanceType.value === 'check_out' ? 'check out' : 'check in'} for ${worker.name}?`
-    ))) return;
+    if (!await confirmAction({
+      title: 'Add approved attendance?',
+      message: 'This creates approved attendance without Worker GPS evidence. The action is audit-logged.',
+      confirmLabel: 'Add approved attendance'
+    })) return;
 
     feedback.clearLocal(els.manualAttendanceFeedback);
     feedback.setButtonBusy(els.manualAttendanceSubmitButton, true, 'Adding attendance...');
@@ -1092,9 +1110,11 @@ export function createSupervisorReviewModule({
       });
       return;
     }
-    if (!window.confirm(translateText(
-      `Double check: submit this approved ${form ? form.name : 'log'} for ${user.name}?`
-    ))) return;
+    if (!await confirmAction({
+      title: 'Submit an approved record?',
+      message: 'This creates an approved record for the selected user and skips pending review. The action is audit-logged.',
+      confirmLabel: 'Submit approved record'
+    })) return;
 
     feedback.clearLocal(els.adminTaskLogFeedback);
     feedback.setButtonBusy(els.adminTaskLogSubmitButton, true, 'Submitting approved log...');
@@ -1336,7 +1356,7 @@ export function createSupervisorReviewModule({
         ],
         'Save form',
         async () => {
-          if (!window.confirm(translateText('Double check: save changes to this form submission?'))) return;
+          if (!await confirmOfficialRecordChange()) return;
           try {
             const answersContainer = document.getElementById('editFormAnswers');
             const collectedAnswers = collectWorkFormAnswers(form, {
@@ -1405,7 +1425,7 @@ export function createSupervisorReviewModule({
             renderStatusBanner('Complete every team log row before saving.', true);
             return;
           }
-          if (!window.confirm(translateText('Double check: save changes to this weekly team log?'))) return;
+          if (!await confirmOfficialRecordChange()) return;
           try {
             await updateBackendSupervisorTeamWorkLog(record.backendRecordId, {
               week_start: editValue('editTeamWeekStart'),
@@ -1436,7 +1456,7 @@ export function createSupervisorReviewModule({
         ],
         'Save task log',
         async () => {
-          if (!window.confirm(translateText('Double check: save changes to this task log?'))) return;
+          if (!await confirmOfficialRecordChange()) return;
           try {
             await updateBackendSupervisorTaskLog(record.backendRecordId, {
               site_id: editNumber('editTaskSiteId'),
@@ -1477,7 +1497,7 @@ export function createSupervisorReviewModule({
       ],
       'Save attendance',
       async () => {
-        if (!window.confirm(translateText('Double check: save changes to this check-in/check-out record?'))) return;
+        if (!await confirmOfficialRecordChange()) return;
         try {
           await updateBackendSupervisorRecord(record.backendRecordId, {
             record_type: editValue('editAttendanceType'),

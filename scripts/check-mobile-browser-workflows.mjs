@@ -85,6 +85,7 @@ const sourceWorkerSites = read('assets/js/worker-sites.js');
 const sourceSiteMapPicker = read('assets/js/site-map-picker.js');
 const sourceTeamMemberPicker = read('assets/js/team-member-picker.js');
 const sourceTeamWorkLog = read('assets/js/team-work-log.js');
+const sourceConfirmationDialog = read('assets/js/confirmation-dialog.js');
 const sourceUiFeedback = read('assets/js/ui-feedback.js');
 const sourceWorker = read('sw.js');
 const sourceOfflineQueue = read('assets/js/offline-submissions.js');
@@ -130,9 +131,10 @@ check('Chinese catalogue fully translates high-value UI labels instead of mixed 
   ['Inside - 12m from site', /\b(?:Inside|from|site)\b/i],
   ['Outside - 40m from Queen Street (30m allowed)', /\b(?:Outside|from|allowed)\b/i],
   ['Check in - Site signature', /\b(?:Check|in|Site|signature)\b/i],
-  ['Remove "Crew" and its 2 group fields?', /\b(?:Remove|and|its|group|fields)\b/i],
-  ['Double check: mark this worker resigned? Their previous records will stay attached to this account.', /\b(?:Double|check|mark|this|worker|resigned|Their|previous|records|will|stay|attached|account)\b/i],
-  ['Double check: reactivate this worker? Their previous records will stay attached to this account.', /\b(?:Double|check|reactivate|this|worker|Their|previous|records|will|stay|attached|account)\b/i],
+  ['Remove repeating group?', /\b(?:Remove|repeating|group)\b/i],
+  ['Change field type?', /\b(?:Change|field|type)\b/i],
+  ['Mark worker resigned?', /\b(?:Mark|worker|resigned)\b/i],
+  ['Reactivate worker?', /\b(?:Reactivate|worker)\b/i],
   ['Invalid email or password', /\b(?:Invalid|email|or|password)\b/i],
   ['This account is resigned and cannot sign in', /\b(?:This|account|is|resigned|and|cannot|sign|in)\b/i],
   ['Enter a valid email address', /\b(?:Enter|valid|email|address)\b/i],
@@ -146,6 +148,53 @@ check('Chinese catalogue fully translates high-value UI labels instead of mixed 
 ].every(([source, forbiddenEnglish]) => (
   isCompleteChineseTranslation(i18nTestApi, source, forbiddenEnglish)
 )));
+
+check('Chinese catalogue fully translates app confirmation dialog copy', () => [
+  'Please confirm',
+  'Confirm action',
+  'Review the details before continuing.',
+  'Confirm',
+  'Cancel',
+  'Delete pending attendance?',
+  'This permanently removes the pending attendance record and its photos. This cannot be undone.',
+  'Delete attendance',
+  'Discard unsynced submission?',
+  'This permanently removes the device-only submission and its queued photo progress. It cannot be recovered.',
+  'Discard submission',
+  'Mark worker resigned?',
+  'Reactivate worker?',
+  'This blocks the Worker from signing in. Their previous records stay attached to the account.',
+  'This restores account access for the Worker. Their previous records stay attached to the account.',
+  'Reactivate worker',
+  'Save account changes?',
+  'Email, password, role, Department, status, or Global Admin changes can affect sign-in and data access immediately.',
+  'Save account changes',
+  'Save Site changes?',
+  'Coordinates and radius changes affect future inside/outside attendance results for this Site.',
+  'Save Site changes',
+  'Move record to the rubbish bin?',
+  'This hides the record from active review for up to 30 days. It can be restored before permanent deletion.',
+  'Move record',
+  'Add approved attendance?',
+  'Add approved attendance',
+  'Submit an approved record?',
+  'This creates an approved record for the selected user and skips pending review. The action is audit-logged.',
+  'Submit approved record',
+  'Save official record changes?',
+  'This changes a durable Review Record. The update is audit-logged and can affect reporting.',
+  'Save official record',
+  'Remove repeating group?',
+  'This removes the repeating group and every field inside it from this draft.',
+  'Remove group',
+  'Change field type?',
+  'This removes current options, formula, or grouped fields from this draft.',
+  'Change field type'
+].every((source) => isCompleteChineseTranslation(i18nTestApi, source))
+  && isCompleteChineseTranslation(
+    i18nTestApi,
+    'This creates approved attendance without Worker GPS evidence. The action is audit-logged.',
+    /\b(?:This|creates|approved|attendance|without|Worker|evidence|The|action|is|audit|logged)\b/i
+  ));
 
 check('Chinese catalogue translates keyboard signature instructions and live status', () => [
   ['(required)', /\brequired\b/i],
@@ -226,6 +275,7 @@ check('production build exists', () => [
 
 [
   'dist/assets/js/date-inputs.js',
+  'dist/assets/js/confirmation-dialog.js',
   'dist/assets/js/site-map-picker.js',
   'dist/assets/js/team-member-picker.js',
   'dist/assets/js/team-work-log.js',
@@ -502,6 +552,34 @@ check('Work Form drafts autosave per Worker and form before app updates', () => 
   && sourceApp.indexOf('await workerForm.prepareForAppUpdate()')
     < sourceApp.indexOf("worker.postMessage({ type: 'SKIP_WAITING' })")
   && sourceWorkFormFields.includes("new Event('change', { bubbles: true })")
+));
+
+check('consequential actions use one accessible app confirmation dialog', () => (
+  sourceIndex.includes('id="confirmationDialog"')
+  && sourceIndex.includes('aria-modal="true"')
+  && sourceIndex.includes('aria-labelledby="confirmationDialogTitle"')
+  && sourceIndex.includes('aria-describedby="confirmationDialogDescription"')
+  && sourceIndex.includes('id="confirmationDialogCancelButton"')
+  && sourceIndex.includes('id="confirmationDialogConfirmButton"')
+  && sourceConfirmationDialog.includes('export function createConfirmationDialog')
+  && sourceConfirmationDialog.includes('if (activeRequest) return Promise.resolve(false)')
+  && sourceConfirmationDialog.includes("dialog.addEventListener('cancel'")
+  && sourceConfirmationDialog.includes('restoreFocus(request.invoker)')
+  && sourceConfirmationDialog.includes('cancelButton.focus({ preventScroll: true })')
+  && [sourceApp, sourceStaffSites, sourceSupervisorReview, sourceWorkFormBuilder]
+    .every((source) => !/window\.confirm\s*\(/.test(source))
+  && sourceApp.includes("title: 'Delete pending attendance?'")
+  && sourceApp.includes("title: 'Discard unsynced submission?'")
+  && sourceStaffSites.includes("title: resigning ? 'Mark worker resigned?' : 'Reactivate worker?'")
+  && sourceStaffSites.includes("title: 'Save account changes?'")
+  && sourceStaffSites.includes("title: 'Save Site changes?'")
+  && sourceSupervisorReview.includes("title: 'Move record to the rubbish bin?'")
+  && sourceSupervisorReview.includes("title: 'Add approved attendance?'")
+  && sourceSupervisorReview.includes("title: 'Submit an approved record?'")
+  && sourceSupervisorReview.includes("title: 'Save official record changes?'")
+  && sourceWorkFormBuilder.includes("title: 'Remove repeating group?'")
+  && sourceWorkFormBuilder.includes("title: 'Change field type?'")
+  && sourceStyles.includes('.confirmation-dialog-confirm[data-tone="danger"]')
 ));
 
 check('queued upload failures are visible and recoverable by the owning Worker', () => (
