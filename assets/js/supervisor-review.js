@@ -17,7 +17,7 @@ import {
 import { setDateInputValue } from './date-inputs.js';
 import { createReviewExportAdapters } from './review-export-adapters.js';
 import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
-import { todayDateInput, escapeHtml, formatDateTime } from './utils.js';
+import { todayDateInput, escapeHtml, formatDateTime, reviewRecordKey } from './utils.js';
 import {
   exportUsesFormType,
   formatAuditAction,
@@ -148,10 +148,6 @@ export function createSupervisorReviewModule({
     if (record.type === 'team_log') return `Weekly team log - ${record.weekStart || record.workDate || 'No week'}`;
     if (record.type === 'task') return `Task log - ${record.siteName || 'No site'}`;
     return `${recordActionLabel(record)} - ${record.siteName || 'No site'}`;
-  }
-
-  function reviewRecordKey(record) {
-    return `${record?.type || 'record'}:${record?.backendRecordId || record?.id || ''}`;
   }
 
   function renderReviewDetail(record) {
@@ -881,12 +877,65 @@ export function createSupervisorReviewModule({
     }
   }
 
-  async function clearFilters() {
+  function resetReviewQueueFilters() {
     els.supervisorSearchInput.value = '';
     els.supervisorTypeFilter.value = '';
     els.supervisorStatusFilter.value = '';
     setDateInputValue(els.supervisorDateFilter, '');
+  }
+
+  async function clearFilters() {
+    window.clearTimeout(filterRefreshTimer);
+    filterRefreshTimer = null;
+    resetReviewQueueFilters();
     await refreshReviewQueue();
+  }
+
+  async function openReviewRecord(record) {
+    if (record?.backendRecordId == null || !departmentFocusedRecords([record]).length) {
+      renderStatusBanner('The related Review Record is outside the active department scope.', true);
+      return false;
+    }
+
+    window.clearTimeout(filterRefreshTimer);
+    filterRefreshTimer = null;
+    resetReviewQueueFilters();
+    const targetRecordKey = reviewRecordKey(record);
+    selectedReviewRecordKey = targetRecordKey;
+
+    if (!await refreshReviewQueue()) return false;
+
+    selectedReviewRecordKey = targetRecordKey;
+    state.supervisorRecords = {
+      ...state.supervisorRecords,
+      // Keep the refreshed Queue copy when it contains the target; the Analytics snapshot fills off-page gaps.
+      reviewRecords: mergeReviewRecords([record], state.supervisorRecords.reviewRecords || [])
+    };
+    renderFilteredLists();
+
+    const selectedRecord = visibleReviewRecords.find(
+      (item) => reviewRecordKey(item) === targetRecordKey
+    );
+    if (!selectedRecord) {
+      renderStatusBanner('The related Review Record no longer matches the active scope.', true);
+      return false;
+    }
+
+    selectReviewRecord(selectedRecord, { scrollOnSmallScreen: true });
+    window.requestAnimationFrame(() => {
+      const smallScreen = window.matchMedia('(max-width: 979px)').matches;
+      const selectedItem = [...els.reviewQueueList.querySelectorAll('.review-queue-item')]
+        .find((item) => item.dataset.recordKey === selectedReviewRecordKey);
+      const focusTarget = smallScreen
+        ? els.reviewQueueDetail.closest('.review-detail-shell')
+        : selectedItem;
+      if (focusTarget && !focusTarget.matches('a, button, input, select, textarea, summary, [tabindex]')) {
+        focusTarget.setAttribute('tabindex', '-1');
+      }
+      focusTarget?.focus?.({ preventScroll: true });
+      focusTarget?.scrollIntoView?.({ block: 'nearest' });
+    });
+    return true;
   }
 
   function scheduleReviewQueueRefresh() {
@@ -1553,6 +1602,7 @@ export function createSupervisorReviewModule({
     handleEditRecord,
     handleExportRecord,
     handleTrashRecord,
+    openReviewRecord,
     renderAuditHistory,
     renderAdminTaskLogForm,
     renderFilteredLists,

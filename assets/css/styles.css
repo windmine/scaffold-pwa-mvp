@@ -53,6 +53,7 @@ html[data-theme="dark"] {
   --logo-shadow: none;
   --logo-filter: none;
   --radius: 8px;
+  --outdoor-label-size: 0.875rem;
 }
 
 html[data-theme="light"] {
@@ -3858,6 +3859,10 @@ body.viewer-open {
   grid-column: 1 / -1;
 }
 
+.management-analytics-card .fold-count {
+  font-size: var(--outdoor-label-size);
+}
+
 .analytics-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -3896,7 +3901,7 @@ body.viewer-open {
 .analytics-metric span {
   display: block;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--outdoor-label-size);
   font-weight: 800;
 }
 
@@ -3929,7 +3934,7 @@ body.viewer-open {
   gap: 14px;
   margin: 8px 0;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--outdoor-label-size);
   font-weight: 800;
 }
 
@@ -3940,8 +3945,8 @@ body.viewer-open {
 }
 
 .analytics-chart-legend i {
-  width: 11px;
-  height: 11px;
+  width: 13px;
+  height: 13px;
   border-radius: 2px;
 }
 
@@ -3990,7 +3995,7 @@ body.viewer-open {
 .analytics-trend-column small {
   overflow: hidden;
   color: var(--muted);
-  font-size: 0.64rem;
+  font-size: var(--outdoor-label-size);
   text-align: center;
   text-overflow: clip;
   writing-mode: vertical-rl;
@@ -4020,7 +4025,7 @@ body.viewer-open {
   border-radius: 999px;
   background: var(--panel-background-strong);
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: var(--outdoor-label-size);
   font-weight: 800;
 }
 
@@ -4046,7 +4051,26 @@ body.viewer-open {
 .analytics-exception span {
   margin: 3px 0 0;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--outdoor-label-size);
+}
+
+.analytics-exception-detail {
+  align-self: start;
+}
+
+.analytics-exception-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.analytics-exception-actions button {
+  padding: 0.48rem 0.72rem;
+  font-size: var(--outdoor-label-size);
 }
 
 .analytics-table-wrap {
@@ -4068,7 +4092,7 @@ body.viewer-open {
 
 .analytics-table thead th {
   color: var(--brand-blue-soft);
-  font-size: 0.78rem;
+  font-size: var(--outdoor-label-size);
   text-transform: uppercase;
 }
 
@@ -4091,7 +4115,7 @@ body.viewer-open {
 .analytics-response-chart > p {
   margin: 4px 0 10px;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: var(--outdoor-label-size);
 }
 
 .analytics-horizontal-chart {
@@ -4101,7 +4125,7 @@ body.viewer-open {
 
 .analytics-horizontal-chart > div {
   display: grid;
-  grid-template-columns: minmax(70px, 0.8fr) minmax(100px, 2fr) auto;
+  grid-template-columns: minmax(90px, 0.8fr) minmax(100px, 2fr) auto;
   gap: 7px;
   align-items: center;
 }
@@ -4109,7 +4133,7 @@ body.viewer-open {
 .analytics-horizontal-chart span {
   overflow: hidden;
   color: var(--record-detail-text);
-  font-size: 0.78rem;
+  font-size: var(--outdoor-label-size);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -4129,7 +4153,7 @@ body.viewer-open {
 }
 
 .analytics-horizontal-chart strong {
-  font-size: 0.78rem;
+  font-size: var(--outdoor-label-size);
 }
 
 .analytics-number-summary {
@@ -4151,6 +4175,7 @@ body.viewer-open {
 
 .analytics-number-summary small {
   color: var(--muted);
+  font-size: var(--outdoor-label-size);
 }
 
 .analytics-number-summary strong {
@@ -4160,6 +4185,10 @@ body.viewer-open {
 
 .location-review-card {
   grid-column: 1 / -1;
+}
+
+.location-review-card .fold-count {
+  font-size: var(--outdoor-label-size);
 }
 
 .location-review-layout {
@@ -4225,6 +4254,7 @@ html[data-theme="dark"] .location-review-map {
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.96);
   color: #06111f;
+  font-size: var(--outdoor-label-size);
   font-weight: 800;
   line-height: 1.3;
   overflow-wrap: anywhere;
@@ -4319,7 +4349,7 @@ html[data-theme="dark"] .site-map-picker.leaflet-container {
 .site-map-picker .site-existing-pin span {
   display: block;
   padding: 0 8px;
-  font-size: 0.68rem;
+  font-size: var(--outdoor-label-size);
   font-weight: 950;
   letter-spacing: 0;
   line-height: 24px;
@@ -4337,7 +4367,7 @@ html[data-theme="dark"] .site-map-picker.leaflet-container {
 
 .location-review-map .location-map-point span {
   display: block;
-  font-size: 0.68rem;
+  font-size: var(--outdoor-label-size);
   font-weight: 950;
   letter-spacing: 0;
   line-height: 1;
@@ -4395,6 +4425,7 @@ html[data-theme="dark"] .site-map-picker.leaflet-container {
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.96);
   color: #06111f;
+  font-size: var(--outdoor-label-size);
   font-weight: 800;
   line-height: 1.3;
   overflow-wrap: anywhere;
@@ -4420,7 +4451,7 @@ html[data-theme="dark"] .site-map-picker.leaflet-container {
 .site-map-status {
   min-height: 1.35em;
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: var(--outdoor-label-size);
   font-weight: 800;
   line-height: 1.35;
 }
@@ -4450,7 +4481,7 @@ html[data-theme="dark"] .site-map-picker.leaflet-container {
   gap: 8px 16px;
   margin-top: 9px;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: var(--outdoor-label-size);
   font-weight: 800;
 }
 
@@ -4554,6 +4585,7 @@ html[data-theme="dark"] .site-map-picker.leaflet-container {
 .location-history-row small {
   margin-top: 3px;
   color: var(--muted);
+  font-size: var(--outdoor-label-size);
 }
 
 .location-history-dot {

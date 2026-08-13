@@ -1,5 +1,5 @@
 import { uploadPhoto as uploadBackendPhoto } from './api-client.js';
-import { dataUrlToBlob } from './utils.js';
+import { dataUrlToBlob, reviewRecordKey } from './utils.js';
 
 const TEAM_BREAK_MINUTE_OPTIONS = [0, 15, 30, 45, 60];
 
@@ -7,8 +7,7 @@ export function mergeReviewRecords(...recordGroups) {
   const recordsByKey = new Map();
 
   recordGroups.flat().filter(Boolean).forEach((record) => {
-    const key = `${record.type || 'record'}:${record.backendRecordId || record.id}`;
-    recordsByKey.set(key, record);
+    recordsByKey.set(reviewRecordKey(record), record);
   });
 
   return Array.from(recordsByKey.values())

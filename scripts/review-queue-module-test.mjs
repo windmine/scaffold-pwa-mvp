@@ -17,7 +17,9 @@ const {
   loadReviewOverview,
   reviewOverviewCounts
 } = await import('../assets/js/supervisor-review-utils.js');
+const { reviewRecordKey } = await import('../assets/js/utils.js');
 const {
+  buildManagementAnalytics,
   managementAnalyticsRecords,
   managementCsv
 } = await import('../assets/js/supervisor-analytics.js');
@@ -198,5 +200,88 @@ const analyticsRecords = managementAnalyticsRecords({
 });
 assert(analyticsRecords.length === 2, 'Management Analytics must not use the filtered Review Queue page');
 console.log('ok - Management Analytics uses its complete dataset');
+
+const analyticsIdentityReport = buildManagementAnalytics([
+  {
+    id: 'attendance-local-7',
+    backendRecordId: 7,
+    type: 'attendance',
+    status: 'pending',
+    action: 'check_out',
+    userId: 1,
+    userName: 'Valid map worker',
+    siteId: 1,
+    siteName: 'Valid Site',
+    workDate: '2026-08-11',
+    createdAt: '2026-08-11T08:00:00.000Z',
+    location: { latitude: -36.8485, longitude: 174.7633 }
+  },
+  {
+    id: 'task-local-7',
+    backendRecordId: 7,
+    type: 'task',
+    status: 'rejected',
+    userId: 1,
+    userName: 'Task worker',
+    siteId: 1,
+    siteName: 'Valid Site',
+    workDate: '2026-08-11',
+    createdAt: '2026-08-11T09:00:00.000Z',
+    location: { latitude: -36.8485, longitude: 174.7633 }
+  },
+  {
+    id: 'attendance-local-8',
+    backendRecordId: 8,
+    type: 'attendance',
+    status: 'rejected',
+    action: 'check_out',
+    userId: 2,
+    userName: 'Invalid map worker',
+    siteId: 1,
+    siteName: 'Valid Site',
+    workDate: '2026-08-11',
+    createdAt: '2026-08-11T10:00:00.000Z',
+    location: { latitude: 91, longitude: 181 }
+  },
+  {
+    id: 'attendance-local-9',
+    backendRecordId: 9,
+    type: 'attendance',
+    status: 'rejected',
+    action: 'check_out',
+    userId: 3,
+    userName: 'Null map worker',
+    siteId: 1,
+    siteName: 'Valid Site',
+    workDate: '2026-08-11',
+    createdAt: '2026-08-11T11:00:00.000Z',
+    location: { latitude: null, longitude: null }
+  }
+], Number.POSITIVE_INFINITY, new Date('2026-08-11T12:00:00.000Z'));
+const validAttendanceException = analyticsIdentityReport.exceptions.find((exception) => (
+  exception.category === 'Pending review' && exception.recordKey === 'attendance:7'
+));
+const sameIdTaskException = analyticsIdentityReport.exceptions.find((exception) => (
+  exception.category === 'Rejected record' && exception.recordKey === 'task:7'
+));
+const invalidAttendanceException = analyticsIdentityReport.exceptions.find((exception) => (
+  exception.category === 'Rejected record' && exception.recordKey === 'attendance:8'
+));
+const nullAttendanceException = analyticsIdentityReport.exceptions.find((exception) => (
+  exception.category === 'Rejected record' && exception.recordKey === 'attendance:9'
+));
+assert(
+  validAttendanceException?.recordKey !== sameIdTaskException?.recordKey,
+  'Analytics exceptions must use kind:id identity when record tables share numeric IDs'
+);
+assert(validAttendanceException?.hasMapPoint === true, 'valid attendance coordinates must expose a map action');
+assert(sameIdTaskException?.hasMapPoint === false, 'non-attendance records must never expose a map action');
+assert(invalidAttendanceException?.hasMapPoint === false, 'out-of-range attendance coordinates must not expose a map action');
+assert(nullAttendanceException?.hasMapPoint === false, 'null attendance coordinates must not expose a map action');
+assert(
+  reviewRecordKey({ review_key: 'form:7', type: 'form', backendRecordId: 99 }) === 'form:7',
+  'authoritative backend Review Record keys must be preserved'
+);
+console.log('ok - Analytics exception navigation uses collision-safe record keys and valid map points');
 
 console.log('review queue module test passed');

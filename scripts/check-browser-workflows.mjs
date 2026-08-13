@@ -454,6 +454,30 @@ async function runCheck(name, test) {
   }
 }
 
+async function expectReadableLabelSize(page, selectors, contextLabel, minimumPx = 14) {
+  const measurements = await page.evaluate((targetSelectors) => targetSelectors.map((selector) => {
+    const elements = [...document.querySelectorAll(selector)];
+    return {
+      selector,
+      values: elements.map((element) => ({
+        fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+        text: element.textContent?.replace(/\s+/g, ' ').trim().slice(0, 80) || ''
+      }))
+    };
+  }), selectors);
+  const missing = measurements.filter((measurement) => !measurement.values.length);
+  const undersized = measurements.flatMap((measurement) => measurement.values
+    .filter((value) => !Number.isFinite(value.fontSize) || value.fontSize + 0.01 < minimumPx)
+    .map((value) => ({ selector: measurement.selector, ...value })));
+
+  if (missing.length || undersized.length) {
+    throw new Error(`${contextLabel} labels are below the ${minimumPx}px readability floor: ${JSON.stringify({
+      missing: missing.map(({ selector }) => selector),
+      undersized
+    })}`);
+  }
+}
+
 async function checkAnonymousStartupDoesNotLoadSites(browser) {
   const context = await newContext(browser);
   const page = await context.newPage();
@@ -2653,8 +2677,161 @@ async function checkSupervisorReview(browser) {
       throw new Error(`location map did not render visible site/check-in markers: ${JSON.stringify(mapDebug)}`);
     }
 
+    await supervisorPage.locator('#locationReviewMap .location-map-point').first().dispatchEvent('mouseover');
+    await supervisorPage.locator('#locationReviewMap .leaflet-tooltip').first().waitFor({ timeout: 5000 });
+    const mapLabelSelectors = [
+      '#locationMapCount',
+      '#locationReviewMap .location-map-point span',
+      '#locationReviewMap .location-map-site-marker span',
+      '#locationReviewMap .leaflet-tooltip',
+      '.location-map-legend span',
+      '#locationMapHistory .location-history-row small'
+    ];
+    await expectReadableLabelSize(supervisorPage, mapLabelSelectors, 'desktop map');
+    await supervisorPage.setViewportSize({ width: 390, height: 844 });
+    await supervisorPage.locator('#locationReviewMap .location-map-point').first().dispatchEvent('mouseover');
+    await supervisorPage.locator('#locationReviewMap .leaflet-tooltip').first().waitFor({ timeout: 5000 });
+    await expectReadableLabelSize(supervisorPage, mapLabelSelectors, 'mobile map');
+    if (await supervisorPage.evaluate(() => document.documentElement.scrollWidth - window.innerWidth) > 1) {
+      throw new Error('larger mobile map labels introduced horizontal page overflow');
+    }
+    await supervisorPage.setViewportSize({ width: 1280, height: 900 });
+
+    const markedQueueResponse = supervisorPage.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return (
+        response.request().method() === 'GET'
+        && url.pathname === '/api/supervisor/review-queue'
+        && url.searchParams.get('search') === overviewMarker
+      );
+    }, { timeout: 15000 });
     await supervisorPage.locator('#supervisorSearchInput').fill(overviewMarker);
+    await markedQueueResponse;
     const markedRecord = supervisorPage.locator('#reviewQueueList .record-card').filter({ hasText: overviewMarker });
+    await markedRecord.waitFor({ timeout: 15000 });
+    const markedRecordKey = await markedRecord.getAttribute('data-record-key');
+    if (!markedRecordKey?.startsWith('attendance:')) {
+      throw new Error(`outside-site Review record did not expose its attendance key: ${markedRecordKey || 'missing'}`);
+    }
+    const markedAttendanceId = markedRecordKey.slice('attendance:'.length);
+
+    await supervisorPage.locator('#supervisorSearchInput').evaluate((element) => {
+      element.value = 'exclude-analytics-target';
+    });
+    await supervisorPage.locator('#supervisorTypeFilter').evaluate((element) => {
+      element.value = 'task';
+    });
+    await supervisorPage.locator('#supervisorStatusFilter').evaluate((element) => {
+      element.value = 'approved';
+    });
+    await supervisorPage.locator('#supervisorDateFilter').evaluate((element) => {
+      element.value = '2000-01-01';
+    });
+
+    await openAdminWorkspace(supervisorPage, 'reports');
+    const relatedException = supervisorPage
+      .locator(`#analyticsExceptionList .analytics-exception[data-analytics-record-key="${markedRecordKey}"]`)
+      .filter({ hasText: 'Outside site' })
+      .first();
+    await relatedException.waitFor({ timeout: 15000 });
+    const analyticsLabelSelectors = [
+      '#analyticsExceptionCount',
+      '#analyticsMetrics .analytics-metric span',
+      '.analytics-chart-legend span',
+      '#analyticsTrendChart .analytics-trend-column small',
+      '#analyticsExceptionSummary span',
+      '#analyticsExceptionList .analytics-exception p',
+      '#analyticsExceptionList .analytics-exception-detail',
+      '#analyticsExceptionList .analytics-exception-actions button',
+      '#analyticsSiteSummary .analytics-table thead th'
+    ];
+    await expectReadableLabelSize(supervisorPage, analyticsLabelSelectors, 'desktop Analytics');
+    await supervisorPage.setViewportSize({ width: 390, height: 844 });
+    await expectReadableLabelSize(supervisorPage, analyticsLabelSelectors, 'mobile Analytics');
+    if (await supervisorPage.evaluate(() => document.documentElement.scrollWidth - window.innerWidth) > 1) {
+      throw new Error('larger mobile Analytics labels introduced horizontal page overflow');
+    }
+    await supervisorPage.setViewportSize({ width: 1280, height: 900 });
+    await relatedException.getByRole('button', { name: 'Open Review record', exact: true }).click();
+    await supervisorPage.locator('[data-admin-workspace-panel="review"]').waitFor({ state: 'visible', timeout: 15000 });
+    const selectedAnalyticsRecord = supervisorPage.locator(
+      `#reviewQueueList .review-queue-item[data-record-key="${markedRecordKey}"][aria-selected="true"]`
+    );
+    await selectedAnalyticsRecord.waitFor({ timeout: 20000 });
+    await supervisorPage.locator('#reviewQueueDetail .record-card').filter({ hasText: overviewMarker })
+      .waitFor({ timeout: 10000 });
+    const clearedReviewFilters = await supervisorPage.evaluate(() => ({
+      search: document.querySelector('#supervisorSearchInput')?.value,
+      type: document.querySelector('#supervisorTypeFilter')?.value,
+      status: document.querySelector('#supervisorStatusFilter')?.value,
+      date: document.querySelector('#supervisorDateFilter')?.value
+    }));
+    if (Object.values(clearedReviewFilters).some(Boolean)) {
+      throw new Error(`Analytics Review navigation left excluding filters active: ${JSON.stringify(clearedReviewFilters)}`);
+    }
+
+    await supervisorPage.locator('#locationMapWorkerFilter').evaluate((element) => {
+      const excludingOption = [...element.options].find((option) => option.value);
+      element.value = excludingOption?.value || '';
+    });
+    await supervisorPage.locator('#locationMapStatusFilter').evaluate((element) => {
+      element.value = 'approved';
+    });
+    await supervisorPage.locator('#locationMapDateFrom').evaluate((element) => {
+      element.value = '2000-01-01';
+    });
+    await supervisorPage.locator('#locationMapDateTo').evaluate((element) => {
+      element.value = '2000-01-01';
+    });
+    await supervisorPage.locator('#locationMapOutsideOnly').evaluate((element) => {
+      element.checked = true;
+    });
+
+    await openAdminWorkspace(supervisorPage, 'reports');
+    const relatedMapException = supervisorPage
+      .locator(`#analyticsExceptionList .analytics-exception[data-analytics-record-key="${markedRecordKey}"]`)
+      .filter({ hasText: 'Outside site' })
+      .first();
+    await relatedMapException.waitFor({ timeout: 15000 });
+    await relatedMapException.getByRole('button', { name: 'Show map point', exact: true }).click();
+    await supervisorPage.locator('[data-admin-workspace-panel="review"]').waitFor({ state: 'visible', timeout: 15000 });
+    await supervisorPage.waitForFunction(() => document.querySelector('#locationMapDetails')?.open === true);
+    const selectedMapRecord = supervisorPage.locator(
+      `#locationMapHistory .location-history-row[data-location-record-id="${markedAttendanceId}"].selected`
+    );
+    await selectedMapRecord.waitFor({ timeout: 20000 });
+    await supervisorPage.locator('#locationMapSelection').getByText(overviewMarker).waitFor({ timeout: 10000 });
+    const clearedMapFilters = await supervisorPage.evaluate(() => ({
+      worker: document.querySelector('#locationMapWorkerFilter')?.value,
+      site: document.querySelector('#locationMapSiteFilter')?.value,
+      status: document.querySelector('#locationMapStatusFilter')?.value,
+      dateFrom: document.querySelector('#locationMapDateFrom')?.value,
+      dateTo: document.querySelector('#locationMapDateTo')?.value,
+      outsideOnly: document.querySelector('#locationMapOutsideOnly')?.checked
+    }));
+    if (
+      clearedMapFilters.worker
+      || clearedMapFilters.site
+      || clearedMapFilters.status
+      || clearedMapFilters.dateFrom
+      || clearedMapFilters.dateTo
+      || clearedMapFilters.outsideOnly
+    ) {
+      throw new Error(`Analytics map navigation left excluding filters active: ${JSON.stringify(clearedMapFilters)}`);
+    }
+
+    const pendingMarkedQueueResponse = supervisorPage.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return (
+        response.request().method() === 'GET'
+        && url.pathname === '/api/supervisor/review-queue'
+        && url.searchParams.get('search') === overviewMarker
+        && url.searchParams.get('status') === 'pending'
+      );
+    }, { timeout: 15000 });
+    await supervisorPage.locator('#supervisorStatusFilter').selectOption('pending');
+    await supervisorPage.locator('#supervisorSearchInput').fill(overviewMarker);
+    await pendingMarkedQueueResponse;
     await markedRecord.waitFor({ timeout: 15000 });
     await markedRecord.click();
     await markedRecord.evaluate((element) => {

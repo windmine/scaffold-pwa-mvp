@@ -195,6 +195,7 @@ export const els = {
   workerEditPanelForm: document.getElementById('workerEditPanelForm'),
   cancelWorkerEditButton: document.getElementById('cancelWorkerEditButton'),
   supervisorSummary: document.getElementById('supervisorSummary'),
+  reviewQueueDetails: document.getElementById('reviewQueueDetails'),
   reviewQueueNotice: document.getElementById('reviewQueueNotice'),
   reviewQueueFeedback: document.getElementById('reviewQueueFeedback'),
   reviewQueueList: document.getElementById('reviewQueueList'),

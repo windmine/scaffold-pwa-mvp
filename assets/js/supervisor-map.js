@@ -8,17 +8,31 @@ const MAP_DEFAULT_CENTRE = [-36.8485, 174.7633];
 const MAP_DEFAULT_ZOOM = 11;
 
 function hasCoordinates(value) {
-  return value?.latitude != null
-    && value?.latitude !== ''
-    && value?.longitude != null
-    && value?.longitude !== ''
-    && Number.isFinite(Number(value.latitude))
-    && Number.isFinite(Number(value.longitude));
+  const rawLatitude = value?.latitude;
+  const rawLongitude = value?.longitude;
+  if (
+    rawLatitude == null
+    || String(rawLatitude).trim() === ''
+    || rawLongitude == null
+    || String(rawLongitude).trim() === ''
+  ) return false;
+  const latitude = Number(rawLatitude);
+  const longitude = Number(rawLongitude);
+  return Number.isFinite(latitude)
+    && Number.isFinite(longitude)
+    && latitude >= -90
+    && latitude <= 90
+    && longitude >= -180
+    && longitude <= 180;
 }
 
 function recordCoordinates(record) {
   if (!hasCoordinates(record?.location)) return null;
   return [Number(record.location.latitude), Number(record.location.longitude)];
+}
+
+function attendanceRecordKey(record) {
+  return String(record?.backendRecordId ?? record?.id ?? '');
 }
 
 function siteRadius(site) {
@@ -313,7 +327,7 @@ export function createSupervisorMapModule({
   }
 
   function renderSelectedRecord(record) {
-    selectedRecordId = record?.id ?? null;
+    selectedRecordId = record ? attendanceRecordKey(record) : null;
     if (!record) {
       els.locationMapSelection.innerHTML = '<div class="empty-state">Select an attendance point or history row to review it.</div>';
       return;
@@ -371,13 +385,13 @@ export function createSupervisorMapModule({
     });
 
     els.locationMapHistory.querySelectorAll('[data-location-record-id]').forEach((row) => {
-      row.classList.toggle('selected', row.dataset.locationRecordId === String(record.id));
+      row.classList.toggle('selected', row.dataset.locationRecordId === attendanceRecordKey(record));
     });
   }
 
   function selectRecord(record, { openPopup = false } = {}) {
     renderSelectedRecord(record);
-    const marker = markerByRecordId.get(String(record.id));
+    const marker = markerByRecordId.get(attendanceRecordKey(record));
     if (marker && map) {
       const mapWidth = els.locationReviewMap.getBoundingClientRect().width;
       map.panTo(marker.getLatLng());
@@ -399,7 +413,7 @@ export function createSupervisorMapModule({
         .bindTooltip(`${record.userName}: ${record.action === 'check_out' ? 'check out' : 'check in'} at ${record.siteName}`)
         .on('click', () => selectRecord(record))
         .addTo(recordLayer);
-      markerByRecordId.set(String(record.id), marker);
+      markerByRecordId.set(attendanceRecordKey(record), marker);
     });
   }
 
@@ -409,8 +423,8 @@ export function createSupervisorMapModule({
       ? chronological.map((record) => `
           <button
             type="button"
-            class="location-history-row${String(record.id) === String(selectedRecordId) ? ' selected' : ''}"
-            data-location-record-id="${escapeHtml(record.id)}"
+            class="location-history-row${attendanceRecordKey(record) === String(selectedRecordId) ? ' selected' : ''}"
+            data-location-record-id="${escapeHtml(attendanceRecordKey(record))}"
           >
             <span class="location-history-dot" style="--location-colour: ${markerColour(record)}"></span>
             <span>
@@ -424,7 +438,7 @@ export function createSupervisorMapModule({
 
     els.locationMapHistory.querySelectorAll('[data-location-record-id]').forEach((row) => {
       row.addEventListener('click', () => {
-        const record = records.find((item) => String(item.id) === row.dataset.locationRecordId);
+        const record = records.find((item) => attendanceRecordKey(item) === row.dataset.locationRecordId);
         if (record) selectRecord(record, { openPopup: true });
       });
     });
@@ -478,11 +492,13 @@ export function createSupervisorMapModule({
     renderHistory(visibleRecords);
     renderMapLayers(visibleRecords);
 
-    const selected = visibleRecords.find((record) => String(record.id) === String(selectedRecordId));
+    const selected = visibleRecords.find(
+      (record) => attendanceRecordKey(record) === String(selectedRecordId)
+    );
     renderSelectedRecord(selected || null);
   }
 
-  function clearFilters() {
+  function resetFilters() {
     els.locationMapWorkerFilter.value = '';
     els.locationMapSiteFilter.value = '';
     els.locationMapStatusFilter.value = '';
@@ -490,8 +506,72 @@ export function createSupervisorMapModule({
     setDateInputValue(els.locationMapDateTo, '');
     els.locationMapOutsideOnly.checked = false;
     els.locationMapRouteToggle.checked = true;
+  }
+
+  function clearFilters() {
+    resetFilters();
     selectedRecordId = null;
     renderPanel();
+  }
+
+  async function focusRecord(record) {
+    if (
+      record?.type !== 'attendance'
+      || !recordCoordinates(record)
+      || !matchesDepartmentFocus(record)
+    ) {
+      renderStatusBanner('The related attendance map point is unavailable in the active scope.', true);
+      return false;
+    }
+
+    els.locationMapDetails.open = true;
+    resetFilters();
+    const targetKey = attendanceRecordKey(record);
+    let target = attendanceRecords().find((item) => attendanceRecordKey(item) === targetKey);
+    let locationRefreshFailed = false;
+
+    if (!target) {
+      try {
+        await refreshLocationRecords();
+        target = attendanceRecords().find((item) => attendanceRecordKey(item) === targetKey);
+      } catch {
+        locationRefreshFailed = true;
+        // The durable Analytics snapshot can still show its known point when the map refresh is unavailable.
+      }
+    }
+
+    if (!target && !locationRefreshFailed) {
+      renderStatusBanner('The related attendance map point no longer matches the active scope.', true);
+      return false;
+    }
+
+    if (!target) {
+      locationRecords = [
+        record,
+        ...locationRecords.filter((item) => attendanceRecordKey(item) !== targetKey)
+      ];
+      hasLoadedLocationRecords = true;
+    }
+
+    renderedDepartmentFocusId = String(state.departmentFocusId || '');
+    selectedRecordId = targetKey;
+    renderPanel();
+    const visibleTarget = filteredRecords().find(
+      (item) => attendanceRecordKey(item) === targetKey
+    );
+    if (!visibleTarget) {
+      renderStatusBanner('The related attendance map point no longer matches the active scope.', true);
+      return false;
+    }
+
+    selectRecord(visibleTarget, { openPopup: true });
+    window.requestAnimationFrame(() => {
+      const selectedRow = [...els.locationMapHistory.querySelectorAll('[data-location-record-id]')]
+        .find((row) => row.dataset.locationRecordId === targetKey);
+      selectedRow?.focus({ preventScroll: true });
+      selectedRow?.scrollIntoView({ block: 'nearest' });
+    });
+    return true;
   }
 
   async function refresh() {
@@ -526,6 +606,7 @@ export function createSupervisorMapModule({
 
   return {
     bindEvents,
+    focusRecord,
     renderPanel
   };
 }

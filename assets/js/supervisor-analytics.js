@@ -1,4 +1,4 @@
-import { dateInputValue, escapeHtml, formatDateTime, todayDateInput } from './utils.js';
+import { dateInputValue, escapeHtml, formatDateTime, reviewRecordKey, todayDateInput } from './utils.js';
 
 const DUPLICATE_WINDOW_MS = 10 * 60 * 1000;
 const MISSING_CHECK_OUT_GRACE_MS = 12 * 60 * 60 * 1000;
@@ -10,6 +10,26 @@ function recordDate(record) {
 function numericValue(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function hasMapPoint(record) {
+  if (record?.type !== 'attendance') return false;
+  const rawLatitude = record.location?.latitude;
+  const rawLongitude = record.location?.longitude;
+  if (
+    rawLatitude == null
+    || String(rawLatitude).trim() === ''
+    || rawLongitude == null
+    || String(rawLongitude).trim() === ''
+  ) return false;
+  const latitude = numericValue(rawLatitude);
+  const longitude = numericValue(rawLongitude);
+  return latitude != null
+    && longitude != null
+    && latitude >= -90
+    && latitude <= 90
+    && longitude >= -180
+    && longitude <= 180;
 }
 
 function csvCell(value) {
@@ -119,7 +139,10 @@ function addException(exceptions, category, record, detail, severity = 'attentio
   exceptions.push({
     category,
     severity,
-    recordId: record.backendRecordId || record.id,
+    recordId: record.backendRecordId ?? record.id,
+    recordType: record.type,
+    recordKey: reviewRecordKey(record),
+    hasMapPoint: hasMapPoint(record),
     userName: record.userName || 'Worker',
     siteName: record.siteName || 'Unassigned site',
     date: recordDate(record),
@@ -349,13 +372,22 @@ function renderTrend(container, trend) {
 
 function renderExceptionList(container, exceptions) {
   container.innerHTML = exceptions.length
-    ? exceptions.slice(0, 40).map((exception) => `
-        <article class="analytics-exception ${escapeHtml(exception.severity)}">
+    ? exceptions.slice(0, 40).map((exception, index) => `
+        <article
+          class="analytics-exception ${escapeHtml(exception.severity)}"
+          data-analytics-record-key="${escapeHtml(exception.recordKey)}"
+        >
           <div>
             <strong>${escapeHtml(exception.category)}</strong>
             <p>${escapeHtml(exception.userName)} | ${escapeHtml(exception.siteName)} | ${escapeHtml(exception.date)}</p>
           </div>
-          <span>${escapeHtml(exception.detail)}</span>
+          <span class="analytics-exception-detail">${escapeHtml(exception.detail)}</span>
+          <div class="analytics-exception-actions">
+            <button type="button" class="ghost" data-analytics-exception-action="review" data-analytics-exception-index="${index}" data-analytics-record-key="${escapeHtml(exception.recordKey)}">Open Review record</button>
+            ${exception.hasMapPoint
+              ? `<button type="button" class="ghost" data-analytics-exception-action="map" data-analytics-exception-index="${index}" data-analytics-record-key="${escapeHtml(exception.recordKey)}">Show map point</button>`
+              : ''}
+          </div>
         </article>
       `).join('')
     : '<div class="empty-state">No exceptions were detected for this period.</div>';
@@ -514,7 +546,16 @@ ${analytics.formCharts.length ? analytics.formCharts.map((chart) => chart.kind =
 </body></html>`;
 }
 
-export function createSupervisorAnalyticsModule({ els, state, renderStatusBanner }) {
+export function createSupervisorAnalyticsModule({
+  els,
+  state,
+  renderStatusBanner,
+  openReviewRecord = async () => false,
+  showMapPoint = async () => false
+}) {
+  let renderedReport = null;
+  let exceptionNavigationInProgress = false;
+
   function selectedPeriod() {
     return els.analyticsPeriodSelect.value === 'all'
       ? Number.POSITIVE_INFINITY
@@ -534,6 +575,7 @@ export function createSupervisorAnalyticsModule({ els, state, renderStatusBanner
 
   function renderPanel() {
     const report = analytics();
+    renderedReport = report;
     const label = periodLabel(selectedPeriod());
     const analyticsReady = Boolean(state.supervisorRecords.analyticsReady);
     els.analyticsPeriodLabel.textContent = analyticsReady
@@ -562,6 +604,40 @@ export function createSupervisorAnalyticsModule({ els, state, renderStatusBanner
     renderFormCharts(els.analyticsFormCharts, report.formCharts);
     els.exportManagementCsvButton.disabled = !analyticsReady;
     els.exportManagementHtmlButton.disabled = !analyticsReady;
+  }
+
+  async function handleExceptionAction(event) {
+    const button = event.target?.closest?.('[data-analytics-exception-action]');
+    if (!button || !els.analyticsExceptionList.contains(button) || exceptionNavigationInProgress) return;
+
+    const exception = renderedReport?.exceptions[Number(button.dataset.analyticsExceptionIndex)];
+    const record = renderedReport?.records.find(
+      (item) => reviewRecordKey(item) === exception?.recordKey
+    );
+    if (!exception || !record) {
+      renderStatusBanner('The related Review Record is no longer available. Refresh Analytics and try again.', true);
+      return;
+    }
+
+    exceptionNavigationInProgress = true;
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    try {
+      if (button.dataset.analyticsExceptionAction === 'map') {
+        await showMapPoint(record, exception);
+      } else {
+        await openReviewRecord(record, exception);
+      }
+    } catch (error) {
+      const fallbackMessage = button.dataset.analyticsExceptionAction === 'map'
+        ? 'Could not open the related attendance map point.'
+        : 'Could not open the related Review Record.';
+      renderStatusBanner(error?.message || fallbackMessage, true);
+    } finally {
+      exceptionNavigationInProgress = false;
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+    }
   }
 
   function exportCsv() {
@@ -594,6 +670,7 @@ export function createSupervisorAnalyticsModule({ els, state, renderStatusBanner
 
   function bindEvents() {
     els.analyticsPeriodSelect.addEventListener('change', renderPanel);
+    els.analyticsExceptionList.addEventListener('click', handleExceptionAction);
     els.exportManagementCsvButton.addEventListener('click', exportCsv);
     els.exportManagementHtmlButton.addEventListener('click', exportHtml);
     els.managementAnalyticsDetails.addEventListener('toggle', () => {

@@ -180,6 +180,7 @@ Worker restrictions:
 - Review attendance on a map with site-radius boundaries, inside/outside markers, worker/site/date/status filters, and map-based approve/reject controls.
 - View each worker's recorded attendance-point history and connect those events as straight reference lines; the app does not collect continuous background routes.
 - View management analytics for record trends, pending/rejected/outside-site and attendance-pairing exceptions, site activity, logged task hours, approval rates, and structured form responses. Open check-ins are only marked as missing after 12 hours.
+- Open each listed analytics exception in its exact Review Record. Attendance exceptions with valid coordinates can also open and highlight the exact map point; navigation clears conflicting Review/map filters and can recover records outside the first Review Queue page.
 - Keep dashboard Review totals and Management Analytics independent from the visible Review Queue filters/page; both use the complete authorized durable overview.
 - Filter review records, maps, analytics, sites, staff, and work forms by department. Department-scoped supervisors remain fixed to their assigned department.
 - Export the selected management period as CSV or a print-ready HTML management report.
@@ -763,7 +764,7 @@ Supported field types are `section`, `repeat`, `text`, `textarea`, `number`, `da
 10. Approve or reject pending review records.
 11. Open Maps and location review, inspect site boundaries and outside-site points, and filter recorded location history by worker, site, status, or date.
 12. Optionally connect recorded points to compare event order. These straight lines are not continuous travel tracking or road routes.
-13. Open Management analytics and review trends, exceptions, site productivity, and form-response summaries for 7, 30, 90, or all available days. Confirm recent open check-ins are not marked missing until they are at least 12 hours old.
+13. Open Management analytics and review trends, exceptions, site productivity, and form-response summaries for 7, 30, 90, or all available days. Open an exception in its exact Review Record; for attendance with valid coordinates, open its exact map point. These actions clear conflicting filters and still reach Analytics records outside the first Review Queue page. Confirm recent open check-ins are not marked missing until they are at least 12 hours old.
 14. Export the management summary as CSV or print-ready HTML. Logged task hours remain separate from payroll-approved hours.
 15. After filtering or paging Review Queue, confirm dashboard totals and Management Analytics still reflect the complete authorized data set.
 16. Use edit controls for durable submitted records only after the in-app dialog explains their audit and reporting impact. Ordinary pending-attendance and reusable Work Form saves proceed directly from their explicit Save button.

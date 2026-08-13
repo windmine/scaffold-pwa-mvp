@@ -491,6 +491,7 @@ export function createHistoryModule({
 
     return converted ? {
       ...converted,
+      reviewKey: record.review_key || `${converted.type}:${converted.backendRecordId}`,
       durability: record.durability || 'durable',
       readOnly: Boolean(record.read_only)
     } : null;

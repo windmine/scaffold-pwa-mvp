@@ -6,6 +6,12 @@ export const ATTENDANCE_LOCATION_MAX_AGE_MS = 5 * 60 * 1000;
 export const MAX_UPLOAD_IMAGE_BYTES = 5 * 1024 * 1024;
 export const UPLOAD_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
+export function reviewRecordKey(record) {
+  return record?.reviewKey
+    || record?.review_key
+    || `${record?.type || 'record'}:${record?.backendRecordId ?? record?.id ?? ''}`;
+}
+
 export function attendanceLocationIssue(location, workerId, now = Date.now()) {
   if (!location) return 'missing';
   if (workerId == null || String(location.ownerWorkerId || '') !== String(workerId)) return 'owner_mismatch';

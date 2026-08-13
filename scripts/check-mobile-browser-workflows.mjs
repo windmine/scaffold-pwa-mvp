@@ -149,6 +149,20 @@ check('Chinese catalogue fully translates high-value UI labels instead of mixed 
   isCompleteChineseTranslation(i18nTestApi, source, forbiddenEnglish)
 )));
 
+check('Chinese catalogue translates Analytics exception navigation', () => [
+  'Open Review record',
+  'Show map point',
+  'The related Review Record is no longer available. Refresh Analytics and try again.',
+  'Could not open the related Review Record.',
+  'Could not open the related attendance map point.',
+  'The related Review Record is outside the active department scope.',
+  'The related Review Record no longer matches the active scope.',
+  'The related attendance map point is unavailable in the active scope.',
+  'The related attendance map point no longer matches the active scope.',
+  'Opened the related Review Record.',
+  'Opened the related attendance map point.'
+].every((source) => isCompleteChineseTranslation(i18nTestApi, source)));
+
 check('Chinese catalogue fully translates app confirmation dialog copy', () => [
   'Please confirm',
   'Confirm action',
@@ -1151,6 +1165,21 @@ check('management analytics and reports are wired', () => (
   sourceApp.includes('createSupervisorAnalyticsModule')
   && sourceSupervisorReview.includes('renderManagementAnalytics')
   && sourceSupervisorAnalytics.includes('buildManagementAnalytics')
+  && sourceSupervisorAnalytics.includes('reviewRecordKey')
+  && sourceSupervisorAnalytics.includes('recordKey: reviewRecordKey(record)')
+  && sourceSupervisorAnalytics.includes('data-analytics-exception-action="review"')
+  && sourceSupervisorAnalytics.includes('data-analytics-exception-action="map"')
+  && sourceSupervisorAnalytics.includes('data-analytics-exception-index="${index}"')
+  && sourceSupervisorAnalytics.includes("button.setAttribute('aria-busy', 'true')")
+  && sourceSupervisorAnalytics.includes("button.removeAttribute('aria-busy')")
+  && sourceSupervisorAnalytics.includes("els.analyticsExceptionList.addEventListener('click', handleExceptionAction)")
+  && sourceSupervisorReview.includes('async function openReviewRecord(record)')
+  && sourceSupervisorReview.includes('openReviewRecord,')
+  && sourceSupervisorMap.includes('async function focusRecord(record)')
+  && sourceSupervisorMap.includes('focusRecord,')
+  && sourceApp.includes("activateAdminWorkspace('review'")
+  && sourceApp.includes('supervisorReviewModule?.openReviewRecord(record)')
+  && sourceApp.includes('supervisorMapModule?.focusRecord(record)')
   && sourceSupervisorAnalytics.includes('Possible duplicate')
   && sourceSupervisorAnalytics.includes('Missing check-out')
   && sourceSupervisorAnalytics.includes('MISSING_CHECK_OUT_GRACE_MS')
@@ -1161,6 +1190,7 @@ check('management analytics and reports are wired', () => (
   && sourceSupervisorAnalytics.includes('managementHtml')
   && sourceStyles.includes('.analytics-trend-chart')
   && sourceStyles.includes('.analytics-response-grid')
+  && sourceStyles.includes('.analytics-exception-actions')
   && pwaShellCopies('/assets/js/supervisor-analytics.js')
 ));
 

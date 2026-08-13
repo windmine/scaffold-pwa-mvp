@@ -236,7 +236,27 @@ supervisorMapModule = createSupervisorMapModule({
 supervisorAnalyticsModule = createSupervisorAnalyticsModule({
   els,
   state,
-  renderStatusBanner
+  renderStatusBanner,
+  openReviewRecord: async (record) => {
+    activateAdminWorkspace('review', {
+      target: els.reviewQueueDetails,
+      focus: true,
+      updateHistory: true
+    });
+    const opened = await supervisorReviewModule?.openReviewRecord(record);
+    if (opened) renderStatusBanner('Opened the related Review Record.');
+    return opened;
+  },
+  showMapPoint: async (record) => {
+    activateAdminWorkspace('review', {
+      target: els.locationMapDetails,
+      focus: true,
+      updateHistory: true
+    });
+    const opened = await supervisorMapModule?.focusRecord(record);
+    if (opened) renderStatusBanner('Opened the related attendance map point.');
+    return opened;
+  }
 });
 
 async function init() {

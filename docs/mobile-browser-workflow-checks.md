@@ -180,6 +180,8 @@ python backend\smoke_test.py
 - Select a pending map point and approve or reject it from the map detail panel.
 - Open Management analytics and switch between 7, 30, 90, and all-record periods.
 - Confirm record trends, exception rows, site summaries, and supported form-response charts update without layout overflow.
+- At normal browser text scale, confirm SITE/IN/OUT markers, map tooltips/history, trend dates, exception chips/actions, and site-summary headers remain readable outdoors without causing horizontal page overflow.
+- Set Review Queue and map filters that exclude a known exception, preferably one outside the first Review Queue page. From Management analytics, open that exception's Review Record and confirm the conflicting Review filters clear and the exact record is selected. For an attendance exception with valid coordinates, use its map action and confirm the conflicting map filters clear and the exact point/history row is highlighted.
 - Confirm an open check-in under 12 hours old is not marked missing, while one at least 12 hours old is marked `Missing check-out`.
 - Confirm a check-in before midnight followed by a check-out after midnight is paired and not marked missing.
 - Export management CSV and printable HTML and confirm each contains the selected period, key metrics, site summaries, and exceptions.
