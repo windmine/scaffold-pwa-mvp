@@ -3690,6 +3690,10 @@ async function checkSupervisorReview(browser) {
 
     await supervisorPage.locator('#locationMapDetails summary').click();
     await supervisorPage.locator('#locationReviewMap .location-map-point').first().waitFor({ timeout: 15000 });
+    await supervisorPage.waitForFunction(() => (
+      [...document.querySelectorAll('#locationReviewMap .location-map-point')]
+        .some((element) => element.textContent?.trim() === 'OUT')
+    ), null, { timeout: 20000 });
     await supervisorPage.locator('#locationReviewMap .location-map-site-marker').first().waitFor({ timeout: 15000 });
     await supervisorPage.locator('#locationReviewMap .location-site-boundary').first().waitFor({ timeout: 15000 });
     const mapDebug = await supervisorPage.evaluate(() => ({
