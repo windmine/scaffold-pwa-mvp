@@ -2,40 +2,46 @@
 
 ## Final Aim For Codex
 
-Build a working mobile-first geo-attendance management MVP where staff can check in and out by phone with location data, submit field logs/forms with photos and signatures, and supervisors can review/manage those records through a simple admin interface.
+Build and release a mobile-first report-only MVP. Every active Worker can submit a Supervisor-defined Report with a required Report Date, optional Site, answers, photos, and handwritten signatures; Workers see only their own Reports. Supervisors review Department-scoped Reports through **Submitted → In review → Resolved**, resolve with a required final note, manage Report Templates, and manage Staff.
 
-The project should stay practical: reliable local testing first, then production PWA hardening, then advanced HR/workflow features.
+The broader geo-attendance, Daywork, weekly-log, map, analytics, unrelated export, audit, and recovery implementation remains in the repository behind a reversible full-interface test override. Do not expose it in the production-default report-only shell or mix its approve/reject lifecycle into Reports.
 
 ## Product Vision
 
-Create a practical geo-based field operations platform for three main user groups.
+Create a practical report-submission product for two active user groups. Accounting/payroll and the broader field-operations platform remain future or retained scopes.
 
 1. **Staff / field users**
    - Log in securely.
-   - Check in and check out from a phone.
-   - Allow browser geolocation capture.
-   - Submit daily task logs with photos.
-   - Choose supervisor-created work forms such as daywork, inspection, and tool deduction forms.
+   - Choose an active Department Report Template from a phone.
+   - Submit a Report with a required Report Date and optional Site.
+   - Complete required answers and attach photos when needed.
    - Complete handwritten signature fields when a form requires them.
-   - View synced attendance, task log, and form history.
+   - View only their own queued and durable Reports, workflow state, evidence, and final Supervisor note.
    - Use a simple interface that works well on mobile screens.
 
 2. **Supervisors / admin users**
    - Log in securely.
-   - View staff attendance records.
-   - Review check-in and check-out location data.
-   - View task logs, form submissions, photos, and handwritten signatures.
-   - Manage sites and allowed site radius.
+   - View Department-scoped Reports, answers, photos, and handwritten signatures.
+   - Start review on Submitted Reports.
+   - Resolve In-review Reports with a required final note.
+   - Filter and export Reports by workflow, Template, Worker, and Report Date.
    - Manage staff users, including resigned/reactivated workers.
-   - Create, edit, archive, and reactivate reusable work forms.
-   - Use a folded/searchable dashboard layout from desktop, tablet, or phone.
+   - Create, edit, archive, and reactivate reusable Report Templates.
+   - Use a focused **Reports / Report Templates / Staff** interface on phone or desktop.
 
 3. **Accounting / payroll users**
-   - Review approved attendance by pay period.
-   - See worker/day hour totals for wage preparation.
-   - Find missing check-outs, duplicate attendance events, pending/rejected records, outside-site records, and manual supervisor adjustments before payroll export.
-   - Export payroll-ready CSV or Excel-friendly summaries.
-   - Use a desktop-first admin section, while preserving the worker phone-first PWA.
+   - Not part of the report-only MVP.
+   - Retain the existing payroll plan without exposing its unfinished UI.
+
+## Active Report Boundaries
+
+- `WorkForm` and `WorkFormSubmission` remain internal names. `template_purpose` and `submission_purpose` distinguish `report` from retained `daywork` records.
+- Report-only frontend calls must request `purpose=report`; Legacy Daywork must not appear in New Report, My Reports, Supervisor Reports, or Report collection exports.
+- Legacy approve/reject endpoints must reject Reports without changing the shared attendance/task/team-log decision policy. Reports transition only through their dedicated endpoint.
+- Supervisor-created legacy form submissions must not create or impersonate Worker Reports.
+- Submitted Report Site, Report Date, answers, photos, signatures, Definition snapshot, and purpose are immutable.
+- Report exports use the Report workflow state and include the final note, reviewer, review-started timestamp, and resolved timestamp.
+- Deploy the coupled backend/migration before any report-only Hosting promotion. A Firebase preview is not live approval.
 
 ## Current Implementation Notes
 
@@ -348,12 +354,14 @@ npm run check:mobile
 npm audit --omit=dev
 npm audit
 python -m pip check
-python -m compileall backend\app backend\smoke_test.py backend\database_test.py backend\migration_test.py backend\review_queue_test.py backend\work_form_definition_test.py backend\upload_storage_test.py backend\security_test.py
+python -m compileall backend\app backend\smoke_test.py backend\database_test.py backend\migration_test.py backend\report_purpose_test.py backend\report_workflow_test.py backend\review_queue_test.py backend\work_form_definition_test.py backend\upload_storage_test.py backend\security_test.py
 python backend\database_test.py
 python backend\security_test.py
 python backend\upload_storage_test.py
 python backend\review_queue_test.py
 python backend\work_form_definition_test.py
+python backend\report_purpose_test.py
+python backend\report_workflow_test.py
 python backend\migration_test.py
 python backend\smoke_test.py
 ```

@@ -141,10 +141,10 @@ export function validateWorkFormBuilderFields(inputFields = []) {
   const result = { valid: true, errors: [], fieldErrors: {} };
 
   if (!fields.length) {
-    addFieldError(result, '', 'Add at least one form field.');
+    addFieldError(result, '', 'Add at least one Report field.');
   }
   if (fields.length > MAX_FIELDS) {
-    addFieldError(result, '', `Forms can include up to ${MAX_FIELDS} fields.`);
+    addFieldError(result, '', `Report Templates can include up to ${MAX_FIELDS} fields.`);
   }
 
   const ids = new Set();
@@ -222,14 +222,14 @@ export function workFormBuilderMarkup({ rawInputId = '' } = {}) {
     <div class="work-form-field-builder" data-work-form-builder>
       <div class="work-form-builder-toolbar">
         <div>
-          <h3>Form fields</h3>
+          <h3>Report fields</h3>
           <p class="muted">Add cards in the same order workers should complete them.</p>
         </div>
         <button type="button" class="secondary" data-add-work-form-field>Add field</button>
       </div>
       <div class="local-feedback hidden" data-work-form-builder-feedback role="alert" aria-live="assertive" aria-atomic="true"></div>
       <p class="work-form-builder-empty" data-work-form-builder-empty>No fields yet. Add the first field to begin.</p>
-      <ol class="work-form-field-list" data-work-form-field-list aria-label="Work form fields"></ol>
+      <ol class="work-form-field-list" data-work-form-field-list aria-label="Report Template fields"></ol>
       <details class="optional-details work-form-advanced" data-work-form-advanced>
         <summary>Advanced: edit raw field syntax</summary>
         <div class="form-grid">
@@ -481,7 +481,7 @@ export function createWorkFormBuilder(root, {
   onChange,
   confirmAction = async () => false
 } = {}) {
-  if (!root) throw new Error('Work Form builder root is required.');
+  if (!root) throw new Error('Report Template builder root is required.');
   if (!root.matches('[data-work-form-builder]')) {
     root.innerHTML = workFormBuilderMarkup();
     root = root.querySelector('[data-work-form-builder]');

@@ -12,7 +12,9 @@ from sqlmodel import Session, select
 
 from app.models import User
 from app.use_cases.common import (
+    VALID_REPORT_WORKFLOW_STATUSES,
     normalize_approval_record_type,
+    normalize_work_form_purpose,
     user_is_global_admin,
     validate_review_status,
 )
@@ -27,8 +29,12 @@ CURSOR_VERSION = 1
 @dataclass(frozen=True)
 class ReviewRecordQuery:
     status: str | None
+    workflow_status: str | None
+    purpose: str | None
     kind: str | None
     department_id: int | None
+    form_id: int | None
+    worker_id: int | None
     record_date: str | None
     search: str
 
@@ -47,13 +53,29 @@ def normalize_review_record_query(
     supervisor: User,
     *,
     status: Optional[str] = None,
+    workflow_status: Optional[str] = None,
+    purpose: Optional[str] = None,
     kind: Optional[str] = None,
     department_id: Optional[int] = None,
+    form_id: Optional[int] = None,
+    worker_id: Optional[int] = None,
     record_date: Optional[str] = None,
     search: Optional[str] = None,
 ):
     normalized_status = validate_review_status(status) if status else None
+    normalized_workflow_status = str(workflow_status or '').strip().lower() or None
+    if normalized_workflow_status and normalized_workflow_status not in VALID_REPORT_WORKFLOW_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail="workflow_status must be submitted, in_review, or resolved",
+        )
+    normalized_purpose = normalize_work_form_purpose(purpose)
     normalized_kind = normalize_approval_record_type(kind) if kind else None
+
+    if form_id is not None and form_id < 1:
+        raise HTTPException(status_code=400, detail="form_id must be a positive integer")
+    if worker_id is not None and worker_id < 1:
+        raise HTTPException(status_code=400, detail="worker_id must be a positive integer")
 
     if not user_is_global_admin(supervisor):
         if department_id is not None and department_id != supervisor.department_id:
@@ -73,8 +95,12 @@ def normalize_review_record_query(
 
     return ReviewRecordQuery(
         status=normalized_status,
+        workflow_status=normalized_workflow_status,
+        purpose=normalized_purpose,
         kind=normalized_kind,
         department_id=department_id,
+        form_id=form_id,
+        worker_id=worker_id,
         record_date=normalized_date,
         search=normalized_search,
     )
@@ -145,6 +171,10 @@ def _combined_query(query: ReviewRecordQuery, snapshot_at: datetime):
             adapter.key_select(
                 department_id=query.department_id,
                 status=query.status,
+                workflow_status=query.workflow_status,
+                purpose=query.purpose,
+                form_id=query.form_id,
+                worker_id=query.worker_id,
                 record_date=query.record_date,
                 search=query.search,
                 snapshot_at=snapshot_at,
@@ -186,8 +216,12 @@ def list_review_record_page(
     session: Session,
     supervisor: User,
     status: Optional[str] = None,
+    workflow_status: Optional[str] = None,
+    purpose: Optional[str] = None,
     kind: Optional[str] = None,
     department_id: Optional[int] = None,
+    form_id: Optional[int] = None,
+    worker_id: Optional[int] = None,
     record_date: Optional[str] = None,
     search: Optional[str] = None,
     cursor: Optional[str] = None,
@@ -201,8 +235,12 @@ def list_review_record_page(
     query = normalize_review_record_query(
         supervisor,
         status=status,
+        workflow_status=workflow_status,
+        purpose=purpose,
         kind=kind,
         department_id=department_id,
+        form_id=form_id,
+        worker_id=worker_id,
         record_date=record_date,
         search=search,
     )
@@ -216,8 +254,12 @@ def list_review_record_page(
     combined = _combined_query(query, snapshot_at)
     summary_query = ReviewRecordQuery(
         status=None,
+        workflow_status=None,
+        purpose=query.purpose,
         kind=None,
         department_id=query.department_id,
+        form_id=None,
+        worker_id=None,
         record_date=None,
         search="",
     )

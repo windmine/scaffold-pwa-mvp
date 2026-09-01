@@ -35,6 +35,11 @@ export function createReviewExportAdapters(options = {}) {
   const save = options.download || downloadBlob;
   const currentDate = options.currentDate || todayDateInput;
 
+  const formRecordFilename = (record, extension) => {
+    const purpose = isDayworkRecord(record) ? 'daywork' : 'report';
+    return `leader-${purpose}-${record.backendRecordId}-${currentDate()}.${extension}`;
+  };
+
   async function saveResult(run, filename, message) {
     const blob = await run();
     save(blob, filename);
@@ -64,18 +69,18 @@ export function createReviewExportAdapters(options = {}) {
     ),
     'form-submissions': (filters) => saveResult(
       () => operations.formSubmissionsHtml(filters),
-      `leader-work-forms-${currentDate()}.html`,
-      'Work form submissions exported.'
+      `leader-reports-${currentDate()}.html`,
+      'Reports exported.'
     ),
     'form-submissions-csv': (filters) => saveResult(
       () => operations.formSubmissionsCsv(filters),
-      `leader-work-forms-${currentDate()}.csv`,
-      'Work form submissions CSV exported.'
+      `leader-reports-${currentDate()}.csv`,
+      'Reports CSV exported.'
     ),
     'form-submissions-pdf': (filters) => saveResult(
       () => operations.formSubmissionsPdf('submitted-form', filters),
-      `leader-work-forms-${currentDate()}.pdf`,
-      'Work form submissions PDF exported.'
+      `leader-reports-${currentDate()}.pdf`,
+      'Reports PDF exported.'
     ),
     'daywork-pdf': (filters) => saveResult(
       () => operations.formSubmissionsPdf('daywork', filters),
@@ -102,13 +107,13 @@ export function createReviewExportAdapters(options = {}) {
     ),
     'form-html': (record) => saveResult(
       () => operations.formSubmissionHtml(record.backendRecordId),
-      `leader-form-${record.backendRecordId}-${currentDate()}.html`,
-      'Form submission exported.'
+      formRecordFilename(record, 'html'),
+      'Report exported.'
     ),
     'form-pdf': (record) => saveResult(
       () => operations.formSubmissionPdf(record.backendRecordId, 'submitted-form'),
-      `leader-form-${record.backendRecordId}-${currentDate()}.pdf`,
-      'Form submission PDF exported.'
+      formRecordFilename(record, 'pdf'),
+      'Report PDF exported.'
     ),
     'daywork-pdf': (record) => {
       if (!isDayworkRecord(record)) throw new Error('This submission is not a Daywork form.');
@@ -120,8 +125,8 @@ export function createReviewExportAdapters(options = {}) {
     },
     'form-csv': (record) => saveResult(
       () => operations.formSubmissionCsv(record.backendRecordId),
-      `leader-form-${record.backendRecordId}-${currentDate()}.csv`,
-      'Form submission CSV row exported.'
+      formRecordFilename(record, 'csv'),
+      'Report CSV row exported.'
     )
   };
 

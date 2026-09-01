@@ -128,7 +128,7 @@ def filter_form_records(records, session: Session, supervisor: User, form_id: Op
 
     form = session.get(WorkForm, form_id)
     if not form or not can_access_department(supervisor, form.department_id):
-        raise HTTPException(status_code=404, detail="Form not found")
+        raise HTTPException(status_code=404, detail="Report Template not found")
 
     return [record for record in records if record.form_id == form_id]
 

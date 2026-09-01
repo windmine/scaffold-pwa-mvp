@@ -19,6 +19,21 @@ const STALE_SYNCING_AFTER_MS = 2 * 60 * 1000;
 let syncQueuePromise = null;
 let syncQueueWorkerId = null;
 
+function submissionPurpose(record) {
+  const explicitPurpose = String(record?.submissionPurpose || record?.submission_purpose || '').trim().toLowerCase();
+  if (explicitPurpose === 'report' || explicitPurpose === 'daywork') return explicitPurpose;
+  if (record?.type !== 'form') return '';
+
+  const formName = String(record.formName || record.form_name || '').trim().toLowerCase();
+  return formName.includes('daywork') || formName.includes('daily work') ? 'daywork' : 'report';
+}
+
+function matchesReplayScope(record, options = {}) {
+  const requestedPurpose = String(options.purpose || '').trim().toLowerCase();
+  if (!requestedPurpose) return true;
+  return record?.type === 'form' && submissionPurpose(record) === requestedPurpose;
+}
+
 function isAuthError(error) {
   return error?.status === 401 || error?.status === 403;
 }
@@ -645,8 +660,8 @@ export async function submitOfflineSubmission(record, options = {}) {
   return result;
 }
 
-async function flushQueuedSubmissions(worker) {
-  if (!navigator.onLine) return { flushed: 0, failed: 0 };
+async function flushQueuedSubmissions(worker, options = {}) {
+  if (!navigator.onLine) return { flushed: 0, failed: 0, scopeSkipped: 0 };
 
   const queueItems = await getAll('queue');
   let flushed = 0;
@@ -654,6 +669,7 @@ async function flushQueuedSubmissions(worker) {
   let skipped = 0;
   let ownershipBlocked = 0;
   let invalidBlocked = 0;
+  let scopeSkipped = 0;
   let authBlocked = false;
 
   for (const item of queueItems) {
@@ -665,6 +681,11 @@ async function flushQueuedSubmissions(worker) {
 
     if (record.backendRecordId || record.syncStatus === 'synced') {
       await remove('queue', item.id);
+      continue;
+    }
+
+    if (!matchesReplayScope(record, options)) {
+      scopeSkipped += 1;
       continue;
     }
 
@@ -727,10 +748,10 @@ async function flushQueuedSubmissions(worker) {
   }
 
   await put('settings', { key: 'lastSyncAt', value: new Date().toISOString() });
-  return { flushed, failed, skipped, ownershipBlocked, invalidBlocked, authBlocked };
+  return { flushed, failed, skipped, ownershipBlocked, invalidBlocked, scopeSkipped, authBlocked };
 }
 
-export async function syncQueuedSubmissions() {
+export async function syncQueuedSubmissions(options = {}) {
   const worker = activeWorker();
   if (!worker) {
     return {
@@ -739,6 +760,7 @@ export async function syncQueuedSubmissions() {
       skipped: 0,
       ownershipBlocked: 0,
       invalidBlocked: 0,
+      scopeSkipped: 0,
       authBlocked: false,
       noActiveWorker: true
     };
@@ -747,11 +769,11 @@ export async function syncQueuedSubmissions() {
   if (syncQueuePromise) {
     if (syncQueueWorkerId === worker.id) return syncQueuePromise;
     await syncQueuePromise;
-    return syncQueuedSubmissions();
+    return syncQueuedSubmissions(options);
   }
 
   syncQueueWorkerId = worker.id;
-  syncQueuePromise = flushQueuedSubmissions(worker).finally(() => {
+  syncQueuePromise = flushQueuedSubmissions(worker, options).finally(() => {
     syncQueuePromise = null;
     syncQueueWorkerId = null;
   });

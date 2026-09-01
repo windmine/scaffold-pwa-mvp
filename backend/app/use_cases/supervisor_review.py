@@ -27,6 +27,7 @@ from app.use_cases.common import (
     can_access_department,
     ensure_site_exists,
     normalize_task_photo_urls,
+    normalize_work_form_purpose,
     normalize_work_form_photo_urls,
     require_confirmed,
     review_record_response,
@@ -41,8 +42,8 @@ from app.use_cases.common import (
     validate_photo_url,
     work_form_definition,
     work_form_definition_snapshot_json,
-    work_form_upload_references,
     work_form_submission_definition,
+    work_form_upload_references,
     work_form_submission_response,
 )
 from app.use_cases.supervisor_review_exports import (
@@ -497,24 +498,44 @@ def render_form_answer_rows(item):
 
 def render_form_submission_page(item):
     answer_rows, signatures = render_form_answer_rows(item)
-    title = item["form_name"] or f"Form {item['form_id']}"
+    title = item["form_name"] or f"Report {item['id']}"
+    is_report = (item.get("submission_purpose") or "report") == "report"
+    displayed_status = item["workflow_status"] if is_report else item["status"]
+    date_label = "Report Date" if is_report else "Work date"
+    record_label = "Report" if is_report else "Submission"
+    answer_heading = "Report answers" if is_report else "Daywork details"
+    review_section = ""
+    if is_report:
+        review_section = (
+            "<section><h2>Report review</h2>"
+            + render_meta_grid([
+                ("Reviewing Supervisor", item.get("reviewing_supervisor_name") or "-"),
+                ("Review started", item.get("review_started_at") or "-"),
+                ("Resolved", item.get("resolved_at") or "-"),
+            ])
+            + "<div class=\"field-row\">"
+            + "<span class=\"field-label\">Supervisor note</span>"
+            + f"<div class=\"field-value\">{h(item.get('supervisor_note') or '-')}</div>"
+            + "</div></section>"
+        )
     body = [
         f"<article class=\"export-page\"><h1 class=\"document-title\">{h(title)}</h1>",
         render_meta_grid([
             ("Worker", item["worker_name"]),
             ("Site", item["site_name"] or "Unassigned site"),
-            ("Work date", item["work_date"] or "-"),
-            ("Status", item["status"]),
+            (date_label, item["work_date"] or "-"),
+            ("Status", displayed_status),
             ("Submitted", item["created_at"]),
-            ("Submission", f"#{item['id']}"),
+            (record_label, f"#{item['id']}"),
         ]),
-        "<section><h2>Form answers</h2>",
+        f"<section><h2>{answer_heading}</h2>",
         answer_rows or "<p class=\"muted\">No answers provided.</p>",
         "</section>",
         render_signature_grid(signatures),
         "<section><h2>Photos</h2>",
         render_photo_grid(item["photo_urls"], metadata=item.get("photo_metadata") or []),
         "</section>",
+        review_section,
         f"<footer class=\"footer\">Submitted by {h(item['worker_name'])} | {h(title)} #{h(item['id'])}</footer>",
         "</article>",
     ]
@@ -539,6 +560,9 @@ def normalize_form_pdf_template(template: str = "submitted-form"):
 
 
 def is_daywork_submission(item):
+    purpose = item.get("submission_purpose")
+    if purpose in {"report", "daywork"}:
+        return purpose == "daywork"
     text = f"{item.get('form_name') or ''}".lower()
     return "daywork" in text or "daily work" in text
 
@@ -1290,22 +1314,28 @@ def pdf_form_answer_flowables(item, styles):
 
 
 def pdf_form_submission_flowables(item, styles, template):
+    is_daywork = template == "daywork"
+    is_report = (
+        not is_daywork
+        and (item.get("submission_purpose") or "report") == "report"
+    )
+    displayed_status = item["workflow_status"] if is_report else item["status"]
     title = (
         f"Daywork Log - {item['site_name'] or 'Unassigned site'}"
-        if template == "daywork"
-        else item["form_name"] or f"Form {item['form_id']}"
+        if is_daywork
+        else item["form_name"] or f"Report {item['id']}"
     )
-    answer_heading = "Daywork details" if template == "daywork" else "Form answers"
+    answer_heading = "Daywork details" if is_daywork else "Report answers"
     flowables = [
         Paragraph(h(title), styles["title"]),
         pdf_meta_table([
             ("Worker", item["worker_name"]),
             ("Site", item["site_name"] or "Unassigned site"),
-            ("Work date", item["work_date"] or "-"),
-            ("Status", item["status"]),
+            ("Work date" if is_daywork else "Report Date", item["work_date"] or "-"),
+            ("Status", displayed_status),
             ("Submitted", item["created_at"]),
-            ("Submission", f"#{item['id']}"),
-            ("Form", item["form_name"] or f"Form {item['form_id']}"),
+            ("Submission" if is_daywork else "Report", f"#{item['id']}"),
+            ("Form" if is_daywork else "Report Template", item["form_name"] or f"Report {item['id']}"),
         ], styles),
         Spacer(1, 8),
         Paragraph(h(answer_heading), styles["section"]),
@@ -1315,6 +1345,22 @@ def pdf_form_submission_flowables(item, styles, template):
     if signatures:
         flowables.extend(pdf_signature_flowables(signatures, styles))
     flowables.extend(pdf_photo_flowables(item, styles))
+    if is_report:
+        flowables.extend([
+            Spacer(1, 8),
+            Paragraph("Report review", styles["section"]),
+            pdf_meta_table([
+                ("Reviewing Supervisor", item.get("reviewing_supervisor_name") or "-"),
+                ("Review started", item.get("review_started_at") or "-"),
+                ("Resolved", item.get("resolved_at") or "-"),
+            ], styles),
+            Spacer(1, 6),
+            pdf_field_block(
+                "Supervisor note",
+                item.get("supervisor_note") or "-",
+                styles,
+            ),
+        ])
     flowables.append(Spacer(1, 10))
     flowables.append(Paragraph(
         f"Submitted by {h(item['worker_name'])} | {h(title)} #{h(item['id'])}",
@@ -1502,8 +1548,18 @@ def form_submission_pdf_items(
     date_to: Optional[str] = None,
     form_id: Optional[int] = None,
     department_id: Optional[int] = None,
+    workflow_status: Optional[str] = None,
+    worker_id: Optional[int] = None,
+    purpose: Optional[str] = None,
 ):
-    records = session.exec(select_work_form_submissions(status, supervisor)).all()
+    records = session.exec(select_work_form_submissions(
+        status,
+        supervisor,
+        workflow_status=workflow_status,
+        form_id=form_id,
+        worker_id=worker_id,
+        purpose=purpose,
+    )).all()
     records = filter_records_by_department(records, session, supervisor, department_id)
     records = filter_form_records(records, session, supervisor, form_id)
     records = filter_records_by_date(records, date_from, date_to)
@@ -1524,8 +1580,19 @@ def export_form_submissions_html(
     date_to: Optional[str] = None,
     form_id: Optional[int] = None,
     department_id: Optional[int] = None,
+    workflow_status: Optional[str] = None,
+    worker_id: Optional[int] = None,
+    purpose: Optional[str] = None,
 ):
-    records = session.exec(select_work_form_submissions(status, supervisor)).all()
+    normalized_purpose = normalize_work_form_purpose(purpose)
+    records = session.exec(select_work_form_submissions(
+        status,
+        supervisor,
+        workflow_status=workflow_status,
+        form_id=form_id,
+        worker_id=worker_id,
+        purpose=normalized_purpose,
+    )).all()
     records = filter_records_by_department(records, session, supervisor, department_id)
     records = filter_form_records(records, session, supervisor, form_id)
     records = filter_records_by_date(records, date_from, date_to)
@@ -1535,13 +1602,22 @@ def export_form_submissions_html(
     ]
     pages = [render_form_submission_page(item) for item in items]
 
+    is_daywork_export = normalized_purpose == "daywork"
     if not pages:
-        pages = ["<article class=\"export-page\"><h1 class=\"document-title\">No form submissions found</h1></article>"]
+        empty_label = "No Daywork submissions found" if is_daywork_export else "No Reports found"
+        pages = [f"<article class=\"export-page\"><h1 class=\"document-title\">{empty_label}</h1></article>"]
 
-    filename = "work-form-submissions.html" if not status else f"work-form-submissions-{status}.html"
+    filename_prefix = "daywork-submissions" if is_daywork_export else "reports"
+    filename = f"{filename_prefix}.html" if not status else f"{filename_prefix}-{status}.html"
+    title = "Daywork Export" if is_daywork_export else "Report Export"
+    subtitle = (
+        f"{len(items)} Daywork submissions"
+        if is_daywork_export
+        else f"{len(items)} Reports"
+    )
     return export_document(
-        "Work Form Submission Export",
-        f"{len(items)} form submission records",
+        title,
+        subtitle,
         "".join(pages),
         filename,
     )
@@ -1556,8 +1632,14 @@ def export_form_submissions_pdf(
     date_to: Optional[str] = None,
     form_id: Optional[int] = None,
     department_id: Optional[int] = None,
+    workflow_status: Optional[str] = None,
+    worker_id: Optional[int] = None,
+    purpose: Optional[str] = None,
 ):
     template = normalize_form_pdf_template(template)
+    normalized_purpose = normalize_work_form_purpose(purpose)
+    if normalized_purpose == "daywork":
+        template = "daywork"
     items = form_submission_pdf_items(
         session,
         supervisor,
@@ -1567,6 +1649,9 @@ def export_form_submissions_pdf(
         date_to,
         form_id,
         department_id,
+        workflow_status,
+        worker_id,
+        normalized_purpose,
     )
     if template == "daywork":
         styles = daywork_pdf_styles()
@@ -1592,12 +1677,12 @@ def export_form_submissions_pdf(
         story.extend(pdf_form_submission_flowables(item, styles, template))
 
     if not story:
-        empty_label = "No Daywork submissions found" if template == "daywork" else "No form submissions found"
+        empty_label = "No Daywork submissions found" if template == "daywork" else "No Reports found"
         story = [Paragraph(empty_label, styles["title"])]
 
-    title = "Daywork PDF Export" if template == "daywork" else "Submitted Work Forms PDF"
-    subtitle = f"{len(items)} {'Daywork' if template == 'daywork' else 'form submission'} records"
-    filename_prefix = "daywork-submissions" if template == "daywork" else "work-form-submissions"
+    title = "Daywork PDF Export" if template == "daywork" else "Submitted Reports PDF"
+    subtitle = f"{len(items)} {'Daywork records' if template == 'daywork' else 'Reports'}"
+    filename_prefix = "daywork-submissions" if template == "daywork" else "reports"
     filename = f"{filename_prefix}.pdf" if not status else f"{filename_prefix}-{status}.pdf"
     return export_pdf_document(title, subtitle, story, filename)
 
@@ -1609,14 +1694,17 @@ def export_form_submission_html(submission_id: int, session: Session, supervisor
         or record.deleted_at is not None
         or not can_access_department(supervisor, record.department_id)
     ):
-        raise HTTPException(status_code=404, detail="Form submission not found")
+        raise HTTPException(status_code=404, detail="Report not found")
 
     item = review_record_response("form", record, session)
+    is_daywork = is_daywork_submission(item)
+    filename_prefix = "daywork-submission" if is_daywork else "report"
+    subtitle_prefix = "Daywork submission" if is_daywork else "Report"
     return export_document(
-        item["form_name"] or "Work Form Submission",
-        f"Form submission #{item['id']}",
+        item["form_name"] or ("Daywork submission" if is_daywork else "Report"),
+        f"{subtitle_prefix} #{item['id']}",
         render_form_submission_page(item),
-        f"work-form-submission-{item['id']}.html",
+        f"{filename_prefix}-{item['id']}.html",
     )
 
 
@@ -1633,13 +1721,16 @@ def export_form_submission_pdf(
         or record.deleted_at is not None
         or not can_access_department(supervisor, record.department_id)
     ):
-        raise HTTPException(status_code=404, detail="Form submission not found")
+        raise HTTPException(status_code=404, detail="Report not found")
 
     item = review_record_response("form", record, session)
-    if template == "daywork" and not is_daywork_submission(item):
+    is_daywork = is_daywork_submission(item)
+    if template == "daywork" and not is_daywork:
         raise HTTPException(status_code=400, detail="Submission is not a Daywork form")
+    if is_daywork:
+        template = "daywork"
 
-    filename_prefix = "daywork-submission" if template == "daywork" else "work-form-submission"
+    filename_prefix = "daywork-submission" if is_daywork else "report"
     if template == "daywork":
         daywork_styles = daywork_pdf_styles()
         story = pdf_daywork_submission_flowables(item, daywork_styles)
@@ -1650,8 +1741,8 @@ def export_form_submission_pdf(
         )
 
     styles = pdf_styles()
-    title = item["form_name"] or "Work Form Submission"
-    subtitle = f"Form submission #{item['id']}"
+    title = item["form_name"] or "Report"
+    subtitle = f"Report #{item['id']}"
     story = pdf_form_submission_flowables(item, styles, template)
     return export_pdf_document(
         title,
@@ -1942,9 +2033,14 @@ def create_supervisor_work_form_submission(data, supervisor: User, session: Sess
 
     form = session.get(WorkForm, data.form_id)
     if not form or form.status != "active" or not can_access_department(supervisor, form.department_id):
-        raise HTTPException(status_code=404, detail="Form not found")
+        raise HTTPException(status_code=404, detail="Report Template not found")
+    if (form.template_purpose or "report") == "report":
+        raise HTTPException(
+            status_code=400,
+            detail="Reports must be submitted by the Worker",
+        )
     if form.department_id != target_user.department_id:
-        raise HTTPException(status_code=400, detail="Form must belong to the selected user's department")
+        raise HTTPException(status_code=400, detail="Report Template must belong to the selected user's department")
 
     site = ensure_site_exists(session, data.site_id, supervisor) if data.site_id else None
     if site and site.department_id != target_user.department_id:
@@ -1966,6 +2062,7 @@ def create_supervisor_work_form_submission(data, supervisor: User, session: Sess
         answers_json=json.dumps(answers),
         form_definition_version=definition["version"],
         definition_snapshot_json=work_form_definition_snapshot_json(form),
+        submission_purpose=form.template_purpose or "report",
         status="approved",
     )
     session.add(submission)
@@ -2117,7 +2214,14 @@ def form_submissions_csv_response(items, filename: str):
         "site_id",
         "site_name",
         "work_date",
+        "submission_purpose",
         "status",
+        "workflow_status",
+        "supervisor_note",
+        "reviewing_supervisor_id",
+        "reviewing_supervisor_name",
+        "review_started_at",
+        "resolved_at",
         "created_at",
         *[header for _, header in all_columns],
         "photo_urls",
@@ -2125,6 +2229,7 @@ def form_submissions_csv_response(items, filename: str):
 
     for item in items:
         answers = item.get("answers") or {}
+        is_report = (item.get("submission_purpose") or "report") == "report"
         write_spreadsheet_safe_csv_row(writer, [
             item["id"],
             item["form_id"],
@@ -2134,7 +2239,14 @@ def form_submissions_csv_response(items, filename: str):
             item["site_id"],
             item["site_name"],
             item["work_date"],
-            item["status"],
+            item.get("submission_purpose") or "report",
+            item["workflow_status"] if is_report else item["status"],
+            item["workflow_status"],
+            item.get("supervisor_note"),
+            item.get("reviewing_supervisor_id"),
+            item.get("reviewing_supervisor_name"),
+            item.get("review_started_at"),
+            item.get("resolved_at"),
             item["created_at"],
             *[csv_answer_value(answers.get(field_id)) for field_id, _ in all_columns],
             "; ".join(item["photo_urls"]),
@@ -2157,8 +2269,19 @@ def export_form_submissions_csv(
     date_to: Optional[str] = None,
     form_id: Optional[int] = None,
     department_id: Optional[int] = None,
+    workflow_status: Optional[str] = None,
+    worker_id: Optional[int] = None,
+    purpose: Optional[str] = None,
 ):
-    records = session.exec(select_work_form_submissions(status, supervisor)).all()
+    normalized_purpose = normalize_work_form_purpose(purpose)
+    records = session.exec(select_work_form_submissions(
+        status,
+        supervisor,
+        workflow_status=workflow_status,
+        form_id=form_id,
+        worker_id=worker_id,
+        purpose=normalized_purpose,
+    )).all()
     records = filter_records_by_department(records, session, supervisor, department_id)
     records = filter_form_records(records, session, supervisor, form_id)
     records = filter_records_by_date(records, date_from, date_to)
@@ -2166,7 +2289,12 @@ def export_form_submissions_csv(
         review_record_response("form", record, session)
         for record in records
     ]
-    filename = "work-form-submissions.csv" if not status else f"work-form-submissions-{status}.csv"
+    filename_prefix = (
+        "daywork-submissions"
+        if normalized_purpose == "daywork"
+        else "reports"
+    )
+    filename = f"{filename_prefix}.csv" if not status else f"{filename_prefix}-{status}.csv"
     return form_submissions_csv_response(items, filename)
 
 
@@ -2177,10 +2305,18 @@ def export_form_submission_csv(submission_id: int, session: Session, supervisor:
         or record.deleted_at is not None
         or not can_access_department(supervisor, record.department_id)
     ):
-        raise HTTPException(status_code=404, detail="Form submission not found")
+        raise HTTPException(status_code=404, detail="Report not found")
 
     item = review_record_response("form", record, session)
-    return form_submissions_csv_response([item], f"work-form-submission-{item['id']}.csv")
+    filename_prefix = (
+        "daywork-submission"
+        if is_daywork_submission(item)
+        else "report"
+    )
+    return form_submissions_csv_response(
+        [item],
+        f"{filename_prefix}-{item['id']}.csv",
+    )
 
 
 def update_supervisor_form_submission(submission_id: int, data, supervisor: User, session: Session):
@@ -2192,19 +2328,33 @@ def update_supervisor_form_submission(submission_id: int, data, supervisor: User
         or submission.deleted_at is not None
         or not can_access_department(supervisor, submission.department_id)
     ):
-        raise HTTPException(status_code=404, detail="Form submission not found")
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    fields = data.model_fields_set
+    if (submission.submission_purpose or "report") == "report":
+        immutable_fields = {"site_id", "work_date", "answers", "photo_urls"}
+        if fields & immutable_fields:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Submitted Report content is immutable; Site, Report Date, answers, "
+                    "photos, and signatures cannot be edited"
+                ),
+            )
+        enforce_review_status_unchanged(submission, data.status, fields)
+        return work_form_submission_response(submission, session)
 
     definition = work_form_submission_definition(submission, session)
-
     previous_upload_urls = record_upload_urls(submission)
-    fields = data.model_fields_set
     enforce_review_status_unchanged(submission, data.status, fields)
     before = model_snapshot(submission)
-
     if "site_id" in fields:
         site = ensure_site_exists(session, data.site_id, supervisor)
         if site and site.department_id != submission.department_id:
-            raise HTTPException(status_code=400, detail="Site must belong to the submission department")
+            raise HTTPException(
+                status_code=400,
+                detail="Site must belong to the submission department",
+            )
         submission.site_id = data.site_id
     if "work_date" in fields:
         submission.work_date = data.work_date
@@ -2241,7 +2391,6 @@ def update_supervisor_form_submission(submission_id: int, data, supervisor: User
     session.commit()
     session.refresh(submission)
     cleanup_detached_record_uploads(previous_upload_urls, submission, session)
-
     return work_form_submission_response(submission, session)
 
 

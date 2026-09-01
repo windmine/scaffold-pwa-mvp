@@ -15,7 +15,6 @@ from app import upload_storage
 from app.models import AttendanceRecord, TaskLog, User, WorkForm, WorkFormSubmission
 from app.schemas import (
     AttendanceCreate,
-    SupervisorWorkFormSubmissionUpdate,
     TaskLogCreate,
     WorkFormSubmissionCreate,
 )
@@ -23,7 +22,6 @@ from app.use_cases.common import upload_url
 from app.use_cases.attendance import create_attendance
 from app.use_cases.record_trash import purge_expired_deleted_records
 from app.use_cases.task_logs import create_task_log
-from app.use_cases.supervisor_review import update_supervisor_form_submission
 from app.use_cases.work_forms import create_work_form_submission
 
 
@@ -356,6 +354,7 @@ def test_authorization_streaming_and_cleanup(tmp_dir):
             lambda: create_work_form_submission(
                 WorkFormSubmissionCreate(
                     form_id=form.id,
+                    work_date="2026-09-01",
                     answers={"crews": [{"crew_signature": shared_url}]},
                 ),
                 stranger,
@@ -370,6 +369,7 @@ def test_authorization_streaming_and_cleanup(tmp_dir):
             lambda: create_work_form_submission(
                 WorkFormSubmissionCreate(
                     form_id=form.id,
+                    work_date="2026-09-01",
                     answers={
                         "crews": [{"crew_signature": upload_url(stranger_signature.filename)}],
                     },
@@ -382,6 +382,7 @@ def test_authorization_streaming_and_cleanup(tmp_dir):
         valid_submission = create_work_form_submission(
             WorkFormSubmissionCreate(
                 form_id=form.id,
+                work_date="2026-09-01",
                 answers={
                     "note": "/uploads/not-evidence.png",
                     "crews": [{"crew_signature": upload_url(stranger_signature.filename)}],
@@ -390,23 +391,14 @@ def test_authorization_streaming_and_cleanup(tmp_dir):
             stranger,
             session,
         )
-        corrected_submission = update_supervisor_form_submission(
-            valid_submission["id"],
-            SupervisorWorkFormSubmissionUpdate(
-                answers=valid_submission["answers"],
-                confirmed=True,
-            ),
-            other_supervisor,
-            session,
-        )
         assert_equal(
-            "Supervisor correction may retain already-attached Worker evidence",
-            corrected_submission["answers"]["crews"][0]["crew_signature"],
+            "submitted Worker signature remains attached as immutable evidence",
+            valid_submission["answers"]["crews"][0]["crew_signature"],
             upload_url(stranger_signature.filename),
         )
         assert_equal(
             "ordinary Work Form text is not mistaken for upload evidence",
-            corrected_submission["answers"]["note"],
+            valid_submission["answers"]["note"],
             "/uploads/not-evidence.png",
         )
 

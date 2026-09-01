@@ -1,7 +1,7 @@
 {
-  "name": "Leader Field Operations",
-  "short_name": "Leader Field",
-  "description": "Worker attendance, task logs, and supervisor approvals for Leader Scaffolding.",
+  "name": "Leader Field Reports",
+  "short_name": "Reports",
+  "description": "Worker report submission and supervisor review for Leader Scaffolding.",
   "start_url": "/index.html",
   "scope": "/",
   "display": "standalone",

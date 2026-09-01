@@ -76,6 +76,20 @@ assert(calls[0]?.operation === 'attendanceCsv', 'collection Adapter dispatched w
 assert(downloads[0]?.filename === 'leader-attendance-2026-07-14.csv', 'collection Adapter used wrong filename');
 console.log('ok - Review Queue collection export Adapter');
 
+const reportFilters = {
+  workflowStatus: 'resolved',
+  formId: 7,
+  workerId: 9,
+  dateFrom: '2026-07-01',
+  dateTo: '2026-07-14'
+};
+const reportCollectionMessage = await adapters.exportCollection('form-submissions-csv', reportFilters);
+assert(reportCollectionMessage === 'Reports CSV exported.', 'Report collection Adapter returned wrong message');
+assert(calls[1]?.operation === 'formSubmissionsCsv', 'Report collection Adapter dispatched wrong operation');
+assert(calls[1]?.args[0] === reportFilters, 'Report collection Adapter did not preserve the active filters');
+assert(downloads[1]?.filename === 'leader-reports-2026-07-14.csv', 'Report collection Adapter used wrong filename');
+console.log('ok - filtered Report collection export Adapter');
+
 const durableRecord = {
   backendRecordId: 42,
   type: 'task',
@@ -84,7 +98,7 @@ const durableRecord = {
 };
 const recordMessage = await adapters.exportRecord(durableRecord, 'task-csv');
 assert(recordMessage === 'Task log CSV row exported.', 'record Adapter returned wrong message');
-assert(calls[1]?.operation === 'taskLogCsv', 'record Adapter dispatched wrong operation');
+assert(calls[2]?.operation === 'taskLogCsv', 'record Adapter dispatched wrong operation');
 console.log('ok - durable Review Record export Adapter');
 
 await expectRejected(

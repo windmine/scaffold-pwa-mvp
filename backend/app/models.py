@@ -148,6 +148,13 @@ class TaskTemplate(SQLModel, table=True):
 
 
 class WorkForm(SQLModel, table=True):
+    __table_args__ = (
+        CheckConstraint(
+            "template_purpose IN ('report', 'daywork')",
+            name="ck_workform_template_purpose",
+        ),
+    )
+
     id: Optional[int] = Field(default=None, primary_key=True)
 
     department_id: Optional[int] = Field(default=None, index=True)
@@ -156,6 +163,7 @@ class WorkForm(SQLModel, table=True):
     fields_json: str
     definition_version: int = Field(default=1)
     status: str = Field(default="active", index=True)
+    template_purpose: str = Field(default="report", index=True)
     created_by: Optional[int] = Field(default=None, index=True)
 
     created_at: datetime = Field(
@@ -164,6 +172,17 @@ class WorkForm(SQLModel, table=True):
 
 
 class WorkFormSubmission(SQLModel, table=True):
+    __table_args__ = (
+        CheckConstraint(
+            "workflow_status IN ('submitted', 'in_review', 'resolved')",
+            name="ck_workformsubmission_workflow_status",
+        ),
+        CheckConstraint(
+            "submission_purpose IN ('report', 'daywork')",
+            name="ck_workformsubmission_submission_purpose",
+        ),
+    )
+
     id: Optional[int] = Field(default=None, primary_key=True)
 
     department_id: Optional[int] = Field(default=None, index=True)
@@ -178,6 +197,14 @@ class WorkFormSubmission(SQLModel, table=True):
     photo_urls: Optional[str] = None
     photo_metadata: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     client_submission_id: Optional[str] = Field(default=None, index=True)
+    submission_purpose: str = Field(default="report", index=True)
+    # Forward-only Report workflow: submitted -> in_review -> resolved.
+    workflow_status: str = Field(default="submitted", index=True)
+    supervisor_note: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
+    reviewing_supervisor_id: Optional[int] = Field(default=None, index=True)
+    review_started_at: Optional[datetime] = Field(default=None, index=True)
+    resolved_at: Optional[datetime] = Field(default=None, index=True)
+    # Separate review outcome retained for Review Queue compatibility.
     status: str = Field(default="pending", index=True)
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_supervisor_id: Optional[int] = Field(default=None, index=True)

@@ -22,6 +22,11 @@ function dayworkScore(form) {
   return 0;
 }
 
+function explicitTemplatePurpose(form) {
+  const purpose = String(form?.template_purpose || form?.templatePurpose || '').trim().toLowerCase();
+  return ['report', 'daywork'].includes(purpose) ? purpose : '';
+}
+
 export function createWorkerLogModule({
   els,
   state,
@@ -81,10 +86,14 @@ export function createWorkerLogModule({
   }
 
   function selectedDayworkForm() {
-    return [...state.workForms]
-      .filter((form) => form.status === 'active')
+    const activeForms = [...state.workForms].filter((form) => form.status === 'active');
+    const explicitDayworkForms = activeForms.filter((form) => explicitTemplatePurpose(form) === 'daywork');
+    const candidates = explicitDayworkForms.length
+      ? explicitDayworkForms
+      : activeForms.filter((form) => !explicitTemplatePurpose(form));
+    return candidates
       .map((form) => ({ form, score: dayworkScore(form) }))
-      .filter((item) => item.score > 0)
+      .filter((item) => explicitDayworkForms.length || item.score > 0)
       .sort((a, b) => b.score - a.score || String(a.form.name).localeCompare(String(b.form.name)))[0]?.form || null;
   }
 
@@ -251,6 +260,7 @@ export function createWorkerLogModule({
         type: 'form',
         formId: form.id,
         formName: form.name,
+        submissionPurpose: 'daywork',
         fields: form.fields || [],
         userId: state.user.id,
         userName: state.user.fullName,

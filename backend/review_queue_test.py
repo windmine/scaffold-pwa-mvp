@@ -181,6 +181,41 @@ def test_paged_review_record_query():
         if len(task_page["items"]) != 1 or task_page["items"][0]["kind"] != "task":
             raise AssertionError("filters: expected kind/date/search to execute before paging")
 
+        report_submission = session.exec(select(WorkFormSubmission)).first()
+        report_page = list_review_record_page(
+            session,
+            supervisor,
+            kind="form",
+            workflow_status="submitted",
+            form_id=report_submission.form_id,
+            worker_id=worker.id,
+            record_date="2026-07-02",
+        )
+        if [item["id"] for item in report_page["items"]] != [report_submission.id]:
+            raise AssertionError(
+                "Report filters: expected workflow, template, Worker, and Report Date before paging"
+            )
+        resolved_report_page = list_review_record_page(
+            session,
+            supervisor,
+            kind="form",
+            workflow_status="resolved",
+            form_id=report_submission.form_id,
+            worker_id=worker.id,
+        )
+        if resolved_report_page["items"] or resolved_report_page["counts"]["total"]:
+            raise AssertionError("Report workflow filter: resolved must exclude submitted Reports")
+        assert_http_error(
+            "invalid Report workflow filter",
+            400,
+            lambda: list_review_record_page(
+                session,
+                supervisor,
+                kind="form",
+                workflow_status="pending",
+            ),
+        )
+
         pending_page = list_review_record_page(
             session,
             supervisor,

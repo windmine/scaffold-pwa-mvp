@@ -1316,27 +1316,54 @@ def main():
             200,
         )
         normal_worker_forms = assert_status(
-            "normal worker sees no work forms",
+            "normal worker lists active work forms",
             request("GET", "/work-forms", token=smoke_worker_token),
             200,
         )
-        if normal_worker_forms:
-            raise AssertionError("normal worker sees no work forms: expected empty list")
-        assert_status(
-            "normal worker cannot submit work form",
+        normal_worker_form = next(
+            (form for form in normal_worker_forms if form["name"] == "Inspection form"),
+            None,
+        )
+        if not normal_worker_form or any(form["status"] != "active" for form in normal_worker_forms):
+            raise AssertionError("normal worker lists active work forms: expected Inspection and no archived forms")
+        normal_worker_submission = assert_status(
+            "normal worker submits work form",
             request(
                 "POST",
                 "/form-submissions",
                 {
-                    "form_id": smoke_form["id"],
-                    "site_id": site["id"],
+                    "form_id": normal_worker_form["id"],
                     "work_date": now.date().isoformat(),
-                    "answers": {},
+                    "answers": {
+                        "inspection_area": "Normal worker report checkpoint",
+                        "inspection_result": "Needs action",
+                        "issues_found": "PPE issue requires supervisor review",
+                        "follow_up_required": True,
+                    },
+                    "client_submission_id": f"normal-worker-form-{timestamp}",
                 },
                 smoke_worker_token,
             ),
-            403,
+            200,
         )
+        if normal_worker_submission["worker_id"] != smoke_user_login["user"]["id"]:
+            raise AssertionError("normal worker submits work form: expected the signed-in worker to own the submission")
+        if normal_worker_submission["site_id"] is not None:
+            raise AssertionError("normal worker submits work form: optional Site should remain unassigned")
+        normal_worker_history = assert_status(
+            "normal worker sees submitted work form in own history",
+            request("GET", "/my-form-submissions", token=smoke_worker_token),
+            200,
+        )
+        if not any(record["id"] == normal_worker_submission["id"] for record in normal_worker_history):
+            raise AssertionError("normal worker sees submitted work form in own history: submission not found")
+        other_worker_history = assert_status(
+            "another worker cannot see normal worker report",
+            request("GET", "/my-form-submissions", token=worker_token),
+            200,
+        )
+        if any(record["id"] == normal_worker_submission["id"] for record in other_worker_history):
+            raise AssertionError("My Reports exposed another Worker's Report")
         daywork_submission = assert_status(
             "submit daywork form",
             request(
@@ -1446,6 +1473,18 @@ def main():
             raise AssertionError("submit work form: expected saved photo metadata")
         if form_submission["status"] != "pending":
             raise AssertionError("submit work form: expected pending approval status")
+        if form_submission["workflow_status"] != "submitted":
+            raise AssertionError("submit work form: expected submitted report workflow status")
+        if any(
+            form_submission[field] is not None
+            for field in (
+                "supervisor_note",
+                "reviewing_supervisor_id",
+                "review_started_at",
+                "resolved_at",
+            )
+        ):
+            raise AssertionError("submit work form: new report should not have review metadata")
         duplicate_form_submission = assert_status(
             "dedupe duplicate form submission retry",
             request(
@@ -1479,24 +1518,118 @@ def main():
         )
         if not any(item["id"] == form_submission["id"] for item in supervisor_form_submissions):
             raise AssertionError("list supervisor form submissions: created submission not found")
-        approved_form_submission = assert_status(
-            "supervisor approve form submission",
+        other_department_form_submissions = assert_status(
+            "other Department Supervisor lists scoped Reports",
+            request("GET", "/supervisor/form-submissions", token=mutual_supervisor_token),
+            200,
+        )
+        if any(item["id"] == form_submission["id"] for item in other_department_form_submissions):
+            raise AssertionError("Supervisor Report list crossed Department scope")
+        assert_status(
+            "other Department Supervisor cannot transition Report",
             request(
                 "POST",
-                f"/supervisor/review-records/form/{form_submission['id']}/decision",
+                f"/supervisor/form-submissions/{form_submission['id']}/transition",
+                {"status": "in_review"},
+                mutual_supervisor_token,
+            ),
+            404,
+        )
+        assert_status(
+            "worker cannot start report review",
+            request(
+                "POST",
+                f"/supervisor/form-submissions/{form_submission['id']}/transition",
+                {"status": "in_review"},
+                worker_token,
+            ),
+            403,
+        )
+        assert_status(
+            "submitted report cannot resolve directly",
+            request(
+                "POST",
+                f"/supervisor/form-submissions/{form_submission['id']}/transition",
+                {"status": "resolved", "supervisor_note": "Skip review attempt"},
+                supervisor_token,
+            ),
+            409,
+        )
+        assert_status(
+            "report cannot transition to legacy approval status",
+            request(
+                "POST",
+                f"/supervisor/form-submissions/{form_submission['id']}/transition",
                 {"status": "approved"},
+                supervisor_token,
+            ),
+            400,
+        )
+        in_review_form_submission = assert_status(
+            "supervisor starts report review",
+            request(
+                "POST",
+                f"/supervisor/form-submissions/{form_submission['id']}/transition",
+                {
+                    "status": "in_review",
+                    "supervisor_note": "Checking submitted PPE details",
+                },
                 supervisor_token,
             ),
             200,
         )
-        if approved_form_submission["status"] != "approved":
-            raise AssertionError("supervisor approve form submission: expected approved status")
+        if in_review_form_submission["workflow_status"] != "in_review":
+            raise AssertionError("supervisor starts report review: expected in_review status")
+        if (
+            not in_review_form_submission["reviewing_supervisor_id"]
+            or not in_review_form_submission["review_started_at"]
+            or in_review_form_submission["resolved_at"] is not None
+        ):
+            raise AssertionError("supervisor starts report review: expected reviewer and start time")
+        assert_status(
+            "report resolution requires Supervisor note",
+            request(
+                "POST",
+                f"/supervisor/form-submissions/{form_submission['id']}/transition",
+                {"status": "resolved", "supervisor_note": "   "},
+                supervisor_token,
+            ),
+            400,
+        )
+        resolved_form_submission = assert_status(
+            "supervisor resolves report",
+            request(
+                "POST",
+                f"/supervisor/form-submissions/{form_submission['id']}/transition",
+                {"status": "resolved", "supervisor_note": "PPE details verified"},
+                supervisor_token,
+            ),
+            200,
+        )
+        if (
+            resolved_form_submission["workflow_status"] != "resolved"
+            or resolved_form_submission["status"] != "pending"
+            or resolved_form_submission["supervisor_note"] != "PPE details verified"
+            or not resolved_form_submission["review_started_at"]
+            or not resolved_form_submission["resolved_at"]
+        ):
+            raise AssertionError("supervisor resolves report: expected resolved report metadata")
+        assert_status(
+            "resolved report cannot transition again",
+            request(
+                "POST",
+                f"/supervisor/form-submissions/{form_submission['id']}/transition",
+                {"status": "resolved", "supervisor_note": "Duplicate resolution"},
+                supervisor_token,
+            ),
+            409,
+        )
         updated_form_answers = {
-            **approved_form_submission["answers"],
+            **resolved_form_submission["answers"],
             "notes": "Supervisor corrected notes",
         }
-        updated_form_submission = assert_status(
-            "supervisor updates form submission",
+        assert_status(
+            "supervisor cannot edit submitted report content",
             request(
                 "PATCH",
                 f"/supervisor/form-submissions/{form_submission['id']}",
@@ -1504,27 +1637,24 @@ def main():
                     "site_id": site["id"],
                     "work_date": now.date().isoformat(),
                     "answers": updated_form_answers,
-                    "status": "approved",
                     "confirmed": True,
                 },
                 supervisor_token,
             ),
+            400,
+        )
+        immutable_form_records = assert_status(
+            "list immutable report after rejected edit",
+            request("GET", "/supervisor/form-submissions", token=supervisor_token),
             200,
         )
-        if updated_form_submission["answers"]["notes"] != "Supervisor corrected notes":
-            raise AssertionError("supervisor updates form submission: expected updated answer")
-        if updated_form_submission["answers"]["worker_signature"] != signature_smoke_url:
-            raise AssertionError("supervisor updates form submission: expected existing signature URL")
-        approved_review_records = assert_status(
-            "list approved review records",
-            request("GET", "/supervisor/review-records?status=approved", token=supervisor_token),
-            200,
+        immutable_form_submission = next(
+            item for item in immutable_form_records if item["id"] == form_submission["id"]
         )
-        if not any(
-            item["kind"] == "form" and item["id"] == form_submission["id"]
-            for item in approved_review_records
-        ):
-            raise AssertionError("list approved review records: expected approved form submission")
+        if immutable_form_submission["answers"]["notes"] != "All clear":
+            raise AssertionError("immutable report: original submitted answers were changed")
+        if immutable_form_submission["answers"]["worker_signature"] != signature_smoke_url:
+            raise AssertionError("immutable report: original submitted signature was changed")
         rejected_form_submission = assert_status(
             "submit rejectable work form",
             request(
@@ -1552,37 +1682,44 @@ def main():
             200,
         )
         rejected_form_submission = assert_status(
-            "supervisor reject form submission",
+            "supervisor starts second report review",
             request(
                 "POST",
-                f"/supervisor/review-records/form/{rejected_form_submission['id']}/decision",
-                {"status": "rejected"},
+                f"/supervisor/form-submissions/{rejected_form_submission['id']}/transition",
+                {"status": "in_review"},
                 supervisor_token,
             ),
             200,
         )
-        if rejected_form_submission["status"] != "rejected":
-            raise AssertionError("supervisor reject form submission: expected rejected status")
-        rejected_review_records = assert_status(
-            "list rejected review records",
-            request("GET", "/supervisor/review-records?status=rejected", token=supervisor_token),
+        rejected_form_submission = assert_status(
+            "supervisor resolves second report",
+            request(
+                "POST",
+                f"/supervisor/form-submissions/{rejected_form_submission['id']}/transition",
+                {"status": "resolved", "supervisor_note": "Replacement brace requested"},
+                supervisor_token,
+            ),
             200,
         )
-        if not any(
-            item["kind"] == "form" and item["id"] == rejected_form_submission["id"]
-            for item in rejected_review_records
+        if (
+            rejected_form_submission["workflow_status"] != "resolved"
+            or rejected_form_submission["status"] != "pending"
+            or not rejected_form_submission["review_started_at"]
+            or not rejected_form_submission["resolved_at"]
         ):
-            raise AssertionError("list rejected review records: expected rejected form submission")
+            raise AssertionError("supervisor resolves second report: expected resolved metadata")
         worker_form_submissions = assert_status(
-            "worker sees rejected form submission",
+            "worker sees resolved report",
             request("GET", "/my-form-submissions", token=worker_token),
             200,
         )
         if not any(
-            item["id"] == rejected_form_submission["id"] and item["status"] == "rejected"
+            item["id"] == rejected_form_submission["id"]
+            and item["workflow_status"] == "resolved"
+            and item["supervisor_note"] == "Replacement brace requested"
             for item in worker_form_submissions
         ):
-            raise AssertionError("worker sees rejected form submission: expected rejected status")
+            raise AssertionError("worker sees resolved report: expected resolution metadata")
         assert_status(
             "reject required form answer missing",
             request(
@@ -1632,6 +1769,7 @@ def main():
                 "/form-submissions",
                 {
                     "form_id": smoke_form["id"],
+                    "work_date": now.date().isoformat(),
                     "answers": {"area": "North bay", "result": "Pass"},
                 },
                 worker_token,
@@ -2491,7 +2629,7 @@ def main():
             request("GET", "/supervisor/form-submissions/export.html", token=supervisor_token),
             200,
         )
-        if "Work Form Submission Export" not in form_html or "Worker signature" not in form_html:
+        if "Report Export" not in form_html or "Worker signature" not in form_html:
             raise AssertionError("export form submissions html: missing expected form content")
         if 'class="export-logo"' not in form_html or "data:image/" not in form_html:
             raise AssertionError("export form submissions html: missing embedded Leader logo")
@@ -2571,7 +2709,7 @@ def main():
             request("GET", f"/supervisor/form-submissions/{form_submission['id']}/export.html", token=supervisor_token),
             200,
         )
-        if f"Form submission #{form_submission['id']}" not in single_form_html or "Worker signature" not in single_form_html:
+        if f"Report #{form_submission['id']}" not in single_form_html or "Worker signature" not in single_form_html:
             raise AssertionError("export single form submission html: missing expected single-record content")
         if '<h3 class="form-subtitle">Pre-start checks</h3>' not in single_form_html:
             raise AssertionError("export single form submission html: expected section subtitle")
@@ -2606,7 +2744,7 @@ def main():
             "team_log_update",
             "task_trash",
             "task_restore",
-            "form_submission_update",
+            "report_transition",
             "form_trash",
             "form_restore",
             "team_log_trash",
@@ -2622,6 +2760,15 @@ def main():
             for event in audit_events
         ):
             raise AssertionError("list supervisor audit events: expected attendance audit event")
+        report_transition_events = [
+            event
+            for event in audit_events
+            if event["action"] == "report_transition"
+            and event["entity_type"] == "form"
+            and event["entity_id"] in {form_submission["id"], rejected_form_submission["id"]}
+        ]
+        if len(report_transition_events) != 4:
+            raise AssertionError("list supervisor audit events: expected every Report transition")
         supervisor_audit_event = next(
             (event for event in audit_events if event.get("actor_name") == "Demo Supervisor"),
             None,

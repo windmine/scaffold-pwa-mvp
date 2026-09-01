@@ -109,6 +109,8 @@ export function createStaffSitesModule({
   }
 
   function isDayworkForm(form) {
+    const purpose = String(form?.template_purpose || form?.templatePurpose || '').trim().toLowerCase();
+    if (['report', 'daywork'].includes(purpose)) return purpose === 'daywork';
     return `${form?.name || ''} ${form?.description || ''}`.toLowerCase().includes('daywork');
   }
 
@@ -394,7 +396,7 @@ export function createStaffSitesModule({
     if (els.workFormSubmitButton.getAttribute('aria-busy') === 'true') return;
     let created = false;
     let restoreFocus = false;
-    setButtonBusy(els.workFormSubmitButton, true, 'Creating form...');
+    setButtonBusy(els.workFormSubmitButton, true, 'Creating Report Template...');
     els.cancelWorkFormCreateButton.disabled = true;
 
     try {
@@ -414,17 +416,17 @@ export function createStaffSitesModule({
         { restoreFocus: false }
       );
       els.addWorkFormButton.disabled = true;
-      renderStatusBanner('Work form created.');
+      renderStatusBanner('Report Template created.');
       const workFormsRefreshed = await refreshWorkForms();
       if (!workFormsRefreshed) {
-        throw new Error('Work form created, but the updated list could not load.');
+        throw new Error('Report Template created, but the updated list could not load.');
       }
       await refreshSupervisorAuditHistory?.();
     } catch (error) {
       if (created) {
-        renderStatusBanner(error.message || 'Work form created, but the updated list could not load.', true);
+        renderStatusBanner(error.message || 'Report Template created, but the updated list could not load.', true);
       } else {
-        renderStatusBanner(error.message || 'Could not create work form.', true, {
+        renderStatusBanner(error.message || 'Could not create Report Template.', true, {
           local: els.workFormBuilderActionFeedback,
           tone: 'error'
         });
@@ -447,14 +449,14 @@ export function createStaffSitesModule({
   function draftWorkForm() {
     return {
       id: 'draft',
-      name: els.workFormNameInput.value.trim() || 'Untitled work form',
+      name: els.workFormNameInput.value.trim() || 'Untitled Report Template',
       description: els.workFormDescriptionInput.value.trim() || '',
       status: 'draft',
       fields: workFormBuilder.getFields()
     };
   }
 
-  function renderWorkFormPreview(preview, form, idPrefix, emptyMessage = 'Add fields to preview this form.') {
+  function renderWorkFormPreview(preview, form, idPrefix, emptyMessage = 'Add fields to preview this Report Template.') {
     if (!preview) return;
 
     if (!form.fields?.length) {
@@ -478,7 +480,7 @@ export function createStaffSitesModule({
           </select>
         </label>
         <label>
-          Work date
+          Report Date
           <input type="date" disabled />
         </label>
         <div class="dynamic-fields" data-work-form-preview-fields></div>
@@ -486,7 +488,7 @@ export function createStaffSitesModule({
           Photos
           <input type="file" accept="image/*" multiple disabled />
         </label>
-        <button type="button" disabled>Submit form</button>
+        <button type="button" disabled>Submit Report</button>
       </div>
     `;
 
@@ -537,9 +539,9 @@ export function createStaffSitesModule({
   async function handleWorkFormEdit(form) {
     let editBuilder;
     showEditPanel(
-      `Edit work form: ${form.name}`,
+      `Edit Report Template: ${form.name}`,
       [
-        { id: 'editWorkFormName', label: 'Form name', value: form.name },
+        { id: 'editWorkFormName', label: 'Template name', value: form.name },
         { id: 'editWorkFormDescription', label: 'Description', value: form.description || '' },
         {
           id: 'editWorkFormFields',
@@ -547,13 +549,13 @@ export function createStaffSitesModule({
           html: workFormBuilderMarkup()
         }
       ],
-      'Save form',
+      'Save Report Template',
       async () => {
         if (!editBuilder.validate({ focus: true })) return;
         const fields = editBuilder.getFields();
         const submitButton = els.editPanelForm.querySelector('button[type="submit"]');
         if (submitButton?.getAttribute('aria-busy') === 'true') return;
-        setButtonBusy(submitButton, true, 'Saving form...');
+        setButtonBusy(submitButton, true, 'Saving Report Template...');
 
         try {
           await updateBackendWorkForm(form.id, {
@@ -562,11 +564,11 @@ export function createStaffSitesModule({
             fields
           });
           closeEditPanel();
-          renderStatusBanner('Work form updated.');
+          renderStatusBanner('Report Template updated.');
           await refreshWorkForms();
           await refreshSupervisorAuditHistory?.();
         } catch (error) {
-          renderStatusBanner(error.message || 'Could not update work form.', true);
+          renderStatusBanner(error.message || 'Could not update Report Template.', true);
         } finally {
           setButtonBusy(submitButton, false);
         }
@@ -584,7 +586,7 @@ export function createStaffSitesModule({
     els.workFormsCount.textContent = String(forms.length);
 
     if (!forms.length) {
-      els.workFormsList.innerHTML = '<div class="empty-state">No forms found yet.</div>';
+      els.workFormsList.innerHTML = '<div class="empty-state">No Report Templates found yet.</div>';
       return;
     }
 
@@ -646,11 +648,11 @@ export function createStaffSitesModule({
         setButtonBusy(statusButton, true, 'Updating...');
         try {
           await updateBackendWorkForm(form.id, { status: nextStatus });
-          renderStatusBanner(nextStatus === 'active' ? 'Work form activated.' : 'Work form archived.');
+          renderStatusBanner(nextStatus === 'active' ? 'Report Template activated.' : 'Report Template archived.');
           await refreshWorkForms();
           await refreshSupervisorAuditHistory?.();
         } catch (error) {
-          renderStatusBanner(error.message || 'Could not update work form.', true);
+          renderStatusBanner(error.message || 'Could not update Report Template.', true);
         } finally {
           setButtonBusy(statusButton, false);
         }
@@ -689,7 +691,7 @@ export function createStaffSitesModule({
       renderSupervisorSites();
       refreshSupervisorMap?.();
       siteMapPicker.refresh();
-      renderStatusBanner('Site created and added to worker forms.');
+      renderStatusBanner('Site created and added to worker Report options.');
       await refreshSupervisorAuditHistory?.();
     } catch (error) {
       renderStatusBanner(error.message || 'Could not create site.', true);

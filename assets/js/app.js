@@ -87,6 +87,14 @@ let workerAttendance;
 let reloadingForServiceWorkerUpdate = false;
 let appUpdateAttemptInFlight = false;
 let sessionExpiryInProgress = false;
+// Keep the broader field-operations interface available for a reversible rollback.
+// Production defaults to the report-only shell; browser regression tests may set
+// this boolean before the module loads to exercise the retained legacy screens.
+const REPORT_ONLY_MODE = typeof window.__REPORT_ONLY_MODE_OVERRIDE__ === 'boolean'
+  ? window.__REPORT_ONLY_MODE_OVERRIDE__
+  : true;
+const REPORT_ONLY_WORKER_TABS = new Set(['formTab', 'historyTab']);
+const REPORT_ONLY_ADMIN_WORKSPACES = new Set(['review', 'forms', 'people']);
 
 const historyModule = createHistoryModule({
   els,
@@ -103,6 +111,7 @@ const historyModule = createHistoryModule({
   handleSupervisorTrashRecord,
   handleSupervisorDecision,
   handleSupervisorExportRecord,
+  reportOnly: REPORT_ONLY_MODE,
   onAttendanceContextChanged: (context) => workerAttendance?.setAttendanceContext(context)
 });
 
@@ -148,6 +157,7 @@ const workerForm = createWorkerFormModule({
   renderHistory: historyModule.renderHistory,
   handleSessionExpired,
   isBackendSessionError,
+  reportOnly: REPORT_ONLY_MODE,
   onSupervisorWorkFormsChanged: () => {
     staffSitesModule?.renderWorkFormsList();
     supervisorReviewModule?.renderAdminTaskLogForm();
@@ -219,6 +229,7 @@ supervisorReviewModule = createSupervisorReviewModule({
   editValue,
   editNumber,
   siteSelectOptions: () => staffSitesModule.siteSelectOptions(),
+  reportOnly: REPORT_ONLY_MODE,
   confirmAction
 });
 
@@ -260,6 +271,7 @@ supervisorAnalyticsModule = createSupervisorAnalyticsModule({
 });
 
 async function init() {
+  applyReportOnlyInterface();
   initDateInputs();
   await initializeMockData();
   const authRestoreMessage = await restoreBackendSession();
@@ -449,17 +461,18 @@ function bindEvents() {
 
     await refreshSitesAfterReconnect();
     if (state.user.role === 'worker') {
-      if (state.user.workerClass === 'leader' && !state.workForms.length) {
+      if (!state.workForms.length) {
         await workerForm.refreshWorkForms();
       }
-      await historyModule.renderWorkerSummary();
+      if (!REPORT_ONLY_MODE) await historyModule.renderWorkerSummary();
       await historyModule.renderHistory();
     } else {
       await supervisorReviewModule.renderPanel();
     }
 
     if (syncResult?.failed) {
-      renderStatusBanner(`${syncResult.failed} queued record${syncResult.failed === 1 ? '' : 's'} still need attention. Open My history to retry or discard them.`, true);
+      const retryDestination = REPORT_ONLY_MODE ? 'My Reports' : 'My history';
+      renderStatusBanner(`${syncResult.failed} queued record${syncResult.failed === 1 ? '' : 's'} still need attention. Open ${retryDestination} to retry or discard them.`, true);
     } else if (state.sitesLoadError) {
       renderSystemBanner(`You are back online, but Sites are unavailable: ${state.sitesLoadError}`, {
         tone: 'error'
@@ -485,12 +498,40 @@ function bindEvents() {
 
 const ADMIN_WORKSPACES = Object.freeze({
   overview: { label: 'Overview', panelId: 'adminOverview', headingId: 'adminOverviewTitle' },
-  review: { label: 'Review', panelId: 'adminReviewWorkspace', headingId: 'adminReviewWorkspaceTitle' },
+  review: { label: REPORT_ONLY_MODE ? 'Reports' : 'Review', panelId: 'adminReviewWorkspace', headingId: 'adminReviewWorkspaceTitle' },
   reports: { label: 'Reports', panelId: 'adminReportsWorkspace', headingId: 'adminReportsWorkspaceTitle' },
-  people: { label: 'People & Sites', panelId: 'adminPeopleWorkspace', headingId: 'adminPeopleWorkspaceTitle' },
-  forms: { label: 'Forms', panelId: 'adminFormsWorkspace', headingId: 'adminFormsWorkspaceTitle' },
+  people: { label: REPORT_ONLY_MODE ? 'Staff' : 'People & Sites', panelId: 'adminPeopleWorkspace', headingId: 'adminPeopleWorkspaceTitle' },
+  forms: { label: 'Report Templates', panelId: 'adminFormsWorkspace', headingId: 'adminFormsWorkspaceTitle' },
   audit: { label: 'Audit', panelId: 'adminAuditWorkspace', headingId: 'adminAuditWorkspaceTitle' }
 });
+const DEFAULT_ADMIN_WORKSPACE = REPORT_ONLY_MODE ? 'review' : 'overview';
+
+function applyReportOnlyInterface() {
+  document.body.classList.toggle('report-only-mode', REPORT_ONLY_MODE);
+  document.querySelectorAll('[data-full-text][data-report-only-text]').forEach((element) => {
+    element.textContent = REPORT_ONLY_MODE
+      ? element.dataset.reportOnlyText
+      : element.dataset.fullText;
+  });
+  document.querySelectorAll('[data-full-placeholder][data-report-only-placeholder]').forEach((element) => {
+    element.placeholder = REPORT_ONLY_MODE
+      ? element.dataset.reportOnlyPlaceholder
+      : element.dataset.fullPlaceholder;
+  });
+  if (REPORT_ONLY_MODE) {
+    els.historyTypeFilter.value = 'form';
+    els.supervisorTypeFilter.value = 'form';
+  }
+  const dayworkPdfOption = els.exportDocumentSelect?.querySelector('option[value="daywork-pdf"]');
+  if (dayworkPdfOption) {
+    dayworkPdfOption.hidden = REPORT_ONLY_MODE;
+    dayworkPdfOption.disabled = REPORT_ONLY_MODE;
+  }
+}
+
+function adminWorkspaceIsAvailable(workspace) {
+  return !REPORT_ONLY_MODE || REPORT_ONLY_ADMIN_WORKSPACES.has(workspace);
+}
 
 function closeAdminWorkspaceDrawer() {
   if (els.adminWorkspaceDrawer.open) els.adminWorkspaceDrawer.close();
@@ -502,7 +543,9 @@ function adminWorkspaceDestination(target) {
     ? target
     : target?.closest?.('[data-admin-workspace-panel]');
   const workspace = panel?.dataset.adminWorkspacePanel;
-  return workspace && ADMIN_WORKSPACES[workspace] ? { workspace, panel, target } : null;
+  return workspace && ADMIN_WORKSPACES[workspace] && adminWorkspaceIsAvailable(workspace)
+    ? { workspace, panel, target }
+    : null;
 }
 
 function adminWorkspaceDestinationFromHash() {
@@ -523,7 +566,9 @@ function updateAdminWorkspaceHistory(targetId) {
 }
 
 function activateAdminWorkspace(workspaceId, options = {}) {
-  const workspace = ADMIN_WORKSPACES[workspaceId] ? workspaceId : 'overview';
+  const workspace = ADMIN_WORKSPACES[workspaceId] && adminWorkspaceIsAvailable(workspaceId)
+    ? workspaceId
+    : DEFAULT_ADMIN_WORKSPACE;
   const config = ADMIN_WORKSPACES[workspace];
   const panels = [...document.querySelectorAll('[data-admin-workspace-panel]')];
   const nextPanel = document.getElementById(config.panelId);
@@ -594,7 +639,7 @@ function activateAdminWorkspace(workspaceId, options = {}) {
 
 function renderAdminWorkspaceFromLocation(options = {}) {
   const destination = adminWorkspaceDestinationFromHash();
-  activateAdminWorkspace(destination?.workspace || 'overview', {
+  activateAdminWorkspace(destination?.workspace || DEFAULT_ADMIN_WORKSPACE, {
     ...options,
     target: destination?.target || null
   });
@@ -669,7 +714,7 @@ function bindAdminNavigation() {
   window.addEventListener('popstate', handleHistoryNavigation);
   window.addEventListener('hashchange', handleHistoryNavigation);
 
-  activateAdminWorkspace(state.adminWorkspace);
+  activateAdminWorkspace(state.adminWorkspace || DEFAULT_ADMIN_WORKSPACE);
 }
 
 function getActiveTheme() {
@@ -783,13 +828,13 @@ function renderApp() {
   if (state.user.role === 'worker') {
     showView('worker');
     renderWorkerAccess();
-    workerAttendance.renderLocationPreview();
-    if (state.user.workerClass === 'leader') {
+    if (!REPORT_ONLY_MODE) workerAttendance.renderLocationPreview();
+    workerForm.refreshWorkForms();
+    if (!REPORT_ONLY_MODE && state.user.workerClass === 'leader') {
       workerLog.refreshTaskTemplates();
-      workerForm.refreshWorkForms();
       teamWorkLogModule.refresh();
     }
-    historyModule.renderWorkerSummary();
+    if (!REPORT_ONLY_MODE) historyModule.renderWorkerSummary();
     historyModule.renderHistory();
   } else {
     const shouldFocusWorkspace = !els.supervisorView.contains(document.activeElement);
@@ -822,11 +867,17 @@ function renderWorkerAccess() {
   document.querySelectorAll('.normal-worker-only').forEach((element) => {
     element.classList.toggle('access-hidden', !isNormalWorker);
   });
-  document.querySelectorAll('#workerView [data-leader-label][data-normal-label]').forEach((element) => {
-    element.textContent = isLeader ? element.dataset.leaderLabel : element.dataset.normalLabel;
-  });
+  if (!REPORT_ONLY_MODE) {
+    document.querySelectorAll('#workerView [data-leader-label][data-normal-label]').forEach((element) => {
+      element.textContent = isLeader ? element.dataset.leaderLabel : element.dataset.normalLabel;
+    });
+  }
 
   const activePanel = document.querySelector('#workerView .tab-panel.active');
+  if (REPORT_ONLY_MODE && !REPORT_ONLY_WORKER_TABS.has(activePanel?.id)) {
+    activateTab('formTab');
+    return;
+  }
   if (!isLeader && activePanel?.classList.contains('leader-only')) {
     activateTab('attendanceTab');
   }
@@ -1117,11 +1168,11 @@ async function handleLogout() {
       await workerForm.flushPendingDrafts();
     } catch {
       uiFeedback.setButtonBusy(els.logoutButton, false);
-      if (state.user?.role === 'worker' && state.user?.workerClass === 'leader') {
+      if (state.user?.role === 'worker') {
         activateTab('formTab');
         workerForm.focusUnsavedInput();
       }
-      renderStatusBanner('Your Work Form is not saved yet. Keep editing and try again before logging out.', true, {
+      renderStatusBanner('Your Report is not saved yet. Keep editing and try again before logging out.', true, {
         local: els.workFormFeedback,
         tone: 'error'
       });
@@ -1179,11 +1230,11 @@ function handleSessionExpired(message = 'Your backend session expired. Please si
       .then(finish)
       .catch(() => {
         sessionExpiryInProgress = false;
-        if (state.user?.role === 'worker' && state.user?.workerClass === 'leader') {
+        if (state.user?.role === 'worker') {
           activateTab('formTab');
           workerForm.focusUnsavedInput();
         }
-        renderStatusBanner('Your session expired, but this Work Form is not saved on this device. Keep this page open and try saving again.', true, {
+        renderStatusBanner('Your session expired, but this Report is not saved on this device. Keep this page open and try saving again.', true, {
           local: els.workFormFeedback,
           tone: 'error'
         });
@@ -1376,7 +1427,8 @@ async function handleRetryQueuedRecord() {
   await historyModule.renderHistory();
   await historyModule.renderWorkerSummary();
   if (result?.failed) {
-    renderStatusBanner('Sync still failed. Check the error in My history, then discard and resubmit if the photo needs replacing.', true);
+    const retryDestination = REPORT_ONLY_MODE ? 'My Reports' : 'My history';
+    renderStatusBanner(`Sync still failed. Check the error in ${retryDestination}, then discard and resubmit if the photo needs replacing.`, true);
   }
 }
 
@@ -1419,6 +1471,7 @@ async function handleSupervisorExportRecord(record, exportType) {
 }
 
 function activateTab(targetId) {
+  if (REPORT_ONLY_MODE && !REPORT_ONLY_WORKER_TABS.has(targetId)) return;
   document.querySelectorAll('.tab').forEach((button) => {
     const active = button.dataset.tabTarget === targetId;
     button.classList.toggle('active', active);
@@ -1437,7 +1490,7 @@ async function syncQueueIfPossible(showMessage) {
   if (state.user && navigator.onLine) {
     uiFeedback.setSyncState('syncing', 'Online - syncing');
   }
-  const result = await syncQueuedSubmissions();
+  const result = await syncQueuedSubmissions(REPORT_ONLY_MODE ? { purpose: 'report' } : {});
 
   if (result.authBlocked) {
     handleSessionExpired('Sign in again to sync queued submissions.');
@@ -1525,7 +1578,7 @@ function hasPendingAppUpdate() {
 }
 
 function renderAppUpdateBanner() {
-  renderSystemBanner('A new app version is ready. Your Work Form will be saved before the app reloads.', {
+  renderSystemBanner('A new app version is ready. Your Report will be saved before the app reloads.', {
     tone: 'info'
   });
 }
@@ -1538,7 +1591,7 @@ function showServiceWorkerUpdate(worker) {
 
 function showAppUpdatePausedDialog(message) {
   els.appUpdatePausedDescription.textContent = message
-    || 'This Work Form has changes that are not saved on this device. Updating now could lose them.';
+    || 'This Report has changes that are not saved on this device. Updating now could lose them.';
   applyLanguage(els.appUpdatePausedDialog);
   if (!els.appUpdatePausedDialog.open) els.appUpdatePausedDialog.showModal();
   window.requestAnimationFrame(() => els.keepEditingWorkFormButton.focus());
@@ -1546,7 +1599,7 @@ function showAppUpdatePausedDialog(message) {
 
 function keepEditingWorkForm() {
   if (els.appUpdatePausedDialog.open) els.appUpdatePausedDialog.close();
-  if (state.user?.role === 'worker' && state.user?.workerClass === 'leader') {
+  if (state.user?.role === 'worker') {
     activateTab('formTab');
     window.requestAnimationFrame(() => workerForm.focusUnsavedInput());
   }
@@ -1564,7 +1617,7 @@ async function handleAppUpdate() {
   } catch {
     draftReadiness = {
       safe: false,
-      message: 'This Work Form has changes that are not saved on this device. Updating now could lose them.'
+      message: 'This Report has changes that are not saved on this device. Updating now could lose them.'
     };
   }
   if (!draftReadiness.safe) {
@@ -1579,7 +1632,7 @@ async function handleAppUpdate() {
     workerForm.cancelAppUpdatePreparation();
     appUpdateAttemptInFlight = false;
     uiFeedback.setButtonBusy(els.updateButton, false);
-    renderSystemBanner('The app update is no longer waiting. Your Work Form draft is saved.', { tone: 'info' });
+    renderSystemBanner('The app update is no longer waiting. Your Report draft is saved.', { tone: 'info' });
     return;
   }
 
@@ -1589,7 +1642,7 @@ async function handleAppUpdate() {
     workerForm.cancelAppUpdatePreparation();
     appUpdateAttemptInFlight = false;
     uiFeedback.setButtonBusy(els.updateButton, false);
-    renderSystemBanner('Could not start the app update. Your Work Form draft is saved; try Update App again.', {
+    renderSystemBanner('Could not start the app update. Your Report draft is saved; try Update App again.', {
       tone: 'error'
     });
     return;

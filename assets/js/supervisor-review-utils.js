@@ -84,11 +84,15 @@ export function formatAuditAction(action) {
 }
 
 export function isDayworkRecord(record) {
+  const explicitPurpose = String(record?.submissionPurpose || record?.submission_purpose || '').trim().toLowerCase();
+  if (['report', 'daywork'].includes(explicitPurpose)) return explicitPurpose === 'daywork';
   const text = `${record.formName || ''}`.toLowerCase();
   return text.includes('daywork') || text.includes('daily work');
 }
 
 export function isDayworkForm(form) {
+  const explicitPurpose = String(form?.template_purpose || form?.templatePurpose || '').trim().toLowerCase();
+  if (['report', 'daywork'].includes(explicitPurpose)) return explicitPurpose === 'daywork';
   const text = `${form?.name || ''}`.toLowerCase();
   return text.includes('daywork') || text.includes('daily work');
 }

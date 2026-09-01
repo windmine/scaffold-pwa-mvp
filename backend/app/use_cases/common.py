@@ -34,6 +34,8 @@ VALID_USER_STATUSES = {"active", "resigned"}
 DEFAULT_DEPARTMENT_NAME = "Leader"
 DEPARTMENT_NAMES = ["Leader", "Mutual", "MC", "Stech", "BOP"]
 VALID_REVIEW_STATUSES = {"pending", "approved", "rejected"}
+VALID_REPORT_WORKFLOW_STATUSES = {"submitted", "in_review", "resolved"}
+VALID_WORK_FORM_PURPOSES = {"report", "daywork"}
 VALID_APPROVAL_RECORD_TYPES = {"attendance", "task", "form", "team_log"}
 MAX_TASK_LOG_PHOTOS = 8
 VALID_WORK_FORM_STATUSES = {"active", "archived"}
@@ -63,6 +65,16 @@ def format_datetime(value):
         value = value.replace(tzinfo=timezone.utc)
 
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def normalize_work_form_purpose(purpose: Optional[str]):
+    normalized = str(purpose or "").strip().lower() or None
+    if normalized and normalized not in VALID_WORK_FORM_PURPOSES:
+        raise HTTPException(
+            status_code=400,
+            detail="purpose must be report or daywork",
+        )
+    return normalized
 
 
 def attendance_record_response(record: AttendanceRecord, session: Session):
@@ -274,6 +286,7 @@ def work_form_response(form: WorkForm, session: Session | None = None):
         "fields": work_form_fields(form),
         "definition_version": int(form.definition_version or 1),
         "status": form.status,
+        "template_purpose": form.template_purpose or "report",
         "created_by": form.created_by,
         "created_at": format_datetime(form.created_at),
     }
@@ -288,6 +301,15 @@ def work_form_submission_response(submission: WorkFormSubmission, session: Sessi
         session.get(User, submission.deleted_by_supervisor_id)
         if submission.deleted_by_supervisor_id
         else None
+    )
+    reviewing_supervisor = (
+        session.get(User, submission.reviewing_supervisor_id)
+        if submission.reviewing_supervisor_id
+        else None
+    )
+    outcome_status = submission.status or "pending"
+    workflow_status = submission.workflow_status or (
+        "resolved" if outcome_status in {"approved", "rejected"} else "submitted"
     )
 
     return {
@@ -310,7 +332,18 @@ def work_form_submission_response(submission: WorkFormSubmission, session: Sessi
         "photo_urls": parse_json_list(submission.photo_urls),
         "photo_metadata": parse_json_list(submission.photo_metadata),
         "client_submission_id": submission.client_submission_id,
-        "status": submission.status or "pending",
+        "submission_purpose": submission.submission_purpose or "report",
+        "workflow_status": workflow_status,
+        "supervisor_note": submission.supervisor_note,
+        "reviewing_supervisor_id": submission.reviewing_supervisor_id,
+        "reviewing_supervisor_name": reviewing_supervisor.name if reviewing_supervisor else None,
+        "review_started_at": (
+            format_datetime(submission.review_started_at)
+            if submission.review_started_at
+            else None
+        ),
+        "resolved_at": format_datetime(submission.resolved_at) if submission.resolved_at else None,
+        "status": outcome_status,
         "deleted_at": format_datetime(submission.deleted_at) if submission.deleted_at else None,
         "deleted_by_supervisor_id": submission.deleted_by_supervisor_id,
         "deleted_by_supervisor_name": deleted_by_supervisor.name if deleted_by_supervisor else None,
@@ -877,7 +910,7 @@ def normalize_work_form_fields(fields):
     seen_ids = set()
 
     if len(fields) > MAX_WORK_FORM_FIELDS:
-        raise HTTPException(status_code=400, detail=f"Forms can include up to {MAX_WORK_FORM_FIELDS} fields")
+        raise HTTPException(status_code=400, detail=f"Report Templates can include up to {MAX_WORK_FORM_FIELDS} fields")
 
     for field in fields:
         field_id = safe_field_id(field.id)
@@ -1201,7 +1234,7 @@ def normalize_work_form_photo_urls(photo_urls: list[str]):
     if len(photo_urls) > MAX_WORK_FORM_PHOTOS:
         raise HTTPException(
             status_code=400,
-            detail=f"Form submissions can include up to {MAX_WORK_FORM_PHOTOS} photos"
+            detail=f"Reports can include up to {MAX_WORK_FORM_PHOTOS} photos"
         )
 
     urls = [url for url in photo_urls if url]
@@ -1315,12 +1348,37 @@ def select_task_logs(status: Optional[str] = None, user: User | None = None):
     return statement.order_by(TaskLog.created_at.desc())
 
 
-def select_work_form_submissions(status: Optional[str] = None, user: User | None = None):
+def select_work_form_submissions(
+    status: Optional[str] = None,
+    user: User | None = None,
+    *,
+    workflow_status: Optional[str] = None,
+    form_id: Optional[int] = None,
+    worker_id: Optional[int] = None,
+    purpose: Optional[str] = None,
+):
     statement = select(WorkFormSubmission).where(WorkFormSubmission.deleted_at.is_(None))
 
     if status:
         status = validate_review_status(status)
         statement = statement.where(WorkFormSubmission.status == status)
+    if workflow_status:
+        workflow_status = workflow_status.strip().lower()
+        if workflow_status not in VALID_REPORT_WORKFLOW_STATUSES:
+            raise HTTPException(
+                status_code=400,
+                detail="workflow_status must be submitted, in_review, or resolved",
+            )
+        statement = statement.where(WorkFormSubmission.workflow_status == workflow_status)
+    if form_id is not None:
+        statement = statement.where(WorkFormSubmission.form_id == form_id)
+    if worker_id is not None:
+        statement = statement.where(WorkFormSubmission.worker_id == worker_id)
+    normalized_purpose = normalize_work_form_purpose(purpose)
+    if normalized_purpose:
+        statement = statement.where(
+            WorkFormSubmission.submission_purpose == normalized_purpose
+        )
     if user:
         statement = scope_statement_to_user_department(statement, WorkFormSubmission, user)
 

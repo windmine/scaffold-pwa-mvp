@@ -33,6 +33,24 @@ function compareRecordsNewestFirst(left, right) {
   return 0;
 }
 
+function reportWorkflowStatus(record) {
+  if (record.workflowStatus) return record.workflowStatus;
+  return ['approved', 'rejected'].includes(record.status) ? 'resolved' : 'submitted';
+}
+
+function recordDisplayStatus(record) {
+  if (record.type === 'form') {
+    if (['queued', 'syncing'].includes(record.syncStatus)) return record.syncStatus;
+    return reportWorkflowStatus(record);
+  }
+  return record.status || record.syncStatus || 'record';
+}
+
+function statusLabel(status) {
+  const label = String(status || 'record').replaceAll('_', ' ');
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 function formAnswerSummary(record) {
   const answers = record.answers || {};
   const fields = record.fields || [];
@@ -128,8 +146,16 @@ function getRecordDate(record) {
 }
 
 function isDayworkRecord(record) {
+  const explicitPurpose = String(record.submissionPurpose || record.submission_purpose || '').trim().toLowerCase();
+  if (['report', 'daywork'].includes(explicitPurpose)) return explicitPurpose === 'daywork';
   const text = `${record.formName || ''}`.toLowerCase();
   return text.includes('daywork') || text.includes('daily work');
+}
+
+function recordSubmissionPurpose(record) {
+  const explicitPurpose = String(record.submissionPurpose || record.submission_purpose || '').trim().toLowerCase();
+  if (['report', 'daywork'].includes(explicitPurpose)) return explicitPurpose;
+  return isDayworkRecord(record) ? 'daywork' : 'report';
 }
 
 function recordSearchText(record) {
@@ -137,6 +163,7 @@ function recordSearchText(record) {
     record.type,
     record.action,
     record.status,
+    record.workflowStatus,
     record.syncStatus,
     record.syncError,
     record.entrySource,
@@ -147,6 +174,8 @@ function recordSearchText(record) {
     record.userName,
     record.siteName,
     record.formName,
+    record.supervisorNote,
+    record.reviewingSupervisorName,
     record.notes,
     record.summary,
     record.safetyNotes,
@@ -169,8 +198,17 @@ export function filterRecords(records, filters) {
     const departmentId = record.departmentId ?? filters.fallbackDepartment;
     if (filters.department && String(departmentId) !== String(filters.department)) return false;
     if (filters.type && record.type !== filters.type) return false;
+    if (filters.formId && String(record.formId) !== String(filters.formId)) return false;
+    if (filters.workerId && String(record.userId) !== String(filters.workerId)) return false;
     if (filters.date && getRecordDate(record) !== filters.date) return false;
-    if (filters.status && record.status !== filters.status && record.syncStatus !== filters.status) return false;
+    if (filters.status) {
+      if (record.type === 'form' && filters.reportWorkflow && recordDisplayStatus(record) !== filters.status) return false;
+      if (
+        (record.type !== 'form' || !filters.reportWorkflow)
+        && record.status !== filters.status
+        && record.syncStatus !== filters.status
+      ) return false;
+    }
     if (query && !recordSearchText(record).includes(query)) return false;
     return true;
   });
@@ -310,6 +348,7 @@ export function createHistoryModule({
   handleSupervisorTrashRecord,
   handleSupervisorDecision,
   handleSupervisorExportRecord,
+  reportOnly = false,
   onAttendanceContextChanged = () => {}
 }) {
   let workerSummaryRenderId = 0;
@@ -418,6 +457,7 @@ export function createHistoryModule({
       departmentName: record.department_name || '',
       formId: record.form_id,
       formName: record.form_name || `Form ${record.form_id}`,
+      submissionPurpose: record.submission_purpose || '',
       fields: record.fields || [],
       answers: record.answers || {},
       userId: record.worker_id,
@@ -439,6 +479,14 @@ export function createHistoryModule({
       createdAt: record.created_at,
       syncStatus: 'synced',
       status: record.status || 'pending',
+      workflowStatus: record.workflow_status || (
+        ['approved', 'rejected'].includes(record.status) ? 'resolved' : 'submitted'
+      ),
+      supervisorNote: record.supervisor_note || '',
+      reviewingSupervisorId: record.reviewing_supervisor_id,
+      reviewingSupervisorName: record.reviewing_supervisor_name || '',
+      reviewStartedAt: record.review_started_at || '',
+      resolvedAt: record.resolved_at || '',
       source: 'backend'
     };
   }
@@ -508,10 +556,29 @@ export function createHistoryModule({
     );
 
     try {
+      if (reportOnly) {
+        const [formSubmissions, localRecords] = await Promise.all([
+          getBackendMyFormSubmissions(reportOnly ? 'report' : ''),
+          getLocalWorkerRecords(worker.id)
+        ]);
+        if (!workerScopeStillActive()) return [];
+        const pendingLocalReports = localRecords.filter((record) => (
+          record.type === 'form'
+          && recordSubmissionPurpose(record) === 'report'
+          && ['queued', 'syncing'].includes(record.syncStatus)
+        ));
+        return mergeWorkerHistoryRecords(
+          formSubmissions
+            .map(fromBackendFormSubmissionRecord)
+            .filter((record) => recordSubmissionPurpose(record) === 'report'),
+          pendingLocalReports
+        );
+      }
+
       const [attendanceRecords, taskLogs, formSubmissions, teamWorkLogs, localRecords] = await Promise.all([
         getBackendMyAttendanceRecords(),
         getBackendMyTaskLogs(),
-        getBackendMyFormSubmissions(),
+        getBackendMyFormSubmissions(reportOnly ? 'report' : ''),
         worker.workerClass === 'leader' ? getBackendMyTeamWorkLogs() : Promise.resolve([]),
         getLocalWorkerRecords(worker.id)
       ]);
@@ -550,6 +617,13 @@ export function createHistoryModule({
 
       renderStatusBanner('Backend history is unreachable. Showing records saved on this device only.', true);
       const localRecords = await getLocalWorkerRecords(worker.id);
+      if (reportOnly) {
+        return mergeWorkerHistoryRecords(localRecords.filter((record) => (
+          record.type === 'form'
+          && recordSubmissionPurpose(record) === 'report'
+          && ['queued', 'syncing'].includes(record.syncStatus)
+        )));
+      }
       let snapshotRecords = [];
       try {
         snapshotRecords = (await loadWorkerAttendanceSnapshot(worker))?.records || [];
@@ -561,7 +635,7 @@ export function createHistoryModule({
   }
 
   async function renderWorkerSummary() {
-    if (state.user?.role !== 'worker') return;
+    if (reportOnly || state.user?.role !== 'worker') return;
     const renderId = ++workerSummaryRenderId;
     const workerId = state.user.id;
     const workerDepartmentId = state.user.departmentId;
@@ -617,8 +691,9 @@ export function createHistoryModule({
   function getHistoryFilters() {
     return {
       query: els.historySearchInput.value,
-      type: els.historyTypeFilter.value,
+      type: reportOnly ? 'form' : els.historyTypeFilter.value,
       status: els.historyStatusFilter.value,
+      reportWorkflow: reportOnly,
       date: els.historyDateFilter.value
     };
   }
@@ -649,7 +724,7 @@ export function createHistoryModule({
 
   function clearHistoryFilters() {
     els.historySearchInput.value = '';
-    els.historyTypeFilter.value = '';
+    els.historyTypeFilter.value = reportOnly ? 'form' : '';
     els.historyStatusFilter.value = '';
     setDateInputValue(els.historyDateFilter, '');
     renderFilteredHistory();
@@ -666,8 +741,8 @@ export function createHistoryModule({
 
     if (record.type === 'form') {
       const options = [
-        ['form-html', 'Form HTML'],
-        ['form-pdf', 'Form PDF'],
+        ['form-html', 'Report HTML'],
+        ['form-pdf', 'Report PDF'],
         ['form-csv', 'CSV row']
       ];
       if (isDayworkRecord(record)) {
@@ -726,14 +801,20 @@ export function createHistoryModule({
           : `${record.summary || 'No summary provided.'}${record.safetyNotes ? ` Safety: ${record.safetyNotes}` : ''}`;
 
       node.querySelector('.record-title').textContent = title;
-      node.querySelector('.record-meta').textContent = `${record.userName || 'Worker'}  |  ${formatDateTime(record.createdAt)}${record.workDate ? `  |  Work date: ${record.workDate}` : ''}${record.entrySource === 'supervisor_manual' ? '  |  Manual entry' : ''}`;
+      node.querySelector('.record-meta').textContent = record.type === 'form'
+        ? `${record.userName || 'Worker'}  |  Submitted: ${formatDateTime(record.createdAt)}${record.workDate ? `  |  Report Date: ${record.workDate}` : ''}`
+        : `${record.userName || 'Worker'}  |  ${formatDateTime(record.createdAt)}${record.workDate ? `  |  Work date: ${record.workDate}` : ''}${record.entrySource === 'supervisor_manual' ? '  |  Manual entry' : ''}`;
       node.querySelector('.record-detail').textContent = detail;
 
       const badge = node.querySelector('.badge');
-      const badgeText = record.status || record.syncStatus || 'record';
-      badge.textContent = badgeText;
-      badge.className = `badge ${record.status} ${record.syncStatus}`;
-      badge.title = record.syncStatus ? `Sync: ${record.syncStatus}` : '';
+      const badgeStatus = record.type === 'form' && !reportOnly
+        ? record.status || record.syncStatus || 'record'
+        : recordDisplayStatus(record);
+      badge.textContent = statusLabel(badgeStatus);
+      badge.className = `badge ${badgeStatus} ${record.syncStatus || ''}`.trim();
+      badge.title = record.type === 'form'
+        ? `Report status: ${statusLabel(badgeStatus)}`
+        : record.syncStatus ? `Sync: ${record.syncStatus}` : '';
 
       if (summaryOnly) {
         const recordKey = String(getRecordKey(record));
@@ -758,7 +839,7 @@ export function createHistoryModule({
           record.type === 'attendance'
             ? record.action === 'check_out' ? 'Check out' : 'Check in'
             : record.type === 'form'
-              ? 'Form'
+              ? 'Report'
               : record.type === 'team_log'
                 ? 'Team log'
                 : 'Task log'
@@ -804,13 +885,20 @@ export function createHistoryModule({
       const photoMetadata = Array.isArray(record.photoMetadata) ? record.photoMetadata : [];
       const signatureSources = signatureImageSources(record);
       const hasSiteDistance = record.type === 'attendance' && record.distanceFromSiteM != null;
+      const finalSupervisorNote = record.type === 'form' && reportWorkflowStatus(record) === 'resolved'
+        ? record.supervisorNote || 'No supervisor note was recorded.'
+        : '';
       extra.innerHTML = `
-        <p><strong>Type:</strong> ${record.type === 'attendance' ? escapeHtml(record.action === 'check_in' ? 'Check in' : 'Check out') : record.type === 'form' ? 'Form submission' : record.type === 'team_log' ? 'Weekly team log' : 'Task log'}</p>
+        <p><strong>Type:</strong> ${record.type === 'attendance' ? escapeHtml(record.action === 'check_in' ? 'Check in' : 'Check out') : record.type === 'form' ? 'Report' : record.type === 'team_log' ? 'Weekly team log' : 'Task log'}</p>
         ${record.entrySource === 'supervisor_manual' ? `<p><strong>Entry source:</strong> ${record.type === 'attendance' ? 'Manual supervisor attendance' : 'Admin-entered approved log'}${record.createdBySupervisorName ? ` by ${escapeHtml(record.createdBySupervisorName)}` : ''}${record.type === 'attendance' ? '; no GPS was captured.' : '; no approval is required.'}</p>` : ''}
         ${record.type === 'attendance' && record.location ? `<p><strong>Location:</strong> ${record.location.latitude}, ${record.location.longitude} (${record.location.accuracy}m)</p>` : ''}
         ${hasSiteDistance ? `<p><strong>Site radius:</strong> <span class="${record.withinSiteRadius ? 'site-inside' : 'site-outside'}">${record.withinSiteRadius ? 'Inside' : 'Outside'} - ${escapeHtml(record.distanceFromSiteM)}m from site</span></p>` : ''}
         ${record.hoursWorked ? `<p><strong>Hours:</strong> ${escapeHtml(record.hoursWorked)}</p>` : ''}
-        ${record.type === 'form' ? `<p><strong>Form:</strong> ${escapeHtml(record.formName)}</p>` : ''}
+        ${record.type === 'form' ? `<p><strong>Report Template:</strong> ${escapeHtml(record.formName)}</p>` : ''}
+        ${record.type === 'form' && record.reviewingSupervisorName ? `<p><strong>Reviewing supervisor:</strong> ${escapeHtml(record.reviewingSupervisorName)}</p>` : ''}
+        ${record.type === 'form' && record.reviewStartedAt ? `<p><strong>Review started:</strong> ${escapeHtml(formatDateTime(record.reviewStartedAt))}</p>` : ''}
+        ${record.type === 'form' && record.resolvedAt ? `<p><strong>Resolved:</strong> ${escapeHtml(formatDateTime(record.resolvedAt))}</p>` : ''}
+        ${finalSupervisorNote ? `<p class="report-supervisor-note"><strong>Final supervisor note:</strong> ${escapeHtml(finalSupervisorNote)}</p>` : ''}
         ${record.type === 'team_log' ? `<div class="team-log-entry-summary">${record.entries.map((entry) => `
           <div>
             <strong>${escapeHtml(entry.worker_name)}</strong>
@@ -978,6 +1066,13 @@ export function createHistoryModule({
   }
 
   function bindEvents() {
+    els.historyStatusFilter.querySelectorAll('[data-report-only-option]').forEach((option) => {
+      option.hidden = !reportOnly;
+    });
+    els.historyStatusFilter.querySelectorAll('[data-full-mode-option]').forEach((option) => {
+      option.hidden = reportOnly;
+    });
+    if (reportOnly) els.historyTypeFilter.value = 'form';
     els.refreshHistoryButton.addEventListener('click', renderHistory);
     [
       els.historySearchInput,

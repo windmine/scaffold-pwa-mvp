@@ -24,6 +24,13 @@ function definitionVersion(form) {
   return Number(form?.definition_version || form?.definitionVersion || 1);
 }
 
+function formPurpose(form) {
+  const explicitPurpose = String(form?.template_purpose || form?.templatePurpose || '').trim().toLowerCase();
+  if (['report', 'daywork'].includes(explicitPurpose)) return explicitPurpose;
+  if (/\b(?:daywork|daily work)\b/i.test(`${form?.name || ''} ${form?.description || ''}`)) return 'daywork';
+  return 'report';
+}
+
 function savedTimeLabel(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
@@ -46,6 +53,7 @@ export function createWorkerFormModule({
   renderHistory,
   handleSessionExpired,
   isBackendSessionError,
+  reportOnly = false,
   onSupervisorWorkFormsChanged = () => {},
   onWorkFormsChanged = () => {}
 }) {
@@ -63,6 +71,7 @@ export function createWorkerFormModule({
     promise: Promise.resolve()
   };
   const draftStates = new Map();
+  const emptyTemplateOption = 'Select a Report Template';
 
   function setAutosaveStatus(message, stateClass = '', savedAt = '') {
     if (!els.workFormAutosaveStatus) return;
@@ -104,16 +113,20 @@ export function createWorkerFormModule({
 
   function renderWorkFormOptions() {
     const selectedValue = els.workFormSelect.value;
-    const options = ['<option value="">Select a form</option>']
+    const options = [`<option value="">${emptyTemplateOption}</option>`]
       .concat(
         state.workForms
-          .filter((form) => form.status === 'active')
+          .filter((form) => form.status === 'active' && (!reportOnly || formPurpose(form) === 'report'))
           .map((form) => `<option value="${form.id}">${escapeHtml(form.name)}</option>`)
       )
       .join('');
 
     els.workFormSelect.innerHTML = options;
-    els.workFormSelect.value = state.workForms.some((form) => String(form.id) === selectedValue && form.status === 'active')
+    els.workFormSelect.value = state.workForms.some((form) => (
+      String(form.id) === selectedValue
+      && form.status === 'active'
+      && (!reportOnly || formPurpose(form) === 'report')
+    ))
       ? selectedValue
       : '';
   }
@@ -235,7 +248,7 @@ export function createWorkerFormModule({
       while (draftState.savedRevision < draftState.revision) {
         await waitForDraftPhotos(draftState);
         if (activeDraftState()?.key === draftState.key) captureVisibleWorkFormDraft();
-        if (!draftState.snapshot) throw new Error('Could not capture this Work Form draft.');
+        if (!draftState.snapshot) throw new Error('Could not capture this Report draft.');
 
         const revisionToSave = draftState.revision;
         const savedAt = new Date().toISOString();
@@ -284,10 +297,10 @@ export function createWorkerFormModule({
 
   async function flushPendingDrafts() {
     if (state.submittingWorkForm) {
-      throw new Error('Wait for the Work Form submission to finish.');
+      throw new Error('Wait for the Report submission to finish.');
     }
     await flushAllDrafts();
-    if (hasUnsavedInput()) throw new Error('This Work Form still has unsaved changes.');
+    if (hasUnsavedInput()) throw new Error('This Report still has unsaved changes.');
   }
 
   function hasUnsavedInput() {
@@ -300,7 +313,7 @@ export function createWorkerFormModule({
     if (state.submittingWorkForm) {
       return {
         safe: false,
-        message: 'Wait for the Work Form submission to finish before updating.'
+        message: 'Wait for the Report submission to finish before updating.'
       };
     }
 
@@ -309,7 +322,7 @@ export function createWorkerFormModule({
     } catch {
       return {
         safe: false,
-        message: 'This Work Form has changes that are not saved on this device. Updating now could lose them.'
+        message: 'This Report has changes that are not saved on this device. Updating now could lose them.'
       };
     }
 
@@ -317,7 +330,7 @@ export function createWorkerFormModule({
       showDraftSaveError();
       return {
         safe: false,
-        message: 'This Work Form has changes that are not saved on this device. Updating now could lose them.'
+        message: 'This Report has changes that are not saved on this device. Updating now could lose them.'
       };
     }
 
@@ -338,7 +351,7 @@ export function createWorkerFormModule({
     state.workFormPhotoFiles = [];
     state.workFormPhotoDataUrls = [];
     state.workFormPhotoMetadata = [];
-    photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Form photo');
+    photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Report photo');
   }
 
   function validStoredDraft(value, form, draftState) {
@@ -363,7 +376,7 @@ export function createWorkerFormModule({
       photoViewer.renderPreviews(
         els.workFormPhotoPreview,
         state.workFormPhotoDataUrls,
-        'Form photo',
+        'Report photo',
         state.workFormPhotoMetadata
       );
       draftState.snapshot = {
@@ -423,7 +436,7 @@ export function createWorkerFormModule({
     }
 
     if (Number(draft.definitionVersion || 1) !== definitionVersion(form)) {
-      renderStatusBanner('This draft was saved with an earlier form version. Review it before submitting.', true, {
+      renderStatusBanner('This draft was saved with an earlier Report Template version. Review it before submitting.', true, {
         local: els.workFormFeedback,
         tone: 'warning'
       });
@@ -464,7 +477,7 @@ export function createWorkerFormModule({
     const requestUserId = state.user.id;
 
     try {
-      const workForms = await getBackendWorkForms();
+      const workForms = await getBackendWorkForms(reportOnly ? 'report' : '');
       if (String(state.user?.id || '') !== String(requestUserId)) return false;
       state.workForms = workForms;
       renderWorkFormOptions();
@@ -477,7 +490,7 @@ export function createWorkerFormModule({
       if (state.user.role === 'worker') {
         state.workForms = [];
         renderWorkFormOptions();
-        renderStatusBanner(error.message || 'Could not load work forms.', true);
+        renderStatusBanner(error.message || 'Could not load Report Templates.', true);
       }
       return false;
     }
@@ -492,7 +505,7 @@ export function createWorkerFormModule({
       state.workFormPhotoFiles = [];
       state.workFormPhotoDataUrls = [];
       state.workFormPhotoMetadata = [];
-      photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Form photo');
+      photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Report photo');
       renderStatusBanner(validationError, true, {
         local: els.workFormFeedback,
         field: els.workFormPhotos,
@@ -510,12 +523,12 @@ export function createWorkerFormModule({
       photoViewer.renderPreviews(
         els.workFormPhotoPreview,
         state.workFormPhotoDataUrls,
-        'Form photo',
+        'Report photo',
         state.workFormPhotoMetadata
       );
 
       if (selectedFiles.length > maxPhotos) {
-        renderStatusBanner(`Form submissions can include up to ${maxPhotos} photos. The first ${maxPhotos} were kept.`, true, {
+        renderStatusBanner(`Reports can include up to ${maxPhotos} photos. The first ${maxPhotos} were kept.`, true, {
           local: els.workFormFeedback,
           tone: 'warning'
         });
@@ -570,7 +583,7 @@ export function createWorkerFormModule({
       els.workFormFields.inert = false;
       els.workFormSubmissionForm.removeAttribute('aria-busy');
     }
-    feedback.setButtonBusy(els.submitWorkFormButton, isSubmitting, 'Submitting form...');
+    feedback.setButtonBusy(els.submitWorkFormButton, isSubmitting, 'Submitting Report...');
     state.submittingWorkForm = isSubmitting;
     els.submitWorkFormButton.disabled = isSubmitting;
   }
@@ -581,9 +594,18 @@ export function createWorkerFormModule({
 
     const form = selectedWorkForm();
     if (!form) {
-      renderStatusBanner('Choose a form first.', true, {
+      renderStatusBanner('Choose a Report Template first.', true, {
         local: els.workFormFeedback,
         field: els.workFormSelect,
+        tone: 'error'
+      });
+      return;
+    }
+
+    if (!els.workFormDate.value) {
+      renderStatusBanner('Report Date is required.', true, {
+        local: els.workFormFeedback,
+        field: els.workFormDate,
         tone: 'error'
       });
       return;
@@ -615,12 +637,13 @@ export function createWorkerFormModule({
         type: 'form',
         formId: form.id,
         formName: form.name,
+        submissionPurpose: formPurpose(form),
         fields: form.fields || [],
         userId: state.user.id,
         userName: state.user.fullName,
         siteId: site?.id || null,
         siteName: site?.name || 'Unassigned site',
-        workDate: els.workFormDate.value || null,
+        workDate: els.workFormDate.value,
         answers: await collectWorkFormAnswers(form, { container: els.workFormFields }),
         photoDataUrls: state.workFormPhotoDataUrls,
         photoMetadata: state.workFormPhotoMetadata,
@@ -640,12 +663,15 @@ export function createWorkerFormModule({
       state.workFormPhotoFiles = [];
       state.workFormPhotoDataUrls = [];
       state.workFormPhotoMetadata = [];
-      photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Form photo');
+      photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Report photo');
       await renderSelectedWorkForm({ preserveCurrent: false, skipFlush: true });
       await syncQueueIfPossible(!result.offline);
-      const resultMessage = result.draftCleanupFailed
-        ? `${result.message} The submitted draft could not be cleared from this device; do not submit it again after reloading.`
+      const submissionMessage = reportOnly
+        ? result.message.replace(/ submitted for approval\.$/, ' submitted for review.')
         : result.message;
+      const resultMessage = result.draftCleanupFailed
+        ? `${submissionMessage} The submitted draft could not be cleared from this device; do not submit it again after reloading.`
+        : submissionMessage;
       renderStatusBanner(resultMessage, result.offline || result.draftCleanupFailed, {
         local: els.workFormFeedback,
         tone: result.offline || result.draftCleanupFailed ? 'warning' : 'success'
@@ -659,7 +685,7 @@ export function createWorkerFormModule({
         return;
       }
       const invalidField = error.fieldId ? document.getElementById(error.fieldId) : null;
-      renderStatusBanner(error.message || 'Could not submit form.', true, {
+      renderStatusBanner(error.message || 'Could not submit Report.', true, {
         local: els.workFormFeedback,
         field: invalidField,
         tone: 'error'
@@ -709,13 +735,13 @@ export function createWorkerFormModule({
     els.workFormFields.inert = false;
     submissionControlStates = [];
     els.workFormSubmissionForm.reset();
-    els.workFormSelect.innerHTML = '<option value="">Select a form</option>';
+    els.workFormSelect.innerHTML = `<option value="">${emptyTemplateOption}</option>`;
     setDateInputValue(els.workFormDate, todayDateInput());
     els.workFormFields.innerHTML = '';
     state.workFormPhotoFiles = [];
     state.workFormPhotoDataUrls = [];
     state.workFormPhotoMetadata = [];
-    photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Form photo');
+    photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Report photo');
     photoProcessing = { key: '', pending: false, error: null, promise: Promise.resolve() };
     draftStates.clear();
     showDefaultAutosaveStatus();

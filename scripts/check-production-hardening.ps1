@@ -185,6 +185,15 @@ function Get-RepoSha256([string]$RelativePath) {
   return (Get-FileHash -LiteralPath (Join-Path $repoRoot $RelativePath) -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+$dockerfilePath = Join-Path $repoRoot "Dockerfile"
+if (-not (Test-Path -LiteralPath $dockerfilePath)) {
+  Fail "Dockerfile is missing"
+} elseif ((Get-Content -LiteralPath $dockerfilePath -Raw) -match 'python\s+-m\s+app\.migrations') {
+  Fail "Cloud Run container startup must not apply database migrations implicitly"
+} else {
+  Pass "Cloud Run container startup leaves database migrations to the explicit release step"
+}
+
 if (-not (Get-Command gcloud -ErrorAction SilentlyContinue)) {
   Fail "gcloud CLI is not installed or not on PATH"
   exit 1
@@ -306,12 +315,13 @@ try {
       [string]$revisionEnv["UPLOAD_STORAGE_BACKEND"].value -ne "gcs" -or
       [string]$revisionEnv["UPLOAD_BUCKET"].value -ne $UploadBucket -or
       [string]$revisionEnv["UPLOAD_OBJECT_PREFIX"].value -ne $UploadObjectPrefix -or
+      [string]$revisionEnv["AUTO_MIGRATE"].value -ne "false" -or
       $databaseSecretRef -ne $DatabaseSecret -or
       $jwtSecretRef -ne $JwtSecret
     ) {
       Fail "traffic-serving revision storage or Secret references differ from the checked resources"
     } else {
-      Pass "traffic-serving revision uses the checked GCS and Secret resources"
+      Pass "traffic-serving revision uses explicit migrations plus the checked GCS and Secret resources"
     }
   }
 

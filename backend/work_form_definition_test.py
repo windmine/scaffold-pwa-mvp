@@ -21,6 +21,7 @@ from app.use_cases.supervisor_review import update_supervisor_form_submission  #
 from app.use_cases.work_forms import (  # noqa: E402
     create_work_form,
     create_work_form_submission,
+    list_work_forms,
     update_work_form,
 )
 
@@ -186,7 +187,7 @@ def test_submission_definition_snapshot():
             name="Snapshot Worker",
             password_hash="test",
             role="worker",
-            worker_class="leader",
+            worker_class="normal",
         )
         session.add(supervisor)
         session.add(worker)
@@ -203,9 +204,24 @@ def test_submission_definition_snapshot():
             supervisor,
             session,
         )
+        visible_forms = list_work_forms(worker, session)
+        if [form["id"] for form in visible_forms] != [created["id"]]:
+            raise AssertionError("normal Worker form list: expected the active Department form")
+        assert_http_400(
+            "Report Date is required",
+            lambda: create_work_form_submission(
+                WorkFormSubmissionCreate(
+                    form_id=created["id"],
+                    answers={"original_answer": "Captured value"},
+                ),
+                worker,
+                session,
+            ),
+        )
         submission = create_work_form_submission(
             WorkFormSubmissionCreate(
                 form_id=created["id"],
+                work_date="2026-09-01",
                 answers={"original_answer": "Captured value"},
                 client_submission_id="snapshot-retry-key",
             ),
@@ -244,6 +260,8 @@ def test_submission_definition_snapshot():
         )
         if archived["definition_version"] != 2:
             raise AssertionError("definition version: lifecycle status must not change content version")
+        if list_work_forms(worker, session):
+            raise AssertionError("normal Worker form list: archived forms must remain hidden")
 
         retry = create_work_form_submission(
             WorkFormSubmissionCreate(
@@ -261,19 +279,31 @@ def test_submission_definition_snapshot():
         if retry["definition_version"] != 1:
             raise AssertionError("historical response: expected original definition version")
 
-        corrected = update_supervisor_form_submission(
-            submission["id"],
-            SupervisorWorkFormSubmissionUpdate(
-                answers={"original_answer": "Supervisor correction"},
-                confirmed=True,
+        assert_http_400(
+            "submitted Report answers are immutable",
+            lambda: update_supervisor_form_submission(
+                submission["id"],
+                SupervisorWorkFormSubmissionUpdate(
+                    answers={"original_answer": "Supervisor correction"},
+                    confirmed=True,
+                ),
+                supervisor,
+                session,
             ),
-            supervisor,
+        )
+        unchanged = create_work_form_submission(
+            WorkFormSubmissionCreate(
+                form_id=created["id"],
+                answers={},
+                client_submission_id="snapshot-retry-key",
+            ),
+            worker,
             session,
         )
-        if corrected["answers"]["original_answer"] != "Supervisor correction":
-            raise AssertionError("historical edit: expected validation against the stored definition")
-        if corrected["form_name"] != "Original form":
-            raise AssertionError("historical edit: definition snapshot must remain unchanged")
+        if unchanged["answers"]["original_answer"] != "Captured value":
+            raise AssertionError("immutable Report: original submitted answer must remain unchanged")
+        if unchanged["form_name"] != "Original form":
+            raise AssertionError("immutable Report: definition snapshot must remain unchanged")
 
     engine.dispose()
     print("ok - immutable work form definition snapshot")

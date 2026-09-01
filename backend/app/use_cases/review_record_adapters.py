@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import String, cast, func, literal, or_
+from sqlalchemy import String, cast, false, func, literal, or_
 from sqlmodel import Session, select
 
 from app.config import BUSINESS_TIMEZONE
@@ -45,6 +45,10 @@ class ReviewRecordAdapter:
         *,
         department_id: int | None,
         status: str | None,
+        workflow_status: str | None,
+        purpose: str | None,
+        form_id: int | None,
+        worker_id: int | None,
         record_date: str | None,
         search: str,
         snapshot_at,
@@ -65,6 +69,26 @@ class ReviewRecordAdapter:
             statement = statement.where(model.department_id == department_id)
         if status:
             statement = statement.where(status_expression == status)
+        if workflow_status:
+            statement = statement.where(
+                func.coalesce(model.workflow_status, "submitted") == workflow_status
+                if self.kind == "form"
+                else false()
+            )
+        if purpose:
+            statement = statement.where(
+                model.submission_purpose == purpose
+                if self.kind == "form"
+                else false()
+            )
+        if form_id is not None:
+            statement = statement.where(
+                getattr(model, self.form_id_field) == form_id
+                if self.form_id_field
+                else false()
+            )
+        if worker_id is not None:
+            statement = statement.where(getattr(model, self.actor_id_field) == worker_id)
         if record_date:
             if self.record_date_field:
                 statement = statement.where(getattr(model, self.record_date_field) == record_date)

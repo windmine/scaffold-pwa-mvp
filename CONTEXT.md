@@ -1,24 +1,24 @@
-# Leader Field Operations Context
+# Leader Field Reports Context
 
-This file defines the product language for the geo-attendance and field-record MVP. Use these terms consistently in modules, routes, UI copy, tests, and documentation. Status reviewed on 2026-08-13.
+This file defines the product language for the report-only MVP. Use these terms consistently in modules, routes, UI copy, tests, and documentation. The broader geo-attendance, Daywork, task-log, weekly-log, map, analytics, export, and recovery code remains available only as a reversible legacy interface. Status reviewed on 2026-09-01.
 
 ## People And Scope
 
 **Worker**:
-A field user who records attendance. A Worker may be a Normal worker or a Leader.
+A field user who submits Reports from active Department Report Templates and sees only their own Report history. A Worker may be a Normal worker or a Leader; both classes have the same report-only product surface.
 _Avoid_: Staff user when role-specific behaviour matters
 
 **Normal worker**:
-A Worker whose product surface is attendance and personal history only.
+A Worker who can submit Reports and view My Reports. Normal workers cannot use retained Site-creation, task-log, or weekly Team Work Log APIs.
 _Avoid_: Basic user
 
 **Leader**:
-A Worker class that also submits task logs, Work Forms, weekly Team Work Logs, and missing Sites. Leader is a worker class, not the Supervisor role.
-_Avoid_: Supervisor when the person is still submitting field records
+A retained Worker class with broader legacy field-operation privileges. In the report-only product a Leader sees the same New Report and My Reports surface as every other Worker. Leader is not the Supervisor role.
+_Avoid_: Treating Leader as a Report approval role
 
 **Supervisor**:
-An admin user who manages Sites, Workers, Work Form Definitions, and Review Records within one Department.
-_Avoid_: Admin when the workflow is specifically record review
+An admin user who reviews Department Reports, manages Report Templates, and manages Staff. A Department Supervisor may not read or transition another Department's Reports.
+_Avoid_: Approver when describing the Report workflow
 
 **Invited account**:
 A Worker account provisioned and activated by a Supervisor during the pilot. In the current implementation the Supervisor must also choose and communicate the initial password; a single-use invitation and Worker-set-password flow is not implemented. The public registration UI is hidden, while the dormant verified-registration API remains callable but is not supported as the pilot onboarding path.
@@ -37,13 +37,29 @@ The ownership and authorization boundary for Workers, Supervisors, Sites, and Re
 _Avoid_: Group when authorization scope is meant
 
 **Site**:
-A job location with coordinates and an allowed attendance radius.
+A retained job-location entity. Site is optional on a Report; report submission does not require geolocation or radius validation.
 _Avoid_: Job or location when the stored Site entity is meant
 
 ## Field Records
 
+**Report**:
+An immutable Worker submission created from an active Report Template. It contains a required Report Date, optional Site, answers, photos, signatures, an exact Definition snapshot, submission time, and Report workflow state. A Worker can read only their own Reports.
+_Avoid_: Diary, Daywork, Work Form, or approval record in user-facing language
+
+**Report Template**:
+A reusable, versioned, Supervisor-managed definition with `template_purpose=report`. Every active Worker in its Department may submit it. Archived Report Templates cannot accept new Reports.
+_Avoid_: Work Form in user-facing language
+
+**Report workflow**:
+The forward-only state machine **Submitted → In review → Resolved**. An authorised Department Supervisor starts review and resolves with a required final Supervisor note. Report transitions are separate from legacy approve/reject decisions, atomic, and audit-logged.
+_Avoid_: Pending, approved, rejected, approval, or rejection when describing a Report state
+
+**Legacy Daywork**:
+A retained Work Form and submission with purpose `daywork`. It is excluded from New Report, My Reports, Supervisor Reports, and Report exports. Its code and legacy approval behaviour remain available only through the reversible full-interface path.
+_Avoid_: Calling Daywork a Report
+
 **Review Record**:
-The durable supervisor-facing representation of an Attendance Record, Task Log, Work Form Submission, or weekly Team Work Log. It may be pending, approved, or rejected.
+The durable supervisor-facing representation used by the retained full interface for Attendance, Task Log, Legacy Daywork, or weekly Team Work Log records. It may be pending, approved, or rejected. Reports use the separate Report workflow even though the shared query adapter remains internal.
 _Avoid_: Approval when referring to the record itself
 
 **Review Queue**:
@@ -69,7 +85,7 @@ _Avoid_: Error when the item may be legitimate but unresolved
 ## Module Invariants
 
 **Offline Submission**:
-A Worker-owned attendance, task-log, or Work Form submission captured on one device and synced to the backend when possible. The module owns the Worker identity, capture time, stable Client Submission ID, replay state, and partial-upload state; attendance maps capture time to its Occurrence time.
+A Worker-owned Report or retained field record captured on one device and synced to the backend when possible. The module owns Worker identity, capture time, stable Client Submission ID, replay state, and partial-upload state. Report photo/signature upload progress is durable across retries and replay creates at most one Report.
 _Avoid_: Queue item when referring to the user-facing submission
 
 **Offline Site snapshot**:
@@ -89,8 +105,8 @@ A stable identifier created once for a Worker submission and reused on retry. Ba
 _Avoid_: Generating a new ID for each sync attempt
 
 **Work Form**:
-A reusable Supervisor-managed field form that a Leader can submit with typed values, photos, and signatures. A Work Form may be active or archived.
-_Avoid_: Dynamic form
+The retained internal model for both Report Templates and Legacy Daywork. `template_purpose` separates `report` from `daywork`; `submission_purpose` preserves that meaning on every historical submission.
+_Avoid_: Work Form in the report-only UI
 
 **Work Form Definition**:
 The versioned name, description, and field schema of a Work Form. Supported fields are text, textarea, number, date, select, checkbox, signature, section, time range, formula, and repeatable section fields, with conditional rules where supported.
@@ -134,14 +150,15 @@ _Avoid_: Refresh token unless a separate revocable refresh-token store exists
 
 ## Relationships
 
-- A **Worker** belongs to one **Department** and creates field records owned by that Worker.
+- A **Worker** belongs to one **Department**, may submit any active Department **Report Template**, and sees only their own **Reports**.
 - A **Supervisor** provisions and activates an **Invited account** during the pilot and currently sets its initial password; public self-registration is not exposed in the UI or supported as the pilot onboarding path, although its API remains callable.
 - An **Offline Submission** keeps its owning Worker, capture time, and **Client Submission ID**; attendance also carries its **Occurrence time** into the durable **Review Record**.
 - An **Offline Site snapshot** may guide a new offline attendance capture, but the backend remains authoritative for Site access, current radius, distance, and durable acceptance when the **Offline Submission** syncs.
 - An **Offline Attendance snapshot** may restore open-shift and Site-priority context for the same Worker and Department, but the backend remains authoritative for durable attendance history.
-- A **Supervisor** approves or rejects pending **Review Records** in the **Review Queue** within their Department scope.
+- A **Supervisor** moves a Department **Report** through **Submitted → In review → Resolved** and must provide the final note. Legacy approve/reject routes reject Reports.
+- A **Supervisor** may still approve or reject retained non-Report **Review Records** within their Department scope when the reversible full interface is explicitly enabled.
 - A **Global admin** may query the same records across one or all Departments.
-- A **Work Form Definition** has versions; every Work Form Submission stores a **Definition snapshot**.
+- A **Report Template** has versions; every **Report** stores a **Definition snapshot** and immutable `submission_purpose=report`.
 - The visible **Review Queue page**, dashboard totals, and **Management Analytics** are separate consumers of the same durable query boundary.
 - **Accounting / Payroll** will use approved Attendance Records to create **Payroll Summaries**, not reuse Review Queue page totals.
 - **Upload Storage** verifies and serves referenced files for field records without exposing the backing adapter directly.
@@ -152,7 +169,7 @@ _Avoid_: Refresh token unless a separate revocable refresh-token store exists
 
 - "record" can mean any stored item; use **Review Record** only for the four supervisor-reviewable record kinds.
 - "queue" can mean the worker's device queue or the Supervisor feed; use **Offline Submission** and **Review Queue** respectively.
-- "reviewed" means approved plus rejected across the authorized durable data set, not only the current filtered page.
+- "reviewed" is legacy Review Queue vocabulary. For Reports, name **In review** or **Resolved** explicitly.
 - "analytics" means implemented operational **Management Analytics** unless **Payroll Summary** is named explicitly.
 - "admin" can mean Supervisor review or Accounting / Payroll; name the workflow.
 - "timestamp" can mean occurrence, backend creation, or sync time; use the specific term.

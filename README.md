@@ -1,8 +1,8 @@
 # Leader Field Operations
 
-Mobile-first geo-attendance and field daywork logging MVP for Leader Scaffolding-style operations.
+Mobile-first Report submission and review MVP for Leader Scaffolding-style operations.
 
-This project lets field workers check in/out from a phone with location data, submit Daywork logs and custom work forms with progress photos, and review their own synced history. Supervisors can manage sites, staff, reusable work forms, attendance review, backend record adjustments with consistent in-app confirmation for consequential actions, audit history, CSV exports, and print-ready HTML exports for logs and submitted forms. Pending-attendance and Work Form saves, rubbish-bin restores, and Work Form archive/activate actions do not add a second confirmation step. The next business-facing direction is a desktop payroll/admin section that helps accounting calculate approved worker hours by pay period.
+The production-default interface is intentionally narrow: every active Worker can submit a supervisor-defined Report from a phone, including photos and handwritten signatures, then follow it through **Submitted**, **In review**, and **Resolved**. Supervisors review Reports, manage Report Templates, and manage Staff from phone or desktop widths. The broader geo-attendance, Daywork, Site, analytics, and audit modules remain in the repository behind a reversible interface flag; payroll remains planned. None is part of the current visible product flow.
 
 ## Current Version
 
@@ -16,7 +16,7 @@ Recommended deployment: Firebase Hosting + Cloud Run + Cloud SQL PostgreSQL + Cl
 Primary UI files: index.html, assets/css/styles.css, assets/js/app.js
 ```
 
-The app started as a frontend-only prototype. It now uses FastAPI for authentication, Sites, attendance, Task Logs, weekly Team Work Logs, versioned Work Forms, verified uploads, staff management, durable Supervisor review, exports, audit history, and cross-device history sync.
+The app started as a frontend-only prototype. It now uses FastAPI for authentication, versioned Report Templates (`WorkForm` internally), immutable Report submissions, verified uploads, staff management, durable Supervisor review, and exports. Retained backend modules also cover Sites, attendance, Task Logs, weekly Team Work Logs, audit history, and cross-device history sync.
 
 `src/App.jsx` is not the current production UI path. The active app is `index.html` plus the modules in `assets/js/`.
 
@@ -29,7 +29,24 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
-## Current Reset Status - 2026-08-13
+## Current Working Tree - Report-Only Release Candidate
+
+The working tree defaults to a report-only shell at phone and desktop widths. It has not been promoted to the live Firebase URL. The currently hosted version and its historical checks are recorded below; do not treat those August results as validation of this release candidate. Stage the coupled backend, migrations, and frontend only in an isolated preview until the remaining live-promotion gates pass.
+
+On 2026-09-01, the local in-app browser passed the report-only route at 390 × 844: Worker submission without a Site, **My Reports**, Supervisor structured filters, **Start review**, required resolution-note validation, **Resolve report**, the final note returning to **My Reports**, and phone-width **Report Templates / Staff** navigation without horizontal overflow. The complete local candidate gate is green, including 33 Playwright workflows, backend migration/security/storage/workflow suites, a disposable-database smoke pass, production dependency audit, and Python dependency consistency. The hosted real-phone/upload/update pass remains pending.
+
+Current release-candidate contract:
+
+- Workers see only **New Report** and **My Reports**. Normal Workers and Leaders use the same visible Report flow.
+- A Report requires a Report Date, may omit Site, can include up to 8 photos and configured handwritten signatures, and keeps an immutable Definition snapshot after submission.
+- A Report moves forward only through **Submitted → In review → Resolved**. Resolution requires a final Supervisor note; legacy approval statuses are not Report workflow actions.
+- Supervisors see only **Reports**, **Report Templates**, and **Staff**. Durable `report` purpose separates Reports from retained `daywork` templates/submissions, so Daywork is excluded from New Report, My Reports, Supervisor Reports, and Report exports.
+- Collection CSV/PDF exports follow the structured workflow, Template, Worker, Report Date, and Department filters. Report exports show the Report workflow plus the final Supervisor note, reviewer, review-started time, and resolved time. The free-text **Find** field filters the visible list only.
+- An already-open Worker page with its Report Template loaded can queue a Report while offline. Photo and signature upload progress, Worker ownership, capture time, and the client submission id persist across retries, so reconnecting or retrying does not create a second Report.
+- The generated PWA still cold-launches its cached application shell. Report Templates and backend Report history remain network-only, so a killed offline launch can show locally queued Reports but cannot start a new Report unless its Template is available again after reconnect.
+- A waiting service worker exposes **Update App**. The app saves the active Report draft before reload and pauses with **Try saving again** / **Keep editing** if local draft storage fails.
+
+## Latest Deployed Reset Status - 2026-08-13
 
 The reset goal is a reliable phone-first PWA with durable, explainable sync and review behaviour. The current local gate, historical real-phone local-network pass, and 2026-08-13 automated hosted release pass are green. The invited-account and cold-offline frontend is deployed, while the full hosted real-phone pass is still pending and the remaining provider hardening must be closed or accepted before real staff data is trusted to the service.
 
@@ -88,7 +105,7 @@ Completed in this reset:
 
 Next step:
 
-Run the full hosted real-phone checklist against the deployed cold-offline build, including killed/refreshed offline launch, queued-attendance replay, actual photo/signature streaming, and the waiting-service-worker update flow. Before broader onboarding, add an expiring, single-use invitation so each Worker sets their own password; email delivery needs a transactional email provider, while another authenticated private delivery channel is possible if designed explicitly. Also add a verified Monitoring notification channel and billing budget, choose longer Neon recovery or external logical backups, complete Neon least-privilege access work, resolve the development-only npm advisories, and remove controlled test data.
+Stage and verify the exact coupled commit in an isolated Firebase / Cloud Run / PostgreSQL preview, then run the full hosted real-phone checklist. Do not promote it live until the production-hardening evidence is current. The device pass must cover both Worker classes, the complete Supervisor phone-width flow, optional Site, all three Report workflow states, an offline queued Report with real photo/signature evidence, one-only replay after reconnect, authorized `/uploads/...` streaming, a killed/refreshed cached-shell launch, and the waiting-service-worker **Update App** flow. Before broader onboarding, add an expiring, single-use invitation so each Worker sets their own password; email delivery needs a transactional email provider, while another authenticated private delivery channel is possible if designed explicitly. Also add a verified Monitoring notification channel and billing budget, choose longer Neon recovery or external logical backups, complete Neon least-privilege access work, resolve the development-only npm advisories, and remove controlled test data.
 
 ## Recommended Production Deployment
 
@@ -119,88 +136,63 @@ Do not store uploaded photos or signatures in Cloud SQL. Store files in Cloud St
 - Department supervisors see and manage only their own department data; global admins can manage all departments.
 - Global admins can focus the supervisor dashboard on one department or all departments and save either view as their dashboard default. This preference is separate from the account's home department, which continues to control ownership of newly created department records.
 
+### Current report-only interface
+
+- Workers see **New Report**, **My Reports**, and their account/logout controls. Attendance, Daywork, weekly team logs, and missing-site controls are hidden.
+- Supervisors see **Reports**, **Report Templates**, and **Staff**. Maps, analytics, Sites, audit/recovery, manual attendance, task-log entry, and the unrelated export workspace are hidden.
+- Worker history and the Supervisor report queue request `purpose=report`. Retained Legacy Daywork templates and submissions do not leak into New Report, My Reports, Supervisor Reports, or Report collection exports.
+- Supervisor **Reports** can be filtered by workflow (**Submitted**, **In review**, or **Resolved**), Report Template, Worker, and Report Date. Report CSV/PDF exports use those structured filters and Department focus; the free-text **Find** field filters the visible list only. Attendance and task-log exports remain hidden.
+- **New Report** keeps the existing template-driven submission engine: Report Date is required, Site is optional, configured fields/signatures remain enforceable, photos are supported, drafts autosave locally, and queued submissions retain their stable replay key.
+- **My Reports** shows the report workflow status, labelled submission time, Report Date, Site, submitted details/evidence, and the final Supervisor note after resolution.
+- **My Reports** also shows device-local queued Reports. **Retry sync** reuses completed photo/signature uploads and the stable client submission id; **Discard local copy** removes only the unsynced device record.
+- The broader field-operations modules and markup remain in the codebase behind `REPORT_ONLY_MODE` for a reversible rollback and continued regression coverage; their APIs and stored records are not deleted by this interface change.
+- User-facing language uses **Report**, **Report Template**, **Submit Report**, **My Reports**, and **Report Date**. Existing `WorkForm`, `form_id`, `/work-forms`, and `/form-submissions` internals remain; `template_purpose` and immutable `submission_purpose` distinguish Reports from retained Daywork without renaming the existing tables.
+
 ### Worker
 
 Worker accounts have two field classes:
 
-- **Normal worker:** check in, check out, and review their attendance history.
-- **Leader:** all normal-worker attendance functions plus weekly team logs, Daywork logs, reusable work forms, and missing-site creation.
+- **Normal worker:** submit active department report templates and review their own reports.
+- **Leader:** currently receives the same report-only navigation; the broader Leader capabilities remain retained but hidden.
 
-During the invited-account pilot, a supervisor opens **People & Sites > Staff users**, searches the existing list, and chooses **Add staff** to create and activate a Worker account. New Workers start as normal workers. A supervisor can promote or return a worker between Normal worker and Leader without changing the account's department or historical records. The current form requires the supervisor to choose the initial password and communicate it securely; Workers cannot yet complete an expiring invitation and set their own password.
+During the invited-account pilot, a supervisor opens **Staff**, searches the existing list, and chooses **Add staff** to create and activate a Worker account. New Workers start as normal workers. A supervisor can promote or return a worker between Normal worker and Leader without changing the account's department or historical records. The current form requires the supervisor to choose the initial password and communicate it securely; Workers cannot yet complete an expiring invitation and set their own password.
 
-Normal workers receive a simplified attendance screen with only **Check in / out** and **My history** navigation. The attendance card shows the full Site → Location → Check in guide initially, then compacts it after the Worker has attendance history so the controls appear sooner. Checkout defaults to the Site of the open check-in; otherwise Sites prioritise the nearest option after a fresh location capture or recently used Sites when location is unavailable, while preserving an explicit current selection. Submission remains blocked until the required Site and location are ready.
+All workers receive the report-only screen with **New Report** and **My Reports** navigation. They choose an active Department Report Template (`template_purpose=report`), complete its fields and evidence, submit it for review, and see only their own Report history.
 
-- Sign in with a backend account.
-- Use an invited account created and activated by a supervisor.
-- Select a backend job/site. Authenticated Site loading fails closed instead of showing seeded demo Sites when the API is unavailable.
-- Capture browser geolocation. The capture is bound to the signed-in Worker and must be less than five minutes old when attendance is submitted.
-- Check in and check out with GPS coordinates, accuracy, site radius result, notes, and optional attendance photo.
-- Check-in and check-out remain explicit Worker actions. The PWA does not continuously track location or automatically submit attendance when crossing a Site boundary.
-- Inside-site attendance is approved automatically; outside-site attendance stays pending for supervisor review.
-- Edit or delete own pending outside-site attendance before supervisor approval.
-- Leaders submit Daywork logs through the active Daywork log form, including work date, site, dynamic fields, signatures, time ranges, and up to 8 progress photos.
-- Leaders complete advanced work forms with conditional fields, calculated formula fields, and repeatable sections for row-based data such as labour, materials, or equipment.
-- Work-form time ranges and formulas are previews in the browser; the backend derives and stores the authoritative durations and formula results.
-- Leaders add a missing site from the worker dashboard when today's job is not listed yet.
-- Leaders choose supervisor-created work forms, such as daywork, inspection, and tool deduction forms.
-- Leaders submit work forms for approval with typed fields, handwritten signatures, site/work date, and up to 8 photos.
-- View local and backend-synced attendance, Daywork, and form history.
-- Search/filter history by text, type, status, and local calendar date.
-- Click any uploaded photo thumbnail to open a floating zoom viewer with previous/next controls.
-- Save offline drafts and queue offline records for later sync.
-- Keep queued records bound to the Worker who captured them, with capture time and stable client submission id retained across retries; delayed attendance also preserves its original occurrence timestamp.
-- Autosave each Work Form draft on this device by Worker and Form, including site, date, answers, signatures, and photos; show the confirmed save time and restore the matching draft after a reload or logout.
-- Preserve in-progress Daywork and Work Form answers when connectivity returns, and show Retry/Discard controls for queued submissions that need corrected photos or other attention.
-- Save pending Work Form changes before activating an app update; pause the update with a retry path if local draft storage fails.
+Current visible Worker flow:
+
+- Sign in with an invited backend account created and activated by a Supervisor.
+- Choose an active Department Report Template. Archived Templates and Legacy Daywork templates are not offered.
+- Choose a required Report Date and, when relevant, an optional Site. A no-Site submission stores `site_id=null` and is shown as `Unassigned site` rather than being blocked.
+- Complete configured text, choice, checkbox, date, number, section, conditional, time-range, formula, repeat, and handwritten-signature fields. Browser calculations are previews; the backend stores authoritative duration/formula results.
+- Add up to 8 JPEG, PNG, or WebP photos of at most 5 MB each. Required signatures must contain handwriting before submission.
+- Let the Worker/Report Template draft autosave on this device, including Site, Report Date, answers, signatures, and photos. After reload or sign-in, reselect that Template to restore its matching draft. Logout and **Update App** both wait for unsaved input; the update pauses instead of discarding work when local storage fails.
+- Submit online or, from an already-open page with its Template loaded, queue the Report while offline. Queued evidence uploads resume from persisted partial progress, remain bound to the capturing Worker, and reuse one stable client submission id.
+- Use **My Reports** to search by Template/answer/status, filter by **Submitted**, **In review**, **Resolved**, **Queued**, or local Report Date, open photo/signature evidence, retry a failed queue item, or discard only its unsynced local copy.
+- After resolution, read the final Supervisor note. Submitted Report content is immutable and Workers cannot edit or delete the durable Report.
+
+Retained full-interface capabilities, hidden in the current shell, include geolocation attendance, Daywork, weekly team logs, missing-Site creation, and their combined history. Their APIs and regression tests remain available for rollback; they are not steps in the current Worker phone flow.
 
 Worker restrictions:
 
-- Normal workers cannot create sites, task logs, weekly team logs, or work-form submissions.
+- Normal workers cannot create sites, task logs, or weekly team logs. They can submit active Department Reports from active Report Templates.
 - Workers cannot edit or delete submitted task logs.
 - Workers cannot edit or delete attendance after it is approved or rejected.
 - Resigned workers cannot sign in.
 
 ### Supervisor
 
-- Sign in with a supervisor account.
-- View pending, approved, and rejected attendance, Task Logs, weekly Team Work Logs, and Work Form Submissions.
-- View worker task logs and attached photo galleries.
-- Create, edit, and archive worker-facing work forms.
-- Build worker-facing forms with sections, conditional logic, formulas, and repeatable row sections.
-- Content edits increment the definition version. Every submission freezes the exact form name, description, fields, and version used for its validation, so later edits do not relabel historical records or exports.
-- Preview worker-facing forms from the supervisor Work Forms builder before saving, and from the saved Work Forms list before editing or activating them.
-- View worker work-form submissions and attached photo galleries.
-- Approve or reject pending outside-site attendance, Task Logs, weekly Team Work Logs, and Work Form Submissions.
-- Adjust durable attendance records through an in-app confirmation dialog that explains the reporting and audit impact.
-- Add a missed worker check-in or check-out with the original date/time and a required reason. Manual entries are approved, audit-logged, visibly marked, and do not claim a GPS result.
-- Submit an approved task log for themselves or another accessible user. Admin-entered logs are visibly marked and audit-logged, with no separate approval step.
-- Set a worker's field class to Normal worker or Leader.
-- Review and approve weekly team logs containing many member/date/site/time/work rows.
-- Move attendance, Task Logs, Work Form Submissions, or weekly Team Work Logs to a Department-scoped rubbish bin after entering a reason and confirming the action. Records can be restored for 30 days before automatic permanent deletion.
-- Adjust submitted task logs through the same consequential-action dialog.
-- Create and edit sites, including allowed check-in radius.
-- Review attendance on a map with site-radius boundaries, inside/outside markers, worker/site/date/status filters, and map-based approve/reject controls.
-- View each worker's recorded attendance-point history and connect those events as straight reference lines; the app does not collect continuous background routes.
-- View management analytics for record trends, pending/rejected/outside-site and attendance-pairing exceptions, site activity, logged task hours, approval rates, and structured form responses. Open check-ins are only marked as missing after 12 hours.
-- Open each listed analytics exception in its exact Review Record. Attendance exceptions with valid coordinates can also open and highlight the exact map point; navigation clears conflicting Review/map filters and can recover records outside the first Review Queue page.
-- Keep dashboard Review totals and Management Analytics independent from the visible Review Queue filters/page; both use the complete authorized durable overview.
-- Filter review records, maps, analytics, sites, staff, and work forms by department. Department-scoped supervisors remain fixed to their assigned department.
-- Export the selected management period as CSV or a print-ready HTML management report.
-- Search sites.
-- Create worker/supervisor users in the supervisor's own department, or in any department when signed in as a global admin.
-- Edit staff name, email, role, status, department, global-admin access, or reset password through an in-app confirmation that calls out the immediate sign-in and data-access impact.
-- Assign global-admin access only to Supervisor accounts. Changing an account to Worker clears that access in the UI and must remove it in the same backend update.
-- View and search staff users.
-- Mark workers resigned so they cannot sign in.
-- Reactivate resigned workers without losing previous records.
-- Department supervisors cannot resign or reactivate global-admin accounts; only another global admin can change a global admin account status.
-- View recent supervisor audit history for staff, site, work-form, review, attendance, and task-log changes.
-- Export attendance records to CSV.
-- Export task logs to CSV.
-- Export task logs as daily log sheets or photo reports in print-ready HTML.
-- Export Daywork logs and submitted work forms as PDF templates with form answers, photos, and signature images.
-- Export submitted work forms in print-ready HTML with form answers, photos, and signature images.
-- Export a single selected task log or submitted work form from its review card as HTML or a CSV row.
+Current visible Supervisor flow:
+
+- Sign in and land on **Reports**. At phone width, use the Workspace drawer to switch only among **Reports**, **Report Templates**, and **Staff**.
+- Search the Report list by Worker, Template, or answer and filter the server result by **Submitted**, **In review**, or **Resolved**, Report Template, Worker, and exact Report Date. Department-scoped Supervisors stay fixed to their Department; Global Admins may change Department focus.
+- Select a Report to inspect its immutable Site, Report Date, Definition snapshot, answers, photos, and handwritten signatures.
+- Move a **Submitted** Report to **In review**, then resolve an **In review** Report with a required final Supervisor note. The workflow is forward-only and does not expose legacy Approve, Reject, Edit, or rubbish-bin actions while recovery is hidden.
+- Export one selected Report as HTML, PDF, or a CSV row. Export the current structured Report collection as CSV or PDF; exports use the Report workflow and include the final review details. Free-text **Find** is list-only.
+- Create, preview, edit, version, archive, and reactivate Report Templates. Existing Reports retain the exact Template snapshot used when they were submitted.
+- Create Worker or Supervisor accounts, search/edit Staff, set Worker class, reset passwords, and resign/reactivate accounts within the signed-in Supervisor's access scope. Global-admin access remains Supervisor-only.
+
+Retained full-interface capabilities, hidden in the current shell, include attendance/task/team-log approval, manual corrections, Sites, maps, Management Analytics, the general export workspace, Audit history, and rubbish-bin recovery. Their routes and regression coverage remain in the repository but are not part of the report-only Supervisor phone workflow.
 
 ### PWA / Mobile UX
 
@@ -208,10 +200,9 @@ Worker restrictions:
 - Same-origin `/api` proxy to avoid iOS mixed-content blocking.
 - Visible Download App button with browser install prompt or Add-to-Home-Screen fallback instructions.
 - Service worker app shell cache generated from one shared asset manifest with a content-derived cache name.
-- Cached production-app cold launch for installed Workers, with the static offline page reserved for an incomplete/corrupt shell cache.
-- Worker/Department-scoped saved Sites for new offline attendance capture, cleared on logout or invalid authorization.
-- IndexedDB drafts and queued attendance, task-log, and work-form submissions, including photos and handwritten signature data.
-- Mobile-first layout with folded supervisor sections.
+- Cached production-app cold launch for installed Workers, with the static offline page reserved for an incomplete/corrupt shell cache. Protected Report Template/history/API/upload responses remain network-only.
+- IndexedDB Report drafts and queued submissions, including photos, nested handwritten-signature data, partial-upload progress, Worker ownership, and replay idempotency. The retained interface also supports queued attendance and task logs.
+- Mobile-first Worker tabs and a phone-width Supervisor Workspace drawer.
 - Black default theme with a persistent light/dark mode toggle.
 
 ## Demo Accounts
@@ -327,6 +318,8 @@ scaffold-pwa-mvp/
         staff_site_admin.py   Staff user and site admin use cases
     database_test.py          SQLAlchemy pool health regression script
     migration_test.py         Migration workflow regression script
+    report_purpose_test.py    Report/Daywork API-boundary regression script
+    report_workflow_test.py   Report review-state/ownership regression script
     review_queue_test.py      Review policy/query/export regression script
     smoke_test.py             Backend smoke/regression script
     security_test.py          Backend security/rate-limit regression script
@@ -546,7 +539,7 @@ gcloud run deploy geo-backend --source . --region australia-southeast1 `
 
 Before deploying, inspect `gcloud meta list-files-for-upload`; `.gcloudignore` and `.dockerignore` must keep local databases, uploads, environment files, and Python bytecode out of the build. Set Cloud Run environment variables from `.env.firebase.example`, preserve the Secret Manager bindings and resource limits, verify the tagged candidate, and then move 100% traffic to the exact verified revision. The current live service stores `DATABASE_URL` and `GEO_SECRET_KEY` in Secret Manager, points `DATABASE_URL` at Neon PostgreSQL, and uses Cloud Storage for uploaded photos/signatures.
 
-The Docker container runs `python -m app.migrations` before starting Uvicorn. FastAPI startup also verifies the configured upload adapter's create/read/delete lifecycle, so a revision fails fast when either database migration or upload storage configuration is unusable.
+The production Docker container starts Uvicorn only and keeps `AUTO_MIGRATE=false`; run `python -m app.migrations` explicitly against the verified database before deploying its compatible revision. This prevents a no-traffic Cloud Run candidate from changing production schema during startup. FastAPI readiness still verifies database access and the configured upload adapter lifecycle before the revision is accepted.
 
 The shared SQLAlchemy engine enables `pool_pre_ping`, so each pooled database connection is checked when Cloud Run reuses it. If managed PostgreSQL or Neon has closed an idle SSL connection, SQLAlchemy discards that connection before the API query instead of returning a transient 500.
 
@@ -639,7 +632,9 @@ docs/mobile-browser-workflow-checks.md
 
 ## Key Workflows
 
-### Worker Attendance
+The current shell exposes Worker Reports, Supervisor Reports, Report Templates, and Staff. The attendance/Daywork/team sections below are retained reference workflows and require the full-interface test override.
+
+### Retained Worker Attendance
 
 1. Sign in as a worker.
 2. Select a site.
@@ -651,7 +646,7 @@ docs/mobile-browser-workflow-checks.md
 8. Inside-site attendance is approved automatically.
 9. Outside-site attendance stays pending and can be edited or deleted until supervisor approval/rejection.
 
-### Worker Daywork Log
+### Retained Worker Daywork Log
 
 1. Open the Log tab or the Daywork log quick action.
 2. Select a site.
@@ -663,7 +658,7 @@ docs/mobile-browser-workflow-checks.md
 8. Daywork logs are saved as pending form submissions for supervisor approval.
 9. Photos can be opened in the floating photo viewer with their recorded taken time when available.
 
-### Worker Missing Site
+### Retained Worker Missing Site
 
 1. Open **Add missing site** on the worker dashboard.
 2. Enter the site name and optional address.
@@ -687,16 +682,18 @@ safety notes
 photos
 ```
 
-### Worker Work Forms
+### Worker Reports
 
-1. Open the Form tab or the work-form quick action.
-2. Choose a work form.
-3. Select a site and work date.
-4. Fill in the form fields.
+1. Open **New Report**.
+2. Choose a **Report Template**.
+3. Choose the required **Report Date** and, when relevant, an optional Site.
+4. Fill in the Report fields.
 5. Select optional photos from the phone photo picker.
 6. Wait for the inline `Saved at...` receipt when you need confirmation that the current draft is protected on this device.
-7. Submit the form. A successful online or queued submission clears only this Worker/Form draft.
-8. The submission is saved as pending approval and appears in worker history and supervisor review.
+7. Choose **Submit Report**. A successful online or queued submission clears only this Worker/Report Template draft.
+8. The Report starts as **Submitted** and appears in **My Reports** and Supervisor **Reports**. Its workflow can then move to **In review** and **Resolved**; a resolved Report shows the final Supervisor note.
+
+For an offline replay check, load the Template while online, keep the page open, switch the device offline, and submit the Report. **My Reports** should show **Queued**. Reconnect as the same Worker and choose **Retry sync** if automatic sync does not run; completed photo/signature uploads and the original client submission id must be reused, producing exactly one durable Report. A killed offline launch restores the cached shell and local queue/history, but Report Templates are network-only and a new Report cannot begin until reconnect.
 
 Built-in seeded examples:
 
@@ -706,7 +703,7 @@ Inspection form
 Tool deduction form
 ```
 
-### Leader Weekly Team Log
+### Retained Leader Weekly Team Log
 
 1. A supervisor sets the staff account's Worker class to **Leader**.
 2. The leader opens the Team tab and selects the Monday starting the work week.
@@ -717,14 +714,14 @@ Tool deduction form
 
 Each weekly log accepts up to 150 work rows. The week must start on Monday and each row date must be inside that seven-day period.
 
-### Supervisor Form Builder
+### Supervisor Report Template Builder
 
 1. Sign in as supervisor.
-2. Open the **Forms** workspace and expand **Work forms**.
-3. Review the saved-form list, choose **Add work form**, then enter the form name and optional description.
+2. Open **Report Templates**.
+3. Review the saved-template list, choose **Add Report Template**, then enter the Template name and optional description.
 4. Choose **Add field**, then set the card's field type, worker-facing label, and required state. Choice fields expose their options; repeating groups expose row limits and nested field cards.
 5. Turn on **Only show in some cases** to select an earlier field, comparison, and value. Conditions and formulas can reference only earlier fields in the same form or repeating group.
-6. Drag a card by its handle, or use its Move up/down buttons. Preview the form, then choose **Create form**. Editing an existing form opens the same card builder and preserves its stable field keys.
+6. Drag a card by its handle, or use its Move up/down buttons. Preview the Report, then choose **Create Report Template**. Editing an existing Report Template opens the same card builder and preserves its stable field keys.
 
 The routine workflow does not require syntax. For definitions that need direct source editing, open **Advanced: edit raw field syntax**. Raw changes are staged until **Apply syntax** is selected; preview and save remain blocked while unapplied raw changes exist. The compatibility format is:
 
@@ -752,7 +749,19 @@ signature|Worker signature|required
 
 Supported field types are `section`, `repeat`, `text`, `textarea`, `number`, `date`, `time_range`, `select`, `checkbox`, `formula`, and `signature`. Prefix repeat children with `>`. Later columns may contain `id=result`, `show_if=result=Fail`, `min=1`, or `max=12`. Labels cannot contain `|`, and choice options cannot contain commas or `|` because those characters delimit the raw compatibility format. A required signature uses a touch-friendly pad and uploads a PNG. The browser previews formulas, but the backend revalidates source answers and stores authoritative time-range durations and formula results. Content edits increment the Definition version; every submission retains an immutable Definition snapshot, so archive/reactivate or later edits cannot relabel history.
 
-### Supervisor Review
+### Supervisor Report Review
+
+1. Sign in as a Supervisor. At phone width, open **Workspaces** and confirm only **Reports**, **Report Templates**, and **Staff** are offered.
+2. Open **Reports** and use **Find** for the visible list or the structured workflow, Report Template, Worker, and Report Date filters for the server result. **Find** is intentionally not an export filter.
+3. Select a **Submitted** Report and inspect its optional Site, required Report Date, frozen Template fields, answers, photos, and signatures. Confirm Approve, Reject, and Edit are absent.
+4. Choose **Start review**. The Report leaves a Submitted-only filter and appears under **In review**.
+5. Choose **Resolve report**. An empty resolution note must be rejected and focused; a non-empty final note moves the Report to **Resolved**.
+6. Sign in as the Worker and confirm **My Reports** shows the same status and final Supervisor note.
+7. Export the selected Report as HTML, PDF, or CSV. Export the collection as Reports CSV/PDF and confirm the structured filters, including Department focus, are applied.
+8. Open **Report Templates** to create, preview, edit/version, archive, and reactivate a Template. Reopen an older Report and confirm it still uses its submitted Definition snapshot.
+9. Open **Staff** to search, add, edit, resign, and reactivate controlled accounts. The current provisioning form requires the Supervisor to set the initial password.
+
+### Retained Full-Interface Supervisor Review
 
 1. Sign in as supervisor.
 2. On desktop, use the sticky Admin workspace navigation to jump between review, reporting, record-entry, and management sections. Selecting a folded section opens it automatically.
@@ -860,7 +869,7 @@ DELETE /my-task-logs/{log_id}
 
 Rules:
 
-- Leaders can create and view their task logs. Normal workers are attendance-only.
+- Leaders can create and view their task logs. Normal workers cannot create task logs; Work Form reporting remains available separately.
 - Task logs are created as `pending` for supervisor approval.
 - Worker update/delete endpoints intentionally return `403` for submitted logs.
 - Task logs support `photo_urls` with up to 8 uploaded image URLs.
@@ -887,20 +896,20 @@ PATCH  /task-templates/{template_id}
 DELETE /task-templates/{template_id}
 ```
 
-### Worker Work Forms
+### Worker Reports
 
 ```text
-GET  /work-forms
+GET  /work-forms?purpose=report
 POST /form-submissions
-GET  /my-form-submissions
+GET  /my-form-submissions?purpose=report
 ```
 
 Rules:
 
-- Leaders only see active work forms. Normal workers receive an empty form list and cannot submit forms.
-- Form submissions support typed answers and up to 8 uploaded image URLs.
-- `client_submission_id` is stable across replay and unique for that Worker; the submission also stores the immutable Definition version/snapshot used for server validation and derivation.
-- Submitted forms start as `pending` and are visible in worker history and supervisor review.
+- Every active Worker sees active `report` purpose Templates in their Department and can submit Reports from them. Archived Templates and Legacy Daywork remain hidden from the report-only query and cannot be transitioned as Reports.
+- Reports support typed answers and up to 8 uploaded image URLs.
+- `client_submission_id` is stable across replay and unique for that Worker; the submission also stores immutable `submission_purpose=report` plus the Definition version/snapshot used for server validation and derivation.
+- New Reports require `work_date`, may omit `site_id`, and start with `workflow_status=submitted`. **My Reports** uses the report workflow (`submitted`, `in_review`, `resolved`) rather than the retained legacy approval status.
 
 ### Leader Team Work Logs
 
@@ -926,7 +935,7 @@ GET   /supervisor/audit-events
 POST  /supervisor/sites
 PATCH /supervisor/sites/{site_id}
 
-GET   /supervisor/review-queue?status=&record_type=&search=&start_date=&end_date=&page_size=&cursor=
+GET   /supervisor/review-queue?purpose=report&workflow_status=&kind=form&form_id=&worker_id=&record_date=&page_size=&cursor=
 GET   /supervisor/review-records
 GET   /supervisor/review-records?status=pending
 POST  /supervisor/review-records/{kind}/{record_id}/decision
@@ -955,19 +964,22 @@ PATCH /supervisor/task-logs/{log_id}
 GET   /supervisor/form-submissions
 POST  /supervisor/form-submissions
 GET   /supervisor/form-submissions?status=pending
-GET   /supervisor/form-submissions/export.csv
-GET   /supervisor/form-submissions/export.html
-GET   /supervisor/form-submissions/export.pdf?template=submitted-form
+GET   /supervisor/form-submissions/export.csv?purpose=report
+GET   /supervisor/form-submissions/export.html?purpose=report
+GET   /supervisor/form-submissions/export.pdf?purpose=report&template=submitted-form
 GET   /supervisor/form-submissions/export.pdf?template=daywork
 GET   /supervisor/form-submissions/{submission_id}/export.csv
 GET   /supervisor/form-submissions/{submission_id}/export.html
 GET   /supervisor/form-submissions/{submission_id}/export.pdf?template=submitted-form
 GET   /supervisor/form-submissions/{submission_id}/export.pdf?template=daywork
+POST  /supervisor/form-submissions/{submission_id}/transition
 POST  /supervisor/work-forms
 PATCH /supervisor/work-forms/{form_id}
 ```
 
-`/supervisor/review-queue` is the preferred cursor-paginated query endpoint. It returns matching-filter `counts`, filter-independent authorized `summary_counts`, a stable snapshot timestamp, and an opaque continuation cursor. The visible page uses the matching records; dashboard totals use `summary_counts`; Management Analytics walks the complete unfiltered snapshot. `/supervisor/review-records` remains the compatibility feed and decision path. `/supervisor/audit-events` returns recent change events with actor, access level, action, target, summary, and before/after snapshots. HTML exports are standalone print/save-as-PDF files; PDF exports are generated server-side for submitted Work Forms and Daywork submissions.
+`/supervisor/review-queue` is the preferred cursor-paginated query endpoint. Report-only callers pass `purpose=report`, which filters both the visible page and its matching counts without changing the retained complete Review Queue used by the full-interface override. `/supervisor/review-records` remains the compatibility feed and legacy decision path, but legacy decisions reject `report` submissions and continue only for attendance, task, Legacy Daywork, and team-log records. `/supervisor/audit-events` returns recent change events with actor, access level, action, target, summary, and before/after snapshots. HTML exports are standalone print/save-as-PDF files; report exports use the Report workflow and final review details, while retained Daywork exports keep their legacy lifecycle.
+
+Report submissions carry immutable `submission_purpose=report` and a forward-only `workflow_status`: `submitted`, `in_review`, then `resolved`. `POST /supervisor/form-submissions/{submission_id}/transition` is separate from the legacy Review Record approval policy and rejects Legacy Daywork. It permits only `submitted → in_review` and `in_review → resolved`; resolution requires a non-empty Supervisor note. Each transition is an atomic, department-authorized update with its own audit event, so a stale concurrent Supervisor action cannot overwrite the winning transition. Responses and exports include the reviewing Supervisor, review-started time, resolved time, and Supervisor note. Submitted purpose, Site, Report Date, answers, photos, and nested signatures are immutable. Legacy approval endpoints and Supervisor-created form-submission endpoints reject Reports instead of bypassing or impersonating the Worker workflow.
 
 `POST /supervisor/task-logs` accepts a selected user, site, work date, task summary, optional hours, and optional safety notes. The selected user may be the signed-in supervisor or another department-accessible user. These records are created as `approved`, marked `supervisor_manual`, and do not require a review decision.
 
@@ -1022,7 +1034,7 @@ The active Offline Submission interface derives `worker_id`, `occurred_at`, and 
 }
 ```
 
-### Work Form Submission
+### Report Submission (`WorkFormSubmission` internally)
 
 Only source answers need to be sent. Omit formula outputs and `duration_hours`; the backend derives them from the saved definition and time-range start/end values. Submission responses include the authoritative answers plus `definition_version`, `definition_schema_version`, and the frozen `fields` snapshot.
 
@@ -1045,7 +1057,7 @@ Only source answers need to be sent. Omit formula outputs and `duration_hours`; 
 }
 ```
 
-### Supervisor Work Form
+### Supervisor Report Template (`WorkForm` internally)
 
 ```json
 {
@@ -1134,24 +1146,33 @@ Latest frontend release check on 2026-08-13:
 - Five preview and five live `/api/health/ready` probes reported database and GCS as healthy. Anonymous Sites returned 401, invited-only login remained visible with registration hidden, the login form preceded the install promotion, and the deployed service worker contained its hashed entrypoints and scoped offline snapshots. Local Playwright coverage verified exact Analytics-to-Review/map navigation after conflicting filters, collision-safe record identity, coordinate validity, and the 14px map/Analytics label floor at desktop and phone widths; no authenticated hosted mutation was performed.
 - The controlled-test production-hardening gate passed with three warnings; the strict gate still fails because no enabled, verified Monitoring notification channel is attached. Cloud Run revision `geo-backend-release-20260804152130` remains unchanged at 100%.
 
+Current report-only local validation on 2026-09-01:
 
-`npm.cmd run check:review-queue` verifies Review Record export dispatch, durable-only export guards, cursor pagination, query filters and snapshots, department scope, atomic pending-only decisions, audit comments, and decision-bypass protection.
+- The in-app browser passed the production-default Worker/Supervisor route at 390 × 844, including no-Site submission, private **My Reports**, structured Supervisor filters, both workflow transitions with required final-note validation, final-note visibility for the Worker, and phone-width Report Template/Staff navigation without horizontal overflow.
+- `npm.cmd run check:mobile` regenerated the production PWA and passed its static preflight plus all 33 Playwright Chromium workflows. New regressions prove offline **My Reports** excludes retained Daywork/stale synced copies, explicit durable Report purpose wins even when a Template name contains “Daywork”, and report-only automatic/manual replay leaves hidden attendance, task, and Daywork queue items untouched. The generated source cache is `leader-field-3cd03e38848b`.
+- The complete local candidate gate passed: lint/build, Review Queue/Report purpose/workflow checks, database/security/upload/Definition/migration suites, backend compile, a disposable-database smoke pass, production npm audit with zero findings, and Python dependency consistency. The full development npm audit still reports the known toolchain-only `brace-expansion`, `nanoid`, and `postcss` advisories.
+- The controlled production-hardening check is not green for live promotion: it reports insufficient recent multi-region uptime evidence, a migration-head mismatch in the Neon recovery proof, and stale/strictly invalid upload-recovery proof. It also warns that no verified notification destination exists and that the billing-budget check was skipped.
 
-`npm.cmd run check:mobile` first builds the production PWA, runs the static PWA/mobile preflight, and then runs 28 Playwright Chromium workflow checks for invited-only login, login-before-install ordering, Chinese localisation, accessibility, geolocation allow/deny, cold offline launch, service-worker update prompts, IndexedDB offline queue replay, normal-Worker guide/Site prioritisation, role-safe global-admin controls, and Supervisor review. The cold-launch regression uses a production preview: it logs in online, verifies the built JS/CSS entrypoints are in the install cache, closes the last page, reopens offline, restores the same Worker/Department Site and attendance snapshots, captures location, and creates a queued attendance record; protected API navigation remains network-only. Login coverage verifies that public registration stays hidden, an anonymous startup neither requests authenticated Sites nor exposes demo Site options, and a saved session refreshes before Sites are loaded. Its Review Queue scenario verifies that a disconnected Supervisor sees only the last durable records in explicit read-only mode; device-local Worker records never become reviewable. The browser check starts a temporary backend, Vite development server, and production preview on `127.0.0.1:8765`, `127.0.0.1:5175`, and `127.0.0.1:4175`, with a throwaway SQLite database and upload folder. Override those ports with `BROWSER_WORKFLOW_BACKEND_PORT`, `BROWSER_WORKFLOW_FRONTEND_PORT`, or `BROWSER_WORKFLOW_PREVIEW_PORT` if needed.
 
-`backend/database_test.py` poisons a returned pooled connection and proves the next query succeeds through `pool_pre_ping`. `backend/upload_storage_test.py`, `backend/work_form_definition_test.py`, and `backend/review_queue_test.py` are the focused local/GCS storage-contract, immutable Definition/server-formula, and Review Queue policy/query/export test surfaces.
+`npm.cmd run check:review-queue` verifies Review Record export dispatch, durable-only export guards, cursor pagination, query filters and snapshots, department scope, atomic pending-only decisions, audit comments, decision-bypass protection, and the focused Report submission/review contract. The Report checks cover normal-Worker submission, private My Reports history, optional Site, replay deduplication, archived templates, Department-scoped Supervisors, immutable content, required resolution notes, invalid transitions, audit history, and concurrent Supervisor actions.
 
-PWA shell assets are maintained in `scripts/pwa-shell-assets.mjs`. `sw.js` is generated by `npm.cmd run generate:pwa`, and `npm.cmd run build`, `npm.cmd run dev`, `npm.cmd run dev:phone`, and `npm.cmd run check:mobile` run that generator before using the service worker. The source service-worker cache name is derived from the listed app-shell contents; the production build then adds its hashed JavaScript/CSS entrypoints and derives the deployed cache name from the completed `dist/` shell.
+`npm.cmd run check:mobile` first builds the production PWA, runs the static PWA/mobile preflight, and then runs 33 Playwright Chromium workflow checks at a default 390 × 844 mobile viewport. The report workflow verifies the production-default Worker and Supervisor navigation, report-only filters, required Report Date, optional Site, normal-Worker submission, private history, forward-only Supervisor transitions, final note, and phone-width Template/Staff access. Focused replay checks prove a Report with one photo and two nested signatures resumes after a partial upload failure, reuses completed uploads and its client submission id on a forced second replay, appears exactly once in **My Reports**, and does not replay hidden legacy record types in report-only mode. Additional boundaries cover offline private history and explicit Report purpose overriding legacy name heuristics. The retained full-interface checks use a test-only pre-load override so attendance, Daywork, weekly logs, maps, analytics, and other reversible modules keep regression coverage while remaining hidden in the shipped shell. The browser check starts a temporary backend, a lightweight Node source/proxy server, and a Vite production preview on `127.0.0.1:8765`, `127.0.0.1:5175`, and `127.0.0.1:4175`, with a throwaway SQLite database and upload folder. The source server preserves shared unbundled-module state without relying on Vite's development watcher, and the runner fails immediately with recent process output if a managed server exits. Override those ports with `BROWSER_WORKFLOW_BACKEND_PORT`, `BROWSER_WORKFLOW_FRONTEND_PORT`, or `BROWSER_WORKFLOW_PREVIEW_PORT` if needed.
+
+`backend/database_test.py` poisons a returned pooled connection and proves the next query succeeds through `pool_pre_ping`. `backend/upload_storage_test.py`, `backend/work_form_definition_test.py`, `backend/report_purpose_test.py`, `backend/report_workflow_test.py`, and `backend/review_queue_test.py` are the focused local/GCS storage-contract, immutable Definition/server-formula, Report-versus-Daywork boundary, Report workflow, and Review Queue policy/query/export test surfaces.
+
+PWA shell assets are maintained in `scripts/pwa-shell-assets.mjs`. `sw.js` is generated by `npm.cmd run generate:pwa`; do not edit its asset list or cache name by hand. `npm.cmd run build`, `npm.cmd run dev`, `npm.cmd run dev:phone`, and `npm.cmd run check:mobile` invoke the generator before using the service worker. When report UI, translation, JavaScript, CSS, icon, or other shell files change, keep the shared asset manifest current and regenerate before testing or deployment. The source cache name is derived from the listed app-shell contents; the production build then adds the hashed JavaScript/CSS entrypoints referenced by `dist/index.html` and derives the deployed cache name from the completed `dist/` shell.
 
 Backend import check:
 
 ```powershell
-python -m compileall backend\app backend\smoke_test.py backend\database_test.py backend\migration_test.py backend\review_queue_test.py backend\work_form_definition_test.py backend\upload_storage_test.py backend\security_test.py
+python -m compileall backend\app backend\smoke_test.py backend\database_test.py backend\migration_test.py backend\report_purpose_test.py backend\report_workflow_test.py backend\review_queue_test.py backend\work_form_definition_test.py backend\upload_storage_test.py backend\security_test.py
 python backend\database_test.py
 python backend\security_test.py
 python backend\upload_storage_test.py
 python backend\review_queue_test.py
 python backend\work_form_definition_test.py
+python backend\report_purpose_test.py
+python backend\report_workflow_test.py
 python backend\migration_test.py
 ```
 
@@ -1195,52 +1216,55 @@ The mobile/browser workflow check covers:
 - Invited-account guidance is visible and public registration remains hidden.
 - Generated PWA app-shell manifest, copied build assets, and service-worker cache name stay in sync.
 - Service worker network-only API/upload rules.
+- Report-only Worker and Supervisor navigation at a 390 × 844 viewport, with hidden full-interface workspaces inaccessible.
+- Required Report Date, optional Site, Report workflow filters/transitions, immutable evidence, and final Supervisor note.
+- Report photo/nested-signature partial-upload resume and exactly-once replay.
 - Production-preview cold offline launch, Worker/Department Site-snapshot isolation, and creation of a queued attendance record after closing the last app page.
 - Visible service worker update-flow wiring.
 - Mobile viewport, camera/photo inputs, and active worker/supervisor UI controls.
 - Supervisor audit-history UI/API wiring.
-- Offline form submission support for photos and handwritten signatures.
+- Retained full-interface behavior under an explicit test-only override.
 
 Manual phone/browser checks are listed in `docs/mobile-browser-workflow-checks.md`.
 
 ## Offline Behavior
 
-The frontend uses IndexedDB for drafts and queued Offline Submissions. The module owns the submit/sync path for attendance, Task Logs, and Work Forms, including the capturing Worker, capture time, stable client submission id, photo/signature uploads, replay state, and authentication-blocked state. Attendance maps capture time to `occurred_at`; callers do not supply these invariants independently.
+The frontend uses IndexedDB for Report drafts and queued Offline Submissions. Internally, the same module also owns the retained attendance and Task Log paths. It owns the capturing Worker, capture time, stable client submission id, photo/signature uploads, replay state, partial-upload state, and authentication-blocked state rather than asking each form to coordinate them separately.
 
 ```text
 Online:
-  Save the submission locally, upload photos/signatures, and send attendance, task logs, or work forms to FastAPI.
+  Save the Report locally, upload photos/signatures, and send it to FastAPI.
 
 Offline:
-  Save the submission locally with syncStatus=queued.
+  From an already-open page with its Template loaded, save the Report with syncStatus=queued.
 
 Back online:
-  Flush queued submissions to FastAPI and update the local history record.
+  Resume unfinished evidence uploads, submit once to FastAPI, and update My Reports.
 ```
 
-Work Form signatures, including signatures inside repeat rows, are stored locally as image data while queued, then uploaded as PNG during sync. A queued record remains bound to the Worker account that captured it; switching accounts on a shared device cannot replay it as the new Worker. Capture time and client submission id survive delayed sync, and attendance sends its timezone-aware `occurred_at` so its durable timestamp is not replaced by reconnect time. The backend can return the existing record on retry. Partial upload URLs are persisted as each upload succeeds. If the session expires, sync pauses in an explicit blocked state and the record remains queued until its owning Worker signs in again. Failed queued records expose their sync error in History and can be retried or discarded by their owning Worker.
+Report signatures, including signatures inside repeat rows, are stored locally as image data while queued, then uploaded as PNG during sync. A queued Report remains bound to the Worker account that captured it; switching accounts on a shared device cannot replay or display it as the new Worker. Capture time and client submission id survive delayed sync, the backend returns the existing Report on an idempotent retry, and each successful partial-upload URL is persisted so it is not uploaded again. If the session expires, sync pauses and keeps the queue item until its owning Worker signs in again. Failed items show their error in **My Reports** with **Retry sync** and **Discard local copy**.
 
-After one successful authenticated Site load, current source stores only that Worker's Department-scoped Site snapshot. A later installed-PWA cold launch can open the cached production application, use those saved Sites, capture geolocation, and queue attendance without network access. Protected routes and uploads remain network-only, and sync still requires the backend to re-authorize the Site and recalculate its current distance/radius result. Explicit logout removes the matching saved Site snapshot as well as the local identity; invalid authorization and an observed account/Department scope change also remove the applicable snapshot. A device that never completed an authenticated Site load cannot start a new offline attendance record.
+The generated service worker can cold-launch the cached application shell, while API, auth, Template, Report-history, and upload routes stay network-only. With a saved Worker identity, a killed offline launch can show the report-only shell and that Worker's local queued Reports. Report Templates are not currently snapshotted for cold-start authoring, so load the Template before going offline and keep the page open if a new Report must be queued. Starting a new Report after a killed/refreshed offline launch waits for reconnect. The retained full-interface mode separately snapshots Worker/Department Sites and attendance context for its automated cold-offline attendance regression.
 
 Current offline behavior is suitable for MVP testing, but production conflict handling still needs more work.
 
 ## Date Filtering
 
-Worker History date filters use the user's local calendar date. Supervisor attendance Review Queue and export date boundaries use `BUSINESS_TIMEZONE` (default `Pacific/Auckland`) so UTC storage does not shift morning New Zealand records onto the previous business day.
+**My Reports** filters Report Date as the Worker's local calendar date. Retained Worker History uses the same local-calendar rule; retained Supervisor attendance Review Queue and export boundaries use `BUSINESS_TIMEZONE` (default `Pacific/Auckland`) so UTC storage does not shift morning New Zealand records onto the previous business day.
 
 ## Photo Behavior
 
 - Attendance supports one optional photo.
-- Task logs and work forms support up to 8 progress photos.
+- Task logs and Reports support up to 8 progress photos.
 - Uploads are limited to 5 MB each. The Worker UI accepts JPEG, PNG, and WebP and validates type/size before queueing; the backend identifies decoded raster content rather than trusting the caller's filename or MIME type and re-encodes accepted images to remove metadata and trailing payloads.
-- New attendance, Task Log, and Work Form evidence references must exist in Upload Storage and belong to the authenticated uploader. Supervisor corrections may retain evidence already attached to that record.
+- New attendance, Task Log, and Report evidence references must exist in Upload Storage and belong to the authenticated uploader. Supervisor corrections may retain evidence already attached to that record.
 - Uploaded photos are served from `/uploads/...`.
 - The backend checks ownership/record references before opening a local file or Cloud Storage stream and sends `X-Content-Type-Options: nosniff`.
 - Thumbnails open in a floating photo viewer.
 - Multi-photo task logs support previous/next navigation in the viewer.
 - Local development stores uploads under `backend/uploads/`.
 - Live Cloud Run stores new uploads in private Cloud Storage bucket `geo-attendance-system-db9ca-uploads` and serves them back through the backend.
-- Files detached by record edits or hard deletion are deleted once no attendance, task-log, or work-form submission references remain. Files in the rubbish bin remain available until the 30-day record purge.
+- Files detached by record edits or hard deletion are deleted once no attendance, task-log, or Report submission references remain. Files in the rubbish bin remain available until the 30-day record purge.
 
 ## Common Problems
 
@@ -1308,7 +1332,7 @@ Check:
 Before real staff use, close or explicitly accept these remaining items:
 
 - Replace Supervisor-chosen initial passwords with an expiring, single-use Worker password-setup invitation before onboarding beyond controlled pilot accounts.
-- Complete the full real-phone hosted checklist, including actual photo/signature streaming and the waiting-service-worker update flow. The automated hosted pass is green but does not replace this device pass.
+- Deploy and complete the full report-only real-phone hosted checklist, including optional-Site submission, all three workflow states, actual photo/signature replay and streaming, cached-shell relaunch, and the waiting-service-worker update flow. The 2026-08-13 hosted automation predates this interface and does not replace the new device pass.
 - Review and rotate any remaining production credentials in Secret Manager.
 - For current-live Neon, replace the sole `neondb_owner` application credential with a least-privilege runtime role, protect the production branch, and verify connection/pooling limits.
 - The current Neon Free history window is only six hours and has no scheduled snapshots. Upgrade the recovery window or add tested encrypted logical backups before treating it as production-grade recovery.
@@ -1318,7 +1342,7 @@ Before real staff use, close or explicitly accept these remaining items:
 - Richer audit-history filtering/export and a dedicated audit detail view.
 - Budget alerts based on the selected current provider and GCP resource configuration.
 - More automated frontend and backend tests.
-- Update the development toolchain to clear the high-severity `brace-expansion` advisory reported through ESLint/minimatch and the moderate-severity `postcss` advisory; production dependencies currently audit clean.
+- Update the development toolchain to clear the high-severity `brace-expansion` and `nanoid` advisories plus the moderate-severity `postcss` advisory; production dependencies currently audit clean.
 - Better offline conflict resolution.
 - Add and verify at least one Monitoring notification channel; the current alert policies create Console incidents but cannot yet email or message an operator.
 
@@ -1326,9 +1350,9 @@ Before real staff use, close or explicitly accept these remaining items:
 
 Current next work:
 
-- Complete the full real-phone hosted cold-offline, photo/signature streaming, and waiting-service-worker update checklist against Hosting version `c761984b7353028a`.
+- Run the release gate, preview, exact-clone deployment, and full real-phone checklist for the report-only candidate. Hosting version `c761984b7353028a` is the historical full-interface baseline, not the report-only release.
 - If automatic attendance is pursued, start with consent-based foreground arrival/departure reminders and one-tap confirmation. Reliable background geofencing when the PWA is closed requires native platform capability plus permission, battery, anti-spoofing, and audit validation.
-- Run the real-phone checklist against the live Firebase Hosting / Cloud Run / Neon / Cloud Storage path.
+- Verify Worker and Supervisor portrait/landscape flows, offline Report replay, real `/uploads/...` evidence, and **Update App** against the live Firebase Hosting / Cloud Run / Neon / Cloud Storage path.
 - Clean up controlled hosted-test data and remove or formalize unused database users.
 - Close the remaining notification/budget findings and the Neon access/longer-retention checklist.
 - Expand automated frontend coverage beyond static workflow checks.

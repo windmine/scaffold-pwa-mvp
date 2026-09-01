@@ -8,6 +8,7 @@ import {
   getSupervisorReviewQueuePage as getBackendSupervisorReviewQueuePage,
   moveSupervisorRecordToTrash as moveBackendSupervisorRecordToTrash,
   restoreSupervisorRecord as restoreBackendSupervisorRecord,
+  transitionReportSubmission as transitionBackendReportSubmission,
   updateDefaultDepartment as updateBackendDefaultDepartment,
   updateSupervisorFormSubmission as updateBackendSupervisorFormSubmission,
   updateSupervisorRecord as updateBackendSupervisorRecord,
@@ -60,6 +61,7 @@ export function createSupervisorReviewModule({
   editValue,
   editNumber,
   siteSelectOptions,
+  reportOnly = false,
   confirmAction = async () => false
 }) {
   let filterRefreshTimer = null;
@@ -99,8 +101,11 @@ export function createSupervisorReviewModule({
       query: els.supervisorSearchInput.value,
       department: state.departmentFocusId,
       fallbackDepartment: state.user?.departmentId,
-      type: els.supervisorTypeFilter.value,
+      type: reportOnly ? 'form' : els.supervisorTypeFilter.value,
       status: els.supervisorStatusFilter.value,
+      reportWorkflow: reportOnly,
+      formId: reportOnly ? els.supervisorTemplateFilter.value : '',
+      workerId: reportOnly ? els.supervisorWorkerFilter.value : '',
       date: els.supervisorDateFilter.value
     };
   }
@@ -123,14 +128,53 @@ export function createSupervisorReviewModule({
     return item?.department_id ?? item?.departmentId;
   }
 
+  function renderReportFilterOptions() {
+    if (!reportOnly) return;
+    const currentTemplateId = els.supervisorTemplateFilter.value;
+    const currentWorkerId = els.supervisorWorkerFilter.value;
+    const inFocusedDepartment = (item) => (
+      !state.departmentFocusId
+      || String(itemDepartmentId(item)) === String(state.departmentFocusId)
+    );
+    const templates = (state.workForms || [])
+      .filter(inFocusedDepartment)
+      .filter((form) => !isDayworkForm(form));
+    const workers = (state.staffUsers || [])
+      .filter((user) => user.role === 'worker' && inFocusedDepartment(user));
+
+    els.supervisorTemplateFilter.innerHTML = [
+      '<option value="">All Report Templates</option>',
+      ...templates.map((form) => (
+        `<option value="${escapeHtml(form.id)}">${escapeHtml(form.name)}${form.status === 'archived' ? ' - archived' : ''}</option>`
+      ))
+    ].join('');
+    els.supervisorWorkerFilter.innerHTML = [
+      '<option value="">All workers</option>',
+      ...workers.map((worker) => (
+        `<option value="${escapeHtml(worker.id)}">${escapeHtml(worker.name)}${worker.status === 'resigned' ? ' - resigned' : ''}</option>`
+      ))
+    ].join('');
+
+    els.supervisorTemplateFilter.value = templates.some(
+      (form) => String(form.id) === currentTemplateId
+    ) ? currentTemplateId : '';
+    els.supervisorWorkerFilter.value = workers.some(
+      (worker) => String(worker.id) === currentWorkerId
+    ) ? currentWorkerId : '';
+  }
+
   function reviewQueueQuery() {
     const filters = getFilters();
     return {
-      status: filters.status,
+      status: reportOnly ? '' : filters.status,
+      workflowStatus: reportOnly ? filters.status : '',
       kind: filters.type,
       departmentId: filters.department,
+      formId: filters.formId,
+      workerId: filters.workerId,
       recordDate: filters.date,
-      search: filters.query.trim()
+      search: filters.query.trim(),
+      purpose: reportOnly ? 'report' : ''
     };
   }
 
@@ -138,13 +182,13 @@ export function createSupervisorReviewModule({
     if (record.type === 'attendance') {
       return record.action === 'check_out' ? 'Check out' : 'Check in';
     }
-    if (record.type === 'form') return 'Form submission';
+    if (record.type === 'form') return 'Report';
     if (record.type === 'team_log') return 'Weekly team log';
     return 'Task log';
   }
 
   function recordTitleLabel(record) {
-    if (record.type === 'form') return `${record.formName || 'Work form'} - ${record.siteName || 'No site'}`;
+    if (record.type === 'form') return `${record.formName || 'Report'} - ${record.siteName || 'No site'}`;
     if (record.type === 'team_log') return `Weekly team log - ${record.weekStart || record.workDate || 'No week'}`;
     if (record.type === 'task') return `Task log - ${record.siteName || 'No site'}`;
     return `${recordActionLabel(record)} - ${record.siteName || 'No site'}`;
@@ -178,15 +222,98 @@ export function createSupervisorReviewModule({
 
     els.reviewQueueDetailTitle.textContent = recordTitleLabel(record);
     historyModule.renderRecordsList(els.reviewQueueDetail, [record], {
-      showDecisionActions: !readOnly,
-      showEditActions: !readOnly,
+      showDecisionActions: !readOnly && !reportOnly,
+      showEditActions: !readOnly && !reportOnly,
       showExportActions: !readOnly,
-      showTrashActions: !readOnly
+      showTrashActions: !readOnly && !reportOnly
     });
     const detailCard = els.reviewQueueDetail.querySelector('.record-card');
     detailCard?.classList.add('review-detail-record-card');
     const actions = detailCard?.querySelector('.record-actions');
     if (actions) actions.id = 'reviewQueueActions';
+    renderReportTransitionActions(record, actions, readOnly);
+  }
+
+  function renderReportTransitionActions(record, actions, readOnly) {
+    if (!reportOnly || !actions || readOnly || record.type !== 'form') return;
+    const workflowStatus = record.workflowStatus || 'submitted';
+    if (!['submitted', 'in_review'].includes(workflowStatus)) return;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = workflowStatus === 'submitted' ? 'Start review' : 'Resolve report';
+    button.addEventListener('click', () => {
+      if (workflowStatus === 'submitted') {
+        void transitionReport(record, 'in_review', '', button);
+        return;
+      }
+      openReportResolution(record);
+    });
+    actions.classList.remove('hidden');
+    actions.prepend(button);
+  }
+
+  async function transitionReport(record, status, supervisorNote = '', button = null) {
+    if (!requireDurableWritableRecord(record, status === 'resolved' ? 'resolving' : 'reviewing')) return false;
+    if (decisionInProgress) return false;
+    decisionInProgress = true;
+    feedback.clearLocal(els.reviewQueueFeedback);
+    feedback.setButtonBusy(button, true, status === 'resolved' ? 'Resolving...' : 'Starting review...');
+    try {
+      await transitionBackendReportSubmission(record.backendRecordId, {
+        status,
+        supervisor_note: supervisorNote || null
+      });
+      if (status === 'resolved') closeEditPanel();
+      renderStatusBanner(status === 'resolved' ? 'Report resolved.' : 'Report review started.', false, {
+        local: els.reviewQueueFeedback,
+        tone: 'success'
+      });
+      await renderPanel();
+      return true;
+    } catch (error) {
+      renderStatusBanner(error.message || 'Could not update the Report workflow.', true, {
+        local: els.reviewQueueFeedback,
+        tone: 'error'
+      });
+      return false;
+    } finally {
+      feedback.setButtonBusy(button, false);
+      decisionInProgress = false;
+    }
+  }
+
+  function openReportResolution(record) {
+    showEditPanel(
+      `Resolve report: ${record.formName}`,
+      [{
+        id: 'reportResolutionNote',
+        label: 'Resolution note',
+        type: 'textarea',
+        rows: 4,
+        value: ''
+      }],
+      'Resolve report',
+      async () => {
+        const noteField = document.getElementById('reportResolutionNote');
+        const note = noteField?.value.trim() || '';
+        if (!note) {
+          renderStatusBanner('A resolution note is required.', true, {
+            local: els.reviewQueueFeedback,
+            field: noteField,
+            tone: 'error'
+          });
+          return;
+        }
+        const submitButton = els.editPanelForm.querySelector('button[type="submit"]');
+        await transitionReport(record, 'resolved', note, submitButton);
+      }
+    );
+    const noteField = document.getElementById('reportResolutionNote');
+    if (noteField) {
+      noteField.required = true;
+      noteField.focus();
+    }
   }
 
   function selectReviewRecord(record, { scrollOnSmallScreen = false } = {}) {
@@ -524,7 +651,7 @@ export function createSupervisorReviewModule({
     els.exportFormTypeSelect.disabled = !usesFormType;
 
     if (!usesFormType) {
-      els.exportFormTypeSelect.innerHTML = '<option value="">Form type not used</option>';
+      els.exportFormTypeSelect.innerHTML = '<option value="">Report Template not used</option>';
       els.exportFormTypeSelect.value = '';
       return;
     }
@@ -539,7 +666,7 @@ export function createSupervisorReviewModule({
 
     const defaultLabel = exportType === 'daywork-pdf'
       ? 'All Daywork form types'
-      : 'All submitted form types';
+      : 'All Report Templates';
 
     els.exportFormTypeSelect.innerHTML = [
       `<option value="">${defaultLabel}</option>`,
@@ -628,6 +755,10 @@ export function createSupervisorReviewModule({
   }
 
   function renderFocusedDashboard(queueMode = state.supervisorRecords.queueMode) {
+    if (reportOnly) {
+      renderFilteredLists();
+      return;
+    }
     const reviewRecords = state.supervisorRecords.reviewRecords || [];
     const focusedRecords = departmentFocusedRecords(reviewRecords);
     const counts = reviewOverviewCounts(state.supervisorRecords, focusedRecords);
@@ -656,7 +787,11 @@ export function createSupervisorReviewModule({
   function recordsFromPage(page) {
     return page.items
       .map(historyModule.fromBackendReviewRecord)
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter((record) => !reportOnly || (
+        record.type === 'form'
+        && !isDayworkRecord(record)
+      ));
   }
 
   function normaliseBackendCounts(counts) {
@@ -773,7 +908,16 @@ export function createSupervisorReviewModule({
 
   async function renderPanel() {
     renderDepartmentFilter();
+    if (reportOnly) {
+      els.supervisorTypeFilter.value = 'form';
+    }
     if (!await refreshReviewQueue()) return;
+    if (reportOnly) {
+      await refreshWorkForms();
+      await renderStaffUsers();
+      renderReportFilterOptions();
+      return;
+    }
     if (!await refreshReviewOverview()) return;
     state.supervisorRecords = {
       ...state.supervisorRecords,
@@ -815,6 +959,8 @@ export function createSupervisorReviewModule({
     els.exportAttendanceButton.disabled = readOnly;
     els.exportTaskLogsButton.disabled = readOnly;
     els.exportDocumentButton.disabled = readOnly;
+    els.exportReportsCsvButton.disabled = readOnly;
+    els.exportReportsPdfButton.disabled = readOnly;
 
     if (readOnly) {
       const notice = document.createElement('div');
@@ -879,8 +1025,10 @@ export function createSupervisorReviewModule({
 
   function resetReviewQueueFilters() {
     els.supervisorSearchInput.value = '';
-    els.supervisorTypeFilter.value = '';
+    els.supervisorTypeFilter.value = reportOnly ? 'form' : '';
     els.supervisorStatusFilter.value = '';
+    els.supervisorTemplateFilter.value = '';
+    els.supervisorWorkerFilter.value = '';
     setDateInputValue(els.supervisorDateFilter, '');
   }
 
@@ -947,9 +1095,19 @@ export function createSupervisorReviewModule({
 
   async function handleDepartmentFilterChange() {
     state.departmentFocusId = els.supervisorDepartmentFilter.value;
+    if (reportOnly) {
+      els.supervisorTemplateFilter.value = '';
+      els.supervisorWorkerFilter.value = '';
+    }
     renderDepartmentFilter();
     renderLocationMap();
     if (!await refreshReviewQueue()) return;
+    if (reportOnly) {
+      await refreshWorkForms();
+      await renderStaffUsers();
+      renderReportFilterOptions();
+      return;
+    }
     if (!await refreshReviewOverview()) return;
     renderDepartmentScopedAdminLists();
     renderManualAttendanceForm();
@@ -1265,6 +1423,37 @@ export function createSupervisorReviewModule({
     }
   }
 
+  function reportCollectionExportFilters() {
+    const reportDate = els.supervisorDateFilter.value;
+    return {
+      workflowStatus: els.supervisorStatusFilter.value,
+      formId: els.supervisorTemplateFilter.value,
+      workerId: els.supervisorWorkerFilter.value,
+      dateFrom: reportDate,
+      dateTo: reportDate,
+      departmentId: state.departmentFocusId || '',
+      purpose: 'report'
+    };
+  }
+
+  async function handleReportCollectionExport(exportType, button) {
+    if (reviewQueueIsReadOnly()) {
+      renderStatusBanner('Reconnect before exporting Reports.', true);
+      return;
+    }
+    try {
+      await runExport(button, async () => {
+        const message = await reviewExports.exportCollection(
+          exportType,
+          reportCollectionExportFilters()
+        );
+        renderStatusBanner(message);
+      });
+    } catch (error) {
+      renderStatusBanner(error.message || 'Could not export Reports.', true);
+    }
+  }
+
   async function handleExportDocument() {
     const exportType = els.exportDocumentSelect.value;
     if (reviewQueueIsReadOnly()) {
@@ -1397,13 +1586,13 @@ export function createSupervisorReviewModule({
       ];
 
       showEditPanel(
-        `Edit form submission: ${record.formName}`,
+        `Edit Report: ${record.formName}`,
         [
           { id: 'editFormSiteId', label: 'Site', type: 'select', value: record.siteId || '', options: siteOptions },
-          { id: 'editFormWorkDate', label: 'Work date', type: 'date', value: record.workDate || '' },
+          { id: 'editFormWorkDate', label: 'Report Date', type: 'date', value: record.workDate || '' },
           { type: 'custom', html: '<div id="editFormAnswers" class="dynamic-fields"></div>' }
         ],
-        'Save form',
+        'Save Report',
         async () => {
           if (!await confirmOfficialRecordChange()) return;
           try {
@@ -1419,10 +1608,10 @@ export function createSupervisorReviewModule({
               answers: await uploadAdminFormSignatureAnswers(form, answers, { id: record.userId })
             });
             closeEditPanel();
-            renderStatusBanner('Form submission updated.');
+            renderStatusBanner('Report updated.');
             await renderPanel();
           } catch (error) {
-            renderStatusBanner(error.message || 'Could not update form submission.', true);
+            renderStatusBanner(error.message || 'Could not update Report.', true);
           }
         }
       );
@@ -1567,6 +1756,16 @@ export function createSupervisorReviewModule({
   }
 
   function bindEvents() {
+    els.supervisorStatusFilter.querySelectorAll('[data-report-only-option]').forEach((option) => {
+      option.hidden = !reportOnly;
+    });
+    els.supervisorStatusFilter.querySelectorAll('[data-full-mode-option]').forEach((option) => {
+      option.hidden = reportOnly;
+    });
+    if (reportOnly && !['', 'submitted', 'in_review', 'resolved'].includes(els.supervisorStatusFilter.value)) {
+      els.supervisorStatusFilter.value = '';
+    }
+    renderReportFilterOptions();
     els.refreshSupervisorButton.addEventListener('click', renderPanel);
     els.previousReviewRecordButton.addEventListener('click', () => selectAdjacentReviewRecord(-1));
     els.nextReviewRecordButton.addEventListener('click', () => selectAdjacentReviewRecord(1));
@@ -1576,6 +1775,8 @@ export function createSupervisorReviewModule({
       els.supervisorSearchInput,
       els.supervisorTypeFilter,
       els.supervisorStatusFilter,
+      els.supervisorTemplateFilter,
+      els.supervisorWorkerFilter,
       els.supervisorDateFilter
     ].forEach((element) => {
       element.addEventListener('input', scheduleReviewQueueRefresh);
@@ -1586,6 +1787,12 @@ export function createSupervisorReviewModule({
     els.exportDocumentSelect.addEventListener('change', renderExportFormTypeOptions);
     els.exportAttendanceButton.addEventListener('click', handleExportAttendance);
     els.exportTaskLogsButton.addEventListener('click', handleExportTaskLogs);
+    els.exportReportsCsvButton.addEventListener('click', () => {
+      void handleReportCollectionExport('form-submissions-csv', els.exportReportsCsvButton);
+    });
+    els.exportReportsPdfButton.addEventListener('click', () => {
+      void handleReportCollectionExport('form-submissions-pdf', els.exportReportsPdfButton);
+    });
     els.exportDocumentButton.addEventListener('click', handleExportDocument);
     els.refreshAuditButton.addEventListener('click', renderAuditHistory);
     els.refreshRubbishBinButton.addEventListener('click', renderTrash);

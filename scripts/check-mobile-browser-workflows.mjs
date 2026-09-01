@@ -94,6 +94,7 @@ const sourceOfflineSiteSnapshot = read('assets/js/offline-site-snapshot.js');
 const sourcePhotoViewer = read('assets/js/photo-viewer.js');
 const sourceWorkFormBuilder = read('assets/js/work-form-builder.js');
 const sourceWorkFormFields = read('assets/js/work-form-fields.js');
+const sourceWorkFormsUseCase = read('backend/app/use_cases/work_forms.py');
 const sourceDateInputs = read('assets/js/date-inputs.js');
 const sourceI18n = read('assets/js/i18n.js');
 const sourceStyles = read('assets/css/styles.css');
@@ -118,7 +119,19 @@ check('Chinese catalogue is valid Unicode without mojibake or replacement artifa
 });
 
 check('Chinese catalogue fully translates high-value UI labels instead of mixed English', () => [
-  ['Add work form', /\b(?:Add|work|form)\b/i],
+  ['New Report', /\b(?:New|Report)\b/i],
+  ['My Reports', /\b(?:My|Reports)\b/i],
+  ['Report Date', /\b(?:Report|Date)\b/i],
+  ['Submit Report', /\b(?:Submit|Report)\b/i],
+  ['Report Templates', /\b(?:Report|Templates)\b/i],
+  ['Select a Report Template', /\b(?:Select|Report|Template)\b/i],
+  ['Review submitted reports', /\b(?:Review|submitted|reports)\b/i],
+  ['Start review', /\b(?:Start|review)\b/i],
+  ['Resolve report', /\b(?:Resolve|report)\b/i],
+  ['Resolution note', /\b(?:Resolution|note)\b/i],
+  ['Export Reports CSV', /\b(?:Export|Reports)\b/i],
+  ['Export Reports PDF', /\b(?:Export|Reports)\b/i],
+  ['Add Report Template', /\b(?:Add|Report|Template)\b/i],
   ['Add staff', /\b(?:Add|staff)\b/i],
   ['Add staff user', /\b(?:Add|staff|user)\b/i],
   ['Add member row', /\b(?:Add|member|row)\b/i],
@@ -145,6 +158,64 @@ check('Chinese catalogue fully translates high-value UI labels instead of mixed 
   ['Only global admins can grant global admin access', /\b(?:Only|global|admins|can|grant|admin|access)\b/i],
   ['Working...', /\bWorking\b/i],
   ['Check this field and try again.', /\b(?:Check|this|field|and|try|again)\b/i]
+].every(([source, forbiddenEnglish]) => (
+  isCompleteChineseTranslation(i18nTestApi, source, forbiddenEnglish)
+)));
+
+check('Chinese catalogue covers report-only shell, history, and workflow terminology', () => [
+  ['Report navigation', /\b(?:Report|navigation)\b/i],
+  ['Template, answer, status', /\b(?:Template|answer|status)\b/i],
+  ['Worker, template, answer', /\b(?:Worker|template|answer)\b/i],
+  [
+    'Review submitted report answers and evidence, then start review or resolve with a final note.',
+    /\b(?:Review|submitted|report|answers|evidence|start|resolve|final|note)\b/i
+  ],
+  [
+    'Choose a report, review its answers and evidence, then move it through the report workflow.',
+    /\b(?:Choose|report|review|answers|evidence|move|workflow)\b/i
+  ],
+  ['PPE issue report', /\b(?:PPE|issue|report)\b/i],
+  ['Submitted: 2026-09-01 09:00', /\bSubmitted\b/i],
+  ['Report Date: 2026-09-01', /\b(?:Report|Date)\b/i],
+  ['Report status: In review', /\b(?:Report|status|review)\b/i],
+  ['Reviewing supervisor:', /\b(?:Reviewing|supervisor)\b/i],
+  ['Review started:', /\b(?:Review|started)\b/i],
+  ['Resolved:', /\bResolved\b/i],
+  ['Final supervisor note:', /\b(?:Final|supervisor|note)\b/i],
+  ['Team man hours (calculated)', /\b(?:Team|man|hours|calculated)\b/i],
+  [
+    'Section: Site details | Team man hours (calculated)',
+    /\b(?:Section|Site|details|Team|man|hours|calculated)\b/i
+  ],
+  ['Resolve report: PPE check', /\b(?:Resolve|report)\b/i],
+  ['Inspection form submitted for review.', /\b(?:submitted|for|review)\b/i],
+  ['Could not update the Report workflow.', /\b(?:Could|update|Report|workflow)\b/i],
+  ['Reconnect before exporting Reports.', /\b(?:Reconnect|before|exporting|Reports)\b/i],
+  ['Could not export Reports.', /\b(?:Could|export|Reports)\b/i],
+  ['Report Date is required', /\b(?:Report|Date|required)\b/i],
+  ['Report Templates can include up to 40 fields', /\b(?:Report|Templates|include|fields)\b/i],
+  ['Reports can include up to 6 photos', /\b(?:Reports|include|photos)\b/i],
+  [
+    'Report must be submitted before it can become in_review; refresh Reports',
+    /\b(?:Report|submitted|in_review|refresh|Reports)\b/i
+  ],
+  ['A Supervisor note is required to resolve a Report', /\b(?:Supervisor|note|required|resolve|Report)\b/i],
+  [
+    'Report was transitioned by another Supervisor; refresh Reports',
+    /\b(?:Report|transitioned|another|Supervisor|refresh|Reports)\b/i
+  ],
+  [
+    'Submitted Report content is immutable; Site, Report Date, answers, photos, and signatures cannot be edited',
+    /\b(?:Submitted|Report|content|immutable|Site|Date|answers|photos|signatures|edited)\b/i
+  ],
+  [
+    '2 queued records still need attention. Open My Reports to retry or discard them.',
+    /\b(?:queued|records|attention|Open|My|Reports|retry|discard)\b/i
+  ],
+  [
+    'Sync still failed. Check the error in My Reports, then discard and resubmit if the photo needs replacing.',
+    /\b(?:Sync|failed|Check|error|My|Reports|discard|resubmit|photo|replacing)\b/i
+  ]
 ].every(([source, forbiddenEnglish]) => (
   isCompleteChineseTranslation(i18nTestApi, source, forbiddenEnglish)
 )));
@@ -604,7 +675,7 @@ check('queued upload failures are visible and recoverable by the owning Worker',
   && sourceOfflineQueue.includes('assertOwnedByWorker(record)')
 ));
 
-check('supervisor navigation exposes six responsive workspaces', () => (
+check('the retained full interface keeps six responsive supervisor workspaces', () => (
   sourceIndex.includes('class="admin-desktop-nav"')
   && sourceIndex.includes('class="admin-mobile-toolbar"')
   && sourceIndex.includes('id="adminWorkspaceDrawer"')
@@ -627,6 +698,121 @@ check('supervisor navigation exposes six responsive workspaces', () => (
   && sourceStyles.includes('grid-template-columns: minmax(226px, 248px) minmax(0, 1fr)')
   && sourceStyles.includes('body.session-supervisor .topbar')
   && sourceStyles.includes('@media (max-width: 979px)')
+));
+
+check('report-only mode exposes only report, template, and staff navigation', () => (
+  sourceApp.includes("const REPORT_ONLY_MODE = typeof window.__REPORT_ONLY_MODE_OVERRIDE__ === 'boolean'")
+  && sourceApp.includes("const REPORT_ONLY_WORKER_TABS = new Set(['formTab', 'historyTab'])")
+  && sourceApp.includes("const REPORT_ONLY_ADMIN_WORKSPACES = new Set(['review', 'forms', 'people'])")
+  && sourceApp.includes("const DEFAULT_ADMIN_WORKSPACE = REPORT_ONLY_MODE ? 'review' : 'overview'")
+  && sourceApp.includes("els.historyTypeFilter.value = 'form'")
+  && sourceApp.includes("els.supervisorTypeFilter.value = 'form'")
+  && sourceIndex.includes('data-report-only-text="New Report"')
+  && sourceIndex.includes('data-report-only-text="My Reports"')
+  && sourceIndex.includes('data-report-only-text="Field Reports"')
+  && sourceIndex.includes('data-report-only-text="Report Templates"')
+  && sourceIndex.includes('data-report-only-text="Staff"')
+  && sourceIndex.includes('id="attendanceTab" class="tab-panel active" role="tabpanel" data-report-only-hidden')
+  && sourceIndex.includes('id="locationMapDetails" class="card fold-card location-review-card" data-report-only-hidden')
+  && sourceIndex.includes('id="managementAnalyticsDetails" class="card management-analytics-card admin-home-analytics"')
+  && sourceIndex.includes('id="adminReportsWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="reports" aria-labelledby="adminReportsWorkspaceTitle" data-report-only-hidden')
+  && sourceIndex.includes('id="sitesDetails" class="card fold-card sites-card" data-report-only-hidden')
+  && read('assets/js/history.js').includes("type: reportOnly ? 'form' : els.historyTypeFilter.value")
+  && sourceSupervisorReview.includes("type: reportOnly ? 'form' : els.supervisorTypeFilter.value")
+  && sourceStyles.includes('.report-only-mode [data-report-only-hidden]')
+));
+
+check('report-only data requests and exports exclude Daywork', () => (
+  sourceWorkerForm.includes("getBackendWorkForms(reportOnly ? 'report' : '')")
+  && sourceWorkerForm.includes("formPurpose(form) === 'report'")
+  && sourceWorkerForm.includes("submissionPurpose: formPurpose(form)")
+  && read('assets/js/history.js').includes("getBackendMyFormSubmissions(reportOnly ? 'report' : '')")
+  && read('assets/js/history.js').includes("recordSubmissionPurpose(record) === 'report'")
+  && sourceWorkerLog.includes("submissionPurpose: 'daywork'")
+  && sourceSupervisorReview.includes("purpose: reportOnly ? 'report' : ''")
+  && sourceSupervisorReview.includes("purpose: 'report'")
+  && sourceApiClient.includes('if (purpose) params.set("purpose", purpose)')
+  && sourceApiClient.includes('if (normalizedFilters.purpose) params.set("purpose", normalizedFilters.purpose)')
+  && sourceApp.includes("dayworkPdfOption.hidden = REPORT_ONLY_MODE")
+  && sourceApp.includes("dayworkPdfOption.disabled = REPORT_ONLY_MODE")
+));
+
+check('report product language replaces Work Form copy without renaming internals', () => (
+  includesAll(sourceIndex, [
+    '>New Report</',
+    '>Report Template</',
+    '>Select a Report Template</',
+    'Report Date',
+    '>Submit Report</',
+    '>My Reports</',
+    '>Manage Report Templates</',
+    '>Create Report Template</'
+  ])
+  && sourceWorkerForm.includes("'Could not load Report Templates.'")
+  && sourceWorkerForm.includes("'Could not submit Report.'")
+  && sourceWorkerForm.includes("result.message.replace(/ submitted for approval\\.$/, ' submitted for review.')")
+  && sourceStaffSites.includes("'Report Template created.'")
+  && sourceSupervisorReview.includes("label: 'Report Date'")
+  && !/\bWork Forms?\b/i.test([
+    sourceIndex,
+    sourceWorkerForm,
+    sourceStaffSites,
+    sourceSupervisorReview,
+    sourceReviewExportAdapters
+  ].join('\n'))
+  && sourceWorkFormsUseCase.includes('def list_work_forms')
+  && sourceWorkFormsUseCase.includes('WorkFormSubmission')
+));
+
+check('worker Reports retain the submission engine and expose the report workflow', () => (
+  sourceIndex.includes('Site (optional)')
+  && sourceIndex.includes('id="workFormDate" type="date" required')
+  && sourceWorkerForm.includes("renderStatusBanner('Report Date is required.'")
+  && sourceWorkerForm.includes('workDate: els.workFormDate.value')
+  && sourceWorkerForm.includes('collectWorkFormAnswers(form')
+  && sourceWorkerForm.includes('submitOfflineSubmission(localRecord')
+  && sourceWorkerForm.includes('draftStateFor(form)')
+  && sourceWorkerForm.includes('photoDataUrls: state.workFormPhotoDataUrls')
+  && read('assets/js/history.js').includes('workflowStatus: record.workflow_status')
+  && read('assets/js/history.js').includes('Final supervisor note:')
+  && read('assets/js/history.js').includes('Submitted: ${formatDateTime(record.createdAt)}')
+  && sourceWorkFormsUseCase.includes('detail="Report Date is required"')
+));
+
+check('Supervisor Reports use report transitions, durable filters, and Report exports', () => (
+  includesAll(sourceIndex, [
+    'id="supervisorStatusFilter"',
+    'value="submitted" data-report-only-option',
+    'value="in_review" data-report-only-option',
+    'value="resolved" data-report-only-option',
+    'id="supervisorTemplateFilter"',
+    'id="supervisorWorkerFilter"',
+    'id="supervisorDateFilter"',
+    'id="exportReportsCsvButton"',
+    'id="exportReportsPdfButton"'
+  ])
+  && sourceSupervisorReview.includes("button.textContent = workflowStatus === 'submitted' ? 'Start review' : 'Resolve report'")
+  && sourceSupervisorReview.includes("renderStatusBanner('A resolution note is required.'")
+  && sourceSupervisorReview.includes('transitionBackendReportSubmission(record.backendRecordId')
+  && sourceSupervisorReview.includes("handleReportCollectionExport('form-submissions-csv'")
+  && sourceSupervisorReview.includes("handleReportCollectionExport('form-submissions-pdf'")
+  && sourceApiClient.includes('workflow_status')
+  && sourceApiClient.includes('form_id')
+  && sourceApiClient.includes('worker_id')
+  && read('backend/app/use_cases/review_queue.py').includes('workflow_status=query.workflow_status')
+  && sourceStyles.includes('body:not(.report-only-mode) [data-report-only-visible]')
+));
+
+check('Report details and downloads use lifecycle and Report language', () => (
+  read('assets/js/history.js').includes('<strong>Review started:</strong>')
+  && read('assets/js/history.js').includes('<strong>Resolved:</strong>')
+  && read('assets/js/history.js').includes('<strong>Final supervisor note:</strong>')
+  && sourceReviewExportAdapters.includes('leader-reports-')
+  && sourceReviewExportAdapters.includes("const purpose = isDayworkRecord(record) ? 'daywork' : 'report'")
+  && sourceReviewExportAdapters.includes('`leader-${purpose}-${record.backendRecordId}')
+  && !sourceReviewExportAdapters.includes('leader-form-${record.backendRecordId}')
+  && !sourceReviewExportAdapters.includes('leader-work-forms-')
+  && sourceApp.includes("REPORT_ONLY_MODE ? 'My Reports' : 'My history'")
 ));
 
 check('supervisor Review Desk uses an accessible master-detail layout', () => (
@@ -723,6 +909,24 @@ check('PWA assets and cache name are generated from one manifest', () => {
     && viteConfig.includes('writeServiceWorker')
     && !viteConfig.includes('const pwaAssetCopies = [')
   );
+});
+
+check('installed, browser, and offline product copy is report-only', () => {
+  const manifest = JSON.parse(read('manifest.webmanifest'));
+  const offline = read('offline.html');
+  const installSurface = sourceIndex.match(/<div class="install-box">[\s\S]*?<div id="registrationPanel"/)?.[0] || '';
+  return manifest.name === 'Leader Field Reports'
+    && manifest.short_name === 'Reports'
+    && /report submission and supervisor review/i.test(manifest.description)
+    && !/attendance|task logs?/i.test(manifest.description)
+    && sourceIndex.includes('<meta name="apple-mobile-web-app-title" content="Reports" />')
+    && sourceIndex.includes('<title>Leader Field Reports</title>')
+    && sourceI18n.includes("title: 'Leader Field Reports'")
+    && installSurface.includes('Download this app to your home screen')
+    && !/attendance|task logs?|Field Operations|Work Forms?/i.test(installSurface)
+    && offline.includes('<title>Offline | Leader Field Reports</title>')
+    && offline.includes('<p class="eyebrow">Reports</p>')
+    && !/attendance|task logs?|Field Operations|draft forms/i.test(offline);
 });
 
 check('visible app download button is wired', () => (
@@ -906,10 +1110,14 @@ check('workers can add missing sites', () => (
   && read('backend/app/main.py').includes('@app.post("/sites")')
 ));
 
-check('normal workers are attendance-only and leaders can submit weekly team logs', () => (
+check('normal workers can submit Reports while Daywork and weekly team logs remain leader-only', () => (
   sourceIndex.includes('class="leader-only" data-tab-target="teamLogTab"')
+  && sourceIndex.includes('class="tab" data-tab-target="formTab"')
+  && sourceIndex.includes('id="formTab" class="tab-panel hidden"')
+  && !sourceIndex.includes('id="formTab" class="tab-panel hidden leader-only"')
   && sourceIndex.includes('id="staffWorkerClassSelect"')
   && sourceApp.includes("state.user.workerClass === 'leader'")
+  && sourceApp.includes("if (!state.workForms.length)")
   && sourceApp.includes("element.classList.toggle('access-hidden', !isLeader)")
   && sourceApiClient.includes('"/team-work-logs"')
   && sourceApiClient.includes('"/team-work-log-members"')
@@ -936,6 +1144,10 @@ check('normal workers are attendance-only and leaders can submit weekly team log
   && sourceStyles.includes('.team-member-chip')
   && sourceStyles.includes('.autosave-status')
   && read('backend/app/use_cases/common.py').includes('def require_leader')
+  && sourceWorkFormsUseCase.includes('def list_work_forms')
+  && sourceWorkFormsUseCase.includes('require_worker(user)')
+  && sourceWorkFormsUseCase.includes('if (form.template_purpose or "report") == "daywork"')
+  && sourceWorkFormsUseCase.includes('require_leader(user)')
   && read('backend/app/use_cases/team_work_logs.py').includes('week_start.weekday() != 0')
   && read('backend/app/models.py').includes('class TeamWorkLogEntry')
 ));
@@ -947,9 +1159,9 @@ check('normal worker UI is focused and step based', () => (
   && sourceIndex.includes('id="attendanceActionHelp"')
   && sourceIndex.includes('class="preview-box attendance-location-preview is-empty"')
   && sourceIndex.includes('class="normal-worker-only attendance-trust-note"')
-  && sourceIndex.includes('role="tablist" aria-label="Worker tasks"')
+  && sourceIndex.includes('role="tablist" aria-label="Report navigation"')
   && sourceIndex.includes('data-normal-label="Check in / out"')
-  && sourceIndex.includes('data-normal-label="My history"')
+  && sourceIndex.includes('data-normal-label="My Reports"')
   && sourceApp.includes("els.workerView.classList.toggle('normal-worker-mode', isNormalWorker)")
   && sourceApp.includes("element.classList.toggle('access-hidden', !isNormalWorker)")
   && sourceApp.includes("button.setAttribute('aria-selected', String(active))")

@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#000000" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Leader Field" />
-    <title>Leader Field Operations</title>
+    <meta name="apple-mobile-web-app-title" content="Reports" />
+    <title>Leader Field Reports</title>
     <link rel="icon" type="image/svg+xml" href="/assets/icons/leader-icon.svg" />
     <link rel="alternate icon" type="image/png" href="/assets/icons/icon-192.png?v=20260708" />
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -261,14 +261,14 @@
     </style>
     <link rel="stylesheet" href="/assets/css/styles.css" />
   </head>
-  <body>
+  <body class="report-only-mode">
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-lockup">
           <img id="brandLogo" class="brand-logo" src="/assets/icons/leader-logo-export.png" alt="Leader Scaffolding" data-no-i18n />
           <div class="brand-heading">
-            <p class="eyebrow">Field command centre</p>
-            <h1>Field Operations</h1>
+            <p class="eyebrow" data-full-text="Field command centre" data-report-only-text="Report submission">Report submission</p>
+            <h1 data-full-text="Field Operations" data-report-only-text="Field Reports">Field Reports</h1>
           </div>
         </div>
         <div id="userContext" class="user-context hidden" aria-live="polite">
@@ -374,7 +374,7 @@
         </section>
 
         <section id="workerView" class="view hidden">
-          <div class="grid two-col worker-dashboard">
+          <div class="grid two-col worker-dashboard" data-report-only-hidden>
             <article class="card worker-summary-card">
               <div class="worker-summary-heading">
                 <div>
@@ -392,13 +392,13 @@
                 <button data-tab-target="attendanceTab" type="button">Open check in / check out</button>
                 <button class="leader-only" data-tab-target="teamLogTab" type="button">Open weekly team log</button>
                 <button class="leader-only" data-tab-target="taskTab" type="button">Open daywork log</button>
-                <button class="leader-only" data-tab-target="formTab" type="button">Open work form</button>
+                <button data-tab-target="formTab" type="button">Open Report</button>
                 <button data-tab-target="historyTab" type="button">Open my history</button>
               </div>
             </article>
           </div>
 
-          <section id="normalWorkerGuide" class="card normal-worker-only normal-worker-guide">
+          <section id="normalWorkerGuide" class="card normal-worker-only normal-worker-guide" data-report-only-hidden>
             <div class="normal-worker-guide-copy">
               <p class="eyebrow">Your attendance</p>
               <h2>Start or finish your shift</h2>
@@ -420,7 +420,7 @@
             </ol>
           </section>
 
-          <details class="card worker-site-panel leader-only">
+          <details class="card worker-site-panel leader-only" data-report-only-hidden>
             <summary>
               <span>Add missing site</span>
               <small>Use when today&apos;s job is not listed</small>
@@ -460,15 +460,15 @@
             </form>
           </details>
 
-          <div class="tabs" role="tablist" aria-label="Worker tasks">
-            <button class="tab active" data-tab-target="attendanceTab" data-leader-label="Check" data-normal-label="Check in / out" type="button" role="tab" aria-controls="attendanceTab" aria-selected="true">Check</button>
-            <button class="tab leader-only" data-tab-target="teamLogTab" type="button" role="tab" aria-controls="teamLogTab" aria-selected="false">Team</button>
-            <button class="tab leader-only" data-tab-target="taskTab" type="button" role="tab" aria-controls="taskTab" aria-selected="false">Daywork</button>
-            <button class="tab leader-only" data-tab-target="formTab" type="button" role="tab" aria-controls="formTab" aria-selected="false">Form</button>
-            <button class="tab" data-tab-target="historyTab" data-leader-label="History" data-normal-label="My history" type="button" role="tab" aria-controls="historyTab" aria-selected="false">History</button>
+          <div class="tabs" role="tablist" aria-label="Report navigation">
+            <button class="tab active" data-tab-target="attendanceTab" data-leader-label="Check" data-normal-label="Check in / out" type="button" role="tab" aria-controls="attendanceTab" aria-selected="true" data-report-only-hidden>Check</button>
+            <button class="tab leader-only" data-tab-target="teamLogTab" type="button" role="tab" aria-controls="teamLogTab" aria-selected="false" data-report-only-hidden>Team</button>
+            <button class="tab leader-only" data-tab-target="taskTab" type="button" role="tab" aria-controls="taskTab" aria-selected="false" data-report-only-hidden>Daywork</button>
+            <button class="tab" data-tab-target="formTab" type="button" role="tab" aria-controls="formTab" aria-selected="false" data-full-text="Report" data-report-only-text="New Report">New Report</button>
+            <button class="tab" data-tab-target="historyTab" data-leader-label="My Reports" data-normal-label="My Reports" type="button" role="tab" aria-controls="historyTab" aria-selected="false" data-full-text="My Reports" data-report-only-text="My Reports">My Reports</button>
           </div>
 
-          <section id="attendanceTab" class="tab-panel active" role="tabpanel">
+          <section id="attendanceTab" class="tab-panel active" role="tabpanel" data-report-only-hidden>
             <article class="card attendance-card">
               <div class="worker-task-heading">
                 <span class="worker-task-number" aria-hidden="true">1</span>
@@ -530,7 +530,7 @@
             </article>
           </section>
 
-          <section id="teamLogTab" class="tab-panel hidden leader-only" role="tabpanel">
+          <section id="teamLogTab" class="tab-panel hidden leader-only" role="tabpanel" data-report-only-hidden>
             <article class="card">
               <div class="section-heading">
                 <div>
@@ -573,7 +573,7 @@
             </article>
           </section>
 
-          <section id="taskTab" class="tab-panel hidden leader-only" role="tabpanel">
+          <section id="taskTab" class="tab-panel hidden leader-only" role="tabpanel" data-report-only-hidden>
             <article class="card">
               <h2>Daywork log</h2>
               <p id="dayworkFormHint" class="muted">Loading Daywork log form...</p>
@@ -602,23 +602,23 @@
             </article>
           </section>
 
-          <section id="formTab" class="tab-panel hidden leader-only" role="tabpanel">
+          <section id="formTab" class="tab-panel hidden" role="tabpanel">
             <article class="card">
-              <h2>Work forms</h2>
+              <h2 data-full-text="New Report" data-report-only-text="New Report">New Report</h2>
               <form id="workFormSubmissionForm" class="form-grid">
                 <label>
-                  Form
+                  <span data-full-text="Report Template" data-report-only-text="Report Template">Report Template</span>
                   <select id="workFormSelect" required>
-                    <option value="">Select a form</option>
+                    <option value="">Select a Report Template</option>
                   </select>
                 </label>
                 <label>
-                  Site
+                  Site (optional)
                   <select id="workFormSite"></select>
                 </label>
                 <label>
-                  Work date
-                  <input id="workFormDate" type="date" />
+                  Report Date
+                  <input id="workFormDate" type="date" required />
                 </label>
                 <div id="workFormFields" class="dynamic-fields"></div>
                 <label>
@@ -628,7 +628,7 @@
                 </label>
                 <div id="workFormPhotoPreview" class="photo-preview hidden"></div>
                 <div class="work-form-submit-row">
-                  <button id="submitWorkFormButton" type="submit">Submit form</button>
+                  <button id="submitWorkFormButton" type="submit" data-full-text="Submit Report" data-report-only-text="Submit Report">Submit Report</button>
                   <p
                     id="workFormAutosaveStatus"
                     class="autosave-status"
@@ -645,15 +645,15 @@
           <section id="historyTab" class="tab-panel hidden" role="tabpanel">
             <article class="card">
               <div class="section-heading">
-                <h2>My history</h2>
+                <h2 data-full-text="My history" data-report-only-text="My Reports">My Reports</h2>
                 <button id="refreshHistoryButton" type="button" class="ghost">Refresh</button>
               </div>
               <form id="historyFilterForm" class="filter-bar">
                 <label class="history-search-filter">
                   Find
-                  <input id="historySearchInput" type="search" placeholder="Site, note, task, status" />
+                  <input id="historySearchInput" type="search" placeholder="Template, answer, status" data-full-placeholder="Site, note, task, status" data-report-only-placeholder="Template, answer, status" />
                 </label>
-                <label class="history-type-filter">
+                <label class="history-type-filter" data-report-only-hidden>
                   Type
                   <select id="historyTypeFilter">
                     <option value="">All</option>
@@ -667,11 +667,14 @@
                   Status
                   <select id="historyStatusFilter">
                     <option value="">All</option>
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
+                    <option value="submitted" data-report-only-option hidden>Submitted</option>
+                    <option value="in_review" data-report-only-option hidden>In review</option>
+                    <option value="resolved" data-report-only-option hidden>Resolved</option>
+                    <option value="pending" data-full-mode-option>Pending</option>
+                    <option value="approved" data-full-mode-option>Approved</option>
+                    <option value="rejected" data-full-mode-option>Rejected</option>
                     <option value="queued">Queued</option>
-                    <option value="synced">Synced</option>
+                    <option value="synced" data-full-mode-option>Synced</option>
                   </select>
                 </label>
                 <label>
@@ -696,23 +699,23 @@
         <section id="supervisorView" class="view hidden">
           <nav class="admin-desktop-nav" aria-label="Supervisor workspaces">
             <div class="admin-nav-heading">
-              <p class="eyebrow">Admin workspace</p>
-              <strong>Choose workspace</strong>
+              <p class="eyebrow" data-full-text="Admin workspace" data-report-only-text="Report management">Report management</p>
+              <strong data-full-text="Choose workspace" data-report-only-text="Choose a section">Choose a section</strong>
             </div>
             <div class="admin-workspace-nav-list">
-              <a href="#adminOverview" data-admin-workspace-target="overview" aria-current="page"><strong>Overview</strong><small>Live status and scope</small></a>
-              <a href="#adminReviewWorkspace" data-admin-workspace-target="review"><strong>Review</strong><small>Queues, maps and corrections</small></a>
-              <a href="#adminReportsWorkspace" data-admin-workspace-target="reports"><strong>Reports</strong><small>Analytics and exports</small></a>
-              <a href="#adminPeopleWorkspace" data-admin-workspace-target="people"><strong>People &amp; Sites</strong><small>Teams and job locations</small></a>
-              <a href="#adminFormsWorkspace" data-admin-workspace-target="forms"><strong>Forms</strong><small>Reusable field forms</small></a>
-              <a href="#adminAuditWorkspace" data-admin-workspace-target="audit"><strong>Audit</strong><small>Changes and deleted records</small></a>
+              <a href="#adminOverview" data-admin-workspace-target="overview" aria-current="page" data-report-only-hidden><strong>Overview</strong><small>Live status and scope</small></a>
+              <a href="#adminReviewWorkspace" data-admin-workspace-target="review"><strong data-full-text="Review" data-report-only-text="Reports">Reports</strong><small data-full-text="Queues, maps and corrections" data-report-only-text="Review submitted reports">Review submitted reports</small></a>
+              <a href="#adminReportsWorkspace" data-admin-workspace-target="reports" data-report-only-hidden><strong>Reports</strong><small>Analytics and exports</small></a>
+              <a href="#adminFormsWorkspace" data-admin-workspace-target="forms"><strong data-full-text="Report Templates" data-report-only-text="Report Templates">Report Templates</strong><small data-full-text="Create and manage templates" data-report-only-text="Create and manage templates">Create and manage templates</small></a>
+              <a href="#adminPeopleWorkspace" data-admin-workspace-target="people"><strong data-full-text="People &amp; Sites" data-report-only-text="Staff">Staff</strong><small data-full-text="Teams and job locations" data-report-only-text="Manage report access">Manage report access</small></a>
+              <a href="#adminAuditWorkspace" data-admin-workspace-target="audit" data-report-only-hidden><strong>Audit</strong><small>Changes and deleted records</small></a>
             </div>
           </nav>
 
           <div class="admin-mobile-toolbar">
             <div>
               <span>Workspace</span>
-              <strong id="adminMobileWorkspaceLabel">Overview</strong>
+              <strong id="adminMobileWorkspaceLabel">Reports</strong>
             </div>
             <button id="adminMobileMenuButton" type="button" class="secondary" aria-controls="adminWorkspaceDrawer" aria-expanded="false">Workspaces</button>
           </div>
@@ -720,23 +723,23 @@
           <dialog id="adminWorkspaceDrawer" class="admin-workspace-drawer" aria-labelledby="adminWorkspaceDrawerTitle">
             <div class="admin-drawer-heading">
               <div>
-                <p class="eyebrow">Admin workspace</p>
-                <h2 id="adminWorkspaceDrawerTitle">Supervisor workspaces</h2>
+                <p class="eyebrow" data-full-text="Admin workspace" data-report-only-text="Report management">Report management</p>
+                <h2 id="adminWorkspaceDrawerTitle" data-full-text="Supervisor workspaces" data-report-only-text="Supervisor sections">Supervisor sections</h2>
               </div>
               <button id="adminWorkspaceDrawerCloseButton" type="button" class="ghost" aria-label="Close workspace navigation">Close</button>
             </div>
             <nav class="admin-drawer-nav" aria-label="Supervisor workspaces">
-              <a href="#adminOverview" data-admin-workspace-target="overview" aria-current="page"><strong>Overview</strong><small>Live status and scope</small></a>
-              <a href="#adminReviewWorkspace" data-admin-workspace-target="review"><strong>Review</strong><small>Queues, maps and corrections</small></a>
-              <a href="#adminReportsWorkspace" data-admin-workspace-target="reports"><strong>Reports</strong><small>Analytics and exports</small></a>
-              <a href="#adminPeopleWorkspace" data-admin-workspace-target="people"><strong>People &amp; Sites</strong><small>Teams and job locations</small></a>
-              <a href="#adminFormsWorkspace" data-admin-workspace-target="forms"><strong>Forms</strong><small>Reusable field forms</small></a>
-              <a href="#adminAuditWorkspace" data-admin-workspace-target="audit"><strong>Audit</strong><small>Changes and deleted records</small></a>
+              <a href="#adminOverview" data-admin-workspace-target="overview" aria-current="page" data-report-only-hidden><strong>Overview</strong><small>Live status and scope</small></a>
+              <a href="#adminReviewWorkspace" data-admin-workspace-target="review"><strong data-full-text="Review" data-report-only-text="Reports">Reports</strong><small data-full-text="Queues, maps and corrections" data-report-only-text="Review submitted reports">Review submitted reports</small></a>
+              <a href="#adminReportsWorkspace" data-admin-workspace-target="reports" data-report-only-hidden><strong>Reports</strong><small>Analytics and exports</small></a>
+              <a href="#adminFormsWorkspace" data-admin-workspace-target="forms"><strong data-full-text="Report Templates" data-report-only-text="Report Templates">Report Templates</strong><small data-full-text="Create and manage templates" data-report-only-text="Create and manage templates">Create and manage templates</small></a>
+              <a href="#adminPeopleWorkspace" data-admin-workspace-target="people"><strong data-full-text="People &amp; Sites" data-report-only-text="Staff">Staff</strong><small data-full-text="Teams and job locations" data-report-only-text="Manage report access">Manage report access</small></a>
+              <a href="#adminAuditWorkspace" data-admin-workspace-target="audit" data-report-only-hidden><strong>Audit</strong><small>Changes and deleted records</small></a>
             </nav>
           </dialog>
 
           <div class="admin-workspace">
-            <section id="adminOverview" class="card admin-home-card admin-overview-grid admin-workspace-panel" data-admin-workspace-panel="overview" aria-labelledby="adminOverviewTitle">
+            <section id="adminOverview" class="card admin-home-card admin-overview-grid admin-workspace-panel" data-admin-workspace-panel="overview" aria-labelledby="adminOverviewTitle" data-report-only-hidden>
               <div class="admin-home-header">
                 <div class="admin-command-content">
                   <p class="eyebrow">Supervisor desk</p>
@@ -774,7 +777,7 @@
               </div>
             </section>
 
-            <section id="adminReportsWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="reports" aria-labelledby="adminReportsWorkspaceTitle" hidden>
+            <section id="adminReportsWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="reports" aria-labelledby="adminReportsWorkspaceTitle" data-report-only-hidden hidden>
               <header class="card admin-workspace-header">
                 <div>
                   <p class="eyebrow">Reports</p>
@@ -810,15 +813,15 @@
                           <option value="task-daily-log">Daily task log sheets</option>
                           <option value="task-photo-report">Task photo report</option>
                           <option value="daywork-pdf">Daywork PDF</option>
-                          <option value="form-submissions-csv">Submitted work forms CSV</option>
-                          <option value="form-submissions-pdf">Submitted work forms PDF</option>
-                          <option value="form-submissions">Submitted work forms HTML</option>
+                          <option value="form-submissions-csv">Submitted Reports CSV</option>
+                          <option value="form-submissions-pdf">Submitted Reports PDF</option>
+                          <option value="form-submissions">Submitted Reports HTML</option>
                         </select>
                       </label>
                       <label>
-                        Form type
+                        Report Template
                         <select id="exportFormTypeSelect">
-                          <option value="">All submitted form types</option>
+                          <option value="">All Report Templates</option>
                         </select>
                       </label>
                       <button id="exportDocumentButton" type="button">Export document</button>
@@ -884,32 +887,38 @@
             <section id="adminReviewWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="review" aria-labelledby="adminReviewWorkspaceTitle" hidden>
               <header class="card admin-workspace-header">
                 <div>
-                  <p class="eyebrow">Review</p>
-                  <h2 id="adminReviewWorkspaceTitle" tabindex="-1">Review records and corrections</h2>
-                  <p class="muted">Validate field evidence, inspect attendance locations, and add approved corrections when records are missing.</p>
+                  <p class="eyebrow" data-full-text="Review" data-report-only-text="Reports">Reports</p>
+                  <h2 id="adminReviewWorkspaceTitle" tabindex="-1" data-full-text="Review records and corrections" data-report-only-text="Review submitted reports">Review submitted reports</h2>
+                  <p class="muted" data-full-text="Validate field evidence, inspect attendance locations, and add approved corrections when records are missing." data-report-only-text="Review submitted report answers and evidence, then start review or resolve with a final note.">Review submitted report answers and evidence, then start review or resolve with a final note.</p>
                 </div>
               </header>
               <div class="admin-review-layout">
           <details id="reviewQueueDetails" class="card fold-card review-queue-card" open>
             <summary>
-              <span>Review queue</span>
+              <span data-full-text="Review queue" data-report-only-text="Submitted reports">Submitted reports</span>
               <span id="supervisorResultCount" class="fold-count">0 records</span>
             </summary>
             <div class="fold-content">
               <div class="section-heading review-desk-heading">
                 <div>
-                  <p class="eyebrow">Review desk</p>
-                  <h2>Validate field records</h2>
-                  <p class="muted">Choose a record from the inbox, review its evidence, then decide or adjust it without losing your place.</p>
+                  <p class="eyebrow" data-full-text="Review desk" data-report-only-text="Report review">Report review</p>
+                  <h2 data-full-text="Validate field records" data-report-only-text="Validate submitted reports">Validate submitted reports</h2>
+                  <p class="muted" data-full-text="Choose a record from the inbox, review its evidence, then decide or adjust it without losing your place." data-report-only-text="Choose a report, review its answers and evidence, then move it through the report workflow.">Choose a report, review its answers and evidence, then move it through the report workflow.</p>
                 </div>
-                <button id="refreshSupervisorButton" type="button" class="ghost">Refresh</button>
+                <div class="review-heading-actions">
+                  <div class="report-export-actions" data-report-only-visible>
+                    <button id="exportReportsCsvButton" type="button" class="ghost">Export Reports CSV</button>
+                    <button id="exportReportsPdfButton" type="button" class="secondary">Export Reports PDF</button>
+                  </div>
+                  <button id="refreshSupervisorButton" type="button" class="ghost">Refresh</button>
+                </div>
               </div>
               <form id="supervisorFilterForm" class="filter-bar">
                 <label>
                   Find
-                  <input id="supervisorSearchInput" type="search" placeholder="Worker, site, note, task" />
+                  <input id="supervisorSearchInput" type="search" placeholder="Worker, template, answer" data-full-placeholder="Worker, site, note, task" data-report-only-placeholder="Worker, template, answer" />
                 </label>
-                <label>
+                <label data-report-only-hidden>
                   Type
                   <select id="supervisorTypeFilter">
                     <option value="">All</option>
@@ -923,9 +932,24 @@
                   Status
                   <select id="supervisorStatusFilter">
                     <option value="">All</option>
-                    <option value="pending" selected>Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
+                    <option value="submitted" data-report-only-option hidden>Submitted</option>
+                    <option value="in_review" data-report-only-option hidden>In review</option>
+                    <option value="resolved" data-report-only-option hidden>Resolved</option>
+                    <option value="pending" data-full-mode-option selected>Pending</option>
+                    <option value="approved" data-full-mode-option>Approved</option>
+                    <option value="rejected" data-full-mode-option>Rejected</option>
+                  </select>
+                </label>
+                <label data-report-only-visible>
+                  Report Template
+                  <select id="supervisorTemplateFilter">
+                    <option value="">All Report Templates</option>
+                  </select>
+                </label>
+                <label data-report-only-visible>
+                  Worker
+                  <select id="supervisorWorkerFilter">
+                    <option value="">All workers</option>
                   </select>
                 </label>
                 <label>
@@ -971,7 +995,7 @@
             </div>
           </details>
 
-          <details id="locationMapDetails" class="card fold-card location-review-card">
+          <details id="locationMapDetails" class="card fold-card location-review-card" data-report-only-hidden>
             <summary>
               <span>Maps and location review</span>
               <span id="locationMapCount" class="fold-count">0 points</span>
@@ -1050,7 +1074,7 @@
             </div>
           </details>
 
-          <details id="manualAttendanceDetails" class="card fold-card manual-attendance-card">
+          <details id="manualAttendanceDetails" class="card fold-card manual-attendance-card" data-report-only-hidden>
             <summary>
               <span>Add missed check in / check out</span>
               <span class="fold-count">Manual entry</span>
@@ -1092,7 +1116,7 @@
             </div>
           </details>
 
-          <details id="adminTaskLogDetails" class="card fold-card admin-task-log-card">
+          <details id="adminTaskLogDetails" class="card fold-card admin-task-log-card" data-report-only-hidden>
             <summary>
               <span>Submit approved log</span>
               <span class="fold-count">Self or others</span>
@@ -1142,7 +1166,7 @@
               </div>
             </section>
 
-            <section id="adminAuditWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="audit" aria-labelledby="adminAuditWorkspaceTitle" hidden>
+            <section id="adminAuditWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="audit" aria-labelledby="adminAuditWorkspaceTitle" data-report-only-hidden hidden>
               <header class="card admin-workspace-header">
                 <div>
                   <p class="eyebrow">Audit</p>
@@ -1187,15 +1211,15 @@
             <section id="adminFormsWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="forms" aria-labelledby="adminFormsWorkspaceTitle" hidden>
               <header class="card admin-workspace-header">
                 <div>
-                  <p class="eyebrow">Forms</p>
-                  <h2 id="adminFormsWorkspaceTitle" tabindex="-1">Reusable work forms</h2>
-                  <p class="muted">Build, preview, version, archive, and reactivate the forms used by field teams.</p>
+                  <p class="eyebrow" data-full-text="Report Templates" data-report-only-text="Report Templates">Report Templates</p>
+                  <h2 id="adminFormsWorkspaceTitle" tabindex="-1" data-full-text="Manage Report Templates" data-report-only-text="Manage Report Templates">Manage Report Templates</h2>
+                  <p class="muted" data-full-text="Build, preview, version, archive, and reactivate the forms used by field teams." data-report-only-text="Build, preview, version, archive, and reactivate the templates workers use for reports.">Build, preview, version, archive, and reactivate the templates workers use for reports.</p>
                 </div>
               </header>
               <div class="admin-forms-layout">
           <details id="workFormsDetails" class="card fold-card work-forms-card" open>
             <summary>
-              <span>Work forms</span>
+              <span data-full-text="Report Templates" data-report-only-text="Report Templates">Report Templates</span>
               <span id="workFormsCount" class="fold-count">0</span>
             </summary>
             <div class="fold-content work-forms-content">
@@ -1205,7 +1229,9 @@
                   type="button"
                   aria-controls="workFormCreatePanel"
                   aria-expanded="false"
-                >Add work form</button>
+                  data-full-text="Add Report Template"
+                  data-report-only-text="Add Report Template"
+                >Add Report Template</button>
               </div>
               <section
                 id="workFormCreatePanel"
@@ -1215,13 +1241,13 @@
               >
                 <form id="workFormBuilderForm" class="form-grid">
                 <div class="work-form-builder-intro">
-                  <p class="eyebrow">New form</p>
-                  <h3 id="workFormCreateTitle">Build a work form</h3>
-                  <p class="muted">Create the questions workers will complete in the field. Advanced syntax remains available when needed.</p>
+                  <p class="eyebrow" data-full-text="New Report Template" data-report-only-text="New Report Template">New Report Template</p>
+                  <h3 id="workFormCreateTitle" data-full-text="Build a Report Template" data-report-only-text="Build a Report Template">Build a Report Template</h3>
+                  <p class="muted">Create the questions workers will answer in their reports. Advanced syntax remains available when needed.</p>
                 </div>
                 <label>
-                  Form name
-                  <input id="workFormNameInput" type="text" placeholder="Inspection form" required />
+                  <span data-full-text="Template name" data-report-only-text="Template name">Template name</span>
+                  <input id="workFormNameInput" type="text" placeholder="PPE issue report" required />
                 </label>
                 <label>
                   Description
@@ -1230,14 +1256,14 @@
                 <div id="workFormFieldBuilder" class="work-form-field-builder" data-work-form-builder>
                   <div class="work-form-builder-toolbar">
                     <div>
-                      <h3>Form fields</h3>
+                      <h3>Report fields</h3>
                       <p class="muted">Add cards in the same order workers should complete them.</p>
                     </div>
                     <button id="addWorkFormFieldButton" type="button" class="secondary" data-add-work-form-field>Add field</button>
                   </div>
                   <div id="workFormBuilderFeedback" class="local-feedback hidden" data-work-form-builder-feedback role="alert" aria-live="assertive" aria-atomic="true"></div>
                   <p id="workFormBuilderEmpty" class="work-form-builder-empty" data-work-form-builder-empty>No fields yet. Add the first field to begin.</p>
-                  <ol id="workFormFieldCards" class="work-form-field-list" data-work-form-field-list aria-label="Work form fields"></ol>
+                  <ol id="workFormFieldCards" class="work-form-field-list" data-work-form-field-list aria-label="Report Template fields"></ol>
                   <details id="workFormAdvancedDetails" class="optional-details work-form-advanced" data-work-form-advanced>
                     <summary>Advanced: edit raw field syntax</summary>
                     <div class="form-grid">
@@ -1257,7 +1283,7 @@
                 </div>
                 <div class="form-actions">
                   <button id="workFormPreviewButton" type="button" class="ghost">Preview draft</button>
-                  <button id="workFormSubmitButton" type="submit">Create form</button>
+                  <button id="workFormSubmitButton" type="submit">Create Report Template</button>
                   <button id="cancelWorkFormCreateButton" type="button" class="ghost">Cancel</button>
                 </div>
                 <div id="workFormBuilderActionFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
@@ -1273,13 +1299,13 @@
             <section id="adminPeopleWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="people" aria-labelledby="adminPeopleWorkspaceTitle" hidden>
               <header class="card admin-workspace-header">
                 <div>
-                  <p class="eyebrow">People &amp; Sites</p>
-                  <h2 id="adminPeopleWorkspaceTitle" tabindex="-1">Teams and job locations</h2>
-                  <p class="muted">Manage staff access, employment status, site coordinates, and allowed attendance radiuses.</p>
+                  <p class="eyebrow" data-full-text="People &amp; Sites" data-report-only-text="Staff">Staff</p>
+                  <h2 id="adminPeopleWorkspaceTitle" tabindex="-1" data-full-text="Teams and job locations" data-report-only-text="Manage staff access">Manage staff access</h2>
+                  <p class="muted" data-full-text="Manage staff access, employment status, site coordinates, and allowed attendance radiuses." data-report-only-text="Create worker and supervisor accounts, manage access, and retain report ownership when employment status changes.">Create worker and supervisor accounts, manage access, and retain report ownership when employment status changes.</p>
                 </div>
               </header>
               <div class="admin-people-layout">
-          <details id="sitesDetails" class="card fold-card sites-card">
+          <details id="sitesDetails" class="card fold-card sites-card" data-report-only-hidden>
             <summary>
               <span>Sites</span>
               <span id="supervisorSitesCount" class="fold-count">0</span>
@@ -1450,7 +1476,7 @@
       <div class="confirmation-dialog-content">
         <p class="eyebrow">Protecting your work</p>
         <h2 id="appUpdatePausedTitle">Update paused</h2>
-        <p id="appUpdatePausedDescription">This Work Form has changes that are not saved on this device. Updating now could lose them.</p>
+        <p id="appUpdatePausedDescription">This Report has changes that are not saved on this device. Updating now could lose them.</p>
         <div class="confirmation-dialog-actions">
           <button id="retryAppUpdateButton" type="button">Try saving again</button>
           <button id="keepEditingWorkFormButton" type="button" class="ghost" autofocus>Keep editing</button>

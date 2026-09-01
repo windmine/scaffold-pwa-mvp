@@ -17,6 +17,7 @@ const appBase = `http://127.0.0.1:${frontendPort}`;
 const productionAppBase = `http://127.0.0.1:${previewPort}`;
 const password = 'Passw0rd!';
 const workflowFilter = String(process.env.BROWSER_WORKFLOW_ONLY || '').trim().toLowerCase();
+const processOutputLimit = 40000;
 
 const children = [];
 const checks = [];
@@ -29,6 +30,10 @@ function delay(ms) {
 
 function sqliteUrl(filePath) {
   return `sqlite:///${filePath.replace(/\\/g, '/')}`;
+}
+
+function appendProcessOutput(processState, text) {
+  processState.output = `${processState.output}${text}`.slice(-processOutputLimit);
 }
 
 function startProcess(name, command, args, options = {}) {
@@ -46,18 +51,37 @@ function startProcess(name, command, args, options = {}) {
 
   child.stdout.on('data', (chunk) => {
     const text = chunk.toString();
-    processState.output += text;
+    appendProcessOutput(processState, text);
     if (process.env.BROWSER_WORKFLOW_DEBUG) process.stdout.write(`[${name}] ${text}`);
   });
 
   child.stderr.on('data', (chunk) => {
     const text = chunk.toString();
-    processState.output += text;
+    appendProcessOutput(processState, text);
     if (process.env.BROWSER_WORKFLOW_DEBUG) process.stderr.write(`[${name}] ${text}`);
+  });
+
+  child.on('exit', (code, signal) => {
+    processState.exitCode = code;
+    processState.exitSignal = signal;
   });
 
   children.push(processState);
   return processState;
+}
+
+function managedProcessExitError(workflowName) {
+  const processState = children.find(({ child }) => child.exitCode != null || child.signalCode != null);
+  if (!processState) return null;
+
+  const exitReason = processState.exitSignal
+    ? `signal ${processState.exitSignal}`
+    : `code ${processState.exitCode}`;
+  const recentOutput = processState.output.trim();
+  return new Error([
+    `Managed ${processState.name} process exited unexpectedly with ${exitReason} while running "${workflowName}".`,
+    recentOutput ? `Recent ${processState.name} output:\n${recentOutput}` : `The ${processState.name} process produced no output.`
+  ].join('\n'));
 }
 
 async function stopProcess(processState) {
@@ -148,17 +172,13 @@ async function setupServers() {
   }
 
   startProcess('frontend', process.execPath, [
-    join(root, 'node_modules', 'vite', 'bin', 'vite.js'),
-    '--host',
-    '127.0.0.1',
-    '--port',
-    String(frontendPort),
-    '--strictPort'
+    join(root, 'scripts', 'browser-workflow-source-server.mjs')
   ], {
     cwd: root,
     env: {
       ...process.env,
-      VITE_DISABLE_HTTPS: 'true',
+      BROWSER_WORKFLOW_SOURCE_ROOT: root,
+      BROWSER_WORKFLOW_FRONTEND_PORT: String(frontendPort),
       VITE_API_PROXY_TARGET: backendBase
     }
   });
@@ -196,8 +216,20 @@ async function newContext(browser, options = {}) {
     serviceWorkers: options.serviceWorkers || 'block'
   });
 
+  await context.addInitScript((reportOnly) => {
+    window.__REPORT_ONLY_MODE_OVERRIDE__ = reportOnly;
+  }, options.reportOnly ?? false);
+
   if (options.initScript) {
     await context.addInitScript(options.initScript);
+  }
+
+  if (process.env.BROWSER_WORKFLOW_DEBUG) {
+    context.on('page', (page) => {
+      page.on('console', (message) => process.stderr.write(`[browser console] ${message.type()}: ${message.text()}\n`));
+      page.on('pageerror', (error) => process.stderr.write(`[browser error] ${error.stack || error.message}\n`));
+      page.on('requestfailed', (request) => process.stderr.write(`[browser request failed] ${request.url()} ${request.failure()?.errorText || ''}\n`));
+    });
   }
 
   return context;
@@ -444,10 +476,14 @@ async function fillDayworkSubmission(page) {
 
 async function runCheck(name, test) {
   if (workflowFilter && !name.toLowerCase().includes(workflowFilter)) return;
+  const processErrorBefore = managedProcessExitError(name);
+  if (processErrorBefore) throw processErrorBefore;
   try {
     await test();
     console.log(`ok - ${name}`);
   } catch (error) {
+    const processErrorAfter = managedProcessExitError(name);
+    if (processErrorAfter) throw processErrorAfter;
     checks.push({ name, error });
     console.error(`not ok - ${name}`);
     console.error(`  ${error.stack || error.message}`);
@@ -641,11 +677,11 @@ async function checkAccessibleActionFeedback(browser) {
     if (
       !busyState.disabled
       || busyState.busy !== 'true'
-      || !busyState.label.includes('Submitting form')
+      || !busyState.label.includes('Submitting Report')
       || busyState.formBusy !== 'true'
       || !busyState.fieldsInert
     ) {
-      throw new Error(`Work Form submit did not expose its busy state: ${JSON.stringify(busyState)}`);
+      throw new Error(`Report submit did not expose its busy state: ${JSON.stringify(busyState)}`);
     }
     releaseSubmission();
     await submitPromise;
@@ -657,15 +693,15 @@ async function checkAccessibleActionFeedback(browser) {
       return button
         && !button.disabled
         && button.getAttribute('aria-busy') === null
-        && button.textContent.trim() === 'Submit form';
+        && button.textContent.trim() === 'Submit Report';
     }, null, { timeout: 20000 });
     const completedButton = await page.locator('#submitWorkFormButton').evaluate((button) => ({
       disabled: button.disabled,
       busy: button.getAttribute('aria-busy'),
       label: button.textContent || ''
     }));
-    if (completedButton.disabled || completedButton.busy !== null || completedButton.label.trim() !== 'Submit form') {
-      throw new Error(`Work Form submit did not restore after completion: ${JSON.stringify(completedButton)}`);
+    if (completedButton.disabled || completedButton.busy !== null || completedButton.label.trim() !== 'Submit Report') {
+      throw new Error(`Report submit did not restore after completion: ${JSON.stringify(completedButton)}`);
     }
     const duplicateToastCount = await page.locator('#toastViewport .toast', {
       hasText: 'Inspection form submitted for approval.'
@@ -1208,6 +1244,381 @@ async function checkNormalWorkerAttendanceShortcuts(browser) {
   }
 }
 
+async function checkNormalWorkerWorkFormSubmission(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const workerEmail = `normal-report-${Date.now()}@example.com`;
+  const reportMarker = `PPE issue report ${Date.now()}`;
+
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await page.evaluate(async ({ email, workerPassword }) => {
+      const { createUser, getSession } = await import('/assets/js/api-client.js');
+      const supervisor = getSession();
+      await createUser({
+        name: 'Normal Report Worker',
+        email,
+        password: workerPassword,
+        role: 'worker',
+        worker_class: 'normal',
+        department_id: supervisor.departmentId,
+        is_global_admin: false
+      });
+    }, {
+      email: workerEmail,
+      workerPassword: password
+    });
+    await logout(page);
+    await loginAs(page, workerEmail, 'worker');
+
+    const workerShell = await page.evaluate(() => ({
+      mode: document.body.classList.contains('report-only-mode'),
+      navigation: [...document.querySelectorAll('#workerView .tab')]
+        .filter((element) => element.getClientRects().length)
+        .map((element) => element.textContent?.trim()),
+      activePanel: document.querySelector('#workerView .tab-panel.active')?.id || '',
+      dashboardVisible: Boolean(document.querySelector('#workerView .worker-dashboard')?.getClientRects().length),
+      accountVisible: Boolean(document.querySelector('#userContext')?.getClientRects().length),
+      logoutVisible: Boolean(document.querySelector('#logoutButton')?.getClientRects().length),
+      heading: document.querySelector('#formTab h2')?.textContent?.trim() || '',
+      templateLabel: document.querySelector('#workFormSelect')?.closest('label')?.querySelector('span')?.textContent?.trim() || '',
+      templatePrompt: document.querySelector('#workFormSelect option[value=""]')?.textContent?.trim() || '',
+      reportDateLabel: document.querySelector('#workFormDate')?.closest('label')?.childNodes[0]?.nodeValue?.trim() || '',
+      reportDateRequired: document.querySelector('#workFormDate')?.required ?? null,
+      siteLabel: document.querySelector('#workFormSite')?.closest('label')?.childNodes[0]?.nodeValue?.trim() || '',
+      siteRequired: document.querySelector('#workFormSite')?.required ?? null,
+      horizontalOverflow: document.documentElement.scrollWidth - window.innerWidth,
+      smallestPrimaryActionHeight: Math.min(
+        ...[...document.querySelectorAll('#workerView .tab, #submitWorkFormButton')]
+          .filter((element) => element.getClientRects().length)
+          .map((element) => element.getBoundingClientRect().height)
+      ),
+      statusOptions: [...(document.querySelector('#historyStatusFilter')?.options || [])]
+        .filter((option) => !option.hidden)
+        .map((option) => option.value),
+      submitLabel: document.querySelector('#submitWorkFormButton')?.textContent?.trim() || ''
+    }));
+    if (
+      !workerShell.mode
+      || JSON.stringify(workerShell.navigation) !== JSON.stringify(['New Report', 'My Reports'])
+      || workerShell.activePanel !== 'formTab'
+      || workerShell.dashboardVisible
+      || !workerShell.accountVisible
+      || !workerShell.logoutVisible
+      || workerShell.heading !== 'New Report'
+      || workerShell.templateLabel !== 'Report Template'
+      || workerShell.templatePrompt !== 'Select a Report Template'
+      || workerShell.reportDateLabel !== 'Report Date'
+      || !workerShell.reportDateRequired
+      || workerShell.siteLabel !== 'Site (optional)'
+      || workerShell.siteRequired
+      || workerShell.horizontalOverflow > 1
+      || workerShell.smallestPrimaryActionHeight < 44
+      || JSON.stringify(workerShell.statusOptions) !== JSON.stringify(['', 'submitted', 'in_review', 'resolved', 'queued'])
+      || workerShell.submitLabel !== 'Submit Report'
+    ) {
+      throw new Error(`normal Worker report-only shell was incorrect: ${JSON.stringify(workerShell)}`);
+    }
+
+    const formTab = page.locator('.tab[data-tab-target="formTab"]');
+    await formTab.waitFor({ state: 'visible', timeout: 10000 });
+    if (
+      await page.locator('.tab[data-tab-target="taskTab"]').isVisible()
+      || await page.locator('.tab[data-tab-target="teamLogTab"]').isVisible()
+    ) {
+      throw new Error('normal Worker received Leader-only Daywork or Team access');
+    }
+
+    await formTab.click();
+    await page.waitForFunction(() => (
+      [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent?.trim() === 'Inspection form')
+    ), null, { timeout: 15000 });
+    const activeForms = await page.evaluate(async () => {
+      const response = await fetch('/api/work-forms', { credentials: 'include' });
+      if (!response.ok) throw new Error(`work forms failed: ${response.status}`);
+      return response.json();
+    });
+    if (!activeForms.some((form) => form.name === 'Inspection form') || activeForms.some((form) => form.status !== 'active')) {
+      throw new Error(`normal Worker did not receive only active department Work Forms: ${JSON.stringify(activeForms)}`);
+    }
+
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#workFormDate').fill('');
+    await page.locator('#submitWorkFormButton').click();
+    const missingDateState = await page.locator('#workFormDate').evaluate((input) => ({
+      invalid: input.matches(':invalid'),
+      focused: document.activeElement === input
+    }));
+    if (!missingDateState.invalid || !missingDateState.focused) {
+      throw new Error(`Report Date was not enforced before submission: ${JSON.stringify(missingDateState)}`);
+    }
+    await page.locator('#workFormDate').fill('2026-09-01');
+    await page.locator('#workFormField_inspection_area').fill(reportMarker);
+    await page.locator('#workFormField_inspection_result').selectOption({ label: 'Needs action' });
+    await page.locator('#workFormField_issues_found').fill('Damaged safety glasses need replacement.');
+    await page.locator('#workFormField_follow_up_required').locator('xpath=..').click();
+
+    const submissionResponsePromise = page.waitForResponse((response) => (
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/form-submissions'
+    ), { timeout: 20000 });
+    await page.locator('#submitWorkFormButton').click();
+    const submissionResponse = await submissionResponsePromise;
+    if (!submissionResponse.ok()) {
+      throw new Error(`normal Worker Work Form submission failed: ${submissionResponse.status()} ${await submissionResponse.text()}`);
+    }
+    const submittedReport = await submissionResponse.json();
+    const submissionPayload = submissionResponse.request().postDataJSON();
+    if (submissionPayload.work_date !== '2026-09-01' || submissionPayload.site_id !== null) {
+      throw new Error(`Report Date or optional Site payload was incorrect: ${JSON.stringify(submissionPayload)}`);
+    }
+    await page.locator('#workFormFeedback').getByText('Inspection form submitted for review').waitFor({ timeout: 20000 });
+
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await page.locator('#historyTab').waitFor({ state: 'visible', timeout: 10000 });
+    const historyRecord = page.locator('#historyList .record-form').filter({ hasText: reportMarker }).first();
+    await historyRecord.waitFor({ state: 'visible', timeout: 20000 });
+    const historyText = await historyRecord.innerText();
+    if (
+      !historyText.includes('Inspection form')
+      || !historyText.includes('Submitted')
+      || !historyText.includes('Submitted:')
+      || !historyText.includes('Report Date: 2026-09-01')
+      || !historyText.includes('Unassigned site')
+      || !historyText.includes(reportMarker)
+      || historyText.includes('Final supervisor note:')
+    ) {
+      throw new Error(`normal Worker report history was incomplete: ${historyText}`);
+    }
+
+    await logout(page);
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await page.locator('#adminMobileMenuButton').click();
+    await page.locator('#adminWorkspaceDrawer[open]').waitFor({ state: 'visible', timeout: 10000 });
+    const supervisorShell = await page.evaluate(() => ({
+      navigation: [...document.querySelectorAll('.admin-drawer-nav [data-admin-workspace-target]')]
+        .filter((element) => element.getClientRects().length)
+        .map((element) => ({
+          target: element.dataset.adminWorkspaceTarget,
+          label: element.querySelector('strong')?.textContent?.trim() || ''
+        })),
+      current: document.querySelector('.admin-drawer-nav [aria-current="page"]')?.dataset.adminWorkspaceTarget || '',
+      type: document.querySelector('#supervisorTypeFilter')?.value || '',
+      typeVisible: Boolean(document.querySelector('#supervisorTypeFilter')?.closest('label')?.getClientRects().length),
+      status: document.querySelector('#supervisorStatusFilter')?.value || '',
+      statusVisible: Boolean(document.querySelector('#supervisorStatusFilter')?.closest('label')?.getClientRects().length),
+      statusOptions: [...(document.querySelector('#supervisorStatusFilter')?.options || [])]
+        .filter((option) => !option.hidden)
+        .map((option) => option.value),
+      templateVisible: Boolean(document.querySelector('#supervisorTemplateFilter')?.closest('label')?.getClientRects().length),
+      workerVisible: Boolean(document.querySelector('#supervisorWorkerFilter')?.closest('label')?.getClientRects().length),
+      reportCsvVisible: Boolean(document.querySelector('#exportReportsCsvButton')?.getClientRects().length),
+      reportPdfVisible: Boolean(document.querySelector('#exportReportsPdfButton')?.getClientRects().length),
+      attendanceExportVisible: Boolean(document.querySelector('#exportAttendanceButton')?.getClientRects().length),
+      taskExportVisible: Boolean(document.querySelector('#exportTaskLogsButton')?.getClientRects().length),
+      mapVisible: Boolean(document.querySelector('#locationMapDetails')?.getClientRects().length),
+      analyticsVisible: Boolean(document.querySelector('#managementAnalyticsDetails')?.getClientRects().length),
+      exportsVisible: Boolean(document.querySelector('#adminReportsWorkspace')?.getClientRects().length),
+      horizontalOverflow: document.documentElement.scrollWidth - window.innerWidth
+    }));
+    if (
+      JSON.stringify(supervisorShell.navigation) !== JSON.stringify([
+        { target: 'review', label: 'Reports' },
+        { target: 'forms', label: 'Report Templates' },
+        { target: 'people', label: 'Staff' }
+      ])
+      || supervisorShell.current !== 'review'
+      || supervisorShell.type !== 'form'
+      || supervisorShell.typeVisible
+      || supervisorShell.status !== ''
+      || !supervisorShell.statusVisible
+      || JSON.stringify(supervisorShell.statusOptions) !== JSON.stringify(['', 'submitted', 'in_review', 'resolved'])
+      || !supervisorShell.templateVisible
+      || !supervisorShell.workerVisible
+      || !supervisorShell.reportCsvVisible
+      || !supervisorShell.reportPdfVisible
+      || supervisorShell.attendanceExportVisible
+      || supervisorShell.taskExportVisible
+      || supervisorShell.mapVisible
+      || supervisorShell.analyticsVisible
+      || supervisorShell.exportsVisible
+      || supervisorShell.horizontalOverflow > 1
+    ) {
+      throw new Error(`Supervisor report-only shell was incorrect: ${JSON.stringify(supervisorShell)}`);
+    }
+    await page.locator('#adminWorkspaceDrawerCloseButton').click();
+    await page.waitForFunction(() => document.querySelector('#adminWorkspaceDrawer')?.open === false);
+    const supervisorReport = page.locator('#reviewQueueList .record-form').filter({ hasText: reportMarker }).first();
+    await supervisorReport.waitFor({ state: 'visible', timeout: 20000 });
+    const supervisorReportText = await supervisorReport.innerText();
+    if (!supervisorReportText.includes('Submitted')) {
+      throw new Error(`Supervisor Reports did not show the submitted Report workflow: ${supervisorReportText}`);
+    }
+
+    await page.waitForFunction(() => (
+      [...document.querySelectorAll('#supervisorTemplateFilter option')]
+        .some((option) => option.textContent?.includes('Inspection form'))
+      && [...document.querySelectorAll('#supervisorWorkerFilter option')]
+        .some((option) => option.textContent?.includes('Normal Report Worker'))
+    ));
+    const filteredQueueResponse = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return response.request().method() === 'GET'
+        && url.pathname === '/api/supervisor/review-queue'
+        && url.searchParams.get('workflow_status') === 'submitted'
+        && url.searchParams.get('form_id') === String(submittedReport.form_id)
+        && url.searchParams.get('worker_id') === String(submittedReport.worker_id)
+        && url.searchParams.get('record_date') === '2026-09-01';
+    });
+    await page.locator('#supervisorStatusFilter').selectOption('submitted');
+    await page.locator('#supervisorTemplateFilter').selectOption({ label: 'Inspection form' });
+    await page.locator('#supervisorWorkerFilter').selectOption({ label: 'Normal Report Worker' });
+    await page.locator('#supervisorDateFilter').fill('2026-09-01');
+    if (!(await filteredQueueResponse).ok()) {
+      throw new Error('combined Supervisor Report filters did not produce a successful scoped request');
+    }
+    await supervisorReport.waitFor({ state: 'visible', timeout: 20000 });
+    await supervisorReport.click();
+
+    const submittedActions = page.locator('#reviewQueueActions');
+    const startReviewButton = submittedActions.getByRole('button', { name: 'Start review' });
+    await startReviewButton.waitFor({ timeout: 10000 });
+    if (
+      await submittedActions.getByRole('button', { name: 'Approve', exact: true }).count()
+      || await submittedActions.getByRole('button', { name: 'Reject', exact: true }).count()
+      || await submittedActions.getByRole('button', { name: 'Edit', exact: true }).count()
+      || await submittedActions.getByRole('button', { name: 'Move to bin', exact: true }).count()
+      || await startReviewButton.evaluate((button) => button.getBoundingClientRect().height < 44)
+    ) {
+      throw new Error('report-only Review Queue exposed legacy Approve, Reject, Edit, or rubbish-bin controls');
+    }
+
+    const startReviewResponse = page.waitForResponse((response) => (
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname === `/api/supervisor/form-submissions/${submittedReport.id}/transition`
+    ));
+    await startReviewButton.click();
+    const startReviewResult = await startReviewResponse;
+    const startReviewPayload = startReviewResult.request().postDataJSON();
+    if (!startReviewResult.ok() || startReviewPayload.status !== 'in_review') {
+      throw new Error(`Start review transition was incomplete: ${JSON.stringify(startReviewPayload)}`);
+    }
+    await page.locator('#reviewQueueList .empty-state').waitFor({ state: 'visible', timeout: 10000 });
+
+    await page.locator('#supervisorStatusFilter').selectOption('in_review');
+    const inReviewReport = page.locator('#reviewQueueList .record-form').filter({ hasText: reportMarker }).first();
+    await inReviewReport.waitFor({ state: 'visible', timeout: 20000 });
+    await inReviewReport.click();
+    const resolveButton = page.locator('#reviewQueueActions').getByRole('button', { name: 'Resolve report' });
+    await resolveButton.click();
+    const resolutionNote = page.locator('#reportResolutionNote');
+    await resolutionNote.waitFor({ state: 'visible', timeout: 10000 });
+    const resolutionPhoneLayout = await page.evaluate(() => ({
+      horizontalOverflow: document.documentElement.scrollWidth - window.innerWidth,
+      submitHeight: document.querySelector('#editPanelForm button[type="submit"]')?.getBoundingClientRect().height || 0,
+      focusedField: document.activeElement?.id || ''
+    }));
+    if (
+      resolutionPhoneLayout.horizontalOverflow > 1
+      || resolutionPhoneLayout.submitHeight < 44
+      || resolutionPhoneLayout.focusedField !== 'reportResolutionNote'
+    ) {
+      throw new Error(`Report resolution panel was not phone-ready: ${JSON.stringify(resolutionPhoneLayout)}`);
+    }
+    if ((await resolutionNote.getAttribute('required')) === null) {
+      throw new Error('Resolution note was not required');
+    }
+    await page.locator('#editPanelForm button[type="submit"]').click();
+    if (!(await resolutionNote.evaluate((field) => field.matches(':invalid') && document.activeElement === field))) {
+      throw new Error('empty resolution note was not blocked and focused');
+    }
+    await resolutionNote.fill('Replacement safety glasses issued.');
+    const resolveResponse = page.waitForResponse((response) => (
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname === `/api/supervisor/form-submissions/${submittedReport.id}/transition`
+    ));
+    await page.locator('#editPanelForm button[type="submit"]').click();
+    const resolvedResponse = await resolveResponse;
+    const resolveRequestPayload = resolvedResponse.request().postDataJSON();
+    const resolvedPayload = await resolvedResponse.json();
+    if (
+      resolveRequestPayload.status !== 'resolved'
+      || resolveRequestPayload.supervisor_note !== 'Replacement safety glasses issued.'
+      || resolvedPayload.workflow_status !== 'resolved'
+      || resolvedPayload.supervisor_note !== 'Replacement safety glasses issued.'
+    ) {
+      throw new Error(`Resolve report transition was incomplete: ${JSON.stringify(resolvedPayload)}`);
+    }
+    await page.locator('#supervisorStatusFilter').selectOption('resolved');
+    const resolvedSupervisorReport = page.locator('#reviewQueueList .record-form').filter({ hasText: reportMarker }).first();
+    await resolvedSupervisorReport.waitFor({ state: 'visible', timeout: 20000 });
+    await resolvedSupervisorReport.click();
+    const resolvedSupervisorText = await page.locator('#reviewQueueDetail').innerText();
+    if (
+      !resolvedSupervisorText.includes('Resolved')
+      || !resolvedSupervisorText.includes('Reviewing supervisor:')
+      || !resolvedSupervisorText.includes('Review started:')
+      || !resolvedSupervisorText.includes('Resolved:')
+      || !resolvedSupervisorText.includes('Final supervisor note:')
+      || !resolvedSupervisorText.includes('Replacement safety glasses issued.')
+      || await page.locator('#reviewQueueActions').getByRole('button', { name: 'Resolve report' }).count()
+    ) {
+      throw new Error(`resolved Supervisor Report detail was incomplete: ${resolvedSupervisorText}`);
+    }
+
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#adminFormsWorkspaceTitle').waitFor({ state: 'visible', timeout: 10000 });
+    const templateLanguage = await page.evaluate(() => ({
+      heading: document.querySelector('#adminFormsWorkspaceTitle')?.textContent?.trim() || '',
+      addLabel: document.querySelector('#addWorkFormButton')?.textContent?.trim() || '',
+      createLabel: document.querySelector('#workFormSubmitButton')?.textContent?.trim() || '',
+      horizontalOverflow: document.documentElement.scrollWidth - window.innerWidth
+    }));
+    if (
+      templateLanguage.heading !== 'Manage Report Templates'
+      || templateLanguage.addLabel !== 'Add Report Template'
+      || templateLanguage.createLabel !== 'Create Report Template'
+      || templateLanguage.horizontalOverflow > 1
+    ) {
+      throw new Error(`Supervisor Report Template language or phone layout was incorrect: ${JSON.stringify(templateLanguage)}`);
+    }
+    await page.locator('#adminMobileMenuButton').click();
+    await page.locator('.admin-drawer-nav [data-admin-workspace-target="people"]').click();
+    await page.locator('#staffUsersDetails').waitFor({ state: 'visible', timeout: 10000 });
+    if (
+      await page.locator('#sitesDetails').isVisible()
+      || await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth) > 1
+    ) {
+      throw new Error('Supervisor Staff section exposed retained Sites or caused phone-width overflow');
+    }
+
+    await logout(page);
+    await loginAs(page, workerEmail, 'worker');
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    const resolvedHistoryRecord = page.locator('#historyList .record-form').filter({ hasText: reportMarker }).first();
+    await resolvedHistoryRecord.waitFor({ state: 'visible', timeout: 20000 });
+    const resolvedHistoryText = await resolvedHistoryRecord.innerText();
+    if (
+      !resolvedHistoryText.includes('Resolved')
+      || !resolvedHistoryText.includes('Reviewing supervisor:')
+      || !resolvedHistoryText.includes('Review started:')
+      || !resolvedHistoryText.includes('Resolved:')
+      || !resolvedHistoryText.includes('Final supervisor note:')
+      || !resolvedHistoryText.includes('Replacement safety glasses issued.')
+    ) {
+      throw new Error(`resolved Report history omitted its final Supervisor note: ${resolvedHistoryText}`);
+    }
+    await page.locator('#historyStatusFilter').selectOption('submitted');
+    await page.locator('#historyList .empty-state').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#historyStatusFilter').selectOption('resolved');
+    await resolvedHistoryRecord.waitFor({ state: 'visible', timeout: 10000 });
+  } finally {
+    await context.close();
+  }
+}
+
 async function checkDeniedGeolocation(browser) {
   const context = await newContext(browser, {
     initScript: () => {
@@ -1369,7 +1780,7 @@ async function checkOfflineQueueAndReplay(browser) {
 }
 
 async function checkRepeatSignatureUploadResume(browser) {
-  const context = await newContext(browser);
+  const context = await newContext(browser, { reportOnly: true });
   const page = await context.newPage();
   const formName = `Repeat signature retry ${Date.now()}`;
   let uploadRequests = 0;
@@ -1381,7 +1792,7 @@ async function checkRepeatSignatureUploadResume(browser) {
       const { createWorkForm } = await import('/assets/js/api-client.js');
       return await createWorkForm({
         name,
-        description: 'Browser regression for resumable repeat signatures.',
+        description: 'Browser regression for resumable Report signatures, photos, and idempotent replay.',
         fields: [
           {
             id: 'crews',
@@ -1415,13 +1826,17 @@ async function checkRepeatSignatureUploadResume(browser) {
     });
 
     const queued = await page.evaluate(async (workForm) => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 4;
-      canvas.height = 4;
-      const drawing = canvas.getContext('2d');
-      drawing.fillStyle = '#111827';
-      drawing.fillRect(0, 0, canvas.width, canvas.height);
-      const signature = canvas.toDataURL('image/png');
+      const pngDataUrl = (fillStyle) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 4;
+        canvas.height = 4;
+        const drawing = canvas.getContext('2d');
+        drawing.fillStyle = fillStyle;
+        drawing.fillRect(0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/png');
+      };
+      const signature = pngDataUrl('#111827');
+      const reportPhoto = pngDataUrl('#dc2626');
       const id = `repeat-signature-${Date.now()}`;
       const { submitOfflineSubmission } = await import('/assets/js/offline-submissions.js');
       const result = await submitOfflineSubmission({
@@ -1436,29 +1851,37 @@ async function checkRepeatSignatureUploadResume(browser) {
             { crew_signature: signature }
           ]
         },
+        photoDataUrls: [reportPhoto],
+        photoMetadata: [{ name: 'ppe-evidence.png', type: 'image/png' }],
         workDate: '2026-07-15',
         createdAt: new Date().toISOString()
       });
       return {
         id,
         queued: result.queued,
+        clientSubmissionId: result.record.clientSubmissionId,
         firstSignature: result.record.answers.crews[0].crew_signature,
-        secondSignature: result.record.answers.crews[1].crew_signature
+        secondSignature: result.record.answers.crews[1].crew_signature,
+        photoDataUrl: result.record.photoDataUrls[0],
+        photoUrls: result.record.photoUrls
       };
     }, form);
 
     if (
       !queued.queued
+      || queued.clientSubmissionId !== queued.id
       || !queued.firstSignature.startsWith('/uploads/')
       || !queued.secondSignature.startsWith('data:image/png')
+      || !queued.photoDataUrl.startsWith('data:image/png')
+      || queued.photoUrls.length !== 0
       || uploadRequests !== 2
     ) {
-      throw new Error(`repeat signature progress was not persisted after a partial upload: ${JSON.stringify({ queued, uploadRequests })}`);
+      throw new Error(`Report signature/photo progress was not persisted after a partial upload: ${JSON.stringify({ queued, uploadRequests })}`);
     }
 
     failSecondUpload = false;
     const replay = await replayQueuedSubmissions(page);
-    if (replay.flushed !== 1 || replay.failed !== 0 || uploadRequests !== 3) {
+    if (replay.flushed !== 1 || replay.failed !== 0 || uploadRequests !== 4) {
       throw new Error(`repeat signature retry did not resume at the unfinished row: ${JSON.stringify({ replay, uploadRequests })}`);
     }
 
@@ -1468,15 +1891,117 @@ async function checkRepeatSignatureUploadResume(browser) {
       const record = await get('records', recordId);
       return {
         syncStatus: record?.syncStatus || '',
-        signatures: record?.answers?.crews?.map((row) => row.crew_signature) || []
+        backendRecordId: record?.backendRecordId || null,
+        clientSubmissionId: record?.clientSubmissionId || '',
+        signatures: record?.answers?.crews?.map((row) => row.crew_signature) || [],
+        photoUrls: record?.photoUrls || []
       };
     }, queued.id);
     if (
       synced.syncStatus !== 'synced'
+      || !synced.backendRecordId
+      || synced.clientSubmissionId !== queued.clientSubmissionId
       || synced.signatures.length !== 2
       || synced.signatures.some((value) => !value.startsWith('/uploads/'))
+      || synced.photoUrls.length !== 1
+      || synced.photoUrls.some((value) => !value.startsWith('/uploads/'))
     ) {
-      throw new Error(`repeat signature retry did not finish with durable upload URLs: ${JSON.stringify(synced)}`);
+      throw new Error(`Report retry did not finish with durable signature and photo URLs: ${JSON.stringify(synced)}`);
+    }
+
+    const firstBackendState = await page.evaluate(async (clientSubmissionId) => {
+      const response = await fetch('/api/my-form-submissions', { credentials: 'include' });
+      if (!response.ok) throw new Error(`my-form-submissions failed: ${response.status}`);
+      const matches = (await response.json()).filter(
+        (record) => record.client_submission_id === clientSubmissionId
+      );
+      return { count: matches.length, record: matches[0] || null };
+    }, queued.clientSubmissionId);
+    if (
+      firstBackendState.count !== 1
+      || firstBackendState.record?.id !== synced.backendRecordId
+      || firstBackendState.record?.site_id !== null
+      || firstBackendState.record?.photo_urls?.length !== 1
+      || firstBackendState.record.photo_urls.some((value) => !value.startsWith('/uploads/'))
+      || firstBackendState.record?.answers?.crews?.length !== 2
+      || firstBackendState.record.answers.crews.some(
+        (row) => !row.crew_signature?.startsWith('/uploads/')
+      )
+    ) {
+      throw new Error(`backend Report was not durably stored once after replay: ${JSON.stringify(firstBackendState)}`);
+    }
+
+    await page.evaluate(async (recordId) => {
+      const { get, put } = await import('/assets/js/db.js');
+      const record = await get('records', recordId);
+      record.backendRecordId = null;
+      record.syncStatus = 'queued';
+      record.syncedAt = '';
+      await put('records', record);
+      await put('queue', {
+        id: record.id,
+        kind: record.type,
+        ownerWorkerId: record.ownerWorkerId,
+        capturedAt: record.capturedAt,
+        createdAt: record.createdAt,
+        syncStartedAt: ''
+      });
+    }, queued.id);
+
+    const duplicateReplay = await replayQueuedSubmissions(page);
+    if (
+      duplicateReplay.flushed !== 1
+      || duplicateReplay.failed !== 0
+      || uploadRequests !== 4
+    ) {
+      throw new Error(`idempotent Report replay did not reuse its durable uploads: ${JSON.stringify({ duplicateReplay, uploadRequests })}`);
+    }
+    await waitForQueueCount(page, 0);
+
+    const finalState = await page.evaluate(async ({ recordId, clientSubmissionId }) => {
+      const { get } = await import('/assets/js/db.js');
+      const localRecord = await get('records', recordId);
+      const response = await fetch('/api/my-form-submissions', { credentials: 'include' });
+      if (!response.ok) throw new Error(`my-form-submissions failed: ${response.status}`);
+      const matches = (await response.json()).filter(
+        (record) => record.client_submission_id === clientSubmissionId
+      );
+      return {
+        local: {
+          syncStatus: localRecord?.syncStatus || '',
+          backendRecordId: localRecord?.backendRecordId || null,
+          clientSubmissionId: localRecord?.clientSubmissionId || ''
+        },
+        backendCount: matches.length,
+        backendRecord: matches[0] || null
+      };
+    }, { recordId: queued.id, clientSubmissionId: queued.clientSubmissionId });
+    if (
+      finalState.local.syncStatus !== 'synced'
+      || finalState.local.clientSubmissionId !== queued.clientSubmissionId
+      || finalState.local.backendRecordId !== synced.backendRecordId
+      || finalState.backendCount !== 1
+      || finalState.backendRecord?.id !== synced.backendRecordId
+    ) {
+      throw new Error(`forced Report replay created or returned the wrong durable submission: ${JSON.stringify(finalState)}`);
+    }
+
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await page.locator('#historyTab').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#refreshHistoryButton').click();
+    const myReport = page.locator('#historyList .record-form').filter({ hasText: formName });
+    await myReport.first().waitFor({ state: 'visible', timeout: 20000 });
+    if (await myReport.count() !== 1) {
+      throw new Error(`My Reports did not contain exactly one replayed Report: ${await myReport.count()}`);
+    }
+    const durableImageSources = await myReport.first().locator('img').evaluateAll((images) => (
+      images.map((image) => new URL(image.src).pathname)
+    ));
+    if (
+      durableImageSources.length !== 3
+      || durableImageSources.some((value) => !value.startsWith('/uploads/'))
+    ) {
+      throw new Error(`My Reports did not render durable photo/signature URLs: ${JSON.stringify(durableImageSources)}`);
     }
   } finally {
     await context.close();
@@ -1582,6 +2107,496 @@ async function checkDayworkRecordRendering(browser) {
     assertCleanDayworkText('supervisor review', reviewText);
   } finally {
     await supervisorContext.close();
+  }
+}
+
+async function checkReportOnlyExcludesDaywork(browser) {
+  const retainedContext = await newContext(browser, { reportOnly: false });
+  const retainedPage = await retainedContext.newPage();
+  const reportMarker = `Report boundary ${Date.now()}`;
+
+  try {
+    await loginAs(retainedPage, 'worker@example.com', 'worker');
+    await fillDayworkSubmission(retainedPage);
+    await retainedPage.locator('#submitTaskButton').click();
+    await retainedPage.locator('#taskFeedback')
+      .getByText('Daywork log form submitted for approval')
+      .waitFor({ timeout: 20000 });
+  } finally {
+    await retainedContext.close();
+  }
+
+  const reportContext = await newContext(browser, { reportOnly: true });
+  const page = await reportContext.newPage();
+  const scopedRequests = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if ([
+      '/api/work-forms',
+      '/api/my-form-submissions',
+      '/api/supervisor/review-queue',
+      '/api/supervisor/form-submissions/export.csv',
+      '/api/supervisor/form-submissions/export.pdf'
+    ].includes(url.pathname)) {
+      scopedRequests.push(url.toString());
+    }
+  });
+  const allRequestsAreReportScoped = (pathname) => {
+    const matches = scopedRequests
+      .map((value) => new URL(value))
+      .filter((url) => url.pathname === pathname);
+    return matches.length > 0 && matches.every((url) => url.searchParams.get('purpose') === 'report');
+  };
+
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.locator('.tab[data-tab-target="formTab"]').click();
+    await page.waitForFunction(() => (
+      [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent?.trim() === 'Inspection form')
+    ));
+
+    const reportTemplateOptions = await page.locator('#workFormSelect option').allTextContents();
+    if (
+      !reportTemplateOptions.includes('Inspection form')
+      || reportTemplateOptions.some((label) => /daywork/i.test(label))
+      || !allRequestsAreReportScoped('/api/work-forms')
+    ) {
+      throw new Error(`New Report did not enforce the report template boundary: ${JSON.stringify({
+        reportTemplateOptions,
+        scopedRequests
+      })}`);
+    }
+
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormDate').fill('2026-09-01');
+    await page.locator('#workFormField_inspection_area').fill(reportMarker);
+    await page.locator('#workFormField_inspection_result').selectOption('Pass');
+    await page.locator('#submitWorkFormButton').click();
+    await page.locator('#workFormFeedback').getByText('Inspection form submitted for review').waitFor({ timeout: 20000 });
+
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    const submittedReport = page.locator('#historyList .record-form').filter({ hasText: reportMarker }).first();
+    await submittedReport.waitFor({ state: 'visible', timeout: 20000 });
+    const myReportsText = await page.locator('#historyList').innerText();
+    if (
+      /Daywork log form/i.test(myReportsText)
+      || !allRequestsAreReportScoped('/api/my-form-submissions')
+    ) {
+      throw new Error(`My Reports crossed into Daywork: ${JSON.stringify({ myReportsText, scopedRequests })}`);
+    }
+
+    await logout(page);
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    const supervisorReport = page.locator('#reviewQueueList .record-form').filter({ hasText: reportMarker }).first();
+    await supervisorReport.waitFor({ state: 'visible', timeout: 20000 });
+    const supervisorReportsText = await page.locator('#reviewQueueList').innerText();
+    const templateFilters = await page.locator('#supervisorTemplateFilter option').allTextContents();
+    const dayworkPdfControl = page.locator('#exportDocumentSelect option[value="daywork-pdf"]');
+    const dayworkPdfState = await dayworkPdfControl.evaluate((option) => ({
+      hidden: option.hidden,
+      disabled: option.disabled,
+      visible: Boolean(option.getClientRects().length)
+    }));
+    if (
+      /Daywork log form/i.test(supervisorReportsText)
+      || templateFilters.some((label) => /daywork/i.test(label))
+      || !dayworkPdfState.hidden
+      || !dayworkPdfState.disabled
+      || dayworkPdfState.visible
+      || !allRequestsAreReportScoped('/api/supervisor/review-queue')
+    ) {
+      throw new Error(`Supervisor Reports crossed into Daywork: ${JSON.stringify({
+        supervisorReportsText,
+        templateFilters,
+        dayworkPdfState,
+        scopedRequests
+      })}`);
+    }
+
+    const exportResponsePromise = page.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/api/supervisor/form-submissions/export.csv'
+    ), { timeout: 20000 });
+    await page.locator('#exportReportsCsvButton').click();
+    const exportResponse = await exportResponsePromise;
+    if (
+      !exportResponse.ok()
+      || new URL(exportResponse.url()).searchParams.get('purpose') !== 'report'
+    ) {
+      throw new Error(`Report collection export was not report-scoped: ${exportResponse.url()}`);
+    }
+
+    const pdfResponsePromise = page.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/api/supervisor/form-submissions/export.pdf'
+    ), { timeout: 20000 });
+    await page.locator('#exportReportsPdfButton').click();
+    const pdfResponse = await pdfResponsePromise;
+    if (
+      !pdfResponse.ok()
+      || new URL(pdfResponse.url()).searchParams.get('purpose') !== 'report'
+    ) {
+      throw new Error(`Report PDF collection export was not report-scoped: ${pdfResponse.url()}`);
+    }
+  } finally {
+    await reportContext.close();
+  }
+}
+
+async function checkReportOnlyOfflineHistoryFallback(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const stamp = Date.now();
+  const queuedReportMarker = `Queued Report ${stamp}`;
+  const syncingReportMarker = `Syncing Report ${stamp}`;
+  const dayworkMarker = `Hidden Daywork ${stamp}`;
+  const staleReportMarker = `Stale synced Report ${stamp}`;
+  const attendanceMarker = `Hidden attendance ${stamp}`;
+
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.evaluate(async ({ markers }) => {
+      const { state } = await import('/assets/js/app-shell-state.js');
+      const { put } = await import('/assets/js/db.js');
+      const common = {
+        userId: state.user.id,
+        userName: state.user.fullName,
+        siteId: null,
+        siteName: 'Unassigned site',
+        createdAt: new Date().toISOString(),
+        answers: {},
+        fields: []
+      };
+      await Promise.all([
+        put('records', {
+          ...common,
+          id: `offline-report-queued-${markers.stamp}`,
+          type: 'form',
+          formId: 501,
+          formName: markers.queuedReport,
+          submissionPurpose: 'report',
+          syncStatus: 'queued'
+        }),
+        put('records', {
+          ...common,
+          id: `offline-report-syncing-${markers.stamp}`,
+          type: 'form',
+          formId: 502,
+          formName: markers.syncingReport,
+          submissionPurpose: 'report',
+          syncStatus: 'syncing'
+        }),
+        put('records', {
+          ...common,
+          id: `offline-daywork-${markers.stamp}`,
+          type: 'form',
+          formId: 503,
+          formName: markers.daywork,
+          submissionPurpose: 'daywork',
+          syncStatus: 'queued'
+        }),
+        put('records', {
+          ...common,
+          id: `offline-report-synced-${markers.stamp}`,
+          type: 'form',
+          formId: 504,
+          formName: markers.staleReport,
+          submissionPurpose: 'report',
+          syncStatus: 'synced',
+          backendRecordId: 999999
+        }),
+        put('records', {
+          ...common,
+          id: `offline-attendance-${markers.stamp}`,
+          type: 'attendance',
+          notes: markers.attendance,
+          syncStatus: 'queued'
+        })
+      ]);
+    }, {
+      markers: {
+        stamp,
+        queuedReport: queuedReportMarker,
+        syncingReport: syncingReportMarker,
+        daywork: dayworkMarker,
+        staleReport: staleReportMarker,
+        attendance: attendanceMarker
+      }
+    });
+
+    await page.route('**/api/my-form-submissions?**', (route) => route.abort('failed'));
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await page.locator('#refreshHistoryButton').click();
+    await page.waitForFunction((marker) => (
+      document.querySelector('#historyList')?.textContent?.includes(marker)
+    ), queuedReportMarker, { timeout: 15000 });
+
+    const historyText = await page.locator('#historyList').innerText();
+    if (
+      !historyText.includes(queuedReportMarker)
+      || !historyText.includes(syncingReportMarker)
+      || historyText.includes(dayworkMarker)
+      || historyText.includes(staleReportMarker)
+      || historyText.includes(attendanceMarker)
+    ) {
+      throw new Error(`offline My Reports fallback crossed the Report queue boundary: ${historyText}`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkExplicitReportPurposeOverridesDayworkName(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const stamp = Date.now();
+  const templateName = `Daywork PPE Issue Report ${stamp}`;
+  const answerMarker = `Legitimate report answer ${stamp}`;
+
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    const createdTemplate = await page.evaluate(async ({ name }) => {
+      const { createWorkForm } = await import('/assets/js/api-client.js');
+      return await createWorkForm({
+        name,
+        description: 'Legitimate PPE safety Report despite its historical name.',
+        fields: [{ id: 'issue', label: 'PPE issue', type: 'text', required: true }]
+      });
+    }, { name: templateName });
+    if (createdTemplate.template_purpose !== 'report') {
+      throw new Error(`backend did not classify the legitimate named Report explicitly: ${JSON.stringify(createdTemplate)}`);
+    }
+
+    await logout(page);
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.locator('.tab[data-tab-target="formTab"]').click();
+    await page.waitForFunction((name) => (
+      [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent?.trim() === name)
+    ), templateName, { timeout: 15000 });
+    await page.locator('#workFormSelect').selectOption({ label: templateName });
+    await page.locator('#workFormDate').fill('2026-09-01');
+    await page.locator('#workFormField_issue').fill(answerMarker);
+    await page.locator('#submitWorkFormButton').click();
+    await page.locator('#workFormFeedback').getByText(`${templateName} submitted for review`).waitFor({ timeout: 20000 });
+
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await page.locator('#historyList .record-form').filter({ hasText: answerMarker }).first()
+      .waitFor({ state: 'visible', timeout: 20000 });
+
+    await logout(page);
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await page.locator('#reviewQueueList .record-form').filter({ hasText: answerMarker }).first()
+      .waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForFunction((name) => (
+      [...document.querySelectorAll('#supervisorTemplateFilter option')]
+        .some((option) => option.textContent?.trim() === name)
+    ), templateName, { timeout: 15000 });
+    const templateOptions = await page.locator('#supervisorTemplateFilter option').allTextContents();
+    if (!templateOptions.includes(templateName)) {
+      throw new Error(`Supervisor Reports hid an explicit Report because of its name: ${JSON.stringify(templateOptions)}`);
+    }
+  } finally {
+    await context.close();
+  }
+
+  const retainedContext = await newContext(browser, { reportOnly: false });
+  const retainedPage = await retainedContext.newPage();
+  try {
+    await loginAs(retainedPage, 'worker@example.com', 'worker');
+    await retainedPage.locator('.tab[data-tab-target="taskTab"]').click();
+    await retainedPage.locator('#dayworkFormField_client').waitFor({ state: 'visible', timeout: 15000 });
+    const retainedDayworkState = await retainedPage.evaluate((reportName) => ({
+      hint: document.querySelector('#dayworkFormHint')?.textContent || '',
+      hasReportField: Boolean(document.querySelector('#dayworkFormField_issue')),
+      reportTemplateAvailable: [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent?.trim() === reportName)
+    }), templateName);
+    if (
+      retainedDayworkState.hint.includes(templateName)
+      || retainedDayworkState.hasReportField
+      || !retainedDayworkState.reportTemplateAvailable
+    ) {
+      throw new Error(`retained Daywork selector did not respect explicit purpose: ${JSON.stringify(retainedDayworkState)}`);
+    }
+  } finally {
+    await retainedContext.close();
+  }
+}
+
+async function checkReportOnlyReplayScope(browser) {
+  let context = await newContext(browser, { reportOnly: true });
+  let page = await context.newPage();
+  const postRequests = [];
+  const trackPostRequests = (targetPage) => {
+    targetPage.on('request', (request) => {
+      const url = new URL(request.url());
+      if (request.method() === 'POST' && [
+        '/api/attendance',
+        '/api/task-logs',
+        '/api/form-submissions'
+      ].includes(url.pathname)) {
+        postRequests.push({
+          path: url.pathname,
+          body: request.postDataJSON()
+        });
+      }
+    });
+  };
+  trackPostRequests(page);
+
+  const seedQueue = async (targetPage, suffix, includeHidden = false) => await targetPage.evaluate(async ({ queueSuffix, withHidden }) => {
+    const { state } = await import('/assets/js/app-shell-state.js');
+    const { getWorkForms } = await import('/assets/js/api-client.js');
+    const { put } = await import('/assets/js/db.js');
+    const reportForm = state.workForms.find((form) => form.name === 'Inspection form');
+    const dayworkForm = (await getWorkForms('daywork'))[0];
+    if (!reportForm || (withHidden && !dayworkForm)) throw new Error('Replay fixture forms are unavailable.');
+    const now = new Date().toISOString();
+    const owner = {
+      ownerWorkerId: state.user.id,
+      ownerWorkerName: state.user.fullName,
+      userId: state.user.id,
+      userName: state.user.fullName,
+      capturedAt: now,
+      createdAt: now,
+      syncStatus: 'queued',
+      photoDataUrls: [],
+      photoUrls: [],
+      photoMetadata: []
+    };
+    const reportId = `report-replay-${queueSuffix}`;
+    const records = [{
+      ...owner,
+      id: reportId,
+      clientSubmissionId: reportId,
+      type: 'form',
+      submissionPurpose: 'report',
+      formId: reportForm.id,
+      formName: `Replay Report ${queueSuffix}`,
+      fields: reportForm.fields,
+      answers: {
+        inspection_area: `Replay area ${queueSuffix}`,
+        inspection_result: 'Pass',
+        issues_found: '',
+        follow_up_required: false
+      },
+      siteId: null,
+      siteName: 'Unassigned site',
+      workDate: '2026-09-01'
+    }];
+    if (withHidden) {
+      records.push(
+        {
+          ...owner,
+          id: `daywork-replay-${queueSuffix}`,
+          clientSubmissionId: `daywork-replay-${queueSuffix}`,
+          type: 'form',
+          submissionPurpose: 'daywork',
+          formId: dayworkForm.id,
+          formName: dayworkForm.name,
+          fields: dayworkForm.fields,
+          answers: {},
+          siteId: null,
+          siteName: 'Unassigned site',
+          workDate: '2026-09-01'
+        },
+        {
+          ...owner,
+          id: `attendance-replay-${queueSuffix}`,
+          clientSubmissionId: `attendance-replay-${queueSuffix}`,
+          type: 'attendance',
+          action: 'check_in',
+          siteId: null,
+          siteName: 'Unassigned site',
+          location: { latitude: -36.8485, longitude: 174.7633, accuracy: 10, capturedAt: now }
+        },
+        {
+          ...owner,
+          id: `task-replay-${queueSuffix}`,
+          clientSubmissionId: `task-replay-${queueSuffix}`,
+          type: 'task',
+          summary: 'Hidden task replay fixture',
+          siteId: null,
+          siteName: 'Unassigned site',
+          workDate: '2026-09-01'
+        }
+      );
+    }
+    await Promise.all(records.flatMap((record) => [
+      put('records', record),
+      put('queue', {
+        id: record.id,
+        kind: record.type,
+        ownerWorkerId: record.ownerWorkerId,
+        capturedAt: record.capturedAt,
+        createdAt: record.createdAt,
+        syncStartedAt: ''
+      })
+    ]));
+    return {
+      reportId,
+      reportFormId: reportForm.id,
+      hiddenIds: records.slice(1).map((record) => record.id)
+    };
+  }, { queueSuffix: suffix, withHidden: includeHidden });
+
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    const automatic = await seedQueue(page, `automatic-${Date.now()}`, true);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.waitForFunction(async (recordId) => {
+      const { get } = await import('/assets/js/db.js');
+      return (await get('records', recordId))?.syncStatus === 'synced';
+    }, automatic.reportId, { timeout: 20000, polling: 100 });
+    await page.waitForFunction(() => (
+      document.querySelector('#syncIndicator')?.textContent?.includes('Online - 1 synced')
+    ), null, { timeout: 10000 });
+
+    const automaticHidden = await page.evaluate(async (ids) => {
+      const { get } = await import('/assets/js/db.js');
+      return await Promise.all(ids.map(async (id) => ({ id, record: await get('records', id), queue: await get('queue', id) })));
+    }, automatic.hiddenIds);
+    const automaticPosts = [...postRequests];
+    if (
+      automaticPosts.length !== 1
+      || automaticPosts[0].path !== '/api/form-submissions'
+      || Number(automaticPosts[0].body.form_id) !== Number(automatic.reportFormId)
+      || automaticHidden.some((item) => item.record?.syncStatus !== 'queued' || !item.queue)
+    ) {
+      throw new Error(`report-only automatic replay crossed hidden queues: ${JSON.stringify({ automaticPosts, automaticHidden })}`);
+    }
+
+    await context.close();
+    context = await newContext(browser, { reportOnly: true });
+    page = await context.newPage();
+    postRequests.length = 0;
+    trackPostRequests(page);
+    await loginAs(page, 'worker@example.com', 'worker');
+
+    const manual = await seedQueue(page, `manual-${Date.now()}`, false);
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await page.locator('#refreshHistoryButton').click();
+    const manualCard = page.locator('#historyList .record-form').filter({ hasText: `Replay Report manual-` }).first();
+    await manualCard.waitFor({ state: 'visible', timeout: 15000 });
+    const manualRequestPromise = page.waitForRequest((request) => (
+      request.method() === 'POST' && new URL(request.url()).pathname === '/api/form-submissions'
+    ), { timeout: 15000 });
+    await manualCard.getByRole('button', { name: 'Retry sync' }).click();
+    await manualRequestPromise;
+    await page.waitForFunction(async (recordId) => {
+      const { get } = await import('/assets/js/db.js');
+      return (await get('records', recordId))?.syncStatus === 'synced';
+    }, manual.reportId, { timeout: 20000, polling: 100 });
+
+    if (
+      postRequests.length !== 1
+      || postRequests.some((request) => request.path !== '/api/form-submissions')
+      || postRequests.some((request) => Number(request.body.form_id) !== Number(manual.reportFormId))
+    ) {
+      throw new Error(`report-only manual replay crossed hidden queues: ${JSON.stringify(postRequests)}`);
+    }
+  } finally {
+    await context.close();
   }
 }
 
@@ -1980,7 +2995,21 @@ async function checkStaffGlobalAdminScoping(browser) {
       }
       await route.continue();
     });
+    const refreshWarningCreateResponsePromise = adminPage.waitForResponse((response) => (
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/supervisor/users'
+    ), { timeout: 20000 });
+    const refreshWarningListResponsePromise = adminPage.waitForResponse((response) => (
+      response.request().method() === 'GET'
+      && new URL(response.url()).pathname === '/api/supervisor/users'
+      && response.status() === 503
+    ), { timeout: 20000 });
     await adminPage.locator('#staffUserSubmitButton').click();
+    const refreshWarningCreateResponse = await refreshWarningCreateResponsePromise;
+    if (!refreshWarningCreateResponse.ok()) {
+      throw new Error(`Staff refresh-warning setup failed to create its user: ${refreshWarningCreateResponse.status()}`);
+    }
+    await refreshWarningListResponsePromise;
     await adminPage.locator('#toastViewport .toast')
       .filter({ hasText: 'Staff user created, but the updated list could not load.' })
       .waitFor({ timeout: 20000 });
@@ -2446,7 +3475,7 @@ async function checkSupervisorWorkFormCardBuilder(browser) {
       throw new Error(`${error.message}; state=${JSON.stringify(debug)}; pageErrors=${JSON.stringify(pageErrors)}`);
     });
     const createPayload = createRequest.postDataJSON();
-    await page.locator('#toastViewport .toast').filter({ hasText: 'Work form created.' }).waitFor({ timeout: 20000 });
+    await page.locator('#toastViewport .toast').filter({ hasText: 'Report Template created.' }).waitFor({ timeout: 20000 });
     await page.waitForFunction(() => (
       document.querySelector('#workFormCreatePanel')?.hidden === true
       && document.querySelector('#addWorkFormButton')?.getAttribute('aria-expanded') === 'false'
@@ -2566,7 +3595,7 @@ async function checkSupervisorWorkFormCardBuilder(browser) {
     }
     const updateRequest = await updateRequestPromise;
     const updatePayload = updateRequest.postDataJSON();
-    await page.locator('#toastViewport .toast').filter({ hasText: 'Work form updated.' }).waitFor({ timeout: 20000 });
+    await page.locator('#toastViewport .toast').filter({ hasText: 'Report Template updated.' }).waitFor({ timeout: 20000 });
 
     if (updatePayload.fields[0].id !== resultId || updatePayload.fields[0].label !== 'Inspection result') {
       throw new Error(`edit did not preserve the stable field id: ${JSON.stringify(updatePayload.fields[0])}`);
@@ -3110,7 +4139,7 @@ async function checkSupervisorWorkspaceNavigation(browser) {
     hasTouch: false
   });
   const page = await context.newPage();
-  const expectedWorkspaces = ['overview', 'review', 'reports', 'people', 'forms', 'audit'];
+  const expectedWorkspaces = ['overview', 'review', 'reports', 'forms', 'people', 'audit'];
 
   try {
     await loginAs(page, 'supervisor@example.com', 'supervisor');
@@ -3386,6 +4415,7 @@ async function checkSupervisorWorkspaceNavigation(browser) {
 async function checkColdOfflineWorkerLaunch(browser) {
   const context = await newContext(browser, {
     baseURL: productionAppBase,
+    reportOnly: false,
     geolocation: { latitude: -36.8485, longitude: 174.7633 },
     permissions: ['geolocation'],
     serviceWorkers: 'allow'
@@ -3599,7 +4629,7 @@ async function checkColdOfflineWorkerLaunch(browser) {
         timeout: 5000
       });
       protectedPathServedAppShell = await protectedNavigation.evaluate(() => (
-        document.title === 'Leader Field Operations'
+        document.title === 'Leader Field Reports'
         || Boolean(document.querySelector('#workerView'))
       ));
     } catch {
@@ -3662,7 +4692,10 @@ function installWaitingServiceWorkerMock() {
 }
 
 async function checkWorkFormAutosaveAndUpdateProtection(browser) {
-  const context = await newContext(browser, { initScript: installWaitingServiceWorkerMock });
+  const context = await newContext(browser, {
+    reportOnly: false,
+    initScript: installWaitingServiceWorkerMock
+  });
   const page = await context.newPage();
   const inspectionMarker = 'North elevation final inspection draft';
   const dayworkMarker = 'Client draft retained independently';
@@ -4218,7 +5251,10 @@ async function checkPrimaryGradientContrast(browser) {
 }
 
 async function checkServiceWorkerUpdatePrompt(browser) {
-  const context = await newContext(browser, { initScript: installWaitingServiceWorkerMock });
+  const context = await newContext(browser, {
+    reportOnly: true,
+    initScript: installWaitingServiceWorkerMock
+  });
   const page = await context.newPage();
 
   try {
@@ -4312,15 +5348,15 @@ async function checkChineseTranslation(browser) {
     await page.locator('#staffUserCreatePanel').waitFor({ state: 'hidden' });
 
     await openAdminWorkspace(page, 'forms');
-    if ((await page.locator('#addWorkFormButton').innerText()).trim() !== '添加工作表单') {
-      throw new Error('Add Work Form action was not translated before opening the builder');
+    if ((await page.locator('#addWorkFormButton').innerText()).trim() !== '添加报告模板') {
+      throw new Error('Add Report Template action was not translated before opening the builder');
     }
     await page.locator('#addWorkFormButton').click();
     await page.locator('#addWorkFormFieldButton').click();
     const fieldCard = page.locator('#workFormFieldCards > [data-work-form-field-card]').first();
     await fieldCard.waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForFunction(() => (
-      document.querySelector('#workFormFieldCards')?.getAttribute('aria-label') === '工作表单字段'
+      document.querySelector('#workFormFieldCards')?.getAttribute('aria-label') === '报告模板字段'
     ));
 
     const builderState = await fieldCard.evaluate((card) => ({
@@ -4422,7 +5458,7 @@ async function checkChineseTranslation(browser) {
       notifications: document.querySelector('#toastViewport')?.getAttribute('aria-label') || '',
       builderLabel: document.querySelector('#workFormFieldCards')?.getAttribute('aria-label') || ''
     }));
-    if (restored.notifications !== 'Notifications' || restored.builderLabel !== 'Work form fields') {
+    if (restored.notifications !== 'Notifications' || restored.builderLabel !== 'Report Template fields') {
       throw new Error(`English labels were not restored after language toggle: ${JSON.stringify(restored)}`);
     }
   } finally {
@@ -4464,22 +5500,27 @@ async function main() {
     await runCheck('browser geolocation grant enables attendance capture', () => checkLoginAndGrantedGeolocation(browser));
     await runCheck('attendance presents one contextual action with a secondary correction path', () => checkContextualAttendanceAction(browser));
     await runCheck('normal Worker guide compacts and Site priority follows attendance context', () => checkNormalWorkerAttendanceShortcuts(browser));
+    await runCheck('normal Workers submit active Work Forms and see their own history', () => checkNormalWorkerWorkFormSubmission(browser));
     await runCheck('browser geolocation denial shows recoverable error', () => checkDeniedGeolocation(browser));
     await runCheck('Daywork team rows use searchable member picker', () => checkDayworkTeamMemberPicker(browser));
     await runCheck('Daywork history and review hide helper fields', () => checkDayworkRecordRendering(browser));
+    await runCheck('report-only New Report, My Reports, queue, and exports exclude Daywork', () => checkReportOnlyExcludesDaywork(browser));
+    await runCheck('offline My Reports fallback shows only queued Report submissions', () => checkReportOnlyOfflineHistoryFallback(browser));
+    await runCheck('explicit Report purpose overrides Daywork words in a template name', () => checkExplicitReportPurposeOverridesDayworkName(browser));
+    await runCheck('report-only automatic and manual replay skip hidden record queues', () => checkReportOnlyReplayScope(browser));
     await runCheck('reconnect preserves in-progress Daywork and Work Form answers', () => checkReconnectPreservesWorkerForms(browser));
     await runCheck('staff users scope global admin controls by role', () => checkStaffGlobalAdminScoping(browser));
     await runCheck('supervisors create and edit conditional Work Forms with field cards', () => checkSupervisorWorkFormCardBuilder(browser));
     await runCheck('Offline Submission ownership, occurrence time, and idempotent replay', () => checkOfflineQueueAndReplay(browser));
-    await runCheck('repeat signatures resume after a partial upload failure', () => checkRepeatSignatureUploadResume(browser));
+    await runCheck('Report photos and repeat signatures resume once after partial upload failure', () => checkRepeatSignatureUploadResume(browser));
     await runCheck('supervisor review shows pending outside-site worker record', () => checkSupervisorReview(browser));
     await runCheck('department switching replaces map points and clears stale selection', () => checkSupervisorMapDepartmentSwitch(browser));
     await runCheck('supervisor workspaces remain navigable on desktop and mobile', () => checkSupervisorWorkspaceNavigation(browser));
     await runCheck('supervisor Review Desk is responsive', () => checkSupervisorReviewDeskLayout(browser));
     await runCheck('offline Review Queue is explicit and read-only', () => checkOfflineReviewQueueReadOnly(browser));
-    await runCheck('installed Worker app cold-launches offline and queues attendance', () => checkColdOfflineWorkerLaunch(browser));
-    await runCheck('Work Form autosave protects drafts and app updates', () => checkWorkFormAutosaveAndUpdateProtection(browser));
-    await runCheck('service worker update prompt posts SKIP_WAITING', () => checkServiceWorkerUpdatePrompt(browser));
+    await runCheck('retained attendance app cold-launches offline and queues attendance', () => checkColdOfflineWorkerLaunch(browser));
+    await runCheck('retained Work Form drafts protect production-mode app updates', () => checkWorkFormAutosaveAndUpdateProtection(browser));
+    await runCheck('report-only service worker update prompt posts SKIP_WAITING', () => checkServiceWorkerUpdatePrompt(browser));
   } finally {
     await browser.close();
   }

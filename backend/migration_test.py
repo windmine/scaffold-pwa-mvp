@@ -50,6 +50,8 @@ EXPECTED_VERSIONS = [
     "0015_work_form_definition_snapshots",
     "0016_review_queue_indexes",
     "0017_global_admin_supervisor_invariant",
+    "0018_report_review_workflow",
+    "0019_report_daywork_purpose",
 ]
 
 
@@ -108,6 +110,8 @@ def copy_migrations_before_0014(target: Path):
             "0015_work_form_definition_snapshots.py",
             "0016_review_queue_indexes.py",
             "0017_global_admin_supervisor_invariant.py",
+            "0018_report_review_workflow.py",
+            "0019_report_daywork_purpose.py",
         }:
             continue
         shutil.copy2(path, target / path.name)
@@ -118,7 +122,36 @@ def copy_migrations_before_0017(target: Path):
     target.mkdir(parents=True, exist_ok=True)
 
     for path in source.glob("*.py"):
-        if path.name in {"__init__.py", "0017_global_admin_supervisor_invariant.py"}:
+        if path.name in {
+            "__init__.py",
+            "0017_global_admin_supervisor_invariant.py",
+            "0018_report_review_workflow.py",
+            "0019_report_daywork_purpose.py",
+        }:
+            continue
+        shutil.copy2(path, target / path.name)
+
+
+def copy_migrations_before_0018(target: Path):
+    source = Path(__file__).resolve().parent / "migrations" / "versions"
+    target.mkdir(parents=True, exist_ok=True)
+
+    for path in source.glob("*.py"):
+        if path.name in {
+            "__init__.py",
+            "0018_report_review_workflow.py",
+            "0019_report_daywork_purpose.py",
+        }:
+            continue
+        shutil.copy2(path, target / path.name)
+
+
+def copy_migrations_before_0019(target: Path):
+    source = Path(__file__).resolve().parent / "migrations" / "versions"
+    target.mkdir(parents=True, exist_ok=True)
+
+    for path in source.glob("*.py"):
+        if path.name in {"__init__.py", "0019_report_daywork_purpose.py"}:
             continue
         shutil.copy2(path, target / path.name)
 
@@ -212,6 +245,12 @@ def test_fresh_database():
                 "deletion_reason",
                 "form_definition_version",
                 "definition_snapshot_json",
+                "workflow_status",
+                "supervisor_note",
+                "reviewing_supervisor_id",
+                "review_started_at",
+                "resolved_at",
+                "submission_purpose",
             },
         )
         assert_contains(
@@ -254,7 +293,7 @@ def test_fresh_database():
         assert_contains(
             "fresh workform columns",
             columns(engine, "workform"),
-            {"department_id", "definition_version"},
+            {"department_id", "definition_version", "template_purpose"},
         )
         assert_review_queue_indexes(engine, "fresh")
         assert_migration_recorded(engine)
@@ -404,6 +443,12 @@ def test_legacy_database():
                 "deletion_reason",
                 "form_definition_version",
                 "definition_snapshot_json",
+                "workflow_status",
+                "supervisor_note",
+                "reviewing_supervisor_id",
+                "review_started_at",
+                "resolved_at",
+                "submission_purpose",
             },
         )
         with engine.begin() as connection:
@@ -424,6 +469,659 @@ def test_legacy_database():
     print("ok - legacy database migration")
 
 
+def test_report_review_workflow_migration():
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
+        root = Path(directory)
+        old_migrations_dir = root / "pre-0018-migrations"
+        copy_migrations_before_0018(old_migrations_dir)
+        engine = make_engine(root / "report-review-workflow.db")
+        applied_before = run_migrations(engine, migrations_dir=old_migrations_dir)
+        if applied_before != EXPECTED_VERSIONS[:-2]:
+            raise AssertionError(
+                f"report workflow setup: expected {EXPECTED_VERSIONS[:-2]}, got {applied_before}"
+            )
+
+        legacy_payload = {
+            "site_id": 77,
+            "work_date": "2026-01-31",
+            "answers_json": '{"issue":"Missing PPE","worker_signature":"/uploads/legacy-signature.png"}',
+            "photo_urls": '["/uploads/legacy-photo.png"]',
+            "photo_metadata": '[{"url":"/uploads/legacy-photo.png","name":"legacy-photo.png"}]',
+            "client_submission_id": "legacy-report-replay-key",
+            "form_definition_version": 4,
+            "definition_snapshot_json": '{"version":4,"name":"Legacy PPE Report","description":null,"fields":[]}',
+        }
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                """
+                INSERT INTO "user" (
+                    id, email, name, password_hash, role, status,
+                    department_id, is_global_admin, worker_class
+                ) VALUES (
+                    1, 'report-reviewer@example.com', 'Report Reviewer', 'test',
+                    'supervisor', 'active', 1, FALSE, NULL
+                )
+                """
+            )
+            connection.exec_driver_sql(
+                """
+                INSERT INTO workformsubmission (
+                    id, department_id, form_id, worker_id, answers_json, status, created_at
+                ) VALUES
+                    (1, 1, 1, 10, '{}', 'pending',  '2026-02-01T00:00:00Z'),
+                    (2, 1, 1, 11, '{}', 'approved', '2026-02-02T00:00:00Z'),
+                    (3, 1, 1, 12, '{}', 'rejected', '2026-02-03T00:00:00Z'),
+                    (4, 1, 1, 13, '{}', 'legacy',   '2026-02-04T00:00:00Z'),
+                    (5, 1, 1, 14, '{}', 'approved', '2026-02-05T00:00:00Z')
+                """
+            )
+            connection.exec_driver_sql(
+                """
+                UPDATE workformsubmission
+                SET site_id = ?, work_date = ?, answers_json = ?, photo_urls = ?,
+                    photo_metadata = ?, client_submission_id = ?,
+                    form_definition_version = ?, definition_snapshot_json = ?
+                WHERE id = 1
+                """,
+                tuple(legacy_payload.values()),
+            )
+            connection.exec_driver_sql(
+                """
+                INSERT INTO auditevent (
+                    department_id, actor_id, action, entity_type, entity_id,
+                    summary, created_at
+                ) VALUES (
+                    1, 1, 'review_decision', 'form', 2,
+                    'Approved form record #2', '2026-02-03T04:05:06Z'
+                )
+                """
+            )
+            connection.exec_driver_sql(
+                """
+                INSERT INTO auditevent (
+                    department_id, actor_id, action, entity_type, entity_id,
+                    summary, created_at
+                ) VALUES (
+                    1, 1, 'form_submission_manual_create', 'form_submission', 5,
+                    'Added approved Report for Worker', '2026-02-05T06:07:08Z'
+                )
+                """
+            )
+
+        applied = run_migrations(engine)
+        if applied != [
+            "0018_report_review_workflow",
+            "0019_report_daywork_purpose",
+        ]:
+            raise AssertionError(f"report workflow migration: unexpected versions {applied}")
+
+        with engine.begin() as connection:
+            rows = connection.exec_driver_sql(
+                """
+                SELECT id, status, workflow_status, reviewing_supervisor_id,
+                       review_started_at, resolved_at, supervisor_note
+                FROM workformsubmission
+                ORDER BY id
+                """
+            ).all()
+
+        expected = [
+            (1, "pending", "submitted", None, None, None, None),
+            (
+                2,
+                "approved",
+                "resolved",
+                1,
+                "2026-02-03T04:05:06Z",
+                "2026-02-03T04:05:06Z",
+                None,
+            ),
+            (3, "rejected", "resolved", None, None, None, None),
+            (4, "legacy", "submitted", None, None, None, None),
+            (
+                5,
+                "approved",
+                "resolved",
+                1,
+                "2026-02-05T06:07:08Z",
+                "2026-02-05T06:07:08Z",
+                None,
+            ),
+        ]
+        if rows != expected:
+            raise AssertionError(f"report workflow backfill: unexpected rows {rows}")
+
+        with engine.begin() as connection:
+            preserved_payload = connection.exec_driver_sql(
+                """
+                SELECT site_id, work_date, answers_json, photo_urls, photo_metadata,
+                       client_submission_id, form_definition_version,
+                       definition_snapshot_json
+                FROM workformsubmission
+                WHERE id = 1
+                """
+            ).one()
+        if preserved_payload != tuple(legacy_payload.values()):
+            raise AssertionError(
+                f"report workflow migration changed legacy submitted content: {preserved_payload}"
+            )
+
+        workflow_columns = column_details(engine, "workformsubmission")
+        workflow_column = workflow_columns["workflow_status"]
+        if workflow_column["nullable"] or "submitted" not in str(workflow_column["default"]):
+            raise AssertionError(
+                f"report workflow column must be non-null with submitted default: {workflow_column}"
+            )
+        for column_name in (
+            "supervisor_note",
+            "reviewing_supervisor_id",
+            "review_started_at",
+            "resolved_at",
+        ):
+            if not workflow_columns[column_name]["nullable"]:
+                raise AssertionError(f"historical review metadata must remain nullable: {column_name}")
+
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                """
+                INSERT INTO workformsubmission (
+                    id, department_id, form_id, worker_id, answers_json, status, created_at
+                ) VALUES (6, 1, 1, 15, '{}', 'pending', '2026-02-06T00:00:00Z')
+                """
+            )
+            default_workflow = connection.exec_driver_sql(
+                "SELECT workflow_status FROM workformsubmission WHERE id = 6"
+            ).scalar_one()
+        if default_workflow != "submitted":
+            raise AssertionError("new Report row did not receive the submitted workflow default")
+
+        assert_contains(
+            "report workflow indexes",
+            index_names(engine, "workformsubmission"),
+            {
+                "ix_workformsubmission_workflow_status",
+                "ix_workformsubmission_reviewing_supervisor_id",
+                "ix_workformsubmission_report_workflow",
+            },
+        )
+        assert_statement_rejected(
+            engine,
+            "report workflow status update",
+            "UPDATE workformsubmission SET workflow_status = 'invalid' WHERE id = 1",
+        )
+        assert_statement_rejected(
+            engine,
+            "report workflow status insert",
+            """
+            INSERT INTO workformsubmission (
+                id, department_id, form_id, worker_id, answers_json, status,
+                workflow_status, created_at
+            ) VALUES (7, 1, 1, 16, '{}', 'pending', 'invalid', '2026-02-07T00:00:00Z')
+            """,
+        )
+        assert_statement_rejected(
+            engine,
+            "report workflow null update",
+            "UPDATE workformsubmission SET workflow_status = NULL WHERE id = 1",
+        )
+        assert_migration_recorded(engine)
+        if run_migrations(engine) != []:
+            raise AssertionError("report workflow migration was not idempotent on a second run")
+        engine.dispose()
+
+    print("ok - report review workflow status backfill")
+
+
+def test_report_daywork_purpose_migration():
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
+        root = Path(directory)
+        old_migrations_dir = root / "pre-0019-migrations"
+        copy_migrations_before_0019(old_migrations_dir)
+        engine = make_engine(root / "report-daywork-purpose.db")
+        applied_before = run_migrations(engine, migrations_dir=old_migrations_dir)
+        if applied_before != EXPECTED_VERSIONS[:-1]:
+            raise AssertionError(
+                f"purpose setup: expected {EXPECTED_VERSIONS[:-1]}, got {applied_before}"
+            )
+
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                """
+                INSERT INTO workform (
+                    id, department_id, name, description, fields_json,
+                    definition_version, status, created_at
+                ) VALUES
+                    (10, 1, 'Daywork log form', 'Built-in Daywork',
+                     '[{"id":"work_completed"},{"id":"hours_worked"},{"id":"materials_used"},{"id":"safety_notes"},{"id":"worker_signature"}]',
+                     7, 'active',
+                     '2026-08-01T00:00:00Z'),
+                    (11, 1, 'PPE issue form', 'Worker Report', '[]', 3, 'active',
+                     '2026-08-02T00:00:00Z'),
+                    (12, 1, 'Legacy labour docket', 'Renamed legacy template',
+                     '[{"id":"teams"},{"id":"team_people"},{"id":"team_time"},{"id":"team_man_hours"},{"id":"job_description"},{"id":"signature"}]',
+                     5, 'active', '2026-08-03T00:00:00Z'),
+                    (13, 2, 'Daywork log form', 'PPE issue report with a misleading legacy name',
+                     '[{"id":"issue"},{"id":"worker_signature"}]',
+                     1, 'active', '2026-08-04T00:00:00Z'),
+                    (14, 1, 'Legacy labour evidence', 'Template edited after submissions',
+                     '[{"id":"custom_note"}]',
+                     9, 'active', '2026-08-05T00:00:00Z')
+                """
+            )
+            connection.exec_driver_sql(
+                """
+                INSERT INTO workformsubmission (
+                    id, department_id, form_id, worker_id, site_id, work_date,
+                    answers_json, photo_urls, photo_metadata, client_submission_id,
+                    form_definition_version, definition_snapshot_json, status,
+                    workflow_status, supervisor_note, reviewing_supervisor_id,
+                    review_started_at, resolved_at, created_at
+                ) VALUES
+                    (20, 1, 10, 100, 77, '2026-08-01',
+                     '{"hours":8}', '["/uploads/daywork.png"]',
+                     '[{"url":"/uploads/daywork.png"}]', 'daywork-evidence',
+                     7, '{"version":7,"name":"Daywork log form","fields":[{"id":"work_completed"},{"id":"hours_worked"},{"id":"materials_used"},{"id":"safety_notes"},{"id":"worker_signature"}]}',
+                     'approved', 'resolved', 'Checked', 900,
+                     '2026-08-02T03:00:00Z', '2026-08-02T04:00:00Z',
+                     '2026-08-01T09:00:00Z'),
+                    (21, 1, 11, 101, NULL, '2026-08-02',
+                     '{"issue":"Missing helmet"}', '["/uploads/report.png"]',
+                     '[{"url":"/uploads/report.png"}]', 'report-evidence',
+                     3, '{"version":3,"name":"PPE issue form","fields":[]}',
+                     'pending', 'in_review', 'Investigating', 901,
+                     '2026-08-03T03:00:00Z', NULL,
+                     '2026-08-02T09:00:00Z'),
+                    (25, 1, 14, 102, NULL, '2026-08-03',
+                     '{"teams":[]}', NULL, NULL, 'renamed-daywork-evidence',
+                     8, '{"version":8,"name":"Daywork log form","fields":[{"id":"teams"},{"id":"team_people"},{"id":"team_time"},{"id":"team_man_hours"},{"id":"job_description"},{"id":"signature"}]}',
+                     'pending', 'submitted', NULL, NULL, NULL, NULL,
+                     '2026-08-03T09:00:00Z'),
+                    (30, 1, 10, 103, NULL, '2026-08-04',
+                     '{"issue":"Historical Report"}', NULL, NULL,
+                     'historical-report-evidence',
+                     6, '{"version":6,"name":"PPE issue form","fields":[{"id":"issue"},{"id":"worker_signature"}]}',
+                     'pending', 'submitted', NULL, NULL, NULL, NULL,
+                     '2026-08-04T09:00:00Z')
+                """
+            )
+            evidence_before = connection.exec_driver_sql(
+                """
+                SELECT id, department_id, form_id, worker_id, site_id, work_date,
+                       answers_json, photo_urls, photo_metadata, client_submission_id,
+                       form_definition_version, definition_snapshot_json, status,
+                       workflow_status, supervisor_note, reviewing_supervisor_id,
+                       review_started_at, resolved_at, created_at
+                FROM workformsubmission
+                WHERE id IN (20, 21, 25, 30)
+                ORDER BY id
+                """
+            ).all()
+
+        applied = run_migrations(engine)
+        if applied != ["0019_report_daywork_purpose"]:
+            raise AssertionError(f"purpose migration: unexpected versions {applied}")
+
+        with engine.begin() as connection:
+            form_rows = connection.exec_driver_sql(
+                "SELECT id, template_purpose FROM workform WHERE id IN (10, 11, 12, 13, 14) ORDER BY id"
+            ).all()
+            submission_rows = connection.exec_driver_sql(
+                "SELECT id, submission_purpose FROM workformsubmission "
+                "WHERE id IN (20, 21, 25, 30) ORDER BY id"
+            ).all()
+            evidence_after = connection.exec_driver_sql(
+                """
+                SELECT id, department_id, form_id, worker_id, site_id, work_date,
+                       answers_json, photo_urls, photo_metadata, client_submission_id,
+                       form_definition_version, definition_snapshot_json, status,
+                       workflow_status, supervisor_note, reviewing_supervisor_id,
+                       review_started_at, resolved_at, created_at
+                FROM workformsubmission
+                WHERE id IN (20, 21, 25, 30)
+                ORDER BY id
+                """
+            ).all()
+
+        if form_rows != [
+            (10, "daywork"),
+            (11, "report"),
+            (12, "daywork"),
+            (13, "report"),
+            (14, "report"),
+        ]:
+            raise AssertionError(f"template purpose backfill: unexpected rows {form_rows}")
+        if submission_rows != [
+            (20, "daywork"),
+            (21, "report"),
+            (25, "daywork"),
+            (30, "report"),
+        ]:
+            raise AssertionError(
+                f"submission purpose backfill: unexpected rows {submission_rows}"
+            )
+        if evidence_after != evidence_before:
+            raise AssertionError("purpose migration changed historical submitted evidence")
+
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                """
+                INSERT INTO workformsubmission (
+                    id, department_id, form_id, worker_id, answers_json,
+                    status, workflow_status, created_at
+                ) VALUES (
+                    22, 1, 10, 102, '{}', 'pending', 'submitted',
+                    '2026-08-03T09:00:00Z'
+                )
+                """
+            )
+            legacy_insert_purpose = connection.exec_driver_sql(
+                "SELECT submission_purpose FROM workformsubmission WHERE id = 22"
+            ).scalar_one()
+        if legacy_insert_purpose != "daywork":
+            raise AssertionError(
+                "raw legacy Daywork insert must derive purpose from its parent Template"
+            )
+        assert_statement_rejected(
+            engine,
+            "legacy Supervisor cannot insert an approved Report",
+            """
+            INSERT INTO workformsubmission (
+                id, department_id, form_id, worker_id, answers_json,
+                status, workflow_status, created_at
+            ) VALUES (
+                23, 1, 11, 103, '{}', 'approved', 'submitted',
+                '2026-08-04T09:00:00Z'
+            )
+            """,
+        )
+        assert_statement_rejected(
+            engine,
+            "Report insert cannot impersonate a review transition",
+            """
+            INSERT INTO workformsubmission (
+                id, department_id, form_id, worker_id, answers_json,
+                status, workflow_status, supervisor_note,
+                reviewing_supervisor_id, review_started_at, created_at
+            ) VALUES (
+                24, 1, 11, 104, '{}', 'pending', 'in_review',
+                'Inserted as reviewed', 900, '2026-08-04T08:55:00Z',
+                '2026-08-04T09:00:00Z'
+            )
+            """,
+        )
+        assert_statement_rejected(
+            engine,
+            "orphan submission cannot claim Daywork to bypass the Report boundary",
+            """
+            INSERT INTO workformsubmission (
+                id, department_id, form_id, worker_id, answers_json,
+                status, workflow_status, submission_purpose, created_at
+            ) VALUES (
+                28, 1, 9999, 107, '{}', 'approved', 'submitted', 'daywork',
+                '2026-08-04T10:00:00Z'
+            )
+            """,
+        )
+        assert_statement_rejected(
+            engine,
+            "submission insert cannot use an invalid purpose",
+            """
+            INSERT INTO workformsubmission (
+                id, department_id, form_id, worker_id, answers_json,
+                status, workflow_status, submission_purpose, created_at
+            ) VALUES (
+                29, 1, 11, 108, '{}', 'pending', 'submitted', 'invalid',
+                '2026-08-04T11:00:00Z'
+            )
+            """,
+        )
+
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                """
+                UPDATE workformsubmission
+                SET answers_json = '{"teams":[{"job_description":"Historical edit"}]}',
+                    status = 'approved',
+                    submission_purpose = 'daywork'
+                WHERE id = 25
+                """
+            )
+            historical_daywork_update = connection.exec_driver_sql(
+                """
+                SELECT answers_json, status, submission_purpose
+                FROM workformsubmission
+                WHERE id = 25
+                """
+            ).one()
+        if historical_daywork_update != (
+            '{"teams":[{"job_description":"Historical edit"}]}',
+            "approved",
+            "daywork",
+        ):
+            raise AssertionError(
+                "historical Daywork must remain editable after its parent Template becomes a Report"
+            )
+        assert_statement_rejected(
+            engine,
+            "historical Daywork purpose cannot be rewritten to its current Report parent",
+            "UPDATE workformsubmission SET submission_purpose = 'report' WHERE id = 25",
+        )
+        assert_statement_rejected(
+            engine,
+            "historical Report remains immutable after its parent Template becomes Daywork",
+            """
+            UPDATE workformsubmission
+            SET answers_json = '{"issue":"Rewritten historical Report"}',
+                status = 'approved'
+            WHERE id = 30
+            """,
+        )
+        assert_statement_rejected(
+            engine,
+            "historical Report purpose cannot be rewritten to its current Daywork parent",
+            "UPDATE workformsubmission SET submission_purpose = 'daywork' WHERE id = 30",
+        )
+
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                """
+                INSERT INTO workformsubmission (
+                    id, department_id, form_id, worker_id, answers_json,
+                    status, workflow_status, submission_purpose, created_at
+                ) VALUES (
+                    26, 1, 11, 105, '{"issue":"New Report"}',
+                    'pending', 'submitted', 'daywork',
+                    '2026-08-05T09:00:00Z'
+                )
+                """
+            )
+            connection.exec_driver_sql(
+                """
+                INSERT INTO workformsubmission (
+                    id, department_id, form_id, worker_id, answers_json,
+                    status, workflow_status, created_at
+                ) VALUES (
+                    27, 1, 10, 106, '{"work_completed":"Retained"}',
+                    'approved', 'submitted', '2026-08-05T10:00:00Z'
+                )
+                """
+            )
+            allowed_inserts = connection.exec_driver_sql(
+                """
+                SELECT id, status, workflow_status, submission_purpose
+                FROM workformsubmission
+                WHERE id IN (26, 27)
+                ORDER BY id
+                """
+            ).all()
+        if allowed_inserts != [
+            (26, "pending", "submitted", "report"),
+            (27, "approved", "submitted", "daywork"),
+        ]:
+            raise AssertionError(
+                f"purpose boundary changed valid Report/Daywork inserts: {allowed_inserts}"
+            )
+        assert_statement_rejected(
+            engine,
+            "insert purpose synchronization cannot authorize a later purpose rewrite",
+            "UPDATE workformsubmission SET submission_purpose = 'report' WHERE id = 27",
+        )
+
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                """
+                UPDATE workformsubmission
+                SET workflow_status = 'resolved',
+                    supervisor_note = 'Replacement PPE issued',
+                    reviewing_supervisor_id = 902,
+                    review_started_at = '2026-08-03T03:00:00Z',
+                    resolved_at = '2026-08-05T11:00:00Z'
+                WHERE id = 21
+                """
+            )
+            connection.exec_driver_sql(
+                """
+                UPDATE workformsubmission
+                SET deleted_at = '2026-08-05T12:00:00Z',
+                    deleted_by_supervisor_id = 902,
+                    deletion_reason = 'Temporary cleanup'
+                WHERE id = 21
+                """
+            )
+            trashed_report = connection.exec_driver_sql(
+                """
+                SELECT workflow_status, supervisor_note, reviewing_supervisor_id,
+                       review_started_at, resolved_at, deleted_at,
+                       deleted_by_supervisor_id, deletion_reason
+                FROM workformsubmission
+                WHERE id = 21
+                """
+            ).one()
+            connection.exec_driver_sql(
+                """
+                UPDATE workformsubmission
+                SET deleted_at = NULL,
+                    deleted_by_supervisor_id = NULL,
+                    deletion_reason = NULL
+                WHERE id = 21
+                """
+            )
+            connection.exec_driver_sql(
+                """
+                UPDATE workformsubmission
+                SET site_id = 88,
+                    work_date = '2026-08-06',
+                    answers_json = '{"work_completed":"Edited Daywork"}',
+                    status = 'approved'
+                WHERE id = 22
+                """
+            )
+            restored_trash = connection.exec_driver_sql(
+                """
+                SELECT deleted_at, deleted_by_supervisor_id, deletion_reason
+                FROM workformsubmission
+                WHERE id = 21
+                """
+            ).one()
+            edited_daywork = connection.exec_driver_sql(
+                """
+                SELECT site_id, work_date, answers_json, status, submission_purpose
+                FROM workformsubmission
+                WHERE id = 22
+                """
+            ).one()
+
+        if trashed_report != (
+            "resolved",
+            "Replacement PPE issued",
+            902,
+            "2026-08-03T03:00:00Z",
+            "2026-08-05T11:00:00Z",
+            "2026-08-05T12:00:00Z",
+            902,
+            "Temporary cleanup",
+        ):
+            raise AssertionError(
+                f"Report boundary blocked valid review/trash metadata: {trashed_report}"
+            )
+        if restored_trash != (None, None, None):
+            raise AssertionError(
+                f"Report boundary blocked valid rubbish-bin restore: {restored_trash}"
+            )
+        if edited_daywork != (
+            88,
+            "2026-08-06",
+            '{"work_completed":"Edited Daywork"}',
+            "approved",
+            "daywork",
+        ):
+            raise AssertionError(
+                f"Report boundary changed retained Daywork edit behavior: {edited_daywork}"
+            )
+
+        form_columns = column_details(engine, "workform")
+        submission_columns = column_details(engine, "workformsubmission")
+        if (
+            form_columns["template_purpose"]["nullable"]
+            or "report" not in str(form_columns["template_purpose"]["default"])
+        ):
+            raise AssertionError("template purpose must be non-null with report default")
+        if (
+            submission_columns["submission_purpose"]["nullable"]
+            or "report" not in str(submission_columns["submission_purpose"]["default"])
+        ):
+            raise AssertionError("submission purpose must be non-null with report default")
+
+        assert_contains(
+            "purpose indexes",
+            index_names(engine, "workform") | index_names(engine, "workformsubmission"),
+            {
+                "ix_workform_template_purpose",
+                "ix_workformsubmission_submission_purpose",
+            },
+        )
+        assert_statement_rejected(
+            engine,
+            "invalid template purpose",
+            "UPDATE workform SET template_purpose = 'invalid' WHERE id = 10",
+        )
+        assert_statement_rejected(
+            engine,
+            "invalid submission purpose",
+            "UPDATE workformsubmission SET submission_purpose = 'invalid' WHERE id = 20",
+        )
+        assert_statement_rejected(
+            engine,
+            "Report purpose cannot be rewritten as Daywork",
+            "UPDATE workformsubmission SET submission_purpose = 'daywork' WHERE id = 21",
+        )
+        assert_statement_rejected(
+            engine,
+            "legacy approval cannot change a Report outcome",
+            "UPDATE workformsubmission SET status = 'approved' WHERE id = 21",
+        )
+        assert_statement_rejected(
+            engine,
+            "legacy edit cannot replace submitted Report evidence",
+            """
+            UPDATE workformsubmission
+            SET site_id = 88,
+                work_date = '2026-09-30',
+                answers_json = '{"issue":"Rewritten"}',
+                photo_urls = '["/uploads/replacement.png"]',
+                photo_metadata = '[{"url":"/uploads/replacement.png"}]',
+                definition_snapshot_json = '{"version":99,"name":"Replacement","fields":[]}'
+            WHERE id = 21
+            """,
+        )
+        assert_migration_recorded(engine)
+        if run_migrations(engine) != []:
+            raise AssertionError("purpose migration was not idempotent on a second run")
+        engine.dispose()
+
+    print("ok - Report and Daywork purpose backfill preserves evidence")
+
+
 def assert_statement_rejected(engine, label: str, statement: str):
     try:
         with engine.begin() as connection:
@@ -440,9 +1138,9 @@ def test_global_admin_supervisor_invariant_migration():
         copy_migrations_before_0017(old_migrations_dir)
         engine = make_engine(root / "global-admin-invariant.db")
         applied_before = run_migrations(engine, migrations_dir=old_migrations_dir)
-        if applied_before != EXPECTED_VERSIONS[:-1]:
+        if applied_before != EXPECTED_VERSIONS[:-3]:
             raise AssertionError(
-                f"global admin invariant setup: expected {EXPECTED_VERSIONS[:-1]}, got {applied_before}"
+                f"global admin invariant setup: expected {EXPECTED_VERSIONS[:-3]}, got {applied_before}"
             )
 
         with engine.begin() as connection:
@@ -482,7 +1180,11 @@ def test_global_admin_supervisor_invariant_migration():
             )
 
         applied = run_migrations(engine)
-        if applied != ["0017_global_admin_supervisor_invariant"]:
+        if applied != [
+            "0017_global_admin_supervisor_invariant",
+            "0018_report_review_workflow",
+            "0019_report_daywork_purpose",
+        ]:
             raise AssertionError(f"global admin invariant migration: unexpected versions {applied}")
 
         with engine.begin() as connection:
@@ -701,7 +1403,7 @@ def test_rubbish_bin_purge():
                 form_id=1,
                 worker_id=999,
                 answers_json="{}",
-                status="approved",
+                status="pending",
                 deleted_at=now - timedelta(days=31),
                 deleted_by_supervisor_id=supervisor.id,
                 deletion_reason="Expired duplicate",
@@ -751,6 +1453,8 @@ def main():
     test_postgres_statement_adaptation()
     test_fresh_database()
     test_legacy_database()
+    test_report_review_workflow_migration()
+    test_report_daywork_purpose_migration()
     test_global_admin_supervisor_invariant_migration()
     test_client_submission_unique_indexes()
     test_client_submission_duplicate_precheck()

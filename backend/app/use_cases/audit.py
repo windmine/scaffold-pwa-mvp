@@ -86,6 +86,7 @@ SNAPSHOT_FIELDS = {
         "fields_json",
         "definition_version",
         "status",
+        "template_purpose",
         "created_by",
         "created_at",
     ],
@@ -102,6 +103,12 @@ SNAPSHOT_FIELDS = {
         "photo_urls",
         "photo_metadata",
         "client_submission_id",
+        "submission_purpose",
+        "workflow_status",
+        "supervisor_note",
+        "reviewing_supervisor_id",
+        "review_started_at",
+        "resolved_at",
         "status",
         "deleted_at",
         "deleted_by_supervisor_id",
@@ -130,7 +137,7 @@ def model_snapshot(model):
 
     for field in fields:
         value = getattr(model, field)
-        if field in {"created_at", "deleted_at"} and value is not None:
+        if field in {"created_at", "deleted_at", "review_started_at", "resolved_at"} and value is not None:
             value = format_datetime(value)
         elif field == "fields_json":
             data["fields"] = parse_json_list(value)

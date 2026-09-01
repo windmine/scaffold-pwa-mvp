@@ -212,6 +212,27 @@ button.is-busy::before {
   display: none !important;
 }
 
+.report-only-mode [data-report-only-hidden] {
+  display: none !important;
+}
+
+body:not(.report-only-mode) [data-report-only-visible] {
+  display: none !important;
+}
+
+.report-only-mode #workerView .tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.review-heading-actions,
+.report-export-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
 .app-shell {
   width: min(100%, 1320px);
   margin: 0 auto;
@@ -3063,6 +3084,15 @@ body.viewer-open {
 .badge.pending { background: rgba(200, 169, 106, 0.14); color: var(--badge-pending-text); }
 .badge.queued { background: rgba(240, 107, 98, 0.14); color: var(--badge-rejected-text); }
 .badge.rejected { background: rgba(240, 107, 98, 0.14); color: var(--badge-rejected-text); }
+.badge.submitted { background: rgba(200, 169, 106, 0.14); color: var(--badge-pending-text); }
+.badge.in_review { background: rgba(80, 145, 220, 0.16); color: var(--badge-text); }
+.badge.resolved { background: rgba(62, 201, 143, 0.12); color: var(--badge-approved-text); }
+
+.report-supervisor-note {
+  padding: 0.8rem;
+  border-left: 3px solid var(--success);
+  background: rgba(62, 201, 143, 0.08);
+}
 
 .record-actions {
   display: flex;

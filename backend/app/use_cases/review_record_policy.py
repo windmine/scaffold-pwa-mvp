@@ -53,6 +53,17 @@ def apply_review_decision(
 ):
     decision = validate_approval_decision(status)
     adapter, record = resolve_review_record(record_type, record_id, supervisor, session)
+    if (
+        adapter.kind == "form"
+        and (record.submission_purpose or "report") == "report"
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Reports use the submitted, in_review, and resolved workflow; "
+                "use the Report transition route"
+            ),
+        )
     if (record.status or "pending") != "pending":
         raise HTTPException(
             status_code=409,

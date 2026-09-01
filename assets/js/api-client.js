@@ -411,8 +411,14 @@ export async function deleteTaskTemplate(templateId) {
   });
 }
 
-export async function getWorkForms() {
-  return await apiFetch("/work-forms");
+function purposeQuery(purpose = "") {
+  const params = new URLSearchParams();
+  if (purpose) params.set("purpose", purpose);
+  return queryString(params);
+}
+
+export async function getWorkForms(purpose = "") {
+  return await apiFetch(`/work-forms${purposeQuery(purpose)}`);
 }
 
 export async function createWorkForm(form) {
@@ -443,12 +449,19 @@ export async function createSupervisorFormSubmission(submission) {
   });
 }
 
-export async function getMyFormSubmissions() {
-  return await apiFetch("/my-form-submissions");
+export async function getMyFormSubmissions(purpose = "") {
+  return await apiFetch(`/my-form-submissions${purposeQuery(purpose)}`);
 }
 
-export async function getSupervisorFormSubmissions() {
-  return await apiFetch("/supervisor/form-submissions");
+export async function getSupervisorFormSubmissions(purpose = "") {
+  return await apiFetch(`/supervisor/form-submissions${purposeQuery(purpose)}`);
+}
+
+export async function transitionReportSubmission(submissionId, transition) {
+  return await apiFetch(`/supervisor/form-submissions/${submissionId}/transition`, {
+    method: "POST",
+    body: JSON.stringify(transition)
+  });
 }
 
 export async function getPendingRecords() {
@@ -471,10 +484,13 @@ function exportFilterParams(filters = {}) {
   const normalizedFilters = typeof filters === "string" ? { status: filters } : (filters || {});
   const params = new URLSearchParams();
   if (normalizedFilters.status) params.set("status", normalizedFilters.status);
+  if (normalizedFilters.workflowStatus) params.set("workflow_status", normalizedFilters.workflowStatus);
   if (normalizedFilters.dateFrom) params.set("date_from", normalizedFilters.dateFrom);
   if (normalizedFilters.dateTo) params.set("date_to", normalizedFilters.dateTo);
   if (normalizedFilters.formId) params.set("form_id", normalizedFilters.formId);
+  if (normalizedFilters.workerId) params.set("worker_id", normalizedFilters.workerId);
   if (normalizedFilters.departmentId) params.set("department_id", normalizedFilters.departmentId);
+  if (normalizedFilters.purpose) params.set("purpose", normalizedFilters.purpose);
   return params;
 }
 
@@ -490,19 +506,27 @@ export async function getSupervisorReviewRecords(status = "") {
 
 export async function getSupervisorReviewQueuePage({
   status = "",
+  workflowStatus = "",
   kind = "",
   departmentId = "",
+  formId = "",
+  workerId = "",
   recordDate = "",
   search = "",
+  purpose = "",
   cursor = "",
   pageSize = 50
 } = {}) {
   const params = new URLSearchParams({ page_size: String(pageSize) });
   if (status) params.set("status", status);
+  if (workflowStatus) params.set("workflow_status", workflowStatus);
   if (kind) params.set("kind", kind);
   if (departmentId) params.set("department_id", departmentId);
+  if (formId) params.set("form_id", formId);
+  if (workerId) params.set("worker_id", workerId);
   if (recordDate) params.set("record_date", recordDate);
   if (search) params.set("search", search);
+  if (purpose) params.set("purpose", purpose);
   if (cursor) params.set("cursor", cursor);
   return await apiFetch(`/supervisor/review-queue?${params.toString()}`);
 }
@@ -545,31 +569,31 @@ export async function exportSupervisorTaskLogHtml(logId, layout = "daily-log") {
 
 export async function exportSupervisorFormSubmissionsHtml(filters = {}) {
   const query = queryString(exportFilterParams(filters));
-  return await apiBlob(`/supervisor/form-submissions/export.html${query}`, "Form submission document export failed.");
+  return await apiBlob(`/supervisor/form-submissions/export.html${query}`, "Report document export failed.");
 }
 
 export async function exportSupervisorFormSubmissionsCsv(filters = {}) {
   const query = queryString(exportFilterParams(filters));
-  return await apiBlob(`/supervisor/form-submissions/export.csv${query}`, "Form submission CSV export failed.");
+  return await apiBlob(`/supervisor/form-submissions/export.csv${query}`, "Report CSV export failed.");
 }
 
 export async function exportSupervisorFormSubmissionsPdf(template = "submitted-form", filters = {}) {
   const params = new URLSearchParams({ template });
   exportFilterParams(filters).forEach((value, key) => params.set(key, value));
-  return await apiBlob(`/supervisor/form-submissions/export.pdf?${params.toString()}`, "Form submission PDF export failed.");
+  return await apiBlob(`/supervisor/form-submissions/export.pdf?${params.toString()}`, "Report PDF export failed.");
 }
 
 export async function exportSupervisorFormSubmissionCsv(submissionId) {
-  return await apiBlob(`/supervisor/form-submissions/${submissionId}/export.csv`, "Form submission CSV export failed.");
+  return await apiBlob(`/supervisor/form-submissions/${submissionId}/export.csv`, "Report CSV export failed.");
 }
 
 export async function exportSupervisorFormSubmissionHtml(submissionId) {
-  return await apiBlob(`/supervisor/form-submissions/${submissionId}/export.html`, "Form submission document export failed.");
+  return await apiBlob(`/supervisor/form-submissions/${submissionId}/export.html`, "Report document export failed.");
 }
 
 export async function exportSupervisorFormSubmissionPdf(submissionId, template = "submitted-form") {
   const params = new URLSearchParams({ template });
-  return await apiBlob(`/supervisor/form-submissions/${submissionId}/export.pdf?${params.toString()}`, "Form submission PDF export failed.");
+  return await apiBlob(`/supervisor/form-submissions/${submissionId}/export.pdf?${params.toString()}`, "Report PDF export failed.");
 }
 
 export async function updateSupervisorFormSubmission(submissionId, submission) {

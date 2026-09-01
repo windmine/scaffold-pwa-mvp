@@ -222,6 +222,11 @@ class SupervisorWorkFormSubmissionUpdate(BaseModel):
     confirmed: bool = False
 
 
+class ReportTransitionRequest(BaseModel):
+    status: str = Field(default="in_review", max_length=40)
+    supervisor_note: Optional[str] = Field(default=None, max_length=1000)
+
+
 class TeamWorkLogEntryCreate(BaseModel):
     worker_id: int = Field(ge=1)
     site_id: int = Field(ge=1)

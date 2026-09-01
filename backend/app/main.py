@@ -37,6 +37,7 @@ from app.schemas import (
     RegisterRequest,
     RegistrationStartRequest,
     RegistrationVerifyRequest,
+    ReportTransitionRequest,
     SiteCreateRequest,
     SiteUpdateRequest,
     TaskLogCreate,
@@ -225,6 +226,7 @@ DEMO_SITES = [
 DEMO_WORK_FORMS = [
     {
         "name": "Daywork log form",
+        "template_purpose": "daywork",
         "description": "General Daywork Form with repeatable teams and calculated man-hours.",
         "fields": [
             {"id": "site_details", "label": "Site details", "type": "section", "required": False},
@@ -248,6 +250,7 @@ DEMO_WORK_FORMS = [
     },
     {
         "name": "Inspection form",
+        "template_purpose": "report",
         "description": "Basic scaffold/site inspection checklist.",
         "fields": [
             {"id": "inspection_area", "label": "Inspection area", "type": "text", "required": True},
@@ -258,6 +261,7 @@ DEMO_WORK_FORMS = [
     },
     {
         "name": "Tool deduction form",
+        "template_purpose": "report",
         "description": "Record missing/damaged tools or deductions.",
         "fields": [
             {"id": "tool_name", "label": "Tool name", "type": "text", "required": True},
@@ -472,6 +476,7 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
             if definition_changed:
                 form.definition_version = int(form.definition_version or 1) + 1
             form.status = "active"
+            form.template_purpose = form_data["template_purpose"]
             form.department_id = form.department_id or leader_department.id
         else:
             form = WorkForm(
@@ -480,7 +485,8 @@ def seed_demo_data(request: Request, session: Session = Depends(get_session)):
                 description=form_data["description"],
                 fields_json=fields_json,
                 definition_version=1,
-                status="active"
+                status="active",
+                template_purpose=form_data["template_purpose"],
             )
 
         session.add(form)
@@ -890,10 +896,11 @@ def delete_task_template(
 
 @app.get("/work-forms")
 def get_work_forms(
+    purpose: Optional[str] = None,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    return work_form_use_cases.list_work_forms(user, session)
+    return work_form_use_cases.list_work_forms(user, session, purpose=purpose)
 
 
 @app.post("/supervisor/work-forms")
@@ -935,19 +942,30 @@ def create_supervisor_work_form_submission(
 
 @app.get("/my-form-submissions")
 def get_my_form_submissions(
+    purpose: Optional[str] = None,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    return work_form_use_cases.list_my_form_submissions(user, session)
+    return work_form_use_cases.list_my_form_submissions(
+        user,
+        session,
+        purpose=purpose,
+    )
 
 
 @app.get("/supervisor/form-submissions")
 def get_supervisor_form_submissions(
     status: Optional[str] = None,
+    purpose: Optional[str] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
-    return work_form_use_cases.list_supervisor_form_submissions(status, supervisor, session)
+    return work_form_use_cases.list_supervisor_form_submissions(
+        status,
+        supervisor,
+        session,
+        purpose=purpose,
+    )
 
 
 @app.get("/supervisor/review-records")
@@ -962,8 +980,12 @@ def get_supervisor_review_records(
 @app.get("/supervisor/review-queue")
 def get_supervisor_review_queue(
     status: Optional[str] = None,
+    workflow_status: Optional[str] = None,
+    purpose: Optional[str] = None,
     kind: Optional[str] = None,
     department_id: Optional[int] = None,
+    form_id: Optional[int] = None,
+    worker_id: Optional[int] = None,
     record_date: Optional[str] = None,
     search: Optional[str] = None,
     cursor: Optional[str] = None,
@@ -975,8 +997,12 @@ def get_supervisor_review_queue(
         session,
         supervisor,
         status=status,
+        workflow_status=workflow_status,
+        purpose=purpose,
         kind=kind,
         department_id=department_id,
+        form_id=form_id,
+        worker_id=worker_id,
         record_date=record_date,
         search=search,
         cursor=cursor,
@@ -1119,9 +1145,12 @@ def export_supervisor_task_log_html(
 @app.get("/supervisor/form-submissions/export.csv")
 def export_supervisor_form_submissions_csv(
     status: Optional[str] = None,
+    workflow_status: Optional[str] = None,
+    purpose: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     form_id: Optional[int] = None,
+    worker_id: Optional[int] = None,
     department_id: Optional[int] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
@@ -1134,15 +1163,21 @@ def export_supervisor_form_submissions_csv(
         date_to,
         form_id,
         department_id,
+        workflow_status,
+        worker_id,
+        purpose,
     )
 
 
 @app.get("/supervisor/form-submissions/export.html")
 def export_supervisor_form_submissions_html(
     status: Optional[str] = None,
+    workflow_status: Optional[str] = None,
+    purpose: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     form_id: Optional[int] = None,
+    worker_id: Optional[int] = None,
     department_id: Optional[int] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
@@ -1155,6 +1190,9 @@ def export_supervisor_form_submissions_html(
         date_to,
         form_id,
         department_id,
+        workflow_status,
+        worker_id,
+        purpose,
     )
 
 
@@ -1162,9 +1200,12 @@ def export_supervisor_form_submissions_html(
 def export_supervisor_form_submissions_pdf(
     template: str = "submitted-form",
     status: Optional[str] = None,
+    workflow_status: Optional[str] = None,
+    purpose: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     form_id: Optional[int] = None,
+    worker_id: Optional[int] = None,
     department_id: Optional[int] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
@@ -1178,6 +1219,9 @@ def export_supervisor_form_submissions_pdf(
         date_to,
         form_id,
         department_id,
+        workflow_status,
+        worker_id,
+        purpose,
     )
 
 
@@ -1207,6 +1251,16 @@ def export_supervisor_form_submission_pdf(
     session: Session = Depends(get_session)
 ):
     return supervisor_review_use_cases.export_form_submission_pdf(submission_id, session, supervisor, template)
+
+
+@app.post("/supervisor/form-submissions/{submission_id}/transition")
+def transition_report(
+    submission_id: int,
+    data: ReportTransitionRequest,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session),
+):
+    return work_form_use_cases.transition_report(submission_id, data, supervisor, session)
 
 
 @app.patch("/supervisor/form-submissions/{submission_id}")
