@@ -240,24 +240,20 @@ def test_configuration_and_gcs_contract():
 
 
 def test_authorization_streaming_and_cleanup(tmp_dir):
-    anonymous_response = apply_upload_cache_policy(
-        "/uploads/missing.png",
-        Response(status_code=401),
-    )
-    assert_equal(
-        "anonymous upload denial cannot be shared by an edge cache",
-        anonymous_response.headers.get("cache-control"),
-        "private, no-store",
-    )
-    prefixed_denial = apply_upload_cache_policy(
-        "/api/uploads/missing.png",
-        Response(status_code=429),
-    )
-    assert_equal(
-        "prefixed upload failures cannot be shared by an edge cache",
-        prefixed_denial.headers.get("cache-control"),
-        "private, no-store",
-    )
+    for status_code, path in [
+        (401, "/uploads/missing.png"),
+        (403, "/uploads/missing.png"),
+        (404, "/api/uploads/missing.png"),
+    ]:
+        denial_response = apply_upload_cache_policy(
+            path,
+            Response(status_code=status_code),
+        )
+        assert_equal(
+            f"upload {status_code} cannot be shared by an edge cache",
+            denial_response.headers.get("cache-control"),
+            "private, no-store",
+        )
     ordinary_response = apply_upload_cache_policy(
         "/sites",
         Response(status_code=404, headers={"Cache-Control": "public, max-age=60"}),
