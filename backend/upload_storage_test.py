@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from app import upload_storage
+from app.main import get_upload
 from app.models import AttendanceRecord, TaskLog, User, WorkForm, WorkFormSubmission
 from app.schemas import (
     AttendanceCreate,
@@ -411,9 +412,22 @@ def test_authorization_streaming_and_cleanup(tmp_dir):
             upload_storage.open_authorized_upload(shared.filename, stranger, session),
             None,
         )
-        assert_true(
-            "same-department supervisor can stream",
-            upload_storage.open_authorized_upload(shared.filename, supervisor, session) is not None,
+        try:
+            get_upload(shared.filename, stranger, session)
+        except HTTPException as error:
+            assert_equal("denied upload route stays concealed", error.status_code, 404)
+            assert_equal(
+                "denied upload response cannot be shared by an edge cache",
+                error.headers,
+                {"Cache-Control": "private, no-store"},
+            )
+        else:
+            raise AssertionError("denied upload route must reject an unrelated Worker")
+        supervisor_response = get_upload(shared.filename, supervisor, session)
+        assert_equal(
+            "same-department supervisor receives the private upload stream",
+            supervisor_response.headers.get("cache-control"),
+            "private, max-age=3600",
         )
         assert_equal(
             "cross-department supervisor is denied",

@@ -576,7 +576,11 @@ def get_upload(
 ):
     upload = open_authorized_upload(filename, user, session)
     if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Upload not found",
+            headers={"Cache-Control": "private, no-store"},
+        )
 
     return StreamingResponse(
         upload.chunks,
