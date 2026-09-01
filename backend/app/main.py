@@ -139,6 +139,20 @@ CSRF_EXEMPT_PATHS = {
 }
 
 
+def apply_upload_cache_policy(request_path: str, response: Response):
+    normalized_path = request_path[4:] if request_path.startswith("/api/") else request_path
+    if normalized_path.startswith("/uploads/") and response.status_code >= 400:
+        response.headers["Cache-Control"] = "private, no-store"
+    return response
+
+
+@app.middleware("http")
+async def prevent_shared_upload_error_caching(request: Request, call_next):
+    request_path = request.scope["path"]
+    response = await call_next(request)
+    return apply_upload_cache_policy(request_path, response)
+
+
 @app.middleware("http")
 async def strip_firebase_hosting_api_prefix(request, call_next):
     if request.scope["path"].startswith("/api/"):

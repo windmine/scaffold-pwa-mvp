@@ -6,13 +6,13 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
 from google.api_core.exceptions import NotFound
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 from PIL import Image
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from app import upload_storage
-from app.main import get_upload
+from app.main import apply_upload_cache_policy, get_upload
 from app.models import AttendanceRecord, TaskLog, User, WorkForm, WorkFormSubmission
 from app.schemas import (
     AttendanceCreate,
@@ -240,6 +240,34 @@ def test_configuration_and_gcs_contract():
 
 
 def test_authorization_streaming_and_cleanup(tmp_dir):
+    anonymous_response = apply_upload_cache_policy(
+        "/uploads/missing.png",
+        Response(status_code=401),
+    )
+    assert_equal(
+        "anonymous upload denial cannot be shared by an edge cache",
+        anonymous_response.headers.get("cache-control"),
+        "private, no-store",
+    )
+    prefixed_denial = apply_upload_cache_policy(
+        "/api/uploads/missing.png",
+        Response(status_code=429),
+    )
+    assert_equal(
+        "prefixed upload failures cannot be shared by an edge cache",
+        prefixed_denial.headers.get("cache-control"),
+        "private, no-store",
+    )
+    ordinary_response = apply_upload_cache_policy(
+        "/sites",
+        Response(status_code=404, headers={"Cache-Control": "public, max-age=60"}),
+    )
+    assert_equal(
+        "unrelated response cache policy is untouched",
+        ordinary_response.headers.get("cache-control"),
+        "public, max-age=60",
+    )
+
     upload_storage.PRODUCTION_LIKE = False
     upload_storage.UPLOAD_STORAGE_BACKEND = "local"
     upload_storage.UPLOAD_BUCKET = ""
