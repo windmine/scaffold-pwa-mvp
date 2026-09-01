@@ -2442,6 +2442,12 @@ async function checkReportOnlyReplayScope(browser) {
       }
     });
   };
+  const waitForReportTemplate = async (targetPage) => {
+    await targetPage.waitForFunction(() => (
+      [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent?.trim() === 'Inspection form')
+    ), null, { timeout: 15000 });
+  };
   trackPostRequests(page);
 
   const seedQueue = async (targetPage, suffix, includeHidden = false) => await targetPage.evaluate(async ({ queueSuffix, withHidden }) => {
@@ -2542,6 +2548,7 @@ async function checkReportOnlyReplayScope(browser) {
 
   try {
     await loginAs(page, 'worker@example.com', 'worker');
+    await waitForReportTemplate(page);
     const automatic = await seedQueue(page, `automatic-${Date.now()}`, true);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
     await page.waitForFunction(async (recordId) => {
@@ -2572,6 +2579,7 @@ async function checkReportOnlyReplayScope(browser) {
     postRequests.length = 0;
     trackPostRequests(page);
     await loginAs(page, 'worker@example.com', 'worker');
+    await waitForReportTemplate(page);
 
     const manual = await seedQueue(page, `manual-${Date.now()}`, false);
     await page.locator('.tab[data-tab-target="historyTab"]').click();
