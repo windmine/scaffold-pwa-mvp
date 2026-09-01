@@ -147,13 +147,6 @@ def apply_upload_cache_policy(request_path: str, response: Response):
 
 
 @app.middleware("http")
-async def prevent_shared_upload_error_caching(request: Request, call_next):
-    request_path = request.scope["path"]
-    response = await call_next(request)
-    return apply_upload_cache_policy(request_path, response)
-
-
-@app.middleware("http")
 async def strip_firebase_hosting_api_prefix(request, call_next):
     if request.scope["path"].startswith("/api/"):
         request.scope["path"] = request.scope["path"][4:]
@@ -211,6 +204,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Keep this registered last so it wraps CORS, rate limiting, authentication,
+# API-prefix handling, and route errors before Firebase Hosting sees them.
+@app.middleware("http")
+async def prevent_shared_upload_error_caching(request: Request, call_next):
+    request_path = request.scope["path"]
+    response = await call_next(request)
+    return apply_upload_cache_policy(request_path, response)
 
 
 DEMO_SITES = [

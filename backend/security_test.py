@@ -1,9 +1,15 @@
 import sys
 import csv
+import os
+import socket
+import subprocess
+import time
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from fastapi import HTTPException
 
@@ -65,6 +71,122 @@ def assert_http_rejected(label, callback, expected_detail):
         )
         return
     raise AssertionError(label)
+
+
+def request_status(url, *, method="GET", headers=None):
+    request = Request(url, method=method, headers=headers or {})
+    try:
+        response = urlopen(request, timeout=3)
+    except HTTPError as error:
+        return error.code, error.headers, error.read()
+    with response:
+        return response.status, response.headers, response.read()
+
+
+def assert_private_no_store(label, headers):
+    directives = {
+        item.strip().lower()
+        for item in headers.get("Cache-Control", "").split(",")
+        if item.strip()
+    }
+    assert_ok(label, {"private", "no-store"}.issubset(directives))
+
+
+def test_upload_error_cache_middleware():
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+
+    backend_dir = Path(__file__).resolve().parent
+    server_temp = TemporaryDirectory()
+    server_temp_path = Path(server_temp.name)
+    environment = os.environ.copy()
+    environment.update({
+        "APP_ENV": "test",
+        "AUTO_MIGRATE": "true",
+        "DATABASE_URL": f"sqlite:///{(server_temp_path / 'security.db').as_posix()}",
+        "ENABLE_DEV_SEED": "false",
+        "RATE_LIMIT_ENABLED": "true",
+        "RATE_LIMIT_GENERAL_REQUESTS": "1",
+        "RATE_LIMIT_GENERAL_WINDOW_SECONDS": "600",
+        "UPLOAD_STORAGE_BACKEND": "local",
+        "UPLOAD_DIR": str(server_temp_path / "uploads"),
+    })
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "app.main:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--log-level",
+            "error",
+        ],
+        cwd=backend_dir,
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+
+    base_url = f"http://127.0.0.1:{port}"
+    try:
+        deadline = time.monotonic() + 15
+        while True:
+            if process.poll() is not None:
+                output = process.stdout.read() if process.stdout else ""
+                raise AssertionError(f"upload cache test server exited early: {output}")
+            try:
+                status, _, _ = request_status(f"{base_url}/health")
+                if status == 200:
+                    break
+            except (URLError, TimeoutError):
+                pass
+            if time.monotonic() >= deadline:
+                raise AssertionError("upload cache test server did not become ready")
+            time.sleep(0.1)
+
+        upload_url = f"{base_url}/api/uploads/missing.png"
+        first_status, first_headers, _ = request_status(upload_url)
+        assert_ok("anonymous upload request is denied", first_status == 401)
+        assert_private_no_store(
+            "anonymous upload denial bypasses shared edge caches",
+            first_headers,
+        )
+
+        limited_status, limited_headers, _ = request_status(upload_url)
+        assert_ok("upload request is rate limited", limited_status == 429)
+        assert_private_no_store(
+            "rate-limited upload denial bypasses shared edge caches",
+            limited_headers,
+        )
+
+        cors_status, cors_headers, _ = request_status(
+            upload_url,
+            method="OPTIONS",
+            headers={
+                "Origin": "https://evil.invalid",
+                "Access-Control-Request-Method": "GET",
+                "X-Forwarded-For": "203.0.113.99",
+            },
+        )
+        assert_ok("disallowed upload preflight is rejected", cors_status == 400)
+        assert_private_no_store(
+            "CORS upload denial bypasses shared edge caches",
+            cors_headers,
+        )
+    finally:
+        if process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
+        server_temp.cleanup()
 
 
 def main():
@@ -138,6 +260,7 @@ def main():
         headers={"X-Forwarded-For": "203.0.113.5, 10.0.0.2"},
     )
     assert_ok("x-forwarded-for client ip is used", client_ip(forwarded_request) == "203.0.113.5")
+    test_upload_error_cache_middleware()
 
     original_backend = upload_storage.UPLOAD_STORAGE_BACKEND
     original_bucket = upload_storage.UPLOAD_BUCKET

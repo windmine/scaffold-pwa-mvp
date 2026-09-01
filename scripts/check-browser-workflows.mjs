@@ -2611,6 +2611,8 @@ async function checkReconnectPreservesWorkerForms(browser) {
 
     await page.locator('.tab[data-tab-target="taskTab"]').click();
     await page.locator('#dayworkFormField_client').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#dayworkFormFields [data-team-member-choice]').first()
+      .waitFor({ state: 'visible', timeout: 20000 });
     await page.locator('#dayworkFormField_client').fill(dayworkMarker);
 
     await page.locator('.tab[data-tab-target="formTab"]').click();
