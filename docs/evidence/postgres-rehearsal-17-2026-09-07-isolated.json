@@ -1,0 +1,542 @@
+{
+  "started_at": "2026-09-07T02:17:49.691738+00:00",
+  "isolation": "new local cluster, loopback only, synthetic data, non-superuser database owner",
+  "checks": [
+    {
+      "label": "PostgreSQL empty-schema verification fails without creating migration tables"
+    },
+    {
+      "label": "PostgreSQL fresh 19-migration chain, read-only exact verification, native constraints/triggers, and idempotence",
+      "details": {
+        "migration_count": 19,
+        "head": "0019_report_daywork_purpose"
+      }
+    },
+    {
+      "label": "PostgreSQL read-only verifier rejects checksum and future-history mismatches without repairs"
+    },
+    {
+      "label": "PostgreSQL 0017\u21920019 preserves eight snapshotted historical Reports/Daywork records and exact evidence",
+      "details": {
+        "records": 8,
+        "legacy_outcomes": [
+          "pending",
+          "approved",
+          "rejected",
+          "legacy"
+        ]
+      }
+    },
+    {
+      "label": "PostgreSQL audit backfill preserves real reviewer timestamps without inventing notes; snapshots outrank parent templates"
+    },
+    {
+      "label": "PostgreSQL native triggers reject legacy Report edits/approval/rejection, purpose changes, and invalid workflow values",
+      "details": {
+        "immutable_columns_checked": 14
+      }
+    },
+    {
+      "label": "PostgreSQL manual Report insert bypasses fail; durable purpose derivation and retained Daywork remain compatible"
+    },
+    {
+      "label": "PostgreSQL Report immutability survives parent changes and Worker replay uniqueness is enforced"
+    },
+    {
+      "label": "PostgreSQL failure before 0019 ledger insertion rolls back both upgrades, backfill, DDL, indexes, and functions; retry succeeds"
+    },
+    {
+      "label": "PostgreSQL Report review fixture bootstrapped through actual migrations as a non-superuser owner"
+    },
+    {
+      "label": "PostgreSQL concurrent in_review: one success, one conflict, one audit (round 1)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 56516,
+            "transaction_id": 784
+          },
+          {
+            "pid": 49764,
+            "transaction_id": 785
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 49764,
+          "blocked_pid": 56516,
+          "observer_pid": 48580
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent resolved: one success, one conflict, one audit (round 1)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 56516,
+            "transaction_id": 786
+          },
+          {
+            "pid": 48580,
+            "transaction_id": 787
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 56516,
+          "blocked_pid": 48580,
+          "observer_pid": 49764
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent in_review: one success, one conflict, one audit (round 2)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 48580,
+            "transaction_id": 789
+          },
+          {
+            "pid": 49764,
+            "transaction_id": 790
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 48580,
+          "blocked_pid": 49764,
+          "observer_pid": 56516
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent resolved: one success, one conflict, one audit (round 2)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 49764,
+            "transaction_id": 791
+          },
+          {
+            "pid": 56516,
+            "transaction_id": 792
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 56516,
+          "blocked_pid": 49764,
+          "observer_pid": 48580
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent in_review: one success, one conflict, one audit (round 3)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 49764,
+            "transaction_id": 794
+          },
+          {
+            "pid": 48580,
+            "transaction_id": 795
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 48580,
+          "blocked_pid": 49764,
+          "observer_pid": 56516
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent resolved: one success, one conflict, one audit (round 3)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 49764,
+            "transaction_id": 796
+          },
+          {
+            "pid": 56516,
+            "transaction_id": 797
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 49764,
+          "blocked_pid": 56516,
+          "observer_pid": 48580
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent in_review: one success, one conflict, one audit (round 4)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 56516,
+            "transaction_id": 799
+          },
+          {
+            "pid": 48580,
+            "transaction_id": 800
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 56516,
+          "blocked_pid": 48580,
+          "observer_pid": 49764
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent resolved: one success, one conflict, one audit (round 4)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 48580,
+            "transaction_id": 801
+          },
+          {
+            "pid": 49764,
+            "transaction_id": 802
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 49764,
+          "blocked_pid": 48580,
+          "observer_pid": 56516
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent in_review: one success, one conflict, one audit (round 5)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 48580,
+            "transaction_id": 804
+          },
+          {
+            "pid": 56516,
+            "transaction_id": 805
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 56516,
+          "blocked_pid": 48580,
+          "observer_pid": 49764
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent resolved: one success, one conflict, one audit (round 5)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 48580,
+            "transaction_id": 806
+          },
+          {
+            "pid": 49764,
+            "transaction_id": 807
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 48580,
+          "blocked_pid": 49764,
+          "observer_pid": 56516
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent in_review: one success, one conflict, one audit (round 6)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 49764,
+            "transaction_id": 809
+          },
+          {
+            "pid": 56516,
+            "transaction_id": 810
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 49764,
+          "blocked_pid": 56516,
+          "observer_pid": 48580
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent resolved: one success, one conflict, one audit (round 6)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 56516,
+            "transaction_id": 811
+          },
+          {
+            "pid": 48580,
+            "transaction_id": 812
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 48580,
+          "blocked_pid": 56516,
+          "observer_pid": 49764
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent in_review: one success, one conflict, one audit (round 7)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 56516,
+            "transaction_id": 814
+          },
+          {
+            "pid": 49764,
+            "transaction_id": 815
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 49764,
+          "blocked_pid": 56516,
+          "observer_pid": 48580
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent resolved: one success, one conflict, one audit (round 7)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 56516,
+            "transaction_id": 816
+          },
+          {
+            "pid": 48580,
+            "transaction_id": 817
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 56516,
+          "blocked_pid": 48580,
+          "observer_pid": 49764
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent in_review: one success, one conflict, one audit (round 8)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 48580,
+            "transaction_id": 819
+          },
+          {
+            "pid": 49764,
+            "transaction_id": 820
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 48580,
+          "blocked_pid": 49764,
+          "observer_pid": 56516
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent resolved: one success, one conflict, one audit (round 8)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 49764,
+            "transaction_id": 821
+          },
+          {
+            "pid": 56516,
+            "transaction_id": 822
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 56516,
+          "blocked_pid": 49764,
+          "observer_pid": 48580
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent in_review: one success, one conflict, one audit (round 9)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 49764,
+            "transaction_id": 824
+          },
+          {
+            "pid": 48580,
+            "transaction_id": 825
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 48580,
+          "blocked_pid": 49764,
+          "observer_pid": 56516
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent resolved: one success, one conflict, one audit (round 9)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 49764,
+            "transaction_id": 826
+          },
+          {
+            "pid": 56516,
+            "transaction_id": 827
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 49764,
+          "blocked_pid": 56516,
+          "observer_pid": 48580
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent in_review: one success, one conflict, one audit (round 10)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 56516,
+            "transaction_id": 829
+          },
+          {
+            "pid": 48580,
+            "transaction_id": 830
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 56516,
+          "blocked_pid": 48580,
+          "observer_pid": 49764
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent resolved: one success, one conflict, one audit (round 10)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 48580,
+            "transaction_id": 831
+          },
+          {
+            "pid": 49764,
+            "transaction_id": 832
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 49764,
+          "blocked_pid": 48580,
+          "observer_pid": 56516
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL Report authorization, forward-only transitions and mandatory resolution note remain enforced"
+    },
+    {
+      "label": "PostgreSQL database guards reject Report Site/date/answers/photos/Definition/purpose edits"
+    },
+    {
+      "label": "PostgreSQL review start and resolution roll back atomically when audit INSERT fails"
+    }
+  ],
+  "failures": [
+    {
+      "phase": "migrations",
+      "error": "AssertionError: Missing/empty historical Daywork snapshot misclassified during PostgreSQL 0019: expected [(208, None, 'daywork', 'daywork'), (209, '', 'daywork', 'daywork')]; observed [(208, None, 'daywork', 'report'), (209, '', 'daywork', 'report')]"
+    }
+  ],
+  "scope": "migrations_and_review",
+  "passed": false,
+  "cleanup_complete": true,
+  "binary_version": "postgres (PostgreSQL) 17.6",
+  "server_version": "PostgreSQL 17.6 on x86_64-windows, compiled by msvc-19.44.35217, 64-bit",
+  "finished_at": "2026-09-07T02:18:04.425509+00:00",
+  "source_commit": "0fccbe00e2f36e399046286f075e89b4c8b7087b",
+  "source_dirty": true,
+  "source_sha256": {
+    "backend/app/migrations.py": "4990b68faff61ee3d7f58b8eed2e0aadddb14f488987f0f60a2bf634151b52a4",
+    "backend/app/use_cases/work_forms.py": "f59b43a18279b207f3e8dddfc31eb13481bf1798414528d9f9f96058afa6e349",
+    "backend/migrations/versions/0001_initial_schema.py": "4854ce26638e363aa009f35a72fde9e0439e7904100b198fca6bd3b99c947ead",
+    "backend/migrations/versions/0002_work_form_photo_metadata.py": "24024069782fbf8678826233a0857b225b563a442f999a2ea35bd86df3636ada",
+    "backend/migrations/versions/0003_departments.py": "ee5c759d6592633dc4b00646336570c7eaa3b1eba19314b2edb9b9132dc3d2a7",
+    "backend/migrations/versions/0004_registration_verification.py": "b1283c2eb9b3364db2978fd15ac2d7ab648add0a7a9b7719663ff670a0953433",
+    "backend/migrations/versions/0005_dashboard_department_preference.py": "87eae7bf4d6c51a736a12c676ba9f0d44b50cce548b9980d57446943da7e6da6",
+    "backend/migrations/versions/0006_manual_attendance_entries.py": "eafac77c7a927b8acfd7e918a0a82a8109de115310671fb4c7217b3cfdd76a7d",
+    "backend/migrations/versions/0007_record_rubbish_bin.py": "a956f9cded8bbd9cb44d52efd80594c9007da6de84512db60581abab5440a9e1",
+    "backend/migrations/versions/0008_manual_task_logs.py": "317c0be5242400fee3b10bee7ba916e7d1d9a6b87c712503e3a59bf6f15b7b30",
+    "backend/migrations/versions/0009_worker_classes_and_team_logs.py": "d997a21c86f5c30655d2b2bb4b3eaa04b9e19749a200b7f44a115747bb4b8e91",
+    "backend/migrations/versions/0010_pdf_daywork_form_template.py": "01b77692c2e3942e871e8c6623f62790021421d8e96965dde3e32c75cf11b33b",
+    "backend/migrations/versions/0011_multi_team_daywork_form.py": "ac0f060f657455fc7f833e2373a020aca676723474e1cecf3c3b1cba8a39c090",
+    "backend/migrations/versions/0012_form_and_team_log_rubbish_bin.py": "fcc5ac7f0b9529032f5d49aa074debfde8b0b3721a556633ce2356375ab1bd64",
+    "backend/migrations/versions/0013_daywork_team_break_options.py": "e1bd9581226b1d3308b1f6e28bde9939203638f9cc8916ee64eaa2b6d7c140a9",
+    "backend/migrations/versions/0014_client_submission_unique_indexes.py": "237f3cccd3e177feead1028df7ef47ddf3276ca9b2364c1c3e55de6ecdf2fddf",
+    "backend/migrations/versions/0015_work_form_definition_snapshots.py": "85e4cd74230a4ebbf741ed5cca461fb2f1ccddbd6bc5edcd16a46625b4087976",
+    "backend/migrations/versions/0016_review_queue_indexes.py": "1e0ed85b98a6e1e043ce4968be61d0f71838d8dd4e972a9d245d602cd9dd62bd",
+    "backend/migrations/versions/0017_global_admin_supervisor_invariant.py": "f917a7991c72116a2a969c5786536e38816d7c10eb6593fb82f8e3c30aedba81",
+    "backend/migrations/versions/0018_report_review_workflow.py": "5ebdbf80b5a6e7fb5e984125eb888d3b5daf02b949051479458c98663f9e0785",
+    "backend/migrations/versions/0019_report_daywork_purpose.py": "51324596555f46d6b12cf3cb98ce6c6e5e3d33bcaf1c62ce8ef9220b1adf6487",
+    "backend/migrations/versions/__init__.py": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+    "backend/postgres_migration_rehearsal.py": "94c54190a38d3c4e703760771ed664a2ae8cd4c5e4375b18d048a15ba77293b6",
+    "backend/postgres_rehearsal.py": "39fb8e7dde754ee8b28be58c0de141fac0d88a690d5909ab4138d49562369982",
+    "backend/postgres_review_rehearsal.py": "22d011b18231b58516c6a8d4f8f02e3f247a638845d9a0957bf10d829acc8b68"
+  }
+}

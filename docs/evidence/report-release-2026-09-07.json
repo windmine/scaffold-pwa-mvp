@@ -1,0 +1,257 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "projectId": "geo-attendance-system-db9ca",
+  "region": "australia-southeast1",
+  "baseCommit": "0fccbe00e2f36e399046286f075e89b4c8b7087b",
+  "branch": "codex/report-submission-mvp",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend-report-verify-20260907@sha256:a5e218a2bdb3c8d81ea1da4bc616cfa78b2cc28ad9786d953b015886ffeac9a9",
+  "migrationHead": "0020_missing_snapshot_daywork_correction",
+  "previous": {
+    "revision": "geo-backend-release-20260804152130",
+    "hostingVersion": "c761984b7353028a",
+    "migrationHead": "0017_global_admin_supervisor_invariant"
+  },
+  "stage": {
+    "service": "geo-backend-report-verify-20260907",
+    "revision": "geo-backend-report-verify-20260907-r20-202609070410",
+    "branchId": "br-restless-silence-a7l375z7",
+    "databaseHost": "ep-winter-cell-a7qifzbl.ap-southeast-2.aws.neon.tech",
+    "uploadPrefix": "uploads/report-release-20260907",
+    "name": "sites/geo-attendance-system-db9ca/channels/report-verify-20260907",
+    "url": "https://geo-attendance-system-db9ca--report-verify-20260907-svlqrnci.web.app",
+    "expireTime": "2026-09-08T04:06:51.742425073Z",
+    "version": "sites/geo-attendance-system-db9ca/versions/dbd9b11da35f1a0b",
+    "releaseName": "sites/geo-attendance-system-db9ca/channels/report-verify-20260907/releases/1788754017125000",
+    "releaseTime": "2026-09-07T04:06:57.125Z",
+    "workflowEvidence": "hosted-report-stage-20260907a/evidence.json",
+    "shellEvidence": "hosted-stage-release-2026-09-07-final.json",
+    "accounts": {
+      "ids": [
+        6,
+        7,
+        8
+      ],
+      "deactivated": true,
+      "existingAccountsChanged": false
+    }
+  },
+  "checks": {
+    "postgres17": "postgres-rehearsal-17-2026-09-07-release.json",
+    "postgres18": "postgres-rehearsal-18-2026-09-07-release.json",
+    "baselineRecovery": "neon-recovery-proof-2026-09-07-baseline.json",
+    "precutoverInventory": "report-release-precutover-2026-09-07.json",
+    "strictPreMigrationGate": "passed",
+    "backendCheckpoints": 208,
+    "playwrightWorkflows": 42,
+    "staticChecks": 207,
+    "reviewQueueChecks": 45,
+    "productionNpmAuditFindings": 0,
+    "currentRecovery": "neon-recovery-proof-2026-09-07-current.json",
+    "strictCurrentGate": {
+      "status": "passed",
+      "warnings": [
+        "Neon recovery history is only six hours on the temporarily retained Free plan."
+      ],
+      "allowIncidentOnlyMonitoring": false
+    },
+    "hostedProductionPreview": "hosted-production-preview-2026-09-07.json",
+    "hostedLiveShell": "hosted-live-release-2026-09-07.json",
+    "hostedLiveWorkflow": "hosted-report-live-20260907a/evidence.json",
+    "hostedWaitingUpdate": "hosted-waiting-update-2026-09-07.json",
+    "servingRevisionErrors": {
+      "checkedAtUtc": "2026-09-07T04:23:00Z",
+      "filter": "new serving revision only; severity>=ERROR OR httpRequest.status>=500",
+      "returnedEntries": 0,
+      "note": "Point-in-time observation, not an ongoing guarantee. Expected maintenance503s are excluded explicitly."
+    }
+  },
+  "maintenance": {
+    "revision": "geo-backend-maintenance-202609070409",
+    "observedAtUtc": "2026-09-07T04:10:14.2282976Z",
+    "drainSeconds": 300,
+    "notificationPoliciesUnchanged": true,
+    "endedAtUtc": "2026-09-07T04:17:15.4558079Z"
+  },
+  "migrationJob": "geo-report-migrate-20260907",
+  "limitations": [
+    "Physical phone testing remains pending.",
+    "Neon Free plan and six-hour recovery window retained temporarily.",
+    "Runtime Neon owner credential and pooling capacity need pre-onboarding hardening.",
+    "NZ$10 monthly billing alerts are not a spending cap."
+  ],
+  "build": {
+    "id": "c671006c-ec74-484f-bda9-d5d7431fae5e",
+    "status": "SUCCESS",
+    "completedAtUtc": "2026-09-07T04:05:36.492402Z"
+  },
+  "migrationExecution": {
+    "name": "geo-report-migrate-20260907-wdbbn",
+    "startedAtUtc": "2026-09-07T04:15:22.115105Z",
+    "completedAtUtc": "2026-09-07T04:15:30.833448Z",
+    "succeededCount": 1,
+    "applied": [
+      "0018_report_review_workflow",
+      "0019_report_daywork_purpose",
+      "0020_missing_snapshot_daywork_correction"
+    ],
+    "ledgerExact": true,
+    "submittedContentUnchanged": true,
+    "inventory": "report-release-postmigration-2026-09-07.json"
+  },
+  "backend": {
+    "revision": "geo-backend-report-release-202609070416",
+    "trafficPercent": 100,
+    "candidateProbes": [
+      {
+        "checkedAtUtc": "2026-09-07T04:17:04.2888077Z",
+        "status": "ok",
+        "database": "ok",
+        "uploads": "gcs",
+        "migrations": "ok"
+      },
+      {
+        "checkedAtUtc": "2026-09-07T04:17:05.0910599Z",
+        "status": "ok",
+        "database": "ok",
+        "uploads": "gcs",
+        "migrations": "ok"
+      },
+      {
+        "checkedAtUtc": "2026-09-07T04:17:06.1237936Z",
+        "status": "ok",
+        "database": "ok",
+        "uploads": "gcs",
+        "migrations": "ok"
+      },
+      {
+        "checkedAtUtc": "2026-09-07T04:17:07.1563621Z",
+        "status": "ok",
+        "database": "ok",
+        "uploads": "gcs",
+        "migrations": "ok"
+      },
+      {
+        "checkedAtUtc": "2026-09-07T04:17:08.3124226Z",
+        "status": "ok",
+        "database": "ok",
+        "uploads": "gcs",
+        "migrations": "ok"
+      }
+    ],
+    "candidateAnonymousSites": 401,
+    "promotionStartedAtUtc": "2026-09-07T04:17:08.6144063Z",
+    "backendLiveObservedAtUtc": "2026-09-07T04:17:15.4558079Z",
+    "hostedReadiness": {
+      "status": "ok",
+      "checks": {
+        "database": "ok",
+        "migrations": "ok",
+        "upload_storage": "ok"
+      },
+      "details": {
+        "upload_storage": {
+          "backend": "gcs"
+        }
+      }
+    }
+  },
+  "productionPreview": {
+    "url": "https://geo-attendance-system-db9ca--report-release-20260907-1nwspqig.web.app",
+    "version": "sites/geo-attendance-system-db9ca/versions/f27b6a46dae98c71",
+    "status": "FINALIZED",
+    "rewrites": [
+      {
+        "glob": "/api/**",
+        "run": {
+          "serviceId": "geo-backend",
+          "region": "australia-southeast1"
+        }
+      },
+      {
+        "glob": "/uploads/**",
+        "run": {
+          "serviceId": "geo-backend",
+          "region": "australia-southeast1"
+        }
+      }
+    ],
+    "expireTime": "2026-09-14T04:17:47.389012152Z",
+    "releaseTime": "2026-09-07T04:17:52.744Z",
+    "fileCount": "58"
+  },
+  "hosting": {
+    "url": "https://geo-attendance-system-db9ca.web.app",
+    "version": "sites/geo-attendance-system-db9ca/versions/f27b6a46dae98c71",
+    "releaseName": "sites/geo-attendance-system-db9ca/channels/live/releases/1788754833408000",
+    "releaseTime": "2026-09-07T04:20:33.408Z",
+    "rewrites": [
+      {
+        "glob": "/api/**",
+        "run": {
+          "serviceId": "geo-backend",
+          "region": "australia-southeast1"
+        }
+      },
+      {
+        "glob": "/uploads/**",
+        "run": {
+          "serviceId": "geo-backend",
+          "region": "australia-southeast1"
+        }
+      }
+    ]
+  },
+  "liveFixtures": {
+    "accountIds": [
+      6,
+      7,
+      8
+    ],
+    "resigned": true,
+    "reportId": 1,
+    "reportSoftDeleted": true,
+    "templateId": 4,
+    "templateArchived": true,
+    "existingUsersAndPasswordsChanged": false,
+    "productionFixtureEvidenceRetained": true
+  },
+  "cleanup": {
+    "completedAtUtc": "2026-09-07T04:25:41.6357549Z",
+    "ownedNeonBranchDeleted": true,
+    "productionPrimaryPreserved": true,
+    "temporaryServiceDeleted": true,
+    "temporarySecretsDeleted": [
+      "geo-report-verify-db-20260907",
+      "geo-report-verify-jwt-20260907"
+    ],
+    "temporaryPreviewDeleted": "report-verify-20260907",
+    "exactSecretAndPreviewAbsenceHttpStatus": 404,
+    "branchAndServiceAbsenceVerifiedBySuccessfulLists": true,
+    "temporaryTrafficTagsRemoved": true,
+    "stageUploadCleanup": {
+      "status": "passed",
+      "scope": "Only two owned isolated-staging images",
+      "objects": [
+        {
+          "generation": "1788754074689997",
+          "object": "uploads/report-release-20260907/05e129e3b10a42f18516577bb9eb7b78.png",
+          "softDeleteTime": "2026-09-07T04:24:49.473Z",
+          "hardDeleteTime": "2026-10-07T04:24:49.473Z"
+        },
+        {
+          "generation": "1788754073876095",
+          "object": "uploads/report-release-20260907/d42ab64934e242d8b17d2ce4ea74594e.png",
+          "softDeleteTime": "2026-09-07T04:24:50.373Z",
+          "hardDeleteTime": "2026-10-07T04:24:50.373Z"
+        }
+      ],
+      "productionUploadsChanged": false,
+      "completedAtUtc": "2026-09-07T04:24:55.9777002Z"
+    },
+    "oldSqliteDemoStageUnchanged": true,
+    "productionImageAndMigrationJobRetained": true,
+    "productionPreviewRetainedUntil": "2026-09-14T04:17:47.389012152Z"
+  },
+  "completedAtUtc": "2026-09-07T04:25:41.6357549Z"
+}

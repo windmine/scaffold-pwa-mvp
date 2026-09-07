@@ -6,7 +6,7 @@ Use this runbook for managed PostgreSQL migrations, Cloud Run releases, durable 
 
 ### Current live deployment
 
-Backend topology last changed on 2026-08-04 and readiness was rechecked on 2026-08-13:
+The report-only coupled release completed on 2026-09-07: production migrations and the compatible backend were released before the exact verified frontend version. The temporary maintenance/drain window has ended; [production release evidence](evidence/report-release-2026-09-07.json) and the [sequence below](#2026-09-07-coupled-production-release) record the cutover. Physical-phone validation remains pending. The topology is:
 
 ```text
 Firebase Hosting
@@ -17,19 +17,20 @@ Firebase Hosting
 ```
 
 - Hosted PWA: `https://geo-attendance-system-db9ca.web.app`.
-- Cloud Run revision `geo-backend-release-20260804152130` serves 100% of traffic as `geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com`.
-- Hosted `/api/health/ready` reports database and GCS as healthy. Firebase Hosting version `c761984b7353028a` matches the verified commit `bcfb128` build across all 47 generated app-shell paths plus `sw.js`, serves the invited-only login with public registration hidden and the login form before the install promotion, contains the cold-offline Worker shell, keeps Staff and Work Form creation behind Add actions, provides the consistent consequential-action dialog, links Analytics exceptions to their exact Review Record or valid map point, and keeps essential map/Analytics labels at a tested 14px minimum.
-- The current working tree is a coupled backend/frontend report-only release candidate, not the live deployment described above. It adds migrations `0018_report_review_workflow` and `0019_report_daywork_purpose`, normal-Worker Report submission, durable Report-versus-Daywork separation, the forward-only Report transition endpoint, and the **Reports / Report Templates / Staff** shell. Do not deploy or clone the report-only frontend to live while Cloud Run still serves the August backend.
-- On 2026-09-01, the local in-app browser passed the report-only Worker → Supervisor → Worker lifecycle at 390 × 844, including omitted Site, structured filters, required resolution note, final-note visibility, and Report Template/Staff navigation without horizontal overflow. The complete local candidate gate is green, including all 33 Playwright workflows, backend migration/security/storage/workflow suites, a disposable-database smoke pass, production dependency audit, and Python dependency consistency. Hosted device verification remains a release gate, and the current production-hardening evidence is not green for live promotion.
+- The live application revision is `geo-backend-report-release-202609070416`, using `geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com` and the exact staged image digest `sha256:a5e218a2bdb3c8d81ea1da4bc616cfa78b2cc28ad9786d953b015886ffeac9a9`. It replaced the temporary database-free maintenance revision at 04:17:15 UTC; verify current traffic before any later cutover.
+- Live Firebase Hosting is `f27b6a46dae98c71`, cloned from the verified production-backend preview at 04:20:33 UTC. Database, exact migrations, and GCS readiness pass. Preview/live shell parity, cold-offline launch, authenticated Report/evidence workflows, and the real old-to-new waiting-service-worker update pass in Chromium; these are not physical-phone tests.
+- The live release includes migrations `0018_report_review_workflow`, `0019_report_daywork_purpose`, and additive correction `0020_missing_snapshot_daywork_correction`, normal-Worker Report submission, durable Report-versus-Daywork separation, the forward-only Report transition endpoint, and the **Reports / Report Templates / Staff** shell. The previous Hosting `c761984b7353028a` and August backend are historical, not the serving pair.
+- Historical 2026-09-01 local checks passed the Worker → Supervisor → Worker lifecycle at 390 × 844, 33 Playwright workflows, backend suites, disposable smoke, and dependency checks. The final 2026-09-07 checkpoint now records 42 browser workflows and the full `0020` local/recovery-baseline results below. Neither historical nor current local checks establish online release or hosted-device completion.
 - `DATABASE_URL` and `GEO_SECRET_KEY` are injected from Secret Manager.
 - The runtime identity has no project-level role. It has secret-level accessor bindings and a custom upload role containing only `storage.objects.create`, `storage.objects.get`, and `storage.objects.delete`, restricted to `uploads/`.
 - The default Compute service account is no longer a runtime credential and retains only `roles/run.builder` for Cloud Run source builds.
 - SQLAlchemy uses `pool_pre_ping` so a Neon/managed-PostgreSQL connection closed while idle is discarded before the route query.
 - Upload startup performs create/read/delete lifecycle verification; readiness then reads a stable private marker.
 - Uploaded JPEG, PNG, and WebP files are decoded and re-encoded before storage, served only after authorization, and deleted when detached and no durable reference remains.
-- The candidate `/health/ready` verifies database access, exact migration history, and the selected upload adapter; historical deployed versions predate the migration readiness check.
-- Cloud Monitoring checks the hosted `/api/health/ready` path and has enabled incident policies for readiness failures and Cloud Run 5xx responses. No verified notification channel is configured yet.
-- Neon PITR passed again on 2026-08-04 at migration head `0017_global_admin_supervisor_invariant`; the GCS soft-delete recovery proof remains current. Sanitized evidence is under `docs/evidence/` and is checked by the production-hardening gate.
+- Live `/health/ready` verifies database access, exact migration history, and the selected upload adapter; historical deployed versions predate the migration readiness check.
+- Cloud Monitoring checks the hosted `/api/health/ready` path and has enabled incident policies for readiness failures and Cloud Run 5xx responses. On 2026-09-07 both policies were attached to the selected email channel without changing their conditions. A separate metric-based test opened incident `0.occahjgb1yjd` and the operator confirmed receipt; exact test-policy deletion/absence were verified. The corrected strict gate requires recent, recipient-hash-bound receipt for enabled `VERIFIED` or verification-exempt email channels; provider omission alone never passes and `UNVERIFIED` always fails. See [delivery diagnosis](#2026-09-07-email-delivery-diagnosis).
+- Both 2026-09-07 Neon phases passed separately: the [PreMigration baseline](evidence/neon-recovery-proof-2026-09-07-baseline.json) recovered then-live `0017`, bound to candidate `0020`; the [post-migration Current proof](evidence/neon-recovery-proof-2026-09-07-current.json) recovered the complete exact `0020` ledger from a post-migration historical point. Each verified read-only access and owned-branch cleanup/404. GCS exact-generation recovery and the strict `Current` hardening gate also passed; the latter retains one warning for the temporary six-hour Free-plan history. Earlier failed evidence remains historical.
+- The [read-only capacity snapshot](evidence/neon-runtime-capacity-2026-09-07.json) confirms a pooled runtime hostname and 106 non-reserved PostgreSQL connection slots. Current defaults at 20 Cloud Run instances and one Uvicorn process each allow 100 retained or 300 peak application-to-pooler client sockets; transaction pooling means those are not physical backend counts. This is not a load test or verified live PgBouncer configuration. The non-superuser runtime still owns the database/tables and has broad role flags; least-privilege credentials and measured pool/scale sizing remain pre-onboarding work.
 - The 2026-08-04 release created a one-day read-only Neon backup branch, proved migration `0017` on a disposable PostgreSQL branch, and then deployed commit `38220e9` as a no-traffic Cloud Run candidate. Five candidate readiness cycles and ten post-promotion direct/hosted readiness probes passed, no revision-scoped ERROR or HTTP 5xx logs were observed, and all temporary traffic tags were removed after promotion. Firebase preview `release-20260804152130` was verified for asset hashes and invited-account behavior before its exact version was cloned live.
 - The 2026-08-07 frontend-only release deployed commit `bbee643` through Firebase preview `release-20260807120117` at `https://geo-attendance-system-db9ca--release-20260807120117-texdr4u7.web.app`, then cloned exact Hosting version `1e831c0aa589a08d` live. Local, preview, and live SHA-256 hashes matched for `index.html` (`a0c8c1c16cdfb58fb29c0ef976ba8d7c645ffee20de5f7bd3e85df7f3f1dc004`), `sw.js` (`ab4fa2b49094970b26d8e7eb41fe63a42c8a303c8c330429ee68e588b2a9149e`), `offline.html` (`5034e9dd2d5df27e72c356632a8e984fa0ea389adfcf1870dafe0b3d64837ff2`), and `manifest.webmanifest` (`24b60cb58ae8a220b51b3e52cc16aa0360d87f0f63f4e9c713fab0d6b990d35e`). Five live readiness probes reported database and GCS healthy; anonymous Sites returned 401; invited-only/hidden-registration state, login-before-install ordering, and generated service-worker assets passed. The release compacts the Normal Worker guide after first use, defaults checkout to the open check-in's Site, prioritizes recent/nearest Sites, and restores only Worker/Department-scoped attendance context with account-switch race protection. Cloud Run remained unchanged at `geo-backend-release-20260804152130`.
 - The 2026-08-10 frontend-only release deployed commit `b2dec22` through Firebase preview `release-20260810172537` at `https://geo-attendance-system-db9ca--release-20260810172537-uihkpz71.web.app`, then cloned exact Hosting version `6b499ef514142a09` live. Local, preview, and live SHA-256 hashes matched for `index.html` (`ba207851e18aca98c38d65de58846000d66a67d8e966a903683af4f15a1c4b3a`), `sw.js` (`416375288e8623f514eeeee833b17661a84dcbbd5543f09e3fdb590964339fac`), `offline.html` (`5034e9dd2d5df27e72c356632a8e984fa0ea389adfcf1870dafe0b3d64837ff2`), and `manifest.webmanifest` (`24b60cb58ae8a220b51b3e52cc16aa0360d87f0f63f4e9c713fab0d6b990d35e`). Five preview and five live readiness probes reported database and GCS healthy; anonymous Sites returned 401; invited-only/hidden-registration state, login-before-install ordering, PWA cache headers, generated service-worker assets, and hidden-by-default Staff/Work Form creation panels passed. The release makes those Supervisor areas list-first and adds cancel/reset, focus restoration, submit locking, and explicit post-create refresh-failure handling. Cloud Run remained unchanged at `geo-backend-release-20260804152130`.
@@ -54,8 +55,9 @@ The project has an earlier validated Cloud SQL instance and database, but they a
 ## Release Invariants
 
 - Run `python -m app.migrations` against a staging database/branch before production.
+- Require the isolated PostgreSQL migration/concurrent-review rehearsal below as well as SQLite-based application checks. Final 2026-09-07 PostgreSQL 17.6/18.4 runs pass 53 checkpoints each through additive `0020`; retain the earlier failing `0019` evidence as history. Neither local SQLite nor PostgreSQL tests replace current-image/provider staging and hosted verification.
 - Keep `AUTO_MIGRATE=false` in production. It is the default for `APP_ENV=prod`/`production` (or the `ENVIRONMENT` fallback) and any Cloud Run `K_SERVICE`; explicit `true` is rejected before migrations, upload probes, or purge work. API startup verifies exact migration versions/checksums without creating or modifying the ledger. Development may still auto-migrate.
-- Run explicit migrations and the read-only `python -m app.migrations --check` from the same immutable migration artifact as the candidate image. Checksums cover file bytes, so different checkout line endings can cause a mismatch. A shared candidate artifact does not cure an existing historical mismatch: already-applied files must retain the original release bytes. A mismatch blocks release; investigate against the original release artifact, and never rewrite stored checksums or normalize previously applied files to force a pass.
+- Run explicit migrations and `python -m app.migrations --check` from the same immutable migration artifact as the candidate image. Checksums cover exact file bytes; never normalize during verification or accept alternate checksums. On 2026-09-07, historical `0001`–`0017` were restored to canonical LF bytes independently matching every deployed checksum, and `.gitattributes` pins migration files to LF. This is source-byte alignment with the original release, not a ledger rewrite or edited migration logic. Any new mismatch blocks release and needs comparison with the original artifact.
 - Back up or create a restorable provider snapshot before every production migration.
 - Keep uploads in the private GCS adapter for every production-like Cloud Run revision.
 - Keep browser auth cookie name `__session`; Firebase Hosting does not forward arbitrary cookies to rewritten Cloud Run services.
@@ -147,12 +149,17 @@ python backend\work_form_definition_test.py
 python backend\report_purpose_test.py
 python backend\report_workflow_test.py
 python backend\migration_test.py
+python backend\report_purpose_correction_test.py
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-alert-delivery-test.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-alert-delivery-gate-test.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-recovery-migration-contract-test.ps1
+python scripts/check-neon-recovery-verifier-test.py
 npm.cmd audit --omit=dev
 npm.cmd audit
 python -m pip check
 ```
 
-`npm.cmd run check:mobile` now builds and regenerates before checking and starts a lightweight Node source/proxy test server plus a `dist/` production preview. The source server avoids the Vite development watcher while preserving shared unbundled-module state for browser probes; the runner fails fast with recent output if a managed process exits. The 33 default 390 × 844 workflows cover the report-only Worker/Supervisor shell, required Report Date, optional Site, workflow transitions/final note, phone-width Template/Staff access, resumable exactly-once photo/nested-signature replay, offline Report-only history, explicit purpose overriding misleading names, and replay isolation from hidden legacy queue records. Retained full-interface checks use a test-only override. The production service worker must list the hashed JavaScript/CSS entrypoints referenced by `dist/index.html`, serve cached `index.html` only for `/` and `/index.html` navigation failures, and keep API/auth/Template/history/upload paths network-only. Default temporary ports are backend `8765`, source frontend `5175`, and preview `4175`.
+`npm.cmd run check:mobile` builds and regenerates before checking and starts a lightweight Node source/proxy server plus a `dist/` preview. It preserves shared unbundled-module state without Vite's watcher and fails fast if a managed process exits. The 42 workflows at 390 × 844 cover the Report shell, calendar-valid Report Date, optional Site, transitions/final note, Template/Staff navigation, exactly-once photo/signature replay, private history, shared-device session races, lossless Template-conflict recovery, and isolation from retained legacy queues. Full-interface checks use a test-only override. The service worker must include production entrypoints, serve cached `index.html` only for `/` and `/index.html` navigation failures, and keep API/auth/Template/history/uploads network-only. Temporary ports default to `8765`, `5175`, and `4175`.
 
 Then start the backend against a disposable database and run:
 
@@ -162,11 +169,27 @@ python backend\smoke_test.py
 
 The database test specifically proves `pool_pre_ping` recovers a poisoned returned connection. The focused tests cover upload adapter parity, immutable Report Template snapshots/server-derived formulas, Report ownership/workflow/transition concurrency, cursor-paginated Review Queue policy/query/export separation, and migrations.
 
-The 2026-07-31 local preflight passed all functional checks and the disposable-database smoke test. Production npm dependencies and Python requirements were clean; the full development npm audit reported one high-severity `brace-expansion` advisory through ESLint/minimatch.
+The final 2026-09-07 local preflight passed 208 backend checkpoints, 42 Chromium workflows, 207 static checks, and 45 Review Queue checks. Separately, 42 delivery-helper, 3 actual Monitoring-section integration, and 27 recovery-contract checks passed in PowerShell 5.1/7; 4 Python verifier tests passed. These do not run cloud mutations or prove candidate online/phone behavior. Historical 2026-07-31 evidence includes a disposable smoke pass; do not claim that old smoke result was repeated for this checkpoint.
+
+## Isolated PostgreSQL Rehearsal
+
+Run against a freshly initialized native PostgreSQL cluster, not an existing service or a copied production database:
+
+```powershell
+python backend/postgres_rehearsal.py --pg-bin "C:/Program Files/PostgreSQL/17/bin" --output docs/evidence/postgres-rehearsal-new-run.json
+```
+
+The runner uses the chosen installed binaries, an owned temporary directory, generated SCRAM passwords, a random loopback port, and a non-superuser database-owner role. It never consumes `DATABASE_URL`, accepts no remote target, isolates inherited libpq configuration, verifies the server's data-directory/port identity, and validates ownership before stopping/removing its temporary cluster. Existing Windows PostgreSQL services and cloud resources are untouched. Failed phases remain failures, but a migration assertion does not prevent independent review fixtures from running. Exit code 1 means the full gate is not clear; `--migrations-only`/`--review-only` are diagnostic subsets. Evidence files are never silently overwritten and contain source hashes, version, pass/failure records, lock proofs, and cleanup status, not connection credentials.
+
+Final runs: [PostgreSQL 17.6](evidence/postgres-rehearsal-17-2026-09-07-release.json) and [PostgreSQL 18.4](evidence/postgres-rehearsal-18-2026-09-07-release.json), 2026-09-07. Each passes 53 checkpoints: fresh 20-migration application/idempotence, exact read-only history verification, `0017`→`0020` evidence-preserving upgrades, positive missing-snapshot correction and ambiguous-case refusal, native immutability/purpose/replay guards, transactional rollback/retry, and 20 genuinely blocking review races. Each race requires one winner, one 409, one audit, unchanged evidence, and rollback if audit insertion fails. Both owned clusters were removed.
+
+The earlier [17.6](evidence/postgres-rehearsal-17-2026-09-07-isolated.json)/[18.4](evidence/postgres-rehearsal-18-2026-09-07-isolated.json) runs remain failed historical evidence: unchanged `0019` misclassifies NULL/empty-snapshot Daywork. Additive `0020` corrects only positively identified pre-`0019` Daywork and records provenance, refusing ambiguity instead of fabricating a snapshot. Applied `0019`, stored checksums, and submitted answers/photos/signatures/dates/Site remain unchanged. The later read-only production inventory found no submissions; the snapshot/ledger findings at that time are preserved in [preflight evidence](evidence/report-release-preflight-2026-09-07.json), including the source-line-ending mismatch subsequently resolved by restoring canonical source bytes.
+
+This local rehearsal does not replace the candidate-image/provider staging pass, pooled-runtime-role validation, GCS streaming, hosted HTTP/phone testing, or production recovery evidence. It also does not convert the normal SQLite browser harness into a hosted PostgreSQL staging environment.
 
 ## Database Migration Procedure
 
-The current migration head is `0019_report_daywork_purpose`:
+The current source and production migration head is `0020_missing_snapshot_daywork_correction`; the explicit 2026-09-07 migration job applied `0018`–`0020` after draining production requests:
 
 - `0014_client_submission_unique_indexes` enforces replay idempotency for Worker submissions.
 - `0015_work_form_definition_snapshots` versions Work Form Definitions and backfills a best-available snapshot for old submissions. Post-migration submissions preserve their exact historical definition.
@@ -174,6 +197,7 @@ The current migration head is `0019_report_daywork_purpose`:
 - `0017_global_admin_supervisor_invariant` revokes malformed legacy Global Admin flags from non-Supervisor accounts, then enforces the Supervisor-only invariant for future writes.
 - `0018_report_review_workflow` adds the constrained `submitted` / `in_review` / `resolved` workflow, reviewing Supervisor/final note/timestamps, and Report workflow indexes. It preserves legacy approval outcomes, maps existing approved/rejected submissions to `resolved`, and backfills reviewer/time only from matching durable audit evidence.
 - `0019_report_daywork_purpose` adds constrained `template_purpose` and immutable `submission_purpose` values, classifies historical Daywork from known Definition field signatures and each submission's frozen snapshot rather than mutable names, and indexes Report-only queries without rewriting submitted answers or evidence. SQLite and PostgreSQL guards derive inserted purpose from the parent Template, reject pre-reviewed/approved Report inserts, and block legacy Report status/content/purpose rewrites while retaining old-backend Daywork writes.
+- `0020_missing_snapshot_daywork_correction` is an additive correction for positively evidenced, pre-`0019` Daywork with NULL/empty snapshots. It preserves submitted content and genuine Reports, records provenance, reinstates guards, and fails atomically on ambiguous evidence. Do not edit `0019` or repair ledger checksums to bypass the correction.
 
 For every release:
 
@@ -205,9 +229,119 @@ $env:DATABASE_URL="postgresql+psycopg://USER:PASSWORD@127.0.0.1:55433/STAGING_DA
 
 Do not copy that password into shell history on a shared machine; prefer a temporary secret injection method.
 
+## 2026-09-07 Coupled Production Release
+
+The release completed in backend-before-frontend order. [Release record](evidence/report-release-2026-09-07.json):
+
+1. The exact candidate passed the [isolated authenticated staging checks](#2026-09-07-authenticated-staging-checkpoint), explicit `PreMigration` recovery, upload recovery, receipt-bound Monitoring, and project-budget checks.
+2. Production entered database-free maintenance at 04:10:14 UTC and drained old requests for 300 seconds. Execution `geo-report-migrate-20260907-wdbbn` completed at 04:15:30.833 UTC, applying only `0018`, `0019`, and `0020`. The [post-migration read-only inventory](evidence/report-release-postmigration-2026-09-07.json) matched all 20 exact source checksums and the original immutable-submission hash. There were **zero pre-existing submissions**, so this production comparison is not populated historical-data migration coverage; the isolated PostgreSQL rehearsals supply that coverage.
+3. Revision `geo-backend-report-release-202609070416`, using the same staged image digest above, passed readiness and served normal live traffic at 04:17:15 UTC. Maintenance ended.
+4. [Current recovery](evidence/neon-recovery-proof-2026-09-07-current.json) passed at 04:19:02 UTC from historical point 04:16:16 UTC, after migration. It recovered the exact full `0020` ledger, observed read-only access, and verified owned-branch deletion/404. The strict `Current` gate passed with one six-hour Neon Free-plan warning.
+5. [Production-backend preview](https://geo-attendance-system-db9ca--report-release-20260907-1nwspqig.web.app), expiring **2026-09-14 04:17:47 UTC**, used verified `firebase.json` rewrites to live `geo-backend`. Exact Hosting version `f27b6a46dae98c71` was cloned live at 04:20:33.408 UTC. [Preview](evidence/hosted-production-preview-2026-09-07.json) and [live](evidence/hosted-live-release-2026-09-07.json) each passed 48 asset hashes, five database/migration/GCS readiness probes, anonymous isolation, and cold-offline shell launch.
+6. [Ten live authenticated Report checks](evidence/hosted-report-live-20260907a/evidence.json) passed at 390 × 844 with real photo/signature streaming, normal-Worker offline capture/replay exactly once, second-Worker privacy, Supervisor review/resolution note, and Worker final note. Cleanup soft-deleted only owned Report `1`, archived Template `4`, and resigned synthetic users `6`/`7`/`8`; existing users and passwords were unchanged. The [waiting-update pass](evidence/hosted-waiting-update-2026-09-07.json) kept the old live client controlling until the new worker waited, used **Update App**, then verified the new cached shell cold-launched offline after the last page closed.
+
+These hosted results are Chromium automation, not physical-phone testing. The six-hour Free-plan recovery window, owner-level runtime privileges, unproven loaded pooling capacity, and missing single-use Worker password-setup invitation remain controlled-pilot limitations, not a claim of broader-onboarding readiness. Cleanup completed at 04:25:41 UTC: the owned verification branch, service, secrets, and `report-verify-20260907` preview are absent; its two owned staging images are soft-deleted and recoverable under the 30-day policy. Production is 100% on the new revision without temporary traffic tags. The seven-day production-backend preview, production image/migration job, and audit-linked live test evidence are retained; the older SQLite demo is unchanged.
+
+### Historical release blockers and safeguards
+
+The earlier local/baseline checkpoint still had Hosting `c761984b7353028a`, August backend, and database head `0017`. The [initial operational evidence](evidence/operational-safeguards-2026-09-07.json) remains the earlier failed inspection, not current safeguard state. The following records explain the fixes without relabelling historical failures:
+
+- [Upload recovery](evidence/upload-recovery-proof-2026-09-07.json): passed, including exact original/restored generations, content hash, no remaining live probe, and an independent GCS metadata recheck. Only the owned tiny test fixture was changed; its soft-deleted copies expire under the 30-day policy.
+- [Neon recovery](evidence/neon-recovery-proof-2026-09-07.json): the verifier connected read-only, found 17 migrations and 14 public tables, and verified Department/Site/User data presence without exporting records. The full proof failed its source-head check (`0017` recovered versus `0019` expected), and the disposable branch was deleted with absence confirmed. Preserve that failed result; do not relabel it as a current candidate recovery pass or bypass the gate. Pre-release recovery evidence for the deployed baseline and post-migration candidate evidence must be distinguished explicitly.
+- Initial alert-delivery finding: both policies were enabled but had no channels. This historical finding is superseded by the setup and exact incident/recipient-confirmed receipt below; neither channel status nor empty logs alone proves delivery.
+- Initial billing finding: project billing was enabled, but budget reads returned `SERVICE_DISABLED`. This access blocker is now resolved with operator approval, as recorded below. Missing read access was not evidence of no existing budget. Budget alerts are notifications, not an automatic spending cap; Cloud Run instance/resource bounds are also not a project-wide spend cap.
+- Migration: the old `0019` failures remain valid historical results, now addressed by additive `0020` and green full PostgreSQL 17.6/18.4 rehearsals. Canonical LF source bytes match all 17 deployed checksums; stored history was not rewritten. The new [schema 3 baseline proof](evidence/neon-recovery-proof-2026-09-07-baseline.json) is explicitly `PreMigration` for that exact deployed prefix, bound to the complete `0020` candidate artifact. It is not post-migration candidate approval.
+
+Resume only after the operational choices and migration gates are cleared. Preserve the release order: verified recovery and staged candidate → coordinated explicit migrations from the exact candidate artifact → read-only migration check → candidate readiness and backward-compatibility checks → backend promotion/observation → verified frontend preview with **live-backend rewrites** → exact frontend promotion. The report demo preview configuration must never be cloned live. The August backend lacks the newer exact-ledger guard and may remain nominally ready while new triggers reject its legacy Report mutations; avoid an untested overlapping write window. Current guarded images cannot be rolled back across a newer ledger without a compatible release plan.
+
+## 2026-09-07 Alert And Budget Setup
+
+The operator selected an email destination, authorized enabling the Budget API and a $10 monthly budget, and elected to keep Neon on the free plan temporarily. No Neon plan, retention, compute, or billing setting was changed. The observed six-hour database history remains a documented temporary limitation; it does not waive the migration or candidate recovery gates.
+
+- Created one enabled email channel, `projects/geo-attendance-system-db9ca/notificationChannels/68405221878559872`, after checking for an existing matching recipient. Added it to the readiness and Cloud Run 5xx policies using a `notificationChannels`-only update mask; existing conditions, enabled state, and combiner were verified unchanged.
+- Email verification status is omitted by the provider. [Google's channel status semantics](https://docs.cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.notificationChannels) allow verification-exempt channels, but omission does not prove receipt. The corrected gate accepts enabled email channels with `VERIFIED`, omitted, or `VERIFICATION_STATUS_UNSPECIFIED` status only with recent matching recipient-confirmed delivery evidence; `UNVERIFIED` and unsupported statuses fail. The recipient's normalized-address SHA-256 binds evidence to the current destination without storing its plaintext address.
+- A separate, uniquely labelled **TEST ONLY** log-match policy was used for the delivery attempt, targeting only this channel and a unique test nonce. Two matching log entries were accepted and read back (one initial entry and one bounded propagation retry). No matching incident was observed by 03:14 UTC and recipient receipt was not confirmed. No concrete filter, sink, or caller-permission error was found. The exact owned temporary policy was then deleted and HTTP 404 confirmed; both production policies and their email channel remain configured. Production thresholds and application traffic were not disturbed. API acceptance is not evidence that email arrived: [alert setup/test evidence](evidence/alert-channel-setup-2026-09-07.json).
+- Enabled only `billingbudgets.googleapis.com` with operator approval. Paginated budget inventory found an existing matching project-only calendar-month budget, so no duplicate was created. The billing account currency is NZD: the budget remains **NZ$10/month**, with actual-spend alerts at 50%, 80%, and 100%, plus a 100% forecast alert. The email channel is attached and default Billing IAM recipients remain enabled. An etag-guarded patch preserved scope, amount, display name, and applicable-credit treatment. A separate GET verified the result: [billing evidence](evidence/billing-budget-2026-09-07.json).
+- Budget configuration is verified, not delivery of a future threshold email. The budget covers this Google Cloud project after applicable credits; it does not include a separate Neon bill. [Budget alerts do not cap spending](https://docs.cloud.google.com/billing/docs/how-to/budgets); no billing shutdown or automatic spending cap was configured.
+
+Historical post-setup rechecking exited 1 for exact `VERIFIED` status and the `0017`-versus-`0019` recovery mismatch. The receipt-bound gate and explicit recovery phases now address those gate defects, while additive `0020` clears the local migration failure. Preserve the original results rather than relabelling them. Budget configuration and upload recovery pass; six-hour Neon retention remains only the operator's temporary Free-plan choice. These changes do not promote the application or replace post-migration `Current` and hosted checks.
+
+## 2026-09-07 Email Delivery Diagnosis
+
+The operator reported no email from the earlier log-match test. Read-only checks confirmed the selected recipient, enabled channel, no snoozes, two matching stored test logs, no observed test incident, and no notification-channel error events. Empty metric/error-log results do not prove dispatch or delivery. The cause of that log-trigger failure remains unexplained; do not attribute it to Spam or repair it by forcing a channel verification status.
+
+A single separate **TEST ONLY - Report MVP email metric delivery - 91b40ca9** policy used the existing healthy hosted-readiness telemetry, without creating a VM, custom metric, or additional uptime check. Its intentionally true condition counted successful checkers (`ALIGN_NEXT_OLDER`, 300 seconds, `REDUCE_COUNT_TRUE`, count greater than zero, zero retest duration); an exact aggregated read returned six. Monitoring opened incident `0.occahjgb1yjd` at **2026-09-07 03:28:35 UTC**, and the operator answered **Received** to a question naming that exact test and destination. This confirms end-to-end Monitoring email delivery, not future budget-threshold delivery or a production outage test.
+
+The exact owned policy `7969176239109369834` was deleted at 03:31:37 UTC and GET returned 404. Both real policies remained enabled with the channel attached and unchanged mutation timestamps/conditions. No production outage was induced. [Sanitized diagnosis and receipt evidence](evidence/alert-delivery-diagnosis-2026-09-07.json) supersedes the earlier delivery-unproven result; its limitations describe the pre-fix state at recording time. The later receipt-bound gate, additive `0020`, and completed online release are documented above. No application release or Neon plan change occurred during the diagnosis itself.
+
+For a future authorized channel check, follow [Google's temporary-policy test procedure](https://docs.cloud.google.com/monitoring/support/notification-options): use an isolated labelled policy on existing harmless telemetry, verify its condition using the same aggregation, allow evaluation time, correlate the exact incident with recipient confirmation, then verify ownership before deleting only the temporary policy. Do not change real alert thresholds, induce an outage, repeatedly send test logs without new evidence, or treat API acceptance as mailbox receipt. Use bounded API timeouts; one incident-list read stalled during this diagnosis, while a later paginated read succeeded.
+
+## Refreshing The Isolated Report Preview Only
+
+Verified preview: [report-mvp-20260907](https://geo-attendance-system-db9ca--report-mvp-20260907-t6pfoqxe.web.app), Hosting version `dc163aa882f5c247`, expires 2026-10-07 02:40 UTC. [Verification evidence](evidence/report-preview-2026-09-07.json) records the current frontend, older staging backend, local and hosted checks, and unchanged live Hosting/Cloud Run state.
+
+Use `firebase.report-preview.json` for the isolated report preview. Its `/api/**` and `/uploads/**` rewrites target `geo-backend-report-stage-20260901173452`, not the live `geo-backend`. Keep the production `firebase.json` unchanged. This configuration is for `hosting:channel:deploy` only: never use it for a live deploy or clone its staging rewrites to `live`.
+
+```powershell
+npm.cmd run lint
+npm.cmd run check:mobile
+npx -y firebase-tools@latest hosting:channel:deploy report-mvp-20260907 --config firebase.report-preview.json --project geo-attendance-system-db9ca --expires 30d --no-authorized-domains --non-interactive
+```
+
+The command creates or refreshes the preview channel without changing Firebase Auth authorized domains, Cloud Run revisions/traffic, databases, or the live Hosting release. Repeat it before expiry to refresh the channel; after expiry Firebase may assign a different URL, so use the returned URL. Check the deployed channel's rewrites, all generated shell asset hashes, anonymous phone-width login/PWA behavior, and same-origin `/api/health/ready` and protected-route authorization. Record the actual expiry, Hosting version, and staging revision with the verification results.
+
+At the earlier recorded 2026-09-07 demo-preview refresh, staging was `geo-backend-report-stage-20260901173452-r3-365fa4f`, using SQLite/GCS with frontend `0fccbe0`, without the later replay/date/startup/`0020` backend fixes. That preview remains a separate disposable demo; do not overwrite or clone its staging rewrites into production. The later current-candidate online pass is recorded below against a different verification preview.
+
+## 2026-09-07 Authenticated Staging Checkpoint
+
+The separate temporary `report-verify-20260907` stage used Firebase Hosting version `dbd9b11da35f1a0b`; it did not replace or authorize changing the older report-demo preview configuration. Its branch/service/secrets/preview were removed after the successful production release, with absence verified. [Hosted workflow evidence](evidence/hosted-report-stage-20260907a/evidence.json) records ten passing checkpoints at 390 × 844: database/migration/GCS readiness, three dedicated Department accounts, nonce-owned Template creation, normal-Worker required-date/optional-Site/photo/signature entry, offline preservation, exactly-once online replay with real GCS image streaming, second-Worker denial, Supervisor filters/start-review, required-note resolution, and Worker final-note/idempotent replay. Cleanup soft-deleted only the owned Report and archived only the owned Template; no cleanup failures or browser page errors were observed.
+
+The separate [read-only shell/PWA pass](evidence/hosted-stage-release-2026-09-07.json) matched all 48 recorded shell paths/hashes, made five healthy database/migration/GCS probes, rejected anonymous protected requests, and cold-launched the cached login shell after the last page was closed. This is hosted Chromium automation, not a physical-phone, waiting-service-worker update, or final production pass.
+
+## Temporary Database-Free Maintenance
+
+`backend/app/maintenance.py` is an explicit opt-in ASGI entrypoint for a temporary, coordinated Cloud Run revision. It never imports database/configuration code, runs migrations, or bypasses the normal API's startup guard. The normal image entrypoint remains `app.main:app`; do not replace it permanently. To verify the pause locally:
+
+```powershell
+python backend/maintenance_test.py
+cd backend
+python -m uvicorn app.maintenance:app --host 127.0.0.1 --port 8081
+```
+
+For an approved Cloud Run cutover, use the exact candidate image with an explicit temporary command/argument override equivalent to `python -m uvicorn app.maintenance:app --host 0.0.0.0 --port 8080`, preserving identity, IAM, resource limits, and secrets. Route traffic deliberately, verify the pause through direct and Hosting paths, and drain old in-flight requests before the separately coordinated migration job. Do not apply a migration merely because the temporary revision's liveness passes.
+
+Only `GET /health` and `/api/health` return 200 with `status=maintenance`. Readiness, auth/API methods, uploads, and documentation routes return 503 with `Retry-After: 60` and `Cache-Control: no-store`; no session cookie is set. Preserve those headers and the instruction to keep drafts; do not cache the pause or clear device queues. Readiness monitoring is expected to detect this pause—do not disable alerts or mistake liveness for database readiness. Return traffic to the normal candidate only after the explicit migration and exact-ledger/readiness checks pass. If the job fails, follow the ledger-compatible rollback/recovery procedure rather than forcing old startup.
+
+## Owned Hosted Report Fixtures
+
+These commands are opt-in mutations for an authorized target, not read-only diagnostics. First inject process-only variables through the operator's protected secret mechanism; do not put values in Markdown, shell history, logs, or checked-in `.env` files:
+
+- Provisioner: `REPORT_RELEASE_DATABASE_URL`, `REPORT_TEST_EXPECTED_DATABASE_HOST`, `REPORT_TEST_EXPECTED_DATABASE_NAME`, and a fresh high-entropy `REPORT_TEST_ACCOUNT_PASSWORD` of at least 32 characters.
+- Browser runner: `HOSTED_REPORT_BASE_URL` (HTTPS origin only), `HOSTED_REPORT_ALLOWED_HOST` (exact matching host), and `HOSTED_REPORT_{SUPERVISOR,WORKER,SECOND_WORKER}_{EMAIL,PASSWORD}` for the three newly provisioned accounts. Optional `HOSTED_REPORT_EVIDENCE_DIR` must be a new directory.
+
+Choose a fresh lowercase run ID (`[a-z0-9][a-z0-9_-]{3,39}`), use it consistently, and substitute it for `new-run-id`:
+
+```powershell
+python scripts/hosted-report-accounts.py --allow-hosted-fixtures --action provision --run-id new-run-id
+node scripts/check-hosted-report-workflow.mjs --allow-hosted-mutations --run-id new-run-id
+python scripts/hosted-report-accounts.py --allow-hosted-fixtures --action deactivate --run-id new-run-id
+```
+
+The provisioner requires exact approved database host/name, isolates inherited `PG*` overrides, verifies the full candidate ledger, and creates three nonce-named `example.invalid` accounts in one active Department with no Global Admin privileges. Emails are `release-<run-id>-supervisor@example.invalid`, `release-<run-id>-worker@example.invalid`, and `release-<run-id>-second_worker@example.invalid`; supply those and the injected temporary password to the browser variables without printing them. It refuses existing email reuse and never resets an existing user's password. Deactivation checks the exact name, role, Department, non-admin flag, and temporary password under row locks, then marks only owned synthetic users resigned; audit references remain intact.
+
+The browser runner mutates only its nonce- and identity-bound Template/Report: it creates synthetic evidence, queues/replays, transitions and resolves, then uses supported soft-delete and archive APIs. It does not seed/reset databases, bulk-delete records, directly delete upload objects, purge the rubbish bin, or change existing users/passwords. Run account deactivation after browser cleanup, including on failure. Review `cleanup.failures` and `submissionOutcomeUnknown`; a cancelled browser request is not proof of server rollback. Preserve evidence and inspect any uncertain owned submission before cleanup—never broaden deletion scope or force an offline fixture online. Clear injected secrets from the process afterward.
+
+The small runner regression suite is safe offline and does not invoke the hosted flow:
+
+```powershell
+node scripts/check-hosted-report-workflow-test.mjs
+```
+
+It checks actual labelled resolution-note markup, aborts stalled API requests, and preserves same-origin cookies/CSRF/JSON; all page traffic is intercepted locally and no network request reaches a server. The hosted runner itself blocks service workers, so its workflow result must be paired with the separate shell/PWA and physical-phone/update checks.
+
 ## Cloud Run And Hosting Deployment
 
-The report-only candidate is a coupled release. Promote the backend containing migrations `0018_report_review_workflow` and `0019_report_daywork_purpose`, normal-Worker Report authorization, purpose/workflow filters, legacy-bypass guards, corrected Report exports, and the transition endpoint before cloning the report-only Hosting preview to live. Verify the previous live frontend against the candidate backend during the no-traffic/tagged phase so a frontend rollback remains available.
+Report-only changes require a coupled release. Promote the backend containing migrations through `0020_missing_snapshot_daywork_correction`, normal-Worker Report authorization, purpose/workflow filters, legacy-bypass guards, corrected Report exports, and the transition endpoint before cloning the report-only Hosting preview to live. Verify the previous live frontend against the candidate backend during the no-traffic/tagged phase so a frontend rollback remains available. The completed 2026-09-07 sequence above records this release; repeat the relevant gates for later changes rather than reusing historical approval.
 
 1. Run `gcloud meta list-files-for-upload` from the repository root. Confirm `.gcloudignore` and `.dockerignore` exclude local databases, uploads, environment files, `__pycache__`, and bytecode while retaining `Dockerfile`, `requirements.txt`, and `backend/app/main.py`.
 2. Build/deploy the backend from the repository root with zero traffic and a temporary tag. Preserve the intended Secret Manager bindings, dedicated runtime/build service accounts, GCS adapter, resource limits, and managed PostgreSQL target.
@@ -273,31 +407,51 @@ npm.cmd run check:production-hardening:strict
 
 The checker is provider-aware. With its default `-DatabaseProvider neon`, it verifies the dedicated runtime identity and three-permission upload role, Secret bindings, removal of the old runtime grants, bucket privacy and 30-day soft delete, exact uptime/alert policies with recent observations, current Neon branch cleanup, and the exact GCS soft-deleted proof generations. It does not treat an absent legacy Cloud SQL instance as a live-database failure. Use `-DatabaseProvider cloudsql` only after an intentional database cutover.
 
-The normal npm command explicitly allows Console-incident-only monitoring for the controlled-test phase. The `:strict` command is the real-production gate and fails until every required policy has an enabled, verified delivery channel.
+The normal npm command explicitly allows Console-incident-only monitoring for controlled testing; missing delivery remains a visible warning, never a delivery pass. The `:strict` command requires every policy to reference an enabled email channel whose verification status is `VERIFIED` or omitted/`VERIFICATION_STATUS_UNSPECIFIED`, plus recent recipient-confirmed delivery proof. `UNVERIFIED` always fails. `-AlertDeliveryEvidence` defaults to `docs/evidence/alert-delivery-diagnosis-*.json`; `-MaximumAlertDeliveryEvidenceAgeDays` defaults to 30. Proof binds the project, current channel and normalized-recipient hash, exact test policy/incident, ordered non-future timestamps, actual Boolean receipt confirmation, and exact owned-policy cleanup/404. Changed recipients, stale/malformed proof, or empty logs cannot satisfy it. This evidence schema is email-only; other channel types require an appropriate destination-bound proof contract.
 
-On 2026-08-13, the controlled-test gate passed with three warnings (incident-only Monitoring, six-hour Neon retention, and skipped budget verification). The strict gate remains red for real production use because no verified notification channel is attached.
+On 2026-08-13 the controlled-test gate passed with incident-only, six-hour retention, and skipped-budget warnings. September receipt and budget configuration supersede the missing-channel/budget findings. Both commands still default to `-ReleasePhase Current`, requiring recovery for the full candidate ledger. Explicit `PreMigration` accepts only the declared known deployed prefix and prints that this is not current-candidate approval; it retains all other hardening checks.
 
 Current warnings are operational decisions rather than hidden green checks:
 
-- The automated 2026-08-13 frontend release pass is green for the historical full-interface build. The report-only backend/frontend candidate is not yet live; after its focused 2026-09-01 local phone-width pass, it still needs the full local preflight, preview, exact-clone, and hosted real-phone gates. Those remaining gates must verify both Worker classes, Supervisor phone-width navigation, optional Site, all Report workflow states, offline photo/signature replay exactly once, authenticated GCS streaming, cached-shell relaunch with network-only Template limitations, translations, and the waiting-service-worker update flow on a real installed device.
+- The coupled production release, post-migration recovery, preview/live parity, live authenticated Report workflow, and real waiting-service-worker update have green automated results. The **physical-phone gate remains pending**: verify both Worker classes, Supervisor navigation, optional Site, all Report states, exactly-once offline photo/signature replay, authenticated GCS streaming, cached-shell/network-only Template limits, translations, and updates on an installed device.
 - The current Supervisor provisioning form requires an initial password; implement a single-use Worker password-setup invitation before scaling beyond controlled accounts.
-- The two Monitoring policies create Console incidents, but no verified email/chat notification channel is attached.
+- Monitoring email receipt is confirmed for the current destination; keep that evidence current and retest after destination changes. It does not prove real-outage detection or budget-threshold email receipt.
 - Neon Free retains only six hours of history and has no scheduled snapshots. The drill proves current PITR mechanics, not a production-grade recovery window.
-- The live database still uses the owner role; create a least-privilege application role, protect the production branch, and test credential rotation.
-- Pass `-BillingAccount` to include the GCP budget check.
+- The live database still uses a non-superuser owner role with broad privileges; create a least-privilege application role, protect the production branch, and test credential rotation. The read-only [capacity snapshot](evidence/neon-runtime-capacity-2026-09-07.json) verifies the pooled hostname, not production load safety. Set and load-test explicit application pool/scale bounds with headroom for operators and migrations; 300 possible app-to-pooler clients at 20 instances do not equal 300 physical PostgreSQL connections.
+- Pass `-BillingAccount 0123B1-051D70-935F73` to include the GCP budget check. The project-only NZ$10/month configuration is verified; budgets and Cloud Run instance limits are not hard spending caps, and the GCP budget excludes separate Neon costs.
 
 ## Recovery Proofs
 
 ### Neon
 
-Run the non-destructive proof from an authenticated, linked Neon CLI context:
+Use a fresh evidence filename for every proof; the script refuses to overwrite existing results. The following is the **historical pre-migration command** for the completed `0017`→`0020` release; it cannot approve today's full-`0020` production state. For a future migration, independently verify and declare that release's actual deployed prefix:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/prove-neon-recovery.ps1 `
-  -EvidencePath docs/evidence/neon-recovery-proof-$(Get-Date -Format yyyy-MM-dd).json
+  -ReleasePhase PreMigration `
+  -PreMigrationRecoveryHead 0017_global_admin_supervisor_invariant `
+  -EvidencePath docs/evidence/neon-recovery-proof-YYYYMMDD-HHMMSS-baseline.json
+powershell -ExecutionPolicy Bypass -File scripts/check-production-hardening.ps1 `
+  -ReleasePhase PreMigration `
+  -PreMigrationRecoveryHead 0017_global_admin_supervisor_invariant `
+  -NeonRecoveryEvidence docs/evidence/neon-recovery-proof-YYYYMMDD-HHMMSS-baseline.json `
+  -BillingAccount 0123B1-051D70-935F73
 ```
 
-The script uses the pinned `neon@2.32.0` CLI, selects a point five minutes inside the current history window, creates an expiring read-only branch from that historical production point, connects without printing its generated connection string, verifies read-only mode, every migration, public schema, hashed table counts, and non-empty Department/User/Site business sentinels, then deletes only the branch whose exact run ownership metadata is reverified. Store only the sanitized JSON result; never store CLI create output, debug transcripts, or a connection URI. The current proof is `docs/evidence/neon-recovery-proof-2026-08-04.json`; the 2026-07-15 file is retained as historical evidence.
+The schema 3 proof records `releasePhase`, `candidateHead`, `expectedRecoveryHead`, the full candidate/source-prefix ledgers, and the verifier's complete ordered version/checksum map. `PreMigrationRecoveryHead` is permitted only in `PreMigration` and must exactly identify a known source prefix strictly before the candidate head. Unknown, abbreviated, future, missing-middle, duplicate, or checksum-mismatched ledgers fail. Exact source bytes are hashed without normalization; candidate changes invalidate the proof. The 2026-09-07 [baseline result](evidence/neon-recovery-proof-2026-09-07-baseline.json) completed at 03:56:08 UTC and passes for deployed `0017`, bound to candidate `0020`. The [original failed result](evidence/neon-recovery-proof-2026-09-07.json) remains unchanged as history.
+
+After migration, select a historical recovery point **after the migration committed**, then run the default full-candidate proof and strict gate. The 2026-09-07 [Current result](evidence/neon-recovery-proof-2026-09-07-current.json) passed at 04:19:02 UTC using the post-migration 04:16:16 UTC point. The default restore offset is five minutes, so wait sufficiently or explicitly select a valid post-migration point for a new proof; an older recovery point correctly fails `Current`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/prove-neon-recovery.ps1 `
+  -ReleasePhase Current `
+  -EvidencePath docs/evidence/neon-recovery-proof-YYYYMMDD-HHMMSS-current.json
+powershell -ExecutionPolicy Bypass -File scripts/check-production-hardening.ps1 `
+  -NeonRecoveryEvidence docs/evidence/neon-recovery-proof-YYYYMMDD-HHMMSS-current.json `
+  -BillingAccount 0123B1-051D70-935F73
+```
+
+`Current` cannot reuse the baseline, even if it is recent; it requires all 20 current candidate migrations and exact checksums. The pinned `neon@2.32.0` proof creates an expiring read-only branch, observes rather than forces transaction read-only mode, verifies public schema, hashed counts and non-empty Department/User/Site sentinels, and deletes only the exact reverified owned branch. Artifact hashes bind the proof script, Python verifier, and shared migration-contract helper. Store only sanitized JSON; never persist connection URIs, CLI create output, or debug transcripts. These proofs test temporary recovery branches, not a reset of production.
 
 For an actual incident, create and inspect a recovery branch before changing production. Point a no-traffic Cloud Run revision at a separately stored recovery connection Secret, verify data and readiness, and move traffic only under an incident plan. Do not reset the production branch merely to test restore mechanics.
 
@@ -316,7 +470,7 @@ The proof uses a non-sensitive, run-marked fixture under `recovery-probes/`; eve
 
 - If staging migration fails, discard the staging database/branch, fix the migration, and repeat the full staging sequence.
 - If production migration fails before traffic moves, keep or resume the previous revision only if its exact migration artifact still matches the database and readiness passes. Otherwise stay in maintenance while investigating and use an approved recovery/repair plan; do not assume failure left the database unchanged.
-- If report-only Hosting fails after the compatible backend/migrations are healthy, clone the exact previous Hosting version back to live first and leave the new compatible backend in place while investigating. Migrations `0018` and `0019` are additive; `0019` keeps old-backend Daywork inserts purpose-correct but deliberately makes legacy Report approval/manual-create/content-edit attempts fail closed at the database boundary. Do not route the August backend while an active Report interface expects transition support.
+- If report-only Hosting fails after the compatible backend/migrations are healthy, clone the exact previous Hosting version back to live first and leave the new compatible backend in place while investigating. The `0018`–`0020` chain is additive, but compatibility still requires the exact ledger; `0019` makes legacy Report approval/manual-create/content-edit attempts fail closed and `0020` has audited corrective effects. Do not route the August backend while an active Report interface expects transitions, or undo correction provenance manually.
 - If Report transitions or migrated workflow data are wrong, stop the frontend promotion or roll back to a ledger-compatible application revision. Do not manually rewrite `workflow_status`, reviewer, note, or timestamps; inspect the `report_transition`/legacy audit evidence on a recovery branch and use an audited repair plan.
 - If the app fails after a backward-compatible migration, a previous image is usable only if it also contains the exact applied migration history. Additive schema compatibility alone does not satisfy the guard. Prefer a verified fix-forward image with the current migration artifact; never remove ledger entries or enable automatic migrations to force an old image to start.
 - If a compatible image is unavailable, obtain approval for database recovery, restore or clone the pre-migration database, update the Cloud Run `DATABASE_URL` secret binding to that database, deploy/route the matching revision, and verify all readiness checks before serving users. Account for writes since the recovery point; recovery is not an automatic response to a startup failure.

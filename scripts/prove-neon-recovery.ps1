@@ -8,6 +8,9 @@ param(
   [string]$PythonCommand = "python",
   [ValidateSet("neon@2.32.0")]
   [string]$NeonCliPackage = "neon@2.32.0",
+  [ValidateSet("Current", "PreMigration")]
+  [string]$ReleasePhase = "Current",
+  [string]$PreMigrationRecoveryHead = "",
   [string]$EvidencePath = ""
 )
 
@@ -16,6 +19,8 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $verifyScript = Join-Path $PSScriptRoot "verify-neon-recovery.py"
 $migrationsDir = Join-Path $repoRoot "backend/migrations/versions"
+$migrationContractScript = Join-Path $PSScriptRoot "check-recovery-migration-contract.ps1"
+. $migrationContractScript
 
 if (-not $ContextFile) {
   $ContextFile = Join-Path $repoRoot ".neon"
@@ -24,6 +29,9 @@ if (-not $ContextFile) {
 }
 if ($EvidencePath -and -not [System.IO.Path]::IsPathRooted($EvidencePath)) {
   $EvidencePath = Join-Path $repoRoot $EvidencePath
+}
+if ($EvidencePath -and (Test-Path -LiteralPath $EvidencePath)) {
+  throw "EvidencePath already exists; preserve prior proof and choose a new evidence path"
 }
 
 function Invoke-NeonText([string[]]$Arguments, [bool]$AllowFailure = $false) {
@@ -187,7 +195,7 @@ function Write-EvidenceFile([string]$Path, [string]$Json) {
   $temporary = "$Path.tmp-$([Guid]::NewGuid().ToString('N'))"
   $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
   [System.IO.File]::WriteAllText($temporary, "$Json`n", $utf8NoBom)
-  Move-Item -LiteralPath $temporary -Destination $Path -Force
+  Move-Item -LiteralPath $temporary -Destination $Path
 }
 
 $startedAt = [DateTime]::UtcNow
@@ -207,6 +215,7 @@ $branchOwned = $false
 $verification = $null
 $neonVersion = $null
 $expectedMigrationHead = $null
+$migrationContract = $null
 $createOperationIds = @()
 $deleteOperationIds = @()
 $deleted = $false
@@ -219,15 +228,12 @@ try {
   }
   Test-PythonPreflight $PythonCommand $verifyScript
 
-  $migrationFiles = @(
-    Get-ChildItem -LiteralPath $migrationsDir -File |
-      Where-Object { $_.Name -match '^\d{4}_.+\.py$' } |
-      Sort-Object Name
-  )
-  if ($migrationFiles.Count -eq 0) {
-    throw "Migration head is unavailable"
+  $migrationContract = Get-RecoveryMigrationContract -MigrationsDirectory $migrationsDir `
+    -ReleasePhase $ReleasePhase -PreMigrationRecoveryHead $PreMigrationRecoveryHead
+  $expectedMigrationHead = $migrationContract.ExpectedRecoveryHead
+  if ($ReleasePhase -eq "PreMigration") {
+    Write-Warning "PreMigration proves only the declared deployed baseline; it is not recovery approval for the migrated candidate. Run a fresh Current proof after migration."
   }
-  $expectedMigrationHead = [System.IO.Path]::GetFileNameWithoutExtension($migrationFiles[-1].Name)
 
   $versionResult = Invoke-NeonText @("--version")
   $neonVersion = $versionResult.Output
@@ -379,7 +385,7 @@ try {
   $verificationRaw = $null
   if (
     $verification.status -ne "passed" -or
-    $verification.migrationHead -ne $expectedMigrationHead -or
+    -not (Test-RecoveryMigrationVerification $migrationContract $verification) -or
     $verification.businessDataPresent.department -isnot [bool] -or
     $verification.businessDataPresent.department -ne $true -or
     $verification.businessDataPresent.site -isnot [bool] -or
@@ -387,7 +393,7 @@ try {
     $verification.businessDataPresent.user -isnot [bool] -or
     $verification.businessDataPresent.user -ne $true
   ) {
-    throw "Recovered database does not match the current migration head"
+    throw "Recovered database does not match the exact phase-bound migration ledger"
   }
   $proofBranchMetadata.endpointType = "read_only"
 
@@ -497,7 +503,7 @@ $passed = (
 )
 $completedAt = [DateTime]::UtcNow
 $evidence = [ordered]@{
-  schemaVersion = 2
+  schemaVersion = 3
   provider = "neon"
   environment = "production"
   status = if ($passed) { "passed" } else { "failed" }
@@ -515,6 +521,11 @@ $evidence = [ordered]@{
   requestedExpiresAtUtc = $requestedExpiresAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
   proofBranch = $proofBranchMetadata
   verification = $verification
+  releasePhase = if ($migrationContract) { $migrationContract.ReleasePhase } else { $ReleasePhase }
+  candidateHead = if ($migrationContract) { $migrationContract.CandidateHead } else { $null }
+  expectedRecoveryHead = $expectedMigrationHead
+  candidateMigrationLedger = if ($migrationContract) { @($migrationContract.CandidateLedger) } else { @() }
+  expectedRecoveryMigrationLedger = if ($migrationContract) { @($migrationContract.ExpectedLedger) } else { @() }
   expectedMigrationHead = $expectedMigrationHead
   operations = [ordered]@{
     create = @($createOperationIds)
@@ -537,6 +548,7 @@ $evidence = [ordered]@{
   artifactHashes = [ordered]@{
     proofScriptSha256 = (Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash.ToLowerInvariant()
     verifierScriptSha256 = (Get-FileHash -LiteralPath $verifyScript -Algorithm SHA256).Hash.ToLowerInvariant()
+    migrationContractScriptSha256 = (Get-FileHash -LiteralPath $migrationContractScript -Algorithm SHA256).Hash.ToLowerInvariant()
   }
 }
 

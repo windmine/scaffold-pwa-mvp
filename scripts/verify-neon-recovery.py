@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import sys
 
 import psycopg
@@ -27,8 +28,20 @@ def verify() -> dict:
             cursor.execute("SHOW transaction_read_only")
             transaction_read_only = cursor.fetchone()[0] == "on"
 
-            cursor.execute("SELECT version FROM public.schema_migrations ORDER BY version")
-            migration_versions = [row[0] for row in cursor.fetchall()]
+            cursor.execute("SELECT version, checksum FROM public.schema_migrations ORDER BY version")
+            migration_rows = cursor.fetchall()
+            if any(
+                not isinstance(version, str)
+                or not re.fullmatch(r"\d{4}_[a-z0-9_]+", version)
+                or not isinstance(checksum, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", checksum)
+                for version, checksum in migration_rows
+            ):
+                raise RuntimeError("recovery migration ledger is malformed")
+            migration_versions = [version for version, _ in migration_rows]
+            migration_checksums = dict(migration_rows)
+            if len(migration_checksums) != len(migration_rows):
+                raise RuntimeError("recovery migration ledger contains duplicates")
 
             cursor.execute(
                 """
@@ -91,6 +104,8 @@ def verify() -> dict:
         "transactionReadOnly": transaction_read_only,
         "migrationCount": len(migration_versions),
         "migrationHead": migration_versions[-1],
+        "migrationVersions": migration_versions,
+        "migrationChecksums": migration_checksums,
         "publicTableCount": len(table_names),
         "schemaSha256": canonical_sha256(schema_shape),
         "rowCountSha256": canonical_sha256(row_counts),

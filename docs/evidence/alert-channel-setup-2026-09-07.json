@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "projectId": "geo-attendance-system-db9ca",
+  "projectNumber": "794826041820",
+  "completedAtUtc": "2026-09-07T03:15:05Z",
+  "status": "configured_delivery_unproven",
+  "subsequentDeliveryEvidence": "docs/evidence/alert-delivery-diagnosis-2026-09-07.json",
+  "historicalStatusNote": "This initial log-test result is retained unchanged. A later metric-based test opened an incident and the operator confirmed email receipt; see subsequentDeliveryEvidence.",
+  "releaseReady": false,
+  "authorization": {
+    "operatorSelectedEmail": true,
+    "enableBudgetApiApproved": true,
+    "budgetAmount": 10,
+    "budgetCurrency": "NZD",
+    "budgetCurrencySource": "linked billing account",
+    "neonFreePlanRequestedTemporarily": true,
+    "neonPlanOrRetentionChanged": false
+  },
+  "channel": {
+    "name": "projects/geo-attendance-system-db9ca/notificationChannels/68405221878559872",
+    "type": "email",
+    "created": true,
+    "matchingRecipientInventoryCheckedBeforeCreate": true,
+    "enabled": true,
+    "recipientMatchesUserSelection": true,
+    "providerVerificationStatus": null,
+    "providerVerificationStatusOmitted": true,
+    "verificationStatusManuallyChanged": false
+  },
+  "productionPolicyUpdates": [
+    {
+      "name": "projects/geo-attendance-system-db9ca/alertPolicies/241559781638440690",
+      "displayName": "Geo Attendance: Cloud Run 5xx",
+      "updateMask": "notificationChannels",
+      "operatorChannelAttached": true,
+      "conditionsEnabledAndCombinerUnchanged": true
+    },
+    {
+      "name": "projects/geo-attendance-system-db9ca/alertPolicies/241559781638441261",
+      "displayName": "Geo Attendance: hosted readiness",
+      "updateMask": "notificationChannels",
+      "operatorChannelAttached": true,
+      "conditionsEnabledAndCombinerUnchanged": true
+    }
+  ],
+  "deliveryAttempt": {
+    "testPolicy": "projects/geo-attendance-system-db9ca/alertPolicies/7128098992203043020",
+    "displayName": "TEST ONLY - Report MVP email delivery - 6ecd56ba",
+    "runId": "report-delivery-6ecd56ba1e0a47bd93354532fca69ae8",
+    "policyCreatedAtUtc": "2026-09-07T03:08:04.058524141Z",
+    "logName": "projects/geo-attendance-system-db9ca/logs/report-mvp-delivery-test",
+    "matchingTestLogEntries": 2,
+    "entriesAcceptedAndReadBack": true,
+    "secondEntryReason": "One bounded retry after policy propagation; no further test writes",
+    "notificationRateLimitSeconds": 300,
+    "autoCloseSeconds": 1800,
+    "lastIncidentCheckUtc": "2026-09-07T03:14:15Z",
+    "matchingIncidentObserved": false,
+    "recipientConfirmedReceipt": false,
+    "emailDeliveryProven": false,
+    "productionOutageOrThresholdChangeInduced": false,
+    "diagnostics": {
+      "policyEnabledAndExactFilterMatchesStoredEntries": true,
+      "defaultLogSinkEnabledWithNoExclusions": true,
+      "requiredCallerPermissionsPresent": true,
+      "notificationChannelErrorEventsObserved": false,
+      "interpretation": "No concrete configuration error was found; absent error events and accepted log entries are not proof of email delivery."
+    },
+    "cleanup": {
+      "exactPolicyOwnershipVerified": true,
+      "temporaryPolicyDeleted": true,
+      "http404AbsenceVerified": true,
+      "completedAtUtc": "2026-09-07T03:15:05Z",
+      "productionPoliciesAndChannelRetained": true,
+      "testLogEvidenceRetained": true
+    }
+  },
+  "billingEvidence": "docs/evidence/billing-budget-2026-09-07.json",
+  "strictHardeningRecheck": {
+    "exitCode": 1,
+    "failureCount": 2,
+    "failures": [
+      "Gate requires exact VERIFIED channel status; provider omits status for the configured email channel and actual receipt is still unproven.",
+      "Recovered production migration head 0017 does not satisfy candidate-bound 0019 evidence."
+    ],
+    "billingBudgetExistenceCheckPassed": true,
+    "uploadRecoveryCheckPassed": true,
+    "warnings": ["Six-hour Neon history remains unchanged under the operator's temporary free-plan choice."],
+    "independentMigrationDefectStillOpen": true
+  },
+  "limitations": [
+    "No recipient email address, authentication token, or verification code is stored in this evidence.",
+    "No backend deployment, database migration, frontend promotion, Neon plan upgrade, or spend-cap action was performed.",
+    "Actual alert-email receipt and future budget-threshold email receipt are not established by these configuration checks.",
+    "The strict gate was not loosened to accept omitted verification status or bypass the release blockers."
+  ],
+  "primarySources": [
+    "https://docs.cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.notificationChannels",
+    "https://docs.cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.alertPolicies/patch",
+    "https://docs.cloud.google.com/logging/docs/alerting/log-based-alerts",
+    "https://docs.cloud.google.com/billing/docs/how-to/budgets"
+  ]
+}

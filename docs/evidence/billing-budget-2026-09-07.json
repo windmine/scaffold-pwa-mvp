@@ -1,0 +1,94 @@
+{
+  "verified_at": "2026-09-07T03:08:32.6712789Z",
+  "project_id": "geo-attendance-system-db9ca",
+  "project_number": "794826041820",
+  "billing_account": "billingAccounts/0123B1-051D70-935F73",
+  "billing_account_open": true,
+  "billing_account_currency": "NZD",
+  "authorized_operation": "Enable the Budget API and configure a project-only calendar-month budget of 10 in the billing account currency, with operator email and default billing-recipient alerts.",
+  "api_enablement": {
+    "service": "billingbudgets.googleapis.com",
+    "project_id": "geo-attendance-system-db9ca",
+    "previously_enabled": false,
+    "completed": true,
+    "operation": "operations/acat.p2-794826041820-2f780880-2f54-438f-a0e2-86a42cb06e7f"
+  },
+  "inventory_before": {
+    "all_pages_consumed": true,
+    "pages": 1,
+    "budget_count": 1,
+    "matching_project_budgets": 1
+  },
+  "operation": "updated_existing_budget",
+  "concurrency": {
+    "etag_guard_used": true,
+    "previous_etag": "1780374103024607",
+    "current_etag": "1788750506492079",
+    "update_mask": [
+      "thresholdRules",
+      "notificationsRule.monitoringNotificationChannels",
+      "notificationsRule.disableDefaultIamRecipients"
+    ]
+  },
+  "budget": {
+    "name": "billingAccounts/0123B1-051D70-935F73/budgets/a1721456-17c2-4e4a-8e21-b30192decd2a",
+    "displayName": "Firebase Project geo-attendance-system-db9ca",
+    "budgetFilter": {
+      "projects": [
+        "projects/794826041820"
+      ],
+      "creditTypesTreatment": "INCLUDE_ALL_CREDITS",
+      "calendarPeriod": "MONTH"
+    },
+    "amount": {
+      "specifiedAmount": {
+        "currencyCode": "NZD",
+        "units": "10"
+      }
+    },
+    "thresholdRules": [
+      {
+        "thresholdPercent": 0.5,
+        "spendBasis": "CURRENT_SPEND"
+      },
+      {
+        "thresholdPercent": 0.8,
+        "spendBasis": "CURRENT_SPEND"
+      },
+      {
+        "thresholdPercent": 1,
+        "spendBasis": "CURRENT_SPEND"
+      },
+      {
+        "thresholdPercent": 1,
+        "spendBasis": "FORECASTED_SPEND"
+      }
+    ],
+    "notificationsRule": {
+      "monitoringNotificationChannels": [
+        "projects/geo-attendance-system-db9ca/notificationChannels/68405221878559872"
+      ]
+    }
+  },
+  "checks": {
+    "separate_get_verified_patch": true,
+    "scope_amount_credit_treatment_and_display_name_preserved": true,
+    "default_iam_recipients_enabled": true,
+    "operator_channel_is_enabled_email": true,
+    "requested_actual_and_forecast_thresholds_verified": true,
+    "no_new_budget_created": true,
+    "no_unrelated_budget_changed": true
+  },
+  "budget_email_delivery_confirmed": false,
+  "hard_spending_cap": false,
+  "limitations": [
+    "This confirms budget configuration, not receipt of a threshold email.",
+    "Budget alerts do not stop resources, disable billing, or impose a spending cap.",
+    "The budget tracks this project's Google Cloud costs after applicable credits; it does not include a separate Neon bill."
+  ],
+  "references": [
+    "https://docs.cloud.google.com/billing/docs/reference/budget/rest/v1/billingAccounts.budgets",
+    "https://docs.cloud.google.com/billing/docs/reference/budget/rest/v1/billingAccounts.budgets/patch",
+    "https://docs.cloud.google.com/billing/docs/reference/rest/v1/billingAccounts"
+  ]
+}

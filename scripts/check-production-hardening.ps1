@@ -5,6 +5,9 @@ param(
   [string]$RuntimeServiceAccount = "geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com",
   [ValidateSet("neon", "cloudsql")]
   [string]$DatabaseProvider = "neon",
+  [ValidateSet("Current", "PreMigration")]
+  [string]$ReleasePhase = "Current",
+  [string]$PreMigrationRecoveryHead = "",
   [string]$CloudSqlInstance = "geo-attendance-system",
   [string]$UploadBucket = "geo-attendance-system-db9ca-uploads",
   [string]$UploadObjectPrefix = "uploads",
@@ -20,6 +23,9 @@ param(
   [string]$HostedReadinessHost = "geo-attendance-system-db9ca.web.app",
   [string]$HostedReadinessPolicy = "Geo Attendance: hosted readiness",
   [string]$CloudRun5xxPolicy = "Geo Attendance: Cloud Run 5xx",
+  [string]$AlertDeliveryEvidence = "docs/evidence/alert-delivery-diagnosis-*.json",
+  [ValidateRange(1, 365)]
+  [int]$MaximumAlertDeliveryEvidenceAgeDays = 30,
   [switch]$AllowIncidentOnlyMonitoring,
   [string]$BillingAccount = ""
 )
@@ -185,6 +191,25 @@ function Get-RepoSha256([string]$RelativePath) {
   return (Get-FileHash -LiteralPath (Join-Path $repoRoot $RelativePath) -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
+$recoveryMigrationContract = $null
+try {
+  if ($DatabaseProvider -ne "neon" -and ($ReleasePhase -ne "Current" -or $PreMigrationRecoveryHead)) {
+    throw "PreMigration recovery phase is supported only for the Neon recovery contract"
+  }
+  if ($DatabaseProvider -eq "neon") {
+    . (Join-Path $PSScriptRoot "check-recovery-migration-contract.ps1")
+    $recoveryMigrationContract = Get-RecoveryMigrationContract `
+      -MigrationsDirectory (Join-Path $repoRoot "backend/migrations/versions") `
+      -ReleasePhase $ReleasePhase -PreMigrationRecoveryHead $PreMigrationRecoveryHead
+    if ($ReleasePhase -eq "PreMigration") {
+      Warn "PreMigration gate checks only deployed recovery baseline $($recoveryMigrationContract.ExpectedRecoveryHead), not migrated candidate approval; a fresh Current proof and gate are required after migration"
+    }
+  }
+} catch {
+  Fail $_
+  exit 1
+}
+
 $dockerfilePath = Join-Path $repoRoot "Dockerfile"
 if (-not (Test-Path -LiteralPath $dockerfilePath)) {
   Fail "Dockerfile is missing"
@@ -222,17 +247,12 @@ if ($DatabaseProvider -eq "neon") {
     }
     $neonContext = Get-Content -LiteralPath (Join-Path $repoRoot ".neon") -Raw | ConvertFrom-Json
     $neonContextProjectId = [string]$neonContext.projectId
-    $migrationFiles = @(
-      Get-ChildItem -LiteralPath (Join-Path $repoRoot "backend/migrations/versions") -File |
-        Where-Object { $_.Name -match '^\d{4}_.+\.py$' } |
-        Sort-Object Name
-    )
-    if (-not $neonContextProjectId -or $migrationFiles.Count -eq 0) {
+    if (-not $neonContextProjectId -or -not $recoveryMigrationContract) {
       throw "Neon context or migration head is unavailable"
     }
-    $expectedMigrationHead = [System.IO.Path]::GetFileNameWithoutExtension($migrationFiles[-1].Name)
-    $expectedMigrationCount = $migrationFiles.Count
-    Pass "Neon evidence will be bound to project $neonContextProjectId and migration $expectedMigrationHead"
+    $expectedMigrationHead = $recoveryMigrationContract.ExpectedRecoveryHead
+    $expectedMigrationCount = $recoveryMigrationContract.ExpectedLedger.Count
+    Pass "Neon evidence will be bound to project $neonContextProjectId, phase $ReleasePhase, and exact migration ledger through $expectedMigrationHead"
   } catch {
     Fail $_
   }
@@ -684,9 +704,8 @@ try {
       Where-Object { $_ } |
       Sort-Object -Unique
   )
-  $deliveryComplete = $false
+  $availableChannels = @()
   if ($notificationChannelNames.Count -gt 0) {
-    $availableChannels = @()
     $nextPageToken = ""
     do {
       $channelsUri = "https://monitoring.googleapis.com/v3/projects/$ProjectId/notificationChannels?pageSize=100"
@@ -697,32 +716,27 @@ try {
       $availableChannels += @($channelResponse.notificationChannels | Where-Object { $_ })
       $nextPageToken = [string]$channelResponse.nextPageToken
     } while ($nextPageToken)
-    $verifiedChannelNames = @(
-      $availableChannels |
-        Where-Object {
-          $_.enabled -is [bool] -and $_.enabled -eq $true -and
-          $_.verificationStatus -eq "VERIFIED"
-        } |
-        ForEach-Object { $_.name }
-    )
-    $policiesWithoutDelivery = @(
-      $resolvedPolicies | Where-Object {
-        $references = @($_.notificationChannels | Where-Object { $_ })
-        @($references | Where-Object { $verifiedChannelNames -contains $_ }).Count -eq 0
-      }
-    )
-    $deliveryComplete = (
-      $resolvedPolicies.Count -eq $requiredPolicies.Count -and
-      $policiesWithoutDelivery.Count -eq 0
-    )
   }
 
+  . (Join-Path $PSScriptRoot "check-alert-delivery.ps1")
+  $deliveryEvidenceJson = @(
+    Get-ChildItem -Path (Resolve-RepoPath $AlertDeliveryEvidence) -File -ErrorAction SilentlyContinue |
+      ForEach-Object {
+        try { Get-Content -LiteralPath $_.FullName -Raw -ErrorAction Stop } catch { "" }
+      }
+  )
+  $deliveryCheck = Test-AlertDelivery -ProjectId $ProjectId -ProjectNumber ([string]$project.projectNumber) `
+    -Policies $resolvedPolicies -Channels $availableChannels -EvidenceJson $deliveryEvidenceJson `
+    -MaximumEvidenceAgeDays $MaximumAlertDeliveryEvidenceAgeDays
+  $deliveryComplete = ($resolvedPolicies.Count -eq $requiredPolicies.Count -and $deliveryCheck.Passed)
+
   if ($deliveryComplete) {
-    Pass "each required alert policy uses an enabled, verified notification channel"
+    Pass "each required alert policy uses an enabled, verification-eligible channel with recent recipient-confirmed delivery evidence"
   } elseif ($AllowIncidentOnlyMonitoring) {
-    Warn "incident-only monitoring was explicitly allowed; alert policies do not all use an enabled, verified notification channel"
+    Warn "incident-only monitoring was explicitly allowed; actual alert delivery is not established for every required policy"
   } else {
-    Fail "each alert policy must use an enabled, verified notification channel; pass -AllowIncidentOnlyMonitoring only for an explicit controlled-test exception"
+    foreach ($reason in $deliveryCheck.Reasons) { Fail $reason }
+    Fail "each alert policy requires an enabled, verification-eligible channel and recent project/recipient-bound delivery proof; pass -AlertDeliveryEvidence or use -AllowIncidentOnlyMonitoring only for an explicit controlled-test exception"
   }
 } catch {
   Fail $_
@@ -745,8 +759,10 @@ if ($DatabaseProvider -eq "neon") {
       $artifactHashesValid = (
         (Test-Sha256 ([string]$neonEvidence.artifactHashes.proofScriptSha256)) -and
         (Test-Sha256 ([string]$neonEvidence.artifactHashes.verifierScriptSha256)) -and
+        (Test-Sha256 ([string]$neonEvidence.artifactHashes.migrationContractScriptSha256)) -and
         [string]$neonEvidence.artifactHashes.proofScriptSha256 -eq (Get-RepoSha256 "scripts/prove-neon-recovery.ps1") -and
-        [string]$neonEvidence.artifactHashes.verifierScriptSha256 -eq (Get-RepoSha256 "scripts/verify-neon-recovery.py")
+        [string]$neonEvidence.artifactHashes.verifierScriptSha256 -eq (Get-RepoSha256 "scripts/verify-neon-recovery.py") -and
+        [string]$neonEvidence.artifactHashes.migrationContractScriptSha256 -eq (Get-RepoSha256 "scripts/check-recovery-migration-contract.ps1")
       )
       $timestampsValid = (
         $completedAt -ge $startedAt -and
@@ -762,7 +778,8 @@ if ($DatabaseProvider -eq "neon") {
         [Math]::Abs(($actualExpiry - $requestedExpiry).TotalSeconds) -le 120
       )
       $metadataValid = (
-        [int]$neonEvidence.schemaVersion -eq 2 -and
+        [int]$neonEvidence.schemaVersion -eq 3 -and
+        (Test-RecoveryMigrationEvidence $recoveryMigrationContract $neonEvidence) -and
         $neonEvidence.provider -eq "neon" -and
         $neonEvidence.environment -eq "production" -and
         $neonEvidence.status -eq "passed" -and
@@ -799,7 +816,7 @@ if ($DatabaseProvider -eq "neon") {
       )
 
       if (-not $metadataValid -or -not $timestampsValid -or -not $artifactHashesValid -or -not $verificationValid) {
-        Fail "Neon recovery evidence is not bound to this project, migration head, artifact set, historical point, and exact cleanup contract"
+        Fail "Neon recovery evidence is not bound to this project, release phase, complete source/checksum ledger, artifact set, historical point, and exact cleanup contract"
       } else {
         Pass "Neon PITR proof is project-bound, historical, read-only, schema-verified, and cleaned up"
       }
@@ -988,4 +1005,8 @@ if ($failures.Count -gt 0) {
 }
 
 Write-Host ""
-Write-Host "production hardening checks passed"
+if ($ReleasePhase -eq "PreMigration") {
+  Write-Host "pre-migration baseline hardening checks passed; this is not Current candidate recovery approval"
+} else {
+  Write-Host "production hardening checks passed"
+}

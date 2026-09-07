@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Migration checksums are durable: Windows and Linux must ship identical bytes.
+backend/migrations/versions/*.py text eol=lf

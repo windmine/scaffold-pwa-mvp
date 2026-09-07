@@ -4,8 +4,10 @@ import csv
 import json
 import os
 import socket
+import sqlite3
 import subprocess
 import time
+from contextlib import closing
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -240,6 +242,73 @@ def test_readiness_validates_migration_ledger_without_writes():
         isolated_engine.dispose()
 
 
+def check_http_migration_readiness(base_url, database_path):
+    # This path belongs exclusively to the caller's temporary Uvicorn fixture.
+    with closing(sqlite3.connect(database_path)) as connection:
+        original_sql = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'"
+        ).fetchone()[0]
+        original_rows = connection.execute(
+            "SELECT version, name, checksum, applied_at FROM schema_migrations ORDER BY version"
+        ).fetchall()
+        if not original_rows:
+            raise AssertionError("HTTP readiness fixture did not migrate its owned database")
+
+        def ledger_snapshot():
+            return (
+                connection.execute("PRAGMA data_version").fetchone()[0],
+                connection.execute("SELECT name, sql FROM sqlite_master ORDER BY name").fetchall(),
+                connection.execute("SELECT * FROM schema_migrations ORDER BY version").fetchall(),
+            )
+
+        expected_error = {
+            "detail": {
+                "status": "error",
+                "checks": {"database": "ok", "migrations": "error", "upload_storage": "ok"},
+                "details": {"upload_storage": {"backend": "local"}},
+            },
+        }
+        for case in ("pending", "unknown", "malformed"):
+            try:
+                if case == "pending":
+                    connection.execute("DELETE FROM schema_migrations WHERE version = ?", (original_rows[-1][0],))
+                elif case == "unknown":
+                    connection.execute("INSERT INTO schema_migrations VALUES (?, ?, ?, ?)", (
+                        "9999_private_http_readiness_marker", "private-fixture.py", "private-fixture-checksum", "private-fixture-time",
+                    ))
+                else:
+                    connection.execute("DROP TABLE schema_migrations")
+                    connection.execute("CREATE TABLE schema_migrations (version VARCHAR PRIMARY KEY)")
+                    connection.execute("INSERT INTO schema_migrations VALUES (?)", ("private-malformed-marker",))
+                connection.commit()
+                before = ledger_snapshot()
+                status, _, body = request_status(f"{base_url}/api/health/ready")
+                assert_ok(
+                    f"HTTP readiness rejects {case} migration history with sanitized 503 while the database remains reachable",
+                    status == 503 and json.loads(body) == expected_error,
+                )
+                live_status, _, live_body = request_status(f"{base_url}/api/health")
+                assert_ok(
+                    f"{case} migration readiness failure preserves liveness and never repairs the ledger",
+                    live_status == 200 and json.loads(live_body).get("status") == "ok" and ledger_snapshot() == before,
+                )
+            finally:
+                connection.execute("DROP TABLE schema_migrations")
+                connection.execute(original_sql)
+                connection.executemany("INSERT INTO schema_migrations (version, name, checksum, applied_at) VALUES (?, ?, ?, ?)", original_rows)
+                connection.commit()
+            recovered_before = ledger_snapshot()
+            recovered_status, _, recovered_body = request_status(f"{base_url}/api/health/ready")
+            assert_ok(
+                f"HTTP readiness recovers from {case} history after restoring the exact original ledger without restart",
+                recovered_status == 200
+                and json.loads(recovered_body).get("checks") == {
+                    "database": "ok", "migrations": "ok", "upload_storage": "ok",
+                }
+                and ledger_snapshot() == recovered_before,
+            )
+
+
 def test_upload_error_cache_middleware():
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
@@ -308,6 +377,7 @@ def test_upload_error_cache_middleware():
                 "database": "ok", "migrations": "ok", "upload_storage": "ok",
             },
         )
+        check_http_migration_readiness(base_url, server_temp_path / "security.db")
         upload_url = f"{base_url}/api/uploads/missing.png"
         first_status, first_headers, _ = request_status(upload_url)
         assert_ok("anonymous upload request is denied", first_status == 401)

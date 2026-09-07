@@ -1,0 +1,281 @@
+{
+    "schemaVersion":  3,
+    "provider":  "neon",
+    "environment":  "production",
+    "status":  "passed",
+    "failureStage":  null,
+    "primaryFailureStage":  null,
+    "projectId":  "plain-smoke-06194407",
+    "productionBranch":  {
+                             "id":  "br-snowy-tree-a7hfuph6",
+                             "name":  "production",
+                             "historyRetentionSeconds":  21600
+                         },
+    "requestedRestorePointUtc":  "2026-09-07T04:16:32Z",
+    "requestedExpiresAtUtc":  "2026-09-07T05:18:32Z",
+    "proofBranch":  {
+                        "id":  "br-bold-lab-a7igcf5j",
+                        "name":  "recovery-proof-20260907t041832z-0225fb9069",
+                        "parentId":  "br-snowy-tree-a7hfuph6",
+                        "parentTimestampUtc":  "2026-09-07T04:16:16Z",
+                        "createdAtUtc":  "2026-09-07T04:18:40Z",
+                        "expiresAtUtc":  "2026-09-07T05:18:32Z",
+                        "endpointType":  "read_only"
+                    },
+    "verification":  {
+                         "businessDataPresent":  {
+                                                     "department":  true,
+                                                     "site":  true,
+                                                     "user":  true
+                                                 },
+                         "connected":  true,
+                         "migrationChecksums":  {
+                                                    "0001_initial_schema":  "ca680312c20261896afd57ee8e3fa77fabd7e43547546e8b3234cd00d96a0598",
+                                                    "0002_work_form_photo_metadata":  "53beedb98b3f626671de343613d48f5c9692c952c21264b2141f3ef2b6e2acaf",
+                                                    "0003_departments":  "efaf3cbc645cf72c2b89439ee2f2936c70084bcc4b6d299cb17dca0030535aec",
+                                                    "0004_registration_verification":  "cc6b9a22bee6c96b319e00e38c0ca508b312e53bd6464f22d5663d451b5b9e5e",
+                                                    "0005_dashboard_department_preference":  "16a27e1990ec07b60b5c2b7dc31f56b1a32af5447e3e7d4f41e2cbf970d7f9ca",
+                                                    "0006_manual_attendance_entries":  "f843a3ead5678a779e0affed06b8695edcf0e2eb801518d5906c8fcdc33f9608",
+                                                    "0007_record_rubbish_bin":  "238a66040a3ce4873b2c51838b907de5f91bb6522e40d7ab4a277f36eeb79a50",
+                                                    "0008_manual_task_logs":  "760e26aab15969ac8e2784e40c348fa60410e6d8e2201be2f4ef12c56f2387e3",
+                                                    "0009_worker_classes_and_team_logs":  "ff685e351f255bb1c049d1ec8e1f6bdb1629c7a9c7de522c6bb6ddc078ba463e",
+                                                    "0010_pdf_daywork_form_template":  "d8c51b0a395a931bd03bebf8eec78ae035edb5d91d5d34e4d9592a81d82e106c",
+                                                    "0011_multi_team_daywork_form":  "408df2694d00aa0f71086bf42874d04d6e6c68bba3786f4f77500f681777ae7b",
+                                                    "0012_form_and_team_log_rubbish_bin":  "3ff6be84f747b9b65284333ce1014c24eaad1d1f984ae9f97460218a4f0a7d4a",
+                                                    "0013_daywork_team_break_options":  "a4be942d39791da59cc7ef6594a0f63fcfb097b4756db7c42cca88d5c4afcb35",
+                                                    "0014_client_submission_unique_indexes":  "8057dc963d8169d6efda2d6f7b16b4bd34d06f4026fbfa9f4bbcb4f520300fea",
+                                                    "0015_work_form_definition_snapshots":  "3f2c89faa22b8c8bc6b5b9269f56c2c010383b04c504d23e598b7ac95a472e20",
+                                                    "0016_review_queue_indexes":  "1f08daac75297fdcfe3871ba261834b14707a426cc1253920e5cc4c2bdf0f4a7",
+                                                    "0017_global_admin_supervisor_invariant":  "3f5cfdc6cf1fb0a652d302a2cc4257d449816a5266c58790777b279311855424",
+                                                    "0018_report_review_workflow":  "5ebdbf80b5a6e7fb5e984125eb888d3b5daf02b949051479458c98663f9e0785",
+                                                    "0019_report_daywork_purpose":  "51324596555f46d6b12cf3cb98ce6c6e5e3d33bcaf1c62ce8ef9220b1adf6487",
+                                                    "0020_missing_snapshot_daywork_correction":  "42039acf7600a876ef1ef5d1f65dd7bf7df47a8749158b453fb54ff3029e5112"
+                                                },
+                         "migrationCount":  20,
+                         "migrationHead":  "0020_missing_snapshot_daywork_correction",
+                         "migrationVersions":  [
+                                                   "0001_initial_schema",
+                                                   "0002_work_form_photo_metadata",
+                                                   "0003_departments",
+                                                   "0004_registration_verification",
+                                                   "0005_dashboard_department_preference",
+                                                   "0006_manual_attendance_entries",
+                                                   "0007_record_rubbish_bin",
+                                                   "0008_manual_task_logs",
+                                                   "0009_worker_classes_and_team_logs",
+                                                   "0010_pdf_daywork_form_template",
+                                                   "0011_multi_team_daywork_form",
+                                                   "0012_form_and_team_log_rubbish_bin",
+                                                   "0013_daywork_team_break_options",
+                                                   "0014_client_submission_unique_indexes",
+                                                   "0015_work_form_definition_snapshots",
+                                                   "0016_review_queue_indexes",
+                                                   "0017_global_admin_supervisor_invariant",
+                                                   "0018_report_review_workflow",
+                                                   "0019_report_daywork_purpose",
+                                                   "0020_missing_snapshot_daywork_correction"
+                                               ],
+                         "psycopgVersion":  "3.3.4",
+                         "publicTableCount":  15,
+                         "pythonVersion":  "3.14.5",
+                         "rowCountSha256":  "9fa9ffdf6c24da534bcdfbd2a5028b328758218ea6d846f8ca1cf17d752c0a6d",
+                         "schemaSha256":  "c6a801105658bce0b32661449122831cb67dfb1e084c72f7fdf42ae2e549f610",
+                         "status":  "passed",
+                         "transactionReadOnly":  true
+                     },
+    "releasePhase":  "Current",
+    "candidateHead":  "0020_missing_snapshot_daywork_correction",
+    "expectedRecoveryHead":  "0020_missing_snapshot_daywork_correction",
+    "candidateMigrationLedger":  [
+                                     {
+                                         "version":  "0001_initial_schema",
+                                         "checksum":  "ca680312c20261896afd57ee8e3fa77fabd7e43547546e8b3234cd00d96a0598"
+                                     },
+                                     {
+                                         "version":  "0002_work_form_photo_metadata",
+                                         "checksum":  "53beedb98b3f626671de343613d48f5c9692c952c21264b2141f3ef2b6e2acaf"
+                                     },
+                                     {
+                                         "version":  "0003_departments",
+                                         "checksum":  "efaf3cbc645cf72c2b89439ee2f2936c70084bcc4b6d299cb17dca0030535aec"
+                                     },
+                                     {
+                                         "version":  "0004_registration_verification",
+                                         "checksum":  "cc6b9a22bee6c96b319e00e38c0ca508b312e53bd6464f22d5663d451b5b9e5e"
+                                     },
+                                     {
+                                         "version":  "0005_dashboard_department_preference",
+                                         "checksum":  "16a27e1990ec07b60b5c2b7dc31f56b1a32af5447e3e7d4f41e2cbf970d7f9ca"
+                                     },
+                                     {
+                                         "version":  "0006_manual_attendance_entries",
+                                         "checksum":  "f843a3ead5678a779e0affed06b8695edcf0e2eb801518d5906c8fcdc33f9608"
+                                     },
+                                     {
+                                         "version":  "0007_record_rubbish_bin",
+                                         "checksum":  "238a66040a3ce4873b2c51838b907de5f91bb6522e40d7ab4a277f36eeb79a50"
+                                     },
+                                     {
+                                         "version":  "0008_manual_task_logs",
+                                         "checksum":  "760e26aab15969ac8e2784e40c348fa60410e6d8e2201be2f4ef12c56f2387e3"
+                                     },
+                                     {
+                                         "version":  "0009_worker_classes_and_team_logs",
+                                         "checksum":  "ff685e351f255bb1c049d1ec8e1f6bdb1629c7a9c7de522c6bb6ddc078ba463e"
+                                     },
+                                     {
+                                         "version":  "0010_pdf_daywork_form_template",
+                                         "checksum":  "d8c51b0a395a931bd03bebf8eec78ae035edb5d91d5d34e4d9592a81d82e106c"
+                                     },
+                                     {
+                                         "version":  "0011_multi_team_daywork_form",
+                                         "checksum":  "408df2694d00aa0f71086bf42874d04d6e6c68bba3786f4f77500f681777ae7b"
+                                     },
+                                     {
+                                         "version":  "0012_form_and_team_log_rubbish_bin",
+                                         "checksum":  "3ff6be84f747b9b65284333ce1014c24eaad1d1f984ae9f97460218a4f0a7d4a"
+                                     },
+                                     {
+                                         "version":  "0013_daywork_team_break_options",
+                                         "checksum":  "a4be942d39791da59cc7ef6594a0f63fcfb097b4756db7c42cca88d5c4afcb35"
+                                     },
+                                     {
+                                         "version":  "0014_client_submission_unique_indexes",
+                                         "checksum":  "8057dc963d8169d6efda2d6f7b16b4bd34d06f4026fbfa9f4bbcb4f520300fea"
+                                     },
+                                     {
+                                         "version":  "0015_work_form_definition_snapshots",
+                                         "checksum":  "3f2c89faa22b8c8bc6b5b9269f56c2c010383b04c504d23e598b7ac95a472e20"
+                                     },
+                                     {
+                                         "version":  "0016_review_queue_indexes",
+                                         "checksum":  "1f08daac75297fdcfe3871ba261834b14707a426cc1253920e5cc4c2bdf0f4a7"
+                                     },
+                                     {
+                                         "version":  "0017_global_admin_supervisor_invariant",
+                                         "checksum":  "3f5cfdc6cf1fb0a652d302a2cc4257d449816a5266c58790777b279311855424"
+                                     },
+                                     {
+                                         "version":  "0018_report_review_workflow",
+                                         "checksum":  "5ebdbf80b5a6e7fb5e984125eb888d3b5daf02b949051479458c98663f9e0785"
+                                     },
+                                     {
+                                         "version":  "0019_report_daywork_purpose",
+                                         "checksum":  "51324596555f46d6b12cf3cb98ce6c6e5e3d33bcaf1c62ce8ef9220b1adf6487"
+                                     },
+                                     {
+                                         "version":  "0020_missing_snapshot_daywork_correction",
+                                         "checksum":  "42039acf7600a876ef1ef5d1f65dd7bf7df47a8749158b453fb54ff3029e5112"
+                                     }
+                                 ],
+    "expectedRecoveryMigrationLedger":  [
+                                            {
+                                                "version":  "0001_initial_schema",
+                                                "checksum":  "ca680312c20261896afd57ee8e3fa77fabd7e43547546e8b3234cd00d96a0598"
+                                            },
+                                            {
+                                                "version":  "0002_work_form_photo_metadata",
+                                                "checksum":  "53beedb98b3f626671de343613d48f5c9692c952c21264b2141f3ef2b6e2acaf"
+                                            },
+                                            {
+                                                "version":  "0003_departments",
+                                                "checksum":  "efaf3cbc645cf72c2b89439ee2f2936c70084bcc4b6d299cb17dca0030535aec"
+                                            },
+                                            {
+                                                "version":  "0004_registration_verification",
+                                                "checksum":  "cc6b9a22bee6c96b319e00e38c0ca508b312e53bd6464f22d5663d451b5b9e5e"
+                                            },
+                                            {
+                                                "version":  "0005_dashboard_department_preference",
+                                                "checksum":  "16a27e1990ec07b60b5c2b7dc31f56b1a32af5447e3e7d4f41e2cbf970d7f9ca"
+                                            },
+                                            {
+                                                "version":  "0006_manual_attendance_entries",
+                                                "checksum":  "f843a3ead5678a779e0affed06b8695edcf0e2eb801518d5906c8fcdc33f9608"
+                                            },
+                                            {
+                                                "version":  "0007_record_rubbish_bin",
+                                                "checksum":  "238a66040a3ce4873b2c51838b907de5f91bb6522e40d7ab4a277f36eeb79a50"
+                                            },
+                                            {
+                                                "version":  "0008_manual_task_logs",
+                                                "checksum":  "760e26aab15969ac8e2784e40c348fa60410e6d8e2201be2f4ef12c56f2387e3"
+                                            },
+                                            {
+                                                "version":  "0009_worker_classes_and_team_logs",
+                                                "checksum":  "ff685e351f255bb1c049d1ec8e1f6bdb1629c7a9c7de522c6bb6ddc078ba463e"
+                                            },
+                                            {
+                                                "version":  "0010_pdf_daywork_form_template",
+                                                "checksum":  "d8c51b0a395a931bd03bebf8eec78ae035edb5d91d5d34e4d9592a81d82e106c"
+                                            },
+                                            {
+                                                "version":  "0011_multi_team_daywork_form",
+                                                "checksum":  "408df2694d00aa0f71086bf42874d04d6e6c68bba3786f4f77500f681777ae7b"
+                                            },
+                                            {
+                                                "version":  "0012_form_and_team_log_rubbish_bin",
+                                                "checksum":  "3ff6be84f747b9b65284333ce1014c24eaad1d1f984ae9f97460218a4f0a7d4a"
+                                            },
+                                            {
+                                                "version":  "0013_daywork_team_break_options",
+                                                "checksum":  "a4be942d39791da59cc7ef6594a0f63fcfb097b4756db7c42cca88d5c4afcb35"
+                                            },
+                                            {
+                                                "version":  "0014_client_submission_unique_indexes",
+                                                "checksum":  "8057dc963d8169d6efda2d6f7b16b4bd34d06f4026fbfa9f4bbcb4f520300fea"
+                                            },
+                                            {
+                                                "version":  "0015_work_form_definition_snapshots",
+                                                "checksum":  "3f2c89faa22b8c8bc6b5b9269f56c2c010383b04c504d23e598b7ac95a472e20"
+                                            },
+                                            {
+                                                "version":  "0016_review_queue_indexes",
+                                                "checksum":  "1f08daac75297fdcfe3871ba261834b14707a426cc1253920e5cc4c2bdf0f4a7"
+                                            },
+                                            {
+                                                "version":  "0017_global_admin_supervisor_invariant",
+                                                "checksum":  "3f5cfdc6cf1fb0a652d302a2cc4257d449816a5266c58790777b279311855424"
+                                            },
+                                            {
+                                                "version":  "0018_report_review_workflow",
+                                                "checksum":  "5ebdbf80b5a6e7fb5e984125eb888d3b5daf02b949051479458c98663f9e0785"
+                                            },
+                                            {
+                                                "version":  "0019_report_daywork_purpose",
+                                                "checksum":  "51324596555f46d6b12cf3cb98ce6c6e5e3d33bcaf1c62ce8ef9220b1adf6487"
+                                            },
+                                            {
+                                                "version":  "0020_missing_snapshot_daywork_correction",
+                                                "checksum":  "42039acf7600a876ef1ef5d1f65dd7bf7df47a8749158b453fb54ff3029e5112"
+                                            }
+                                        ],
+    "expectedMigrationHead":  "0020_missing_snapshot_daywork_correction",
+    "operations":  {
+                       "create":  [
+
+                                  ],
+                       "delete":  [
+
+                                  ]
+                   },
+    "cleanup":  {
+                    "ownershipVerified":  true,
+                    "deleted":  true,
+                    "absenceVerified":  true,
+                    "failureStage":  null
+                },
+    "startedAtUtc":  "2026-09-07T04:18:32Z",
+    "completedAtUtc":  "2026-09-07T04:19:02Z",
+    "toolVersions":  {
+                         "neonCliPackage":  "neon@2.32.0",
+                         "neonCli":  "2.32.0",
+                         "python":  "3.14.5",
+                         "psycopg":  "3.3.4"
+                     },
+    "artifactHashes":  {
+                           "proofScriptSha256":  "93dbcd01bbd87d7acffc0787fb11b2331bfd005f961eca7635a50f6dd2363dbf",
+                           "verifierScriptSha256":  "16207874e4ef92ec44beb8ec3b341b567c8ad5df904e7b57449811988cd6e79e",
+                           "migrationContractScriptSha256":  "f1617325c04b632d6207f86a74248ff17c3869ce2357f8e56030ca7e4eb10ca8"
+                       }
+}

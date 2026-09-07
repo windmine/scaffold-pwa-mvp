@@ -2,7 +2,7 @@
 
 This policy applies to production photos, handwritten signatures, and other evidence stored in `gs://geo-attendance-system-db9ca-uploads`. Local `backend/uploads/` is development-only and is not a recovery source.
 
-Status reviewed on 2026-07-31: the recovery contract is unchanged. The 2026-07-15 exact-generation restore proof still passes the 30-day hardening gate; run the next monthly proof by 2026-08-14 or immediately after any bucket/IAM change.
+Status reviewed on 2026-09-07: the recovery contract is unchanged. A fresh exact-generation restore drill passed and was independently rechecked by the hardening gate. Run the next monthly proof by 2026-10-07 or immediately after any bucket/IAM change. This green upload check does not clear the separate database, alert-delivery, billing, or migration release gates.
 
 ## Protection Contract
 
@@ -19,11 +19,11 @@ The live policy and a content-preserving delete/restore drill are checked by:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/prove-upload-recovery.ps1 `
-  -EvidencePath docs/evidence/upload-recovery-proof-2026-07-15.json
+  -EvidencePath docs/evidence/upload-recovery-proof-YYYY-MM-DD.json
 npm.cmd run check:production-hardening
 ```
 
-The latest non-secret drill result is stored in `docs/evidence/upload-recovery-proof-2026-07-15.json` and was revalidated by the read-only hardening gate on 2026-07-31.
+The latest non-secret drill result is stored in `docs/evidence/upload-recovery-proof-2026-09-07.json`. The owned 78-byte fixture was restored byte-for-byte, then its restored generation was soft-deleted; no live probe remains. Both exact soft-deleted generations were independently verified by the hardening gate. Real application uploads were not modified. Use a new evidence filename for each run rather than overwriting a previous result.
 
 ## Targeted Restore
 

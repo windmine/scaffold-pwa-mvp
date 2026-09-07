@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "projectId": "geo-attendance-system-db9ca",
+  "region": "australia-southeast1",
+  "completedAtUtc": "2026-09-07T02:51:38.8206062Z",
+  "scope": "Read-only inspection of live Monitoring, linked billing, and Cloud Run scaling/resource settings",
+  "releaseReady": false,
+  "externalChangesMade": false,
+  "testMessagesSent": false,
+  "notificationChannels": {
+    "source": "Monitoring v3 projects.notificationChannels.list",
+    "readSucceeded": true,
+    "paginationComplete": true,
+    "count": 0,
+    "enabledVerifiedCount": 0,
+    "channels": []
+  },
+  "alertPolicies": [
+    {
+      "name": "projects/geo-attendance-system-db9ca/alertPolicies/241559781638440690",
+      "displayName": "Geo Attendance: Cloud Run 5xx",
+      "enabled": true,
+      "validityErrorReported": false,
+      "notificationChannels": [],
+      "scope": "geo-backend in australia-southeast1",
+      "condition": "More than zero 5xx responses summed over a five-minute alignment window",
+      "hasDeliveryDestination": false
+    },
+    {
+      "name": "projects/geo-attendance-system-db9ca/alertPolicies/241559781638441261",
+      "displayName": "Geo Attendance: hosted readiness",
+      "enabled": true,
+      "validityErrorReported": false,
+      "notificationChannels": [],
+      "uptimeCheckId": "geo-attendance-hosted-readiness-PLiPFZtq2oQ",
+      "condition": "More than one failed checker region for 120 seconds, using a five-minute alignment window",
+      "hasDeliveryDestination": false
+    }
+  ],
+  "deliveryVerification": {
+    "status": "blocked_no_notification_channel",
+    "actualRecipientReceiptProven": false,
+    "testPerformed": false,
+    "recipientChosen": false,
+    "channelEventLogs": {
+      "source": "Cloud Logging entries.list via gcloud logging read",
+      "filter": "resource.type=\"stackdriver_notification_channel\"",
+      "lookbackDays": 30,
+      "limit": 50,
+      "readSucceeded": true,
+      "returnedEntries": 0,
+      "interpretation": "No matching channel events were returned; absence of error logs is not proof of alert delivery."
+    },
+    "nextStep": "Choose an operator-owned destination, configure and attach it to both required policies, complete any channel-specific verification, then perform an authorized synthetic notification test and retain recipient-confirmed receipt without disrupting production."
+  },
+  "billing": {
+    "source": "gcloud billing projects describe and Cloud Billing Budget API v1 budgets.list",
+    "billingEnabled": true,
+    "billingAccountLinked": true,
+    "billingAccountId": "0123B1-051D70-935F73",
+    "budgetApiReadSucceeded": false,
+    "budgetApiHttpStatus": 403,
+    "budgetApiErrorStatus": "PERMISSION_DENIED",
+    "budgetApiErrorReason": "SERVICE_DISABLED",
+    "budgetApiEnabledInProject": false,
+    "budgetCount": null,
+    "applicableProjectBudgetVerified": false,
+    "amountVerified": false,
+    "currencyVerified": false,
+    "thresholdsVerified": false,
+    "recipientsVerified": false,
+    "interpretation": "Budget API access is blocked because billingbudgets.googleapis.com is disabled for this project. This does not establish whether budgets exist on the linked account, nor establish missing IAM permission independently of the disabled service.",
+    "apiEnablementPerformed": false,
+    "nextStep": "Obtain authorized Budget API access or a verified Billing Console review, then inspect existing budgets before creating any duplicate. Confirm the selected monthly amount, billing currency, project scope, actual/forecast thresholds, and operator recipients."
+  },
+  "cloudRun": [
+    {
+      "service": "geo-backend",
+      "servingRevision": "geo-backend-release-20260804152130",
+      "trafficPercent": 100,
+      "serviceMaximumInstances": 20,
+      "revisionMaximumInstances": 20,
+      "configuredRevisionMinimumInstances": null,
+      "containerConcurrency": 80,
+      "timeoutSeconds": 300,
+      "cpuLimit": "1",
+      "memoryLimit": "512Mi"
+    },
+    {
+      "service": "geo-backend-report-stage-20260901173452",
+      "servingRevision": "geo-backend-report-stage-20260901173452-r3-365fa4f",
+      "trafficPercent": 100,
+      "serviceMaximumInstances": 20,
+      "revisionMaximumInstances": 1,
+      "configuredRevisionMinimumInstances": null,
+      "containerConcurrency": 80,
+      "timeoutSeconds": 300,
+      "cpuLimit": "1",
+      "memoryLimit": "512Mi"
+    }
+  ],
+  "limitations": [
+    "No channels, policies, budgets, API enablements, deployments, traffic settings, or billing settings were changed.",
+    "No email addresses, channel labels, authentication tokens, or secret values are included in this evidence.",
+    "The two observed policies concern the live service; this evidence does not assert that the separate staging service is monitored by them.",
+    "A configured/enabled or verification-exempt channel is not a substitute for a recent recipient-confirmed notification test.",
+    "The strict repository gate currently requires exact VERIFIED channel status; Monitoring also permits channel types for which verification is not applicable. Any future gate adjustment must retain actual receipt evidence.",
+    "The existing budget gate only tests whether any account budget exists; project coverage, amount, thresholds, and recipients need explicit validation.",
+    "Cloud Run maximum instances constrain ordinary scaling, not total account spend or an absolute instantaneous instance count; transient overshoot is documented.",
+    "The live maximum of 20 instances needs capacity/connection-budget review before the larger release; database connection limits and distributed rate limiting were not independently verified here.",
+    "Alerts-only budgets notify but do not automatically cap spending. No automated spend cap or shutdown policy was verified.",
+    "This is operational configuration evidence, not migration, recovery, hosted phone-flow, or release-candidate approval."
+  ],
+  "primarySources": [
+    "https://docs.cloud.google.com/monitoring/support/notification-options",
+    "https://docs.cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.notificationChannels",
+    "https://docs.cloud.google.com/logging/docs/view/query-library#cloud-monitoring-queries",
+    "https://docs.cloud.google.com/billing/docs/how-to/budgets",
+    "https://docs.cloud.google.com/run/docs/configuring/max-instances",
+    "https://docs.cloud.google.com/run/docs/about-instance-autoscaling"
+  ]
+}

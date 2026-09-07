@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "observedAtUtc": "2026-09-07T04:13:33.557279Z",
+  "result": "read_only_capacity_snapshot_completed",
+  "target": {
+    "projectId": "geo-attendance-system-db9ca",
+    "cloudRunService": "geo-backend",
+    "cloudRunRegion": "australia-southeast1",
+    "provider": "Neon",
+    "databaseSecretReference": "geo-backend-database-url:latest",
+    "runtimeConnectionUsesPoolerHostname": true,
+    "hostnameAndCredentialsOmitted": true,
+    "trafficRevisionAtInspection": "geo-backend-maintenance-202609070409"
+  },
+  "method": {
+    "readOnly": true,
+    "transactionReadOnlyVerified": true,
+    "statementTimeoutSeconds": 10,
+    "credentialHandling": "Secret captured in process memory and a temporary process environment variable only; neither the URL nor credentials were printed or saved. The temporary environment variable was removed after use.",
+    "queryScope": "PostgreSQL settings, current-role flags and ownership aggregates, and pg_stat_activity aggregate counts only. No private user rows or query text were read.",
+    "databaseWrites": false,
+    "configurationChanges": false,
+    "connectionClosedAfterSnapshot": true
+  },
+  "observedPostgresCapacity": {
+    "maxConnections": 112,
+    "superuserReservedConnections": 6,
+    "reservedConnections": 0,
+    "calculatedNonReservedConnectionSlots": 106
+  },
+  "observedRuntimeRole": {
+    "superuser": false,
+    "createDatabase": true,
+    "createRole": true,
+    "replication": true,
+    "bypassRls": true,
+    "connectionLimit": -1,
+    "ownsDatabase": true,
+    "ownedTableCount": 14,
+    "roleNameOmitted": true
+  },
+  "aggregateBackendsIncludingThisReadOnlyCheck": {
+    "allBackendProcesses": 13,
+    "clientBackends": 6,
+    "activeClientBackends": 1,
+    "idleClientBackends": 5,
+    "idleInTransaction": 0,
+    "currentDatabaseClientBackends": 1,
+    "otherActiveClientBackends": 0
+  },
+  "applicationConnectionSizing": {
+    "source": "backend/app/database.py and backend/Dockerfile; installed SQLAlchemy QueuePool defaults inspected locally",
+    "sqlalchemyVersionInspected": "2.0.49",
+    "explicitApplicationPoolSizing": false,
+    "poolPrePing": true,
+    "defaultPoolSizePerProcess": 5,
+    "defaultMaxOverflowPerProcess": 10,
+    "defaultPoolTimeoutSeconds": 30,
+    "uvicornProcessesPerInstanceAssumption": 1,
+    "observedCloudRunMaxInstances": 20,
+    "observedCloudRunRequestConcurrencyPerInstance": 80,
+    "calculatedRetainedClientConnectionCapacityAtMaxInstances": 100,
+    "calculatedPeakClientConnectionCapacityAtMaxInstances": 300,
+    "clientConnectionsAreNotPhysicalPostgresBackendConnections": true
+  },
+  "interpretation": {
+    "drainSnapshot": "No other active client backends and no idle-in-transaction connections were observed at the snapshot time. This is a point-in-time observation, not proof of future quiescence or a load test.",
+    "capacityRisk": "At 20 instances, the current one-process SQLAlchemy defaults allow up to 300 app-to-pooler client sockets. Neon transaction pooling multiplexes these onto PostgreSQL backends, so 300 clients do not imply 300 physical connections. Concurrent or long-running database transactions may still queue or saturate the 106 non-reserved PostgreSQL connection slots.",
+    "providerDefaultsNotLiveVerified": "Neon documents transaction pooling and a per-role/database default_pool_size of 0.9 times max_connections. PgBouncer administration settings were not queried, so that documented default is not asserted as the live pool configuration.",
+    "followUp": "Before broader onboarding, measure concurrent database work and choose explicit SQLAlchemy pool and Cloud Run scale limits with headroom for migrations, operators, and other database clients.",
+    "pilotLimitations": [
+      "The runtime role is not a PostgreSQL superuser but owns the database and tables and has broad role flags; least-privilege runtime credentials remain a follow-up.",
+      "Neon Free and the previously accepted six-hour recovery-history window remain temporary pilot limitations. This capacity check did not re-verify the plan or recovery window."
+    ],
+    "releaseDisposition": "Sanitized pilot capacity and privilege evidence, not an independent release gate or a claim that the accepted temporary pilot limitations block this release."
+  },
+  "references": [
+    "https://docs.sqlalchemy.org/en/20/core/pooling.html",
+    "https://neon.com/docs/connect/connection-pooling",
+    "https://neon.com/docs/changelog/2025-01-10"
+  ]
+}

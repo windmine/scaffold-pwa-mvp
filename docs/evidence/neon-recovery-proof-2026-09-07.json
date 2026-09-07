@@ -1,0 +1,69 @@
+{
+    "schemaVersion":  2,
+    "provider":  "neon",
+    "environment":  "production",
+    "status":  "failed",
+    "failureStage":  "connect_read_only",
+    "primaryFailureStage":  "connect_read_only",
+    "projectId":  "plain-smoke-06194407",
+    "productionBranch":  {
+                             "id":  "br-snowy-tree-a7hfuph6",
+                             "name":  "production",
+                             "historyRetentionSeconds":  21600
+                         },
+    "requestedRestorePointUtc":  "2026-09-07T02:45:07Z",
+    "requestedExpiresAtUtc":  "2026-09-07T03:50:07Z",
+    "proofBranch":  {
+                        "id":  "br-young-mountain-a7vrr0af",
+                        "name":  "recovery-proof-20260907t025007z-7f25493222",
+                        "parentId":  "br-snowy-tree-a7hfuph6",
+                        "parentTimestampUtc":  "2026-09-07T02:44:47Z",
+                        "createdAtUtc":  "2026-09-07T02:50:15Z",
+                        "expiresAtUtc":  "2026-09-07T03:50:07Z",
+                        "endpointType":  null
+                    },
+    "verification":  {
+                         "businessDataPresent":  {
+                                                     "department":  true,
+                                                     "site":  true,
+                                                     "user":  true
+                                                 },
+                         "connected":  true,
+                         "migrationCount":  17,
+                         "migrationHead":  "0017_global_admin_supervisor_invariant",
+                         "psycopgVersion":  "3.3.4",
+                         "publicTableCount":  14,
+                         "pythonVersion":  "3.14.5",
+                         "rowCountSha256":  "ca15488b962c9ddd7958839d9a0d2fa84de09552ff069dc48db8994d994a9dc6",
+                         "schemaSha256":  "6f0f08260f1db7db2c37f42dde88d26535abc7f6e753fccc842ea6b9da897c47",
+                         "status":  "passed",
+                         "transactionReadOnly":  true
+                     },
+    "expectedMigrationHead":  "0019_report_daywork_purpose",
+    "operations":  {
+                       "create":  [
+
+                                  ],
+                       "delete":  [
+
+                                  ]
+                   },
+    "cleanup":  {
+                    "ownershipVerified":  true,
+                    "deleted":  true,
+                    "absenceVerified":  true,
+                    "failureStage":  null
+                },
+    "startedAtUtc":  "2026-09-07T02:50:07Z",
+    "completedAtUtc":  "2026-09-07T02:50:35Z",
+    "toolVersions":  {
+                         "neonCliPackage":  "neon@2.32.0",
+                         "neonCli":  "2.32.0",
+                         "python":  "3.14.5",
+                         "psycopg":  "3.3.4"
+                     },
+    "artifactHashes":  {
+                           "proofScriptSha256":  "0eb62aa0c6fd13120e17ffb1fae02f4c91826e67412c6534cadf3cdf3ec3f945",
+                           "verifierScriptSha256":  "5561014a378763e3001ef3249a95d5308bf3d3a6e6695934f9ae8124f16b2b0f"
+                       }
+}

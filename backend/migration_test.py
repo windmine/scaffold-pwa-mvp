@@ -34,6 +34,7 @@ EXPECTED_TABLES = {
     "teamworklogentry",
     "auditevent",
     "schema_migrations",
+    "workformsubmission_purpose_correction",
 }
 
 EXPECTED_VERSIONS = [
@@ -56,6 +57,7 @@ EXPECTED_VERSIONS = [
     "0017_global_admin_supervisor_invariant",
     "0018_report_review_workflow",
     "0019_report_daywork_purpose",
+    "0020_missing_snapshot_daywork_correction",
 ]
 
 
@@ -108,15 +110,7 @@ def copy_migrations_before_0014(target: Path):
     target.mkdir(parents=True, exist_ok=True)
 
     for path in source.glob("*.py"):
-        if path.name in {
-            "__init__.py",
-            "0014_client_submission_unique_indexes.py",
-            "0015_work_form_definition_snapshots.py",
-            "0016_review_queue_indexes.py",
-            "0017_global_admin_supervisor_invariant.py",
-            "0018_report_review_workflow.py",
-            "0019_report_daywork_purpose.py",
-        }:
+        if path.name == "__init__.py" or path.stem[:4] >= "0014":
             continue
         shutil.copy2(path, target / path.name)
 
@@ -126,12 +120,7 @@ def copy_migrations_before_0017(target: Path):
     target.mkdir(parents=True, exist_ok=True)
 
     for path in source.glob("*.py"):
-        if path.name in {
-            "__init__.py",
-            "0017_global_admin_supervisor_invariant.py",
-            "0018_report_review_workflow.py",
-            "0019_report_daywork_purpose.py",
-        }:
+        if path.name == "__init__.py" or path.stem[:4] >= "0017":
             continue
         shutil.copy2(path, target / path.name)
 
@@ -141,11 +130,7 @@ def copy_migrations_before_0018(target: Path):
     target.mkdir(parents=True, exist_ok=True)
 
     for path in source.glob("*.py"):
-        if path.name in {
-            "__init__.py",
-            "0018_report_review_workflow.py",
-            "0019_report_daywork_purpose.py",
-        }:
+        if path.name == "__init__.py" or path.stem[:4] >= "0018":
             continue
         shutil.copy2(path, target / path.name)
 
@@ -155,7 +140,7 @@ def copy_migrations_before_0019(target: Path):
     target.mkdir(parents=True, exist_ok=True)
 
     for path in source.glob("*.py"):
-        if path.name in {"__init__.py", "0019_report_daywork_purpose.py"}:
+        if path.name == "__init__.py" or path.stem[:4] >= "0019":
             continue
         shutil.copy2(path, target / path.name)
 
@@ -243,7 +228,7 @@ def test_production_startup_rejects_unmigrated_database_before_side_effects():
                 raise AssertionError(f"outdated production startup reached side effects before failure: {calls}")
             with engine.connect() as connection:
                 versions = connection.exec_driver_sql("SELECT version FROM schema_migrations ORDER BY version").scalars().all()
-            if versions != EXPECTED_VERSIONS[:-1]:
+            if versions != EXPECTED_VERSIONS[:18]:
                 raise AssertionError("production startup changed the migration ledger")
         finally:
             engine.dispose()
@@ -271,6 +256,183 @@ def test_current_production_startup_verifies_before_side_effects():
             engine.dispose()
 
     print("ok - current production startup verifies safely and rejects automatic migration")
+
+
+def lifespan_database_snapshot(engine):
+    with engine.connect() as connection:
+        schema = connection.exec_driver_sql(
+            "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+        ).all()
+        ledger = connection.exec_driver_sql(
+            "SELECT * FROM schema_migrations ORDER BY version"
+        ).all() if "schema_migrations" in inspect(connection).get_table_names() else None
+    return schema, ledger
+
+
+def assert_production_lifespan(engine, *, current_history):
+    from app import database, main as backend_main
+    from app.migrations import MigrationError
+
+    before = lifespan_database_snapshot(engine)
+    calls = []
+
+    def read_only_connection(dbapi_connection, _connection_record, _connection_proxy):
+        dbapi_connection.execute("PRAGMA query_only = ON")
+
+    def observe_verification(_connection, _cursor, statement, _parameters, _context, _executemany):
+        normalized = " ".join(statement.split()).upper()
+        if normalized.startswith("SELECT VERSION, CHECKSUM FROM SCHEMA_MIGRATIONS"):
+            calls.append("migration_history_read")
+
+    async def periodic_purge():
+        calls.append("periodic_started")
+        try:
+            await asyncio.Future()
+        finally:
+            calls.append("periodic_cancelled")
+
+    async def exercise_lifespan():
+        entered = False
+        startup_error = None
+        running_task = None
+        try:
+            try:
+                async with backend_main.app.router.lifespan_context(backend_main.app):
+                    entered = True
+                    running_task = backend_main.trash_purge_task
+                    await asyncio.sleep(0)
+                    if current_history and (running_task is None or running_task.done()):
+                        raise AssertionError("lifespan did not start a live periodic purge task")
+            except MigrationError as error:
+                startup_error = error
+
+            if not current_history:
+                if entered or startup_error is None:
+                    raise AssertionError("lifespan served without matching migration history")
+                if any(call != "migration_history_read" for call in calls):
+                    raise AssertionError("lifespan ran side effects before migration verification")
+                if backend_main.trash_purge_task is not None:
+                    raise AssertionError("failed lifespan left a periodic purge task")
+                return
+
+            if startup_error is not None or not entered:
+                raise AssertionError("current migration history could not enter the serving lifespan") from startup_error
+            if calls[:3] != ["migration_history_read", "storage_readiness", "initial_purge"]:
+                raise AssertionError(f"lifespan did not verify migrations before storage/purge: {calls}")
+            if running_task is None or not running_task.cancelled():
+                raise AssertionError("lifespan periodic purge task was not cancelled on exit")
+            if backend_main.trash_purge_task is not None:
+                raise AssertionError("lifespan did not clear the periodic purge task on exit")
+            if calls.count("periodic_started") != 1 or calls.count("periodic_cancelled") != 1:
+                raise AssertionError("lifespan did not start and stop exactly one periodic purge task")
+        finally:
+            # Mutation-sensitivity checks deliberately remove shutdown handlers.
+            # Always reclaim that test task after inspecting the real exit state.
+            pending = backend_main.trash_purge_task or running_task
+            if pending is not None and not pending.done():
+                pending.cancel()
+                try:
+                    await pending
+                except asyncio.CancelledError:
+                    pass
+            backend_main.trash_purge_task = None
+
+    event.listen(engine, "checkout", read_only_connection)
+    event.listen(engine, "after_cursor_execute", observe_verification)
+    try:
+        with (
+            patch.object(database, "engine", engine),
+            patch.object(backend_main, "PRODUCTION_LIKE", True),
+            patch.object(backend_main, "AUTO_MIGRATE", False),
+            patch.object(backend_main, "trash_purge_task", None),
+            patch.object(backend_main, "ensure_upload_storage_ready", side_effect=lambda **_kwargs: calls.append("storage_readiness")),
+            patch.object(backend_main.record_trash_use_cases, "purge_expired_deleted_records_with_new_session", side_effect=lambda: calls.append("initial_purge")),
+            patch.object(backend_main.record_trash_use_cases, "run_periodic_trash_purge", new=periodic_purge),
+        ):
+            asyncio.run(exercise_lifespan())
+    finally:
+        event.remove(engine, "checkout", read_only_connection)
+        event.remove(engine, "after_cursor_execute", observe_verification)
+        with engine.connect() as connection:
+            connection.exec_driver_sql("PRAGMA query_only = OFF")
+        if lifespan_database_snapshot(engine) != before:
+            raise AssertionError("lifespan changed the database schema or migration ledger")
+
+
+def test_fastapi_lifespan_enforces_migrations_and_cleans_up():
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        engine = make_engine(root / "lifespan.db")
+        try:
+            assert_production_lifespan(engine, current_history=False)
+            old_migrations = root / "before-report-purpose"
+            copy_migrations_before_0019(old_migrations)
+            run_migrations(engine, old_migrations)
+            assert_production_lifespan(engine, current_history=False)
+            run_migrations(engine)
+            assert_production_lifespan(engine, current_history=True)
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "UPDATE schema_migrations SET checksum = 'lifespan-checksum-mismatch' WHERE version = ?",
+                    (EXPECTED_VERSIONS[4],),
+                )
+            assert_production_lifespan(engine, current_history=False)
+        finally:
+            engine.dispose()
+
+    print("ok - real FastAPI lifespan refuses invalid history and cancels/clears its periodic purge task")
+
+
+def test_fastapi_lifespan_regression_sensitivity():
+    from app import main as backend_main
+
+    def expect_detected(label, engine, current_history, expected_message):
+        try:
+            assert_production_lifespan(engine, current_history=current_history)
+        except AssertionError as error:
+            if expected_message not in str(error):
+                raise AssertionError(f"{label}: failed for an unrelated reason: {error}") from error
+        else:
+            raise AssertionError(f"{label}: unsafe lifespan mutation was not detected")
+
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        engine = make_engine(root / "lifespan-sensitivity.db")
+        try:
+            with patch.object(backend_main.app.router, "on_startup", []):
+                expect_detected("unregistered startup hook", engine, False, "served without matching migration history")
+            with patch.object(backend_main, "verify_database_migrations", return_value=None):
+                expect_detected("missing verifier", engine, False, "served without matching migration history")
+
+            original_startup = backend_main.on_startup
+
+            async def effects_before_verification():
+                backend_main.ensure_upload_storage_ready(verify_lifecycle=True)
+                backend_main.record_trash_use_cases.purge_expired_deleted_records_with_new_session()
+                await original_startup()
+
+            with patch.object(backend_main.app.router, "on_startup", [effects_before_verification]):
+                expect_detected("storage/purge before verification", engine, False, "side effects before migration verification")
+
+            run_migrations(engine)
+            with patch.object(backend_main.app.router, "on_shutdown", []):
+                expect_detected("missing shutdown hook", engine, True, "periodic purge task was not cancelled")
+
+            async def cancel_without_clearing():
+                backend_main.trash_purge_task.cancel()
+                try:
+                    await backend_main.trash_purge_task
+                except asyncio.CancelledError:
+                    pass
+
+            with patch.object(backend_main.app.router, "on_shutdown", [cancel_without_clearing]):
+                expect_detected("uncleared task reference", engine, True, "did not clear the periodic purge task")
+            # All unsafe substitutions are gone, and the fixture reclaimed leaked tasks.
+            assert_production_lifespan(engine, current_history=True)
+        finally:
+            engine.dispose()
+
+    print("ok - lifespan regressions detect removed hooks, missing verification, early side effects, and leaked tasks")
 
 
 def verify_with_sqlite_writes_disabled(engine, migrations_dir=None):
@@ -311,7 +473,7 @@ def test_read_only_migration_verifier():
             assert_verification_rejected("missing final migration", engine)
             with engine.connect() as connection:
                 versions = connection.exec_driver_sql("SELECT version FROM schema_migrations ORDER BY version").scalars().all()
-            if versions != EXPECTED_VERSIONS[:-1]:
+            if versions != EXPECTED_VERSIONS[:18]:
                 raise AssertionError("verification applied a missing migration")
 
             run_migrations(engine)
@@ -420,7 +582,7 @@ def test_migration_check_cli_is_read_only():
                 raise AssertionError("--check succeeded while migration 0019 was pending")
             with engine.connect() as connection:
                 versions = connection.exec_driver_sql("SELECT version FROM schema_migrations ORDER BY version").scalars().all()
-            if versions != EXPECTED_VERSIONS[:-1]:
+            if versions != EXPECTED_VERSIONS[:18]:
                 raise AssertionError("--check applied a pending migration")
 
             run_migrations(engine)
@@ -787,9 +949,9 @@ def test_report_review_workflow_migration():
         copy_migrations_before_0018(old_migrations_dir)
         engine = make_engine(root / "report-review-workflow.db")
         applied_before = run_migrations(engine, migrations_dir=old_migrations_dir)
-        if applied_before != EXPECTED_VERSIONS[:-2]:
+        if applied_before != EXPECTED_VERSIONS[:17]:
             raise AssertionError(
-                f"report workflow setup: expected {EXPECTED_VERSIONS[:-2]}, got {applied_before}"
+                f"report workflow setup: expected {EXPECTED_VERSIONS[:17]}, got {applied_before}"
             )
 
         legacy_payload = {
@@ -836,6 +998,12 @@ def test_report_review_workflow_migration():
                 """,
                 tuple(legacy_payload.values()),
             )
+            # This test isolates legacy workflow mapping, not unknown-purpose
+            # recovery. Give its other historical Reports explicit definitions.
+            connection.exec_driver_sql(
+                "UPDATE workformsubmission SET definition_snapshot_json = "
+                "'{\"version\":1,\"fields\":[]}' WHERE id IN (2, 3, 4, 5)"
+            )
             connection.exec_driver_sql(
                 """
                 INSERT INTO auditevent (
@@ -863,6 +1031,7 @@ def test_report_review_workflow_migration():
         if applied != [
             "0018_report_review_workflow",
             "0019_report_daywork_purpose",
+            "0020_missing_snapshot_daywork_correction",
         ]:
             raise AssertionError(f"report workflow migration: unexpected versions {applied}")
 
@@ -990,9 +1159,9 @@ def test_report_daywork_purpose_migration():
         copy_migrations_before_0019(old_migrations_dir)
         engine = make_engine(root / "report-daywork-purpose.db")
         applied_before = run_migrations(engine, migrations_dir=old_migrations_dir)
-        if applied_before != EXPECTED_VERSIONS[:-1]:
+        if applied_before != EXPECTED_VERSIONS[:18]:
             raise AssertionError(
-                f"purpose setup: expected {EXPECTED_VERSIONS[:-1]}, got {applied_before}"
+                f"purpose setup: expected {EXPECTED_VERSIONS[:18]}, got {applied_before}"
             )
 
         with engine.begin() as connection:
@@ -1069,7 +1238,7 @@ def test_report_daywork_purpose_migration():
             ).all()
 
         applied = run_migrations(engine)
-        if applied != ["0019_report_daywork_purpose"]:
+        if applied != ["0019_report_daywork_purpose", "0020_missing_snapshot_daywork_correction"]:
             raise AssertionError(f"purpose migration: unexpected versions {applied}")
 
         with engine.begin() as connection:
@@ -1449,9 +1618,9 @@ def test_global_admin_supervisor_invariant_migration():
         copy_migrations_before_0017(old_migrations_dir)
         engine = make_engine(root / "global-admin-invariant.db")
         applied_before = run_migrations(engine, migrations_dir=old_migrations_dir)
-        if applied_before != EXPECTED_VERSIONS[:-3]:
+        if applied_before != EXPECTED_VERSIONS[:16]:
             raise AssertionError(
-                f"global admin invariant setup: expected {EXPECTED_VERSIONS[:-3]}, got {applied_before}"
+                f"global admin invariant setup: expected {EXPECTED_VERSIONS[:16]}, got {applied_before}"
             )
 
         with engine.begin() as connection:
@@ -1495,6 +1664,7 @@ def test_global_admin_supervisor_invariant_migration():
             "0017_global_admin_supervisor_invariant",
             "0018_report_review_workflow",
             "0019_report_daywork_purpose",
+            "0020_missing_snapshot_daywork_correction",
         ]:
             raise AssertionError(f"global admin invariant migration: unexpected versions {applied}")
 
@@ -1764,8 +1934,12 @@ def main():
     test_postgres_statement_adaptation()
     test_production_startup_rejects_unmigrated_database_before_side_effects()
     test_current_production_startup_verifies_before_side_effects()
+    test_fastapi_lifespan_enforces_migrations_and_cleans_up()
+    test_fastapi_lifespan_regression_sensitivity()
     test_read_only_migration_verifier()
     test_migration_check_cli_is_read_only()
+    from migration_cli_test import test_migration_cli_process_exit_codes
+    test_migration_cli_process_exit_codes()
     test_migration_runner_checks_history_before_pending_upgrades()
     test_fresh_database()
     test_legacy_database()
@@ -1775,6 +1949,8 @@ def main():
     test_client_submission_unique_indexes()
     test_client_submission_duplicate_precheck()
     test_rubbish_bin_purge()
+    from report_purpose_correction_test import run_correction_checks, sqlite_database
+    run_correction_checks(sqlite_database, lambda label: print(f"ok - {label}"))
     print("migration test passed")
     return 0
 

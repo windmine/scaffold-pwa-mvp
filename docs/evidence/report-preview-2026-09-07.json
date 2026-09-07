@@ -1,0 +1,86 @@
+{
+  "date": "2026-09-07",
+  "scope": "preview-only frontend refresh using existing isolated staging backend",
+  "project": "geo-attendance-system-db9ca",
+  "frontend_commit": "0fccbe00e2f36e399046286f075e89b4c8b7087b",
+  "working_tree_dirty": true,
+  "application_source_unchanged_from_commit": true,
+  "channel": "report-mvp-20260907",
+  "url": "https://geo-attendance-system-db9ca--report-mvp-20260907-t6pfoqxe.web.app",
+  "hosting_version": "dc163aa882f5c247",
+  "expires_at_utc": "2026-10-07T02:40:33.455649368Z",
+  "config": "firebase.report-preview.json",
+  "staging": {
+    "service": "geo-backend-report-stage-20260901173452",
+    "region": "australia-southeast1",
+    "revision": "geo-backend-report-stage-20260901173452-r3-365fa4f",
+    "database": "sqlite",
+    "uploads": "gcs",
+    "api_and_upload_rewrites_verified": true,
+    "service_and_traffic_unchanged": true,
+    "backend_revision_pinned_by_hosting": false,
+    "latest_backend_fixes_deployed": false
+  },
+  "local_checks": {
+    "lint": "passed",
+    "production_build": "passed",
+    "static_mobile_pwa_checks_passed": 207,
+    "chromium_workflows_passed": 42,
+    "generated_source_sw_unchanged": true,
+    "source_cache": "leader-field-5c59dfabe483",
+    "production_cache": "leader-field-9d4f212030cd",
+    "warning": "existing Vite chunk exceeds 500 kB"
+  },
+  "hosted_checks": {
+    "matching_shell_paths_including_sw": 48,
+    "all_shell_paths_match_local_dist": true,
+    "hash_algorithm": "sha256",
+    "anchor_hashes": {
+      "/index.html": "49df49beba22387416715afb93f173af808f249e07bf6b0a9a5abe0308a98b38",
+      "/sw.js": "fef7e4bd1edf9f1c9d50069452528dcd58d7005254a28f51032b2864f40fdc88",
+      "/offline.html": "c2cd46910e10f7006fc2b4b08514168c395128620ebd51913d4780c1105032f6",
+      "/manifest.webmanifest": "85cedcc7b2e710b0e5cb6c343506fd9e42e8620cc2aa9ba49b1f0a3a2e33aab6"
+    },
+    "cache_headers": {
+      "/sw.js": "no-cache",
+      "/offline.html": "no-cache",
+      "/manifest.webmanifest": "public,max-age=3600"
+    },
+    "readiness_probes_passed": 5,
+    "readiness_checks": {"database": "ok", "upload_storage": "ok"},
+    "new_migration_readiness_check_present": false,
+    "anonymous_route_status": {
+      "/api/sites": 401,
+      "/api/work-forms?purpose=report": 401,
+      "/api/my-form-submissions?purpose=report": 401,
+      "/api/supervisor/form-submissions?purpose=report": 401,
+      "/uploads/report-preview-probe-not-a-real-file.png": 401
+    },
+    "upload_denial_cache_control": "private, no-store",
+    "mobile_chromium": {
+      "viewport": "390x844",
+      "document_width": 390,
+      "invited_only_login_visible": true,
+      "public_registration_hidden": true,
+      "api_base_override_absent": true,
+      "protected_requests_before_login": 0,
+      "page_errors": 0,
+      "service_worker_controls_page": true,
+      "api_upload_cache_entries": 0,
+      "cold_offline_anonymous_login_after_last_page_closed": true
+    }
+  },
+  "live_unchanged": {
+    "hosting_version_before_and_after": "c761984b7353028a",
+    "index_sha256_before_and_after": "e3e0068a0d40e37d3f2c5ecad352be404a9cecc91c358f0d31c96cfdb1b6df82",
+    "backend_revision_before_and_after": "geo-backend-release-20260804152130",
+    "backend_traffic_percent_before_and_after": 100
+  },
+  "limitations": [
+    "Existing staging backend predates Template-version replay conflict protection, impossible-date rejection, and production migration startup/readiness safeguards.",
+    "Use disposable test data only. SQLite staging is not a durable production or PostgreSQL compatibility gate.",
+    "Known PostgreSQL migration 0019 missing/empty-snapshot historical Daywork classification failure remains unresolved.",
+    "Authenticated hosted Worker/Supervisor flows, real photo/signature upload streaming, waiting-service-worker updates, and real-phone testing were not repeated.",
+    "No Cloud Run deployment, database migration, Firebase Auth configuration change, live promotion, commit, or push was performed."
+  ]
+}

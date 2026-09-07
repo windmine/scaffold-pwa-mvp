@@ -111,6 +111,11 @@ def run_migrations(engine: Engine, migrations_dir: Path = MIGRATIONS_DIR) -> lis
     applied_now: list[str] = []
 
     with engine.begin() as connection:
+        # SQLite's legacy transaction mode does not begin a transaction for DDL.
+        # Start it before the ledger/schema so a failed batch cannot leave ALTERs
+        # committed while its backfill and migration history roll back.
+        if connection.dialect.name == "sqlite" and not connection.connection.driver_connection.in_transaction:
+            connection.exec_driver_sql("BEGIN IMMEDIATE")
         _ensure_migration_table(connection)
         applied = _get_applied_migrations(connection)
         # Check all recorded history before running any pending upgrade.
