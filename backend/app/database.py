@@ -18,6 +18,13 @@ def migrate_database():
     run_migrations(engine)
 
 
+def verify_database_migrations():
+    from app.migrations import verify_migrations
+
+    with engine.connect() as connection:
+        verify_migrations(connection)
+
+
 def get_session():
     with Session(engine) as session:
         yield session

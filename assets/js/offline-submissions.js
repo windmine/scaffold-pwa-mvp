@@ -283,6 +283,7 @@ function toBackendTaskLogPayload(record) {
 function toBackendFormSubmissionPayload(record) {
   return {
     form_id: Number(record.formId),
+    expected_definition_version: record.definitionVersion ?? null,
     site_id: getBackendSiteId(record.siteId),
     work_date: record.workDate || null,
     answers: record.answers || {},
@@ -321,6 +322,11 @@ function normaliseLocalSubmission(record) {
     photoUrl: '',
     photoUrls: [],
     ...record,
+    // Upload progress replaces signature data URLs in answers. Keep an independent
+    // captured copy so a failed replay can still be reviewed without the network.
+    ...(record.type === 'form' && submissionPurpose(record) === 'report' ? {
+      capturedAnswers: record.capturedAnswers ?? JSON.parse(JSON.stringify(record.answers || {}))
+    } : {}),
     syncStatus: record.syncStatus || 'queued',
     syncError: record.syncError || '',
     syncStartedAt: record.syncStartedAt || '',
@@ -369,7 +375,7 @@ function markQueued(record, error = null) {
   record.syncStatus = 'queued';
   record.syncStartedAt = '';
   record.syncBlockedByAuth = false;
-  record.syncBlockedReason = '';
+  record.syncBlockedReason = error?.code === 'report_template_version_conflict' ? 'template_changed' : '';
 
   if (error) {
     record.syncError = error.message || 'Sync failed';
@@ -463,7 +469,7 @@ function applySyncedResponse(record, syncedRecord) {
 async function persistLocalSubmission(record) {
   await put('records', record);
 
-  if (QUEUED_SYNC_STATUSES.has(record.syncStatus) && !record.backendRecordId) {
+  if (QUEUED_SYNC_STATUSES.has(record.syncStatus) && !record.backendRecordId && !record.isDraftRecovery) {
     await put('queue', {
       id: record.id,
       kind: record.type,
@@ -574,6 +580,9 @@ function syncedSubmissionMessage(record) {
 }
 
 function queuedSubmissionMessage(record, retry = false) {
+  if (record.syncBlockedReason === 'template_changed') {
+    return 'Report Template changed. Your report is saved on this device. Open My Reports to review the original answers and evidence, then submit a new report with the current template.';
+  }
   if (record.type === 'attendance') {
     const label = record.action === 'check_in' ? 'Check in' : 'Check out';
     return retry
@@ -597,6 +606,26 @@ function queuedSubmissionMessage(record, retry = false) {
   return retry
     ? 'Submission saved locally. Backend sync will retry when you reconnect.'
     : 'Submission saved offline and queued for later sync.';
+}
+
+export async function preserveConflictingReportDraft(record, draftKey) {
+  if (record.type !== 'form' || submissionPurpose(record) !== 'report' || !draftKey) {
+    throw new Error('Only a saved Report draft can be kept for recovery.');
+  }
+  if (!normaliseWorkerId(record.ownerWorkerId)) {
+    throw new Error('Offline submission is missing its Worker owner.');
+  }
+  const { record: localRecord } = createLocalSubmission({
+    ...record,
+    isDraftRecovery: true,
+    syncStatus: 'queued',
+    syncBlockedReason: 'template_changed',
+    syncError: 'Saved draft only. This copy will not sync. Complete a new report with the current template.'
+  });
+  // This may be incomplete. Keep it in private history, never in the replay queue.
+  // Do not clear the original draft until its full recovery copy is persisted.
+  await persistLocalSubmission(localRecord);
+  return { record: localRecord, draftCleanupFailed: !(await clearSubmissionDraft(draftKey)) };
 }
 
 export async function submitOfflineSubmission(record, options = {}) {
@@ -679,7 +708,7 @@ async function flushQueuedSubmissions(worker, options = {}) {
       continue;
     }
 
-    if (record.backendRecordId || record.syncStatus === 'synced') {
+    if (record.backendRecordId || record.syncStatus === 'synced' || record.isDraftRecovery) {
       await remove('queue', item.id);
       continue;
     }

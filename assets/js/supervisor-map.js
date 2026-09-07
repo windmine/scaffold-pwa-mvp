@@ -112,7 +112,25 @@ export function createSupervisorMapModule({
   let hasLoadedLocationRecords = false;
   let locationRecordsRequest = null;
   let renderedDepartmentFocusId = null;
+  let sessionGeneration = 0;
   const markerByRecordId = new Map();
+
+  function resetSession() {
+    sessionGeneration += 1;
+    locationRecords = [];
+    locationRecordsRequest = null;
+    hasLoadedLocationRecords = false;
+    selectedRecordId = null;
+    renderedDepartmentFocusId = null;
+    markerByRecordId.clear();
+    map?.remove();
+    map = siteLayer = recordLayer = routeLayer = null;
+    resetFilters();
+    renderFilterOptions([]);
+    renderSummary([]);
+    renderHistory([]);
+    renderSelectedRecord(null);
+  }
 
   function matchesDepartmentFocus(record) {
     return (
@@ -135,11 +153,14 @@ export function createSupervisorMapModule({
   }
 
   async function refreshLocationRecords() {
-    if (!loadAttendanceRecords) return;
+    if (!loadAttendanceRecords || state.user?.role !== 'supervisor') return;
     if (locationRecordsRequest) return await locationRecordsRequest;
+    const requestSession = sessionGeneration;
+    const requestUser = state.user;
 
     locationRecordsRequest = loadAttendanceRecords()
       .then((records) => {
+        if (requestSession !== sessionGeneration || state.user !== requestUser) return;
         locationRecords = records
           .map((record) => normaliseAttendanceRecord ? normaliseAttendanceRecord(record) : record)
           .filter((record) => (
@@ -150,7 +171,7 @@ export function createSupervisorMapModule({
         hasLoadedLocationRecords = true;
       })
       .finally(() => {
-        locationRecordsRequest = null;
+        if (requestSession === sessionGeneration) locationRecordsRequest = null;
       });
 
     return await locationRecordsRequest;
@@ -159,9 +180,11 @@ export function createSupervisorMapModule({
   function ensureLocationRecordsLoaded() {
     if (!els.locationMapDetails.open || hasLoadedLocationRecords || locationRecordsRequest || !loadAttendanceRecords) return;
 
+    const requestSession = sessionGeneration;
     refreshLocationRecords()
-      .then(() => renderPanel())
+      .then(() => { if (requestSession === sessionGeneration) renderPanel(); })
       .catch((error) => {
+        if (requestSession !== sessionGeneration) return;
         renderStatusBanner(error.message || 'Could not load attendance map records.', true);
       });
   }
@@ -472,13 +495,16 @@ export function createSupervisorMapModule({
     renderRoutes(records);
     renderRecordMarkers(records);
     fitMap(records);
+    const renderSession = sessionGeneration;
     window.setTimeout(() => {
+      if (renderSession !== sessionGeneration || !map) return;
       map.invalidateSize();
       fitMap(records);
     }, 40);
   }
 
   function renderPanel() {
+    if (state.user?.role !== 'supervisor') return;
     ensureLocationRecordsLoaded();
     const departmentFocusId = String(state.departmentFocusId || '');
     if (departmentFocusId !== renderedDepartmentFocusId) {
@@ -515,8 +541,10 @@ export function createSupervisorMapModule({
   }
 
   async function focusRecord(record) {
+    const requestSession = sessionGeneration;
     if (
-      record?.type !== 'attendance'
+      state.user?.role !== 'supervisor'
+      || record?.type !== 'attendance'
       || !recordCoordinates(record)
       || !matchesDepartmentFocus(record)
     ) {
@@ -540,6 +568,7 @@ export function createSupervisorMapModule({
       }
     }
 
+    if (requestSession !== sessionGeneration) return false;
     if (!target && !locationRefreshFailed) {
       renderStatusBanner('The related attendance map point no longer matches the active scope.', true);
       return false;
@@ -566,6 +595,7 @@ export function createSupervisorMapModule({
 
     selectRecord(visibleTarget, { openPopup: true });
     window.requestAnimationFrame(() => {
+      if (requestSession !== sessionGeneration) return;
       const selectedRow = [...els.locationMapHistory.querySelectorAll('[data-location-record-id]')]
         .find((row) => row.dataset.locationRecordId === targetKey);
       selectedRow?.focus({ preventScroll: true });
@@ -575,11 +605,15 @@ export function createSupervisorMapModule({
   }
 
   async function refresh() {
+    const requestSession = sessionGeneration;
     try {
       await refreshRecords();
+      if (requestSession !== sessionGeneration) return;
       await refreshLocationRecords();
+      if (requestSession !== sessionGeneration) return;
       renderPanel();
     } catch (error) {
+      if (requestSession !== sessionGeneration) return;
       renderStatusBanner(error.message || 'Could not refresh location review.', true);
     }
   }
@@ -607,6 +641,7 @@ export function createSupervisorMapModule({
   return {
     bindEvents,
     focusRecord,
-    renderPanel
+    renderPanel,
+    resetSession
   };
 }

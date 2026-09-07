@@ -1,5 +1,7 @@
 import sys
+import asyncio
 import csv
+import json
 import os
 import socket
 import subprocess
@@ -8,10 +10,13 @@ from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from fastapi import HTTPException
+from sqlalchemy import create_engine, inspect, text
+from sqlmodel import Session
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -92,6 +97,149 @@ def assert_private_no_store(label, headers):
     assert_ok(label, {"private", "no-store"}.issubset(directives))
 
 
+def test_auto_migrate_environment_defaults():
+    backend_dir = Path(__file__).resolve().parent
+    script = """
+import json
+import runpy
+from pathlib import Path
+from unittest.mock import patch
+
+original_exists = Path.exists
+with patch.object(
+    Path,
+    "exists",
+    lambda candidate: candidate.name not in {".env", ".env.local"} and original_exists(candidate),
+):
+    config = runpy.run_path("app/config.py")
+print(json.dumps({
+    "production_like": config["PRODUCTION_LIKE"],
+    "auto_migrate": config["AUTO_MIGRATE"],
+}))
+"""
+    cases = [
+        ("development default retains automatic migrations", {}, False, True),
+        ("production default disables automatic migrations", {"APP_ENV": "production"}, True, False),
+        ("prod alias disables automatic migrations", {"APP_ENV": "prod"}, True, False),
+        ("Cloud Run detection disables automatic migrations", {"K_SERVICE": "isolated-security-fixture"}, True, False),
+        ("ENVIRONMENT fallback disables production automatic migrations", {"ENVIRONMENT": "production"}, True, False),
+        ("explicit development false disables automatic migrations", {"AUTO_MIGRATE": "false"}, False, False),
+        ("explicit production false remains disabled", {"APP_ENV": "production", "AUTO_MIGRATE": "false"}, True, False),
+        ("explicit production true remains detectable for startup rejection", {"APP_ENV": "production", "AUTO_MIGRATE": "true"}, True, True),
+    ]
+    for label, overrides, production_like, auto_migrate in cases:
+        environment = os.environ.copy()
+        for key in ("APP_ENV", "ENVIRONMENT", "K_SERVICE", "AUTO_MIGRATE"):
+            environment.pop(key, None)
+        environment.update({
+            "GEO_SECRET_KEY": "isolated-security-config-secret-never-used-outside-tests",
+            "DATABASE_URL": "sqlite://",
+            **overrides,
+        })
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=backend_dir,
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        assert_ok(f"{label}: configuration loads", result.returncode == 0)
+        assert_ok(label, json.loads(result.stdout) == {
+            "production_like": production_like,
+            "auto_migrate": auto_migrate,
+        })
+
+
+def test_production_startup_rejects_automatic_migrations():
+    from app import main as application
+
+    isolated_engine = create_engine("sqlite://")
+    try:
+        with (
+            patch.object(application, "PRODUCTION_LIKE", True),
+            patch.object(application, "AUTO_MIGRATE", True),
+            patch.object(application, "engine", isolated_engine, create=True),
+            patch("app.database.engine", isolated_engine),
+            patch.object(application, "migrate_database") as migrate,
+            patch.object(application, "ensure_upload_storage_ready") as storage,
+            patch.object(application.record_trash_use_cases, "purge_expired_deleted_records_with_new_session") as purge,
+            patch.object(application.record_trash_use_cases, "run_periodic_trash_purge", new_callable=AsyncMock) as periodic_purge,
+        ):
+            try:
+                asyncio.run(application.on_startup())
+            except RuntimeError as error:
+                assert_ok("production startup explains the forbidden automatic migration setting", "AUTO_MIGRATE" in str(error))
+            else:
+                raise AssertionError("production startup accepted AUTO_MIGRATE=true")
+            assert_ok("production startup rejects automatic migrations before migration, storage, or purge", not migrate.called and not storage.called and not purge.called and not periodic_purge.called)
+            assert_ok("rejected production startup does not create database tables", not inspect(isolated_engine).get_table_names())
+    finally:
+        isolated_engine.dispose()
+
+
+def test_readiness_validates_migration_ledger_without_writes():
+    from app import main as application
+    from app.migrations import run_migrations
+
+    isolated_engine = create_engine("sqlite://")
+    try:
+        run_migrations(isolated_engine)
+
+        def readiness_snapshot():
+            with isolated_engine.connect() as connection:
+                before_changes = connection.connection.driver_connection.total_changes
+                before_tables = inspect(connection).get_table_names()
+            try:
+                with Session(isolated_engine) as session:
+                    body = application.readiness(session)
+                status = 200
+            except HTTPException as error:
+                status, body = error.status_code, error.detail
+            with isolated_engine.connect() as connection:
+                after_changes = connection.connection.driver_connection.total_changes
+                after_tables = inspect(connection).get_table_names()
+            assert_ok("readiness leaves schema and row contents unchanged", before_changes == after_changes and before_tables == after_tables)
+            return status, body
+
+        def assert_migration_unready(label):
+            status, body = readiness_snapshot()
+            assert_ok(label, status == 503 and body.get("status") == "error" and body.get("checks") == {
+                "database": "ok", "migrations": "error", "upload_storage": "ok",
+            })
+            serialized = json.dumps(body)
+            assert_ok("migration readiness failures do not expose ledger or SQL diagnostics", all(
+                marker not in serialized
+                for marker in ("private-checksum-marker", "schema_migrations", "SELECT", "no such table", "Traceback")
+            ))
+
+        with patch.object(application, "ensure_upload_storage_ready", return_value="local"):
+            status, body = readiness_snapshot()
+            assert_ok("current migration ledger is ready", status == 200 and body.get("checks") == {
+                "database": "ok", "migrations": "ok", "upload_storage": "ok",
+            })
+            with isolated_engine.begin() as connection:
+                version, checksum = connection.execute(text(
+                    "SELECT version, checksum FROM schema_migrations ORDER BY version LIMIT 1"
+                )).one()
+                connection.execute(text(
+                    "UPDATE schema_migrations SET checksum = :checksum WHERE version = :version"
+                ), {"checksum": "private-checksum-marker", "version": version})
+            assert_migration_unready("tampered migration ledger fails readiness even while SELECT 1 works")
+            with isolated_engine.begin() as connection:
+                connection.execute(text(
+                    "UPDATE schema_migrations SET checksum = :checksum WHERE version = :version"
+                ), {"checksum": checksum, "version": version})
+            status, body = readiness_snapshot()
+            assert_ok("readiness observes a repaired migration ledger without restart", status == 200 and body["checks"]["migrations"] == "ok")
+            with isolated_engine.begin() as connection:
+                connection.exec_driver_sql("DROP TABLE schema_migrations")
+            assert_migration_unready("missing migration ledger fails readiness without recreating it")
+    finally:
+        isolated_engine.dispose()
+
+
 def test_upload_error_cache_middleware():
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
@@ -101,8 +249,11 @@ def test_upload_error_cache_middleware():
     server_temp = TemporaryDirectory()
     server_temp_path = Path(server_temp.name)
     environment = os.environ.copy()
+    environment.pop("K_SERVICE", None)
+    environment.pop("ENVIRONMENT", None)
     environment.update({
         "APP_ENV": "test",
+        "K_SERVICE": "",
         "AUTO_MIGRATE": "true",
         "DATABASE_URL": f"sqlite:///{(server_temp_path / 'security.db').as_posix()}",
         "ENABLE_DEV_SEED": "false",
@@ -149,6 +300,14 @@ def test_upload_error_cache_middleware():
                 raise AssertionError("upload cache test server did not become ready")
             time.sleep(0.1)
 
+        readiness_status, _, readiness_body = request_status(f"{base_url}/health/ready")
+        assert_ok(
+            "isolated HTTP readiness verifies the migrated database",
+            readiness_status == 200
+            and json.loads(readiness_body).get("checks") == {
+                "database": "ok", "migrations": "ok", "upload_storage": "ok",
+            },
+        )
         upload_url = f"{base_url}/api/uploads/missing.png"
         first_status, first_headers, _ = request_status(upload_url)
         assert_ok("anonymous upload request is denied", first_status == 401)
@@ -190,6 +349,9 @@ def test_upload_error_cache_middleware():
 
 
 def main():
+    test_auto_migrate_environment_defaults()
+    test_production_startup_rejects_automatic_migrations()
+    test_readiness_validates_migration_ledger_without_writes()
     hybrid_worker = SimpleNamespace(
         id=1,
         role="worker",

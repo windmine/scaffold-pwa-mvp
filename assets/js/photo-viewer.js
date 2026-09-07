@@ -130,20 +130,26 @@ export function createPhotoViewer({
     focusElement(closeButton);
   }
 
-  function close() {
-    if (!isOpen()) return;
-
+  function close({ restoreFocus = true } = {}) {
     viewer.classList.add('hidden');
     body.classList.remove('viewer-open');
-    image.src = '';
+    image.removeAttribute('src');
+    setTranslatableAttribute(image, 'alt', '');
+    setTranslatableText(caption, '');
+    state.sources = [];
+    state.index = 0;
+    state.title = '';
+    previousButton.disabled = true;
+    nextButton.disabled = true;
     restoreBackgroundInteraction();
 
     const focusTarget = restoreFocusTarget;
     restoreFocusTarget = null;
-    if (focusTarget?.isConnected) focusElement(focusTarget);
+    if (restoreFocus && focusTarget?.isConnected) focusElement(focusTarget);
   }
 
   function step(direction) {
+    if (!isOpen()) return;
     const count = state.sources.length;
     if (count < 2) return;
 

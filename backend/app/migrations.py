@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import importlib.util
 from dataclasses import dataclass
@@ -73,6 +74,38 @@ def adapt_statement_for_dialect(statement: str, dialect_name: str) -> str:
     )
 
 
+def _validate_migration_history(migrations: list[Migration], applied: dict[str, str], *, require_current: bool):
+    expected = {migration.version: migration.checksum for migration in migrations}
+    unknown = set(applied) - set(expected)
+    if unknown:
+        raise MigrationError(
+            "Database has migrations not included in this release: "
+            + ", ".join(sorted(unknown))
+            + ". Use a compatible backend image; do not rewrite migration history."
+        )
+    for version, checksum in applied.items():
+        if checksum != expected[version]:
+            raise MigrationError(f"Migration {version} has changed since it was applied")
+    missing = [migration.version for migration in migrations if migration.version not in applied]
+    if require_current and missing:
+        raise MigrationError(
+            "Database migrations are pending: "
+            + ", ".join(missing)
+            + ". Run python -m app.migrations as a separate release step before starting the backend."
+        )
+
+
+def verify_migrations(connection: Connection, migrations_dir: Path = MIGRATIONS_DIR) -> None:
+    """Check this image's exact migration history without creating or changing data."""
+    migrations = _load_migrations(migrations_dir)
+    if "schema_migrations" not in inspect(connection).get_table_names():
+        raise MigrationError(
+            "Database migration history is missing. Run python -m app.migrations "
+            "as a separate release step before starting the backend."
+        )
+    _validate_migration_history(migrations, _get_applied_migrations(connection), require_current=True)
+
+
 def run_migrations(engine: Engine, migrations_dir: Path = MIGRATIONS_DIR) -> list[str]:
     migrations = _load_migrations(migrations_dir)
     applied_now: list[str] = []
@@ -80,15 +113,11 @@ def run_migrations(engine: Engine, migrations_dir: Path = MIGRATIONS_DIR) -> lis
     with engine.begin() as connection:
         _ensure_migration_table(connection)
         applied = _get_applied_migrations(connection)
+        # Check all recorded history before running any pending upgrade.
+        _validate_migration_history(migrations, applied, require_current=False)
 
         for migration in migrations:
-            applied_checksum = applied.get(migration.version)
-
-            if applied_checksum:
-                if applied_checksum != migration.checksum:
-                    raise MigrationError(
-                        f"Migration {migration.version} has changed since it was applied"
-                    )
+            if migration.version in applied:
                 continue
 
             upgrade = getattr(migration.module, "upgrade", None)
@@ -138,7 +167,7 @@ def _get_applied_migrations(connection: Connection) -> dict[str, str]:
 
 def _load_migrations(migrations_dir: Path) -> list[Migration]:
     if not migrations_dir.exists():
-        return []
+        raise MigrationError("Bundled migration files are missing; deploy a complete backend image")
 
     migrations = [
         _load_migration(path)
@@ -147,6 +176,8 @@ def _load_migrations(migrations_dir: Path) -> list[Migration]:
     ]
     versions = [migration.version for migration in migrations]
 
+    if not migrations:
+        raise MigrationError("Bundled migration files are empty; deploy a complete backend image")
     if len(versions) != len(set(versions)):
         raise MigrationError("Duplicate migration versions found")
 
@@ -174,6 +205,15 @@ def _load_migration(path: Path) -> Migration:
 
 def main() -> int:
     from app.database import engine
+
+    parser = argparse.ArgumentParser(description="Apply or verify backend database migrations.")
+    parser.add_argument("--check", action="store_true", help="Verify exact migration history without applying migrations.")
+    args = parser.parse_args()
+    if args.check:
+        with engine.connect() as connection:
+            verify_migrations(connection)
+        print("Database migrations match this backend release")
+        return 0
 
     applied = run_migrations(engine)
 

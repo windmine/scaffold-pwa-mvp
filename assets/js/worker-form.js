@@ -1,8 +1,9 @@
 import { getWorkForms as getBackendWorkForms } from './api-client.js';
 import { getDraft, saveDraft } from './mock-api.js';
-import { submitOfflineSubmission } from './offline-submissions.js';
-import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
+import { preserveConflictingReportDraft, submitOfflineSubmission } from './offline-submissions.js';
+import { collectWorkFormAnswers, formatWorkFormAnswer, localAnswerImageSources, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
 import { setDateInputValue } from './date-inputs.js';
+import { setTranslatableText } from './i18n.js';
 import {
   fileToDataUrl,
   todayDateInput,
@@ -60,7 +61,9 @@ export function createWorkerFormModule({
   let renderedWorkForm = null;
   let autosaveTimer = null;
   let selectionToken = 0;
+  let sessionGeneration = 0;
   let restoringDraft = false;
+  let conflictingDraft = null;
   let reloadLocked = false;
   let submissionControlStates = [];
   let photoSelectionToken = 0;
@@ -168,6 +171,7 @@ export function createWorkerFormModule({
       formId: form.id,
       formName: form.name,
       definitionVersion: definitionVersion(form),
+      fields: JSON.parse(JSON.stringify(form.fields || [])),
       siteId: els.workFormSite.value || '',
       workDate: els.workFormDate.value || '',
       answers: collectWorkFormAnswers(form, {
@@ -183,6 +187,7 @@ export function createWorkerFormModule({
   function captureVisibleWorkFormDraft() {
     const draftState = activeDraftState();
     if (!draftState || !els.workFormFields.children.length) return null;
+    if (conflictingDraft) return draftState.snapshot;
     draftState.snapshot = buildDraftSnapshot(renderedWorkForm, draftState);
     return draftState.snapshot;
   }
@@ -211,7 +216,7 @@ export function createWorkerFormModule({
   }
 
   function markActiveDraftDirty(options = {}) {
-    if (restoringDraft || reloadLocked || state.submittingWorkForm) return;
+    if (restoringDraft || conflictingDraft || reloadLocked || state.submittingWorkForm) return;
     const draftState = activeDraftState();
     if (!draftState) return;
 
@@ -344,7 +349,42 @@ export function createWorkerFormModule({
     els.workFormSubmissionForm.inert = false;
   }
 
+  function setDraftConflict(draft) {
+    conflictingDraft = draft;
+    [els.workFormSite, els.workFormDate, els.workFormPhotos].forEach((control) => {
+      control.disabled = Boolean(draft);
+    });
+    els.submitWorkFormButton.type = draft ? 'button' : 'submit';
+    setTranslatableText(els.submitWorkFormButton, draft ? 'Keep draft and start new report' : 'Submit Report');
+  }
+
+  function showConflictingDraft(draft, draftState) {
+    setDraftConflict(draft);
+    draftState.snapshot = draft;
+    draftState.savedAt = draft.savedAt || '';
+    els.workFormSite.value = draft.siteId || '';
+    setDateInputValue(els.workFormDate, draft.workDate || '');
+    els.workFormFields.innerHTML = '';
+    // Render captured values as text, not editable controls based on a new schema.
+    for (const [id, value] of Object.entries(draft.answers || {})) {
+      const detail = document.createElement('p');
+      const label = draft.fields?.find((field) => field.id === id)?.label || id;
+      detail.textContent = `${label}: ${formatWorkFormAnswer(value)}`;
+      els.workFormFields.append(detail);
+    }
+    const signatures = document.createElement('div');
+    photoViewer.renderPreviews(signatures, localAnswerImageSources(draft.answers), 'Signature');
+    els.workFormFields.append(signatures);
+    photoViewer.renderPreviews(els.workFormPhotoPreview, draft.photoDataUrls || [], 'Report photo');
+    setAutosaveStatus('Saved draft is read-only because the Report Template changed.', 'error');
+    renderStatusBanner('Report Template changed. Keep this draft in My Reports before starting a new report. Nothing will be submitted automatically.', true, {
+      local: els.workFormFeedback,
+      tone: 'warning'
+    });
+  }
+
   function resetDraftSurface() {
+    setDraftConflict(null);
     els.workFormSite.value = '';
     setDateInputValue(els.workFormDate, todayDateInput());
     els.workFormPhotos.value = '';
@@ -425,6 +465,11 @@ export function createWorkerFormModule({
       return;
     }
 
+    if (formPurpose(form) === 'report' && Number(draft.definitionVersion || 1) !== definitionVersion(form)) {
+      showConflictingDraft(draft, draftState);
+      return;
+    }
+
     applyDraftToSurface(form, draftState, draft);
     if (draftState.error) {
       showDraftSaveError();
@@ -475,18 +520,24 @@ export function createWorkerFormModule({
   async function refreshWorkForms() {
     if (!state.user) return false;
     const requestUserId = state.user.id;
+    const requestGeneration = sessionGeneration;
+    const isCurrentSession = () => (
+      requestGeneration === sessionGeneration
+      && String(state.user?.id || '') === String(requestUserId)
+    );
 
     try {
       const workForms = await getBackendWorkForms(reportOnly ? 'report' : '');
-      if (String(state.user?.id || '') !== String(requestUserId)) return false;
+      if (!isCurrentSession()) return false;
       state.workForms = workForms;
       renderWorkFormOptions();
       await renderSelectedWorkForm({ preserveCurrent: false });
+      if (!isCurrentSession()) return false;
       onWorkFormsChanged();
       if (state.user.role === 'supervisor') onSupervisorWorkFormsChanged();
       return true;
     } catch (error) {
-      if (String(state.user?.id || '') !== String(requestUserId)) return false;
+      if (!isCurrentSession()) return false;
       if (state.user.role === 'worker') {
         state.workForms = [];
         renderWorkFormOptions();
@@ -545,6 +596,7 @@ export function createWorkerFormModule({
   }
 
   function handlePhotoChange(event) {
+    if (conflictingDraft || reloadLocked || state.submittingWorkForm) return;
     const draftState = activeDraftState();
     markActiveDraftDirty({ capture: false });
     const token = ++photoSelectionToken;
@@ -591,8 +643,12 @@ export function createWorkerFormModule({
   async function handleSubmit(event) {
     event.preventDefault();
     if (!state.user || state.submittingWorkForm) return;
+    if (conflictingDraft) {
+      await keepConflictingDraft();
+      return;
+    }
 
-    const form = selectedWorkForm();
+    const form = renderedWorkForm?.id === selectedWorkForm()?.id ? renderedWorkForm : null;
     if (!form) {
       renderStatusBanner('Choose a Report Template first.', true, {
         local: els.workFormFeedback,
@@ -637,6 +693,7 @@ export function createWorkerFormModule({
         type: 'form',
         formId: form.id,
         formName: form.name,
+        definitionVersion: definitionVersion(form),
         submissionPurpose: formPurpose(form),
         fields: form.fields || [],
         userId: state.user.id,
@@ -700,8 +757,58 @@ export function createWorkerFormModule({
     markActiveDraftDirty();
   }
 
+  async function keepConflictingDraft() {
+    if (!conflictingDraft || state.submittingWorkForm || reloadLocked) return;
+    const draft = conflictingDraft;
+    const draftState = activeDraftState();
+    const generation = sessionGeneration;
+    if (!draftState) return;
+    setSubmitting(true);
+    try {
+      draftState.recoveryRecordId ||= uuid();
+      const result = await preserveConflictingReportDraft({
+        id: draftState.recoveryRecordId,
+        type: 'form',
+        ownerWorkerId: draftState.ownerWorkerId,
+        formId: draft.formId,
+        formName: draft.formName || renderedWorkForm.name,
+        submissionPurpose: 'report',
+        definitionVersion: draft.definitionVersion ?? null,
+        fields: draft.fields || [],
+        answers: draft.answers || {},
+        siteId: draft.siteId || null,
+        siteName: draft.siteId ? findSiteByFormValue(draft.siteId)?.name || String(draft.siteId) : 'Unassigned site',
+        workDate: draft.workDate || '',
+        photoDataUrls: draft.photoDataUrls || [],
+        photoMetadata: draft.photoMetadata || [],
+        createdAt: new Date().toISOString()
+      }, draftState.key);
+      if (generation !== sessionGeneration) return;
+      if (result.draftCleanupFailed) throw new Error('The saved copy is in My Reports, but the draft could not be cleared. Keep this page open and try again.');
+      setSubmitting(false);
+      draftStates.delete(draftState.key);
+      await renderSelectedWorkForm({ preserveCurrent: false, skipFlush: true });
+      if (generation !== sessionGeneration) return;
+      renderStatusBanner('Original draft kept in My Reports. Complete a new report with the current template.', true, {
+        local: els.workFormFeedback,
+        tone: 'warning'
+      });
+      await renderHistory();
+    } catch (error) {
+      if (generation === sessionGeneration) renderStatusBanner(error.message || 'Could not keep this Report draft. The original draft is unchanged.', true, {
+        local: els.workFormFeedback,
+        tone: 'error'
+      });
+    } finally {
+      if (generation === sessionGeneration && state.submittingWorkForm) setSubmitting(false);
+    }
+  }
+
   function bindEvents() {
     els.workFormSubmissionForm.addEventListener('submit', handleSubmit);
+    els.submitWorkFormButton.addEventListener('click', () => {
+      if (conflictingDraft) void keepConflictingDraft();
+    });
     els.workFormSelect.addEventListener('change', () => {
       void renderSelectedWorkForm();
     });
@@ -722,6 +829,7 @@ export function createWorkerFormModule({
   }
 
   function clearSessionState() {
+    sessionGeneration += 1;
     if (state.submittingWorkForm || submissionControlStates.length) setSubmitting(false);
     feedback.clearLocal(els.workFormFeedback);
     cancelAutosaveTimer();
@@ -729,12 +837,14 @@ export function createWorkerFormModule({
     photoSelectionToken += 1;
     renderedWorkForm = null;
     restoringDraft = false;
+    setDraftConflict(null);
     reloadLocked = false;
     els.workFormSubmissionForm.inert = false;
     els.workFormSubmissionForm.removeAttribute('aria-busy');
     els.workFormFields.inert = false;
     submissionControlStates = [];
     els.workFormSubmissionForm.reset();
+    state.workForms = [];
     els.workFormSelect.innerHTML = `<option value="">${emptyTemplateOption}</option>`;
     setDateInputValue(els.workFormDate, todayDateInput());
     els.workFormFields.innerHTML = '';

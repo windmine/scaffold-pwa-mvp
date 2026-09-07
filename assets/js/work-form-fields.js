@@ -84,7 +84,20 @@ function timeRangeDurationHours(start, end) {
   return Math.round((durationMinutes / 60) * 100) / 100;
 }
 
+function isLocalAnswerImage(value) {
+  return typeof value === 'string' && /^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=\s]+$/i.test(value);
+}
+
+// Old local drafts did not save field definitions. Recover their evidence by
+// inspecting captured values only; never infer a schema for server validation.
+export function localAnswerImageSources(value) {
+  if (isLocalAnswerImage(value)) return [value];
+  if (!value || typeof value !== 'object') return [];
+  return Object.values(value).flatMap(localAnswerImageSources);
+}
+
 export function formatWorkFormAnswer(value, type = '') {
+  if (isLocalAnswerImage(value)) return 'Signed';
   if (type === 'signature') return value ? 'Signed' : '';
   if (type === 'repeat' && Array.isArray(value)) {
     return value

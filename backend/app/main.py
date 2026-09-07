@@ -22,7 +22,8 @@ from app.config import (
     RATE_LIMIT_UPLOAD_REQUESTS,
     RATE_LIMIT_UPLOAD_WINDOW_SECONDS,
 )
-from app.database import migrate_database, get_session
+from app.database import migrate_database, get_session, verify_database_migrations
+from app.migrations import MigrationError, verify_migrations
 from app.models import Department, User, Site, WorkForm
 from app.rate_limit import InMemoryRateLimiter, RateLimitRule
 from app.schemas import (
@@ -291,8 +292,14 @@ DEMO_WORK_FORMS = [
 @app.on_event("startup")
 async def on_startup():
     global trash_purge_task
+    if PRODUCTION_LIKE and AUTO_MIGRATE:
+        raise MigrationError(
+            "AUTO_MIGRATE must be false in production. Run python -m app.migrations "
+            "as a separate release step before starting the backend."
+        )
     if AUTO_MIGRATE:
         migrate_database()
+    verify_database_migrations()
     ensure_upload_storage_ready(verify_lifecycle=True)
     record_trash_use_cases.purge_expired_deleted_records_with_new_session()
     trash_purge_task = asyncio.create_task(
@@ -328,6 +335,12 @@ def readiness(session: Session = Depends(get_session)):
         checks["database"] = "ok"
     except Exception:
         checks["database"] = "error"
+
+    try:
+        verify_migrations(session.connection())
+        checks["migrations"] = "ok"
+    except Exception:
+        checks["migrations"] = "error"
 
     try:
         backend = ensure_upload_storage_ready()

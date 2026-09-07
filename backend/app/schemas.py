@@ -196,6 +196,7 @@ class WorkFormUpdate(BaseModel):
 
 class WorkFormSubmissionCreate(BaseModel):
     form_id: int = Field(ge=1)
+    expected_definition_version: Optional[int] = Field(default=None, ge=1)
     site_id: Optional[int] = Field(default=None, ge=1)
     work_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     answers: dict = Field(default_factory=dict)

@@ -79,10 +79,10 @@ def database_url_env(name: str, default: str):
 
 
 DATABASE_URL = database_url_env("DATABASE_URL", "sqlite:///./geo_management.db")
-AUTO_MIGRATE = bool_env("AUTO_MIGRATE", True)
 SQL_ECHO = bool_env("SQL_ECHO", False)
 APP_ENV = os.environ.get("APP_ENV", os.environ.get("ENVIRONMENT", "development")).strip().lower()
 PRODUCTION_LIKE = APP_ENV in {"prod", "production"} or bool(os.environ.get("K_SERVICE"))
+AUTO_MIGRATE = bool_env("AUTO_MIGRATE", not PRODUCTION_LIKE)
 
 JWT_SECRET_KEY = os.environ.get(
     "GEO_SECRET_KEY",

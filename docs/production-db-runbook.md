@@ -27,7 +27,7 @@ Firebase Hosting
 - SQLAlchemy uses `pool_pre_ping` so a Neon/managed-PostgreSQL connection closed while idle is discarded before the route query.
 - Upload startup performs create/read/delete lifecycle verification; readiness then reads a stable private marker.
 - Uploaded JPEG, PNG, and WebP files are decoded and re-encoded before storage, served only after authorization, and deleted when detached and no durable reference remains.
-- `/health/ready` verifies both database access and the selected upload adapter.
+- The candidate `/health/ready` verifies database access, exact migration history, and the selected upload adapter; historical deployed versions predate the migration readiness check.
 - Cloud Monitoring checks the hosted `/api/health/ready` path and has enabled incident policies for readiness failures and Cloud Run 5xx responses. No verified notification channel is configured yet.
 - Neon PITR passed again on 2026-08-04 at migration head `0017_global_admin_supervisor_invariant`; the GCS soft-delete recovery proof remains current. Sanitized evidence is under `docs/evidence/` and is checked by the production-hardening gate.
 - The 2026-08-04 release created a one-day read-only Neon backup branch, proved migration `0017` on a disposable PostgreSQL branch, and then deployed commit `38220e9` as a no-traffic Cloud Run candidate. Five candidate readiness cycles and ten post-promotion direct/hosted readiness probes passed, no revision-scoped ERROR or HTTP 5xx logs were observed, and all temporary traffic tags were removed after promotion. Firebase preview `release-20260804152130` was verified for asset hashes and invited-account behavior before its exact version was cloned live.
@@ -54,6 +54,8 @@ The project has an earlier validated Cloud SQL instance and database, but they a
 ## Release Invariants
 
 - Run `python -m app.migrations` against a staging database/branch before production.
+- Keep `AUTO_MIGRATE=false` in production. It is the default for `APP_ENV=prod`/`production` (or the `ENVIRONMENT` fallback) and any Cloud Run `K_SERVICE`; explicit `true` is rejected before migrations, upload probes, or purge work. API startup verifies exact migration versions/checksums without creating or modifying the ledger. Development may still auto-migrate.
+- Run explicit migrations and the read-only `python -m app.migrations --check` from the same immutable migration artifact as the candidate image. Checksums cover file bytes, so different checkout line endings can cause a mismatch. A shared candidate artifact does not cure an existing historical mismatch: already-applied files must retain the original release bytes. A mismatch blocks release; investigate against the original release artifact, and never rewrite stored checksums or normalize previously applied files to force a pass.
 - Back up or create a restorable provider snapshot before every production migration.
 - Keep uploads in the private GCS adapter for every production-like Cloud Run revision.
 - Keep browser auth cookie name `__session`; Firebase Hosting does not forward arbitrary cookies to rewritten Cloud Run services.
@@ -64,6 +66,9 @@ The project has an earlier validated Cloud SQL instance and database, but they a
 - Keep global-admin access Supervisor-only. Migration `0017_global_admin_supervisor_invariant` revokes `is_global_admin` from any legacy non-Supervisor row, then installs a database invariant; the application also ignores such invalid flags before the migration runs.
 - The production-default navigation must contain only **New Report / My Reports** for Workers and **Reports / Report Templates / Staff** for Supervisors. Retained attendance, Daywork, Site, map, analytics, audit/recovery, and general export interfaces must stay unreachable without the explicit test override.
 - New Reports require Report Date and may store `site_id=null`. Every active Worker may use active Templates in their Department; archived or cross-Department Templates remain unavailable.
+- The Report Date API guard checks the actual calendar, not just `YYYY-MM-DD` shape. Verify impossible dates return HTTP 400 without inserting a Report, valid leap days remain exact, and rejected offline submissions retain local content. The guard runs after durable idempotency lookup; it does not repair historical dates, restrict past/future dates, change Daywork validation, or need a migration. Never guess a replacement date for an existing invalid record.
+- Report replay must send the captured `expected_definition_version`. The backend returns structured HTTP 409 for changed Templates before normalizing answers, while already-durable idempotent retries still succeed. Deploy this backend guard before the updated frontend; refresh/Update App on controlled devices before use. Older cached clients can submit unversioned Reports only to unedited version 1 Templates, and must keep their local queue when an edited Template conflicts. Do not clear app storage or stamp old queue items with the latest version. This API/queue fix needs no additional migration; all existing report-only migration gates still apply.
+- Verify stale saved drafts become read-only before autosave can reinterpret them. **Keep draft and start new report** must preserve an original local **Saved draft** in **My Reports** before clearing the input draft. Recovery copies remain private/device-local, are excluded from upload and replay, and cannot be mistaken for submitted Reports. If local storage fails, keep the original draft and retry; do not clear browser storage.
 - Keep Report content immutable after submission. Workflow transitions are separate, atomic, Department-authorized actions: **Submitted → In review → Resolved**, with a required final Supervisor note for resolution and one audit event per successful transition.
 - Keep collection Report exports aligned with Department focus plus workflow, Report Template, Worker, and Report Date. The free-text **Find** field is list-only and must not be represented as an export filter.
 - Keep Report Template/history/API/upload paths network-only. The cached PWA shell and local queued Reports may cold-launch offline, but the release must not claim that a killed offline app can fetch Templates or start a new Report.
@@ -180,15 +185,16 @@ For every release:
    ```powershell
    cd backend
    python -m app.migrations
+   python -m app.migrations --check
    ```
 
-5. Start the staging backend and run `python backend\smoke_test.py` from the repository root.
+5. Start the staging backend with `AUTO_MIGRATE=false`, require all three `/health/ready` checks (`database`, `migrations`, `upload_storage`) to be `ok`, and run `python backend\smoke_test.py` from the repository root against that disposable backend only.
 6. Inspect `schema_migrations`, row counts, constraint failures, and application logs.
 7. Run the hosted browser workflow against a staging Cloud Run service if the migration changes data read by the UI.
-8. Apply the same migration to production only after staging passes.
+8. Apply the same migration artifact to production only after staging passes, with one explicit migration runner at a time. Coordinate migration and cutover in an approved maintenance/drain window when the ledger changes: the previous guarded image will return readiness 503 once an unknown newer version is recorded. Run `--check` from the candidate artifact against the verified target before starting the candidate. Do not assume additive migrations alone permit old/new guarded revisions to overlap without a readiness gap.
 9. Keep the backup/branch until the post-release observation window finishes.
 
-The production `Dockerfile` starts the API only. It must not run `python -m app.migrations` in `CMD`; otherwise creating a no-traffic Cloud Run revision could still mutate the database during container startup. `npm.cmd run check:production-hardening` enforces this deployment boundary. Run migrations explicitly against the verified target before deploying the compatible revision.
+The production `Dockerfile` starts the API only. It must not run `python -m app.migrations` in `CMD`; otherwise creating a no-traffic Cloud Run revision could still mutate the database during container startup. `npm.cmd run check:production-hardening` enforces this deployment boundary. Production API startup independently rejects automatic migrations and performs a read-only ledger verification before storage lifecycle probes or purge tasks. An absent/empty ledger, pending version, changed checksum, unknown newer version, or missing/empty bundled manifest fails startup. `--check` uses the same verifier and exits unsuccessfully on failure; it never bootstraps or repairs history. This check does not inspect every physical table/column or prove recovery readiness. After verification succeeds, the existing upload probe and purge tasks still run.
 
 For Cloud SQL proxy-based staging, a typical local connection is:
 
@@ -205,7 +211,7 @@ The report-only candidate is a coupled release. Promote the backend containing m
 
 1. Run `gcloud meta list-files-for-upload` from the repository root. Confirm `.gcloudignore` and `.dockerignore` exclude local databases, uploads, environment files, `__pycache__`, and bytecode while retaining `Dockerfile`, `requirements.txt`, and `backend/app/main.py`.
 2. Build/deploy the backend from the repository root with zero traffic and a temporary tag. Preserve the intended Secret Manager bindings, dedicated runtime/build service accounts, GCS adapter, resource limits, and managed PostgreSQL target.
-3. Confirm the tagged revision is Ready, call both `/health` and `/health/ready`, and inspect its startup/migration and revision-scoped ERROR/5xx logs before moving traffic.
+3. Confirm the tagged revision is Ready, call both `/health` and `/health/ready`, require `checks.database`, `checks.migrations`, and `checks.upload_storage` to be `ok`, and inspect its startup/migration and revision-scoped ERROR/5xx logs before moving traffic. `/health` alone is not a schema gate. Readiness reports sanitized check states; investigate detailed failures through protected operator logs and the read-only CLI, not by bypassing the guard.
 4. Move traffic to the exact verified revision and verify it, for example:
 
    ```powershell
@@ -252,6 +258,7 @@ Then use controlled accounts:
 8. Refresh the real photo/signature `/uploads/...` URLs as the Worker and authorized Supervisor to verify GCS-backed streaming and access control.
 9. Create/edit/archive/reactivate one controlled Report Template and exercise Staff create/edit/resign/reactivate without exposing Sites. Reopen the older Report and confirm its frozen Definition snapshot is unchanged.
 10. Remove the network from the loaded Supervisor list and confirm only the last durable Reports appear in explicit read-only mode.
+    Also switch controlled Worker and Department Supervisor accounts on the same page without reloading. With the new account's history/queue delayed or unavailable, the previous account's details, evidence viewer, editor, private lists, and pending exports must not appear. Repeat session expiry and same-account re-login; old responses must not refill cleared views or expire the new session. This client-side cleanup preserves owner-scoped drafts/queued submissions and does not change API authorization or cookie policy.
 11. Run the installed-phone cold-shell and waiting-service-worker **Update App** checklist in `docs/mobile-browser-workflow-checks.md`, including Report draft protection and the honest network-only Template limitation.
 12. Re-run readiness, scan the serving revision for errors/5xx, and record exact Hosting/shell hashes and device evidence. Dispose of controlled data through supported operator actions: archive test Templates, resign test accounts when they are no longer needed, and follow the approved Report-retention/deletion procedure rather than editing database rows directly.
 
@@ -308,11 +315,11 @@ The proof uses a non-sensitive, run-marked fixture under `recovery-probes/`; eve
 ## Rollback
 
 - If staging migration fails, discard the staging database/branch, fix the migration, and repeat the full staging sequence.
-- If production migration fails before traffic moves, keep the previous revision serving and restore/branch from the pre-migration recovery point if data changed.
+- If production migration fails before traffic moves, keep or resume the previous revision only if its exact migration artifact still matches the database and readiness passes. Otherwise stay in maintenance while investigating and use an approved recovery/repair plan; do not assume failure left the database unchanged.
 - If report-only Hosting fails after the compatible backend/migrations are healthy, clone the exact previous Hosting version back to live first and leave the new compatible backend in place while investigating. Migrations `0018` and `0019` are additive; `0019` keeps old-backend Daywork inserts purpose-correct but deliberately makes legacy Report approval/manual-create/content-edit attempts fail closed at the database boundary. Do not route the August backend while an active Report interface expects transition support.
-- If Report transitions or migrated workflow data are wrong, stop the frontend promotion or roll back application traffic. Do not manually rewrite `workflow_status`, reviewer, note, or timestamps; inspect the `report_transition`/legacy audit evidence on a recovery branch and use an audited repair plan.
-- If the app fails after a backward-compatible migration, route traffic to the previous compatible revision and investigate without reverting data automatically.
-- If the schema is not backward compatible, restore or clone the pre-migration database, update the Cloud Run `DATABASE_URL` secret binding to that database, deploy/route the compatible revision, and verify readiness before serving users.
+- If Report transitions or migrated workflow data are wrong, stop the frontend promotion or roll back to a ledger-compatible application revision. Do not manually rewrite `workflow_status`, reviewer, note, or timestamps; inspect the `report_transition`/legacy audit evidence on a recovery branch and use an audited repair plan.
+- If the app fails after a backward-compatible migration, a previous image is usable only if it also contains the exact applied migration history. Additive schema compatibility alone does not satisfy the guard. Prefer a verified fix-forward image with the current migration artifact; never remove ledger entries or enable automatic migrations to force an old image to start.
+- If a compatible image is unavailable, obtain approval for database recovery, restore or clone the pre-migration database, update the Cloud Run `DATABASE_URL` secret binding to that database, deploy/route the matching revision, and verify all readiness checks before serving users. Account for writes since the recovery point; recovery is not an automatic response to a startup failure.
 - If uploads fail, do not switch production to local storage. Fix GCS IAM/configuration or roll back to a revision with the known-good adapter configuration.
 
 Document the incident, revision, migration head, database recovery point, traffic change, and verification results. Never repair production tables manually without a fresh recovery point and an audited plan.

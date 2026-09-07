@@ -29,6 +29,7 @@ class ApiError extends Error {
     super(message);
     this.name = "ApiError";
     this.status = options.status;
+    this.code = options.code;
     this.cause = options.cause;
   }
 }
@@ -123,8 +124,9 @@ async function apiFetch(path, options = {}) {
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    throw new ApiError(error.detail || "API request failed", {
-      status: res.status
+    throw new ApiError(error.detail?.message || error.detail || "API request failed", {
+      status: res.status,
+      code: error.detail?.code
     });
   }
 

@@ -44,6 +44,7 @@ _Avoid_: Job or location when the stored Site entity is meant
 
 **Report**:
 An immutable Worker submission created from an active Report Template. It contains a required Report Date, optional Site, answers, photos, signatures, an exact Definition snapshot, submission time, and Report workflow state. A Worker can read only their own Reports.
+Report Date must be a real calendar date in `YYYY-MM-DD` format, not merely a string matching that shape. Calendar validation introduces no additional past/future date restriction and never rewrites the original date on duplicate replay.
 _Avoid_: Diary, Daywork, Work Form, or approval record in user-facing language
 
 **Report Template**:
@@ -86,6 +87,8 @@ _Avoid_: Error when the item may be legitimate but unresolved
 
 **Offline Submission**:
 A Worker-owned Report or retained field record captured on one device and synced to the backend when possible. The module owns Worker identity, capture time, stable Client Submission ID, replay state, and partial-upload state. Report photo/signature upload progress is durable across retries and replay creates at most one Report.
+Reports capture the completed Definition version and preserve original answers independently of upload-progress URLs. A changed Template blocks first replay before normalization; the original queued copy remains for explicit recovery, never silently upgraded. Older unversioned queues are accepted only against an unedited version 1 Template. Idempotent replay of an already-durable Report still returns its immutable snapshot after Template edits or archival.
+Saved drafts whose Template changed are read-only. Explicit recovery persists the original answers/evidence as a private local **Saved draft** before opening the current Template blank. A recovery copy may be incomplete and is never uploaded or replayed; it is not a submitted Report. Autosave must not reinterpret old drafts using current fields or a newly fetched version.
 _Avoid_: Queue item when referring to the user-facing submission
 
 **Offline Site snapshot**:
@@ -138,7 +141,7 @@ As checked on 2026-08-13, Cloud Run revision `geo-backend-release-20260804152130
 Firebase Hosting, Cloud Run, Cloud SQL PostgreSQL, private Cloud Storage, and Secret Manager. This remains the preferred all-Google target; it is not the database currently serving live traffic.
 
 **Readiness Check**:
-`GET /health/ready`, which verifies database access and the selected upload adapter. It is stronger than the liveness-only `/health` route.
+`GET /health/ready`, which verifies database access, exact migration-ledger versions/checksums for the running image, and the selected upload adapter. It is stronger than the liveness-only `/health` route. Production startup rejects automatic migrations and verifies the ledger before upload checks or purge tasks; migrations are an explicit release step. A mismatch fails startup or returns readiness 503 without repairing history. This is a ledger check, not an inspection of every physical table or column. An older guarded image is not a rollback target after a newer migration is recorded unless its migration artifact matches that database.
 
 **Production Hardening Gate**:
 The provider-aware, read-only `npm run check:production-hardening` validation. It checks Cloud Run identity, provider selection, upload-bucket IAM, monitoring, optional budget configuration, and exact sanitized Neon/GCS recovery evidence. It does not establish a least-privilege Neon runtime role, pooling limits, longer retention, or notification ownership.

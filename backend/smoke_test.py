@@ -195,6 +195,10 @@ def main():
     try:
         assert_status("health", request("GET", "/health"), 200)
         readiness = assert_status("readiness", request("GET", "/health/ready"), 200)
+        if readiness.get("checks", {}).get("database") != "ok":
+            raise AssertionError(f"readiness: database is not ready: {readiness}")
+        if readiness.get("checks", {}).get("migrations") != "ok":
+            raise AssertionError(f"readiness: migration ledger is not ready: {readiness}")
         if readiness.get("checks", {}).get("upload_storage") != "ok":
             raise AssertionError(f"readiness: upload adapter is not ready: {readiness}")
         if readiness.get("details", {}).get("upload_storage", {}).get("backend") not in {"local", "gcs"}:

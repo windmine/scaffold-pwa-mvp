@@ -29,6 +29,7 @@ export function createStaffSitesModule({
   editNumber,
   confirmAction = async () => false
 }) {
+  let sessionGeneration = 0;
   const workFormBuilder = createWorkFormBuilder(els.workFormFieldBuilder, {
     onChange: () => refreshOpenDraftWorkFormPreview(),
     confirmAction
@@ -202,12 +203,28 @@ export function createStaffSitesModule({
   }
 
   function resetSession() {
+    sessionGeneration += 1;
     resetStaffUserCreate();
     resetWorkFormCreate();
+    if (els.workFormDraftPreview) els.workFormDraftPreview.innerHTML = '';
     els.staffSearchInput.value = '';
+    els.siteSearchInput.value = '';
     state.staffUsers = [];
+    state.workForms = [];
     els.staffUsersCount.textContent = '0';
     els.staffUsersList.innerHTML = '';
+    els.workFormsCount.textContent = '0';
+    els.workFormsList.innerHTML = '';
+    els.supervisorSitesCount.textContent = '0';
+    els.supervisorSitesList.innerHTML = '';
+    els.siteForm.reset();
+    els.siteLatitudeInput.value = '';
+    els.siteLongitudeInput.value = '';
+    siteMapPicker.reset({ clearExisting: true });
+    setButtonBusy(els.staffUserSubmitButton, false);
+    setButtonBusy(els.workFormSubmitButton, false);
+    els.cancelStaffUserCreateButton.disabled = false;
+    els.cancelWorkFormCreateButton.disabled = false;
     setCreatePanelOpen(
       els.addStaffUserButton,
       els.staffUserCreatePanel,
@@ -307,12 +324,23 @@ export function createStaffSitesModule({
   }
 
   async function renderStaffUsers({ preserveOnError = false, reportError = true } = {}) {
+    if (state.user?.role !== 'supervisor') return false;
+    const requestUserId = state.user.id;
+    const requestGeneration = sessionGeneration;
+    const isCurrentSession = () => (
+      requestGeneration === sessionGeneration
+      && state.user?.role === 'supervisor'
+      && String(state.user.id) === String(requestUserId)
+    );
     try {
       renderStaffCreateControls();
-      state.staffUsers = await getBackendUsers();
+      const staffUsers = await getBackendUsers();
+      if (!isCurrentSession()) return false;
+      state.staffUsers = staffUsers;
       renderFilteredStaffUsers();
       return true;
     } catch (error) {
+      if (!isCurrentSession()) return false;
       if (!preserveOnError) {
         els.staffUsersCount.textContent = '-';
         els.staffUsersList.innerHTML = '<div class="empty-state">Staff users are unavailable.</div>';

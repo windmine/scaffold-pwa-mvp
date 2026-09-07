@@ -297,30 +297,35 @@ async function init() {
 }
 
 async function loadSites() {
-  if (!state.user) return [];
+  const requestUser = state.user;
+  if (!requestUser) return [];
 
   const sites = await getBackendSites();
+  if (state.user !== requestUser) return [];
   state.sitesLoadError = '';
-  if (state.user.role === 'worker') {
+  if (requestUser.role === 'worker') {
     try {
-      await saveWorkerSiteSnapshot(state.user, sites);
+      await saveWorkerSiteSnapshot(requestUser, sites);
     } catch {
       // An unavailable local snapshot must not block current authenticated Sites.
     }
   }
-  return sites;
+  return state.user === requestUser ? sites : [];
 }
 
 async function loadSitesForSession(options = {}) {
+  const requestUser = state.user;
   try {
     return await loadSites();
   } catch (error) {
+    if (state.user !== requestUser) return [];
     state.sitesLoadError = error.message || 'Sites could not be loaded from the backend.';
     if (state.user?.role === 'worker' && [401, 403].includes(error.status)) {
       await discardWorkerOfflineSnapshots(state.user);
     } else if (state.user?.role === 'worker') {
       try {
         const snapshot = await loadWorkerSiteSnapshot(state.user);
+        if (state.user !== requestUser) return [];
         if (snapshot) {
           state.sitesLoadError = '';
           return snapshot.sites;
@@ -455,20 +460,24 @@ function bindEvents() {
   });
 
   window.addEventListener('online', async () => {
+    const requestUser = state.user;
     uiFeedback.setSyncState('syncing', 'Online - checking queued submissions');
     const syncResult = await syncQueueIfPossible(true);
-    if (!state.user) return;
+    if (!state.user || state.user !== requestUser) return;
 
     await refreshSitesAfterReconnect();
+    if (state.user !== requestUser) return;
     if (state.user.role === 'worker') {
       if (!state.workForms.length) {
         await workerForm.refreshWorkForms();
       }
+      if (state.user !== requestUser) return;
       if (!REPORT_ONLY_MODE) await historyModule.renderWorkerSummary();
       await historyModule.renderHistory();
     } else {
       await supervisorReviewModule.renderPanel();
     }
+    if (state.user !== requestUser) return;
 
     if (syncResult?.failed) {
       const retryDestination = REPORT_ONLY_MODE ? 'My Reports' : 'My history';
@@ -766,13 +775,16 @@ function fillSiteSelects() {
 }
 
 async function refreshSitesAfterReconnect() {
+  const requestUser = state.user;
   const selectedSiteIds = new Map([
     [els.attendanceSite, els.attendanceSite.value],
     [els.taskSite, els.taskSite.value],
     [els.workFormSite, els.workFormSite.value]
   ]);
 
-  state.sites = await loadSitesForSession({ preserveExisting: true });
+  const sites = await loadSitesForSession({ preserveExisting: true });
+  if (state.user !== requestUser) return;
+  state.sites = sites;
   fillSiteSelects();
   selectedSiteIds.forEach((siteId, select) => {
     if (siteId && [...select.options].some((option) => option.value === siteId)) {
@@ -794,10 +806,13 @@ async function restoreDrafts() {
 }
 
 async function restoreWorkerSubmissionDrafts() {
+  const requestUser = state.user;
   const attendanceDraft = await getDraft('attendance-form');
+  if (state.user !== requestUser) return;
   workerAttendance.restoreDraft(attendanceDraft);
 
   const taskDraft = await getDraft('task-form');
+  if (state.user !== requestUser) return;
   workerLog.restoreDraft(taskDraft);
 }
 
@@ -810,6 +825,22 @@ function clearWorkerSessionState() {
   els.teamWorkLogForm.reset();
   els.teamWorkLogEntries.innerHTML = '';
   els.teamWorkLogHistory.innerHTML = '';
+}
+
+function clearSessionViewState() {
+  // Clear private content before revealing another account or waiting on storage/network.
+  state.sites = [];
+  state.sitesLoadError = '';
+  state.departmentFocusId = '';
+  photoViewer.close({ restoreFocus: false });
+  closeEditPanel('worker');
+  closeEditPanel();
+  clearWorkerSessionState();
+  historyModule.resetSession();
+  supervisorReviewModule.resetSession();
+  staffSitesModule.resetSession();
+  supervisorMapModule.resetSession();
+  supervisorAnalyticsModule.resetSession();
 }
 
 function renderApp() {
@@ -989,15 +1020,21 @@ async function handleLogin(event) {
       tone: 'info'
     });
     const signedInUser = await backendLogin(els.emailInput.value.trim(), els.passwordInput.value);
-    clearWorkerSessionState();
+    clearSessionViewState();
     state.user = signedInUser;
     resetRegistrationFlow();
-    state.departments = await loadDepartments();
+    const departments = await loadDepartments();
+    if (state.user !== signedInUser) return;
+    state.departments = departments;
     initialiseDepartmentFocus();
-    state.sites = await loadSitesForSession();
+    const sites = await loadSitesForSession();
+    if (state.user !== signedInUser) return;
+    state.sites = sites;
     fillSiteSelects();
     await restoreWorkerSubmissionDrafts();
+    if (state.user !== signedInUser) return;
     await syncQueueIfPossible(false);
+    if (state.user !== signedInUser) return;
     uiFeedback.clearLocal(els.loginFeedback);
     renderApp();
   } catch (error) {
@@ -1185,14 +1222,13 @@ async function handleLogout() {
   uiFeedback.clearAll();
   const signedOutUser = state.user;
   state.user = null;
-  clearWorkerSessionState();
+  clearSessionViewState();
   clearBackendSession();
-  await discardWorkerOfflineSnapshots(signedOutUser);
-  staffSitesModule.resetSession();
   state.sites = [];
   state.sitesLoadError = '';
   fillSiteSelects();
   renderApp();
+  await discardWorkerOfflineSnapshots(signedOutUser);
 }
 
 function handleSessionExpired(message = 'Your backend session expired. Please sign in again.') {
@@ -1206,9 +1242,8 @@ function handleSessionExpired(message = 'Your backend session expired. Please si
     state.user = null;
     void discardWorkerOfflineSnapshots(expiredUser);
     uiFeedback.clearAll();
-    clearWorkerSessionState();
+    clearSessionViewState();
     clearBackendSession();
-    staffSitesModule.resetSession();
     state.sites = [];
     state.sitesLoadError = '';
     fillSiteSelects();
@@ -1268,6 +1303,8 @@ function closeEditPanel(scope = 'supervisor') {
   const target = getEditPanel(scope);
   target.panel.classList.add('hidden');
   target.form.innerHTML = '';
+  target.form.onsubmit = null;
+  target.title.textContent = '';
 }
 
 function showEditPanel(title, fields, submitLabel, onSubmit, scope = 'supervisor') {
@@ -1487,10 +1524,12 @@ function activateTab(targetId) {
 }
 
 async function syncQueueIfPossible(showMessage) {
+  const requestUser = state.user;
   if (state.user && navigator.onLine) {
     uiFeedback.setSyncState('syncing', 'Online - syncing');
   }
   const result = await syncQueuedSubmissions(REPORT_ONLY_MODE ? { purpose: 'report' } : {});
+  if (state.user !== requestUser) return result;
 
   if (result.authBlocked) {
     handleSessionExpired('Sign in again to sync queued submissions.');

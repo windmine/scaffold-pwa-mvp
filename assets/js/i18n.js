@@ -36,6 +36,17 @@ const LANGUAGE_META = {
 };
 
 const ZH_TEXT = {
+  'Keep draft and start new report': '保留草稿并新建报告',
+  'Saved draft': '已保存的草稿',
+  'Saved draft is read-only because the Report Template changed.': '报告模板已更改，已保存的草稿仅供查看。',
+  'Report Template changed. Keep this draft in My Reports before starting a new report. Nothing will be submitted automatically.': '报告模板已更改。请先将此草稿保留在“我的报告”中，再新建报告。系统不会自动提交任何内容。',
+  'Saved draft only. This copy will not sync. Complete a new report with the current template.': '这只是已保存的草稿，此副本不会同步。请使用当前模板填写一份新报告。',
+  'Original draft kept in My Reports. Complete a new report with the current template.': '原始草稿已保留在“我的报告”中。请使用当前模板填写一份新报告。',
+  'The saved copy is in My Reports, but the draft could not be cleared. Keep this page open and try again.': '副本已保存在“我的报告”中，但无法清除草稿。请保持此页面打开并重试。',
+  'Could not keep this Report draft. The original draft is unchanged.': '无法保留此报告草稿。原始草稿未更改。',
+  'Report Template changed. Review the saved report and submit a new report with the current template.': '报告模板已更改。请查看保存的报告，并使用当前模板提交一份新报告。',
+  'Report Template changed. Your report is saved on this device. Open My Reports to review the original answers and evidence, then submit a new report with the current template.': '报告模板已更改。您的报告已保存在此设备上。请打开“我的报告”查看原始答案和证据，然后使用当前模板提交一份新报告。',
+  'Your original answers and evidence are kept below. Open New Report and complete the current template. Keep this saved copy until the new report is submitted.': '您的原始答案和证据保留在下方。请打开“新报告”填写当前模板。在新报告提交成功之前，请保留此副本。',
   'Overview': '概览',
   'Report submission': '报告提交',
   'Field Reports': '现场报告',
@@ -63,6 +74,7 @@ const ZH_TEXT = {
   'Report Date': '报告日期',
   'Report Date is required': '报告日期为必填项',
   'Report Date is required.': '报告日期为必填项。',
+  'Report Date must be a valid calendar date in YYYY-MM-DD format': '报告日期必须是有效的日历日期，格式为 YYYY-MM-DD',
   'Site (optional)': '工地（可选）',
   'Start review': '开始审核',
   'Starting review...': '正在开始审核...',

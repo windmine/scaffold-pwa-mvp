@@ -11,7 +11,7 @@ import {
   saveWorkerAttendanceSnapshot
 } from './offline-attendance-snapshot.js';
 import { dateInputValue, formatDateTime, todayDateInput, escapeHtml } from './utils.js';
-import { formatWorkFormAnswer } from './work-form-fields.js';
+import { formatWorkFormAnswer, localAnswerImageSources } from './work-form-fields.js';
 import { setDateInputValue } from './date-inputs.js';
 
 function getBackendSiteId(siteId) {
@@ -39,6 +39,7 @@ function reportWorkflowStatus(record) {
 }
 
 function recordDisplayStatus(record) {
+  if (record.isDraftRecovery) return 'saved_draft';
   if (record.type === 'form') {
     if (['queued', 'syncing'].includes(record.syncStatus)) return record.syncStatus;
     return reportWorkflowStatus(record);
@@ -124,6 +125,9 @@ function isHiddenDayworkAnswer(record, fieldId) {
 function signatureImageSources(record) {
   const answers = record.answers || {};
   const fields = record.fields || [];
+  if (!fields.length && record.isDraftRecovery) {
+    return localAnswerImageSources(answers).map((src) => ({ label: 'Signature', src }));
+  }
   const topLevel = fields
     .filter((field) => !field.repeat && field.type === 'signature' && answers[field.id])
     .map((field) => ({
@@ -354,8 +358,18 @@ export function createHistoryModule({
   let workerSummaryRenderId = 0;
   let workerHistoryRenderId = 0;
   let workerHistoryRequestId = 0;
+  let sessionGeneration = 0;
   let lastAttendanceSnapshotRequestId = 0;
   let attendanceSnapshotWriteChain = Promise.resolve();
+
+  function resetSession() {
+    sessionGeneration += 1;
+    workerSummaryRenderId += 1;
+    workerHistoryRenderId += 1;
+    state.historyRecords = [];
+    els.workerSummary.innerHTML = '';
+    clearHistoryFilters();
+  }
 
   async function saveAttendanceSnapshotInOrder(worker, records, requestId, scopeStillActive) {
     const snapshotWrite = attendanceSnapshotWriteChain
@@ -548,9 +562,11 @@ export function createHistoryModule({
   async function getWorkerHistoryRecords() {
     const worker = state.user;
     if (!worker || worker.role !== 'worker') return [];
+    const requestSession = sessionGeneration;
     const requestId = ++workerHistoryRequestId;
     const workerScopeStillActive = () => (
-      state.user?.role === 'worker'
+      requestSession === sessionGeneration
+      && state.user?.role === 'worker'
       && String(state.user.id) === String(worker.id)
       && String(state.user.departmentId || '') === String(worker.departmentId || '')
     );
@@ -617,6 +633,7 @@ export function createHistoryModule({
 
       renderStatusBanner('Backend history is unreachable. Showing records saved on this device only.', true);
       const localRecords = await getLocalWorkerRecords(worker.id);
+      if (!workerScopeStillActive()) return [];
       if (reportOnly) {
         return mergeWorkerHistoryRecords(localRecords.filter((record) => (
           record.type === 'form'
@@ -630,6 +647,7 @@ export function createHistoryModule({
       } catch {
         // Fall back to current device records when the snapshot is unavailable.
       }
+      if (!workerScopeStillActive()) return [];
       return mergeWorkerHistoryRecords(snapshotRecords, localRecords);
     }
   }
@@ -715,6 +733,7 @@ export function createHistoryModule({
   }
 
   function renderFilteredHistory() {
+    if (state.user?.role !== 'worker') state.historyRecords = [];
     const filteredRecords = filterRecords(state.historyRecords, getHistoryFilters());
     els.historyResultCount.textContent = `${filteredRecords.length} of ${state.historyRecords.length} records`;
     renderRecordsList(els.historyList, filteredRecords, {
@@ -773,6 +792,9 @@ export function createHistoryModule({
     }
 
     records.forEach((record) => {
+      if (record.type === 'form' && ['queued', 'syncing'].includes(record.syncStatus) && record.capturedAnswers) {
+        record = { ...record, answers: record.capturedAnswers };
+      }
       const node = els.recordTemplate.content.firstElementChild.cloneNode(true);
       node.classList.add(
         record.type === 'team_log'
@@ -801,13 +823,15 @@ export function createHistoryModule({
           : `${record.summary || 'No summary provided.'}${record.safetyNotes ? ` Safety: ${record.safetyNotes}` : ''}`;
 
       node.querySelector('.record-title').textContent = title;
-      node.querySelector('.record-meta').textContent = record.type === 'form'
+      node.querySelector('.record-meta').textContent = record.isDraftRecovery
+        ? `${record.userName || 'Worker'}  |  ${formatDateTime(record.createdAt)}${record.workDate ? `  |  Report Date: ${record.workDate}` : ''}`
+        : record.type === 'form'
         ? `${record.userName || 'Worker'}  |  Submitted: ${formatDateTime(record.createdAt)}${record.workDate ? `  |  Report Date: ${record.workDate}` : ''}`
         : `${record.userName || 'Worker'}  |  ${formatDateTime(record.createdAt)}${record.workDate ? `  |  Work date: ${record.workDate}` : ''}${record.entrySource === 'supervisor_manual' ? '  |  Manual entry' : ''}`;
       node.querySelector('.record-detail').textContent = detail;
 
       const badge = node.querySelector('.badge');
-      const badgeStatus = record.type === 'form' && !reportOnly
+      const badgeStatus = record.type === 'form' && !reportOnly && !record.isDraftRecovery
         ? record.status || record.syncStatus || 'record'
         : recordDisplayStatus(record);
       badge.textContent = statusLabel(badgeStatus);
@@ -910,7 +934,10 @@ export function createHistoryModule({
         ${record.syncStatus === 'queued' && record.syncError ? `
           <div class="edit-warning" role="alert">
             <strong>Sync needs attention.</strong>
-            ${escapeHtml(record.syncError)} Retry when online. If a photo is rejected, discard this local submission and create it again with a JPEG, PNG, or WebP image under 5 MB.
+            ${escapeHtml(record.syncError)}
+            ${record.syncBlockedReason === 'template_changed'
+              ? '<p>Your original answers and evidence are kept below. Open New Report and complete the current template. Keep this saved copy until the new report is submitted.</p>'
+              : 'Retry when online. If a photo is rejected, discard this local submission and create it again with a JPEG, PNG, or WebP image under 5 MB.'}
           </div>
         ` : ''}
         ${signatureSources.length ? `<div class="record-signatures">${signatureSources.map((signature, index) => `
@@ -972,7 +999,8 @@ export function createHistoryModule({
           await handleDiscardQueuedRecord(record, discardButton);
         });
 
-        actions.append(retryButton, discardButton);
+        if (!record.isDraftRecovery) actions.append(retryButton);
+        actions.append(discardButton);
       }
 
       if (canShowWorkerActions) {
@@ -1095,6 +1123,7 @@ export function createHistoryModule({
     renderHistory,
     renderFilteredHistory,
     renderRecordsList,
-    renderWorkerSummary
+    renderWorkerSummary,
+    resetSession
   };
 }

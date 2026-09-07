@@ -556,6 +556,12 @@ export function createSupervisorAnalyticsModule({
   let renderedReport = null;
   let exceptionNavigationInProgress = false;
 
+  function resetSession() {
+    exceptionNavigationInProgress = false;
+    renderPanel();
+    renderedReport = null;
+  }
+
   function selectedPeriod() {
     return els.analyticsPeriodSelect.value === 'all'
       ? Number.POSITIVE_INFINITY
@@ -680,6 +686,7 @@ export function createSupervisorAnalyticsModule({
 
   return {
     bindEvents,
-    renderPanel
+    renderPanel,
+    resetSession
   };
 }

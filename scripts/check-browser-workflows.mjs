@@ -1244,6 +1244,276 @@ async function checkNormalWorkerAttendanceShortcuts(browser) {
   }
 }
 
+async function checkSharedDeviceWorkerReportPrivacy(browser, {
+  staleStatus = 200,
+  sameAccount = false,
+  expireSession = false
+} = {}) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const stamp = Date.now();
+  const workerAEmail = `shared-report-a-${stamp}@example.com`;
+  const workerBEmail = `shared-report-b-${stamp}@example.com`;
+  const replacementEmail = sameAccount ? workerAEmail : workerBEmail;
+  const privateAnswer = `PRIVATE WORKER A REPORT ${stamp}`;
+  const violations = [];
+  let releaseWorkerAHistory = () => {};
+  let releaseWorkerBHistory = () => {};
+
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    const template = await page.evaluate(async ({ emails, workerPassword }) => {
+      const { createUser, createWorkForm, getSession } = await import('/assets/js/api-client.js');
+      for (const [index, email] of emails.entries()) {
+        await createUser({
+          name: `Shared device Worker ${index + 1}`,
+          email,
+          password: workerPassword,
+          role: 'worker',
+          worker_class: 'normal',
+          department_id: getSession().departmentId,
+          is_global_admin: false
+        });
+      }
+      return createWorkForm({
+        name: `Shared device Report ${Date.now()}`,
+        fields: [{ id: 'issue', label: 'Issue', type: 'text', required: true }]
+      });
+    }, { emails: [workerAEmail, workerBEmail], workerPassword: password });
+    await logout(page);
+    await loginAs(page, workerAEmail, 'worker');
+    const fixture = await page.evaluate(async ({ formId, answer }) => {
+      const { createFormSubmission, uploadPhoto } = await import('/assets/js/api-client.js');
+      const canvas = document.createElement('canvas');
+      canvas.width = 4;
+      canvas.height = 4;
+      canvas.getContext('2d').fillRect(0, 0, 4, 4);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      const uploaded = await uploadPhoto(blob, 'shared-device-private.png');
+      const report = await createFormSubmission({
+        form_id: formId,
+        site_id: null,
+        work_date: '2026-09-07',
+        answers: { issue: answer },
+        photo_urls: [uploaded.url],
+        client_submission_id: `shared-device-report-${Date.now()}`
+      });
+      return { report, photoUrl: uploaded.url };
+    }, { formId: template.id, answer: privateAnswer });
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await page.locator('#refreshHistoryButton').click();
+    const card = page.locator('#historyList .record-form').filter({ hasText: privateAnswer }).first();
+    await card.waitFor({ state: 'visible', timeout: 20000 });
+    await card.locator('[data-photo-index]').first().click();
+    await page.locator('#photoViewer').waitFor({ state: 'visible' });
+
+    const assertPrivateDataCleared = async (phase) => {
+      const leaked = await page.evaluate(({ answer, photoUrl }) => ({
+        answerPresent: document.body.textContent.includes(answer),
+        imagePresent: [...document.querySelectorAll('img')]
+          .some((image) => image.getAttribute('src')?.includes(photoUrl)),
+        viewerOpen: !document.querySelector('#photoViewer').classList.contains('hidden')
+      }), { answer: privateAnswer, photoUrl: fixture.photoUrl });
+      if (Object.values(leaked).some(Boolean)) violations.push({ phase, ...leaked });
+    };
+
+    if (expireSession) {
+      await page.route('**/api/my-form-submissions?*', (route) => route.fulfill({
+        status: 401,
+        json: { detail: 'Current Worker session expired.' }
+      }));
+      await page.locator('#refreshHistoryButton').evaluate((button) => button.click());
+      await page.waitForFunction(() => document.body.dataset.activeView === 'login');
+      await assertPrivateDataCleared('active session expired with photo viewer open');
+      if (violations.length) {
+        throw new Error(`shared-device expired Worker Report data survived reset: ${JSON.stringify(violations)}`);
+      }
+      return;
+    }
+
+    let markWorkerAHistorySeen;
+    let markWorkerAHistoryDone;
+    let markWorkerBHistorySeen;
+    const workerAHistoryGate = new Promise((resolve) => { releaseWorkerAHistory = resolve; });
+    const workerBHistoryGate = new Promise((resolve) => { releaseWorkerBHistory = resolve; });
+    const workerAHistorySeen = new Promise((resolve) => { markWorkerAHistorySeen = resolve; });
+    const workerAHistoryDone = new Promise((resolve) => { markWorkerAHistoryDone = resolve; });
+    const workerBHistorySeen = new Promise((resolve) => { markWorkerBHistorySeen = resolve; });
+    let workerARequestHeld = false;
+    await page.route('**/api/my-form-submissions?*', async (route) => {
+      if (!workerARequestHeld) {
+        workerARequestHeld = true;
+        markWorkerAHistorySeen();
+        await workerAHistoryGate;
+        await route.fulfill({
+          status: staleStatus,
+          json: staleStatus === 200 ? [fixture.report] : { detail: 'Expired previous Worker session.' }
+        });
+        markWorkerAHistoryDone();
+        return;
+      }
+      markWorkerBHistorySeen();
+      await workerBHistoryGate;
+      await route.fulfill({ status: 503, json: { detail: 'Held replacement account history failed.' } });
+    });
+    // Keep the viewer open while exercising the same session-reset handler used by logout.
+    await page.locator('#refreshHistoryButton').evaluate((button) => button.click());
+    await workerAHistorySeen;
+    await page.locator('#logoutButton').evaluate((button) => button.click());
+    await page.waitForFunction(() => document.body.dataset.activeView === 'login');
+    await assertPrivateDataCleared('logged out');
+    // Let the regression continue on the unfixed app even if its old viewer traps focus.
+    await page.keyboard.press('Escape');
+
+    // Deliberately do not use loginAs: reloading hides this same-document privacy bug.
+    await page.locator('#emailInput').fill(replacementEmail);
+    await page.locator('#passwordInput').fill(password);
+    await page.locator('#loginSubmitButton').click();
+    await page.waitForFunction(() => document.body.dataset.activeView === 'worker');
+    await workerBHistorySeen;
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await assertPrivateDataCleared('replacement Worker history pending');
+    releaseWorkerAHistory();
+    await workerAHistoryDone;
+    await delay(250);
+    await assertPrivateDataCleared('old Worker response completed');
+    const activeAccount = await page.evaluate(async () => {
+      const { getSession } = await import('/assets/js/api-client.js');
+      return { email: getSession()?.email, view: document.body.dataset.activeView };
+    });
+    if (activeAccount.email !== replacementEmail || activeAccount.view !== 'worker') {
+      throw new Error(`old Worker ${staleStatus} response invalidated the replacement account: ${JSON.stringify(activeAccount)}`);
+    }
+
+    const failedHistory = page.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/api/my-form-submissions' && response.status() === 503
+    ));
+    releaseWorkerBHistory();
+    await failedHistory;
+    await delay(250);
+    await page.locator('#historyStatusFilter').selectOption('resolved');
+    await page.locator('#historyStatusFilter').selectOption('');
+    await assertPrivateDataCleared('replacement Worker history failed and filters rerendered');
+    if (violations.length) {
+      throw new Error(`shared-device Worker Report data survived account reset: ${JSON.stringify(violations)}`);
+    }
+  } finally {
+    releaseWorkerAHistory();
+    releaseWorkerBHistory();
+    await context.close();
+  }
+}
+
+async function checkSharedDeviceSupervisorReportPrivacy(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const stamp = Date.now();
+  const supervisorBEmail = `shared-supervisor-b-${stamp}@example.com`;
+  const privateAnswer = `PRIVATE DEPARTMENT REPORT ${stamp}`;
+  const violations = [];
+  let releaseOldQueue = () => {};
+  let releaseNewQueue = () => {};
+
+  try {
+    await loginAs(page, 'admin@example.com', 'supervisor');
+    await page.evaluate(async ({ email, workerPassword }) => {
+      const { createUser, getDepartments } = await import('/assets/js/api-client.js');
+      const department = (await getDepartments()).find((item) => item.name === 'Mutual');
+      if (!department) throw new Error('shared-device regression requires the seeded Mutual Department');
+      await createUser({
+        name: 'Shared device replacement Supervisor', email, password: workerPassword,
+        role: 'supervisor', department_id: department.id, is_global_admin: false
+      });
+    }, { email: supervisorBEmail, workerPassword: password });
+    await logout(page);
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    const template = await page.evaluate(async () => {
+      const { createWorkForm } = await import('/assets/js/api-client.js');
+      return createWorkForm({
+        name: `Department handoff Report ${Date.now()}`,
+        fields: [{ id: 'issue', label: 'Issue', type: 'text', required: true }]
+      });
+    });
+    await logout(page);
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.evaluate(async ({ formId, answer }) => {
+      const { createFormSubmission } = await import('/assets/js/api-client.js');
+      return createFormSubmission({
+        form_id: formId, site_id: null, work_date: '2026-09-07', answers: { issue: answer },
+        client_submission_id: `shared-department-report-${Date.now()}`
+      });
+    }, { formId: template.id, answer: privateAnswer });
+    await logout(page);
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    const card = page.locator('#reviewQueueList .record-form').filter({ hasText: privateAnswer }).first();
+    await card.waitFor({ state: 'visible', timeout: 20000 });
+    await card.click();
+    await page.locator('#reviewQueueActions').getByRole('button', { name: 'Start review' }).waitFor();
+
+    const assertDepartmentDataCleared = async (phase) => {
+      const leaked = await page.evaluate((answer) => ({
+        answerPresent: document.body.textContent.includes(answer),
+        queueCards: document.querySelectorAll('#reviewQueueList .record-card').length,
+        reviewActions: document.querySelectorAll('#reviewQueueActions button').length
+      }), privateAnswer);
+      if (Object.values(leaked).some(Boolean)) violations.push({ phase, ...leaked });
+    };
+    let markOldQueueSeen;
+    let markOldQueueDone;
+    let markNewQueueSeen;
+    const oldQueueGate = new Promise((resolve) => { releaseOldQueue = resolve; });
+    const newQueueGate = new Promise((resolve) => { releaseNewQueue = resolve; });
+    const oldQueueSeen = new Promise((resolve) => { markOldQueueSeen = resolve; });
+    const oldQueueDone = new Promise((resolve) => { markOldQueueDone = resolve; });
+    const newQueueSeen = new Promise((resolve) => { markNewQueueSeen = resolve; });
+    let oldRequestHeld = false;
+    await page.route('**/api/supervisor/review-queue?*', async (route) => {
+      if (!oldRequestHeld) {
+        oldRequestHeld = true;
+        const response = await route.fetch();
+        const result = await response.json();
+        markOldQueueSeen();
+        await oldQueueGate;
+        await route.fulfill({ status: 200, json: result });
+        markOldQueueDone();
+        return;
+      }
+      markNewQueueSeen();
+      await newQueueGate;
+      await route.fulfill({ status: 503, json: { detail: 'Replacement Department queue unavailable.' } });
+    });
+    await page.locator('#refreshSupervisorButton').click();
+    await oldQueueSeen;
+    await logout(page);
+    await assertDepartmentDataCleared('Supervisor logged out');
+    // Preserve the document and its module state through the account handoff.
+    await page.locator('#emailInput').fill(supervisorBEmail);
+    await page.locator('#passwordInput').fill(password);
+    await page.locator('#loginSubmitButton').click();
+    await page.waitForFunction(() => document.body.dataset.activeView === 'supervisor');
+    await newQueueSeen;
+    await assertDepartmentDataCleared('replacement Department queue pending');
+    releaseOldQueue();
+    await oldQueueDone;
+    await delay(250);
+    await assertDepartmentDataCleared('old Department response completed');
+    const failedQueue = page.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/api/supervisor/review-queue' && response.status() === 503
+    ));
+    releaseNewQueue();
+    await failedQueue;
+    await delay(250);
+    await assertDepartmentDataCleared('replacement Department queue failed');
+    if (violations.length) {
+      throw new Error(`shared-device Supervisor data survived account reset: ${JSON.stringify(violations)}`);
+    }
+  } finally {
+    releaseOldQueue();
+    releaseNewQueue();
+    await context.close();
+  }
+}
+
 async function checkNormalWorkerWorkFormSubmission(browser) {
   const context = await newContext(browser, { reportOnly: true });
   const page = await context.newPage();
@@ -1779,8 +2049,541 @@ async function checkOfflineQueueAndReplay(browser) {
   }
 }
 
+async function checkReportCalendarDates(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const stamp = Date.now();
+  const workerEmail = `report-calendar-${stamp}@example.com`;
+  const formName = `Report calendar dates ${stamp}`;
+  const dateError = 'Report Date must be a valid calendar date in YYYY-MM-DD format';
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    const form = await page.evaluate(async ({ email, workerPassword, name }) => {
+      const { createUser, createWorkForm, getSession } = await import('/assets/js/api-client.js');
+      await createUser({
+        name: 'Normal Calendar Worker', email, password: workerPassword,
+        role: 'worker', worker_class: 'normal', department_id: getSession().departmentId,
+        is_global_admin: false
+      });
+      return await createWorkForm({ name, fields: [
+        { id: 'issue', label: 'Issue', type: 'text', required: true },
+        { id: 'signature', label: 'Worker signature', type: 'signature' }
+      ] });
+    }, { email: workerEmail, workerPassword: password, name: formName });
+    await logout(page);
+    await loginAs(page, workerEmail, 'worker');
+    await page.waitForFunction((formId) => [...document.querySelectorAll('#workFormSelect option')]
+      .some((option) => option.value === String(formId)), form.id, { timeout: 20000 });
+
+    const invalidResults = await page.evaluate(async ({ workForm, suffix }) => {
+      const { createFormSubmission, getMyFormSubmissions } = await import('/assets/js/api-client.js');
+      const results = [];
+      for (const date of ['2026-99-99', '2026-02-29', '2026-04-31', '2026-00-01', '2026-01-00', '0000-01-01']) {
+        try {
+          await createFormSubmission({
+            form_id: workForm.id, expected_definition_version: workForm.definition_version,
+            work_date: date, answers: { issue: `Impossible date ${date}` },
+            client_submission_id: `invalid-date-${suffix}-${date}`
+          });
+          results.push({ date, status: 'unexpected success' });
+        } catch (error) {
+          results.push({ date, status: error.status, message: error.message });
+        }
+      }
+      return { results, durable: await getMyFormSubmissions('report') };
+    }, { workForm: form, suffix: stamp });
+    if (invalidResults.durable.length || invalidResults.results.some((result) => (
+      result.status !== 400 || result.message !== dateError
+    ))) {
+      throw new Error(`impossible Report Dates must fail with a clear HTTP 400 and no insertion: ${JSON.stringify(invalidResults)}`);
+    }
+
+    const accepted = await page.evaluate(async ({ workForm, suffix }) => {
+      const { createFormSubmission, getMyFormSubmissions } = await import('/assets/js/api-client.js');
+      const payload = {
+        form_id: workForm.id, expected_definition_version: workForm.definition_version,
+        work_date: '2024-02-29', answers: { issue: 'Real leap-day Report' },
+        client_submission_id: `valid-leap-date-${suffix}`
+      };
+      const first = await createFormSubmission(payload);
+      const repeated = await createFormSubmission({ ...payload, work_date: '2026-02-30' });
+      return { first, repeated, durable: await getMyFormSubmissions('report') };
+    }, { workForm: form, suffix: stamp });
+    if (accepted.first.work_date !== '2024-02-29'
+      || accepted.repeated.work_date !== '2024-02-29'
+      || accepted.repeated.id !== accepted.first.id
+      || accepted.durable.length !== 1) {
+      throw new Error('valid leap-day Report or durable duplicate replay changed its original date');
+    }
+
+    await context.setOffline(true);
+    const original = await page.evaluate(async ({ workForm, suffix }) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 4; canvas.height = 4;
+      const drawing = canvas.getContext('2d');
+      drawing.fillStyle = '#111827'; drawing.fillRect(0, 0, 4, 4);
+      const evidence = canvas.toDataURL('image/png');
+      const { submitOfflineSubmission } = await import('/assets/js/offline-submissions.js');
+      const result = await submitOfflineSubmission({
+        id: `invalid-date-queue-${suffix}`, type: 'form', submissionPurpose: 'report',
+        formId: workForm.id, formName: workForm.name,
+        definitionVersion: workForm.definition_version, fields: workForm.fields,
+        workDate: '2026-02-30', answers: { issue: 'Keep invalid-date queued evidence', signature: evidence },
+        photoDataUrls: [evidence], photoMetadata: [{ name: 'queued-date-evidence.png', type: 'image/png' }],
+        createdAt: new Date().toISOString()
+      });
+      return result.record;
+    }, { workForm: form, suffix: stamp });
+    await context.setOffline(false);
+    await replayQueuedSubmissions(page);
+    const queuedState = await page.evaluate(async (recordId) => {
+      const { get } = await import('/assets/js/db.js');
+      const { getMyFormSubmissions } = await import('/assets/js/api-client.js');
+      return {
+        record: await get('records', recordId), queue: await get('queue', recordId),
+        durable: await getMyFormSubmissions('report')
+      };
+    }, original.id);
+    if (!queuedState.queue || queuedState.record?.syncStatus !== 'queued'
+      || queuedState.record?.backendRecordId || queuedState.record?.workDate !== original.workDate
+      || queuedState.record?.syncError !== dateError
+      || JSON.stringify(queuedState.record?.capturedAnswers) !== JSON.stringify(original.capturedAnswers)
+      || JSON.stringify(queuedState.record?.photoDataUrls) !== JSON.stringify(original.photoDataUrls)
+      || queuedState.durable.length !== 1
+      || queuedState.durable.some((record) => record.client_submission_id === original.clientSubmissionId)) {
+      throw new Error(`invalid queued Report Date must preserve local date and evidence without insertion: ${JSON.stringify({
+        queued: Boolean(queuedState.queue), status: queuedState.record?.syncStatus,
+        date: queuedState.record?.workDate, error: queuedState.record?.syncError,
+        durableCount: queuedState.durable.length
+      })}`);
+    }
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await page.locator('#refreshHistoryButton').click();
+    const queuedReport = page.locator('#historyList .record-form').filter({ hasText: 'Keep invalid-date queued evidence' }).first();
+    await queuedReport.waitFor({ state: 'visible', timeout: 20000 });
+    if (!(await queuedReport.innerText()).includes(dateError) || await queuedReport.locator('img').count() !== 2) {
+      throw new Error('My Reports did not explain the invalid queued date while retaining its photo and signature');
+    }
+  } finally {
+    await context.setOffline(false).catch(() => {});
+    await context.close();
+  }
+}
+
+async function checkOfflineReportTemplateChange(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const supervisorContext = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const supervisorPage = await supervisorContext.newPage();
+  const stamp = Date.now();
+  const workerEmail = `offline-template-${stamp}@example.com`;
+  const formName = `Offline template change ${stamp}`;
+  const answerMarker = `Original PPE answer ${stamp}`;
+  const submittedVersions = [];
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/form-submissions') {
+      submittedVersions.push(request.postDataJSON().expected_definition_version);
+    }
+  });
+
+  try {
+    await loginAs(supervisorPage, 'supervisor@example.com', 'supervisor');
+    const form = await supervisorPage.evaluate(async ({ email, workerPassword, name }) => {
+      const { createUser, createWorkForm, getSession } = await import('/assets/js/api-client.js');
+      await createUser({
+        name: 'Offline Template Worker', email, password: workerPassword,
+        role: 'worker', worker_class: 'normal', department_id: getSession().departmentId,
+        is_global_admin: false
+      });
+      return await createWorkForm({
+        name,
+        fields: [
+          { id: 'issue', label: 'Original issue', type: 'text', required: true },
+          { id: 'signature', label: 'Worker signature', type: 'signature', required: true },
+          { id: 'crews', label: 'Crews', type: 'repeat', min_rows: 1, max_rows: 1, required: true },
+          { id: 'crew_signature', label: 'Crew signature', type: 'signature', repeat: 'crews', required: true }
+        ]
+      });
+    }, { email: workerEmail, workerPassword: password, name: formName });
+    await loginAs(page, workerEmail, 'worker');
+    await page.waitForFunction((formId) => (
+      [...document.querySelectorAll('#workFormSelect option')].some((option) => option.value === String(formId))
+    ), form.id, { timeout: 20000 });
+    await page.locator('#workFormSelect').selectOption(String(form.id));
+    await page.locator('#workFormField_issue').fill(answerMarker);
+    await page.locator('#workFormDate').fill('2026-09-07');
+    await page.locator('#workFormFields [data-signature-canvas]').evaluateAll((canvases) => {
+      for (const canvas of canvases) {
+        const drawing = canvas.getContext('2d');
+        drawing.beginPath();
+        drawing.moveTo(30, 60);
+        drawing.lineTo(140, 35);
+        drawing.lineTo(210, 75);
+        drawing.stroke();
+        canvas.dataset.signed = 'true';
+        canvas.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    await page.locator('#workFormPhotos').evaluate(async (input) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 20;
+      canvas.height = 20;
+      const drawing = canvas.getContext('2d');
+      drawing.fillStyle = '#dc2626';
+      drawing.fillRect(0, 0, 20, 20);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([blob], 'original-ppe-photo.png', { type: 'image/png' }));
+      input.files = transfer.files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+    await context.setOffline(true);
+    await page.locator('#submitWorkFormButton').click();
+    await waitForQueueCount(page, 1);
+    const original = await page.evaluate(async (name) => {
+      const { getAll } = await import('/assets/js/db.js');
+      return (await getAll('records')).find((record) => record.formName === name);
+    }, formName);
+    if (!original?.answers?.issue || !original.answers.signature?.startsWith('data:image/')
+      || !original.answers.crews?.[0]?.crew_signature?.startsWith('data:image/')
+      || original.photoDataUrls?.length !== 1 || original.definitionVersion !== form.definition_version) {
+      throw new Error('offline Report fixture did not capture its original answers, signatures, and photo');
+    }
+
+    await supervisorPage.evaluate(async (workForm) => {
+      const { updateWorkForm } = await import('/assets/js/api-client.js');
+      return await updateWorkForm(workForm.id, {
+        fields: [{ id: 'replacement', label: 'Replacement question', type: 'text' }]
+      });
+    }, form);
+    await context.setOffline(false);
+    await replayQueuedSubmissions(page);
+    const replayed = await page.evaluate(async (recordId) => {
+      const { get } = await import('/assets/js/db.js');
+      const response = await fetch('/api/my-form-submissions?purpose=report', { credentials: 'include' });
+      if (!response.ok) throw new Error(`Report history failed: ${response.status}`);
+      return {
+        record: await get('records', recordId),
+        queued: Boolean(await get('queue', recordId)),
+        durable: (await response.json()).filter((record) => record.client_submission_id === recordId)
+      };
+    }, original.id);
+    if (replayed.durable.length || !replayed.queued || replayed.record?.syncStatus !== 'queued') {
+      throw new Error(`changed-template replay must stay queued without creating a lossy Report: ${JSON.stringify({
+        durableCount: replayed.durable.length,
+        durableAnswers: replayed.durable[0]?.answers,
+        queued: replayed.queued,
+        syncStatus: replayed.record?.syncStatus
+      })}`);
+    }
+    if (replayed.record.answers.issue !== answerMarker
+      || JSON.stringify(replayed.record.fields) !== JSON.stringify(original.fields)
+      || JSON.stringify(replayed.record.photoDataUrls) !== JSON.stringify(original.photoDataUrls)
+      || JSON.stringify(replayed.record.capturedAnswers) !== JSON.stringify(original.answers)
+      || replayed.record.definitionVersion !== form.definition_version
+      || replayed.record.syncBlockedReason !== 'template_changed'
+      || !submittedVersions.length
+      || submittedVersions.some((version) => version !== form.definition_version)) {
+      throw new Error('changed-template replay discarded original Report content or evidence');
+    }
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await page.locator('#refreshHistoryButton').click();
+    const report = page.locator('#historyList .record-form').filter({ hasText: formName }).first();
+    await report.waitFor({ state: 'visible', timeout: 20000 });
+    const historyText = await report.innerText();
+    if (!historyText.includes(answerMarker) || !/template.*chang|chang.*template/i.test(historyText)) {
+      throw new Error(`My Reports must explain the template conflict and retain original answers: ${historyText}`);
+    }
+    await page.locator('#languageToggleButton').click();
+    await page.waitForFunction(() => document.documentElement.lang === 'zh-Hans');
+    const translatedHistoryText = await report.innerText();
+    if (!translatedHistoryText.includes('报告模板已更改')
+      || !translatedHistoryText.includes('原始答案和证据')
+      || translatedHistoryText.includes('Report Template changed.')) {
+      throw new Error(`template-conflict recovery guidance was not translated: ${translatedHistoryText}`);
+    }
+    await page.locator('#languageToggleButton').click();
+    await page.waitForFunction(() => document.documentElement.lang === 'en-NZ');
+    if (await report.locator('img').count() !== 3) {
+      throw new Error('conflicted Report history did not retain its photo and both handwritten signatures');
+    }
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#workerView').waitFor({ state: 'visible', timeout: 20000 });
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await page.locator('#refreshHistoryButton').click();
+    await report.waitFor({ state: 'visible', timeout: 20000 });
+    await context.setOffline(true);
+    await page.locator('#refreshHistoryButton').click();
+    await report.waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForFunction((name) => {
+      const card = [...document.querySelectorAll('#historyList .record-form')]
+        .find((element) => element.textContent.includes(name));
+      const images = [...(card?.querySelectorAll('img') || [])];
+      return images.length === 3 && images.every((image) => image.complete && image.naturalWidth > 0);
+    }, formName, { timeout: 10000 });
+    const restoredImageSources = await report.locator('img').evaluateAll((images) => images.map((image) => image.src));
+    if (!(await report.innerText()).includes(answerMarker)
+      || restoredImageSources.length !== 3
+      || restoredImageSources.some((source) => !source.startsWith('data:image/'))) {
+      throw new Error('reloading discarded the original conflicted Report answers or evidence');
+    }
+    await waitForQueueCount(page, 1);
+
+    // Recovery is an explicit new submission against the current Template;
+    // it must never rewrite or silently discard the original queued Report.
+    await context.setOffline(false);
+    await page.locator('.tab[data-tab-target="formTab"]').click();
+    await page.locator('#workFormSelect').selectOption(String(form.id));
+    await page.locator('#workFormField_replacement').fill(`Reviewed replacement ${stamp}`);
+    await page.locator('#workFormDate').fill('2026-09-07');
+    const recoveryResponsePromise = page.waitForResponse((response) => (
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/form-submissions'
+      && response.request().postDataJSON().expected_definition_version === form.definition_version + 1
+    ), { timeout: 20000 });
+    await page.locator('#submitWorkFormButton').click();
+    const recoveryResponse = await recoveryResponsePromise;
+    if (!recoveryResponse.ok()) {
+      throw new Error(`current-template recovery Report failed: ${recoveryResponse.status()} ${await recoveryResponse.text()}`);
+    }
+    const recoveredReport = await recoveryResponse.json();
+    if (recoveredReport.client_submission_id === original.clientSubmissionId
+      || recoveredReport.answers.replacement !== `Reviewed replacement ${stamp}`) {
+      throw new Error('explicit recovery did not create an independent current-template Report');
+    }
+    await page.locator('#workFormFeedback').getByText(`${formName} submitted for review`).waitFor({ timeout: 20000 });
+    await waitForQueueCount(page, 1);
+    const preservedOriginal = await page.evaluate(async (recordId) => {
+      const { get } = await import('/assets/js/db.js');
+      return await get('records', recordId);
+    }, original.id);
+    if (JSON.stringify(preservedOriginal.capturedAnswers) !== JSON.stringify(original.answers)
+      || preservedOriginal.backendRecordId || preservedOriginal.syncStatus !== 'queued') {
+      throw new Error('submitting an explicit replacement discarded or rewrote the original queued Report');
+    }
+  } finally {
+    await context.setOffline(false).catch(() => {});
+    await context.close();
+    await supervisorContext.close();
+  }
+}
+
+async function checkStaleReportDraftPreservation(browser, { legacyDraft = false } = {}) {
+  const context = await newContext(browser, { reportOnly: true });
+  const supervisorContext = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const supervisorPage = await supervisorContext.newPage();
+  const stamp = Date.now();
+  const formName = `Stale Report draft ${stamp}`;
+  const marker = `Keep original unsent answer ${stamp}`;
+  const submissions = [];
+  page.on('request', (request) => {
+    if (request.method() === 'POST'
+      && ['/api/form-submissions', '/api/photo-uploads'].includes(new URL(request.url()).pathname)) {
+      submissions.push(request.url());
+    }
+  });
+
+  try {
+    await loginAs(supervisorPage, 'supervisor@example.com', 'supervisor');
+    const form = await supervisorPage.evaluate(async (name) => {
+      const { createWorkForm } = await import('/assets/js/api-client.js');
+      return await createWorkForm({ name, fields: [
+        { id: 'issue', label: 'Original issue', type: 'text', required: true },
+        { id: 'signature', label: 'Worker signature', type: 'signature', required: true },
+        { id: 'crews', label: 'Crews', type: 'repeat', min_rows: 1, max_rows: 1, required: true },
+        { id: 'crew_signature', label: 'Crew signature', type: 'signature', repeat: 'crews', required: true }
+      ] });
+    }, formName);
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.waitForFunction((id) => [...document.querySelectorAll('#workFormSelect option')]
+      .some((option) => option.value === String(id)), form.id, { timeout: 20000 });
+    await page.locator('#workFormSelect').selectOption(String(form.id));
+    await page.locator('#workFormField_issue').fill(marker);
+    await page.locator('#workFormDate').fill('2026-09-07');
+    await page.locator('#workFormFields [data-signature-canvas]').evaluateAll((canvases) => {
+      for (const canvas of canvases) {
+        const drawing = canvas.getContext('2d');
+        drawing.beginPath(); drawing.moveTo(30, 60); drawing.lineTo(200, 35); drawing.stroke();
+        canvas.dataset.signed = 'true';
+        canvas.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    await page.locator('#workFormPhotos').evaluate(async (input) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 20; canvas.height = 20;
+      const drawing = canvas.getContext('2d');
+      drawing.fillStyle = '#dc2626'; drawing.fillRect(0, 0, 20, 20);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([blob], 'unsent-ppe-photo.png', { type: 'image/png' }));
+      input.files = transfer.files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    let original;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      original = await page.evaluate(async (formId) => {
+        const { getDraft } = await import('/assets/js/mock-api.js');
+        const { getSession } = await import('/assets/js/api-client.js');
+        const key = `work-form-draft:${getSession().id}:${formId}`;
+        return { key, value: await getDraft(key) };
+      }, form.id);
+      if (original.value?.answers?.issue === marker
+        && original.value.answers.signature?.startsWith('data:image/')
+        && original.value.answers.crews?.[0]?.crew_signature?.startsWith('data:image/')
+        && original.value.photoDataUrls?.length === 1) break;
+      await page.waitForTimeout(100);
+    }
+    if (!original.value?.answers?.issue || !original.value.photoDataUrls?.length) {
+      throw new Error('stale Report draft fixture did not finish saving original answers and evidence');
+    }
+    if (legacyDraft) {
+      delete original.value.definitionVersion;
+      delete original.value.fields;
+      await page.evaluate(async ({ key, value }) => {
+        const { saveDraft } = await import('/assets/js/mock-api.js');
+        await saveDraft(key, value);
+      }, original);
+    }
+    const assertOriginalDraft = async (label) => {
+      const saved = await page.evaluate(async (key) => (
+        (await import('/assets/js/mock-api.js')).getDraft(key)
+      ), original.key);
+      if (JSON.stringify(saved?.answers) !== JSON.stringify(original.value.answers)
+        || saved?.definitionVersion !== original.value.definitionVersion
+        || JSON.stringify(saved?.photoDataUrls) !== JSON.stringify(original.value.photoDataUrls)
+        || JSON.stringify(saved?.fields) !== JSON.stringify(original.value.fields)) {
+        throw new Error(`stale Report draft lost original content ${label}: ${JSON.stringify({
+          version: saved?.definitionVersion, answers: saved?.answers,
+          originalVersion: original.value.definitionVersion
+        })}`);
+      }
+    };
+    await supervisorPage.evaluate(async (formId) => {
+      const { updateWorkForm } = await import('/assets/js/api-client.js');
+      await updateWorkForm(formId, { fields: [{ id: 'replacement', label: 'Replacement question', type: 'text' }] });
+    }, form.id);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#workerView').waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForFunction((id) => [...document.querySelectorAll('#workFormSelect option')]
+      .some((option) => option.value === String(id)), form.id, { timeout: 20000 });
+    await page.locator('#workFormSelect').selectOption(String(form.id));
+    await page.waitForTimeout(700);
+    const replacement = page.locator('#workFormField_replacement');
+    if (await replacement.isVisible() && await replacement.isEnabled()) {
+      await replacement.fill('This edit must not overwrite the original version-one draft');
+    }
+    await page.waitForTimeout(1000);
+    await assertOriginalDraft('after restoring and waiting for autosave');
+    if (!(await page.locator('#workFormFields').innerText()).includes(marker)
+      || await page.locator('#submitWorkFormButton').innerText() !== 'Keep draft and start new report') {
+      throw new Error('stale Report draft must show its original read-only content and explicit keep/start action');
+    }
+    await page.locator('#workFormSelect').selectOption('');
+    await page.locator('#workFormSelect').selectOption(String(form.id));
+    await page.waitForTimeout(700);
+    await assertOriginalDraft('after switching templates');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#workerView').waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForFunction((id) => [...document.querySelectorAll('#workFormSelect option')]
+      .some((option) => option.value === String(id)), form.id, { timeout: 20000 });
+    await page.locator('#workFormSelect').selectOption(String(form.id));
+    await page.waitForTimeout(700);
+    await assertOriginalDraft('after reloading');
+    if (!legacyDraft) {
+      const originalSession = await page.evaluate(() => {
+        const saved = localStorage.getItem('geo_user');
+        const replacementOwner = JSON.parse(saved);
+        replacementOwner.id += 100000;
+        replacementOwner.name = 'Different local-session Worker';
+        localStorage.setItem('geo_user', JSON.stringify(replacementOwner));
+        return saved;
+      });
+      try {
+        await page.locator('#submitWorkFormButton').click();
+        await page.waitForTimeout(500);
+        await assertOriginalDraft('after a different local-session Worker tried to keep it');
+        const reassignedCopies = await page.evaluate(async (formId) => {
+          const { getAll } = await import('/assets/js/db.js');
+          return (await getAll('records')).filter((record) => String(record.formId) === String(formId));
+        }, form.id);
+        if (reassignedCopies.length || submissions.length
+          || !(await page.locator('#workFormFields').innerText()).includes(marker)) {
+          throw new Error('a changed local-session Worker must not acquire or clear another Worker draft');
+        }
+      } finally {
+        await page.evaluate((saved) => localStorage.setItem('geo_user', saved), originalSession);
+      }
+      await page.evaluate(() => {
+        const originalPut = IDBObjectStore.prototype.put;
+        window.__restoreStaleDraftRecordWrites = () => { IDBObjectStore.prototype.put = originalPut; };
+        IDBObjectStore.prototype.put = function (value, ...rest) {
+          if (this.name === 'records' && value?.type === 'form') {
+            throw new DOMException('Simulated full device storage', 'QuotaExceededError');
+          }
+          return originalPut.call(this, value, ...rest);
+        };
+      });
+      try {
+        await page.locator('#submitWorkFormButton').click();
+        await page.waitForTimeout(700);
+        await assertOriginalDraft('after keeping the draft failed to persist');
+        if (!(await page.locator('#workFormFields').innerText()).includes(marker)
+          || await page.locator('#submitWorkFormButton').innerText() !== 'Keep draft and start new report'
+          || submissions.length) {
+          throw new Error('failed stale-draft preservation must leave the original read-only view ready to retry');
+        }
+      } finally {
+        await page.evaluate(() => window.__restoreStaleDraftRecordWrites());
+      }
+    }
+    await page.locator('#submitWorkFormButton').click();
+    await page.locator('#workFormField_replacement').waitFor({ state: 'visible', timeout: 15000 });
+    if (await page.locator('#workFormField_replacement').inputValue()) {
+      throw new Error('starting a replacement Report unexpectedly prefilled the current Template');
+    }
+    await page.waitForTimeout(500);
+    const keptState = await page.evaluate(async ({ formId, draftKey }) => {
+      const { getAll } = await import('/assets/js/db.js');
+      const { getDraft } = await import('/assets/js/mock-api.js');
+      return {
+        records: (await getAll('records')).filter((record) => String(record.formId) === String(formId)),
+        queue: await getAll('queue'),
+        draft: await getDraft(draftKey)
+      };
+    }, { formId: form.id, draftKey: original.key });
+    const savedOriginal = keptState.records;
+    if (savedOriginal.length !== 1 || submissions.length
+      || (savedOriginal[0].definitionVersion ?? null) !== (original.value.definitionVersion ?? null)
+      || JSON.stringify(savedOriginal[0].capturedAnswers) !== JSON.stringify(original.value.answers)
+      || JSON.stringify(savedOriginal[0].photoDataUrls) !== JSON.stringify(original.value.photoDataUrls)
+      || savedOriginal[0].syncBlockedReason !== 'template_changed'
+      || !savedOriginal[0].isDraftRecovery
+      || keptState.queue.some((item) => item.id === savedOriginal[0].id)
+      || keptState.draft?.answers?.issue === marker
+      || savedOriginal[0].backendRecordId) {
+      throw new Error(`keeping a stale draft must retain the original locally without uploads or submission: ${JSON.stringify({
+        savedCount: savedOriginal.length, submissions, blockedReason: savedOriginal[0]?.syncBlockedReason
+      })}`);
+    }
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    const keptReport = page.locator('#historyList .record-form').filter({ hasText: marker }).first();
+    await keptReport.waitFor({ state: 'visible', timeout: 15000 });
+    if (await keptReport.locator('img').count() !== 3
+      || !(await keptReport.innerText()).includes('Saved draft')
+      || await keptReport.getByRole('button', { name: 'Retry sync' }).count()) {
+      throw new Error('My Reports did not retain the stale draft photo and both handwritten signatures');
+    }
+  } finally {
+    await context.close();
+    await supervisorContext.close();
+  }
+}
+
 async function checkRepeatSignatureUploadResume(browser) {
   const context = await newContext(browser, { reportOnly: true });
+  const supervisorContext = await newContext(browser, { reportOnly: true });
   const page = await context.newPage();
   const formName = `Repeat signature retry ${Date.now()}`;
   let uploadRequests = 0;
@@ -1844,6 +2647,7 @@ async function checkRepeatSignatureUploadResume(browser) {
         type: 'form',
         formId: workForm.id,
         formName: workForm.name,
+        definitionVersion: workForm.definition_version,
         fields: workForm.fields,
         answers: {
           crews: [
@@ -1931,6 +2735,16 @@ async function checkRepeatSignatureUploadResume(browser) {
       throw new Error(`backend Report was not durably stored once after replay: ${JSON.stringify(firstBackendState)}`);
     }
 
+    const supervisorPage = await supervisorContext.newPage();
+    await loginAs(supervisorPage, 'supervisor@example.com', 'supervisor');
+    await supervisorPage.evaluate(async (formId) => {
+      const { updateWorkForm } = await import('/assets/js/api-client.js');
+      await updateWorkForm(formId, {
+        fields: [{ id: 'replacement', label: 'Replacement question', type: 'text' }],
+        status: 'archived'
+      });
+    }, form.id);
+
     await page.evaluate(async (recordId) => {
       const { get, put } = await import('/assets/js/db.js');
       const record = await get('records', recordId);
@@ -1982,6 +2796,8 @@ async function checkRepeatSignatureUploadResume(browser) {
       || finalState.local.backendRecordId !== synced.backendRecordId
       || finalState.backendCount !== 1
       || finalState.backendRecord?.id !== synced.backendRecordId
+      || JSON.stringify(finalState.backendRecord?.answers) !== JSON.stringify(firstBackendState.record.answers)
+      || JSON.stringify(finalState.backendRecord?.fields) !== JSON.stringify(firstBackendState.record.fields)
     ) {
       throw new Error(`forced Report replay created or returned the wrong durable submission: ${JSON.stringify(finalState)}`);
     }
@@ -2005,6 +2821,7 @@ async function checkRepeatSignatureUploadResume(browser) {
     }
   } finally {
     await context.close();
+    await supervisorContext.close();
   }
 }
 
@@ -5515,6 +6332,11 @@ async function main() {
     await runCheck('attendance presents one contextual action with a secondary correction path', () => checkContextualAttendanceAction(browser));
     await runCheck('normal Worker guide compacts and Site priority follows attendance context', () => checkNormalWorkerAttendanceShortcuts(browser));
     await runCheck('normal Workers submit active Work Forms and see their own history', () => checkNormalWorkerWorkFormSubmission(browser));
+    await runCheck('shared-device Worker Reports clear on logout, pending login, and late responses', () => checkSharedDeviceWorkerReportPrivacy(browser));
+    await runCheck('shared-device late authorization errors cannot sign out the replacement Worker', () => checkSharedDeviceWorkerReportPrivacy(browser, { staleStatus: 401 }));
+    await runCheck('shared-device same-account relogin ignores the previous session authorization failure', () => checkSharedDeviceWorkerReportPrivacy(browser, { staleStatus: 401, sameAccount: true }));
+    await runCheck('shared-device active session expiry clears open Report photos and history', () => checkSharedDeviceWorkerReportPrivacy(browser, { expireSession: true }));
+    await runCheck('shared-device Supervisor Reports clear across Departments and failed queue loads', () => checkSharedDeviceSupervisorReportPrivacy(browser));
     await runCheck('browser geolocation denial shows recoverable error', () => checkDeniedGeolocation(browser));
     await runCheck('Daywork team rows use searchable member picker', () => checkDayworkTeamMemberPicker(browser));
     await runCheck('Daywork history and review hide helper fields', () => checkDayworkRecordRendering(browser));
@@ -5526,6 +6348,10 @@ async function main() {
     await runCheck('staff users scope global admin controls by role', () => checkStaffGlobalAdminScoping(browser));
     await runCheck('supervisors create and edit conditional Work Forms with field cards', () => checkSupervisorWorkFormCardBuilder(browser));
     await runCheck('Offline Submission ownership, occurrence time, and idempotent replay', () => checkOfflineQueueAndReplay(browser));
+    await runCheck('Report Dates reject impossible calendar values and preserve invalid queued evidence', () => checkReportCalendarDates(browser));
+    await runCheck('offline Report template changes preserve queued answers, photos, and signatures', () => checkOfflineReportTemplateChange(browser));
+    await runCheck('stale Report drafts preserve original answers until explicit new-report recovery', () => checkStaleReportDraftPreservation(browser));
+    await runCheck('stale Report drafts without captured fields or version preserve original evidence', () => checkStaleReportDraftPreservation(browser, { legacyDraft: true }));
     await runCheck('Report photos and repeat signatures resume once after partial upload failure', () => checkRepeatSignatureUploadResume(browser));
     await runCheck('supervisor review shows pending outside-site worker record', () => checkSupervisorReview(browser));
     await runCheck('department switching replaces map points and clears stale selection', () => checkSupervisorMapDepartmentSwitch(browser));

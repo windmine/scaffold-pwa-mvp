@@ -21,6 +21,7 @@ import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields }
 import { todayDateInput, escapeHtml, formatDateTime, reviewRecordKey } from './utils.js';
 import {
   exportUsesFormType,
+  downloadBlob,
   formatAuditAction,
   isDayworkForm,
   isDayworkRecord,
@@ -40,7 +41,6 @@ const REVIEW_QUEUE_MODE = {
   LIVE: 'live',
   OFFLINE_READ_ONLY: 'offline_read_only'
 };
-const reviewExports = createReviewExportAdapters();
 
 export function createSupervisorReviewModule({
   els,
@@ -70,6 +70,99 @@ export function createSupervisorReviewModule({
   let selectedReviewRecordKey = '';
   let visibleReviewRecords = [];
   let decisionInProgress = false;
+  let sessionEpoch = 0;
+  let auditRequestId = 0;
+  let trashRequestId = 0;
+  const activeExportButtons = new Map();
+
+  function captureSession() {
+    return { epoch: sessionEpoch, user: state.user };
+  }
+
+  function isCurrentSessionEpoch(session) {
+    // Profile refreshes replace the user object, but still need to release this session's busy controls.
+    return session.epoch === sessionEpoch;
+  }
+
+  function isCurrentSession(session) {
+    return isCurrentSessionEpoch(session)
+      && session.user === state.user
+      && state.user?.role === 'supervisor';
+  }
+
+  function sessionReviewExports(session) {
+    return createReviewExportAdapters({
+      download: (...args) => {
+        if (isCurrentSession(session)) downloadBlob(...args);
+      }
+    });
+  }
+
+  function resetSession() {
+    // A new login is a new session even when the same account signs in again.
+    sessionEpoch += 1;
+    reviewQueueRequestId += 1;
+    reviewOverviewRequestId += 1;
+    auditRequestId += 1;
+    trashRequestId += 1;
+    window.clearTimeout(filterRefreshTimer);
+    filterRefreshTimer = null;
+    selectedReviewRecordKey = '';
+    visibleReviewRecords = [];
+    decisionInProgress = false;
+    state.supervisorRecords = {
+      reviewRecords: [],
+      usingBackend: false,
+      queueMode: REVIEW_QUEUE_MODE.OFFLINE_READ_ONLY,
+      queueQuery: {},
+      queueCounts: null,
+      queueSummaryCounts: null,
+      queueError: '',
+      snapshotAt: '',
+      loadedAt: '',
+      analyticsRecords: [],
+      analyticsReady: false,
+      analyticsDepartmentId: '',
+      analyticsSnapshotAt: '',
+      analyticsError: '',
+      nextCursor: null,
+      hasMore: false,
+      loadingMore: false,
+      auditEvents: [],
+      trashRecords: []
+    };
+    resetReviewQueueFilters();
+    clearExportFilters();
+    [
+      'supervisorSummary', 'reviewQueueList', 'reviewQueueDetail', 'reviewQueueNotice',
+      'reviewQueuePagination', 'auditEventsList', 'rubbishBinList', 'supervisorDepartmentFilter',
+      'supervisorTemplateFilter', 'supervisorWorkerFilter', 'exportFormTypeSelect',
+      'manualAttendanceWorker', 'manualAttendanceSite', 'adminTaskLogUser', 'adminTaskLogSite',
+      'adminTaskLogFormSelect', 'adminTaskLogFormFields'
+    ].forEach((key) => { els[key].replaceChildren(); });
+    els.supervisorDepartmentHelp.textContent = '';
+    els.supervisorResultCount.textContent = '0/0 matching records loaded';
+    els.reviewQueueDetailTitle.textContent = 'Select a record';
+    els.reviewQueueSelectionPosition.textContent = '0 of 0';
+    els.reviewQueueModeBadge.textContent = 'Read only';
+    els.reviewQueueModeBadge.className = 'badge rejected';
+    els.previousReviewRecordButton.disabled = true;
+    els.nextReviewRecordButton.disabled = true;
+    els.auditEventsCount.textContent = '0';
+    els.rubbishBinCount.textContent = '0';
+    els.manualAttendanceForm.reset();
+    els.adminTaskLogForm.reset();
+    feedback.clearLocal(els.reviewQueueFeedback);
+    feedback.clearLocal(els.manualAttendanceFeedback);
+    feedback.clearLocal(els.adminTaskLogFeedback);
+    activeExportButtons.forEach((label, button) => { button.textContent = label; });
+    activeExportButtons.clear();
+    [
+      'exportAttendanceButton', 'exportTaskLogsButton', 'exportDocumentButton',
+      'exportReportsCsvButton', 'exportReportsPdfButton', 'manualAttendanceSubmitButton',
+      'adminTaskLogSubmitButton', 'saveDefaultDepartmentButton'
+    ].forEach((key) => { els[key].disabled = true; });
+  }
 
   function reviewQueueIsReadOnly() {
     return state.supervisorRecords.queueMode !== REVIEW_QUEUE_MODE.LIVE;
@@ -77,7 +170,8 @@ export function createSupervisorReviewModule({
 
   function requireDurableWritableRecord(record, action) {
     if (
-      reviewQueueIsReadOnly()
+      state.user?.role !== 'supervisor'
+      || reviewQueueIsReadOnly()
       || record?.readOnly
       || record?.durability !== 'durable'
       || !record?.backendRecordId
@@ -256,6 +350,7 @@ export function createSupervisorReviewModule({
   async function transitionReport(record, status, supervisorNote = '', button = null) {
     if (!requireDurableWritableRecord(record, status === 'resolved' ? 'resolving' : 'reviewing')) return false;
     if (decisionInProgress) return false;
+    const session = captureSession();
     decisionInProgress = true;
     feedback.clearLocal(els.reviewQueueFeedback);
     feedback.setButtonBusy(button, true, status === 'resolved' ? 'Resolving...' : 'Starting review...');
@@ -264,6 +359,7 @@ export function createSupervisorReviewModule({
         status,
         supervisor_note: supervisorNote || null
       });
+      if (!isCurrentSession(session)) return false;
       if (status === 'resolved') closeEditPanel();
       renderStatusBanner(status === 'resolved' ? 'Report resolved.' : 'Report review started.', false, {
         local: els.reviewQueueFeedback,
@@ -272,14 +368,17 @@ export function createSupervisorReviewModule({
       await renderPanel();
       return true;
     } catch (error) {
+      if (!isCurrentSession(session)) return false;
       renderStatusBanner(error.message || 'Could not update the Report workflow.', true, {
         local: els.reviewQueueFeedback,
         tone: 'error'
       });
       return false;
     } finally {
-      feedback.setButtonBusy(button, false);
-      decisionInProgress = false;
+      if (isCurrentSessionEpoch(session)) {
+        feedback.setButtonBusy(button, false);
+        decisionInProgress = false;
+      }
     }
   }
 
@@ -702,14 +801,20 @@ export function createSupervisorReviewModule({
   }
 
   async function runExport(button, action) {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return;
     const originalText = button.textContent;
+    activeExportButtons.set(button, originalText);
     button.disabled = true;
     button.textContent = 'Exporting...';
     try {
       await action();
     } finally {
-      button.disabled = false;
-      button.textContent = originalText;
+      if (isCurrentSessionEpoch(session)) {
+        button.disabled = false;
+        button.textContent = originalText;
+        activeExportButtons.delete(button);
+      }
     }
   }
 
@@ -820,6 +925,8 @@ export function createSupervisorReviewModule({
   }
 
   async function refreshReviewQueue() {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return false;
     const query = reviewQueueQuery();
     const requestId = ++reviewQueueRequestId;
     try {
@@ -827,7 +934,7 @@ export function createSupervisorReviewModule({
         ...query,
         pageSize: REVIEW_QUEUE_PAGE_SIZE
       });
-      if (requestId !== reviewQueueRequestId) return true;
+      if (!isCurrentSession(session) || requestId !== reviewQueueRequestId) return false;
       state.supervisorRecords = {
         ...state.supervisorRecords,
         reviewRecords: recordsFromPage(page),
@@ -844,7 +951,7 @@ export function createSupervisorReviewModule({
         queueError: ''
       };
     } catch (error) {
-      if (requestId !== reviewQueueRequestId) return true;
+      if (!isCurrentSession(session) || requestId !== reviewQueueRequestId) return false;
       if (error.status === 401 || error.status === 403) {
         handleSessionExpired();
         return false;
@@ -857,6 +964,8 @@ export function createSupervisorReviewModule({
   }
 
   async function refreshReviewOverview() {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return false;
     const departmentId = state.departmentFocusId || '';
     const requestId = ++reviewOverviewRequestId;
     const previousDepartmentId = state.supervisorRecords.analyticsDepartmentId || '';
@@ -872,11 +981,20 @@ export function createSupervisorReviewModule({
 
     try {
       const overview = await loadReviewOverview({
-        loadPage: getBackendSupervisorReviewQueuePage,
+        loadPage: async (query) => {
+          if (!isCurrentSession(session) || requestId !== reviewOverviewRequestId) {
+            throw new Error('Review session changed.');
+          }
+          const page = await getBackendSupervisorReviewQueuePage(query);
+          if (!isCurrentSession(session) || requestId !== reviewOverviewRequestId) {
+            throw new Error('Review session changed.');
+          }
+          return page;
+        },
         mapRecord: historyModule.fromBackendReviewRecord,
         departmentId: departmentId || undefined
       });
-      if (requestId !== reviewOverviewRequestId) return true;
+      if (!isCurrentSession(session) || requestId !== reviewOverviewRequestId) return false;
       state.supervisorRecords = {
         ...state.supervisorRecords,
         analyticsRecords: overview.records,
@@ -888,7 +1006,7 @@ export function createSupervisorReviewModule({
           || state.supervisorRecords.queueSummaryCounts
       };
     } catch (error) {
-      if (requestId !== reviewOverviewRequestId) return true;
+      if (!isCurrentSession(session) || requestId !== reviewOverviewRequestId) return false;
       if (error.status === 401 || error.status === 403) {
         handleSessionExpired();
         return false;
@@ -907,18 +1025,22 @@ export function createSupervisorReviewModule({
   }
 
   async function renderPanel() {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return;
     renderDepartmentFilter();
     if (reportOnly) {
       els.supervisorTypeFilter.value = 'form';
     }
-    if (!await refreshReviewQueue()) return;
+    if (!await refreshReviewQueue() || !isCurrentSession(session)) return;
     if (reportOnly) {
       await refreshWorkForms();
+      if (!isCurrentSession(session)) return;
       await renderStaffUsers();
+      if (!isCurrentSession(session)) return;
       renderReportFilterOptions();
       return;
     }
-    if (!await refreshReviewOverview()) return;
+    if (!await refreshReviewOverview() || !isCurrentSession(session)) return;
     state.supervisorRecords = {
       ...state.supervisorRecords,
       auditEvents: [],
@@ -926,11 +1048,14 @@ export function createSupervisorReviewModule({
     };
     renderSupervisorSites();
     await refreshWorkForms();
+    if (!isCurrentSession(session)) return;
     renderExportFormTypeOptions();
     await renderStaffUsers();
+    if (!isCurrentSession(session)) return;
     renderManualAttendanceForm();
     renderAdminTaskLogForm();
     await renderAuditHistory();
+    if (!isCurrentSession(session)) return;
     await renderTrash();
   }
 
@@ -984,9 +1109,12 @@ export function createSupervisorReviewModule({
   }
 
   async function loadMoreReviewRecords() {
+    const session = captureSession();
+    const requestId = reviewQueueRequestId;
     const recordsState = state.supervisorRecords;
     if (
-      recordsState.queueMode !== REVIEW_QUEUE_MODE.LIVE
+      !isCurrentSession(session)
+      || recordsState.queueMode !== REVIEW_QUEUE_MODE.LIVE
       || recordsState.loadingMore
       || !recordsState.nextCursor
     ) return;
@@ -1002,7 +1130,10 @@ export function createSupervisorReviewModule({
         pageSize: REVIEW_QUEUE_PAGE_SIZE
       });
       if (
-        state.supervisorRecords.queueMode !== REVIEW_QUEUE_MODE.LIVE
+        !isCurrentSession(session)
+        || requestId !== reviewQueueRequestId
+        || state.supervisorRecords !== recordsState
+        || state.supervisorRecords.queueMode !== REVIEW_QUEUE_MODE.LIVE
         || state.supervisorRecords.nextCursor !== requestedCursor
         || JSON.stringify(state.supervisorRecords.queueQuery || {}) !== requestedQuery
       ) return;
@@ -1011,6 +1142,7 @@ export function createSupervisorReviewModule({
       recordsState.nextCursor = page.next_cursor || null;
       recordsState.hasMore = Boolean(page.has_more && recordsState.nextCursor);
     } catch (error) {
+      if (!isCurrentSession(session) || requestId !== reviewQueueRequestId) return;
       if (error.status === 401 || error.status === 403) {
         handleSessionExpired();
         return;
@@ -1018,8 +1150,10 @@ export function createSupervisorReviewModule({
       setOfflineReadOnlyQueue(error);
       renderStatusBanner('The Review Queue went offline. Loaded durable results are now read-only.', true);
     } finally {
-      state.supervisorRecords.loadingMore = false;
-      renderFocusedDashboard();
+      if (isCurrentSessionEpoch(session) && requestId === reviewQueueRequestId) {
+        state.supervisorRecords.loadingMore = false;
+        if (isCurrentSession(session)) renderFocusedDashboard();
+      }
     }
   }
 
@@ -1040,6 +1174,8 @@ export function createSupervisorReviewModule({
   }
 
   async function openReviewRecord(record) {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return false;
     if (record?.backendRecordId == null || !departmentFocusedRecords([record]).length) {
       renderStatusBanner('The related Review Record is outside the active department scope.', true);
       return false;
@@ -1051,7 +1187,7 @@ export function createSupervisorReviewModule({
     const targetRecordKey = reviewRecordKey(record);
     selectedReviewRecordKey = targetRecordKey;
 
-    if (!await refreshReviewQueue()) return false;
+    if (!await refreshReviewQueue() || !isCurrentSession(session)) return false;
 
     selectedReviewRecordKey = targetRecordKey;
     state.supervisorRecords = {
@@ -1071,6 +1207,7 @@ export function createSupervisorReviewModule({
 
     selectReviewRecord(selectedRecord, { scrollOnSmallScreen: true });
     window.requestAnimationFrame(() => {
+      if (!isCurrentSession(session)) return;
       const smallScreen = window.matchMedia('(max-width: 979px)').matches;
       const selectedItem = [...els.reviewQueueList.querySelectorAll('.review-queue-item')]
         .find((item) => item.dataset.recordKey === selectedReviewRecordKey);
@@ -1094,6 +1231,8 @@ export function createSupervisorReviewModule({
   }
 
   async function handleDepartmentFilterChange() {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return;
     state.departmentFocusId = els.supervisorDepartmentFilter.value;
     if (reportOnly) {
       els.supervisorTemplateFilter.value = '';
@@ -1101,14 +1240,16 @@ export function createSupervisorReviewModule({
     }
     renderDepartmentFilter();
     renderLocationMap();
-    if (!await refreshReviewQueue()) return;
+    if (!await refreshReviewQueue() || !isCurrentSession(session)) return;
     if (reportOnly) {
       await refreshWorkForms();
+      if (!isCurrentSession(session)) return;
       await renderStaffUsers();
+      if (!isCurrentSession(session)) return;
       renderReportFilterOptions();
       return;
     }
-    if (!await refreshReviewOverview()) return;
+    if (!await refreshReviewOverview() || !isCurrentSession(session)) return;
     renderDepartmentScopedAdminLists();
     renderManualAttendanceForm();
     renderAdminTaskLogForm();
@@ -1162,13 +1303,18 @@ export function createSupervisorReviewModule({
   }
 
   async function renderTrash() {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return;
+    const requestId = ++trashRequestId;
     try {
       const records = await getBackendSupervisorTrash();
+      if (!isCurrentSession(session) || requestId !== trashRequestId) return;
       state.supervisorRecords.trashRecords = records
         .map(historyModule.fromBackendReviewRecord)
         .filter(Boolean);
       renderTrashList();
     } catch (error) {
+      if (!isCurrentSession(session) || requestId !== trashRequestId) return;
       if (error.status === 401 || error.status === 403) {
         handleSessionExpired();
         return;
@@ -1180,16 +1326,20 @@ export function createSupervisorReviewModule({
   }
 
   async function handleRestoreRecord(recordType, recordId, triggerButton) {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return;
     if (triggerButton?.getAttribute('aria-busy') === 'true') return;
     feedback.setButtonBusy(triggerButton, true, 'Working...');
     try {
       await restoreBackendSupervisorRecord(recordType, recordId);
+      if (!isCurrentSession(session)) return;
       renderStatusBanner('Record restored from the rubbish bin.');
       await renderPanel();
     } catch (error) {
+      if (!isCurrentSession(session)) return;
       renderStatusBanner(error.message || 'Could not restore the record.', true);
     } finally {
-      feedback.setButtonBusy(triggerButton, false);
+      if (isCurrentSessionEpoch(session)) feedback.setButtonBusy(triggerButton, false);
     }
   }
 
@@ -1378,22 +1528,28 @@ export function createSupervisorReviewModule({
 
   async function handleSaveDefaultDepartment() {
     if (!state.user?.isGlobalAdmin) return;
+    const session = captureSession();
 
     try {
       const user = await updateBackendDefaultDepartment(
         state.departmentFocusId ? Number(state.departmentFocusId) : null
       );
+      if (!isCurrentSession(session)) return;
       onDefaultDepartmentChanged(user);
       renderDepartmentFilter();
       renderStatusBanner(
         `Default dashboard view set to ${user.dashboardDepartmentName || 'All departments'}.`
       );
     } catch (error) {
+      if (!isCurrentSession(session)) return;
       renderStatusBanner(error.message || 'Could not save the default department.', true);
     }
   }
 
   async function handleExportAttendance() {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return;
+    const reviewExports = sessionReviewExports(session);
     if (reviewQueueIsReadOnly()) {
       renderStatusBanner('Reconnect before exporting durable Review Records.', true);
       return;
@@ -1401,14 +1557,18 @@ export function createSupervisorReviewModule({
     try {
       await runExport(els.exportAttendanceButton, async () => {
         const message = await reviewExports.exportCollection('attendance-csv', exportDateFilters());
-        renderStatusBanner(message);
+        if (isCurrentSession(session)) renderStatusBanner(message);
       });
     } catch (error) {
+      if (!isCurrentSession(session)) return;
       renderStatusBanner(error.message || 'Could not export attendance CSV.', true);
     }
   }
 
   async function handleExportTaskLogs() {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return;
+    const reviewExports = sessionReviewExports(session);
     if (reviewQueueIsReadOnly()) {
       renderStatusBanner('Reconnect before exporting durable Review Records.', true);
       return;
@@ -1416,9 +1576,10 @@ export function createSupervisorReviewModule({
     try {
       await runExport(els.exportTaskLogsButton, async () => {
         const message = await reviewExports.exportCollection('task-logs-csv', exportDateFilters());
-        renderStatusBanner(message);
+        if (isCurrentSession(session)) renderStatusBanner(message);
       });
     } catch (error) {
+      if (!isCurrentSession(session)) return;
       renderStatusBanner(error.message || 'Could not export task logs CSV.', true);
     }
   }
@@ -1437,6 +1598,9 @@ export function createSupervisorReviewModule({
   }
 
   async function handleReportCollectionExport(exportType, button) {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return;
+    const reviewExports = sessionReviewExports(session);
     if (reviewQueueIsReadOnly()) {
       renderStatusBanner('Reconnect before exporting Reports.', true);
       return;
@@ -1447,14 +1611,18 @@ export function createSupervisorReviewModule({
           exportType,
           reportCollectionExportFilters()
         );
-        renderStatusBanner(message);
+        if (isCurrentSession(session)) renderStatusBanner(message);
       });
     } catch (error) {
+      if (!isCurrentSession(session)) return;
       renderStatusBanner(error.message || 'Could not export Reports.', true);
     }
   }
 
   async function handleExportDocument() {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return;
+    const reviewExports = sessionReviewExports(session);
     const exportType = els.exportDocumentSelect.value;
     if (reviewQueueIsReadOnly()) {
       renderStatusBanner('Reconnect before exporting durable Review Records.', true);
@@ -1469,20 +1637,24 @@ export function createSupervisorReviewModule({
           exportType,
           exportDateFilters(usesFormType)
         );
-        renderStatusBanner(message);
+        if (isCurrentSession(session)) renderStatusBanner(message);
       });
     } catch (error) {
+      if (!isCurrentSession(session)) return;
       renderStatusBanner(error.message || 'Could not export document.', true);
     }
   }
 
   async function handleExportRecord(record, exportType) {
     if (!requireDurableWritableRecord(record, 'exporting')) return;
+    const session = captureSession();
+    const reviewExports = sessionReviewExports(session);
 
     try {
       const message = await reviewExports.exportRecord(record, exportType);
-      renderStatusBanner(message);
+      if (isCurrentSession(session)) renderStatusBanner(message);
     } catch (error) {
+      if (!isCurrentSession(session)) return;
       renderStatusBanner(error.message || 'Could not export record.', true);
     }
   }
@@ -1519,11 +1691,16 @@ export function createSupervisorReviewModule({
   }
 
   async function renderAuditHistory() {
+    const session = captureSession();
+    if (!isCurrentSession(session)) return;
+    const requestId = ++auditRequestId;
     try {
       const events = await getBackendSupervisorAuditEvents(50);
+      if (!isCurrentSession(session) || requestId !== auditRequestId) return;
       state.supervisorRecords.auditEvents = events;
       renderAuditEventsList(events);
     } catch (error) {
+      if (!isCurrentSession(session) || requestId !== auditRequestId) return;
       if (error.status === 401 || error.status === 403) {
         handleSessionExpired();
         return;
@@ -1538,6 +1715,7 @@ export function createSupervisorReviewModule({
   async function handleDecision(record, decision, button = null) {
     if (!requireDurableWritableRecord(record, decision === 'approved' ? 'approving' : 'rejecting')) return;
     if (decisionInProgress) return;
+    const session = captureSession();
     decisionInProgress = true;
     feedback.clearLocal(els.reviewQueueFeedback);
     const siblingButtons = button
@@ -1548,6 +1726,7 @@ export function createSupervisorReviewModule({
     feedback.setButtonBusy(button, true, decision === 'approved' ? 'Approving...' : 'Rejecting...');
     try {
       await decideBackendRecord(record.backendRecordId, decision, record.type || 'attendance');
+      if (!isCurrentSession(session)) return;
 
       renderStatusBanner(`Record ${decision}.`, false, {
         local: els.reviewQueueFeedback,
@@ -1555,16 +1734,19 @@ export function createSupervisorReviewModule({
       });
       await renderPanel();
     } catch (error) {
+      if (!isCurrentSession(session)) return;
       renderStatusBanner(error.message || `Could not mark record as ${decision}.`, true, {
         local: els.reviewQueueFeedback,
         tone: 'error'
       });
     } finally {
-      feedback.setButtonBusy(button, false);
-      siblingButtons.forEach((item, index) => {
-        item.disabled = disabledStates[index];
-      });
-      decisionInProgress = false;
+      if (isCurrentSessionEpoch(session)) {
+        feedback.setButtonBusy(button, false);
+        siblingButtons.forEach((item, index) => {
+          item.disabled = disabledStates[index];
+        });
+        decisionInProgress = false;
+      }
     }
   }
 
@@ -1814,6 +1996,7 @@ export function createSupervisorReviewModule({
     renderAdminTaskLogForm,
     renderFilteredLists,
     renderPanel,
+    resetSession,
     renderTrash
   };
 }

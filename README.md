@@ -38,11 +38,14 @@ On 2026-09-01, the local in-app browser passed the report-only route at 390 × 8
 Current release-candidate contract:
 
 - Workers see only **New Report** and **My Reports**. Normal Workers and Leaders use the same visible Report flow.
+- Logout, session expiry, and a new login synchronously clear the prior account's Report history, Supervisor queue, private lists, and photo/edit viewers. Late responses from an ended session are ignored, including after the same account signs back in. Worker-owned drafts and offline submissions remain stored for their owner.
 - A Report requires a Report Date, may omit Site, can include up to 8 photos and configured handwritten signatures, and keeps an immutable Definition snapshot after submission.
 - A Report moves forward only through **Submitted → In review → Resolved**. Resolution requires a final Supervisor note; legacy approval statuses are not Report workflow actions.
 - Supervisors see only **Reports**, **Report Templates**, and **Staff**. Durable `report` purpose separates Reports from retained `daywork` templates/submissions, so Daywork is excluded from New Report, My Reports, Supervisor Reports, and Report exports.
 - Collection CSV/PDF exports follow the structured workflow, Template, Worker, Report Date, and Department filters. Report exports show the Report workflow plus the final Supervisor note, reviewer, review-started time, and resolved time. The free-text **Find** field filters the visible list only.
 - An already-open Worker page with its Report Template loaded can queue a Report while offline. Photo and signature upload progress, Worker ownership, capture time, and the client submission id persist across retries, so reconnecting or retrying does not create a second Report.
+- Queued Reports keep the Template version used at capture. If that Template changes before the first successful sync, the server rejects the replay without dropping answers; **My Reports** retains the original answers, photos, and local signature images and explains how to submit a new Report using the current Template. Keep the original queued copy until the new Report is confirmed submitted.
+- A saved draft from an older Template is read-only; autosave cannot replace its answers with the new fields. **Keep draft and start new report** first preserves the original in **My Reports** as a **Saved draft**, then opens the current Template blank. That recovery copy is not submitted or automatically synced, even if incomplete.
 - The generated PWA still cold-launches its cached application shell. Report Templates and backend Report history remain network-only, so a killed offline launch can show locally queued Reports but cannot start a new Report unless its Template is available again after reconnect.
 - A waiting service worker exposes **Update App**. The app saves the active Report draft before reload and pauses with **Try saving again** / **Keep editing** if local draft storage fails.
 
@@ -435,9 +438,12 @@ Run database migrations:
 ```powershell
 cd backend
 python -m app.migrations
+python -m app.migrations --check
 ```
 
-The backend also runs pending migrations on startup when `AUTO_MIGRATE=true`, which keeps local development and the current Cloud Run demo path simple. For a managed production database, run migrations as an explicit deployment step before shifting traffic.
+Local development defaults to `AUTO_MIGRATE=true`. Production (`APP_ENV=prod`/`production`, including the `ENVIRONMENT` fallback, or Cloud Run's `K_SERVICE`) defaults to `false` and refuses API startup if it is explicitly set to `true`. Run migrations as a separate release step, using the same migration files as the candidate image. `--check` verifies the exact migration ledger without applying migrations or creating the ledger.
+
+Every API startup verifies all bundled migration versions and checksums before upload lifecycle checks or purge tasks. Missing history, pending migrations, changed checksums, unknown newer versions, or missing bundled migration files stop startup. Do not edit historical checksums to bypass a failure. `/health/ready` also checks the ledger and returns 503 on mismatch. This strict match means an older guarded image becomes unready after a newer migration is recorded; plan a coordinated migration/cutover or maintenance window and use only a ledger-compatible backend for rollback. See the production runbook for the release procedure.
 
 Run the backend:
 
@@ -539,7 +545,7 @@ gcloud run deploy geo-backend --source . --region australia-southeast1 `
 
 Before deploying, inspect `gcloud meta list-files-for-upload`; `.gcloudignore` and `.dockerignore` must keep local databases, uploads, environment files, and Python bytecode out of the build. Set Cloud Run environment variables from `.env.firebase.example`, preserve the Secret Manager bindings and resource limits, verify the tagged candidate, and then move 100% traffic to the exact verified revision. The current live service stores `DATABASE_URL` and `GEO_SECRET_KEY` in Secret Manager, points `DATABASE_URL` at Neon PostgreSQL, and uses Cloud Storage for uploaded photos/signatures.
 
-The production Docker container starts Uvicorn only and keeps `AUTO_MIGRATE=false`; run `python -m app.migrations` explicitly against the verified database before deploying its compatible revision. This prevents a no-traffic Cloud Run candidate from changing production schema during startup. FastAPI readiness still verifies database access and the configured upload adapter lifecycle before the revision is accepted.
+The production Docker container starts Uvicorn only and requires `AUTO_MIGRATE=false`. Run `python -m app.migrations` explicitly against the verified database, then `python -m app.migrations --check`, using the candidate's exact migration artifact before starting its compatible revision. A no-traffic candidate cannot apply schema migrations during startup. FastAPI verifies migration history before upload lifecycle checks and purge work; readiness requires database access, matching migration history, and the configured upload adapter. Startup is not otherwise read-only once these checks pass: the existing upload probe and purge tasks still run.
 
 The shared SQLAlchemy engine enables `pool_pre_ping`, so each pooled database connection is checked when Cloud Run reuses it. If managed PostgreSQL or Neon has closed an idle SSL connection, SQLAlchemy discards that connection before the API query instead of returning a transient 500.
 
@@ -805,7 +811,7 @@ docs/payroll-admin-portal-plan.md
 
 ```text
 GET  /health
-GET  /health/ready  checks the database and selected upload adapter
+GET  /health/ready  checks database access, migration history, and the selected upload adapter
 POST /dev/seed       local development only, disabled unless ENABLE_DEV_SEED=true
 GET  /sites          authenticated
 POST /sites          authenticated; workers and supervisors can add a missing site
@@ -1036,12 +1042,17 @@ The active Offline Submission interface derives `worker_id`, `occurred_at`, and 
 
 ### Report Submission (`WorkFormSubmission` internally)
 
+New Reports require a real calendar date in `YYYY-MM-DD` format. Impossible values such as `2026-02-30`, non-leap-year February 29, invalid months, and year zero return HTTP 400 without creating a Report. Valid leap days are accepted; there is no additional past/future date restriction. This calendar check runs after the existing durable idempotency lookup, so a duplicate request cannot rewrite the original Report Date. Rejected offline Reports retain their local answers and evidence. This fix does not rewrite historical records, change retained Daywork validation, or require a migration.
+
 Only source answers need to be sent. Omit formula outputs and `duration_hours`; the backend derives them from the saved definition and time-range start/end values. Submission responses include the authoritative answers plus `definition_version`, `definition_schema_version`, and the frozen `fields` snapshot.
+
+Send `expected_definition_version` from the Template the Worker actually completed, and keep that value unchanged across retries. A new Report whose version differs from the active Template returns HTTP 409 with `detail.code=report_template_version_conflict` before answer normalization. Older clients/queues without a captured version are accepted only while the Template is still unedited version 1; an edited Template requires explicit review and a new submission using its current version. Never fill in the latest version automatically on an old queue item. Existing durable submissions are looked up by Worker/client idempotency key first, so replay still returns the same submission after Template edits or archival. This guard does not change retained Daywork behavior and needs no database migration.
 
 ```json
 {
   "client_submission_id": "form-1-20260525-001",
   "form_id": 1,
+  "expected_definition_version": 1,
   "site_id": 1,
   "work_date": "2026-05-25",
   "answers": {
@@ -1179,7 +1190,7 @@ python backend\migration_test.py
 The smoke test covers:
 
 - Health and seed data.
-- Readiness health checks.
+- Readiness health checks for database access, matching migration history, and upload storage.
 - Worker/supervisor login.
 - Cookie session CSRF protection and session refresh.
 - Fixed department list, one-department user assignment, department-scoped staff lists, and global-admin-only cross-department access.
@@ -1243,6 +1254,10 @@ Back online:
 ```
 
 Report signatures, including signatures inside repeat rows, are stored locally as image data while queued, then uploaded as PNG during sync. A queued Report remains bound to the Worker account that captured it; switching accounts on a shared device cannot replay or display it as the new Worker. Capture time and client submission id survive delayed sync, the backend returns the existing Report on an idempotent retry, and each successful partial-upload URL is persisted so it is not uploaded again. If the session expires, sync pauses and keeps the queue item until its owning Worker signs in again. Failed items show their error in **My Reports** with **Retry sync** and **Discard local copy**.
+
+Report queues also retain an independent copy of captured answers before signature uploads replace replay values with URLs. A Template-version conflict keeps the queued record and its available local evidence; it is not silently rewritten to the latest Template or marked synced. Review the original in **My Reports**, create a new Report using the current Template, and only discard the old local copy after the replacement is confirmed submitted. Do not clear browser/app storage to resolve the conflict. An older queue may contain only uploaded signature URLs from before this fix; those existing URLs cannot be turned back into already-lost local image data by the update.
+
+Saved drafts also retain the captured Definition version and fields. Reopening a draft against an edited Template displays the original answers and evidence read-only instead of populating the current fields. **Keep draft and start new report** creates a private, device-local **Saved draft** in **My Reports** before clearing the draft and opening the current Template. Storage failures leave the original available for retry. These recovery copies are excluded from upload/replay and have no **Retry sync** action; use them as a reference while completing a new Report, then explicitly discard them only when no longer needed. Older drafts without field/version metadata retain their raw answers and available local signature images without guessing the current version.
 
 The generated service worker can cold-launch the cached application shell, while API, auth, Template, Report-history, and upload routes stay network-only. With a saved Worker identity, a killed offline launch can show the report-only shell and that Worker's local queued Reports. Report Templates are not currently snapshotted for cold-start authoring, so load the Template before going offline and keep the page open if a new Report must be queued. Starting a new Report after a killed/refreshed offline launch waits for reconnect. The retained full-interface mode separately snapshots Worker/Department Sites and attendance context for its automated cold-offline attendance regression.
 

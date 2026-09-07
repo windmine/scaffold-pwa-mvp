@@ -254,11 +254,19 @@ export function createSiteMapPicker({
     }, 0);
   }
 
-  function reset() {
+  function reset({ clearExisting = false } = {}) {
+    if (clearExisting) {
+      existingLayer?.clearLayers();
+      map?.closePopup();
+    }
     selectedLayer?.clearLayers();
     marker = null;
     radiusCircle = null;
     updateStatus();
+    if (clearExisting) {
+      map?.setView(DEFAULT_CENTRE, DEFAULT_ZOOM);
+      return;
+    }
     window.setTimeout(() => fitMap(), 0);
   }
 

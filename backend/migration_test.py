@@ -1,10 +1,14 @@
+import asyncio
 import shutil
 import sys
 import tempfile
+from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
+from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
@@ -184,6 +188,313 @@ def test_postgres_statement_adaptation():
         raise AssertionError("postgres statement adaptation: sqlite statements should be unchanged")
 
     print("ok - postgres statement adaptation")
+
+
+def production_startup_result(engine, auto_migrate=False):
+    from app import database, main as backend_main
+
+    calls = []
+
+    async def wait_for_shutdown():
+        await asyncio.Future()
+
+    def periodic_purge():
+        calls.append("periodic_purge")
+        return wait_for_shutdown()
+
+    async def run_startup():
+        error = None
+        try:
+            await backend_main.on_startup()
+        except RuntimeError as caught:
+            error = caught
+        finally:
+            await backend_main.on_shutdown()
+        return error
+
+    with (
+        patch.object(database, "engine", engine),
+        patch.object(backend_main, "PRODUCTION_LIKE", True),
+        patch.object(backend_main, "AUTO_MIGRATE", auto_migrate),
+        patch.object(backend_main, "trash_purge_task", None),
+        patch.object(backend_main, "migrate_database", side_effect=AssertionError("production startup attempted migration")),
+        patch.object(backend_main, "ensure_upload_storage_ready", side_effect=lambda **_kwargs: calls.append("storage_readiness")),
+        patch.object(backend_main.record_trash_use_cases, "purge_expired_deleted_records_with_new_session", side_effect=lambda: calls.append("initial_purge")),
+        patch.object(backend_main.record_trash_use_cases, "run_periodic_trash_purge", new=periodic_purge),
+    ):
+        return asyncio.run(run_startup()), calls
+
+
+def test_production_startup_rejects_unmigrated_database_before_side_effects():
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        old_migrations = root / "before-report-purpose"
+        copy_migrations_before_0019(old_migrations)
+        engine = make_engine(root / "old-startup.db")
+        try:
+            run_migrations(engine, old_migrations)
+            error, calls = production_startup_result(engine)
+            if error is None:
+                raise AssertionError(
+                    "production startup accepted database missing migration 0019; "
+                    f"reached side effects: {calls}"
+                )
+            if calls:
+                raise AssertionError(f"outdated production startup reached side effects before failure: {calls}")
+            with engine.connect() as connection:
+                versions = connection.exec_driver_sql("SELECT version FROM schema_migrations ORDER BY version").scalars().all()
+            if versions != EXPECTED_VERSIONS[:-1]:
+                raise AssertionError("production startup changed the migration ledger")
+        finally:
+            engine.dispose()
+
+    print("ok - outdated production startup fails before storage readiness or purge")
+
+
+def test_current_production_startup_verifies_before_side_effects():
+    with tempfile.TemporaryDirectory() as directory:
+        engine = make_engine(Path(directory) / "current-startup.db")
+        try:
+            run_migrations(engine)
+            error, calls = production_startup_result(engine)
+            if error is not None:
+                raise AssertionError("current production database could not start") from error
+            if calls != ["storage_readiness", "initial_purge", "periodic_purge"]:
+                raise AssertionError(f"current startup changed storage/purge ordering: {calls}")
+            assert_migration_recorded(engine)
+
+            error, calls = production_startup_result(engine, auto_migrate=True)
+            if error is None or calls:
+                raise AssertionError("production AUTO_MIGRATE=true must fail before migrations or side effects")
+            assert_migration_recorded(engine)
+        finally:
+            engine.dispose()
+
+    print("ok - current production startup verifies safely and rejects automatic migration")
+
+
+def verify_with_sqlite_writes_disabled(engine, migrations_dir=None):
+    from app.migrations import verify_migrations
+
+    with engine.connect() as connection:
+        connection.exec_driver_sql("PRAGMA query_only = ON")
+        try:
+            if migrations_dir is None:
+                return verify_migrations(connection)
+            return verify_migrations(connection, migrations_dir)
+        finally:
+            connection.exec_driver_sql("PRAGMA query_only = OFF")
+
+
+def assert_verification_rejected(label, engine, migrations_dir=None):
+    from app.migrations import MigrationError
+
+    try:
+        verify_with_sqlite_writes_disabled(engine, migrations_dir)
+    except MigrationError:
+        return
+    raise AssertionError(f"{label}: expected read-only migration verification to fail")
+
+
+def test_read_only_migration_verifier():
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        engine = make_engine(root / "verification.db")
+        try:
+            assert_verification_rejected("missing migration ledger", engine)
+            if inspect(engine).get_table_names():
+                raise AssertionError("verification created tables in an unmigrated database")
+
+            old_migrations = root / "before-report-purpose"
+            copy_migrations_before_0019(old_migrations)
+            run_migrations(engine, old_migrations)
+            assert_verification_rejected("missing final migration", engine)
+            with engine.connect() as connection:
+                versions = connection.exec_driver_sql("SELECT version FROM schema_migrations ORDER BY version").scalars().all()
+            if versions != EXPECTED_VERSIONS[:-1]:
+                raise AssertionError("verification applied a missing migration")
+
+            run_migrations(engine)
+            if verify_with_sqlite_writes_disabled(engine) is not None:
+                raise AssertionError("current migration verification must complete without a write result")
+            assert_migration_recorded(engine)
+
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "UPDATE schema_migrations SET checksum = 'changed-checksum' WHERE version = ?",
+                    (EXPECTED_VERSIONS[4],),
+                )
+            assert_verification_rejected("changed migration checksum", engine)
+            error, calls = production_startup_result(engine)
+            if error is None or calls:
+                raise AssertionError("checksum mismatch must block production startup before side effects")
+            with engine.connect() as connection:
+                checksum = connection.exec_driver_sql(
+                    "SELECT checksum FROM schema_migrations WHERE version = ?",
+                    (EXPECTED_VERSIONS[4],),
+                ).scalar_one()
+            if checksum != "changed-checksum":
+                raise AssertionError("verification repaired a changed checksum")
+        finally:
+            engine.dispose()
+
+        engine = make_engine(root / "future-and-manifest.db")
+        try:
+            run_migrations(engine)
+            with engine.begin() as connection:
+                connection.exec_driver_sql(
+                    "INSERT INTO schema_migrations (version, name, checksum, applied_at) VALUES (?, ?, ?, ?)",
+                    ("9999_future_schema", "9999_future_schema.py", "future-checksum", "2026-09-07T00:00:00Z"),
+                )
+            assert_verification_rejected("unknown future migration", engine)
+            error, calls = production_startup_result(engine)
+            if error is None or calls:
+                raise AssertionError("unknown future migration must block startup before side effects")
+            with engine.connect() as connection:
+                future_row = connection.exec_driver_sql(
+                    "SELECT checksum FROM schema_migrations WHERE version = '9999_future_schema'"
+                ).scalar_one()
+            if future_row != "future-checksum":
+                raise AssertionError("verification changed an unknown future migration")
+
+            # An empty ledger plus empty bundle must not be mistaken for a match.
+            with engine.begin() as connection:
+                connection.exec_driver_sql("DELETE FROM schema_migrations")
+            assert_verification_rejected("empty applied migration ledger", engine)
+            empty_manifest = root / "empty-manifest"
+            empty_manifest.mkdir()
+            assert_verification_rejected("empty bundled migration manifest", engine, empty_manifest)
+            assert_verification_rejected("missing bundled migration directory", engine, root / "missing-manifest")
+        finally:
+            engine.dispose()
+
+    print("ok - read-only migration verification rejects missing, changed, future, and absent migration manifests")
+
+
+def migration_check_command(engine):
+    from app import database, migrations
+
+    def enable_read_only(dbapi_connection, _connection_record, _connection_proxy):
+        dbapi_connection.execute("PRAGMA query_only = ON")
+
+    output = StringIO()
+    event.listen(engine, "checkout", enable_read_only)
+    try:
+        with (
+            patch.object(database, "engine", engine),
+            patch.object(sys, "argv", ["app.migrations", "--check"]),
+            patch.object(migrations, "run_migrations", side_effect=AssertionError("--check dispatched migration writes")),
+            redirect_stdout(output),
+        ):
+            return migrations.main(), output.getvalue()
+    finally:
+        event.remove(engine, "checkout", enable_read_only)
+        with engine.connect() as connection:
+            connection.exec_driver_sql("PRAGMA query_only = OFF")
+
+
+def test_migration_check_cli_is_read_only():
+    from app.migrations import MigrationError
+
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        engine = make_engine(root / "check-command.db")
+        try:
+            try:
+                migration_check_command(engine)
+            except MigrationError:
+                pass
+            else:
+                raise AssertionError("--check succeeded without a migration ledger")
+            if inspect(engine).get_table_names():
+                raise AssertionError("--check created tables instead of only checking")
+
+            old_migrations = root / "before-report-purpose"
+            copy_migrations_before_0019(old_migrations)
+            run_migrations(engine, old_migrations)
+            try:
+                migration_check_command(engine)
+            except MigrationError:
+                pass
+            else:
+                raise AssertionError("--check succeeded while migration 0019 was pending")
+            with engine.connect() as connection:
+                versions = connection.exec_driver_sql("SELECT version FROM schema_migrations ORDER BY version").scalars().all()
+            if versions != EXPECTED_VERSIONS[:-1]:
+                raise AssertionError("--check applied a pending migration")
+
+            run_migrations(engine)
+            with engine.connect() as connection:
+                before = connection.exec_driver_sql("SELECT * FROM schema_migrations ORDER BY version").all()
+            exit_code, output = migration_check_command(engine)
+            if exit_code != 0 or "Database migrations match this backend release" not in output:
+                raise AssertionError("--check did not report a matching current database")
+            with engine.connect() as connection:
+                after = connection.exec_driver_sql("SELECT * FROM schema_migrations ORDER BY version").all()
+            if after != before:
+                raise AssertionError("--check changed current migration history")
+        finally:
+            engine.dispose()
+
+    print("ok - migration --check CLI succeeds only for current history without writing")
+
+
+def test_migration_runner_checks_history_before_pending_upgrades():
+    from app.migrations import MigrationError
+
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        for incompatible_history in ("checksum", "unknown"):
+            engine = make_engine(root / f"runner-{incompatible_history}.db")
+            try:
+                run_migrations(engine)
+                with engine.begin() as connection:
+                    # A missing early migration would run before discovering a
+                    # later mismatch in a check-as-you-go migration loop.
+                    connection.exec_driver_sql(
+                        "DELETE FROM schema_migrations WHERE version = ?", (EXPECTED_VERSIONS[0],)
+                    )
+                    if incompatible_history == "checksum":
+                        connection.exec_driver_sql(
+                            "UPDATE schema_migrations SET checksum = 'changed-checksum' WHERE version = ?",
+                            (EXPECTED_VERSIONS[-1],),
+                        )
+                    else:
+                        connection.exec_driver_sql(
+                            "INSERT INTO schema_migrations (version, name, checksum, applied_at) VALUES (?, ?, ?, ?)",
+                            ("9999_future_schema", "9999_future_schema.py", "future-checksum", "2026-09-07T00:00:00Z"),
+                        )
+                    before = connection.exec_driver_sql("SELECT * FROM schema_migrations ORDER BY version").all()
+
+                attempted_upgrades = []
+
+                def record_upgrade_writes(_connection, _cursor, statement, _parameters, _context, _executemany):
+                    normalized = " ".join(statement.split()).upper()
+                    if normalized.startswith("CREATE TABLE IF NOT EXISTS SCHEMA_MIGRATIONS"):
+                        return
+                    if normalized.split(" ", 1)[0] in {"CREATE", "ALTER", "DROP", "INSERT", "UPDATE", "DELETE", "REPLACE"}:
+                        attempted_upgrades.append(normalized)
+
+                event.listen(engine, "before_cursor_execute", record_upgrade_writes)
+                try:
+                    try:
+                        run_migrations(engine)
+                    except MigrationError:
+                        pass
+                    else:
+                        raise AssertionError(f"migration runner accepted {incompatible_history} history")
+                finally:
+                    event.remove(engine, "before_cursor_execute", record_upgrade_writes)
+                if attempted_upgrades:
+                    raise AssertionError(f"migration runner attempted upgrades before rejecting {incompatible_history} history")
+                with engine.connect() as connection:
+                    after = connection.exec_driver_sql("SELECT * FROM schema_migrations ORDER BY version").all()
+                if after != before:
+                    raise AssertionError(f"migration runner changed {incompatible_history} history")
+            finally:
+                engine.dispose()
+
+    print("ok - migration runner rejects unknown and changed history before pending upgrades")
 
 
 def test_fresh_database():
@@ -1451,6 +1762,11 @@ def test_rubbish_bin_purge():
 
 def main():
     test_postgres_statement_adaptation()
+    test_production_startup_rejects_unmigrated_database_before_side_effects()
+    test_current_production_startup_verifies_before_side_effects()
+    test_read_only_migration_verifier()
+    test_migration_check_cli_is_read_only()
+    test_migration_runner_checks_history_before_pending_upgrades()
     test_fresh_database()
     test_legacy_database()
     test_report_review_workflow_migration()

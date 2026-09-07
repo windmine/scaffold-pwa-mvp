@@ -163,6 +163,14 @@ check('Chinese catalogue fully translates high-value UI labels instead of mixed 
 )));
 
 check('Chinese catalogue covers report-only shell, history, and workflow terminology', () => [
+  ['Keep draft and start new report', /\b(?:Keep|draft|start|report)\b/i],
+  ['Saved draft is read-only because the Report Template changed.', /\b(?:Saved|draft|Report|Template|changed)\b/i],
+  ['Report Template changed. Keep this draft in My Reports before starting a new report. Nothing will be submitted automatically.', /\b(?:Report|Template|Keep|draft|automatically)\b/i],
+  ['Saved draft only. This copy will not sync. Complete a new report with the current template.', /\b(?:Saved|draft|copy|sync|Complete|template)\b/i],
+  ['Original draft kept in My Reports. Complete a new report with the current template.', /\b(?:Original|draft|Reports|Complete|template)\b/i],
+  ['Report Template changed. Review the saved report and submit a new report with the current template.', /\b(?:Report|Template|changed|saved|current)\b/i],
+  ['Report Template changed. Your report is saved on this device. Open My Reports to review the original answers and evidence, then submit a new report with the current template.', /\b(?:Report|Template|saved|original|answers|evidence|current)\b/i],
+  ['Your original answers and evidence are kept below. Open New Report and complete the current template. Keep this saved copy until the new report is submitted.', /\b(?:original|answers|evidence|Report|template|copy|submitted)\b/i],
   ['Report navigation', /\b(?:Report|navigation)\b/i],
   ['Template, answer, status', /\b(?:Template|answer|status)\b/i],
   ['Worker, template, answer', /\b(?:Worker|template|answer)\b/i],
@@ -193,6 +201,7 @@ check('Chinese catalogue covers report-only shell, history, and workflow termino
   ['Reconnect before exporting Reports.', /\b(?:Reconnect|before|exporting|Reports)\b/i],
   ['Could not export Reports.', /\b(?:Could|export|Reports)\b/i],
   ['Report Date is required', /\b(?:Report|Date|required)\b/i],
+  ['Report Date must be a valid calendar date in YYYY-MM-DD format', /\b(?:Report|Date|valid|calendar|format)\b/i],
   ['Report Templates can include up to 40 fields', /\b(?:Report|Templates|include|fields)\b/i],
   ['Reports can include up to 6 photos', /\b(?:Reports|include|photos)\b/i],
   [
@@ -604,7 +613,9 @@ check('action feedback separates sync, system, toast, local, field, and busy sta
 check('authenticated Site loading never falls back to seeded demo Sites', () => (
   !sourceApp.includes('getSites as getLocalSites')
   && !sourceApp.includes('return await getLocalSites()')
-  && sourceApp.includes('if (!state.user) return [];')
+  && sourceApp.includes('const requestUser = state.user;')
+  && sourceApp.includes('if (!requestUser) return [];')
+  && sourceApp.includes('if (state.user !== requestUser) return [];')
   && sourceApp.includes("'No sites available'")
   && sourceApp.includes("'Sites unavailable - reconnect and try again'")
 ));
@@ -952,7 +963,8 @@ check('cold offline launch restores only Worker-scoped cached Site and attendanc
   const fetchHandler = sourceWorker.match(/self\.addEventListener\('fetch'[\s\S]*?\n}\);/)?.[0] || '';
   return sourceApp.includes("from './offline-site-snapshot.js'")
     && sourceApp.includes("from './offline-attendance-snapshot.js'")
-    && sourceApp.includes('await saveWorkerSiteSnapshot(state.user, sites)')
+    && sourceApp.includes('await saveWorkerSiteSnapshot(requestUser, sites)')
+    && sourceApp.includes('if (state.user !== requestUser) return [];')
     && sourceApp.includes('await loadWorkerSiteSnapshot(state.user)')
     && sourceApp.includes('discardWorkerOfflineSnapshots')
     && sourceOfflineSiteSnapshot.includes("const SNAPSHOT_KEY_PREFIX = 'worker-site-snapshot'")

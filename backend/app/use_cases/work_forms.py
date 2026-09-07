@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import update
@@ -28,7 +28,6 @@ from app.use_cases.common import (
     validate_work_form_answers,
     work_form_upload_references,
     work_form_definition,
-    work_form_definition_snapshot_json,
     work_form_response,
     work_form_submission_response,
 )
@@ -180,11 +179,38 @@ def create_work_form_submission(data, user: User, session: Session):
         raise HTTPException(status_code=404, detail="Report Template not found")
     if (form.template_purpose or "report") == "daywork":
         require_leader(user)
-    if (form.template_purpose or "report") == "report" and not data.work_date:
-        raise HTTPException(status_code=400, detail="Report Date is required")
+    if (form.template_purpose or "report") == "report":
+        if not data.work_date:
+            raise HTTPException(status_code=400, detail="Report Date is required")
+        try:
+            date.fromisoformat(data.work_date)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="Report Date must be a valid calendar date in YYYY-MM-DD format",
+            ) from exc
 
-    ensure_site_exists(session, data.site_id, user)
     definition = work_form_definition(form)
+    if (form.template_purpose or "report") == "report":
+        expected_version = data.expected_definition_version
+        # Older queues did not capture a version. They are safe only while the
+        # Template is still its original, unedited definition.
+        if (
+            expected_version is not None and expected_version != definition["version"]
+        ) or (expected_version is None and definition["version"] != 1):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "report_template_version_conflict",
+                    "message": (
+                        "Report Template changed. Review the saved report and submit "
+                        "a new report with the current template."
+                    ),
+                    "expected_definition_version": expected_version,
+                    "current_definition_version": definition["version"],
+                },
+            )
+    ensure_site_exists(session, data.site_id, user)
     answers = validate_work_form_answers(definition, data.answers)
     photo_urls = normalize_work_form_photo_urls(data.photo_urls)
     photo_metadata = normalize_work_form_photo_metadata(photo_urls, data.photo_metadata)
@@ -202,7 +228,7 @@ def create_work_form_submission(data, user: User, session: Session):
         work_date=data.work_date,
         answers_json=json.dumps(answers),
         form_definition_version=definition["version"],
-        definition_snapshot_json=work_form_definition_snapshot_json(form),
+        definition_snapshot_json=json.dumps(definition, separators=(",", ":"), sort_keys=True),
         photo_urls=json.dumps(photo_urls) if photo_urls else None,
         photo_metadata=json.dumps(photo_metadata) if photo_metadata else None,
         client_submission_id=client_submission_id,
