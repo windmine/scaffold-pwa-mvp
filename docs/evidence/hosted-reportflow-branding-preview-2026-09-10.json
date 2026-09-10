@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "origin": "https://geo-attendance-system-db9ca--reportflow-20260910-0312-5rs3ddps.web.app",
+  "target": "preview",
+  "sourceCommit": "81a8820b2ed715184e29e5389490d85c4da65d2c",
+  "scope": "Anonymous read-only Chromium branding and install metadata; service workers blocked; not physical-phone, authenticated workflow or PWA update proof",
+  "startedAtUtc": "2026-09-10T03:13:21.421Z",
+  "status": "passed",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "icons": [
+    {
+      "src": "/assets/icons/reportflow-192.png",
+      "dimensions": "192x192",
+      "bytes": 4397,
+      "status": 200
+    },
+    {
+      "src": "/assets/icons/reportflow-512.png",
+      "dimensions": "512x512",
+      "bytes": 11224,
+      "status": 200
+    },
+    {
+      "src": "/assets/icons/reportflow-maskable-512.png",
+      "dimensions": "512x512",
+      "bytes": 6354,
+      "status": 200
+    },
+    {
+      "src": "/assets/icons/reportflow-apple-touch-180.png",
+      "dimensions": "180x180",
+      "bytes": 2569,
+      "status": 200
+    }
+  ],
+  "blockedWriteAttempts": [],
+  "pageErrors": [],
+  "page": {
+    "title": "ReportFlow",
+    "h1": "ReportFlow",
+    "logo": {
+      "src": "/assets/icons/reportflow-icon.svg",
+      "alt": "ReportFlow",
+      "complete": true,
+      "naturalWidth": 150
+    },
+    "reportOnly": true,
+    "manifest": "/manifest.webmanifest",
+    "favicon": "/assets/icons/reportflow-icon.svg",
+    "appleTitle": "ReportFlow",
+    "appleIcon": "/assets/icons/reportflow-apple-touch-180.png",
+    "horizontalOverflow": 0
+  },
+  "manifest": {
+    "name": "ReportFlow",
+    "short_name": "ReportFlow",
+    "start_url": "/index.html",
+    "scope": "/",
+    "display": "standalone",
+    "idAbsent": true,
+    "icons": [
+      {
+        "src": "/assets/icons/reportflow-192.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      },
+      {
+        "src": "/assets/icons/reportflow-512.png",
+        "sizes": "512x512",
+        "type": "image/png"
+      },
+      {
+        "src": "/assets/icons/reportflow-maskable-512.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "maskable"
+      }
+    ]
+  },
+  "screenshot": "hosted-reportflow-branding-preview-2026-09-10.png",
+  "completedAtUtc": "2026-09-10T03:13:22.425Z"
+}

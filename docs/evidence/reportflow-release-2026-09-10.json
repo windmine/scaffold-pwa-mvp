@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "scope": "Frontend-only ReportFlow product name and PWA icon release; includes the previously released Mutual defaults and responsive layouts",
+  "projectId": "geo-attendance-system-db9ca",
+  "region": "australia-southeast1",
+  "source": {
+    "commit": "81a8820b2ed715184e29e5389490d85c4da65d2c",
+    "branch": "codex/report-submission-mvp",
+    "workingTreeChangesIncluded": false,
+    "sourceCacheVersion": "leader-field-59651b5d2155",
+    "productionCacheVersion": "leader-field-180908b1b0bf",
+    "note": "Source was committed with a clean working tree before preview deployment. The verified dist build was frozen through promotion; this release record and documentation are committed afterward."
+  },
+  "previousHostingVersion": "964d7c266db0dd2d",
+  "preview": {
+    "channel": "reportflow-20260910-0312",
+    "url": "https://geo-attendance-system-db9ca--reportflow-20260910-0312-5rs3ddps.web.app",
+    "version": "549d17a081d3e606",
+    "releaseTime": "2026-09-10T03:12:00.797Z",
+    "expireTime": "2026-09-17T03:11:53.143594530Z",
+    "evidence": "hosted-reportflow-preview-2026-09-10.json",
+    "brandingEvidence": "hosted-reportflow-branding-preview-2026-09-10.json"
+  },
+  "hosting": {
+    "url": "https://geo-attendance-system-db9ca.web.app",
+    "version": "549d17a081d3e606",
+    "releaseName": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/live/releases/1789010040197000",
+    "releaseTime": "2026-09-10T03:14:00.197Z",
+    "exactPreviewVersionCloned": true,
+    "evidence": "hosted-reportflow-live-2026-09-10.json",
+    "brandingEvidence": "hosted-reportflow-branding-live-2026-09-10.json",
+    "indexSha256": "71b04c27c6809a392bfc5343462c1e6a082081a4e0765546bf6075ca70de893a",
+    "swSha256": "897445c20f51c47f549317723568a12783d75281e37730fe0140adef30a3847e"
+  },
+  "backend": {
+    "revision": "geo-backend-report-release-202609070416",
+    "trafficPercent": 100,
+    "migrationHead": "0020_missing_snapshot_daywork_correction",
+    "changed": false,
+    "migrationsExecuted": false,
+    "uploadConfigurationChanged": false,
+    "apiAndUploadRewrites": "geo-backend in australia-southeast1",
+    "errorLogObservation": {
+      "filterFromUtc": "2026-09-10T03:11:00Z",
+      "checkedByUtc": "2026-09-10T03:15:14Z",
+      "observedErrorOrHttp5xxEntries": 0,
+      "note": "Short read-only Cloud Logging observation, not a sustained production-load test."
+    }
+  },
+  "checks": {
+    "lint": "passed",
+    "build": "passed; existing bundle-size warning retained",
+    "departmentDefaultAssertions": 26,
+    "playwrightWorkflows": 44,
+    "responsiveWidths": [320, 390, 768, 1280],
+    "responsiveThemes": ["light", "dark"],
+    "localBrandingAcrossRolesAndLanguages": "passed",
+    "iconGenerationRepeatabilityAndMaskableSafeArea": "passed",
+    "staticPwaPreflight": "passed",
+    "reviewQueueAndReportChecks": "passed",
+    "productionNpmAuditFindings": 0,
+    "pythonDependencyConsistency": "passed",
+    "strictProductionHardening": {
+      "status": "passed",
+      "command": "pwsh -NoProfile -File scripts/check-production-hardening.ps1 -BillingAccount 0123B1-051D70-935F73",
+      "allowIncidentOnlyMonitoring": false,
+      "releasePhase": "Current",
+      "warnings": ["Neon recovery retention remains six hours on the temporarily retained Free plan."],
+      "note": "Existing recent exact-ledger recovery and recipient-confirmed alert evidence were revalidated, with budget verification. No new restore drill or alert was triggered."
+    },
+    "previewAndLiveAssetsEach": 53,
+    "previewAndLiveReadinessProbesEach": 5,
+    "anonymousProtectedRoutesEach": 3,
+    "coldOfflineShell": "passed on preview and live",
+    "realWaitingUpdate": "hosted-reportflow-waiting-update-2026-09-10.json",
+    "realWaitingUpdateCompletedAtUtc": "2026-09-10T03:14:16.602Z",
+    "liveReportFlowLoginVisuallyVerified": true,
+    "hostedAuthenticatedWorkflowRerun": false
+  },
+  "dataSafety": {
+    "manifestUrlStartUrlScopeAndServiceWorkerRegistrationChanged": false,
+    "persistentStorageNamespacesChanged": false,
+    "existingAccountDepartmentsAndSavedScopesChanged": false,
+    "productionFixtureMutations": false,
+    "firebaseAuthAuthorizedDomainsChanged": false,
+    "firestoreStorageAndAuthRulesDeployed": false,
+    "olderSqliteDemoPreviewChanged": false,
+    "backendExportBrandingChanged": false
+  },
+  "rollback": {
+    "verifiedPreviousVersion": "964d7c266db0dd2d",
+    "retainedChannel": "mutual-ui-20260910-0120",
+    "retainedChannelExpires": "2026-09-17T01:20:57.586544889Z",
+    "instruction": "Reverify the retained channel still contains the previous version, then clone only that Hosting channel to live. Leave the compatible backend and database unchanged."
+  },
+  "limitations": [
+    "Hosted checks for this release were anonymous/read-only; authenticated branding and workflows passed locally, not through production accounts in this release.",
+    "Physical-phone name/icon refresh, native keyboard/date picker, upload and installed-PWA checks remain pending. Home-screen metadata refresh depends on browser/OS; do not clear storage or uninstall with unsynced Reports.",
+    "Single-use Worker invitations, least-privilege Neon runtime access, loaded pool/scale sizing and longer recovery remain controlled-pilot follow-ups.",
+    "Server-generated Report export branding and retained full-interface company assets were intentionally unchanged."
+  ]
+}
