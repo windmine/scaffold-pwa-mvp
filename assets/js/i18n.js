@@ -2,6 +2,7 @@ const LANGUAGE_STORAGE_KEY = 'leader-language';
 const DEFAULT_LANGUAGE = 'en';
 const SUPPORTED_LANGUAGES = new Set(['en', 'zh']);
 const PROTECTED_COMPANY_NAMES = new Set([
+  'ReportFlow',
   'Leader',
   'Leader Field',
   'Leader Field Operations',
@@ -21,14 +22,14 @@ const PROTECTED_TECHNICAL_TEXT = new Set([
 const LANGUAGE_META = {
   en: {
     htmlLang: 'en-NZ',
-    title: 'Leader Field Reports',
+    title: 'ReportFlow',
     toggleText: '中文',
     toggleLabel: 'Switch language to Chinese',
     toggleTitle: 'Switch language to Chinese'
   },
   zh: {
     htmlLang: 'zh-Hans',
-    title: 'Leader 现场报告',
+    title: 'ReportFlow',
     toggleText: 'English',
     toggleLabel: '切换语言为英文',
     toggleTitle: '切换语言为英文'

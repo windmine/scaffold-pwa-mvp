@@ -1,6 +1,6 @@
-# Leader Field Operations
+# ReportFlow
 
-Mobile-first Report submission and review MVP for Leader Scaffolding-style operations.
+Company-neutral, mobile-first Report submission and review MVP.
 
 The production-default interface is intentionally narrow: every active Worker can submit a supervisor-defined Report from a phone, including photos and handwritten signatures, then follow it through **Submitted**, **In review**, and **Resolved**. Supervisors review Reports, manage Report Templates, and manage Staff from phone or desktop widths. The broader geo-attendance, Daywork, Site, analytics, and audit modules remain in the repository behind a reversible interface flag; payroll remains planned. None is part of the current visible product flow.
 
@@ -29,7 +29,23 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
-## Current Live Release - Report-Only MVP, 2026-09-07
+## Local Branding Update - ReportFlow (not deployed)
+
+The local PWA now uses **ReportFlow** in its browser title, report-only header, English/Chinese interface, offline page, manifest and iPhone install title. Its icon is a white report sheet with a bold checkmark on deep blue. Report-only sessions use the same product brand for every Department; the Mutual new-Staff default, actual Department labels, permissions, saved dashboard scope and existing records are unchanged. This is an app/install-branding update; server-generated Report export branding is unchanged.
+
+`assets/icons/reportflow-icon.svg` is the canonical artwork. `npm run generate:icons` renders 192px/512px PNGs, a full-bleed maskable 512px icon, and a full-bleed 180px Apple touch icon using the existing Playwright dependency; it also refreshes `public/favicon.svg`. The maskable mark fits the central safe area. Run `npm run build` afterward to regenerate the PWA shell. Fresh ReportFlow asset paths replace the previous install-icon URLs without deleting retained legacy assets.
+
+The manifest URL, `start_url`, `scope`, service-worker registration and internal storage/cache namespaces are unchanged so the rename does not create a separate app identity or discard sessions/drafts/queued Reports. After a future deployment, home-screen name/icon refresh timing remains browser/OS-dependent; do not clear storage or uninstall while unsynced Reports remain. **The live version below still serves the preceding branding until ReportFlow is separately published.**
+
+## Current Live Release - Mutual Defaults and Layout, 2026-09-10
+
+The [live app](https://geo-attendance-system-db9ca.web.app) now serves the Mutual default branding/new-Staff selection and compact Report layouts as Firebase Hosting version `964d7c266db0dd2d`, cloned from the verified preview at **2026-09-10 01:22:50 UTC**. Existing account Departments and saved dashboard scopes are unchanged. Backend `geo-backend-report-release-202609070416`, migrations through `0020`, uploads, and Hosting API rewrites are unchanged. [Release record](docs/evidence/mutual-ui-release-2026-09-10.json).
+
+Lint, build, Department-default tests, all **44 local Chromium workflows**, static PWA checks, Report/review checks, production dependency audit, Python dependency consistency, and the strict production-hardening gate passed. [Preview](docs/evidence/hosted-mutual-preview-2026-09-10.json) and [live](docs/evidence/hosted-mutual-live-2026-09-10.json) each passed all 48 generated shell hashes, five database/migration/GCS readiness probes, anonymous isolation, and cold-offline launch. The real old-to-new [Update App transition](docs/evidence/hosted-mutual-waiting-update-2026-09-10.json) passed. This release's hosted checks were anonymous/read-only; authenticated defaults/layouts were exercised locally. Physical-phone testing remains pending, and the existing six-hour Neon recovery warning remains.
+
+The [matching preview](https://geo-attendance-system-db9ca--mutual-ui-20260910-0120-mqfo0fru.web.app) expires **2026-09-17 01:20:57 UTC**. The prior `f27b6a46dae98c71` frontend remains available through the September 7 release channel until its recorded expiry; reverify that exact version before any frontend-only rollback.
+
+## Previous Coupled Release - Report-Only MVP, 2026-09-07
 
 The report-only app is now [live on Firebase Hosting](https://geo-attendance-system-db9ca.web.app). Production migrations `0018`–`0020` completed before backend revision `geo-backend-report-release-202609070416` became healthy and served live traffic at 04:17:15 UTC. A fresh full-`0020` `Current` recovery proof and the strict hardening gate passed before exact Hosting version `f27b6a46dae98c71` was cloned live at 04:20:33 UTC. The temporary maintenance/drain window has ended. [Release record](docs/evidence/report-release-2026-09-07.json).
 
@@ -153,12 +169,15 @@ Do not store uploaded photos or signatures in Cloud SQL. Store files in Cloud St
 
 - App UI defaults to English and includes a prominent top-bar language toggle for Simplified Chinese.
 - Users belong to one department: Leader, Mutual, MC, Stech, BOP.
+- The local report-only app uses the company-neutral **ReportFlow** name/icon for every session. Department identity remains visible as account information, not product branding. Department-specific logos remain only in the retained full-interface override; the current live branding is recorded above.
+- New Staff defaults to Mutual when a global admin is viewing all Departments; an explicit Department focus takes precedence. Department supervisors remain locked to their own Department. Existing accounts, Report ownership, and saved dashboard defaults (including **All departments**) are not changed. The dormant verified-registration form also preselects Mutual when available; public registration remains hidden.
 - The signed-in header shows the user's group and highlights super-admin access.
 - Department supervisors see and manage only their own department data; global admins can manage all departments.
 - Global admins can focus the supervisor dashboard on one department or all departments and save either view as their dashboard default. This preference is separate from the account's home department, which continues to control ownership of newly created department records.
 
 ### Current report-only interface
 
+- The September 10 live UI update uses a compact phone header, side-by-side Report Date/Site fields when space permits, smaller history/review toolbars, and light/dark responsive filters. Selected dates remain fully readable at 320px; the final Submit action stays above the fixed bottom navigation.
 - Workers see **New Report**, **My Reports**, and their account/logout controls. Attendance, Daywork, weekly team logs, and missing-site controls are hidden.
 - Supervisors see **Reports**, **Report Templates**, and **Staff**. Maps, analytics, Sites, audit/recovery, manual attendance, task-log entry, and the unrelated export workspace are hidden.
 - Worker history and the Supervisor report queue request `purpose=report`. Retained Legacy Daywork templates and submissions do not leak into New Report, My Reports, Supervisor Reports, or Report collection exports.
@@ -852,6 +871,8 @@ GET  /departments
 ```
 
 `GET /departments` returns the fixed active department list: Leader, Mutual, MC, Stech, BOP.
+
+The frontend resolves the Mutual default by Department name in the available list, not by a hardcoded ID. Run `npm run check:departments` for the pure default-selection/permission-boundary regressions; this check is also part of `npm run check:mobile`.
 `POST /auth/refresh` renews the HttpOnly `__session` cookie and readable CSRF cookie for an authenticated browser session.
 
 Public self-registration is temporarily hidden during the invited-account pilot. Supervisors create and activate pilot users from Staff users. The registration endpoints remain callable for a later re-enable, but they are not exposed in the UI or supported as the current pilot onboarding path. They implement three API steps plus Supervisor activation:
@@ -1186,7 +1207,9 @@ Historical report-only local validation on 2026-09-01 (superseded by the 2026-09
 
 `npm.cmd run check:review-queue` verifies Review Record export dispatch, durable-only export guards, cursor pagination, query filters and snapshots, department scope, atomic pending-only decisions, audit comments, decision-bypass protection, and the focused Report submission/review contract. The Report checks cover normal-Worker submission, private My Reports history, optional Site, replay deduplication, archived templates, Department-scoped Supervisors, immutable content, required resolution notes, invalid transitions, audit history, and concurrent Supervisor actions.
 
-`npm.cmd run check:mobile` first builds the production PWA, runs the static PWA/mobile preflight, and then runs 42 Playwright Chromium workflow checks at a default 390 × 844 mobile viewport. The report workflow verifies the production-default Worker and Supervisor navigation, report-only filters, required Report Date, optional Site, normal-Worker submission, private history, forward-only Supervisor transitions, final note, and phone-width Template/Staff access. Focused replay checks prove a Report with one photo and two nested signatures resumes after a partial upload failure, reuses completed uploads and its client submission id on a forced second replay, appears exactly once in **My Reports**, and does not replay hidden legacy record types in report-only mode. Additional boundaries cover offline private history, shared-device session races, lossless recovery after Template changes, calendar-valid Report Dates, and explicit Report purpose overriding legacy name heuristics. The retained full-interface checks use a test-only pre-load override so attendance, Daywork, weekly logs, maps, analytics, and other reversible modules keep regression coverage while remaining hidden in the shipped shell. The browser check starts a temporary backend, a lightweight Node source/proxy server, and a Vite production preview on `127.0.0.1:8765`, `127.0.0.1:5175`, and `127.0.0.1:4175`, with a throwaway SQLite database and upload folder. The source server preserves shared unbundled-module state without relying on Vite's development watcher, and the runner fails immediately with recent process output if a managed server exits. Override those ports with `BROWSER_WORKFLOW_BACKEND_PORT`, `BROWSER_WORKFLOW_FRONTEND_PORT`, or `BROWSER_WORKFLOW_PREVIEW_PORT` if needed.
+`npm.cmd run check:mobile` first builds the production PWA, runs the Department-default tests and static PWA/mobile preflight, and then runs 44 Playwright Chromium workflow checks at a default 390 × 844 mobile viewport. The report workflow verifies the production-default Worker and Supervisor navigation, report-only filters, required Report Date, optional Site, normal-Worker submission, private history, forward-only Supervisor transitions, final note, and phone-width Template/Staff access. Focused replay checks prove a Report with one photo and two nested signatures resumes after a partial upload failure, reuses completed uploads and its client submission id on a forced second replay, appears exactly once in **My Reports**, and does not replay hidden legacy record types in report-only mode. Additional boundaries cover offline private history, shared-device session races, lossless recovery after Template changes, calendar-valid Report Dates, and explicit Report purpose overriding legacy name heuristics. The retained full-interface checks use a test-only pre-load override so attendance, Daywork, weekly logs, maps, analytics, and other reversible modules keep regression coverage while remaining hidden in the shipped shell. The browser check starts a temporary backend, a lightweight Node source/proxy server, and a Vite production preview on `127.0.0.1:8765`, `127.0.0.1:5175`, and `127.0.0.1:4175`, with a throwaway SQLite database and upload folder. The source server preserves shared unbundled-module state without relying on Vite's development watcher, and the runner fails immediately with recent process output if a managed server exits. Override those ports with `BROWSER_WORKFLOW_BACKEND_PORT`, `BROWSER_WORKFLOW_FRONTEND_PORT`, or `BROWSER_WORKFLOW_PREVIEW_PORT` if needed.
+
+The two Department/layout regressions verify Mutual defaults without changing existing accounts or saved scope, plus New Report, My Reports, and Supervisor Reports at 320/390/768/1280px in light and dark themes. They check 44px controls, readable selected dates, page overflow, and the Submit action above the fixed bottom navigation. Set `BROWSER_WORKFLOW_SCREENSHOT_DIR` to an output directory to save the layout screenshots in a fresh `run-*` subdirectory. Physical-phone keyboard and native date-picker behavior still require the hosted device checklist.
 
 `backend/database_test.py` poisons a returned pooled connection and proves the next query succeeds through `pool_pre_ping`. `backend/upload_storage_test.py`, `backend/work_form_definition_test.py`, `backend/report_purpose_test.py`, `backend/report_workflow_test.py`, and `backend/review_queue_test.py` are the focused local/GCS storage-contract, immutable Definition/server-formula, Report-versus-Daywork boundary, Report workflow, and Review Queue policy/query/export test surfaces.
 

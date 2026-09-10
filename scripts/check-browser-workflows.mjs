@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import process from 'node:process';
 
 import { chromium } from 'playwright';
@@ -3467,6 +3467,362 @@ async function checkReconnectPreservesWorkerForms(browser) {
   }
 }
 
+async function checkMutualDepartmentDefaults(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const adminEmail = `mutual-default-admin-${Date.now()}@example.com`;
+  const screenshotRoot = String(process.env.BROWSER_WORKFLOW_SCREENSHOT_DIR || '').trim();
+  let screenshotDirectory = '';
+  if (screenshotRoot) {
+    mkdirSync(resolve(screenshotRoot), { recursive: true });
+    screenshotDirectory = mkdtempSync(join(resolve(screenshotRoot), 'branding-'));
+  }
+  const assertReportFlowBrand = async (phase, departmentName = '') => {
+    for (const language of ['en-NZ', 'zh-Hans']) {
+      if (await page.locator('html').getAttribute('lang') !== language) {
+        await page.locator('#languageToggleButton').click();
+      }
+      await page.waitForFunction((expected) => document.documentElement.lang === expected, language);
+      await page.waitForFunction(() => {
+        const logo = document.querySelector('#brandLogo');
+        return logo?.complete && logo.naturalWidth > 0;
+      });
+      const brand = await page.evaluate(() => ({
+        source: document.querySelector('#brandLogo').getAttribute('src'),
+        alt: document.querySelector('#brandLogo').alt,
+        title: document.title,
+        heading: document.querySelector('.brand-heading h1').textContent.trim(),
+        department: document.querySelector('#userContextGroup').textContent.trim()
+      }));
+      if (brand.source !== '/assets/icons/reportflow-icon.svg' || brand.alt !== 'ReportFlow'
+        || brand.title !== 'ReportFlow' || brand.heading !== 'ReportFlow'
+        || (departmentName && brand.department !== departmentName)) {
+        throw new Error(`${phase} ${language} neutral ReportFlow brand or explicit Department changed: ${JSON.stringify(brand)}`);
+      }
+      if (screenshotDirectory && phase === 'Signed out') {
+        const path = join(screenshotDirectory, `login-${language}.png`);
+        await page.screenshot({ path, fullPage: true, animations: 'disabled' });
+        console.log(`  screenshot: ${path}`);
+      }
+    }
+    await page.locator('#languageToggleButton').click();
+    await page.waitForFunction(() => document.documentElement.lang === 'en-NZ');
+  };
+  const openStaffCreation = async () => {
+    await openAdminWorkspace(page, 'people');
+    await page.locator('#addStaffUserButton').click();
+    await page.locator('#staffUserCreatePanel').waitFor({ state: 'visible' });
+  };
+  const assertStaffDepartment = async (departmentId, locked, phase) => {
+    const selection = await page.locator('#staffDepartmentSelect').evaluate((select) => ({
+      value: select.value, locked: select.disabled
+    }));
+    if (selection.value !== String(departmentId) || selection.locked !== locked) {
+      throw new Error(`${phase} Staff Department was incorrect: ${JSON.stringify(selection)}`);
+    }
+  };
+  try {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.body.dataset.activeView === 'login');
+    await assertReportFlowBrand('Signed out');
+    const installation = await page.evaluate(async () => {
+      const manifestUrl = document.querySelector('link[rel="manifest"]').href;
+      const response = await fetch(manifestUrl);
+      if (!response.ok) throw new Error(`manifest fetch failed: ${response.status}`);
+      return {
+        manifest: await response.json(),
+        appleTitle: document.querySelector('meta[name="apple-mobile-web-app-title"]').content,
+        appleIcon: document.querySelector('link[rel="apple-touch-icon"]').getAttribute('href')
+      };
+    });
+    if (installation.manifest.name !== 'ReportFlow' || installation.manifest.short_name !== 'ReportFlow'
+      || installation.manifest.start_url !== '/index.html' || installation.manifest.scope !== '/'
+      || installation.appleTitle !== 'ReportFlow'
+      || installation.appleIcon !== '/assets/icons/reportflow-apple-touch-180.png') {
+      throw new Error(`ReportFlow installation metadata was inconsistent: ${JSON.stringify(installation)}`);
+    }
+
+    await loginAs(page, 'worker@example.com', 'worker');
+    await assertReportFlowBrand('Leader-class Worker', 'Leader');
+    const worker = await page.evaluate(async () => {
+      const { getSession } = await import('/assets/js/api-client.js');
+      return getSession();
+    });
+    if (worker.departmentName !== 'Leader' || worker.workerClass !== 'leader') {
+      throw new Error('ReportFlow branding replaced an explicitly assigned Worker Department or class');
+    }
+    await logout(page);
+    await assertReportFlowBrand('After logout');
+
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await assertReportFlowBrand('Department-scoped Supervisor', 'Leader');
+    await openStaffCreation();
+    await assertStaffDepartment(worker.departmentId, true, 'Department-scoped Supervisor');
+    await logout(page);
+
+    await loginAs(page, 'admin@example.com', 'supervisor');
+    const departments = await page.evaluate(async ({ email, initialPassword }) => {
+      const { createUser, getDepartments } = await import('/assets/js/api-client.js');
+      const available = await getDepartments();
+      const leader = available.find((department) => department.name === 'Leader');
+      const mutual = available.find((department) => department.name === 'Mutual');
+      if (!leader || !mutual) throw new Error('Department-default regression requires Leader and Mutual fixtures');
+      await createUser({
+        name: 'Department default Global Admin', email, password: initialPassword,
+        role: 'supervisor', department_id: leader.id, is_global_admin: true
+      });
+      return { leader: leader.id, mutual: mutual.id };
+    }, { email: adminEmail, initialPassword: password });
+    await logout(page);
+    await loginAs(page, adminEmail, 'supervisor');
+    await assertReportFlowBrand('Global Admin', 'Leader');
+    await openStaffCreation();
+    await assertStaffDepartment(departments.mutual, false, 'All Departments Global Admin');
+    const initialScope = await page.evaluate(async () => {
+      const { getSession } = await import('/assets/js/api-client.js');
+      return { saved: getSession().dashboardDepartmentId, selected: document.querySelector('#supervisorDepartmentFilter').value };
+    });
+    if (initialScope.saved != null || initialScope.selected !== '') {
+      throw new Error(`Mutual Staff default changed the Global Admin All Departments scope: ${JSON.stringify(initialScope)}`);
+    }
+
+    const staffEmail = `mutual-default-worker-${Date.now()}@example.com`;
+    await page.locator('#staffNameInput').fill('Mutual default Worker');
+    await page.locator('#staffEmailInput').fill(staffEmail);
+    await page.locator('#staffPasswordInput').fill(password);
+    const createdResponsePromise = page.waitForResponse((response) => (
+      response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/supervisor/users'
+    ));
+    await page.locator('#staffUserSubmitButton').click();
+    const createdResponse = await createdResponsePromise;
+    if (!createdResponse.ok()) throw new Error(`default Staff creation failed: ${await createdResponse.text()}`);
+    const created = await createdResponse.json();
+    if (created.department_id !== departments.mutual) {
+      throw new Error(`All Departments Global Admin did not create Staff in Mutual by default: ${JSON.stringify(created)}`);
+    }
+
+    // The saved-focus API is also used by the retained full-interface scope control.
+    // Report-only mode must honour that preference without exposing retained settings.
+    await page.evaluate(async (departmentId) => {
+      const { updateDefaultDepartment } = await import('/assets/js/api-client.js');
+      await updateDefaultDepartment(departmentId);
+    }, departments.leader);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.body.dataset.activeView === 'supervisor');
+    await openStaffCreation();
+    await assertStaffDepartment(departments.leader, false, 'Explicit saved Leader focus');
+    if (await page.locator('#supervisorDepartmentFilter').inputValue() !== String(departments.leader)) {
+      throw new Error('explicit Global Admin Department focus did not survive reload');
+    }
+
+    await page.evaluate(async () => {
+      const { updateDefaultDepartment } = await import('/assets/js/api-client.js');
+      await updateDefaultDepartment(null);
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => document.body.dataset.activeView === 'supervisor');
+    await openStaffCreation();
+    await assertStaffDepartment(departments.mutual, false, 'Restored saved All Departments focus');
+    const restored = await page.evaluate(async () => {
+      const { getSession } = await import('/assets/js/api-client.js');
+      const response = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!response.ok) throw new Error(`account verification failed: ${response.status}`);
+      return {
+        user: await response.json(), saved: getSession().dashboardDepartmentId,
+        selected: document.querySelector('#supervisorDepartmentFilter').value
+      };
+    });
+    if (restored.saved != null || restored.user.dashboard_department_id != null
+      || restored.selected !== '' || restored.user.department_id !== departments.leader) {
+      throw new Error(`saved All Departments scope or account Department was overwritten: ${JSON.stringify(restored)}`);
+    }
+    await logout(page);
+    await loginAs(page, staffEmail, 'worker');
+    await assertReportFlowBrand('Normal Worker', 'Mutual');
+    const normalWorker = await page.evaluate(async () => {
+      const { getSession } = await import('/assets/js/api-client.js');
+      return getSession();
+    });
+    if (normalWorker.workerClass !== 'normal' || normalWorker.departmentId !== departments.mutual) {
+      throw new Error(`ReportFlow branding changed the created normal Worker's account scope: ${JSON.stringify(normalWorker)}`);
+    }
+  } finally {
+    await context.close();
+  }
+
+  const retainedContext = await newContext(browser, { reportOnly: false });
+  try {
+    const retainedPage = await retainedContext.newPage();
+    await loginAs(retainedPage, 'worker@example.com', 'worker');
+    if (await retainedPage.locator('#brandLogo').getAttribute('src') !== '/assets/icons/leader-logo-export.png'
+      || await retainedPage.locator('#userContextGroup').innerText() !== 'Leader') {
+      throw new Error('ReportFlow report-only branding changed the retained full-interface Department logo or label');
+    }
+  } finally {
+    await retainedContext.close();
+  }
+}
+
+async function checkReportOnlyResponsiveLayout(browser) {
+  const context = await newContext(browser, { reportOnly: true, isMobile: false, hasTouch: true });
+  const page = await context.newPage();
+  const workerEmail = `report-layout-${Date.now()}@example.com`;
+  const screenshotRoot = String(process.env.BROWSER_WORKFLOW_SCREENSHOT_DIR || '').trim();
+  let screenshotDirectory = '';
+  if (screenshotRoot) {
+    mkdirSync(resolve(screenshotRoot), { recursive: true });
+    screenshotDirectory = mkdtempSync(join(resolve(screenshotRoot), 'run-'));
+    console.log(`Report layout screenshots: ${screenshotDirectory}`);
+  }
+  const failures = [];
+  const viewports = [
+    { width: 320, height: 844 }, { width: 390, height: 844 },
+    { width: 768, height: 1024 }, { width: 1280, height: 900 }
+  ];
+  const headerTargets = '#languageToggleButton, #themeToggleButton, #logoutButton';
+  const workerTargets = `${headerTargets}, #workerView .tab`;
+  const capture = async (name, fullPage = true) => {
+    if (!screenshotDirectory) return;
+    const path = join(screenshotDirectory, `${name}.png`);
+    await page.screenshot({ path, fullPage, animations: 'disabled' });
+    console.log(`  screenshot: ${path}`);
+  };
+  const checkTargets = async (name, selector) => {
+    const measurements = await page.evaluate((targets) => {
+      const controls = [...document.querySelectorAll(targets)]
+        .filter((element) => element.getClientRects().length)
+        .map((element) => {
+          const rectangle = element.getBoundingClientRect();
+          return {
+            id: element.id || element.getAttribute('data-tab-target') || element.textContent.trim(),
+            width: rectangle.width, height: rectangle.height, left: rectangle.left, right: rectangle.right
+          };
+        });
+      const dateDisplays = [...document.querySelectorAll('.date-input-display')]
+        .filter((element) => element.getClientRects().length)
+        .map((element) => ({
+          id: element.closest('.date-input-shell')?.querySelector('input')?.id || '',
+          text: element.textContent.trim(), scrollWidth: element.scrollWidth, clientWidth: element.clientWidth
+        }));
+      return { viewport: window.innerWidth, scrollWidth: document.documentElement.scrollWidth, controls, dateDisplays };
+    }, selector);
+    if (!measurements.controls.length || measurements.scrollWidth > measurements.viewport + 1) {
+      failures.push(`${name}: page overflow or missing controls: ${JSON.stringify(measurements)}`);
+    }
+    for (const control of measurements.controls) {
+      if (control.width + 0.01 < 44 || control.height + 0.01 < 44 || control.left < -1 || control.right > measurements.viewport + 1) {
+        failures.push(`${name}: target must be at least 44px and within the page: ${JSON.stringify(control)}`);
+      }
+    }
+    for (const date of measurements.dateDisplays) {
+      if (date.scrollWidth > date.clientWidth) {
+        failures.push(`${name}: selected date is clipped: ${JSON.stringify(date)}`);
+      }
+    }
+  };
+  const setAppearance = async (viewport, theme) => {
+    await page.setViewportSize(viewport);
+    if (await page.locator('html').getAttribute('data-theme') !== theme) {
+      await page.locator('#themeToggleButton').click();
+    }
+    await page.waitForFunction((expected) => document.documentElement.dataset.theme === expected, theme);
+  };
+
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    const form = await page.evaluate(async ({ email, initialPassword }) => {
+      const { createUser, createWorkForm, getSession } = await import('/assets/js/api-client.js');
+      await createUser({
+        name: 'Mobile Report Worker', email, password: initialPassword,
+        role: 'worker', worker_class: 'normal', department_id: getSession().departmentId,
+        is_global_admin: false
+      });
+      return createWorkForm({
+        name: 'Mobile site inspection',
+        fields: [
+          { id: 'inspection_area', label: 'Inspection area', type: 'text', required: true },
+          { id: 'inspection_result', label: 'Inspection result', type: 'select', options: ['Safe', 'Needs action'], required: true },
+          { id: 'inspection_notes', label: 'Inspection notes', type: 'textarea', required: false }
+        ]
+      });
+    }, { email: workerEmail, initialPassword: password });
+    await logout(page);
+    await loginAs(page, workerEmail, 'worker');
+    await page.evaluate(async (formId) => {
+      const { createFormSubmission } = await import('/assets/js/api-client.js');
+      await createFormSubmission({
+        form_id: formId, site_id: null, work_date: '2026-09-10',
+        answers: { inspection_area: 'North access platform', inspection_result: 'Needs action', inspection_notes: 'Replace the damaged safety rail before work resumes.' },
+        client_submission_id: `layout-report-${Date.now()}`
+      });
+    }, form.id);
+    await page.waitForFunction((formId) => (
+      [...document.querySelectorAll('#workFormSelect option')].some((option) => option.value === String(formId))
+    ), form.id);
+    await page.locator('#workFormSelect').selectOption(String(form.id));
+    await page.locator('#workFormField_inspection_area').fill('South access platform');
+    await page.locator('#workFormField_inspection_result').selectOption('Needs action');
+    await page.locator('#workFormField_inspection_notes').fill('Check the platform edge protection and attach evidence if needed.');
+    await page.locator('#workFormDate').fill('2026-09-10');
+
+    for (const viewport of viewports) {
+      for (const theme of ['light', 'dark']) {
+        await setAppearance(viewport, theme);
+        await page.locator('.tab[data-tab-target="formTab"]').click();
+        await page.evaluate(() => window.scrollTo(0, 0));
+        const label = `${viewport.width}-${theme}`;
+        await capture(`new-report-${label}`);
+        await checkTargets(`New Report ${label}`, `${workerTargets}, #workFormSubmissionForm input, #workFormSubmissionForm select, #workFormSubmissionForm textarea, #submitWorkFormButton`);
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        const action = await page.locator('#submitWorkFormButton').evaluate((button) => {
+          const rectangle = button.getBoundingClientRect();
+          const tabs = document.querySelector('#workerView .tabs');
+          const tabRectangle = tabs?.getBoundingClientRect();
+          const fixedTabs = tabs && getComputedStyle(tabs).position === 'fixed';
+          const hit = document.elementFromPoint(rectangle.left + rectangle.width / 2, rectangle.top + rectangle.height / 2);
+          return {
+            top: rectangle.top, bottom: rectangle.bottom, viewportHeight: window.innerHeight,
+            navigationTop: fixedTabs ? tabRectangle.top : null,
+            unobscured: hit === button || button.contains(hit)
+          };
+        });
+        if (action.top < 0 || action.bottom > action.viewportHeight
+          || (action.navigationTop != null && action.bottom > action.navigationTop)
+          || !action.unobscured) {
+          failures.push(`New Report ${label}: final action is obscured: ${JSON.stringify(action)}`);
+        }
+        await capture(`new-report-final-action-${label}`, false);
+
+        await page.locator('.tab[data-tab-target="historyTab"]').click();
+        await page.locator('#historyDateFilter').fill('2026-09-10');
+        await page.locator('#refreshHistoryButton').click();
+        await page.locator('#historyList .record-form').filter({ hasText: 'North access platform' }).waitFor({ state: 'visible' });
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await capture(`my-reports-${label}`);
+        await checkTargets(`My Reports ${label}`, `${workerTargets}, #historySearchInput, #historyStatusFilter, #historyDateFilter, #clearHistoryFiltersButton, #refreshHistoryButton`);
+      }
+    }
+
+    await logout(page);
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'review');
+    await page.locator('#supervisorDateFilter').fill('2026-09-10');
+    await page.locator('#reviewQueueList .record-form').filter({ hasText: 'North access platform' }).waitFor({ state: 'visible' });
+    for (const viewport of viewports) {
+      for (const theme of ['light', 'dark']) {
+        await setAppearance(viewport, theme);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        const label = `${viewport.width}-${theme}`;
+        await capture(`supervisor-reports-${label}`);
+        await checkTargets(`Supervisor Reports ${label}`, `${headerTargets}, #adminMobileMenuButton, #supervisorFilterForm input, #supervisorFilterForm select, #clearSupervisorFiltersButton, #exportReportsCsvButton, #exportReportsPdfButton, #refreshSupervisorButton`);
+      }
+    }
+    if (failures.length) throw new Error(`Report-only responsive layout failed:\n${failures.join('\n')}`);
+  } finally {
+    await context.close();
+  }
+}
+
 async function checkStaffGlobalAdminScoping(browser) {
   const supervisorContext = await newContext(browser, {
     viewport: { width: 1280, height: 900 },
@@ -5460,7 +5816,7 @@ async function checkColdOfflineWorkerLaunch(browser) {
         timeout: 5000
       });
       protectedPathServedAppShell = await protectedNavigation.evaluate(() => (
-        document.title === 'Leader Field Reports'
+        document.title === 'ReportFlow'
         || Boolean(document.querySelector('#workerView'))
       ));
     } catch {
@@ -6345,6 +6701,8 @@ async function main() {
     await runCheck('explicit Report purpose overrides Daywork words in a template name', () => checkExplicitReportPurposeOverridesDayworkName(browser));
     await runCheck('report-only automatic and manual replay skip hidden record queues', () => checkReportOnlyReplayScope(browser));
     await runCheck('reconnect preserves in-progress Daywork and Work Form answers', () => checkReconnectPreservesWorkerForms(browser));
+    await runCheck('ReportFlow branding and Mutual defaults preserve explicit Departments and global focus', () => checkMutualDepartmentDefaults(browser));
+    await runCheck('report-only responsive layout keeps controls and final actions usable in light and dark themes', () => checkReportOnlyResponsiveLayout(browser));
     await runCheck('staff users scope global admin controls by role', () => checkStaffGlobalAdminScoping(browser));
     await runCheck('supervisors create and edit conditional Work Forms with field cards', () => checkSupervisorWorkFormCardBuilder(browser));
     await runCheck('Offline Submission ownership, occurrence time, and idempotent replay', () => checkOfflineQueueAndReplay(browser));

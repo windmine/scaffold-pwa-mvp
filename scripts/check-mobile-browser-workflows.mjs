@@ -22,6 +22,16 @@ function hasFile(relativePath) {
   return existsSync(join(root, relativePath));
 }
 
+function hasPngDimensions(relativePath, width, height) {
+  if (!hasFile(relativePath)) return false;
+  const data = readFileSync(join(root, relativePath));
+  return data.length >= 24
+    && data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+    && data.toString('ascii', 12, 16) === 'IHDR'
+    && data.readUInt32BE(16) === width
+    && data.readUInt32BE(20) === height;
+}
+
 const checks = [];
 
 function check(name, test) {
@@ -381,21 +391,21 @@ check('production build exists', () => [
   'dist/assets/icons/mc-logo.svg',
   'dist/assets/icons/stech-logo.svg',
   'dist/assets/icons/bop-logo.svg',
-  'dist/assets/icons/leader-icon.svg',
-  'dist/assets/icons/apple-touch-icon.png',
-  'dist/assets/icons/icon-192.png',
-  'dist/assets/icons/icon-512.png',
-  'dist/assets/icons/maskable-512.png'
+  'dist/assets/icons/reportflow-icon.svg',
+  'dist/assets/icons/reportflow-apple-touch-180.png',
+  'dist/assets/icons/reportflow-192.png',
+  'dist/assets/icons/reportflow-512.png',
+  'dist/assets/icons/reportflow-maskable-512.png'
 ].forEach((file) => {
   check(`${file} exists`, () => hasFile(file));
 });
 
 check('production HTML keeps stable PWA links', () => (
   distIndex.includes('href="/manifest.webmanifest"')
-  && distIndex.includes('href="/assets/icons/leader-icon.svg"')
-  && distIndex.includes('href="/assets/icons/icon-192.png?v=20260708"')
-  && distIndex.includes('href="/assets/icons/apple-touch-icon.png"')
-  && distIndex.includes('src="/assets/icons/leader-logo-export.png"')
+  && distIndex.includes('href="/assets/icons/reportflow-icon.svg"')
+  && distIndex.includes('href="/assets/icons/reportflow-192.png"')
+  && distIndex.includes('href="/assets/icons/reportflow-apple-touch-180.png"')
+  && distIndex.includes('src="/assets/icons/reportflow-icon.svg"')
 ));
 
 check('public registration is hidden for invited accounts', () => (
@@ -720,7 +730,7 @@ check('report-only mode exposes only report, template, and staff navigation', ()
   && sourceApp.includes("els.supervisorTypeFilter.value = 'form'")
   && sourceIndex.includes('data-report-only-text="New Report"')
   && sourceIndex.includes('data-report-only-text="My Reports"')
-  && sourceIndex.includes('data-report-only-text="Field Reports"')
+  && sourceIndex.includes('data-report-only-text="ReportFlow"')
   && sourceIndex.includes('data-report-only-text="Report Templates"')
   && sourceIndex.includes('data-report-only-text="Staff"')
   && sourceIndex.includes('id="attendanceTab" class="tab-panel active" role="tabpanel" data-report-only-hidden')
@@ -926,18 +936,65 @@ check('installed, browser, and offline product copy is report-only', () => {
   const manifest = JSON.parse(read('manifest.webmanifest'));
   const offline = read('offline.html');
   const installSurface = sourceIndex.match(/<div class="install-box">[\s\S]*?<div id="registrationPanel"/)?.[0] || '';
-  return manifest.name === 'Leader Field Reports'
-    && manifest.short_name === 'Reports'
+  return manifest.name === 'ReportFlow'
+    && manifest.short_name === 'ReportFlow'
     && /report submission and supervisor review/i.test(manifest.description)
     && !/attendance|task logs?/i.test(manifest.description)
-    && sourceIndex.includes('<meta name="apple-mobile-web-app-title" content="Reports" />')
-    && sourceIndex.includes('<title>Leader Field Reports</title>')
-    && sourceI18n.includes("title: 'Leader Field Reports'")
+    && sourceIndex.includes('<meta name="apple-mobile-web-app-title" content="ReportFlow" />')
+    && sourceIndex.includes('<title>ReportFlow</title>')
+    && sourceI18n.includes("title: 'ReportFlow'")
     && installSurface.includes('Download this app to your home screen')
     && !/attendance|task logs?|Field Operations|Work Forms?/i.test(installSurface)
-    && offline.includes('<title>Offline | Leader Field Reports</title>')
-    && offline.includes('<p class="eyebrow">Reports</p>')
+    && offline.includes('<title>Offline | ReportFlow</title>')
+    && /<p class="eyebrow">(?:Reports|ReportFlow)<\/p>/.test(offline)
     && !/attendance|task logs?|Field Operations|draft forms/i.test(offline);
+});
+
+check('initial signed-out brand is company-neutral ReportFlow', () => {
+  const logo = sourceIndex.match(/<img\s+id="brandLogo"[^>]*>/)?.[0] || '';
+  return logo.includes('src="/assets/icons/reportflow-icon.svg"')
+    && logo.includes('alt="ReportFlow"')
+    && logo.includes('data-no-i18n')
+    && hasFile('assets/icons/reportflow-icon.svg');
+});
+
+check('ReportFlow install icons use fresh URLs and preserve the installed app identity', () => {
+  const manifest = JSON.parse(read('manifest.webmanifest'));
+  const expectedIcons = [
+    { src: '/assets/icons/reportflow-192.png', sizes: '192x192', purpose: 'any' },
+    { src: '/assets/icons/reportflow-512.png', sizes: '512x512', purpose: 'any' },
+    { src: '/assets/icons/reportflow-maskable-512.png', sizes: '512x512', purpose: 'maskable' }
+  ];
+  return manifest.start_url === '/index.html'
+    && manifest.scope === '/'
+    && manifest.display === 'standalone'
+    && manifest.icons?.length === expectedIcons.length
+    && expectedIcons.every((expected) => manifest.icons.some((icon) => (
+      icon.src === expected.src && icon.sizes === expected.sizes
+      && icon.type === 'image/png' && (icon.purpose || 'any') === expected.purpose
+    )));
+});
+
+check('ReportFlow source and production PNGs have their declared pixel dimensions', () => (
+  [
+    ['reportflow-192.png', 192], ['reportflow-512.png', 512],
+    ['reportflow-maskable-512.png', 512], ['reportflow-apple-touch-180.png', 180]
+  ].every(([file, size]) => (
+    hasPngDimensions(`assets/icons/${file}`, size, size)
+    && hasPngDimensions(`dist/assets/icons/${file}`, size, size)
+  ))
+));
+
+check('ReportFlow brand and install icons are copied and precached for offline launches', () => {
+  const sourceShell = parseGeneratedAppShell(sourceWorker);
+  const distShell = parseGeneratedAppShell(distWorker);
+  return [
+    'reportflow-icon.svg', 'reportflow-192.png', 'reportflow-512.png',
+    'reportflow-maskable-512.png', 'reportflow-apple-touch-180.png'
+  ].every((file) => {
+    const publicPath = `/assets/icons/${file}`;
+    return pwaShellCopies(publicPath) && sourceShell.includes(publicPath) && distShell.includes(publicPath);
+  });
 });
 
 check('visible app download button is wired', () => (

@@ -48,6 +48,7 @@ import {
   MAX_TASK_LOG_PHOTOS,
   THEME_COLORS,
   THEME_STORAGE_KEY,
+  mutualDepartmentId,
   els,
   state
 } from './app-shell-state.js';
@@ -951,7 +952,7 @@ function departmentLogoForUser(user) {
 
 function updateBrandLogo() {
   if (!els.brandLogo) return;
-  const logo = departmentLogoForUser(state.user);
+  const logo = REPORT_ONLY_MODE ? DEFAULT_BRAND_LOGO : departmentLogoForUser(state.user);
   if (els.brandLogo.getAttribute('src') !== logo.src) {
     els.brandLogo.setAttribute('src', logo.src);
   }
@@ -1159,6 +1160,7 @@ async function handleRegistrationVerify() {
         (department) => `<option value="${department.id}">${escapeHtml(department.name)}</option>`
       )
     ].join('');
+    els.registerDepartmentSelect.value = mutualDepartmentId(state.departments);
     els.registrationCodeFields.classList.add('hidden');
     els.registrationCodeInput.disabled = true;
     els.registrationCompletionFields.classList.remove('hidden');

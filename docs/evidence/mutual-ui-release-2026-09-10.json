@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "scope": "Frontend-only Mutual defaults and responsive Report layout release",
+  "projectId": "geo-attendance-system-db9ca",
+  "region": "australia-southeast1",
+  "source": {
+    "baseCommit": "efdc7c383f435d0c0a57bc857ce47b990c396af5",
+    "branch": "codex/report-submission-mvp",
+    "workingTreeChangesIncluded": true,
+    "note": "The released UI changes were uncommitted at deployment. Exact deployed bytes are recorded in the preview/live asset evidence; this is not a claim that baseCommit alone reproduces this release.",
+    "sourceCacheVersion": "leader-field-9681a9295781",
+    "productionCacheVersion": "leader-field-d2435ec8a1b4"
+  },
+  "previousHostingVersion": "f27b6a46dae98c71",
+  "preview": {
+    "channel": "mutual-ui-20260910-0120",
+    "url": "https://geo-attendance-system-db9ca--mutual-ui-20260910-0120-mqfo0fru.web.app",
+    "version": "964d7c266db0dd2d",
+    "releaseTime": "2026-09-10T01:21:05.935Z",
+    "expireTime": "2026-09-17T01:20:57.586544889Z",
+    "evidence": "hosted-mutual-preview-2026-09-10.json"
+  },
+  "hosting": {
+    "url": "https://geo-attendance-system-db9ca.web.app",
+    "version": "964d7c266db0dd2d",
+    "releaseName": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/live/releases/1789003370239000",
+    "releaseTime": "2026-09-10T01:22:50.239Z",
+    "exactPreviewVersionCloned": true,
+    "evidence": "hosted-mutual-live-2026-09-10.json"
+  },
+  "backend": {
+    "revision": "geo-backend-report-release-202609070416",
+    "trafficPercent": 100,
+    "migrationHead": "0020_missing_snapshot_daywork_correction",
+    "changed": false,
+    "migrationsExecuted": false,
+    "uploadConfigurationChanged": false,
+    "apiAndUploadRewrites": "geo-backend in australia-southeast1"
+  },
+  "checks": {
+    "lint": "passed",
+    "build": "passed; existing bundle-size warning retained",
+    "departmentDefaultAssertions": 24,
+    "playwrightWorkflows": 44,
+    "responsiveWidths": [320, 390, 768, 1280],
+    "responsiveThemes": ["light", "dark"],
+    "readableSelectedDatesAndUnobscuredSubmit": "passed",
+    "staticPwaPreflight": "passed",
+    "reviewQueueAndReportChecks": "passed",
+    "productionNpmAuditFindings": 0,
+    "pythonDependencyConsistency": "passed",
+    "strictProductionHardening": {
+      "status": "passed",
+      "command": "pwsh -NoProfile -File scripts/check-production-hardening.ps1 -BillingAccount 0123B1-051D70-935F73",
+      "allowIncidentOnlyMonitoring": false,
+      "releasePhase": "Current",
+      "warnings": ["Neon recovery retention remains six hours on the temporarily retained Free plan."],
+      "note": "The npm wrapper's nested Windows PowerShell invocation lacked Get-FileHash in this host's inherited module environment. The unchanged strict script passed under PowerShell 7, including the budget check. Existing recent recovery and recipient-confirmed alert-delivery evidence were revalidated; no new restore drill or alert was triggered."
+    },
+    "previewAndLiveAssetsEach": 48,
+    "previewAndLiveReadinessProbesEach": 5,
+    "anonymousProtectedRoutesEach": 3,
+    "coldOfflineShell": "passed on preview and live",
+    "realWaitingUpdate": "hosted-mutual-waiting-update-2026-09-10.json",
+    "liveMutualLoginLogoVisuallyVerified": true,
+    "hostedAuthenticatedWorkflowRerun": false
+  },
+  "dataSafety": {
+    "existingAccountDepartmentsAndSavedScopesChanged": false,
+    "productionFixtureMutations": false,
+    "firebaseAuthAuthorizedDomainsChanged": false,
+    "firestoreStorageAndAuthRulesDeployed": false,
+    "olderSqliteDemoPreviewChanged": false
+  },
+  "rollback": {
+    "verifiedPreviousVersion": "f27b6a46dae98c71",
+    "retainedChannel": "report-release-20260907",
+    "retainedChannelExpires": "2026-09-14T04:17:47.389012152Z",
+    "instruction": "If rollback is required, first reverify the retained channel still contains the previous version, then clone only that Hosting channel to live. Leave the compatible backend and database unchanged."
+  },
+  "limitations": [
+    "Hosted verification for this frontend-only release was anonymous/read-only; authenticated Department and Report workflows passed locally, not through production accounts in this release.",
+    "Physical-phone keyboard, native date picker, upload and installed-PWA checks remain pending.",
+    "Single-use Worker invitations, least-privilege Neon runtime access, loaded pool/scale sizing, and longer recovery remain controlled-pilot follow-ups."
+  ]
+}

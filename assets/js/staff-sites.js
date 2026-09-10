@@ -13,6 +13,7 @@ import { setButtonBusy } from './ui-feedback.js';
 import { createWorkFormBuilder, workFormBuilderMarkup } from './work-form-builder.js';
 import { renderWorkFormFields } from './work-form-fields.js';
 import { escapeHtml, roundCoordinate } from './utils.js';
+import { defaultStaffDepartmentId } from './app-shell-state.js';
 
 export function createStaffSitesModule({
   els,
@@ -141,10 +142,11 @@ export function createStaffSitesModule({
     els.staffDepartmentSelect.innerHTML = options
       .map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`)
       .join('');
-    const selectedDepartmentId = state.user?.isGlobalAdmin
-      ? (state.departmentFocusId || state.user?.departmentId || options[0]?.value || '')
-      : state.user?.departmentId;
-    if (selectedDepartmentId) els.staffDepartmentSelect.value = String(selectedDepartmentId);
+    els.staffDepartmentSelect.value = defaultStaffDepartmentId(
+      state.user,
+      state.departments,
+      state.departmentFocusId
+    );
     els.staffDepartmentSelect.disabled = !state.user?.isGlobalAdmin;
 
     syncStaffCreateRoleControls();

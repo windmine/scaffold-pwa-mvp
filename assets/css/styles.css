@@ -5787,6 +5787,312 @@ html[data-theme="dark"] .site-map-picker.leaflet-container {
   }
 }
 
+/* Focused Reports layout; the retained full interface keeps its existing layout. */
+body.report-only-mode .brand-lockup {
+  flex-basis: 260px;
+  flex-wrap: nowrap;
+  gap: 12px;
+}
+
+body.report-only-mode .brand-logo {
+  width: 56px;
+  height: 56px;
+  max-height: 56px;
+  object-fit: contain;
+  padding: 0;
+  border-radius: 12px;
+  filter: none;
+}
+
+body.report-only-mode[data-active-view="login"] .brand-logo {
+  display: block;
+}
+
+body.report-only-mode .brand-heading {
+  flex: 1 1 auto;
+  padding-left: 12px;
+}
+
+body.report-only-mode .topbar h1 {
+  font-size: 1.5rem;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+body.report-only-mode .topbar-actions button,
+.report-only-mode .review-detail-navigation button {
+  min-height: 44px;
+}
+
+.report-only-mode #workerView {
+  width: 100%;
+  max-width: 960px;
+  margin-inline: auto;
+}
+
+.report-only-mode .report-context-fields,
+.report-only-mode .report-context-fields > label {
+  min-width: 0;
+}
+
+.report-only-mode #historyTab .section-heading {
+  flex-direction: row;
+  align-items: center;
+}
+
+.report-only-mode #refreshHistoryButton {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.report-only-mode #adminReviewWorkspace .admin-workspace-header {
+  padding: 14px 18px;
+}
+
+.report-only-mode #adminReviewWorkspace .admin-workspace-header .eyebrow,
+.report-only-mode .review-desk-heading > div:first-child {
+  display: none;
+}
+
+.report-only-mode #adminReviewWorkspaceTitle {
+  margin-top: 0;
+  font-size: 1.35rem;
+}
+
+.report-only-mode .review-desk-heading {
+  margin-bottom: 12px;
+}
+
+.report-only-mode .review-heading-actions {
+  width: 100%;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.report-only-mode .report-export-actions {
+  gap: 8px;
+}
+
+.report-only-mode .record-export-actions select {
+  flex-basis: auto;
+  min-height: 44px;
+}
+
+@media (min-width: 380px) {
+  .report-only-mode .report-context-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 980px) {
+  body.report-only-mode .topbar {
+    min-height: 78px;
+    gap: 14px;
+  }
+
+  body.report-only-mode .user-context {
+    flex-basis: 210px;
+  }
+
+  .report-only-mode #supervisorFilterForm {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .report-only-mode #clearSupervisorFiltersButton {
+    justify-self: end;
+  }
+}
+
+@media (max-width: 979px) {
+  body.report-only-mode .topbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    min-height: auto;
+    gap: 10px 12px;
+    margin-bottom: 12px;
+  }
+
+  body.report-only-mode .brand-lockup {
+    width: auto;
+    min-width: 0;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+
+  body.report-only-mode .brand-logo {
+    width: 48px;
+    height: 48px;
+    max-height: 48px;
+    border-radius: 10px;
+  }
+
+  body.report-only-mode .brand-heading {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  body.report-only-mode .user-context {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+    padding: 7px 10px;
+    border-left-width: 3px;
+    box-shadow: none;
+  }
+
+  body.report-only-mode .user-context-group {
+    font-size: 0.8rem;
+  }
+
+  body.report-only-mode .user-context-badge {
+    grid-column: auto;
+    grid-row: auto;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+  }
+
+  body.report-only-mode .topbar-actions {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    gap: 6px;
+  }
+
+  body.report-only-mode .topbar-actions button {
+    width: 100%;
+    min-width: 0;
+    padding: 0.55rem 0.35rem;
+    font-size: 0.84rem;
+  }
+
+  body.report-only-mode .sync-indicator {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    width: 100%;
+    min-height: 24px;
+    padding: 2px 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    overflow-wrap: anywhere;
+  }
+
+  body.report-only-mode[data-active-view="login"] .brand-lockup {
+    grid-column: 1 / -1;
+  }
+
+  body.report-only-mode[data-active-view="login"] .brand-heading {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding-left: 12px;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    white-space: normal;
+  }
+
+  body.report-only-mode[data-active-view="login"] .topbar-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .report-only-mode #workerView #historyFilterForm,
+  .report-only-mode #supervisorFilterForm {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .report-only-mode #historyFilterForm .history-search-filter,
+  .report-only-mode #supervisorFilterForm > label:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .report-only-mode #workerView #clearHistoryFiltersButton,
+  .report-only-mode #clearSupervisorFiltersButton {
+    grid-column: 1 / -1;
+    justify-self: end;
+    width: auto;
+    min-width: 76px;
+  }
+
+  .report-only-mode .admin-mobile-toolbar {
+    padding: 8px 10px;
+    margin-bottom: 10px;
+  }
+
+  .report-only-mode #adminReviewWorkspace .admin-workspace-header {
+    padding: 12px 14px;
+  }
+
+  .report-only-mode #adminReviewWorkspace .admin-workspace-header p {
+    font-size: 0.88rem;
+  }
+
+  .report-only-mode .report-export-actions {
+    flex: 1 1 200px;
+  }
+
+  .report-only-mode .report-export-actions button {
+    flex: 1 1 90px;
+    min-width: 0;
+    padding-inline: 8px;
+    font-size: 0.84rem;
+  }
+
+  .report-only-mode #refreshSupervisorButton {
+    width: auto;
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  body.report-only-mode.session-worker .app-shell {
+    padding:
+      calc(10px + env(safe-area-inset-top))
+      calc(10px + env(safe-area-inset-right))
+      max(112px, calc(88px + env(safe-area-inset-bottom)))
+      calc(10px + env(safe-area-inset-left));
+  }
+}
+
+@media (max-width: 379px) {
+  .report-only-mode #workerView #historyFilterForm,
+  .report-only-mode #supervisorFilterForm {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .report-only-mode #historyFilterForm > label,
+  .report-only-mode #supervisorFilterForm > label {
+    grid-column: 1 / -1;
+  }
+
+  .report-only-mode #historyFilterForm > label:has(#historyDateFilter),
+  .report-only-mode #supervisorFilterForm > label:has(#supervisorDateFilter) {
+    grid-column: 1;
+  }
+
+  body.report-only-mode #workerView #clearHistoryFiltersButton,
+  body.report-only-mode #clearSupervisorFiltersButton {
+    grid-column: 2;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   button.is-busy::before {
     animation: none;

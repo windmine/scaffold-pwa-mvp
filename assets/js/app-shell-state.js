@@ -12,16 +12,40 @@ export const DEFAULT_DEPARTMENTS = [
   { id: 5, name: 'BOP' }
 ];
 export const DEFAULT_BRAND_LOGO = {
-  src: '/assets/icons/leader-logo-export.png',
-  alt: 'Leader Scaffolding'
+  src: '/assets/icons/reportflow-icon.svg',
+  alt: 'ReportFlow'
 };
 export const DEPARTMENT_LOGOS = {
-  leader: DEFAULT_BRAND_LOGO,
+  leader: { src: '/assets/icons/leader-logo-export.png', alt: 'Leader Scaffolding' },
   mutual: { src: '/assets/icons/mutual-logo.svg', alt: 'Mutual' },
   mc: { src: '/assets/icons/mc-logo.svg', alt: 'MC' },
   stech: { src: '/assets/icons/stech-logo.svg', alt: 'Stech' },
   bop: { src: '/assets/icons/bop-logo.svg', alt: 'BOP' }
 };
+
+export function mutualDepartmentId(departments = []) {
+  const mutual = (Array.isArray(departments) ? departments : []).find((department) => (
+    String(department?.name || '').trim().toLowerCase() === 'mutual'
+    && Number.isSafeInteger(Number(department.id))
+    && Number(department.id) > 0
+  ));
+  return mutual ? String(mutual.id) : '';
+}
+
+export function defaultStaffDepartmentId(user, departments = [], departmentFocusId = '') {
+  const ownDepartmentId = String(user?.departmentId || '');
+  if (!user?.isGlobalAdmin) return ownDepartmentId;
+  const available = Array.isArray(departments) ? departments : [];
+  const focusedDepartmentId = String(departmentFocusId ?? '');
+  if (focusedDepartmentId) {
+    return available.some((department) => String(department.id) === focusedDepartmentId)
+      ? focusedDepartmentId
+      : '';
+  }
+  return mutualDepartmentId(available)
+    || String(available.find((department) => String(department.id) === ownDepartmentId)?.id || '')
+    || String(available[0]?.id || '');
+}
 
 export const state = {
   user: null,

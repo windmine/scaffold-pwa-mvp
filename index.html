@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#000000" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Reports" />
-    <title>Leader Field Reports</title>
-    <link rel="icon" type="image/svg+xml" href="/assets/icons/leader-icon.svg" />
-    <link rel="alternate icon" type="image/png" href="/assets/icons/icon-192.png?v=20260708" />
+    <meta name="apple-mobile-web-app-title" content="ReportFlow" />
+    <title>ReportFlow</title>
+    <link rel="icon" type="image/svg+xml" href="/assets/icons/reportflow-icon.svg" />
+    <link rel="alternate icon" type="image/png" href="/assets/icons/reportflow-192.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" href="/assets/icons/reportflow-apple-touch-180.png" />
     <script>
       (() => {
         try {
@@ -265,10 +265,10 @@
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-lockup">
-          <img id="brandLogo" class="brand-logo" src="/assets/icons/leader-logo-export.png" alt="Leader Scaffolding" data-no-i18n />
+          <img id="brandLogo" class="brand-logo" src="/assets/icons/reportflow-icon.svg" alt="ReportFlow" width="56" height="56" data-no-i18n />
           <div class="brand-heading">
             <p class="eyebrow" data-full-text="Field command centre" data-report-only-text="Report submission">Report submission</p>
-            <h1 data-full-text="Field Operations" data-report-only-text="Field Reports">Field Reports</h1>
+            <h1 data-full-text="Field Operations" data-report-only-text="ReportFlow" data-no-i18n>ReportFlow</h1>
           </div>
         </div>
         <div id="userContext" class="user-context hidden" aria-live="polite">
@@ -612,14 +612,16 @@
                     <option value="">Select a Report Template</option>
                   </select>
                 </label>
-                <label>
-                  Site (optional)
-                  <select id="workFormSite"></select>
-                </label>
-                <label>
-                  Report Date
-                  <input id="workFormDate" type="date" required />
-                </label>
+                <div class="report-context-fields form-grid">
+                  <label>
+                    Report Date
+                    <input id="workFormDate" type="date" required />
+                  </label>
+                  <label>
+                    Site (optional)
+                    <select id="workFormSite"></select>
+                  </label>
+                </div>
                 <div id="workFormFields" class="dynamic-fields"></div>
                 <label>
                   Photos
