@@ -1,5 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
+# Printable artifacts must retain exact PDF bytes across platforms.
+*.pdf binary
+
 # Migration checksums are durable: Windows and Linux must ship identical bytes.
 backend/migrations/versions/*.py text eol=lf

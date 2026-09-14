@@ -488,6 +488,7 @@ const ZH_TEXT = {
   'Download this app to your home screen from a supported browser.': '在支持的浏览器中把此应用添加到手机主屏幕。',
   'Download App': '下载应用',
   'How to Install': '如何安装',
+  'Install guide and QR code': '安装指南和二维码',
   'App Installed': '已安装',
   'Email': '邮箱',
   'Password': '密码',

@@ -1869,6 +1869,15 @@ textarea {
   color: var(--muted);
 }
 
+.install-guide-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  color: var(--text);
+  text-underline-offset: 3px;
+}
+
 .summary-list {
   display: grid;
   gap: 8px;

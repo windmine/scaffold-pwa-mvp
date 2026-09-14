@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#123b72" />
+    <meta name="description" content="Install ReportFlow on your phone, open it in your browser, or print an installation QR code for your team." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="ReportFlow" />
+    <title>Install ReportFlow</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/assets/icons/reportflow-icon.svg" />
+    <link rel="apple-touch-icon" href="/assets/icons/reportflow-apple-touch-180.png" />
+    <link rel="stylesheet" href="/assets/css/install.css" />
+    <script type="module" src="/assets/js/install.js"></script>
+  </head>
+  <body data-install-state="manual">
+    <header class="install-header">
+      <a class="product-name" href="/index.html" aria-label="Open ReportFlow">
+        <img src="/assets/icons/reportflow-icon.svg" width="48" height="48" alt="" />
+        <span>ReportFlow</span>
+      </a>
+      <div id="languageControls" class="language-controls" role="group" aria-label="Language" hidden>
+        <button type="button" data-language="en" aria-pressed="true" lang="en">English</button>
+        <button type="button" data-language="zh" aria-pressed="false" lang="zh-Hans">中文</button>
+      </div>
+    </header>
+
+    <main class="install-layout">
+      <section class="install-panel" aria-labelledby="installHeading">
+        <p class="eyebrow" data-install-text="eyebrow">ON YOUR PHONE</p>
+        <h1 id="installHeading" data-install-text="heading">Install ReportFlow</h1>
+        <p class="intro" data-install-text="intro">Add it to your home screen, or use it in your browser.</p>
+        <p id="installDeviceHint" class="device-hint" data-install-text="genericHint">Choose your phone below for installation steps.</p>
+
+        <div class="install-actions">
+          <button id="installAppButton" class="button primary" type="button" hidden>Install ReportFlow</button>
+          <a id="openReportFlow" class="button secondary" href="/index.html" data-install-text="openBrowser">Open in browser</a>
+        </div>
+        <p id="installStatus" class="notice" role="status" aria-live="polite" aria-atomic="true" hidden></p>
+        <p id="installUpdateNotice" class="notice" hidden data-install-text="waitingUpdate">An app update is waiting. Open ReportFlow, finish your current Report, then use Update App. This page will not update an app you are using.</p>
+        <p id="embeddedBrowserHelp" class="notice" hidden data-install-text="embeddedHelp">This may be an in-app browser. Use its menu to open this page in Safari or Chrome. You can also copy the installation link below.</p>
+
+        <div class="phone-instructions">
+          <details id="iosInstructions" open>
+            <summary>iPhone / iPad</summary>
+            <ol>
+              <li data-install-text="iosOne">Open this page in Safari.</li>
+              <li data-install-text="iosTwo">Tap Share (or More, then Share).</li>
+              <li data-install-text="iosThree">Choose Add to Home Screen.</li>
+              <li data-install-text="iosFour">Keep Open as Web App on if shown, then tap Add.</li>
+            </ol>
+          </details>
+          <details id="androidInstructions" open>
+            <summary>Android</summary>
+            <ol>
+              <li data-install-text="androidOne">Open this page in Chrome.</li>
+              <li data-install-text="androidTwo">Tap Install ReportFlow above if it appears.</li>
+              <li data-install-text="androidThree">Otherwise, open Chrome's menu and choose Install or Add to Home screen. Some versions list it under Install and create shortcut.</li>
+              <li data-install-text="androidFour">Confirm installation, then open ReportFlow from its icon.</li>
+            </ol>
+          </details>
+        </div>
+
+        <div class="access-note">
+          <strong data-install-text="accessTitle">Have your sign-in details ready</strong>
+          <p data-install-text="accessBody">Use the account provided by your supervisor. Installing the app does not create an account.</p>
+        </div>
+        <noscript><p class="notice">The installation steps and browser link work without JavaScript. Turn on JavaScript in your browser to use ReportFlow.</p></noscript>
+      </section>
+
+      <aside class="share-panel" aria-labelledby="shareHeading">
+        <h2 id="shareHeading" data-install-text="shareHeading">Share with your team</h2>
+        <p data-install-text="scanHelp">Scan with your phone camera, then tap the link to open this page.</p>
+        <img class="install-qr" src="/assets/icons/reportflow-install-qr.svg" width="240" height="240" alt="QR code for the ReportFlow installation page" />
+        <label for="installLink" data-install-text="linkLabel">Installation link</label>
+        <input id="installLink" type="url" value="https://geo-attendance-system-db9ca.web.app/install.html" readonly spellcheck="false" />
+        <button id="copyInstallLink" class="button secondary" type="button" hidden data-install-text="copyLink">Copy link</button>
+        <p id="copyStatus" class="copy-status" role="status" aria-live="polite" hidden></p>
+        <div class="print-downloads">
+          <a id="downloadInstallPdf" class="button primary" href="/downloads/reportflow-install-a4.pdf" download data-install-text="printPdf">Download A4 print sheet (PDF)</a>
+          <div class="qr-downloads">
+            <a id="downloadInstallPng" href="/downloads/reportflow-install-qr.png" download data-install-text="pngDownload">QR image (PNG)</a>
+            <a id="downloadInstallSvg" href="/downloads/reportflow-install-qr.svg" download data-install-text="svgDownload">Vector QR (SVG)</a>
+          </div>
+        </div>
+      </aside>
+    </main>
+    <footer class="install-footer">
+      <p data-install-text="safetyNote">Already using ReportFlow? Keep the same app. Do not uninstall or clear browser data while Reports are waiting to sync.</p>
+      <p data-install-text="installNote">Installation needs your confirmation. You can use ReportFlow without installing it.</p>
+    </footer>
+  </body>
+</html>

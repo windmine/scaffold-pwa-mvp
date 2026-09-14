@@ -1,0 +1,97 @@
+:root {
+  color-scheme: light dark;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #14253d;
+  background: #f2f6fc;
+  font-synthesis: none;
+  line-height: 1.55;
+  --install-panel: #fff;
+  --install-soft: #f2f6fc;
+  --install-text: #14253d;
+  --install-muted: #4b5e77;
+  --install-line: #cbd6e6;
+  --install-link: #123b72;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; font-size: 1rem; }
+button, input { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+a { color: var(--install-link); }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid #2675d5; outline-offset: 4px; }
+p { margin: 0 0 1rem; }
+h1, h2 { line-height: 1.15; margin: 0 0 1rem; letter-spacing: -.025em; }
+h1 { font-size: clamp(2rem, 5vw, 2.75rem); }
+h2 { font-size: 1.4rem; }
+
+.install-header, .install-layout, .install-footer {
+  width: min(100% - 2rem, 64rem);
+  margin-inline: auto;
+}
+.install-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-block: 1.5rem;
+}
+.product-name { display: inline-flex; align-items: center; min-height: 44px; gap: .75rem; text-decoration: none; color: var(--install-text); font-weight: 800; font-size: 1.4rem; }
+.product-name img { flex: 0 0 auto; }
+.language-controls { display: flex; gap: .25rem; }
+.language-controls button { min-height: 44px; min-width: 54px; border: 1px solid transparent; padding: .5rem .65rem; border-radius: .6rem; background: transparent; color: var(--install-muted); }
+.language-controls button[aria-pressed="true"] { background: var(--install-panel); border-color: var(--install-line); color: var(--install-text); font-weight: 700; }
+.install-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, .85fr); gap: 1.5rem; align-items: start; }
+.install-panel, .share-panel { min-width: 0; border: 1px solid var(--install-line); border-radius: 1.25rem; background: var(--install-panel); padding: clamp(1.25rem, 3.5vw, 2.25rem); }
+.eyebrow { font-size: .875rem; letter-spacing: .12em; font-weight: 700; color: var(--install-link); margin-bottom: .75rem; }
+.intro { font-size: 1.125rem; color: var(--install-muted); }
+.device-hint { color: var(--install-muted); }
+.install-actions { display: grid; gap: .65rem; margin: 1.25rem 0; }
+.button { display: inline-flex; align-items: center; justify-content: center; text-align: center; min-height: 48px; padding: .75rem 1rem; border: 1px solid transparent; border-radius: .75rem; text-decoration: none; font-weight: 700; line-height: 1.4; }
+.primary { color: #fff; background: #123b72; border-color: #123b72; }
+.primary:hover { background: #0d2d58; }
+.secondary { color: var(--install-link); background: var(--install-panel); border-color: var(--install-line); }
+.secondary:hover { background: var(--install-soft); }
+.button:disabled { cursor: wait; opacity: .75; }
+.notice { border-left: 4px solid #2776d5; border-radius: .4rem; background: var(--install-soft); padding: .8rem 1rem; overflow-wrap: anywhere; }
+.phone-instructions { margin-top: 1.5rem; }
+.phone-instructions details { border-top: 1px solid var(--install-line); }
+.phone-instructions details:last-child { border-bottom: 1px solid var(--install-line); }
+.phone-instructions summary { padding: .85rem .2rem; min-height: 52px; font-weight: 700; cursor: pointer; }
+.phone-instructions ol { padding-left: 1.65rem; margin: .15rem 0 1.25rem; }
+.phone-instructions li { padding-left: .2rem; margin-bottom: .7rem; }
+.access-note { margin-top: 1.5rem; color: var(--install-muted); font-size: .9375rem; }
+.access-note strong { color: var(--install-text); }
+.access-note p { margin: .35rem 0 0; }
+.share-panel > p { color: var(--install-muted); }
+.install-qr { display: block; width: min(100%, 240px); height: auto; aspect-ratio: 1; margin: 1.5rem auto; background: #fff; }
+.share-panel label { display: block; margin-bottom: .4rem; font-size: .875rem; font-weight: 700; }
+#installLink { width: 100%; min-height: 48px; padding: .65rem; border: 1px solid var(--install-line); border-radius: .55rem; color: var(--install-text); background: var(--install-soft); font-size: .875rem; }
+#copyInstallLink { width: 100%; margin-top: .65rem; }
+.copy-status { font-size: .875rem; margin: .6rem 0 0; }
+.print-downloads { border-top: 1px solid var(--install-line); margin-top: 1.25rem; padding-top: 1.25rem; }
+#downloadInstallPdf { width: 100%; }
+.qr-downloads { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .4rem; margin-top: .65rem; }
+.qr-downloads a { display: inline-flex; align-items: center; min-height: 44px; padding: .5rem .15rem; font-size: .875rem; text-underline-offset: .2rem; }
+.install-footer { padding-block: 1.5rem max(1.5rem, env(safe-area-inset-bottom)); color: var(--install-muted); font-size: .875rem; }
+.install-footer p { margin-bottom: .5rem; }
+
+@media (max-width: 720px) {
+  .install-layout { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .install-header { padding-block: 1rem; }
+}
+@media (max-width: 379px) {
+  .install-header, .install-layout, .install-footer { width: calc(100% - 1.5rem); }
+  .install-header { gap: .65rem; }
+  .product-name { font-size: 1.2rem; gap: .55rem; }
+  .product-name img { width: 40px; height: 40px; }
+  .language-controls button { padding-inline: .5rem; min-width: 44px; }
+}
+@media (prefers-color-scheme: dark) {
+  :root { background: #091426; color: #edf3fc; --install-panel: #11223a; --install-soft: #172c48; --install-text: #edf3fc; --install-muted: #b9c9de; --install-line: #3c526f; --install-link: #a5caff; }
+  .primary { background: #18539b; border-color: #4178bc; }
+  .primary:hover { background: #2163b1; }
+  :focus-visible { outline-color: #8bbbff; }
+}

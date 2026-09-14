@@ -29,7 +29,15 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
-## Current Live Release - ReportFlow, 2026-09-10
+## Current Live Release - Install Guide and Printable QR, 2026-09-10
+
+The [ReportFlow installation page](https://geo-attendance-system-db9ca.web.app/install.html) is live with English/Chinese instructions, browser-supported installation, and printable A4 PDF/PNG/SVG downloads. Every QR encodes that permanent URL. Installation requires the user's confirmation and does not provision an account.
+
+Hosting version `654ff0044465966e` was cloned from the exact verified `install-20260910-0528` preview at **2026-09-10 05:34:34 UTC**. The frozen build includes uncommitted installer changes on base `17ed1195b167d6b3d992a364032a4195f5557be0`; no new commit or push was made for this release. Backend `geo-backend-report-release-202609070416`, migrations through `0020`, uploads and API rewrites are unchanged. Lint/build, all **44 app workflows**, **11 installer checks**, 26 Department-default assertions, static PWA and Report/review checks, production dependency audit and strict hardening passed. [Preview](docs/evidence/hosted-install-preview-2026-09-10.json) and [live](docs/evidence/hosted-install-live-2026-09-10.json) each passed 57 exact shell assets, five readiness probes, anonymous isolation and cold-offline app launch. Separate installer checks verified all seven installer/download assets, English/Chinese UI and the exact cold-offline guide on [preview](docs/evidence/installer-preview-2026-09-10.json) and [live](docs/evidence/installer-live-2026-09-10.json). The real [Update App transition](docs/evidence/hosted-install-waiting-update-2026-09-10.json) passed. [Release record](docs/evidence/install-qr-release-2026-09-10.json).
+
+The [matching preview](https://geo-attendance-system-db9ca--install-20260910-0528-1hue4ndv.web.app) expires **2026-09-17 05:28:50 UTC**. For frontend-only rollback, reverify that retained `reportflow-20260910-0312` still holds `549d17a081d3e606`, then clone that exact channel without changing the backend/database. Hosted checks were anonymous/read-only; printed-camera scans, physical-phone installation and the full installed-device checklist remain pending. The known six-hour Neon recovery warning remains.
+
+## Previous Frontend Release - ReportFlow Branding, 2026-09-10
 
 The [live PWA](https://geo-attendance-system-db9ca.web.app) now uses **ReportFlow** in its browser title, report-only header, English/Chinese interface, offline page, manifest and iPhone install title. Its icon is a white report sheet with a bold checkmark on deep blue. Report-only sessions use the same product brand for every Department; the Mutual new-Staff default, actual Department labels, permissions, saved dashboard scope and existing records are unchanged. This is an app/install-branding update; server-generated Report export branding is unchanged.
 
@@ -40,6 +48,20 @@ The [matching preview](https://geo-attendance-system-db9ca--reportflow-20260910-
 `assets/icons/reportflow-icon.svg` is the canonical artwork. `npm run generate:icons` renders 192px/512px PNGs, a full-bleed maskable 512px icon, and a full-bleed 180px Apple touch icon using the existing Playwright dependency; it also refreshes `public/favicon.svg`. The maskable mark fits the central safe area. Run `npm run build` afterward to regenerate the PWA shell. Fresh ReportFlow asset paths replace the previous install-icon URLs without deleting retained legacy assets.
 
 The manifest URL, `start_url`, `scope`, service-worker registration and internal storage/cache namespaces are unchanged so the rename does not create a separate app identity or discard sessions/drafts/queued Reports. Use **Update App** when offered. Home-screen name/icon refresh timing remains browser/OS-dependent; do not clear storage or uninstall while unsynced Reports remain. Physical-phone install/update validation and the existing six-hour Neon recovery warning remain open.
+
+## Install and share ReportFlow
+
+The public `/install.html` page provides English/Chinese phone instructions, a browser option, and a native **Install ReportFlow** button when the browser offers installation. iPhone/iPad users see Safari instructions; Android users see Chrome instructions. Installation always needs the user's confirmation. It does not create an account: staff still sign in with the account their Supervisor provides.
+
+The printable QR always encodes the permanent URL `https://geo-attendance-system-db9ca.web.app/install.html`, never a preview channel, login token, or account-specific URL. Downloads are available from the installer: `/downloads/reportflow-install-a4.pdf` (one-page English A4 guide), `/downloads/reportflow-install-qr.png` (900px black-and-white image), and `/downloads/reportflow-install-qr.svg` (vector artwork). The PDF uses a 95mm vector QR with a four-module quiet zone; preserve that white margin when resizing or printing. The PDF is also available locally at `output/pdf/reportflow-install-a4.pdf`.
+
+Run `npm run generate:install-qr` to regenerate the deterministic artifacts using the existing Python ReportLab/Pillow tooling. It also writes the identical SVG mirror at `assets/icons/reportflow-install-qr.svg` for precaching. No QR service or new app runtime dependency is used. Run `npm run build` afterward to copy the installer and downloads into `dist/` and regenerate the PWA shell.
+
+The installer is a separate static page with no app/auth imports, protected API requests, session access, local storage, IndexedDB access, or queue replay. It shares the existing manifest URL, `/index.html` start URL, `/` scope and `/sw.js`; it never sends `SKIP_WAITING`, clears caches or forces an open app to reload. A waiting update directs the user back to ReportFlow's existing draft-safe **Update App** flow. After the updated shell is cached, `/install.html` cold-launches its own cached guide and QR offline; this does not make Report Templates, sign-in or first-time installation work offline. Printable downloads are not precached.
+
+`npm run check:install` builds and runs the isolated installer browser checks without a backend or real accounts. These checks cover platform/manual fallbacks, one-shot prompt outcomes, clipboard/language behavior, storage/session isolation, waiting-update safety, manifest/downloads, responsive controls and the real service-worker offline page. This gate is also part of `npm run check:mobile`. Use `INSTALL_PAGE_SCREENSHOT_DIR` to capture installer screenshots. Simulated install events and desktop Chromium are not proof of physical iPhone/Android installation; scan a printed copy and complete the installed-device checklist before broader distribution.
+
+For a deployed origin, run `node scripts/check-hosted-installer.mjs https://HOST NEW-EVIDENCE.json --screenshots` against the frozen local `dist/`. It refuses existing output files, compares all seven installer/download SHA-256 hashes and MIME types, checks the English/Chinese phone layout, and closes all pages before reopening the exact installer offline. It does not sign in, approve installation or force service-worker activation. Use a new evidence basename for each preview/live run.
 
 ## Previous Frontend Release - Mutual Defaults and Layout, 2026-09-10
 

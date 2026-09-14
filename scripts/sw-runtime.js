@@ -81,7 +81,7 @@ function isCacheableResponse(response, request) {
 
 function isAppShellNavigation(request) {
   const url = new URL(request.url);
-  return url.origin === self.location.origin && ['/', '/index.html'].includes(url.pathname);
+  return url.origin === self.location.origin && ['/', '/index.html', '/install.html'].includes(url.pathname);
 }
 
 function appShellRequest(path) {
@@ -164,6 +164,11 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request).catch(async () => {
         const cache = await caches.open(CACHE_VERSION);
+        if (new URL(request.url).pathname === '/install.html') {
+          return await cache.match('/install.html', { ignoreVary: true })
+            || await cache.match('/offline.html')
+            || Response.error();
+        }
         return await cache.match('/index.html')
           || await cache.match('/')
           || await cache.match('/offline.html')
