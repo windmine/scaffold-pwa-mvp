@@ -2436,6 +2436,38 @@ textarea {
   flex: 1 1 170px;
 }
 
+.setup-password-page {
+  padding: 24px 16px;
+}
+
+.setup-password-card {
+  width: min(100%, 480px);
+  margin: 0 auto;
+  overflow-wrap: anywhere;
+}
+
+.setup-password-card h1 {
+  font-size: 1.7rem;
+}
+
+.setup-password-card form:not([hidden]) {
+  display: grid;
+  gap: 16px;
+}
+
+.setup-password-card button {
+  min-height: 44px;
+}
+
+#workerInvitationLink {
+  width: 100%;
+  min-width: 0;
+}
+
+#staffInvitationHelp {
+  grid-column: 1 / -1;
+}
+
 .confirmation-dialog-confirm[data-tone="danger"] {
   border: 1px solid var(--danger);
   background: var(--danger);
@@ -5876,6 +5908,60 @@ body.report-only-mode .topbar-actions button,
   width: 100%;
   justify-content: space-between;
   gap: 8px;
+}
+
+.report-photo-item {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.report-photo-remove {
+  min-height: 44px;
+  padding: 8px;
+  font-size: 0.875rem;
+}
+
+.report-drafts-panel {
+  margin-block: 16px;
+  padding: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+}
+
+.report-drafts-panel > h3,
+.report-draft-summary h4 {
+  margin: 0;
+}
+
+.report-drafts-list {
+  display: grid;
+  gap: 12px;
+}
+
+.report-draft-card {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-strong);
+}
+
+.report-draft-summary {
+  flex: 1 1 220px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.report-draft-summary p {
+  margin: 6px 0 0;
+  font-size: 0.875rem;
+}
+
+.report-draft-card > button {
+  min-height: 44px;
 }
 
 .report-only-mode .report-export-actions {

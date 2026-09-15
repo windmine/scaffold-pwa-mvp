@@ -37,6 +37,21 @@ class UserCreateRequest(BaseModel):
     is_global_admin: bool = False
 
 
+class WorkerInvitationCreateRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    name: str = Field(min_length=1, max_length=120)
+    worker_class: str = Field(default="normal", max_length=40)
+    department_id: Optional[int] = Field(default=None, ge=1)
+
+
+class WorkerInvitationTokenRequest(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+
+
+class WorkerInvitationAcceptRequest(WorkerInvitationTokenRequest):
+    password: str = Field(min_length=8, max_length=72)
+
+
 class UserUpdateRequest(BaseModel):
     email: Optional[str] = Field(default=None, min_length=3, max_length=320)
     name: Optional[str] = Field(default=None, min_length=1, max_length=120)
@@ -191,6 +206,7 @@ class WorkFormUpdate(BaseModel):
     description: Optional[str] = Field(default=None, max_length=500)
     fields: Optional[list[WorkFormField]] = Field(default=None, min_length=1, max_length=MAX_WORK_FORM_FIELDS)
     status: Optional[str] = Field(default=None, max_length=40)
+    expected_definition_version: Optional[int] = Field(default=None, ge=1)
     confirmed: bool = False
 
 

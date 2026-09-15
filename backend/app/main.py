@@ -56,6 +56,9 @@ from app.schemas import (
     WorkFormCreate,
     WorkFormSubmissionCreate,
     WorkFormUpdate,
+    WorkerInvitationCreateRequest,
+    WorkerInvitationTokenRequest,
+    WorkerInvitationAcceptRequest,
 )
 from app.auth import (
     AUTH_COOKIE_NAME,
@@ -82,6 +85,7 @@ from app.use_cases import supervisor_review as supervisor_review_use_cases
 from app.use_cases import task_logs as task_log_use_cases
 from app.use_cases import team_work_logs as team_work_log_use_cases
 from app.use_cases import work_forms as work_form_use_cases
+from app.use_cases import worker_invitations as worker_invitation_use_cases
 from app.use_cases.common import (
     DEPARTMENT_NAMES,
     list_departments,
@@ -116,6 +120,8 @@ rate_limiter = InMemoryRateLimiter(
                 "/auth/register",
                 "/auth/registration/start",
                 "/auth/registration/verify",
+                "/auth/worker-invitations",
+                "/supervisor/worker-invitations",
                 "/auth/refresh",
             ),
         ),
@@ -136,6 +142,8 @@ CSRF_EXEMPT_PATHS = {
     "/auth/register",
     "/auth/registration/start",
     "/auth/registration/verify",
+    "/auth/worker-invitations/inspect",
+    "/auth/worker-invitations/accept",
     "/dev/seed",
 }
 
@@ -144,6 +152,11 @@ def apply_upload_cache_policy(request_path: str, response: Response):
     normalized_path = request_path[4:] if request_path.startswith("/api/") else request_path
     if normalized_path.startswith("/uploads/") and response.status_code >= 400:
         response.headers["Cache-Control"] = "private, no-store"
+    if normalized_path.startswith(("/auth/worker-invitations", "/supervisor/worker-invitations")) or (
+        normalized_path.startswith("/supervisor/users/") and normalized_path.endswith("/invitation")
+    ):
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["Referrer-Policy"] = "no-referrer"
     return response
 
 
@@ -639,6 +652,9 @@ def login(
     if (user.status or "active") != "active":
         raise HTTPException(status_code=403, detail="This account is resigned and cannot sign in")
 
+    if user.password_setup_required:
+        raise HTTPException(status_code=403, detail="Complete your Worker invitation to set a password before signing in")
+
     csrf_token = create_csrf_token()
     token = create_access_token({
         "sub": user.email,
@@ -664,6 +680,16 @@ def register(
         "user": user_response(user, session),
         "message": "Account created. A supervisor must activate it before you can sign in.",
     }
+
+
+@app.post("/auth/worker-invitations/inspect")
+def inspect_worker_invitation(data: WorkerInvitationTokenRequest, session: Session = Depends(get_session)):
+    return worker_invitation_use_cases.inspect_worker_invitation(data, session)
+
+
+@app.post("/auth/worker-invitations/accept")
+def accept_worker_invitation(data: WorkerInvitationAcceptRequest, session: Session = Depends(get_session)):
+    return worker_invitation_use_cases.accept_worker_invitation(data, session)
 
 
 @app.post("/auth/registration/start")
@@ -736,6 +762,28 @@ def create_user(
     session: Session = Depends(get_session)
 ):
     return staff_site_admin_use_cases.create_staff_user(data, supervisor, session)
+
+
+@app.post("/supervisor/worker-invitations")
+def create_worker_invitation(
+    data: WorkerInvitationCreateRequest,
+    supervisor: User = Depends(require_supervisor), session: Session = Depends(get_session),
+):
+    return worker_invitation_use_cases.create_worker_invitation(data, supervisor, session)
+
+
+@app.post("/supervisor/users/{user_id}/invitation")
+def reissue_worker_invitation(
+    user_id: int, supervisor: User = Depends(require_supervisor), session: Session = Depends(get_session),
+):
+    return worker_invitation_use_cases.reissue_worker_invitation(user_id, supervisor, session)
+
+
+@app.delete("/supervisor/users/{user_id}/invitation")
+def revoke_worker_invitation(
+    user_id: int, supervisor: User = Depends(require_supervisor), session: Session = Depends(get_session),
+):
+    return worker_invitation_use_cases.revoke_worker_invitation(user_id, supervisor, session)
 
 
 @app.patch("/supervisor/users/{user_id}")
@@ -1185,6 +1233,7 @@ def export_supervisor_form_submissions_csv(
     form_id: Optional[int] = None,
     worker_id: Optional[int] = None,
     department_id: Optional[int] = None,
+    search: Optional[str] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
@@ -1199,6 +1248,7 @@ def export_supervisor_form_submissions_csv(
         workflow_status,
         worker_id,
         purpose,
+        search,
     )
 
 
@@ -1212,6 +1262,7 @@ def export_supervisor_form_submissions_html(
     form_id: Optional[int] = None,
     worker_id: Optional[int] = None,
     department_id: Optional[int] = None,
+    search: Optional[str] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
@@ -1226,6 +1277,7 @@ def export_supervisor_form_submissions_html(
         workflow_status,
         worker_id,
         purpose,
+        search,
     )
 
 
@@ -1240,6 +1292,7 @@ def export_supervisor_form_submissions_pdf(
     form_id: Optional[int] = None,
     worker_id: Optional[int] = None,
     department_id: Optional[int] = None,
+    search: Optional[str] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
@@ -1255,6 +1308,7 @@ def export_supervisor_form_submissions_pdf(
         workflow_status,
         worker_id,
         purpose,
+        search,
     )
 
 

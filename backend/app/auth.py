@@ -164,6 +164,9 @@ def get_current_user(
             detail="This account is resigned and cannot sign in"
         )
 
+    if user.password_setup_required:
+        raise HTTPException(status_code=403, detail="Complete your Worker invitation to set a password before signing in")
+
     return user
 
 

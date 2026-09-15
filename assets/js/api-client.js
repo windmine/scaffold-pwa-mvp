@@ -233,6 +233,18 @@ export async function getDepartments() {
   return await apiFetch("/departments");
 }
 
+export async function createWorkerInvitation(worker) {
+  return apiFetch('/supervisor/worker-invitations', { method: 'POST', body: JSON.stringify(worker) });
+}
+
+export async function reissueWorkerInvitation(userId) {
+  return apiFetch(`/supervisor/users/${encodeURIComponent(userId)}/invitation`, { method: 'POST' });
+}
+
+export async function revokeWorkerInvitation(userId) {
+  return apiFetch(`/supervisor/users/${encodeURIComponent(userId)}/invitation`, { method: 'DELETE' });
+}
+
 export async function createUser(user) {
   return await apiFetch("/supervisor/users", {
     method: "POST",
@@ -493,6 +505,7 @@ function exportFilterParams(filters = {}) {
   if (normalizedFilters.workerId) params.set("worker_id", normalizedFilters.workerId);
   if (normalizedFilters.departmentId) params.set("department_id", normalizedFilters.departmentId);
   if (normalizedFilters.purpose) params.set("purpose", normalizedFilters.purpose);
+  if (normalizedFilters.search) params.set("search", normalizedFilters.search);
   return params;
 }
 

@@ -191,6 +191,45 @@ def upload_test_image(label, token, filename):
     return upload["url"]
 
 
+def check_worker_invitation_onboarding(supervisor_token):
+    invitation = assert_status("Supervisor creates Worker password-setup invitation", request(
+        "POST", "/supervisor/worker-invitations",
+        {"name": "Smoke Invited Worker", "email": "smoke-invitation@example.com", "worker_class": "normal"},
+        supervisor_token,
+    ), 200)
+    if not invitation["user"].get("password_setup_required") or invitation.get("delivery_method") != "manual":
+        raise AssertionError("Worker invitation must require private handoff and Worker password setup")
+    user_id = invitation["user"]["id"]
+    replacement = assert_status("Supervisor replaces an invitation", request(
+        "POST", f"/supervisor/users/{user_id}/invitation", {}, supervisor_token,
+    ), 200)
+    assert_status("Replaced invitation is unusable", request(
+        "POST", "/auth/worker-invitations/inspect", {"token": invitation["token"]},
+    ), 400)
+    inspected = assert_status("Worker opens their private invitation", request(
+        "POST", "/auth/worker-invitations/inspect", {"token": replacement["token"]},
+    ), 200)
+    if inspected.get("email") != "smoke-invitation@example.com":
+        raise AssertionError("Worker invitation returned the wrong account")
+    assert_status("Worker chooses their own password", request(
+        "POST", "/auth/worker-invitations/accept", {"token": replacement["token"], "password": "WorkerChosenSmokePass!"},
+    ), 200)
+    assert_status("Worker invitation is single-use", request(
+        "POST", "/auth/worker-invitations/accept", {"token": replacement["token"], "password": "MustNotReplacePassword!"},
+    ), 400)
+    signed_in = assert_status("Invited Worker signs in using their chosen password", request(
+        "POST", "/auth/login", {"email": "smoke-invitation@example.com", "password": "WorkerChosenSmokePass!"},
+    ), 200)
+    if signed_in["user"].get("password_setup_required"):
+        raise AssertionError("Accepted invitation left Worker password setup pending")
+    assert_status("Established Worker cannot receive an onboarding reset link", request(
+        "POST", f"/supervisor/users/{user_id}/invitation", {}, supervisor_token,
+    ), 409)
+    assert_status("Retire owned smoke invitation fixture", request(
+        "POST", f"/supervisor/users/{user_id}/status", {"status": "resigned", "confirmed": True}, supervisor_token,
+    ), 200)
+
+
 def main():
     try:
         assert_status("health", request("GET", "/health"), 200)
@@ -236,6 +275,7 @@ def main():
         worker_token = worker_login["access_token"]
         supervisor_token = supervisor_login["access_token"]
         admin_token = admin_login["access_token"]
+        check_worker_invitation_onboarding(supervisor_token)
         assert_status(
             "reject disguised SVG upload",
             upload_test_file(
@@ -308,6 +348,21 @@ def main():
             ),
             200,
         )
+        # A CSRF failure alone is not expired authentication: /me may confirm
+        # the cookie. An invalid cookie must never pass that confirmation.
+        assert_status("cookie refresh without CSRF is rejected", request_with_cookie_session(
+            "POST", "/auth/refresh", cookies=worker_cookies,
+        ), 403)
+        assert_status("authenticated me confirms cookie after CSRF rejection", request_with_cookie_session(
+            "GET", "/auth/me", cookies=worker_cookies,
+        ), 200)
+        invalid_cookies = {**worker_cookies, AUTH_COOKIE_NAME: "invalid.session.cookie"}
+        assert_status("invalid cookie cannot refresh", request_with_cookie_session(
+            "POST", "/auth/refresh", cookies=invalid_cookies, include_csrf=True,
+        ), 403)
+        assert_status("invalid cookie cannot be confirmed by me", request_with_cookie_session(
+            "GET", "/auth/me", cookies=invalid_cookies,
+        ), 401)
         assert_status(
             "department supervisor cannot resign super admin by status route",
             request(

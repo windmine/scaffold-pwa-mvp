@@ -101,6 +101,37 @@ def update_work_form(form_id: int, data, supervisor: User, session: Session):
         raise HTTPException(status_code=404, detail="Report Template not found")
 
     fields = data.model_fields_set
+    has_definition_fields = (
+        ("name" in fields and data.name is not None)
+        or "description" in fields
+        or ("fields" in fields and data.fields is not None)
+    )
+    if has_definition_fields:
+        # Every content writer (including legacy callers) takes the same row
+        # lock before reading the Definition it will update. A precondition
+        # makes stale saved drafts fail rather than overwrite newer content.
+        claim = update(WorkForm).where(
+            WorkForm.id == form.id,
+            WorkForm.department_id == form.department_id,
+        )
+        if data.expected_definition_version is not None:
+            claim = claim.where(WorkForm.definition_version == data.expected_definition_version)
+        with session.no_autoflush:
+            result = session.execute(claim.values(
+                definition_version=WorkForm.definition_version,
+            ).execution_options(synchronize_session=False))
+        if result.rowcount != 1:
+            session.rollback()
+            form = session.get(WorkForm, form_id)
+            if not form or not can_access_department(supervisor, form.department_id):
+                raise HTTPException(status_code=404, detail="Report Template not found")
+            raise HTTPException(status_code=409, detail={
+                "code": "report_template_edit_version_conflict",
+                "message": "Report Template changed. Your saved draft was not applied. Review the current Template before editing again.",
+                "expected_definition_version": data.expected_definition_version,
+                "current_definition_version": work_form_definition(form)["version"],
+            })
+        session.refresh(form)
     before = model_snapshot(form)
     definition_before = work_form_definition(form)
     previous_status = form.status

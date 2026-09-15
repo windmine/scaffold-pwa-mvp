@@ -1,5 +1,11 @@
 import { getWorkForms as getBackendWorkForms } from './api-client.js';
-import { getDraft, saveDraft } from './mock-api.js';
+import { getDraft, getDraftEntries, saveDraft } from './mock-api.js';
+import { isReportDraftForWorker, summarizeReportDrafts } from './report-drafts.js';
+import {
+  saveWorkerReportTemplateSnapshot,
+  loadWorkerReportTemplateSnapshot,
+  clearWorkerReportTemplateSnapshot
+} from './offline-report-template-snapshot.js';
 import { preserveConflictingReportDraft, submitOfflineSubmission } from './offline-submissions.js';
 import { collectWorkFormAnswers, formatWorkFormAnswer, localAnswerImageSources, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
 import { setDateInputValue } from './date-inputs.js';
@@ -10,7 +16,8 @@ import {
   uploadImageValidationError,
   uuid,
   escapeHtml,
-  photoMetadataFromFile
+  photoMetadataFromFile,
+  formatDateTime
 } from './utils.js';
 
 const WORK_FORM_DRAFT_PREFIX = 'work-form-draft';
@@ -55,6 +62,8 @@ export function createWorkerFormModule({
   handleSessionExpired,
   isBackendSessionError,
   reportOnly = false,
+  onContinueDraft = () => {},
+  onReportTemplateSourceChanged = () => {},
   onSupervisorWorkFormsChanged = () => {},
   onWorkFormsChanged = () => {}
 }) {
@@ -62,11 +71,16 @@ export function createWorkerFormModule({
   let autosaveTimer = null;
   let selectionToken = 0;
   let sessionGeneration = 0;
+  let templateRequest = 0;
+  let reportTemplateSource = 'unavailable';
+  let reportTemplatesSavedAt = '';
   let restoringDraft = false;
   let conflictingDraft = null;
   let reloadLocked = false;
   let submissionControlStates = [];
   let photoSelectionToken = 0;
+  let draftListRequest = 0;
+  let draftContinueInFlight = false;
   let photoProcessing = {
     key: '',
     pending: false,
@@ -74,6 +88,9 @@ export function createWorkerFormModule({
     promise: Promise.resolve()
   };
   const draftStates = new Map();
+  // Storage can fail even after a Report is safe. Do not offer that submitted
+  // draft again in this session; a newly saved draft may reuse its Template key.
+  const submittedDraftsPendingCleanup = new Set();
   const emptyTemplateOption = 'Select a Report Template';
 
   function setAutosaveStatus(message, stateClass = '', savedAt = '') {
@@ -168,6 +185,8 @@ export function createWorkerFormModule({
       kind: 'work-form',
       schemaVersion: WORK_FORM_DRAFT_SCHEMA_VERSION,
       ownerWorkerId: draftState.ownerWorkerId,
+      departmentId: state.user.departmentId,
+      templatePurpose: formPurpose(form),
       formId: form.id,
       formName: form.name,
       definitionVersion: definitionVersion(form),
@@ -237,7 +256,11 @@ export function createWorkerFormModule({
 
   async function waitForDraftPhotos(draftState) {
     if (photoProcessing.key !== draftState?.key) return;
-    if (photoProcessing.pending) await photoProcessing.promise;
+    while (photoProcessing.pending && photoProcessing.key === draftState?.key) {
+      const pending = photoProcessing.promise;
+      await pending;
+      if (pending === photoProcessing.promise) break;
+    }
     if (photoProcessing.error) throw photoProcessing.error;
   }
 
@@ -262,6 +285,7 @@ export function createWorkerFormModule({
           savedAt
         };
         await saveDraft(draftState.key, snapshot);
+        submittedDraftsPendingCleanup.delete(draftState.key);
         draftState.snapshot = snapshot;
         draftState.savedAt = savedAt;
         draftState.savedRevision = revisionToSave;
@@ -272,6 +296,7 @@ export function createWorkerFormModule({
     try {
       await draftState.flushPromise;
       if (activeDraftState()?.key === draftState.key) showSavedStatus(draftState.savedAt);
+      void renderDraftList();
     } catch (error) {
       draftState.error = error;
       if (activeDraftState()?.key === draftState.key) showDraftSaveError();
@@ -384,6 +409,7 @@ export function createWorkerFormModule({
   }
 
   function resetDraftSurface() {
+    photoSelectionToken += 1;
     setDraftConflict(null);
     els.workFormSite.value = '';
     setDateInputValue(els.workFormDate, todayDateInput());
@@ -394,7 +420,50 @@ export function createWorkerFormModule({
     photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Report photo');
   }
 
+  function updatePhotoRemovalControls() {
+    const disabled = Boolean(conflictingDraft || reloadLocked || state.submittingWorkForm || photoProcessing.pending);
+    els.workFormPhotoPreview.querySelectorAll('[data-remove-report-photo]').forEach((button) => {
+      button.disabled = disabled;
+    });
+  }
+
+  function renderEditablePhotoPreviews() {
+    photoViewer.renderPreviews(
+      els.workFormPhotoPreview,
+      state.workFormPhotoDataUrls,
+      'Report photo',
+      state.workFormPhotoMetadata
+    );
+    els.workFormPhotoPreview.querySelectorAll('.photo-thumb').forEach((preview, index) => {
+      const item = document.createElement('div');
+      item.className = 'report-photo-item';
+      preview.replaceWith(item);
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'ghost report-photo-remove';
+      removeButton.dataset.removeReportPhoto = String(index);
+      removeButton.setAttribute('aria-label', `Remove photo ${index + 1}`);
+      removeButton.textContent = 'Remove';
+      removeButton.addEventListener('click', () => {
+        if (!removeButton.isConnected || conflictingDraft || reloadLocked || state.submittingWorkForm || photoProcessing.pending) return;
+        state.workFormPhotoFiles.splice(index, 1);
+        state.workFormPhotoDataUrls.splice(index, 1);
+        state.workFormPhotoMetadata.splice(index, 1);
+        els.workFormPhotos.value = '';
+        markActiveDraftDirty();
+        renderEditablePhotoPreviews();
+        const nextIndex = Math.min(index, state.workFormPhotoDataUrls.length - 1);
+        const nextButton = els.workFormPhotoPreview.querySelector(`[data-remove-report-photo="${nextIndex}"]`);
+        (nextButton || els.workFormPhotos).focus();
+      });
+      item.append(preview, removeButton);
+    });
+    updatePhotoRemovalControls();
+  }
+
   function validStoredDraft(value, form, draftState) {
+    if (submittedDraftsPendingCleanup.has(draftState.key)) return false;
+    if (reportOnly) return isReportDraftForWorker(value, state.user, form);
     return value?.kind === 'work-form'
       && String(value.ownerWorkerId || '') === String(draftState.ownerWorkerId)
       && String(value.formId || '') === String(form.id);
@@ -413,12 +482,7 @@ export function createWorkerFormModule({
       state.workFormPhotoMetadata = Array.isArray(draft.photoMetadata)
         ? draft.photoMetadata.map((item) => ({ ...item }))
         : [];
-      photoViewer.renderPreviews(
-        els.workFormPhotoPreview,
-        state.workFormPhotoDataUrls,
-        'Report photo',
-        state.workFormPhotoMetadata
-      );
+      renderEditablePhotoPreviews();
       draftState.snapshot = {
         ...draft,
         photoDataUrls: [...state.workFormPhotoDataUrls],
@@ -465,7 +529,12 @@ export function createWorkerFormModule({
       return;
     }
 
-    if (formPurpose(form) === 'report' && Number(draft.definitionVersion || 1) !== definitionVersion(form)) {
+    const draftVersion = draft.definitionVersion == null
+      ? 1
+      : ['number', 'string'].includes(typeof draft.definitionVersion) ? Number(draft.definitionVersion) : NaN;
+    if (formPurpose(form) === 'report' && (
+      !Number.isSafeInteger(draftVersion) || draftVersion <= 0 || draftVersion !== definitionVersion(form)
+    )) {
       showConflictingDraft(draft, draftState);
       return;
     }
@@ -517,46 +586,227 @@ export function createWorkerFormModule({
     await restoreSelectedDraft(form, draftState, token);
   }
 
+  function setReportTemplateSource(source, savedAt = '') {
+    reportTemplateSource = source;
+    reportTemplatesSavedAt = savedAt;
+    onReportTemplateSourceChanged({
+      source,
+      savedAt,
+      templateCount: state.workForms.filter((form) => form.status === 'active' && formPurpose(form) === 'report').length
+    });
+  }
+
+  async function applyRefreshedWorkForms(workForms, isCurrentSession) {
+    // A refresh may replace the Definition used by the visible Report. Save the
+    // original fields/answers/evidence before the existing version guard runs.
+    if (state.user?.role === 'worker') {
+      if (reloadLocked || state.submittingWorkForm) return false;
+      try {
+        await flushPendingDrafts();
+      } catch {
+        if (isCurrentSession()) renderStatusBanner('Report Templates were not refreshed because this Report has unsaved changes. Keep this page open and try again.', true, {
+          local: els.workFormFeedback,
+          tone: 'error'
+        });
+        return false;
+      }
+    }
+    if (!isCurrentSession()) return false;
+    state.workForms = workForms;
+    renderWorkFormOptions();
+    await renderSelectedWorkForm({ preserveCurrent: false });
+    if (!isCurrentSession()) return false;
+    onWorkFormsChanged();
+    void renderDraftList();
+    if (state.user.role === 'supervisor') onSupervisorWorkFormsChanged();
+    return true;
+  }
+
   async function refreshWorkForms() {
     if (!state.user) return false;
-    const requestUserId = state.user.id;
+    const requestUser = { ...state.user };
     const requestGeneration = sessionGeneration;
+    const request = ++templateRequest;
+    const isReportWorker = reportOnly && requestUser.role === 'worker';
     const isCurrentSession = () => (
       requestGeneration === sessionGeneration
-      && String(state.user?.id || '') === String(requestUserId)
+      && request === templateRequest
+      && state.user?.role === requestUser.role
+      && String(state.user?.id || '') === String(requestUser.id)
+      && String(state.user?.departmentId || '') === String(requestUser.departmentId || '')
     );
 
+    let workForms;
     try {
-      const workForms = await getBackendWorkForms(reportOnly ? 'report' : '');
-      if (!isCurrentSession()) return false;
-      state.workForms = workForms;
-      renderWorkFormOptions();
-      await renderSelectedWorkForm({ preserveCurrent: false });
-      if (!isCurrentSession()) return false;
-      onWorkFormsChanged();
-      if (state.user.role === 'supervisor') onSupervisorWorkFormsChanged();
-      return true;
+      workForms = await getBackendWorkForms(reportOnly ? 'report' : '');
     } catch (error) {
       if (!isCurrentSession()) return false;
+      if (isBackendSessionError(error)) {
+        if (isReportWorker) void clearWorkerReportTemplateSnapshot(requestUser).catch(() => {});
+        state.workForms = [];
+        renderWorkFormOptions();
+        setReportTemplateSource('unavailable');
+        handleSessionExpired();
+        return false;
+      }
+      if (isReportWorker) {
+        try {
+          const snapshot = await loadWorkerReportTemplateSnapshot(requestUser);
+          if (!isCurrentSession()) return false;
+          if (snapshot) {
+            if (!await applyRefreshedWorkForms(snapshot.templates, isCurrentSession)) return false;
+            setReportTemplateSource('offline', snapshot.savedAt);
+            return true;
+          }
+        } catch {
+          // Storage failure cannot prevent editing an already-loaded Template.
+        }
+        if (!isCurrentSession()) return false;
+        if (reportTemplateSource !== 'unavailable' && state.workForms.length) {
+          setReportTemplateSource('offline', reportTemplatesSavedAt);
+          return true;
+        }
+      }
       if (state.user.role === 'worker') {
         state.workForms = [];
         renderWorkFormOptions();
+        setReportTemplateSource('unavailable');
         renderStatusBanner(error.message || 'Could not load Report Templates.', true);
+        void renderDraftList();
       }
       return false;
     }
+    if (!isCurrentSession()) return false;
+    if (!await applyRefreshedWorkForms(workForms, isCurrentSession)) return false;
+    let savedAt = '';
+    if (isReportWorker) {
+      try {
+        if (await saveWorkerReportTemplateSnapshot(requestUser, workForms, { isCurrent: isCurrentSession })) {
+          savedAt = new Date().toISOString();
+        }
+      } catch {
+        // Current authenticated Templates remain usable when device storage fails.
+      }
+    }
+    if (!isCurrentSession()) return false;
+    setReportTemplateSource(isReportWorker && !navigator.onLine ? 'offline' : 'online', savedAt);
+    return true;
   }
 
-  async function processPhotoChange(event, token, draftState) {
-    const selectedFiles = Array.from(event.target.files || []);
-    const files = selectedFiles.slice(0, maxPhotos);
+  function hasOfflineTemplates() {
+    return reportOnly && state.user?.role === 'worker' && reportTemplateSource === 'offline';
+  }
+
+  async function refreshAfterReconnect() {
+    return hasOfflineTemplates() ? refreshWorkForms() : false;
+  }
+
+  function draftScopeStillActive(worker, generation) {
+    return generation === sessionGeneration
+      && state.user?.role === 'worker'
+      && String(state.user.id) === String(worker.id)
+      && String(state.user.departmentId || '') === String(worker.departmentId || '');
+  }
+
+  async function renderDraftList({ flush = false } = {}) {
+    if (!reportOnly || !els.reportDraftsPanel) return;
+    const request = ++draftListRequest;
+    const worker = state.user;
+    const generation = sessionGeneration;
+    if (worker?.role !== 'worker') {
+      els.reportDraftsPanel.hidden = true;
+      els.reportDraftsList.replaceChildren();
+      return;
+    }
+    const isCurrent = () => request === draftListRequest && draftScopeStillActive(worker, generation);
+    try {
+      if (flush) await flushPendingDrafts();
+      if (!isCurrent()) return;
+      const entries = await getDraftEntries();
+      if (!isCurrent()) return;
+      const drafts = summarizeReportDrafts(
+        entries.filter((entry) => !submittedDraftsPendingCleanup.has(entry?.key)),
+        worker,
+        state.workForms
+      );
+      els.reportDraftsPanel.hidden = drafts.length === 0;
+      els.reportDraftsList.replaceChildren();
+      for (const draft of drafts) {
+        const card = document.createElement('article');
+        card.className = 'report-draft-card';
+        card.innerHTML = `
+          <div class="report-draft-summary">
+            <h4 data-no-i18n>${escapeHtml(draft.formName)}</h4>
+            <p><span>Report Date</span>: <span data-no-i18n>${escapeHtml(draft.workDate || '-')}</span></p>
+            <p><span>Last saved</span>: <span data-no-i18n>${escapeHtml(formatDateTime(draft.savedAt))}</span></p>
+            ${draft.availability === 'template_changed' ? '<p class="muted">Report Template changed. Review the saved draft before starting a new Report.</p>' : ''}
+            ${draft.availability === 'unavailable' ? '<p class="muted">Report Template unavailable. Connect and refresh, or ask your supervisor.</p>' : ''}
+          </div>`;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'secondary';
+        button.textContent = 'Continue draft';
+        button.disabled = draft.availability === 'unavailable';
+        button.addEventListener('click', async () => {
+          if (draftContinueInFlight) return;
+          feedback.setButtonBusy(button, true, 'Opening draft...');
+          try {
+            await continueReportDraft(draft.formId);
+          } finally {
+            if (button.isConnected) feedback.setButtonBusy(button, false);
+          }
+        });
+        card.append(button);
+        els.reportDraftsList.append(card);
+      }
+    } catch {
+      if (!isCurrent()) return;
+      els.reportDraftsPanel.hidden = false;
+      els.reportDraftsList.textContent = 'Could not load saved drafts. Keep New Report open if changes are not saved, then try Refresh.';
+    }
+  }
+
+  async function continueReportDraft(formId) {
+    if (!reportOnly || state.user?.role !== 'worker' || draftContinueInFlight || reloadLocked || state.submittingWorkForm) return false;
+    const worker = state.user;
+    const generation = sessionGeneration;
+    draftContinueInFlight = true;
+    try {
+      await flushPendingDrafts();
+      if (!draftScopeStillActive(worker, generation)) return false;
+      const form = selectedWorkForm(formId);
+      const key = workFormDraftKey(worker.id, formId);
+      const draft = await getDraft(key);
+      if (!draftScopeStillActive(worker, generation)) return false;
+      if (submittedDraftsPendingCleanup.has(key) || !isReportDraftForWorker(draft, worker, form)) {
+        void renderDraftList();
+        renderStatusBanner('This draft cannot be opened with the available Report Templates. Your saved work is unchanged.', true);
+        return false;
+      }
+      els.workFormSelect.value = String(form.id);
+      await renderSelectedWorkForm();
+      if (!draftScopeStillActive(worker, generation) || String(renderedWorkForm?.id) !== String(formId)) return false;
+      onContinueDraft();
+      els.workFormSelect.focus();
+      els.workFormSelect.scrollIntoView({ block: 'start' });
+      return true;
+    } catch {
+      if (draftScopeStillActive(worker, generation)) {
+        renderStatusBanner('Could not open this draft. Keep New Report open if changes are not saved, then try again.', true);
+      }
+      return false;
+    } finally {
+      if (generation === sessionGeneration) draftContinueInFlight = false;
+    }
+  }
+
+  async function processPhotoChange(selectedFiles, token, draftState) {
+    const isCurrent = () => token === photoSelectionToken && activeDraftState()?.key === draftState?.key;
+    if (!isCurrent()) return;
+    const remainingSlots = Math.max(0, maxPhotos - state.workFormPhotoDataUrls.length);
+    const files = selectedFiles.slice(0, remainingSlots);
     const validationError = files.map(uploadImageValidationError).find(Boolean);
     if (validationError) {
-      event.target.value = '';
-      state.workFormPhotoFiles = [];
-      state.workFormPhotoDataUrls = [];
-      state.workFormPhotoMetadata = [];
-      photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Report photo');
       renderStatusBanner(validationError, true, {
         local: els.workFormFeedback,
         field: els.workFormPhotos,
@@ -567,25 +817,29 @@ export function createWorkerFormModule({
 
     try {
       const dataUrls = await Promise.all(files.map((file) => fileToDataUrl(file)));
-      if (token !== photoSelectionToken || activeDraftState()?.key !== draftState?.key) return;
-      state.workFormPhotoFiles = files;
-      state.workFormPhotoDataUrls = dataUrls;
-      state.workFormPhotoMetadata = files.map(photoMetadataFromFile);
-      photoViewer.renderPreviews(
-        els.workFormPhotoPreview,
-        state.workFormPhotoDataUrls,
-        'Report photo',
-        state.workFormPhotoMetadata
-      );
+      if (!isCurrent()) return;
+      // Restored drafts only have data URLs. Keep the File fast path only when
+      // every photo has one, so Offline Submission never pairs different images.
+      const existingCount = state.workFormPhotoDataUrls.length;
+      state.workFormPhotoFiles = state.workFormPhotoFiles.length === existingCount
+        ? [...state.workFormPhotoFiles, ...files]
+        : [];
+      state.workFormPhotoMetadata = [
+        ...state.workFormPhotoDataUrls.map((_, index) => state.workFormPhotoMetadata[index] || {}),
+        ...files.map(photoMetadataFromFile)
+      ];
+      state.workFormPhotoDataUrls = [...state.workFormPhotoDataUrls, ...dataUrls];
+      renderEditablePhotoPreviews();
+      feedback.clearLocal(els.workFormFeedback);
 
-      if (selectedFiles.length > maxPhotos) {
+      if (selectedFiles.length > remainingSlots) {
         renderStatusBanner(`Reports can include up to ${maxPhotos} photos. The first ${maxPhotos} were kept.`, true, {
           local: els.workFormFeedback,
           tone: 'warning'
         });
       }
     } catch (error) {
-      event.target.value = '';
+      if (!isCurrent()) return;
       renderStatusBanner('Could not prepare these photos. Choose them again before leaving this page.', true, {
         local: els.workFormFeedback,
         field: els.workFormPhotos,
@@ -598,22 +852,31 @@ export function createWorkerFormModule({
   function handlePhotoChange(event) {
     if (conflictingDraft || reloadLocked || state.submittingWorkForm) return;
     const draftState = activeDraftState();
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!draftState || !files.length) return;
     markActiveDraftDirty({ capture: false });
-    const token = ++photoSelectionToken;
-    const promise = processPhotoChange(event, token, draftState);
+    const token = photoSelectionToken;
+    // Complete selections in order. A second picker event must not cancel an
+    // earlier read, and both belong to the same guarded Worker/Template surface.
+    const promise = photoProcessing.promise.catch(() => {}).then(() => processPhotoChange(files, token, draftState));
     photoProcessing = {
       key: draftState?.key || '',
       pending: true,
       error: null,
       promise
     };
+    updatePhotoRemovalControls();
     void promise
       .catch((error) => {
         if (photoProcessing.promise === promise) photoProcessing.error = error;
         if (activeDraftState()?.key === draftState?.key) showDraftSaveError();
       })
       .finally(() => {
-        if (photoProcessing.promise === promise) photoProcessing.pending = false;
+        if (photoProcessing.promise === promise) {
+          photoProcessing.pending = false;
+          updatePhotoRemovalControls();
+        }
       });
   }
 
@@ -638,6 +901,7 @@ export function createWorkerFormModule({
     feedback.setButtonBusy(els.submitWorkFormButton, isSubmitting, 'Submitting Report...');
     state.submittingWorkForm = isSubmitting;
     els.submitWorkFormButton.disabled = isSubmitting;
+    updatePhotoRemovalControls();
   }
 
   async function handleSubmit(event) {
@@ -713,6 +977,7 @@ export function createWorkerFormModule({
         photoFiles: state.workFormPhotoFiles
       });
 
+      if (result.draftCleanupFailed) submittedDraftsPendingCleanup.add(submittedDraft.key);
       cancelAutosaveTimer();
       draftStates.delete(submittedDraft.key);
       els.workFormSubmissionForm.reset();
@@ -735,6 +1000,7 @@ export function createWorkerFormModule({
       });
       await renderWorkerSummary();
       await renderHistory();
+      void renderDraftList();
     } catch (error) {
       setSubmitting(false);
       if (isBackendSessionError(error)) {
@@ -794,6 +1060,7 @@ export function createWorkerFormModule({
         tone: 'warning'
       });
       await renderHistory();
+      void renderDraftList();
     } catch (error) {
       if (generation === sessionGeneration) renderStatusBanner(error.message || 'Could not keep this Report draft. The original draft is unchanged.', true, {
         local: els.workFormFeedback,
@@ -813,8 +1080,14 @@ export function createWorkerFormModule({
       void renderSelectedWorkForm();
     });
     els.workFormPhotos.addEventListener('change', handlePhotoChange);
+    els.refreshHistoryButton.addEventListener('click', () => { void renderDraftList({ flush: true }); });
     els.workFormSubmissionForm.addEventListener('input', handleDraftMutation);
     els.workFormSubmissionForm.addEventListener('change', handleDraftMutation);
+    window.addEventListener('offline', () => {
+      if (reportOnly && state.user?.role === 'worker' && reportTemplateSource === 'online') {
+        setReportTemplateSource('offline', reportTemplatesSavedAt);
+      }
+    });
     window.addEventListener('beforeunload', (event) => {
       if (!hasUnsavedInput()) return;
       event.preventDefault();
@@ -830,6 +1103,13 @@ export function createWorkerFormModule({
 
   function clearSessionState() {
     sessionGeneration += 1;
+    templateRequest += 1;
+    draftListRequest += 1;
+    draftContinueInFlight = false;
+    if (els.reportDraftsPanel) {
+      els.reportDraftsPanel.hidden = true;
+      els.reportDraftsList.replaceChildren();
+    }
     if (state.submittingWorkForm || submissionControlStates.length) setSubmitting(false);
     feedback.clearLocal(els.workFormFeedback);
     cancelAutosaveTimer();
@@ -845,6 +1125,7 @@ export function createWorkerFormModule({
     submissionControlStates = [];
     els.workFormSubmissionForm.reset();
     state.workForms = [];
+    setReportTemplateSource('unavailable');
     els.workFormSelect.innerHTML = `<option value="">${emptyTemplateOption}</option>`;
     setDateInputValue(els.workFormDate, todayDateInput());
     els.workFormFields.innerHTML = '';
@@ -854,6 +1135,7 @@ export function createWorkerFormModule({
     photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Report photo');
     photoProcessing = { key: '', pending: false, error: null, promise: Promise.resolve() };
     draftStates.clear();
+    submittedDraftsPendingCleanup.clear();
     showDefaultAutosaveStatus();
   }
 
@@ -864,8 +1146,11 @@ export function createWorkerFormModule({
     focusUnsavedInput,
     flushPendingDrafts,
     hasUnsavedInput,
+    hasOfflineTemplates,
     prepareForAppUpdate,
+    refreshAfterReconnect,
     refreshWorkForms,
+    renderDraftList,
     renderSelectedWorkForm
   };
 }

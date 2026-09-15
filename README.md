@@ -57,7 +57,7 @@ The printable QR always encodes the permanent URL `https://geo-attendance-system
 
 Run `npm run generate:install-qr` to regenerate the deterministic artifacts using the existing Python ReportLab/Pillow tooling. It also writes the identical SVG mirror at `assets/icons/reportflow-install-qr.svg` for precaching. No QR service or new app runtime dependency is used. Run `npm run build` afterward to copy the installer and downloads into `dist/` and regenerate the PWA shell.
 
-The installer is a separate static page with no app/auth imports, protected API requests, session access, local storage, IndexedDB access, or queue replay. It shares the existing manifest URL, `/index.html` start URL, `/` scope and `/sw.js`; it never sends `SKIP_WAITING`, clears caches or forces an open app to reload. A waiting update directs the user back to ReportFlow's existing draft-safe **Update App** flow. After the updated shell is cached, `/install.html` cold-launches its own cached guide and QR offline; this does not make Report Templates, sign-in or first-time installation work offline. Printable downloads are not precached.
+The installer is a separate static page with no app/auth imports, protected API requests, session access, local storage, IndexedDB access, or queue replay. It shares the existing manifest URL, `/index.html` start URL, `/` scope and `/sw.js`; it never sends `SKIP_WAITING`, clears caches or forces an open app to reload. A waiting update directs the user back to ReportFlow's existing draft-safe **Update App** flow. After the updated shell is cached, `/install.html` cold-launches its own cached guide and QR offline; it does not download Report Templates or make sign-in or first-time installation work offline. The authenticated app owns the separate Template-download flow. Printable downloads are not precached.
 
 `npm run check:install` builds and runs the isolated installer browser checks without a backend or real accounts. These checks cover platform/manual fallbacks, one-shot prompt outcomes, clipboard/language behavior, storage/session isolation, waiting-update safety, manifest/downloads, responsive controls and the real service-worker offline page. This gate is also part of `npm run check:mobile`. Use `INSTALL_PAGE_SCREENSHOT_DIR` to capture installer screenshots. Simulated install events and desktop Chromium are not proof of physical iPhone/Android installation; scan a printed copy and complete the installed-device checklist before broader distribution.
 
@@ -97,17 +97,23 @@ On 2026-09-01, the local in-app browser passed the report-only route at 390 × 8
 
 Current Report contract:
 
+The photo/draft, offline-return, private Supervisor Template-draft, Worker-invitation, and Find-aware export improvements below are local changes, not yet deployed; the live release remains the installer release recorded above. On 2026-09-15, the full `check:mobile` run passed all 66 app workflows and 11 installer checks, including the focused offline/editor tests; Review Queue/backend suites and a disposable-backend smoke test also passed. Final UI/offline-publication refinements were followed by lint/build/static checks, all seven Template-draft UI scenarios (320/390/1280px English/Chinese layout assertions), and the production-preview cold offline Report-return check on cache `leader-field-9a5e069c0e84`. The full 66-scenario suite was not rerun after those final refinements. No hosted, PostgreSQL staging, or physical-phone pass is claimed. Template-edit concurrency protection needs its compatible backend but no new migration; the earlier invitation update still requires `0021_worker_invitations` and the coupled backend before frontend promotion.
+
 - Workers see only **New Report** and **My Reports**. Normal Workers and Leaders use the same visible Report flow.
 - Logout, session expiry, and a new login synchronously clear the prior account's Report history, Supervisor queue, private lists, and photo/edit viewers. Late responses from an ended session are ignored, including after the same account signs back in. Worker-owned drafts and offline submissions remain stored for their owner.
 - A Report requires a Report Date, may omit Site, can include up to 8 photos and configured handwritten signatures, and keeps an immutable Definition snapshot after submission.
+- Photo selections add to the existing draft; **Remove** discards one photo without clearing the others. Invalid selections leave existing evidence intact.
+- **My Reports → Drafts on this device** lists the signed-in Worker's Department-scoped, unfinished Reports with Template, Report Date, last-saved time, and **Continue draft**. These device-only drafts are separate from Report records, counts, filters, exports, and sync actions.
 - A Report moves forward only through **Submitted → In review → Resolved**. Resolution requires a final Supervisor note; legacy approval statuses are not Report workflow actions.
 - Supervisors see only **Reports**, **Report Templates**, and **Staff**. Durable `report` purpose separates Reports from retained `daywork` templates/submissions, so Daywork is excluded from New Report, My Reports, Supervisor Reports, and Report exports.
-- Collection CSV/PDF exports follow the structured workflow, Template, Worker, Report Date, and Department filters. Report exports show the Report workflow plus the final Supervisor note, reviewer, review-started time, and resolved time. The free-text **Find** field filters the visible list only.
-- An already-open Worker page with its Report Template loaded can queue a Report while offline. Photo and signature upload progress, Worker ownership, capture time, and the client submission id persist across retries, so reconnecting or retrying does not create a second Report.
+- Collection CSV/HTML/PDF exports follow **Find** plus the same workflow, Template, Worker, Report Date, and Department filters as the Report inbox. Exports contain all matching durable Reports across every page, not only the loaded records. Report workflow, final note, reviewer, and review timestamps remain included; drafts and queued local copies are excluded.
+- New Workers created through report-only **Staff** receive a private, single-use setup link instead of a Supervisor-chosen password. They cannot sign in until they set their password. Links expire after 24 hours by default; replacing, revoking, or changing the invited account's email, Department, or employment status invalidates old links. No email is sent automatically.
+- A successful authenticated Worker load downloads active Department Report Templates to an exact Worker/Department device snapshot. Once the PWA shell and Templates are saved, a killed/refreshed offline return can start or continue a Report and queue it. The availability message distinguishes saved Templates from an open page whose device storage failed. Photo/signature upload progress, Worker ownership, capture time, and the client submission id persist across retries.
 - Queued Reports keep the Template version used at capture. If that Template changes before the first successful sync, the server rejects the replay without dropping answers; **My Reports** retains the original answers, photos, and local signature images and explains how to submit a new Report using the current Template. Keep the original queued copy until the new Report is confirmed submitted.
 - A saved draft from an older Template is read-only; autosave cannot replace its answers with the new fields. **Keep draft and start new report** first preserves the original in **My Reports** as a **Saved draft**, then opens the current Template blank. That recovery copy is not submitted or automatically synced, even if incomplete.
-- The generated PWA still cold-launches its cached application shell. Report Templates and backend Report history remain network-only, so a killed offline launch can show locally queued Reports but cannot start a new Report unless its Template is available again after reconnect.
-- A waiting service worker exposes **Update App**. The app saves the active Report draft before reload and pauses with **Try saving again** / **Keep editing** if local draft storage fails.
+- Protected API/history/upload responses remain network-only. The Template snapshot is not a durable Report-history or Supervisor-list cache. Logout, explicit authorization denial, and observed Worker/Department changes clear it; reconnect saves current input before fetching current Templates. Changed Definitions retain read-only draft recovery and replay protection. Missing/cleared snapshots cannot enable offline authoring, and unavailable Templates disable **Continue draft**.
+- **Report Templates** also exposes private **Continue Template draft** / **Discard Template draft** actions. Create/edit drafts retain name, description, field cards and exact unapplied raw syntax for that Supervisor, home Department, target Department and Template. **Close and keep draft** preserves the unfinished copy. Stale, archived/unavailable or uncertain-publication editing copies remain read-only; drafts never enter Worker Reports, exports or replay.
+- A waiting service worker exposes **Update App**. Workspace navigation retains the live Template editor and its autosave; Close, logout and updates save unfinished editing first or pause on storage failure. Publishing a Template remains an explicit online operation, with an `expected_definition_version` guard rejecting stale edits with HTTP 409.
 
 ## Historical Deployed Reset Status - 2026-08-13
 
@@ -139,7 +145,7 @@ Completed in this reset:
 - Review Queue policy, cursor queries, offline/read-only fallback, and exports are separate test surfaces. Dashboard totals and Management Analytics load complete durable overview data instead of the current filtered page.
 - SQLAlchemy connection checkout uses `pool_pre_ping`, and protected Sites load only after login or session restoration succeeds.
 - Public registration remains hidden in deployed commit `bcfb128` for the invited-account pilot. Supervisors create and activate Workers from Staff users; the verified-registration API remains implemented and tested for a later re-enable.
-- The current Staff users flow is account provisioning, not a complete invitation handoff: the Supervisor must choose and communicate each initial password. There is no expiring, single-use invitation or Worker-set-password flow yet.
+- The live installer release still uses Supervisor-chosen initial passwords. The local invitation update replaces this for new Workers in report-only Staff; its migration, private-handoff process, hosted verification, and coupled release remain pending.
 - Global-admin access is Supervisor-only. The Staff UI clears and disables it for Workers, authorization ignores invalid Worker flags, the API validates the final role/access combination, and migration `0017_global_admin_supervisor_invariant` revokes invalid legacy flags before enforcing the database invariant.
 - On 2026-08-05, commit `9db3477` passed lint, production build/static PWA checks, Review Queue checks, all 27 Playwright workflows, the production dependency audit, Python dependency consistency, and the controlled production-hardening gate. The production-preview cold offline launch and queued-attendance regression passed locally.
 - Local validation on 2026-08-04 passed lint, production build/PWA generation, Review Queue, all static/mobile checks, 26 Playwright browser workflows, backend database/security/upload/review/form/migration tests, the full disposable-database smoke test, production dependency audit, and Python dependency consistency.
@@ -168,7 +174,7 @@ Completed in this reset:
 
 Next step:
 
-Run the full hosted physical-phone checklist against the released report-only app: both Worker classes, Supervisor navigation, optional Site, all Report states, offline photo/signature replay exactly once, authorized evidence streaming, killed/refreshed cached-shell launch, and **Update App**. The automated hosted release and old-to-new service-worker checks are green, but are not a real-device pass. Before broader onboarding, implement an expiring, single-use Worker password-setup invitation, replace owner-level Neon runtime access, load-test explicit pool/scale limits, and choose longer recovery or external logical backups. Keep the confirmed Monitoring destination and NZ$10 project budget evidence current; neither proves budget-email receipt or caps spending. Resolve remaining development-only npm advisories separately.
+Run the full hosted physical-phone checklist against the released report-only app: both Worker classes, Supervisor navigation, optional Site, all Report states, offline photo/signature replay exactly once, authorized evidence streaming, killed/refreshed cached-shell launch, and **Update App**. The automated hosted release and old-to-new service-worker checks are green, but are not a real-device pass. Before broader onboarding, stage and release the completed local Worker-invitation flow: verify private recipient handoff and PostgreSQL contention, apply `0021_worker_invitations` and promote its compatible backend before the coupled frontend. No invitation email is sent. Also replace owner-level Neon runtime access, load-test explicit pool/scale limits, and choose longer recovery or external logical backups. Keep the confirmed Monitoring destination and NZ$10 project budget evidence current; neither proves budget-email receipt or caps spending. Resolve remaining development-only npm advisories separately.
 
 ## Recommended Production Deployment
 
@@ -207,7 +213,7 @@ Do not store uploaded photos or signatures in Cloud SQL. Store files in Cloud St
 - Workers see **New Report**, **My Reports**, and their account/logout controls. Attendance, Daywork, weekly team logs, and missing-site controls are hidden.
 - Supervisors see **Reports**, **Report Templates**, and **Staff**. Maps, analytics, Sites, audit/recovery, manual attendance, task-log entry, and the unrelated export workspace are hidden.
 - Worker history and the Supervisor report queue request `purpose=report`. Retained Legacy Daywork templates and submissions do not leak into New Report, My Reports, Supervisor Reports, or Report collection exports.
-- Supervisor **Reports** can be filtered by workflow (**Submitted**, **In review**, or **Resolved**), Report Template, Worker, and Report Date. Report CSV/PDF exports use those structured filters and Department focus; the free-text **Find** field filters the visible list only. Attendance and task-log exports remain hidden.
+- Supervisor **Reports** can be filtered by workflow (**Submitted**, **In review**, or **Resolved**), Report Template, Worker, Report Date, and **Find**. Report CSV/PDF exports apply all of those filters and Department focus across every result page. Attendance and task-log exports remain hidden.
 - **New Report** keeps the existing template-driven submission engine: Report Date is required, Site is optional, configured fields/signatures remain enforceable, photos are supported, drafts autosave locally, and queued submissions retain their stable replay key.
 - **My Reports** shows the report workflow status, labelled submission time, Report Date, Site, submitted details/evidence, and the final Supervisor note after resolution.
 - **My Reports** also shows device-local queued Reports. **Retry sync** reuses completed photo/signature uploads and the stable client submission id; **Discard local copy** removes only the unsynced device record.
@@ -221,7 +227,9 @@ Worker accounts have two field classes:
 - **Normal worker:** submit active department report templates and review their own reports.
 - **Leader:** currently receives the same report-only navigation; the broader Leader capabilities remain retained but hidden.
 
-During the invited-account pilot, a supervisor opens **Staff**, searches the existing list, and chooses **Add staff** to create and activate a Worker account. New Workers start as normal workers. A supervisor can promote or return a worker between Normal worker and Leader without changing the account's department or historical records. The current form requires the supervisor to choose the initial password and communicate it securely; Workers cannot yet complete an expiring invitation and set their own password.
+In the local invitation update, a Supervisor opens **Staff → Add staff**, enters the Worker's name/email, class and Department, and chooses **Create invitation**. No initial password is requested for Workers. Copy the private link and send it directly to the verified intended Worker through an authenticated private channel, not a public chat, shared QR code, or issue tracker. The link is shown only in that dialog, is cleared on close/logout/navigation, and must be replaced from Staff if lost. The app records issuance, not delivery; no email is sent.
+
+The Worker opens the link, checks the displayed identity, enters and confirms a new password, then signs in normally. Setup does not switch another signed-in account. Staff distinguishes **Password setup required**, expiry and revocation from active/resigned employment status. **Create new setup link** invalidates old links; **Revoke setup link** prevents their use without deleting the account. Editing email, Department or employment status also invalidates links. Newly invited Workers remain Workers until setup is complete. Existing accounts/passwords, Supervisor creation and the retained full-interface provisioning API remain compatible; invitation endpoints are not password-reset endpoints for established accounts.
 
 All workers receive the report-only screen with **New Report** and **My Reports** navigation. They choose an active Department Report Template (`template_purpose=report`), complete its fields and evidence, submit it for review, and see only their own Report history.
 
@@ -231,9 +239,9 @@ Current visible Worker flow:
 - Choose an active Department Report Template. Archived Templates and Legacy Daywork templates are not offered.
 - Choose a required Report Date and, when relevant, an optional Site. A no-Site submission stores `site_id=null` and is shown as `Unassigned site` rather than being blocked.
 - Complete configured text, choice, checkbox, date, number, section, conditional, time-range, formula, repeat, and handwritten-signature fields. Browser calculations are previews; the backend stores authoritative duration/formula results.
-- Add up to 8 JPEG, PNG, or WebP photos of at most 5 MB each. Required signatures must contain handwriting before submission.
-- Let the Worker/Report Template draft autosave on this device, including Site, Report Date, answers, signatures, and photos. After reload or sign-in, reselect that Template to restore its matching draft. Logout and **Update App** both wait for unsaved input; the update pauses instead of discarding work when local storage fails.
-- Submit online or, from an already-open page with its Template loaded, queue the Report while offline. Queued evidence uploads resume from persisted partial progress, remain bound to the capturing Worker, and reuse one stable client submission id.
+- Add up to 8 JPEG, PNG, or WebP photos of at most 5 MB each, in one or several selections. Use **Remove** beneath a thumbnail to discard only that photo; remaining photos keep their order after reload and submission. Required signatures must contain handwriting before submission.
+- Let the Worker/Report Template draft autosave on this device, including Site, Report Date, answers, signatures, and photos. After reload or sign-in, open **My Reports → Drafts on this device → Continue draft** (or reselect the Template in **New Report**). Logout and **Update App** both wait for unsaved input; the update pauses instead of discarding work when local storage fails. Draft cards disappear after successful online or queued submission; a cleanup failure warns against submitting the old draft again and suppresses its Continue action for the current session.
+- Submit online or queue offline from a Template downloaded during an authenticated visit. After the shell and Templates are saved, cold offline returns can also start or continue a Report. Queued evidence uploads resume from persisted partial progress, remain bound to the capturing Worker, and reuse one stable client submission id.
 - Use **My Reports** to search by Template/answer/status, filter by **Submitted**, **In review**, **Resolved**, **Queued**, or local Report Date, open photo/signature evidence, retry a failed queue item, or discard only its unsynced local copy.
 - After resolution, read the final Supervisor note. Submitted Report content is immutable and Workers cannot edit or delete the durable Report.
 
@@ -256,6 +264,7 @@ Current visible Supervisor flow:
 - Move a **Submitted** Report to **In review**, then resolve an **In review** Report with a required final Supervisor note. The workflow is forward-only and does not expose legacy Approve, Reject, Edit, or rubbish-bin actions while recovery is hidden.
 - Export one selected Report as HTML, PDF, or a CSV row. Export the current structured Report collection as CSV or PDF; exports use the Report workflow and include the final review details. Free-text **Find** is list-only.
 - Create, preview, edit, version, archive, and reactivate Report Templates. Existing Reports retain the exact Template snapshot used when they were submitted.
+- Continue or explicitly discard private device-only Template editing drafts. Name, description, cards and unapplied raw syntax autosave; closing keeps them, and storage failures pause logout/update. Conflicted or uncertain-publication copies cannot overwrite a published Template.
 - Create Worker or Supervisor accounts, search/edit Staff, set Worker class, reset passwords, and resign/reactivate accounts within the signed-in Supervisor's access scope. Global-admin access remains Supervisor-only.
 
 Retained full-interface capabilities, hidden in the current shell, include attendance/task/team-log approval, manual corrections, Sites, maps, Management Analytics, the general export workspace, Audit history, and rubbish-bin recovery. Their routes and regression coverage remain in the repository but are not part of the report-only Supervisor phone workflow.
@@ -588,7 +597,7 @@ Recommended deployment order:
 
 1. Create or confirm the Cloud SQL PostgreSQL instance and database.
 2. Create a dedicated Cloud Run service account with least-privilege roles.
-3. Store `DATABASE_URL`, `GEO_SECRET_KEY`, and other runtime secrets in Secret Manager. SMTP is not needed only for the current Supervisor-set-password account flow. Verified email registration or a single-use email invitation requires a transactional email provider and protected credentials.
+3. Store `DATABASE_URL`, `GEO_SECRET_KEY`, and other runtime secrets in Secret Manager. Private-link Worker invitations do not use SMTP; Supervisors are responsible for verified private handoff. Automatic email invitations are not implemented. Verified email registration still requires a transactional email provider and protected credentials.
 4. Configure Cloud Storage uploads, keep the bucket private, and grant the Cloud Run service account object create, read, and delete access for the configured prefix.
 5. Deploy the FastAPI backend to Cloud Run and attach Cloud SQL.
 6. Run migrations and the mutating backend smoke test against a disposable staging database/service; use controlled non-seeding checks against production.
@@ -763,7 +772,7 @@ photos
 7. Choose **Submit Report**. A successful online or queued submission clears only this Worker/Report Template draft.
 8. The Report starts as **Submitted** and appears in **My Reports** and Supervisor **Reports**. Its workflow can then move to **In review** and **Resolved**; a resolved Report shows the final Supervisor note.
 
-For an offline replay check, load the Template while online, keep the page open, switch the device offline, and submit the Report. **My Reports** should show **Queued**. Reconnect as the same Worker and choose **Retry sync** if automatic sync does not run; completed photo/signature uploads and the original client submission id must be reused, producing exactly one durable Report. A killed offline launch restores the cached shell and local queue/history, but Report Templates are network-only and a new Report cannot begin until reconnect.
+For an offline return/replay check, sign in online and wait for the Template availability message to confirm device storage. Save a Report draft, close every app page, switch offline, and reopen the cached PWA. Continue the draft from **My Reports**, or start a new Report with a downloaded Template; submit and confirm **Queued**. Reconnect as the same Worker and choose **Retry sync** if needed. Current Templates are revalidated only after protecting current input, and replay must reuse completed evidence uploads and the original client submission id. Missing/cleared snapshots cannot start or continue offline; durable backend Report history still requires connectivity.
 
 Built-in seeded examples:
 
@@ -792,6 +801,8 @@ Each weekly log accepts up to 150 work rows. The week must start on Monday and e
 4. Choose **Add field**, then set the card's field type, worker-facing label, and required state. Choice fields expose their options; repeating groups expose row limits and nested field cards.
 5. Turn on **Only show in some cases** to select an earlier field, comparison, and value. Conditions and formulas can reference only earlier fields in the same form or repeating group.
 6. Drag a card by its handle, or use its Move up/down buttons. Preview the Report, then choose **Create Report Template**. Editing an existing Report Template opens the same card builder and preserves its stable field keys.
+
+Create/edit name, description, cards and exact unapplied raw syntax autosave in a private Supervisor/Department-scoped device draft. **Close and keep draft** does not discard it; return through **Continue Template draft**, or explicitly choose **Discard Template draft**. Workspace navigation keeps the live editor; failed storage pauses Close, logout and **Update App**. Existing-edit restoration rechecks the published Definition; a changed/archived/unavailable Template or uncertain publish result is kept read-only for recovery, not automatically retried. Drafts are not published Templates, Worker drafts, Reports or export records.
 
 The routine workflow does not require syntax. For definitions that need direct source editing, open **Advanced: edit raw field syntax**. Raw changes are staged until **Apply syntax** is selected; preview and save remain blocked while unapplied raw changes exist. The compatibility format is:
 
@@ -822,14 +833,14 @@ Supported field types are `section`, `repeat`, `text`, `textarea`, `number`, `da
 ### Supervisor Report Review
 
 1. Sign in as a Supervisor. At phone width, open **Workspaces** and confirm only **Reports**, **Report Templates**, and **Staff** are offered.
-2. Open **Reports** and use **Find** for the visible list or the structured workflow, Report Template, Worker, and Report Date filters for the server result. **Find** is intentionally not an export filter.
+2. Open **Reports** and use **Find**, workflow, Report Template, Worker, and Report Date filters. Collection exports use the same filters plus Department focus, including matches beyond the loaded page.
 3. Select a **Submitted** Report and inspect its optional Site, required Report Date, frozen Template fields, answers, photos, and signatures. Confirm Approve, Reject, and Edit are absent.
 4. Choose **Start review**. The Report leaves a Submitted-only filter and appears under **In review**.
 5. Choose **Resolve report**. An empty resolution note must be rejected and focused; a non-empty final note moves the Report to **Resolved**.
 6. Sign in as the Worker and confirm **My Reports** shows the same status and final Supervisor note.
 7. Export the selected Report as HTML, PDF, or CSV. Export the collection as Reports CSV/PDF and confirm the structured filters, including Department focus, are applied.
 8. Open **Report Templates** to create, preview, edit/version, archive, and reactivate a Template. Reopen an older Report and confirm it still uses its submitted Definition snapshot.
-9. Open **Staff** to search, add, edit, resign, and reactivate controlled accounts. The current provisioning form requires the Supervisor to set the initial password.
+9. Open **Staff** to search, invite, edit, resign, and reactivate controlled accounts. For a new Worker, create and privately share a setup link so the Worker chooses their own password; do not describe the link as emailed or delivered automatically.
 
 ### Retained Full-Interface Supervisor Review
 
@@ -910,7 +921,17 @@ Public self-registration is temporarily hidden during the invited-account pilot.
 
 Verification codes expire, are attempt-limited, and cannot be reused. In local development, `REGISTRATION_EXPOSE_CODE=true` returns `dev_verification_code` so the dormant flow can be tested without SMTP. Production never exposes the code; configure `SMTP_HOST` and `SMTP_FROM_EMAIL` before verified email registration is exposed again.
 
-The active Staff users flow is not yet a true invitation handoff: the Supervisor supplies the initial password. To remove that manual password step, add expiring, single-use invitation records plus a Worker password-setup page and endpoint. Deliver the token through transactional email or another authenticated private channel; do not put reusable or long-lived credentials in the invitation.
+New-Worker invitation endpoints (local update, migration `0021` required):
+
+```text
+POST   /supervisor/worker-invitations                 create pending Worker + private token
+POST   /supervisor/users/{user_id}/invitation         replace pending Worker's setup link
+DELETE /supervisor/users/{user_id}/invitation         revoke pending Worker's setup links
+POST   /auth/worker-invitations/inspect               validate body token; show intended identity
+POST   /auth/worker-invitations/accept                atomically consume token and set password
+```
+
+The first three endpoints require Supervisor scope and CSRF; inspect/accept use the private token, no browser credentials, and the auth rate-limit group. Responses are private/no-store, tokens are hashed in storage and excluded from Staff/audit output, and acceptance issues no session cookies. The static `/setup-password.html#token=...` page strips the fragment into memory and clears token/password/identity state when leaving. Only token-free static assets are cached; setup requires a live backend. `WORKER_INVITATION_TTL_HOURS` defaults to 24 (bounded 1–72). The private-handoff design follows the relevant [OWASP token guidance](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html), but is onboarding, not account recovery. Existing-account password/session revocation remains a separate limitation.
 
 ### Worker Attendance
 
@@ -1136,6 +1157,8 @@ Send `expected_definition_version` from the Template the Worker actually complet
 
 ### Supervisor Report Template (`WorkForm` internally)
 
+The local edit client sends its saved baseline as `expected_definition_version` with content updates. A stale baseline returns HTTP 409 with `detail.code=report_template_edit_version_conflict`, without changing the current Definition. Content writers share a row-lock/version check, including compatible legacy callers; status-only archive/reactivate behavior remains separate. Deploy the compatible backend before the updated client. This guard adds no migration; the invitation update's existing `0021` release requirement still applies.
+
 ```json
 {
   "name": "Site inspection",
@@ -1189,12 +1212,13 @@ With backend running:
 python backend\smoke_test.py
 ```
 
-Frontend checks:
+Local app checks:
 
 ```powershell
 npm.cmd run lint
 npm.cmd run build
 npm.cmd run check:review-queue
+npm.cmd run check:invitations
 npm.cmd run check:mobile
 ```
 
@@ -1231,9 +1255,13 @@ Historical report-only local validation on 2026-09-01 (superseded by the 2026-09
 - At that historical checkpoint, controlled hardening failed insufficient recent uptime observations, candidate recovery mismatch, and stale upload proof, with missing-channel/skipped-budget warnings. The newer September local/baseline and safeguard evidence supersedes those findings without establishing a production promotion.
 
 
-`npm.cmd run check:review-queue` verifies Review Record export dispatch, durable-only export guards, cursor pagination, query filters and snapshots, department scope, atomic pending-only decisions, audit comments, decision-bypass protection, and the focused Report submission/review contract. The Report checks cover normal-Worker submission, private My Reports history, optional Site, replay deduplication, archived templates, Department-scoped Supervisors, immutable content, required resolution notes, invalid transitions, audit history, and concurrent Supervisor actions.
+`npm.cmd run check:review-queue` verifies Review Record export dispatch, durable-only export guards, cursor pagination, query filters and snapshots, department scope, atomic pending-only decisions, audit comments, decision-bypass protection, and the focused Report submission/review contract. Report collection exports apply Find and the inbox's structured filters to all matching durable Reports across every page. The Report checks also cover normal-Worker submission, private My Reports history, optional Site, replay deduplication, archived templates, Department-scoped Supervisors, immutable content, required resolution notes, invalid transitions, audit history, and concurrent Supervisor actions.
 
-`npm.cmd run check:mobile` first builds the production PWA, runs the Department-default tests and static PWA/mobile preflight, and then runs 44 Playwright Chromium workflow checks at a default 390 × 844 mobile viewport. The report workflow verifies the production-default Worker and Supervisor navigation, report-only filters, required Report Date, optional Site, normal-Worker submission, private history, forward-only Supervisor transitions, final note, and phone-width Template/Staff access. Focused replay checks prove a Report with one photo and two nested signatures resumes after a partial upload failure, reuses completed uploads and its client submission id on a forced second replay, appears exactly once in **My Reports**, and does not replay hidden legacy record types in report-only mode. Additional boundaries cover offline private history, shared-device session races, lossless recovery after Template changes, calendar-valid Report Dates, and explicit Report purpose overriding legacy name heuristics. The retained full-interface checks use a test-only pre-load override so attendance, Daywork, weekly logs, maps, analytics, and other reversible modules keep regression coverage while remaining hidden in the shipped shell. The browser check starts a temporary backend, a lightweight Node source/proxy server, and a Vite production preview on `127.0.0.1:8765`, `127.0.0.1:5175`, and `127.0.0.1:4175`, with a throwaway SQLite database and upload folder. The source server preserves shared unbundled-module state without relying on Vite's development watcher, and the runner fails immediately with recent process output if a managed server exits. Override those ports with `BROWSER_WORKFLOW_BACKEND_PORT`, `BROWSER_WORKFLOW_FRONTEND_PORT`, or `BROWSER_WORKFLOW_PREVIEW_PORT` if needed.
+It also runs `scripts/report-export-api-test.mjs` and `backend/report_export_test.py`: Find/filter mapping, CSV/HTML/PDF parity, 51 matching Reports across two pages, literal searches, empty results, scope isolation and invalid search input. `npm run check:invitations` runs the isolated HTTP invitation suite covering creation/acceptance/login, expiry/reuse/reissue/revoke, concurrency and lock-wait expiry, pending-account access denial, Department/identity changes, password limits and private responses. The security, migration and smoke suites also cover invitation boundaries. These local SQLite checks do not establish PostgreSQL contention behavior or real private delivery on production.
+
+`npm.cmd run check:mobile` first builds the production PWA, runs the Department-default tests and static PWA/mobile preflight, and then runs the full Playwright Chromium workflow suite at a default 390 × 844 mobile viewport. The report workflow verifies the production-default Worker and Supervisor navigation, report-only filters, required Report Date, optional Site, normal-Worker submission, private history, forward-only Supervisor transitions, final note, and phone-width Template/Staff access. Focused replay checks prove a Report with one photo and two nested signatures resumes after a partial upload failure, reuses completed uploads and its client submission id on a forced second replay, appears exactly once in **My Reports**, and does not replay hidden legacy record types in report-only mode. Additional boundaries cover offline private history, shared-device session races, lossless recovery after Template changes, calendar-valid Report Dates, and explicit Report purpose overriding legacy name heuristics. The retained full-interface checks use a test-only pre-load override so attendance, Daywork, weekly logs, maps, analytics, and other reversible modules keep regression coverage while remaining hidden in the shipped shell. The browser check starts a temporary backend, a lightweight Node source/proxy server, and a Vite production preview on `127.0.0.1:8765`, `127.0.0.1:5175`, and `127.0.0.1:4175`, with a throwaway SQLite database and upload folder. The source server preserves shared unbundled-module state without relying on Vite's development watcher, and the runner fails immediately with recent process output if a managed server exits. Override those ports with `BROWSER_WORKFLOW_BACKEND_PORT`, `BROWSER_WORKFLOW_FRONTEND_PORT`, or `BROWSER_WORKFLOW_PREVIEW_PORT` if needed.
+
+Current browser regressions also cover private invitation handoff, Worker password setup, replacement/revocation, retry behavior, and token/password cleanup across dialog, navigation, and session changes. Find-aware export checks inspect actual CSV/PDF downloads, including matching and empty results. These local browser fixtures do not prove real recipient delivery or hosted physical-phone behavior.
 
 The two Department/layout regressions verify Mutual defaults without changing existing accounts or saved scope, plus New Report, My Reports, and Supervisor Reports at 320/390/768/1280px in light and dark themes. They check 44px controls, readable selected dates, page overflow, and the Submit action above the fixed bottom navigation. Set `BROWSER_WORKFLOW_SCREENSHOT_DIR` to an output directory to save the layout screenshots in a fresh `run-*` subdirectory. Physical-phone keyboard and native date-picker behavior still require the hosted device checklist.
 
@@ -1326,6 +1354,7 @@ The mobile/browser workflow check covers:
 - Report-only Worker and Supervisor navigation at a 390 × 844 viewport, with hidden full-interface workspaces inaccessible.
 - Required Report Date, optional Site, Report workflow filters/transitions, immutable evidence, and final Supervisor note.
 - Report photo/nested-signature partial-upload resume and exactly-once replay.
+- Additive/overlapping photo selections, validation preservation, individual removal, and restored-draft photo upload order; visible device drafts, Continue, and shared-device privacy. `npm run check:report-drafts` separately checks metadata-only draft classification, Worker/Department/purpose boundaries, unavailable Templates, and legacy/version conflicts; it also runs within `check:mobile`.
 - Production-preview cold offline launch, Worker/Department Site-snapshot isolation, and creation of a queued attendance record after closing the last app page.
 - Visible service worker update-flow wiring.
 - Mobile viewport, camera/photo inputs, and active worker/supervisor UI controls.
@@ -1355,7 +1384,17 @@ Report queues also retain an independent copy of captured answers before signatu
 
 Saved drafts also retain the captured Definition version and fields. Reopening a draft against an edited Template displays the original answers and evidence read-only instead of populating the current fields. **Keep draft and start new report** creates a private, device-local **Saved draft** in **My Reports** before clearing the draft and opening the current Template. Storage failures leave the original available for retry. These recovery copies are excluded from upload/replay and have no **Retry sync** action; use them as a reference while completing a new Report, then explicitly discard them only when no longer needed. Older drafts without field/version metadata retain their raw answers and available local signature images without guessing the current version.
 
-The generated service worker can cold-launch the cached application shell, while API, auth, Template, Report-history, and upload routes stay network-only. With a saved Worker identity, a killed offline launch can show the report-only shell and that Worker's local queued Reports. Report Templates are not currently snapshotted for cold-start authoring, so load the Template before going offline and keep the page open if a new Report must be queued. Starting a new Report after a killed/refreshed offline launch waits for reconnect. The retained full-interface mode separately snapshots Worker/Department Sites and attendance context for its automated cold-offline attendance regression.
+The generated service worker cold-launches the cached shell while API, auth, Template, Report-history and upload routes stay network-only. Separately, a successful authenticated Worker load saves only active `report` Templates, exact fields and Definition versions in an IndexedDB snapshot scoped to that Worker and Department. A saved identity plus this snapshot enables cold offline New Report and ordinary-draft Continue, including queued photos/signatures. No snapshot means no cold offline authoring. Logout, explicit 401/403 and observed scope changes remove it; a refresh 403 followed by an unreachable `/auth/me` must not become an offline authorization bypass. Reconnect protects current input before revalidation; stale Definitions use existing recovery/replay guards. Durable Reports and Supervisor lists are not persisted by this feature. The retained full interface separately snapshots Site and attendance context.
+
+Focused local checks (the combined release gate and physical-phone pass remain separate):
+
+```powershell
+npm run check:offline-report-templates
+npm run check:report-template-drafts
+node scripts/work-form-builder-test.mjs
+```
+
+The first command covers scoped snapshots and isolated DOM/IndexedDB/API-boundary return, reconnect and authorization behavior. The second checks private Template-draft persistence, builder state, and `backend/template_edit_test.py` concurrency guards. The standalone builder command is a focused rerun: it checks raw editing state and stale asynchronous confirmations after editor replacement. These commands do not deploy the candidate or validate production/PostgreSQL/physical-phone behavior.
 
 Current offline behavior is suitable for MVP testing, but production conflict handling still needs more work.
 
@@ -1442,7 +1481,7 @@ Check:
 
 Before real staff use, close or explicitly accept these remaining items:
 
-- Replace Supervisor-chosen initial passwords with an expiring, single-use Worker password-setup invitation before onboarding beyond controlled pilot accounts.
+- Stage and release the completed local Worker-invitation flow before onboarding beyond controlled pilot accounts: verify private recipient handoff and PostgreSQL contention, apply `0021_worker_invitations` and promote its compatible backend before the coupled frontend. The deployed initial-password flow is unchanged until that release; no invitation email is sent automatically.
 - Complete the full report-only physical-phone hosted checklist, including optional-Site submission, all three workflow states, actual photo/signature replay and streaming, cached-shell relaunch, and the waiting-service-worker update flow. The 2026-09-07 release and hosted Chromium results do not replace the device pass.
 - Review and rotate any remaining production credentials in Secret Manager.
 - For current-live Neon, replace the sole `neondb_owner` application credential with a least-privilege runtime role, protect the production branch, and verify connection/pooling limits.
@@ -1461,7 +1500,8 @@ Before real staff use, close or explicitly accept these remaining items:
 
 Current next work:
 
-- Complete the physical-phone checklist for released Hosting `f27b6a46dae98c71`; the coupled migration/backend/frontend release and automated live/update checks passed on 2026-09-07.
+- Stage the local photo/draft, offline-return, Supervisor Template-draft, Worker-invitation, and Find-aware export update; release migration `0021_worker_invitations` and the compatible backend, including the Template-edit version guard, before promoting the coupled frontend. Offline return and editor drafts add no migration. Do not reuse historical `0020` recovery or PostgreSQL results as approval for this candidate.
+- Complete the physical-phone checklist against the current live installer/report-only release recorded above; the 2026-09-07 coupled release and automated live/update results remain historical evidence, not a device pass for the local invitation candidate.
 - If automatic attendance is pursued, start with consent-based foreground arrival/departure reminders and one-tap confirmation. Reliable background geofencing when the PWA is closed requires native platform capability plus permission, battery, anti-spoofing, and audit validation.
 - Verify Worker and Supervisor portrait/landscape flows, offline Report replay, real `/uploads/...` evidence, and **Update App** against the live Firebase Hosting / Cloud Run / Neon / Cloud Storage path.
 - Retain audit-linked synthetic fixture history under normal retention after the verified soft-delete/archive/account-resignation cleanup; remove or formalize other unused database users only after an ownership review.

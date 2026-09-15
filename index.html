@@ -297,6 +297,7 @@
 
           <div id="invitedAccountNotice" class="demo-box" role="note">
             <p><strong>Invited accounts only.</strong> Sign in with the account provided by your supervisor. Contact your supervisor if you need access.</p>
+            <p>Newly invited? Open your private setup link first to choose your password, then return here to sign in.</p>
           </div>
 
           <form id="loginForm" class="form-grid">
@@ -613,6 +614,7 @@
                     <option value="">Select a Report Template</option>
                   </select>
                 </label>
+                <p id="reportTemplateAvailability" class="muted" role="status" aria-live="polite" aria-atomic="true" hidden></p>
                 <div class="report-context-fields form-grid">
                   <label>
                     Report Date
@@ -628,6 +630,7 @@
                   Photos
                   <input id="workFormPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple />
                   <small>JPEG, PNG, or WebP; maximum 5 MB each.</small>
+                  <small>Choose more photos to add them. Use Remove to discard an individual photo.</small>
                 </label>
                 <div id="workFormPhotoPreview" class="photo-preview hidden"></div>
                 <div class="work-form-submit-row">
@@ -651,6 +654,11 @@
                 <h2 data-full-text="My history" data-report-only-text="My Reports">My Reports</h2>
                 <button id="refreshHistoryButton" type="button" class="ghost">Refresh</button>
               </div>
+              <section id="reportDraftsPanel" class="report-drafts-panel" aria-labelledby="reportDraftsHeading" hidden>
+                <h3 id="reportDraftsHeading">Drafts on this device</h3>
+                <p class="muted">Not submitted. Only saved on this device.</p>
+                <div id="reportDraftsList" class="report-drafts-list"></div>
+              </section>
               <form id="historyFilterForm" class="filter-bar">
                 <label class="history-search-filter">
                   Find
@@ -916,10 +924,11 @@
                   <button id="refreshSupervisorButton" type="button" class="ghost">Refresh</button>
                 </div>
               </div>
+              <p class="muted" data-report-only-visible>Exports include all Reports matching these filters and Find, across every page—not only the loaded records.</p>
               <form id="supervisorFilterForm" class="filter-bar">
                 <label>
                   Find
-                  <input id="supervisorSearchInput" type="search" placeholder="Worker, template, answer" data-full-placeholder="Worker, site, note, task" data-report-only-placeholder="Worker, template, answer" />
+                  <input id="supervisorSearchInput" type="search" maxlength="160" placeholder="Worker, template, answer" data-full-placeholder="Worker, site, note, task" data-report-only-placeholder="Worker, template, answer" />
                 </label>
                 <label data-report-only-hidden>
                   Type
@@ -1236,6 +1245,11 @@
                   data-report-only-text="Add Report Template"
                 >Add Report Template</button>
               </div>
+              <section id="templateDraftsPanel" class="report-drafts-panel" aria-labelledby="templateDraftsTitle" hidden>
+                <h3 id="templateDraftsTitle">Unfinished Templates on this device</h3>
+                <p class="muted">Private editing drafts. Workers cannot see them until you save the Template.</p>
+                <div id="templateDraftsList" class="records-list"></div>
+              </section>
               <section
                 id="workFormCreatePanel"
                 class="admin-create-panel"
@@ -1290,8 +1304,16 @@
                   <button id="cancelWorkFormCreateButton" type="button" class="ghost">Cancel</button>
                 </div>
                 <div id="workFormBuilderActionFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
+                <p id="templateCreateDraftStatus" class="muted" role="status" aria-live="polite"></p>
                 <div id="workFormDraftPreview" class="work-form-preview builder-preview hidden" aria-live="polite"></div>
                 </form>
+              </section>
+              <section id="templateEditPanel" class="admin-create-panel" aria-labelledby="templateEditTitle" hidden>
+                <h3 id="templateEditTitle">Edit Report Template</h3>
+                <p id="templateEditNotice" class="muted" role="status"></p>
+                <form id="templateEditForm" class="form-grid"></form>
+                <p id="templateEditDraftStatus" class="muted" role="status" aria-live="polite"></p>
+                <button id="closeTemplateEditButton" type="button" class="ghost">Close and keep draft</button>
               </section>
               <div id="workFormsList" class="records-list staff-users-list"></div>
             </div>
@@ -1385,6 +1407,7 @@
                   <h3 id="staffUserCreateTitle">Add staff user</h3>
                 </div>
                 <form id="staffUserForm" class="form-grid">
+                <p id="staffInvitationHelp" class="muted full-width" hidden>Workers set their own password using a private, expiring setup link. No email is sent automatically.</p>
                 <label>
                   Name
                   <input id="staffNameInput" type="text" autocomplete="name" required />
@@ -1451,6 +1474,22 @@
     </div>
 
     <div id="toastViewport" class="toast-viewport" role="region" aria-label="Notifications"></div>
+
+    <dialog id="workerInvitationDialog" class="confirmation-dialog" aria-labelledby="workerInvitationTitle" aria-describedby="workerInvitationHelp">
+      <div class="confirmation-dialog-content">
+        <h2 id="workerInvitationTitle">Worker invitation ready</h2>
+        <p id="workerInvitationIdentity" data-no-i18n></p>
+        <p id="workerInvitationHelp">Share this link privately with the intended Worker. Anyone with it can set this account's password. No email has been sent.</p>
+        <p><span>Expires</span>: <span id="workerInvitationExpiry" data-no-i18n></span></p>
+        <label>Private setup link<input id="workerInvitationLink" type="text" readonly autocomplete="off" spellcheck="false" data-no-i18n /></label>
+        <p class="muted">The link is shown only now. Closing this window hides it; create a new link from Staff if needed.</p>
+        <p id="workerInvitationStatus" role="status" aria-live="polite"></p>
+        <div class="confirmation-dialog-actions">
+          <button id="closeWorkerInvitationButton" type="button" class="ghost">Done</button>
+          <button id="copyWorkerInvitationButton" type="button">Copy private link</button>
+        </div>
+      </div>
+    </dialog>
 
     <dialog
       id="confirmationDialog"

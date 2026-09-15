@@ -63,7 +63,8 @@ from app.use_cases.supervisor_review_exports import (
     write_spreadsheet_safe_csv_row,
     text_value,
 )
-from app.use_cases.review_queue import list_review_records
+from app.use_cases.review_queue import list_review_records, normalize_review_search
+from app.use_cases.review_record_adapters import REVIEW_RECORD_ADAPTERS
 from app.use_cases.review_record_policy import apply_review_decision, enforce_review_status_unchanged
 from app.use_cases.team_work_logs import prepare_team_work_log_entries
 
@@ -1539,6 +1540,41 @@ def export_pdf_document(title: str, subtitle: str, body_flowables: list, filenam
     )
 
 
+def form_submission_export_items(
+    session: Session,
+    supervisor: User,
+    status: Optional[str],
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    form_id: Optional[int] = None,
+    department_id: Optional[int] = None,
+    workflow_status: Optional[str] = None,
+    worker_id: Optional[int] = None,
+    purpose: Optional[str] = None,
+    search: Optional[str] = None,
+):
+    normalized_search = normalize_review_search(search)
+    statement = select_work_form_submissions(
+        status,
+        supervisor,
+        workflow_status=workflow_status,
+        form_id=form_id,
+        worker_id=worker_id,
+        purpose=purpose,
+    )
+    if normalized_search:
+        statement = statement.where(REVIEW_RECORD_ADAPTERS["form"].search_predicate(normalized_search))
+    records = session.exec(statement).all()
+    records = filter_records_by_department(records, session, supervisor, department_id)
+    records = filter_form_records(records, session, supervisor, form_id)
+    records = filter_records_by_date(records, date_from, date_to)
+    items = [
+        review_record_response("form", record, session)
+        for record in records
+    ]
+    return items
+
+
 def form_submission_pdf_items(
     session: Session,
     supervisor: User,
@@ -1551,22 +1587,12 @@ def form_submission_pdf_items(
     workflow_status: Optional[str] = None,
     worker_id: Optional[int] = None,
     purpose: Optional[str] = None,
+    search: Optional[str] = None,
 ):
-    records = session.exec(select_work_form_submissions(
-        status,
-        supervisor,
-        workflow_status=workflow_status,
-        form_id=form_id,
-        worker_id=worker_id,
-        purpose=purpose,
-    )).all()
-    records = filter_records_by_department(records, session, supervisor, department_id)
-    records = filter_form_records(records, session, supervisor, form_id)
-    records = filter_records_by_date(records, date_from, date_to)
-    items = [
-        review_record_response("form", record, session)
-        for record in records
-    ]
+    items = form_submission_export_items(
+        session, supervisor, status, date_from, date_to, form_id,
+        department_id, workflow_status, worker_id, purpose, search,
+    )
     if template == "daywork":
         return [item for item in items if is_daywork_submission(item)]
     return items
@@ -1583,23 +1609,13 @@ def export_form_submissions_html(
     workflow_status: Optional[str] = None,
     worker_id: Optional[int] = None,
     purpose: Optional[str] = None,
+    search: Optional[str] = None,
 ):
     normalized_purpose = normalize_work_form_purpose(purpose)
-    records = session.exec(select_work_form_submissions(
-        status,
-        supervisor,
-        workflow_status=workflow_status,
-        form_id=form_id,
-        worker_id=worker_id,
-        purpose=normalized_purpose,
-    )).all()
-    records = filter_records_by_department(records, session, supervisor, department_id)
-    records = filter_form_records(records, session, supervisor, form_id)
-    records = filter_records_by_date(records, date_from, date_to)
-    items = [
-        review_record_response("form", record, session)
-        for record in records
-    ]
+    items = form_submission_export_items(
+        session, supervisor, status, date_from, date_to, form_id,
+        department_id, workflow_status, worker_id, normalized_purpose, search,
+    )
     pages = [render_form_submission_page(item) for item in items]
 
     is_daywork_export = normalized_purpose == "daywork"
@@ -1635,6 +1651,7 @@ def export_form_submissions_pdf(
     workflow_status: Optional[str] = None,
     worker_id: Optional[int] = None,
     purpose: Optional[str] = None,
+    search: Optional[str] = None,
 ):
     template = normalize_form_pdf_template(template)
     normalized_purpose = normalize_work_form_purpose(purpose)
@@ -1652,6 +1669,7 @@ def export_form_submissions_pdf(
         workflow_status,
         worker_id,
         normalized_purpose,
+        search,
     )
     if template == "daywork":
         styles = daywork_pdf_styles()
@@ -2272,23 +2290,13 @@ def export_form_submissions_csv(
     workflow_status: Optional[str] = None,
     worker_id: Optional[int] = None,
     purpose: Optional[str] = None,
+    search: Optional[str] = None,
 ):
     normalized_purpose = normalize_work_form_purpose(purpose)
-    records = session.exec(select_work_form_submissions(
-        status,
-        supervisor,
-        workflow_status=workflow_status,
-        form_id=form_id,
-        worker_id=worker_id,
-        purpose=normalized_purpose,
-    )).all()
-    records = filter_records_by_department(records, session, supervisor, department_id)
-    records = filter_form_records(records, session, supervisor, form_id)
-    records = filter_records_by_date(records, date_from, date_to)
-    items = [
-        review_record_response("form", record, session)
-        for record in records
-    ]
+    items = form_submission_export_items(
+        session, supervisor, status, date_from, date_to, form_id,
+        department_id, workflow_status, worker_id, normalized_purpose, search,
+    )
     filename_prefix = (
         "daywork-submissions"
         if normalized_purpose == "daywork"

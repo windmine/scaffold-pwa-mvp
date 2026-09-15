@@ -49,6 +49,13 @@ def _as_utc(value: datetime):
     return value.astimezone(timezone.utc)
 
 
+def normalize_review_search(search: Optional[str] = None):
+    normalized = " ".join(str(search or "").split())
+    if len(normalized) > 160:
+        raise HTTPException(status_code=400, detail="search must be 160 characters or fewer")
+    return normalized
+
+
 def normalize_review_record_query(
     supervisor: User,
     *,
@@ -89,9 +96,7 @@ def normalize_review_record_query(
         except ValueError:
             raise HTTPException(status_code=400, detail="record_date must use YYYY-MM-DD")
 
-    normalized_search = " ".join(str(search or "").split())
-    if len(normalized_search) > 160:
-        raise HTTPException(status_code=400, detail="search must be 160 characters or fewer")
+    normalized_search = normalize_review_search(search)
 
     return ReviewRecordQuery(
         status=normalized_status,

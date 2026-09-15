@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from app.migrations import MIGRATIONS_DIR, MigrationError, run_migrations, verify_migrations
 
 
-RELEASE_HEAD = "0020_missing_snapshot_daywork_correction"
+RELEASE_HEAD = "0021_worker_invitations"
 REPORT_FIELDS = [
     {"id": "issue", "label": "Issue", "type": "text"},
     {"id": "worker_signature", "label": "Signature", "type": "signature"},
@@ -84,7 +84,7 @@ def reject_statement(engine, label, statement, parameters=None, sqlstate="23514"
 
 def manifest_versions():
     versions = sorted(path.stem for path in MIGRATIONS_DIR.glob("*.py") if path.name != "__init__.py")
-    require(len(versions) == 20 and versions[-1] == RELEASE_HEAD, "Update rehearsal expectations for a changed migration manifest")
+    require(len(versions) == 21 and versions[-1] == RELEASE_HEAD, "Update rehearsal expectations for a changed migration manifest")
     return versions
 
 
@@ -194,7 +194,7 @@ def check_fresh(database, report):
         """)}
         require({"trg_workformsubmission_report_boundary", "trg_workformsubmission_sync_purpose_insert"} <= triggers,
                 "Native PostgreSQL Report boundary triggers are missing")
-        report("PostgreSQL fresh 20-migration chain, read-only exact verification, native constraints/triggers, and idempotence",
+        report(f"PostgreSQL fresh {len(versions)}-migration chain, read-only exact verification, native constraints/triggers, and idempotence",
                {"migration_count": len(versions), "head": RELEASE_HEAD})
 
         with engine.begin() as connection:
@@ -224,7 +224,7 @@ def check_backfill(database, report):
         before_evidence = evidence(engine)
         before_audits = rows(engine, "SELECT * FROM auditevent ORDER BY id")
         reject_verification(engine, "the genuine PostgreSQL 0017 schema")
-        require(run_migrations(engine) == manifest_versions()[17:], "Legacy PostgreSQL did not apply precisely 0018 through 0020")
+        require(run_migrations(engine) == manifest_versions()[17:], "Legacy PostgreSQL did not apply precisely 0018 through the release head")
         verify_read_only(engine)
         require(evidence(engine) == before_evidence, "PostgreSQL backfill changed dates, answers, signatures, photos, snapshots, or legacy outcomes")
         require(rows(engine, "SELECT * FROM auditevent ORDER BY id") == before_audits, "PostgreSQL backfill changed historical audit evidence")
@@ -246,7 +246,7 @@ def check_backfill(database, report):
         require(rows(engine, "SELECT id, template_purpose FROM workform ORDER BY id") ==
                 [(100, "report"), (101, "daywork"), (102, "report"), (103, "report")],
                 "PostgreSQL purpose migration relied on mutable names instead of definition evidence")
-        report("PostgreSQL 0017→0020 preserves eight snapshotted historical Reports/Daywork records and exact evidence",
+        report(f"PostgreSQL 0017→{RELEASE_HEAD} preserves eight snapshotted historical Reports/Daywork records and exact evidence",
                {"records": len(outcomes), "legacy_outcomes": ["pending", "approved", "rejected", "legacy"]})
         report("PostgreSQL audit backfill preserves real reviewer timestamps without inventing notes; snapshots outrank parent templates")
         check_report_boundaries(engine, report)
@@ -350,7 +350,7 @@ def check_transaction_rollback(database, report):
                 "PostgreSQL migration failure left its trigger function behind")
         require(run_migrations(engine) == manifest_versions()[17:], "PostgreSQL migration retry did not apply the rolled-back batch")
         verify_read_only(engine)
-        report("PostgreSQL failure before 0020 ledger insertion rolls back all three upgrades, backfill, DDL, indexes, and functions; retry succeeds")
+        report(f"PostgreSQL failure before {RELEASE_HEAD} ledger insertion rolls back all {len(manifest_versions()) - 17} upgrades, backfill, DDL, indexes, and functions; retry succeeds")
 
 
 def check_missing_snapshot_classification(database, report):

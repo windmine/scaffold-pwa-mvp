@@ -476,6 +476,7 @@ def default_department(session: Session):
 
 
 def user_response(user: User, session: Session | None = None):
+    from app.use_cases.worker_invitations import invitation_metadata
     department = session.get(Department, user.department_id) if session and user.department_id else None
     dashboard_department = (
         session.get(Department, user.dashboard_department_id)
@@ -495,6 +496,8 @@ def user_response(user: User, session: Session | None = None):
         "worker_class": user.worker_class if user.role == "worker" else None,
         "status": user.status or "active",
         "is_global_admin": user_is_global_admin(user),
+        "password_setup_required": getattr(user, "password_setup_required", False),
+        **invitation_metadata(user, session),
     }
 
 

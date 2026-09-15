@@ -1,6 +1,6 @@
 # Leader Field Reports Context
 
-This file defines the product language for the report-only MVP. Use these terms consistently in modules, routes, UI copy, tests, and documentation. The broader geo-attendance, Daywork, task-log, weekly-log, map, analytics, export, and recovery code remains available only as a reversible legacy interface. Status reviewed on 2026-09-01.
+This file defines the product language for the report-only MVP. Use these terms consistently in modules, routes, UI copy, tests, and documentation. The broader geo-attendance, Daywork, task-log, weekly-log, map, analytics, export, and recovery code remains available only as a reversible legacy interface. Local implementation status reviewed on 2026-09-15; dated hosted checkpoints below remain historical evidence.
 
 ## People And Scope
 
@@ -21,8 +21,10 @@ An admin user who reviews Department Reports, manages Report Templates, and mana
 _Avoid_: Approver when describing the Report workflow
 
 **Invited account**:
-A Worker account provisioned and activated by a Supervisor during the pilot. In the current implementation the Supervisor must also choose and communicate the initial password; a single-use invitation and Worker-set-password flow is not implemented. The public registration UI is hidden, while the dormant verified-registration API remains callable but is not supported as the pilot onboarding path.
+A new Worker account provisioned by a Supervisor and blocked from signing in until the Worker sets their own password through a private, expiring, single-use invitation. The local `0021` update provides authenticated Supervisor issuance/reissue/revocation and explicit private handoff; it does not send email automatically and has not yet replaced the deployed Supervisor-chosen-password flow. Employment status remains separate from password-setup status. Established accounts cannot be invitation reset targets. The public registration UI is hidden, while the dormant verified-registration API remains callable but is not supported as the pilot onboarding path.
 _Avoid_: Self-registered account when describing current pilot access
+
+The completed local flow awaits staging and release: verify PostgreSQL contention and intended-recipient private handoff, then apply `0021_worker_invitations` and promote its compatible backend before the coupled frontend. Local validation does not establish deployment or email delivery.
 
 **Global admin**:
 A Supervisor who may focus the dashboard on any Department or all Departments. The saved dashboard focus does not change the account's home Department.
@@ -69,6 +71,7 @@ _Avoid_: Pending attendance, or treating the currently visible page as the compl
 
 **Review Queue page**:
 One filtered page of Review Records used by the visible queue. It is not authoritative for dashboard totals or Management Analytics.
+Report collection exports apply the same Find and structured filters as the Report inbox to every matching durable Report, not just this page. Local drafts, recovery copies and unsynced submissions never enter those exports.
 _Avoid_: Review Queue total
 
 **Management Analytics**:
@@ -89,7 +92,17 @@ _Avoid_: Error when the item may be legitimate but unresolved
 A Worker-owned Report or retained field record captured on one device and synced to the backend when possible. The module owns Worker identity, capture time, stable Client Submission ID, replay state, and partial-upload state. Report photo/signature upload progress is durable across retries and replay creates at most one Report.
 Reports capture the completed Definition version and preserve original answers independently of upload-progress URLs. A changed Template blocks first replay before normalization; the original queued copy remains for explicit recovery, never silently upgraded. Older unversioned queues are accepted only against an unedited version 1 Template. Idempotent replay of an already-durable Report still returns its immutable snapshot after Template edits or archival.
 Saved drafts whose Template changed are read-only. Explicit recovery persists the original answers/evidence as a private local **Saved draft** before opening the current Template blank. A recovery copy may be incomplete and is never uploaded or replayed; it is not a submitted Report. Autosave must not reinterpret old drafts using current fields or a newly fetched version.
+Ordinary autosaved Report drafts are separate from Offline Submissions and recovery copies. **Drafts on this device** exposes only Template, Report Date, save time, and availability for the signed-in Worker and Department; it never contributes to Report counts, filters, exports, or replay. New snapshots include explicit Department and Report purpose. Legacy snapshots require a scoped Report Template authenticated online before discovery or restore; a matching downloaded Template can supply that context on an offline return. Continue uses the existing Definition-version guard; unavailable Templates cannot be opened. Draft photo selections append in order, removal preserves evidence/metadata alignment, and neither operation changes submitted Reports.
 _Avoid_: Queue item when referring to the user-facing submission
+
+**Offline Report Template snapshot**:
+The last successfully authenticated active `report` Template Definitions downloaded to IndexedDB for one exact Worker and Department. With a saved identity and cached app shell, it enables cold offline New Report, ordinary-draft Continue and queueing; it does not cache durable Report history or Supervisor lists. It is cleared on logout, explicit authorization denial or observed scope change. An HTTP 401/403 remains authoritative even when the browser reports offline; a refresh 403 is not overturned by a failed `/auth/me` request. Reconnect preserves current answers/evidence before replacing Templates, then applies the existing Definition-conflict guard. The backend rechecks current scope, availability and captured Definition version at replay. Missing or cleared downloads cannot enable cold offline authoring.
+_Avoid_: A global Template cache, offline authorization authority, or a service-worker cache of protected API responses
+
+**Supervisor Template editing draft**:
+A private device-only unfinished create/edit copy containing name, description, field cards and exact unapplied raw syntax. Its ownership includes Supervisor ID, home Department, target Department and create/edit Template identity. **Continue Template draft** and **Discard Template draft** are explicit; **Close and keep draft** preserves it. Workspace navigation retains the live editor; Close/logout/Update App save first or pause on storage failure. Current published Definitions are rechecked before an existing edit is restored; stale, archived/unavailable and uncertain-publication copies are recovery-only, never automatic publishes. Storage revisions/tombstones prevent late editors from resurrecting discarded or published drafts. These copies do not enter Worker drafts, Reports, exports or Offline Submission replay.
+Template content updates send `expected_definition_version`; the backend row-lock/version guard returns `report_template_edit_version_conflict` (HTTP 409) rather than overwriting a newer Definition. This adds no migration. The earlier invitation `0021` and compatible coupled-backend-before-frontend release requirement remain. Local automated checks passed on 2026-09-15, with final refinements covered by focused reruns as recorded in the mobile checklist; staging/hosted/device verification and deployment remain separate.
+_Avoid_: A published Template, a Supervisor Report cache, or a Worker Report draft
 
 **Offline Site snapshot**:
 The last successfully authenticated Site list stored in IndexedDB for one Worker and Department. It allows that Worker to select a Site after a cold offline PWA launch; it never comes from demo data, is not available without an exact Worker/Department scope, and is cleared on logout, invalid authorization, or an observed scope change. It remains non-authoritative because the backend rechecks Site access and radius when the queued attendance syncs.
@@ -154,7 +167,9 @@ _Avoid_: Refresh token unless a separate revocable refresh-token store exists
 ## Relationships
 
 - A **Worker** belongs to one **Department**, may submit any active Department **Report Template**, and sees only their own **Reports**.
-- A **Supervisor** provisions and activates an **Invited account** during the pilot and currently sets its initial password; public self-registration is not exposed in the UI or supported as the pilot onboarding path, although its API remains callable.
+- An **Offline Report Template snapshot** enables that Worker's cold offline return; it does not grant new access and never substitutes for backend validation when the Report syncs.
+- A **Supervisor Template editing draft** protects unfinished private editing without changing the published Definition; publication remains explicit and version-guarded.
+- A **Supervisor** provisions an **Invited account** and privately hands off a setup link; the **Worker** chooses their own password before normal sign-in. Issuance is audited but does not prove delivery or email ownership. This local update awaits its coupled release. Public self-registration remains hidden and unsupported for the pilot, although its API remains callable.
 - An **Offline Submission** keeps its owning Worker, capture time, and **Client Submission ID**; attendance also carries its **Occurrence time** into the durable **Review Record**.
 - An **Offline Site snapshot** may guide a new offline attendance capture, but the backend remains authoritative for Site access, current radius, distance, and durable acceptance when the **Offline Submission** syncs.
 - An **Offline Attendance snapshot** may restore open-shift and Site-priority context for the same Worker and Department, but the backend remains authoritative for durable attendance history.

@@ -33,6 +33,7 @@ SNAPSHOT_FIELDS = {
         "worker_class",
         "status",
         "is_global_admin",
+        "password_setup_required",
     ],
     Department: ["id", "name", "status", "created_at"],
     Site: ["id", "department_id", "name", "address", "latitude", "longitude", "allowed_radius_m"],

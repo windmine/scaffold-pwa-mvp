@@ -23,6 +23,7 @@ from app.use_cases.record_trash import purge_expired_deleted_records  # noqa: E4
 EXPECTED_TABLES = {
     "department",
     "registrationverification",
+    "workerinvitation",
     "user",
     "site",
     "attendancerecord",
@@ -58,6 +59,7 @@ EXPECTED_VERSIONS = [
     "0018_report_review_workflow",
     "0019_report_daywork_purpose",
     "0020_missing_snapshot_daywork_correction",
+    "0021_worker_invitations",
 ]
 
 
@@ -1032,6 +1034,7 @@ def test_report_review_workflow_migration():
             "0018_report_review_workflow",
             "0019_report_daywork_purpose",
             "0020_missing_snapshot_daywork_correction",
+            "0021_worker_invitations",
         ]:
             raise AssertionError(f"report workflow migration: unexpected versions {applied}")
 
@@ -1238,7 +1241,7 @@ def test_report_daywork_purpose_migration():
             ).all()
 
         applied = run_migrations(engine)
-        if applied != ["0019_report_daywork_purpose", "0020_missing_snapshot_daywork_correction"]:
+        if applied != EXPECTED_VERSIONS[18:]:
             raise AssertionError(f"purpose migration: unexpected versions {applied}")
 
         with engine.begin() as connection:
@@ -1665,6 +1668,7 @@ def test_global_admin_supervisor_invariant_migration():
             "0018_report_review_workflow",
             "0019_report_daywork_purpose",
             "0020_missing_snapshot_daywork_correction",
+            "0021_worker_invitations",
         ]:
             raise AssertionError(f"global admin invariant migration: unexpected versions {applied}")
 
@@ -1930,6 +1934,44 @@ def test_rubbish_bin_purge():
     print("ok - rubbish bin 30-day purge")
 
 
+def test_worker_invitation_upgrade_preserves_existing_accounts():
+    with tempfile.TemporaryDirectory(prefix="worker-invitation-migration-") as directory:
+        root = Path(directory)
+        old_manifest = root / "before-invitations"
+        old_manifest.mkdir()
+        for migration in (Path(__file__).parent / "migrations" / "versions").glob("*.py"):
+            if migration.name != "__init__.py" and migration.stem < "0021":
+                shutil.copy2(migration, old_manifest / migration.name)
+        engine = make_engine(root / "upgrade.db")
+        try:
+            run_migrations(engine, old_manifest)
+            with engine.begin() as connection:
+                connection.exec_driver_sql('''
+                    INSERT INTO "user" (email, name, password_hash, role, status, department_id)
+                    VALUES ('legacy-invitation-test@example.com', 'Existing Worker', 'unchanged-test-hash', 'worker', 'active', 1)
+                ''')
+            if run_migrations(engine) != ["0021_worker_invitations"]:
+                raise AssertionError("Invitation upgrade applied an unexpected migration")
+            with engine.connect() as connection:
+                row = connection.exec_driver_sql('''
+                    SELECT password_hash, status, password_setup_required, invitation_generation FROM "user"
+                    WHERE email = 'legacy-invitation-test@example.com'
+                ''').one()
+                if tuple(row) != ("unchanged-test-hash", "active", 0, 0):
+                    raise AssertionError("Invitation migration changed existing account credentials or access")
+                if connection.exec_driver_sql("SELECT COUNT(*) FROM workerinvitation").scalar_one() != 0:
+                    raise AssertionError("Invitation migration must not issue credentials")
+            assert_contains("invitation schema", columns(engine, "workerinvitation"), {
+                "worker_id", "department_id", "email", "generation", "token_hash", "issued_by",
+                "expires_at", "consumed_at", "revoked_at", "created_at",
+            })
+            if run_migrations(engine):
+                raise AssertionError("Invitation migration is not idempotent")
+        finally:
+            engine.dispose()
+    print("ok - invitation migration preserves existing passwords/access and creates no invitations")
+
+
 def main():
     test_postgres_statement_adaptation()
     test_production_startup_rejects_unmigrated_database_before_side_effects()
@@ -1943,6 +1985,7 @@ def main():
     test_migration_runner_checks_history_before_pending_upgrades()
     test_fresh_database()
     test_legacy_database()
+    test_worker_invitation_upgrade_preserves_existing_accounts()
     test_report_review_workflow_migration()
     test_report_daywork_purpose_migration()
     test_global_admin_supervisor_invariant_migration()

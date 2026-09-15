@@ -15,6 +15,7 @@ node_modules
 dist
 dist-ssr
 *.local
+/output/browser-checks/
 
 # Backend runtime data
 __pycache__/

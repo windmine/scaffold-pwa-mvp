@@ -100,6 +100,10 @@ export async function getDraft(key) {
   return item?.value || null;
 }
 
+export async function getDraftEntries() {
+  return getAll('drafts');
+}
+
 export async function clearDraft(key) {
   await remove('drafts', key);
 }

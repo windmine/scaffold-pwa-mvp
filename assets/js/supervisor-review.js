@@ -16,7 +16,7 @@ import {
   updateSupervisorTaskLog as updateBackendSupervisorTaskLog
 } from './api-client.js';
 import { setDateInputValue } from './date-inputs.js';
-import { createReviewExportAdapters } from './review-export-adapters.js';
+import { createReviewExportAdapters, reportCollectionExportFilters } from './review-export-adapters.js';
 import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
 import { todayDateInput, escapeHtml, formatDateTime, reviewRecordKey } from './utils.js';
 import {
@@ -1584,19 +1584,6 @@ export function createSupervisorReviewModule({
     }
   }
 
-  function reportCollectionExportFilters() {
-    const reportDate = els.supervisorDateFilter.value;
-    return {
-      workflowStatus: els.supervisorStatusFilter.value,
-      formId: els.supervisorTemplateFilter.value,
-      workerId: els.supervisorWorkerFilter.value,
-      dateFrom: reportDate,
-      dateTo: reportDate,
-      departmentId: state.departmentFocusId || '',
-      purpose: 'report'
-    };
-  }
-
   async function handleReportCollectionExport(exportType, button) {
     const session = captureSession();
     if (!isCurrentSession(session)) return;
@@ -1609,7 +1596,7 @@ export function createSupervisorReviewModule({
       await runExport(button, async () => {
         const message = await reviewExports.exportCollection(
           exportType,
-          reportCollectionExportFilters()
+          reportCollectionExportFilters(reviewQueueQuery())
         );
         if (isCurrentSession(session)) renderStatusBanner(message);
       });

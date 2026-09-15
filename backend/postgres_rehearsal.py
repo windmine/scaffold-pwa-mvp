@@ -83,7 +83,7 @@ def _rehearsal(pg_bin, *, migrations_only=False, review_only=False):
         "isolation": "new local cluster, loopback only, synthetic data, non-superuser database owner",
         "checks": [],
         "failures": [],
-        "scope": "migrations" if migrations_only else "review" if review_only else "migrations_and_review",
+        "scope": "migrations" if migrations_only else "review" if review_only else "full_release",
         "passed": False,
         "cleanup_complete": False,
     }
@@ -154,6 +154,11 @@ def _rehearsal(pg_bin, *, migrations_only=False, review_only=False):
             if not migrations_only:
                 from postgres_review_rehearsal import run_review_checks
                 phases.append(("review", run_review_checks))
+            if not migrations_only and not review_only:
+                from postgres_invitation_rehearsal import run_invitation_checks
+                from postgres_template_edit_rehearsal import run_template_edit_checks
+                phases.append(("invitations", run_invitation_checks))
+                phases.append(("template_edits", run_template_edit_checks))
             for phase, run_checks in phases:
                 try:
                     run_checks(database, report)
@@ -204,7 +209,11 @@ def main():
     evidence["source_sha256"] = {
         str(path.relative_to(REPOSITORY)).replace("\\", "/"): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in sorted([*BACKEND.glob("postgres*_rehearsal.py"), BACKEND / "app" / "migrations.py",
-                            BACKEND / "app" / "use_cases" / "work_forms.py", * (BACKEND / "migrations" / "versions").glob("*.py")])
+                            BACKEND / "app" / "models.py", BACKEND / "app" / "schemas.py",
+                            BACKEND / "app" / "use_cases" / "work_forms.py",
+                            BACKEND / "app" / "use_cases" / "worker_invitations.py",
+                            BACKEND / "app" / "use_cases" / "staff_site_admin.py",
+                            * (BACKEND / "migrations" / "versions").glob("*.py")])
     }
     serialized = json.dumps(evidence, indent=2)
     if args.output:

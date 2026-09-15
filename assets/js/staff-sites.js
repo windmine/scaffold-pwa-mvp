@@ -1,6 +1,9 @@
 import {
   createSite as createBackendSite,
   createUser as createBackendUser,
+  createWorkerInvitation,
+  reissueWorkerInvitation,
+  revokeWorkerInvitation,
   createWorkForm as createBackendWorkForm,
   getUsers as getBackendUsers,
   updateSite as updateBackendSite,
@@ -12,12 +15,16 @@ import { createSiteMapPicker, currentPosition } from './site-map-picker.js';
 import { setButtonBusy } from './ui-feedback.js';
 import { createWorkFormBuilder, workFormBuilderMarkup } from './work-form-builder.js';
 import { renderWorkFormFields } from './work-form-fields.js';
-import { escapeHtml, roundCoordinate } from './utils.js';
+import { escapeHtml, roundCoordinate, formatDateTime } from './utils.js';
 import { defaultStaffDepartmentId } from './app-shell-state.js';
+import { createWorkerInvitationDialog } from './worker-invitation-dialog.js';
+import { setTranslatableText } from './i18n.js';
+import { listTemplateDrafts, removeTemplateDraft, saveTemplateDraft, templateDraftScope } from './report-template-drafts.js';
 
 export function createStaffSitesModule({
   els,
   state,
+  reportOnly = false,
   loadSites,
   fillSiteSelects,
   refreshWorkForms,
@@ -31,10 +38,235 @@ export function createStaffSitesModule({
   confirmAction = async () => false
 }) {
   let sessionGeneration = 0;
+  let createTemplateDraft = null;
+  let editTemplateDraft = null;
+  let templateEditBuilder = null;
+  let editTemplateReadOnly = false;
+  let createTemplateReadOnly = false;
+  let templateMutationInFlight = false;
+  const completedTemplateDraftIds = new Set();
+  const unsafeTemplateDraftEditors = new WeakSet();
+  const templateDraftReceipts = new Map();
+  let templateDraftWriteCount = 0;
+  let restoringTemplateDraft = false;
+  let templateDraftTimer = null;
+  let templateDraftWrites = Promise.resolve();
+  let templateDraftListGeneration = 0;
+  let templateEditorsLocked = false;
+  const templateDisabledControls = new Map();
+  const sameTemplateUser = (user) => Boolean(templateDraftScope(state.user) && templateDraftScope(user)
+    && String(state.user.id) === String(user.id) && String(state.user.departmentId) === String(user.departmentId)
+    && Boolean(state.user.isGlobalAdmin) === Boolean(user.isGlobalAdmin));
+  const invitationDialog = createWorkerInvitationDialog(els);
   const workFormBuilder = createWorkFormBuilder(els.workFormFieldBuilder, {
-    onChange: () => refreshOpenDraftWorkFormPreview(),
+    onChange: () => {
+      refreshOpenDraftWorkFormPreview();
+      scheduleTemplateDraft();
+    },
     confirmAction
   });
+
+  function captureCreateTemplateDraft() {
+    if (!reportOnly || !createTemplateDraft || !templateDraftScope(state.user)) return null;
+    return {
+      ...createTemplateDraft, name: els.workFormNameInput.value,
+      description: els.workFormDescriptionInput.value,
+      builder: workFormBuilder.getDraftState(), savedAt: new Date().toISOString()
+    };
+  }
+
+  function captureEditTemplateDraft() {
+    if (!editTemplateDraft || !templateEditBuilder || editTemplateReadOnly) return null;
+    return { ...editTemplateDraft, name: document.getElementById('editWorkFormName').value,
+      description: document.getElementById('editWorkFormDescription').value,
+      builder: templateEditBuilder.getDraftState(), savedAt: new Date().toISOString() };
+  }
+
+  function draftContents(draft) {
+    return JSON.stringify([draft.name, draft.description, draft.builder, draft.publicationState || '']);
+  }
+
+  function templateDraftCaptures() {
+    return [[captureCreateTemplateDraft(), createTemplateDraft, els.templateCreateDraftStatus],
+      [captureEditTemplateDraft(), editTemplateDraft, els.templateEditDraftStatus]]
+      .filter(([draft]) => draft && (draft.storeRevision || draft.name || draft.description || draft.builder.fields.length || draft.builder.rawDirty));
+  }
+
+  function hasUnsavedTemplateInput() {
+    return Boolean(reportOnly && (templateDraftWriteCount || templateDraftCaptures()
+      .some(([draft]) => templateDraftReceipts.get(draft.id) !== draftContents(draft))));
+  }
+
+  function scheduleTemplateDraft() {
+    if (restoringTemplateDraft || (!createTemplateDraft && !editTemplateDraft) || !reportOnly) return;
+    window.clearTimeout(templateDraftTimer);
+    for (const [draft, , status] of templateDraftCaptures()) {
+      if (templateDraftReceipts.get(draft.id) !== draftContents(draft)) setTranslatableText(status, 'Saving Template draft...');
+    }
+    templateDraftTimer = window.setTimeout(() => { void flushTemplateDrafts().catch(() => {}); }, 150);
+  }
+
+  async function flushTemplateDrafts() {
+    window.clearTimeout(templateDraftTimer);
+    templateDraftTimer = null;
+    const user = state.user;
+    const generation = sessionGeneration;
+    const captures = templateDraftCaptures();
+    if (!captures.length) return;
+    for (const [draft, editor, status] of captures) {
+      if (templateDraftReceipts.get(draft.id) === draftContents(draft)) continue;
+      const current = () => generation === sessionGeneration && (editor === createTemplateDraft || editor === editTemplateDraft);
+      templateDraftWriteCount += 1;
+      const write = templateDraftWrites.catch(() => {}).then(async () => {
+        let saved;
+        let unsafeConflict = false;
+        if (unsafeTemplateDraftEditors.has(editor)) draft.publicationState = 'uncertain';
+        try {
+          saved = await saveTemplateDraft({ ...draft, id: editor.id, storeRevision: editor.storeRevision || 0 }, user);
+        } catch (error) {
+          if (error.code !== 'TEMPLATE_DRAFT_CONFLICT') throw error;
+          unsafeConflict = error.conflictReason === 'removed' || error.publicationState === 'uncertain';
+          editor.id = crypto.randomUUID();
+          editor.storeRevision = 0;
+          if (unsafeConflict) {
+            unsafeTemplateDraftEditors.add(editor);
+            editor.publicationState = 'uncertain';
+            draft.publicationState = 'uncertain';
+          }
+          saved = await saveTemplateDraft({ ...draft, id: editor.id, storeRevision: 0 }, user);
+        }
+        if (saved?.storeRevision) editor.storeRevision = saved.storeRevision;
+        templateDraftReceipts.set(editor.id, draftContents(draft));
+        if (unsafeConflict && current()) {
+          if (editor === createTemplateDraft) createTemplateReadOnly = true;
+          if (editor === editTemplateDraft) editTemplateReadOnly = true;
+          enforceReadOnlyTemplateEditors();
+          const error = new Error('This draft was removed or saved in another editor. Your recovery copy is read-only; check the Template list before editing again.');
+          error.code = 'TEMPLATE_DRAFT_PUBLICATION_UNCERTAIN';
+          throw error;
+        }
+      }).finally(() => { if (generation === sessionGeneration) templateDraftWriteCount -= 1; });
+      templateDraftWrites = write;
+      try {
+        await write;
+        if (!current()) continue;
+        const latest = editor === createTemplateDraft ? captureCreateTemplateDraft() : captureEditTemplateDraft();
+        if (latest && templateDraftReceipts.get(editor.id) === draftContents(latest)) {
+          setTranslatableText(status, 'Template draft saved on this device.');
+        }
+        void renderTemplateDrafts();
+      } catch (error) {
+        if (current()) setTranslatableText(status, error.code === 'TEMPLATE_DRAFT_PUBLICATION_UNCERTAIN'
+          ? error.message : 'Template draft could not be saved. Keep this page open and try again.');
+        throw error;
+      }
+    }
+    await templateDraftWrites;
+  }
+
+  async function renderTemplateDrafts() {
+    const generation = ++templateDraftListGeneration;
+    const user = state.user;
+    if (!reportOnly || !templateDraftScope(user)) {
+      els.templateDraftsPanel.hidden = true;
+      els.templateDraftsList.innerHTML = '';
+      return;
+    }
+    try {
+      const drafts = (await listTemplateDrafts(user, state.departmentFocusId))
+        .filter((draft) => !completedTemplateDraftIds.has(draft.id));
+      if (generation !== templateDraftListGeneration || !sameTemplateUser(user)) return;
+      els.templateDraftsList.innerHTML = '';
+      els.templateDraftsPanel.hidden = !drafts.length;
+      for (const draft of drafts) {
+        const card = document.createElement('article');
+        card.className = 'record-card';
+        card.innerHTML = `<div class="report-draft-summary"><h4 data-no-i18n>${escapeHtml(draft.name || 'Untitled Report Template')}</h4><p class="record-meta"><span>Saved on this device</span> · <span data-no-i18n>${escapeHtml(formatDateTime(draft.savedAt))}</span></p></div>`;
+        const resume = document.createElement('button');
+        resume.type = 'button';
+        resume.className = 'secondary';
+        resume.textContent = 'Continue Template draft';
+        resume.addEventListener('click', async () => {
+          if (!sameTemplateUser(user) || templateEditorsLocked || templateMutationInFlight) return;
+          const editorGeneration = sessionGeneration;
+          lockTemplateEditors(true);
+          try {
+            await flushTemplateDrafts();
+            if (editorGeneration !== sessionGeneration || !sameTemplateUser(user)) return;
+            const latest = (await listTemplateDrafts(user)).find((item) => item.id === draft.id);
+            if (editorGeneration !== sessionGeneration || !sameTemplateUser(user) || !latest) return;
+            if (latest.formId || latest.publicationState) {
+              lockTemplateEditors(false);
+              await openReportTemplateEditor(state.workForms.find((form) => String(form.id) === latest.formId), latest);
+              return;
+            }
+            restoringTemplateDraft = true;
+            resetWorkFormCreate();
+            createTemplateDraft = latest;
+            createTemplateReadOnly = false;
+            els.workFormNameInput.value = latest.name;
+            els.workFormDescriptionInput.value = latest.description;
+            workFormBuilder.restoreDraftState(latest.builder);
+            templateDraftReceipts.set(latest.id, draftContents(captureCreateTemplateDraft()));
+            setCreatePanelOpen(els.addWorkFormButton, els.workFormCreatePanel, els.workFormNameInput, true);
+            setTranslatableText(els.templateCreateDraftStatus, 'Template draft saved on this device.');
+          } catch (error) {
+            renderStatusBanner(error.message || 'Could not restore Template draft.', true);
+          } finally {
+            restoringTemplateDraft = false;
+            if (editorGeneration === sessionGeneration) lockTemplateEditors(false);
+          }
+        });
+        const discard = document.createElement('button');
+        discard.type = 'button';
+        discard.className = 'ghost';
+        discard.textContent = 'Discard Template draft';
+        discard.addEventListener('click', async () => {
+          if (templateEditorsLocked || templateMutationInFlight || !sameTemplateUser(user)) return;
+          if (!await confirmAction({ title: 'Discard Template draft?', message: 'This removes only the unfinished editing copy on this device. Published Templates and Reports are unchanged.', confirmLabel: 'Discard draft', tone: 'danger' })) return;
+          if (!sameTemplateUser(user) || templateEditorsLocked || templateMutationInFlight) return;
+          const editorGeneration = sessionGeneration;
+          lockTemplateEditors(true);
+          try {
+            const active = templateDraftCaptures().find(([item]) => item.id === draft.id);
+            await flushTemplateDrafts();
+            if (editorGeneration !== sessionGeneration || !sameTemplateUser(user)) return;
+            // Delete only the revision the user saw (or this editor just saved),
+            // never silently adopt another tab's newer content as deletion intent.
+            const latest = active && active[1].id === draft.id
+              ? { ...active[0], storeRevision: active[1].storeRevision } : draft;
+            await removeTemplateDraft(latest, user);
+            if (editorGeneration !== sessionGeneration || !sameTemplateUser(user)) return;
+            if (createTemplateDraft?.id === latest.id) {
+              createTemplateDraft = null;
+              createTemplateReadOnly = false;
+              resetWorkFormCreate();
+              els.templateCreateDraftStatus.textContent = '';
+              setCreatePanelOpen(els.addWorkFormButton, els.workFormCreatePanel, els.workFormNameInput, false);
+            }
+            if (editTemplateDraft?.id === latest.id) clearTemplateEdit();
+            void renderTemplateDrafts();
+          } catch (error) {
+            if (editorGeneration === sessionGeneration && sameTemplateUser(user)) {
+              renderStatusBanner(error.message || 'Could not discard Template draft.', true);
+              void renderTemplateDrafts();
+            }
+          }
+          finally { if (editorGeneration === sessionGeneration) lockTemplateEditors(false); }
+        });
+        const actions = document.createElement('div');
+        actions.className = 'form-actions';
+        actions.append(resume, discard);
+        card.append(actions);
+        els.templateDraftsList.append(card);
+      }
+    } catch {
+      if (generation === templateDraftListGeneration) {
+        els.templateDraftsPanel.hidden = false;
+        setTranslatableText(els.templateDraftsList, 'Template drafts are unavailable on this device.');
+      }
+    }
+  }
 
   function setCreatePanelOpen(
     button,
@@ -128,6 +360,7 @@ export function createStaffSitesModule({
 
   function syncStaffCreateRoleControls() {
     const isWorker = els.staffRoleSelect.value === 'worker';
+    const usesInvitation = reportOnly && isWorker;
     const canAssignGlobalAdmin = Boolean(state.user?.isGlobalAdmin && !isWorker);
     const globalAdminLabel = els.staffGlobalAdminInput.closest('label');
 
@@ -135,6 +368,14 @@ export function createStaffSitesModule({
     globalAdminLabel?.classList.toggle('hidden', !state.user?.isGlobalAdmin);
     if (!canAssignGlobalAdmin) els.staffGlobalAdminInput.checked = false;
     els.staffGlobalAdminInput.disabled = !canAssignGlobalAdmin;
+    els.staffPasswordInput.closest('label').classList.toggle('hidden', usesInvitation);
+    els.staffPasswordInput.required = !usesInvitation;
+    els.staffPasswordInput.disabled = usesInvitation;
+    if (usesInvitation) els.staffPasswordInput.value = '';
+    els.staffInvitationHelp.hidden = !usesInvitation;
+    if (els.staffUserSubmitButton.getAttribute('aria-busy') !== 'true') {
+      setTranslatableText(els.staffUserSubmitButton, usesInvitation ? 'Create invitation' : 'Create user');
+    }
   }
 
   function renderStaffCreateControls() {
@@ -159,6 +400,10 @@ export function createStaffSitesModule({
 
   function resetWorkFormCreate() {
     els.workFormBuilderForm.reset();
+    els.workFormBuilderForm.querySelectorAll('input, select, textarea, button').forEach((control) => {
+      control.disabled = false;
+      templateDisabledControls.delete(control);
+    });
     workFormBuilder.reset();
     const advancedDetails = els.workFormCreatePanel.querySelector('[data-work-form-advanced]');
     if (advancedDetails) advancedDetails.open = false;
@@ -186,6 +431,15 @@ export function createStaffSitesModule({
   }
 
   function openWorkFormCreate() {
+    if (templateEditorsLocked) return;
+    if (reportOnly && !createTemplateDraft) {
+      createTemplateReadOnly = false;
+      createTemplateDraft = {
+        kind: 'report-template-editor', schemaVersion: 1, id: crypto.randomUUID(),
+        ...templateDraftScope(state.user), departmentId: String(state.user.departmentId),
+        purpose: 'report', formId: null, baseVersion: null
+      };
+    }
     setCreatePanelOpen(
       els.addWorkFormButton,
       els.workFormCreatePanel,
@@ -194,8 +448,58 @@ export function createStaffSitesModule({
     );
   }
 
-  function cancelWorkFormCreate() {
+  function lockTemplateEditors(locked) {
+    templateEditorsLocked = locked;
+    if (locked) {
+      document.querySelectorAll('#workFormBuilderForm input, #workFormBuilderForm select, #workFormBuilderForm textarea, #workFormBuilderForm button, #templateEditForm input, #templateEditForm select, #templateEditForm textarea, #templateEditForm button').forEach((control) => {
+        if (!templateDisabledControls.has(control)) templateDisabledControls.set(control, control.disabled);
+        control.disabled = true;
+      });
+    } else {
+      for (const [control, disabled] of templateDisabledControls) control.disabled = disabled;
+      templateDisabledControls.clear();
+      enforceReadOnlyTemplateEditors();
+    }
+  }
+
+  function enforceReadOnlyTemplateEditors() {
+    if (createTemplateReadOnly) els.workFormBuilderForm.querySelectorAll('input, select, textarea, button').forEach((control) => { control.disabled = true; });
+    if (editTemplateReadOnly) els.templateEditForm.querySelectorAll('input, select, textarea, button').forEach((control) => { control.disabled = true; });
+    // Closing a read-only recovery copy never publishes it.
+    if (!templateEditorsLocked) els.cancelWorkFormCreateButton.disabled = false;
+  }
+
+  async function prepareForNavigation() {
+    if (!reportOnly || state.user?.role !== 'supervisor') return { safe: true };
+    if (templateMutationInFlight || templateEditorsLocked) return { safe: false, message: 'Wait for the Template operation to finish before leaving or updating.' };
+    lockTemplateEditors(true);
+    try {
+      await flushTemplateDrafts();
+      return { safe: true };
+    } catch {
+      lockTemplateEditors(false);
+      return { safe: false, message: 'Your Template changes are not saved on this device. Keep this page open and try again before leaving or updating.' };
+    }
+  }
+
+  async function cancelWorkFormCreate() {
+    if (reportOnly) {
+      if (templateEditorsLocked) return;
+      const generation = sessionGeneration;
+      lockTemplateEditors(true);
+      try {
+        await flushTemplateDrafts();
+        if (generation !== sessionGeneration) return;
+        createTemplateDraft = null;
+        createTemplateReadOnly = false;
+      } catch {
+        return;
+      } finally {
+        if (generation === sessionGeneration) lockTemplateEditors(false);
+      }
+    }
     resetWorkFormCreate();
+    els.templateCreateDraftStatus.textContent = '';
     setCreatePanelOpen(
       els.addWorkFormButton,
       els.workFormCreatePanel,
@@ -206,6 +510,20 @@ export function createStaffSitesModule({
 
   function resetSession() {
     sessionGeneration += 1;
+    createTemplateDraft = null;
+    createTemplateReadOnly = false;
+    clearTemplateEdit();
+    templateMutationInFlight = false;
+    templateDraftListGeneration += 1;
+    window.clearTimeout(templateDraftTimer);
+    templateDraftTimer = null;
+    templateDraftWriteCount = 0;
+    templateDraftWrites = Promise.resolve();
+    lockTemplateEditors(false);
+    els.templateCreateDraftStatus.textContent = '';
+    els.templateDraftsList.innerHTML = '';
+    els.templateDraftsPanel.hidden = true;
+    invitationDialog.clear();
     resetStaffUserCreate();
     resetWorkFormCreate();
     if (els.workFormDraftPreview) els.workFormDraftPreview.innerHTML = '';
@@ -365,6 +683,8 @@ export function createStaffSitesModule({
         user.role,
         user.worker_class || user.workerClass,
         user.status || 'active',
+        user.password_setup_required ? 'invited password setup required' : '',
+        user.invitation_status || '',
         user.department_name || user.departmentName,
         user.is_global_admin || user.isGlobalAdmin ? 'global admin' : ''
       ].join(' ').toLowerCase();
@@ -384,14 +704,19 @@ export function createStaffSitesModule({
       const status = user.status || 'active';
       const isGlobalAdmin = Boolean(user.is_global_admin || user.isGlobalAdmin);
       const workerClass = user.worker_class || user.workerClass || 'normal';
+      const needsSetup = user.role === 'worker' && user.password_setup_required === true;
+      const invitationStatus = {
+        pending: 'Awaiting password setup', expired: 'Invitation expired', revoked: 'Invitation revoked'
+      }[user.invitation_status] || 'No active invitation';
       node.innerHTML = `
         <div class="record-header">
           <div>
             <h3 class="record-title">${escapeHtml(user.name)}</h3>
             <p class="record-meta">ID ${escapeHtml(user.id)} | ${escapeHtml(user.email)} | ${escapeHtml(user.department_name || user.departmentName || 'No department')}</p>
           </div>
-          <span class="badge ${status === 'active' ? 'synced' : 'rejected'}">${escapeHtml(status === 'active' ? `${user.role === 'worker' ? workerClass : user.role}${isGlobalAdmin ? ' global' : ''}` : 'resigned worker')}</span>
+          <span class="badge ${status === 'active' ? 'synced' : 'rejected'}">${escapeHtml(status === 'active' ? needsSetup ? 'Password setup required' : `${user.role === 'worker' ? workerClass : user.role}${isGlobalAdmin ? ' global' : ''}` : 'resigned worker')}</span>
         </div>
+        ${needsSetup ? `<p class="record-meta"><span>${invitationStatus}</span>${user.invitation_status === 'pending' && user.invitation_expires_at ? ` · <span>Expires</span>: <span data-no-i18n>${escapeHtml(formatDateTime(user.invitation_expires_at))}</span>` : ''}</p>` : ''}
         <div class="record-actions"></div>
       `;
       const actions = node.querySelector('.record-actions');
@@ -404,6 +729,24 @@ export function createStaffSitesModule({
       });
 
       actions.append(editButton);
+      if (needsSetup) {
+        if (status === 'active') {
+          const reissue = document.createElement('button');
+          reissue.type = 'button';
+          reissue.className = 'secondary';
+          reissue.textContent = 'Create new setup link';
+          reissue.addEventListener('click', () => { void handleInvitationAction(user, 'reissue', reissue); });
+          actions.append(reissue);
+        }
+        if (['pending', 'expired'].includes(user.invitation_status)) {
+          const revoke = document.createElement('button');
+          revoke.type = 'button';
+          revoke.className = 'ghost';
+          revoke.textContent = 'Revoke setup link';
+          revoke.addEventListener('click', () => { void handleInvitationAction(user, 'revoke', revoke); });
+          actions.append(revoke);
+        }
+      }
       if (state.user?.isGlobalAdmin || !isGlobalAdmin) {
         const statusButton = document.createElement('button');
         statusButton.type = 'button';
@@ -420,6 +763,8 @@ export function createStaffSitesModule({
 
   async function handleWorkFormCreate(event) {
     event.preventDefault();
+
+    if (reportOnly) return saveReportTemplateCreate();
 
     if (!workFormBuilder.validate({ focus: true })) return;
     const fields = workFormBuilder.getFields();
@@ -566,7 +911,202 @@ export function createStaffSitesModule({
     renderDraftWorkFormPreview();
   }
 
+  function clearTemplateEdit() {
+    templateEditBuilder?.destroy();
+    templateEditBuilder = null;
+    editTemplateDraft = null;
+    editTemplateReadOnly = false;
+    els.templateEditPanel.hidden = true;
+    els.templateEditForm.innerHTML = '';
+    els.templateEditForm.onsubmit = null;
+    els.templateEditDraftStatus.textContent = '';
+    els.templateEditNotice.textContent = '';
+  }
+
+  async function saveReportTemplateCreate() {
+    if (templateEditorsLocked || templateMutationInFlight || createTemplateReadOnly || !createTemplateDraft
+      || !workFormBuilder.validate({ focus: true })) return;
+    if (!navigator.onLine) {
+      renderStatusBanner('Connect before publishing the Template. Your private editing draft stays on this device.', true,
+        { local: els.workFormBuilderActionFeedback, tone: 'error' });
+      return;
+    }
+    const editor = createTemplateDraft;
+    const user = state.user;
+    const generation = sessionGeneration;
+    const current = () => generation === sessionGeneration && editor === createTemplateDraft && sameTemplateUser(user);
+    templateMutationInFlight = true;
+    lockTemplateEditors(true);
+    let sent = false;
+    try {
+      editor.publicationState = 'uncertain';
+      await flushTemplateDrafts();
+      if (!current() || createTemplateReadOnly) return;
+      const captured = captureCreateTemplateDraft();
+      sent = true;
+      await createBackendWorkForm({ name: captured.name.trim(), description: captured.description.trim() || null,
+        fields: captured.builder.fields });
+      const cleared = await retireTemplateDraft({ ...captured, storeRevision: editor.storeRevision }, user);
+      if (!current()) return;
+      createTemplateDraft = null;
+      resetWorkFormCreate();
+      els.templateCreateDraftStatus.textContent = '';
+      setCreatePanelOpen(els.addWorkFormButton, els.workFormCreatePanel, els.workFormNameInput, false);
+      const refreshed = await refreshWorkForms();
+      if (generation !== sessionGeneration) return;
+      renderStatusBanner(!cleared ? 'Template saved, but its local draft could not be cleared. The recovery copy is read-only.'
+        : refreshed ? 'Report Template created.' : 'Report Template created, but the updated list could not load.', !cleared || !refreshed);
+      await refreshSupervisorAuditHistory?.();
+    } catch (error) {
+      if (!current()) return;
+      if (error.code !== 'TEMPLATE_DRAFT_PUBLICATION_UNCERTAIN' && (!sent || (error.status >= 400 && error.status < 500))) {
+        delete editor.publicationState;
+        await flushTemplateDrafts().catch(() => {});
+      } else createTemplateReadOnly = true;
+      renderStatusBanner(createTemplateReadOnly
+        ? 'The previous save may have reached the server. This draft is kept read-only; check the Template list before creating or editing again.'
+        : error.message || 'Could not create Report Template. Your editing draft is kept.', true, {
+        local: els.workFormBuilderActionFeedback, tone: 'error'
+      });
+    } finally {
+      if (generation === sessionGeneration) {
+        templateMutationInFlight = false;
+        lockTemplateEditors(false);
+      }
+    }
+  }
+
+  async function closeTemplateEdit() {
+    if (templateEditorsLocked || templateMutationInFlight) return;
+    const generation = sessionGeneration;
+    lockTemplateEditors(true);
+    try {
+      await flushTemplateDrafts();
+      if (generation === sessionGeneration) clearTemplateEdit();
+    } catch { /* Keep the editor and its error visible. */ }
+    finally { if (generation === sessionGeneration) lockTemplateEditors(false); }
+  }
+
+  async function retireTemplateDraft(draft, user) {
+    completedTemplateDraftIds.add(draft.id);
+    try { await removeTemplateDraft(draft, user); return true; }
+    catch { return false; }
+    finally { if (sameTemplateUser(user)) void renderTemplateDrafts(); }
+  }
+
+  async function openReportTemplateEditor(form, restored = null) {
+    if (templateEditorsLocked || templateMutationInFlight || !templateDraftScope(state.user)) return;
+    const generation = sessionGeneration;
+    const user = state.user;
+    const current = () => generation === sessionGeneration && sameTemplateUser(user);
+    lockTemplateEditors(true);
+    try {
+      await flushTemplateDrafts();
+      if (!current()) return;
+      const loaded = await refreshWorkForms();
+      if (!current()) return;
+      const formId = restored?.formId || String(form?.id || '');
+      form = state.workForms.find((item) => String(item.id) === formId);
+      if (!restored && (!loaded || !form || form.template_purpose !== 'report')) {
+        renderStatusBanner('Connect to load the current Report Template before editing.', true);
+        return;
+      }
+      clearTemplateEdit();
+      editTemplateDraft = restored || {
+        kind: 'report-template-editor', schemaVersion: 1, id: crypto.randomUUID(),
+        ...templateDraftScope(user), departmentId: String(form.department_id),
+        purpose: 'report', formId: String(form.id), baseVersion: Number(form.definition_version || 1)
+      };
+      editTemplateReadOnly = Boolean(restored && (!loaded || !form || form.template_purpose !== 'report'
+        || String(form.department_id) !== restored.departmentId || form.status !== 'active'
+        || Number(form.definition_version || 1) !== restored.baseVersion || restored.publicationState));
+      els.templateEditForm.innerHTML = `
+        <label>Template name<input id="editWorkFormName" required /></label>
+        <label>Description<input id="editWorkFormDescription" /></label>
+        ${workFormBuilderMarkup()}
+        <button id="saveTemplateEditButton" type="submit">Save Report Template</button>`;
+      document.getElementById('editWorkFormName').value = restored?.name ?? form?.name ?? '';
+      document.getElementById('editWorkFormDescription').value = restored?.description ?? form?.description ?? '';
+      templateEditBuilder = createWorkFormBuilder(els.templateEditForm.querySelector('[data-work-form-builder]'), {
+        fields: form?.fields || [], confirmAction, onChange: scheduleTemplateDraft
+      });
+      restoringTemplateDraft = true;
+      if (restored) templateEditBuilder.restoreDraftState(restored.builder);
+      restoringTemplateDraft = false;
+      if (!editTemplateReadOnly) templateDraftReceipts.set(editTemplateDraft.id, draftContents(captureEditTemplateDraft()));
+      els.templateEditPanel.hidden = false;
+      setTranslatableText(els.templateEditNotice, editTemplateReadOnly
+        ? restored.publicationState
+          ? 'The previous save may have reached the server. This draft is kept read-only; check the Template list before creating or editing again.'
+          : 'The Template changed or is unavailable. Your editing draft is kept read-only. Open the current Template separately; your draft will not overwrite it.'
+        : 'Changes stay private on this device until you save the Report Template.');
+      setTranslatableText(els.templateEditDraftStatus, restored ? 'Template draft saved on this device.' : 'Changes save automatically on this device.');
+      els.templateEditForm.onsubmit = saveReportTemplateEdit;
+      if (editTemplateReadOnly) els.templateEditForm.querySelectorAll('input, select, textarea, button').forEach((control) => { control.disabled = true; });
+      els.templateEditPanel.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    } catch (error) {
+      if (current()) renderStatusBanner(error.message || 'Could not open Template draft.', true);
+    } finally {
+      restoringTemplateDraft = false;
+      if (generation === sessionGeneration) lockTemplateEditors(false);
+    }
+  }
+
+  async function saveReportTemplateEdit(event) {
+    event.preventDefault();
+    if (templateEditorsLocked || templateMutationInFlight || editTemplateReadOnly || !templateEditBuilder.validate({ focus: true })) return;
+    if (!navigator.onLine) {
+      setTranslatableText(els.templateEditNotice, 'Connect before publishing the Template. Your private editing draft stays on this device.');
+      return;
+    }
+    const editor = editTemplateDraft;
+    const user = state.user;
+    const generation = sessionGeneration;
+    const current = () => generation === sessionGeneration && editor === editTemplateDraft && sameTemplateUser(user);
+    templateMutationInFlight = true;
+    lockTemplateEditors(true);
+    let sent = false;
+    try {
+      editor.publicationState = 'uncertain';
+      await flushTemplateDrafts();
+      if (!current() || editTemplateReadOnly) return;
+      const captured = captureEditTemplateDraft();
+      sent = true;
+      await updateBackendWorkForm(editor.formId, {
+        name: captured.name.trim(), description: captured.description.trim() || null,
+        fields: captured.builder.fields, expected_definition_version: editor.baseVersion
+      });
+      const cleared = await retireTemplateDraft({ ...captured, storeRevision: editor.storeRevision }, user);
+      if (!current()) return;
+      clearTemplateEdit();
+      const refreshed = await refreshWorkForms();
+      if (generation !== sessionGeneration) return;
+      renderStatusBanner(!cleared ? 'Template saved, but its local draft could not be cleared. The recovery copy is read-only.'
+        : refreshed ? 'Report Template updated.' : 'Report Template updated, but the updated list could not load.', !cleared || !refreshed);
+      await refreshSupervisorAuditHistory?.();
+    } catch (error) {
+      if (!current()) return;
+      if (error.code !== 'TEMPLATE_DRAFT_PUBLICATION_UNCERTAIN' && (!sent || (error.status >= 400 && error.status < 500))) {
+        delete editor.publicationState;
+        await flushTemplateDrafts().catch(() => {});
+      } else {
+        editTemplateReadOnly = true;
+      }
+      if (error.code === 'report_template_edit_version_conflict') editTemplateReadOnly = true;
+      setTranslatableText(els.templateEditNotice, editTemplateReadOnly
+        ? 'This draft was not applied safely. It is kept read-only; check the current Template before editing again.'
+        : error.message || 'Could not save Report Template. Your editing draft is kept.');
+    } finally {
+      if (generation === sessionGeneration) {
+        templateMutationInFlight = false;
+        lockTemplateEditors(false);
+        if (editTemplateReadOnly) els.templateEditForm.querySelectorAll('input, select, textarea, button').forEach((control) => { control.disabled = true; });
+      }
+    }
+  }
+
   async function handleWorkFormEdit(form) {
+    if (reportOnly) return openReportTemplateEditor(form);
     let editBuilder;
     showEditPanel(
       `Edit Report Template: ${form.name}`,
@@ -611,6 +1151,7 @@ export function createStaffSitesModule({
   }
 
   function renderWorkFormsList() {
+    void renderTemplateDrafts();
     els.workFormsList.innerHTML = '';
     const forms = state.workForms.filter(matchesDepartmentFocus);
     els.workFormsCount.textContent = String(forms.length);
@@ -831,7 +1372,7 @@ export function createStaffSitesModule({
           { value: 'resigned', label: 'Resigned' }
         ]
       },
-      { id: 'editUserPassword', label: 'New password (optional)', type: 'password', value: '' }
+      ...(!user.password_setup_required ? [{ id: 'editUserPassword', label: 'New password (optional)', type: 'password', value: '' }] : [])
     ];
 
     showEditPanel(
@@ -845,7 +1386,7 @@ export function createStaffSitesModule({
           confirmLabel: 'Save account changes'
         })) return;
 
-        const newPassword = editValue('editUserPassword');
+        const newPassword = user.password_setup_required ? '' : editValue('editUserPassword');
         const payload = {
           name: editValue('editUserName'),
           email: editValue('editUserEmail'),
@@ -896,7 +1437,7 @@ export function createStaffSitesModule({
     const syncStaffEditRoleControls = () => {
       const isWorker = editRoleSelect.value === 'worker';
       editWorkerClassSelect.disabled = !isWorker;
-      editRoleSelect.disabled = isSelf;
+      editRoleSelect.disabled = isSelf || user.password_setup_required === true;
       if (!editGlobalAdminSelect) return;
       if (isWorker) editGlobalAdminSelect.value = 'false';
       editGlobalAdminSelect.disabled = isSelf || isWorker;
@@ -944,19 +1485,63 @@ export function createStaffSitesModule({
     );
   }
 
+  async function handleInvitationAction(user, action, button) {
+    if (button.getAttribute('aria-busy') === 'true' || state.user?.role !== 'supervisor') return;
+    const generation = sessionGeneration;
+    const supervisorId = state.user.id;
+    const isCurrent = () => generation === sessionGeneration && state.user?.role === 'supervisor'
+      && String(state.user.id) === String(supervisorId);
+    const reissue = action === 'reissue';
+    if (!await confirmAction({
+      title: reissue ? 'Replace setup link?' : 'Revoke setup link?',
+      message: reissue
+        ? 'The previous link will stop working. Share the new link privately with this Worker.'
+        : 'This Worker cannot finish password setup with the old link. You can create a new link later.',
+      confirmLabel: reissue ? 'Create new setup link' : 'Revoke setup link'
+    }) || !isCurrent()) return;
+    setButtonBusy(button, true);
+    try {
+      const result = reissue ? await reissueWorkerInvitation(user.id) : await revokeWorkerInvitation(user.id);
+      if (!isCurrent()) return;
+      if (reissue) invitationDialog.show(result, els.addStaffUserButton);
+      else renderStatusBanner('Setup link revoked.');
+      const refreshed = await renderStaffUsers({ preserveOnError: true, reportError: false });
+      if (isCurrent() && !refreshed) {
+        renderStatusBanner(reissue
+          ? 'New setup link created; the previous link is invalid. The Staff list could not refresh, but you can still copy the new link.'
+          : 'Setup link revoked, but the Staff list could not refresh. Refresh Staff before making another change.', true);
+      }
+    } catch (error) {
+      if (isCurrent()) renderStatusBanner(error.message || 'Could not update the invitation. Refresh Staff and try again.', true);
+    } finally {
+      if (isCurrent() && button.isConnected) setButtonBusy(button, false);
+    }
+  }
+
   async function handleStaffUserCreate(event) {
     event.preventDefault();
     if (els.staffUserSubmitButton.getAttribute('aria-busy') === 'true') return;
     let created = false;
     let restoreFocus = false;
+    const generation = sessionGeneration;
+    const supervisorId = state.user?.id;
+    const isCurrent = () => generation === sessionGeneration && state.user?.role === 'supervisor'
+      && String(state.user.id) === String(supervisorId);
+    if (!isCurrent()) return;
     setButtonBusy(els.staffUserSubmitButton, true, 'Creating staff account...');
     els.cancelStaffUserCreateButton.disabled = true;
 
     try {
       const role = els.staffRoleSelect.value;
-      await createBackendUser({
+      const usesInvitation = reportOnly && role === 'worker';
+      const worker = {
         name: els.staffNameInput.value.trim(),
         email: els.staffEmailInput.value.trim(),
+        worker_class: els.staffWorkerClassSelect.value,
+        department_id: staffCreateDepartmentId()
+      };
+      const result = usesInvitation ? await createWorkerInvitation(worker) : await createBackendUser({
+        ...worker,
         password: els.staffPasswordInput.value,
         role,
         worker_class: role === 'worker' ? els.staffWorkerClassSelect.value : 'normal',
@@ -967,6 +1552,7 @@ export function createStaffSitesModule({
           && els.staffGlobalAdminInput.checked
         )
       });
+      if (!isCurrent()) return;
       created = true;
       restoreFocus = shouldRestoreCreateFocus(els.staffUserCreatePanel);
       resetStaffUserCreate();
@@ -978,7 +1564,8 @@ export function createStaffSitesModule({
         { restoreFocus: false }
       );
       els.addStaffUserButton.disabled = true;
-      renderStatusBanner('Staff user created.');
+      if (usesInvitation) invitationDialog.show(result, els.addStaffUserButton);
+      renderStatusBanner(usesInvitation ? 'Worker invitation created. Share the setup link privately.' : 'Staff user created.');
       const staffUsersRefreshed = await renderStaffUsers({
         preserveOnError: true,
         reportError: false
@@ -986,8 +1573,10 @@ export function createStaffSitesModule({
       if (!staffUsersRefreshed) {
         throw new Error('Staff user created, but the updated list could not load.');
       }
+      if (!isCurrent()) return;
       await refreshSupervisorAuditHistory?.();
     } catch (error) {
+      if (!isCurrent()) return;
       renderStatusBanner(
         error.message || (created
           ? 'Staff user created, but the updated list could not load.'
@@ -995,16 +1584,19 @@ export function createStaffSitesModule({
         true
       );
     } finally {
-      setButtonBusy(els.staffUserSubmitButton, false);
-      els.cancelStaffUserCreateButton.disabled = false;
-      els.addStaffUserButton.disabled = !els.staffUserCreatePanel.hidden;
-      if (
-        created
-        && restoreFocus
-        && els.staffUserCreatePanel.hidden
-        && shouldRestoreCreateFocus(els.staffUserCreatePanel)
-      ) {
-        window.requestAnimationFrame(() => els.addStaffUserButton.focus());
+      if (isCurrent()) {
+        setButtonBusy(els.staffUserSubmitButton, false);
+        syncStaffCreateRoleControls();
+        els.cancelStaffUserCreateButton.disabled = false;
+        els.addStaffUserButton.disabled = !els.staffUserCreatePanel.hidden;
+        if (
+          created
+          && restoreFocus
+          && els.staffUserCreatePanel.hidden
+          && shouldRestoreCreateFocus(els.staffUserCreatePanel)
+        ) {
+          window.requestAnimationFrame(() => els.addStaffUserButton.focus());
+        }
       }
     }
   }
@@ -1021,10 +1613,23 @@ export function createStaffSitesModule({
     els.siteLongitudeInput.addEventListener('blur', () => roundCoordinateInput(els.siteLongitudeInput));
     els.addWorkFormButton.addEventListener('click', openWorkFormCreate);
     els.cancelWorkFormCreateButton.addEventListener('click', cancelWorkFormCreate);
+    if (reportOnly) setTranslatableText(els.cancelWorkFormCreateButton, 'Close and keep draft');
     els.workFormBuilderForm.addEventListener('submit', handleWorkFormCreate);
     els.workFormPreviewButton?.addEventListener('click', handleDraftWorkFormPreviewToggle);
     els.workFormNameInput?.addEventListener('input', refreshOpenDraftWorkFormPreview);
     els.workFormDescriptionInput?.addEventListener('input', refreshOpenDraftWorkFormPreview);
+    els.workFormNameInput.addEventListener('input', scheduleTemplateDraft);
+    els.workFormDescriptionInput.addEventListener('input', scheduleTemplateDraft);
+    els.templateEditForm.addEventListener('input', scheduleTemplateDraft);
+    els.closeTemplateEditButton.addEventListener('click', closeTemplateEdit);
+    window.addEventListener('beforeunload', (event) => {
+      if (!reportOnly || (!templateMutationInFlight && !hasUnsavedTemplateInput())) return;
+      event.preventDefault();
+      event.returnValue = '';
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') void flushTemplateDrafts().catch(() => {});
+    });
     els.siteSearchInput.addEventListener('input', renderSupervisorSites);
     els.staffSearchInput.addEventListener('input', renderFilteredStaffUsers);
     els.staffRoleSelect.addEventListener('change', syncStaffCreateRoleControls);
@@ -1032,6 +1637,10 @@ export function createStaffSitesModule({
 
   return {
     bindEvents,
+    flushTemplateDrafts,
+    prepareForNavigation,
+    cancelNavigationPreparation: () => lockTemplateEditors(false),
+    renderTemplateDrafts,
     refreshSiteMapIfVisible,
     resetSession,
     renderFilteredStaffUsers,

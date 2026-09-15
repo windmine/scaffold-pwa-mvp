@@ -30,6 +30,20 @@ const DEFAULT_OPERATIONS = {
 };
 
 
+export function reportCollectionExportFilters(query) {
+  return {
+    workflowStatus: query.workflowStatus,
+    formId: query.formId,
+    workerId: query.workerId,
+    dateFrom: query.recordDate,
+    dateTo: query.recordDate,
+    departmentId: query.departmentId || '',
+    search: query.search,
+    purpose: 'report'
+  };
+}
+
+
 export function createReviewExportAdapters(options = {}) {
   const operations = { ...DEFAULT_OPERATIONS, ...(options.operations || {}) };
   const save = options.download || downloadBlob;

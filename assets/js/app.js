@@ -20,6 +20,7 @@ import {
 } from './api-client.js';
 import { discardOfflineSubmission, syncQueuedSubmissions } from './offline-submissions.js';
 import { clearWorkerAttendanceSnapshot } from './offline-attendance-snapshot.js';
+import { clearWorkerReportTemplateSnapshot } from './offline-report-template-snapshot.js';
 import {
   clearWorkerSiteSnapshot,
   loadWorkerSiteSnapshot,
@@ -159,12 +160,45 @@ const workerForm = createWorkerFormModule({
   handleSessionExpired,
   isBackendSessionError,
   reportOnly: REPORT_ONLY_MODE,
+  onContinueDraft: () => activateTab('formTab'),
+  onReportTemplateSourceChanged: renderReportTemplateAvailability,
   onSupervisorWorkFormsChanged: () => {
     staffSitesModule?.renderWorkFormsList();
     supervisorReviewModule?.renderAdminTaskLogForm();
   },
   onWorkFormsChanged: () => workerLog.renderDayworkForm()
 });
+
+function renderReportTemplateAvailability({ source, savedAt, templateCount }) {
+  const availability = document.getElementById('reportTemplateAvailability');
+  if (!availability) return;
+  availability.hidden = !REPORT_ONLY_MODE || state.user?.role !== 'worker';
+  availability.replaceChildren();
+  if (availability.hidden) return;
+  const message = document.createElement('span');
+  message.textContent = source === 'online'
+    ? templateCount
+      ? savedAt
+        ? 'Report Templates saved on this device for offline use.'
+        : 'Report Templates are online only. Device storage is unavailable.'
+      : 'No active Report Templates. Ask your supervisor to create or reactivate one.'
+    : source === 'offline' && templateCount
+      ? savedAt
+        ? 'Using saved Report Templates. You can start or continue a Report offline. Templates are checked again when you reconnect.'
+        : 'Using this open page\'s Report Templates. They are not saved for offline return visits. Keep this page open.'
+      : 'No Report Templates are saved for offline use. Connect to load your Department\'s active Templates.';
+  availability.append(message);
+  if (source === 'offline' && savedAt) {
+    const label = document.createElement('span');
+    label.textContent = 'Last saved';
+    const time = document.createElement('time');
+    time.dateTime = savedAt;
+    time.setAttribute('data-no-i18n', '');
+    time.textContent = formatDateTime(savedAt);
+    availability.append(document.createTextNode(' '), label, document.createTextNode(': '), time);
+  }
+  applyLanguage(availability);
+}
 
 const workerSites = createWorkerSitesModule({
   els,
@@ -191,6 +225,7 @@ const teamWorkLogModule = createTeamWorkLogModule({
 staffSitesModule = createStaffSitesModule({
   els,
   state,
+  reportOnly: REPORT_ONLY_MODE,
   loadSites,
   fillSiteSelects,
   refreshWorkForms: () => workerForm.refreshWorkForms(),
@@ -342,7 +377,8 @@ async function loadSitesForSession(options = {}) {
 async function discardWorkerOfflineSnapshots(user) {
   await Promise.allSettled([
     clearWorkerSiteSnapshot(user),
-    clearWorkerAttendanceSnapshot(user)
+    clearWorkerAttendanceSnapshot(user),
+    clearWorkerReportTemplateSnapshot(user)
   ]);
 }
 
@@ -373,7 +409,13 @@ async function restoreBackendSession() {
       refreshedUser = await refreshSession();
     } catch (refreshError) {
       if (refreshError.status !== 403) throw refreshError;
-      refreshedUser = await getCurrentUser();
+      try {
+        refreshedUser = await getCurrentUser();
+      } catch (currentUserError) {
+        // Refresh may reject missing CSRF while /me still validates the cookie.
+        // Only an authenticated /me success can overturn the explicit rejection.
+        throw [401, 403].includes(currentUserError.status) ? currentUserError : refreshError;
+      }
     }
     if (
       cachedUser.role === 'worker'
@@ -388,15 +430,15 @@ async function restoreBackendSession() {
     state.user = refreshedUser;
     return '';
   } catch (error) {
-    if (!navigator.onLine) {
-      return 'Using your saved sign-in while offline. Some backend features will sync when you reconnect.';
-    }
-
     if (error.status === 401 || error.status === 403) {
       await discardWorkerOfflineSnapshots(state.user);
       clearBackendSession();
       state.user = null;
       return 'Your saved backend session expired. Please sign in again.';
+    }
+
+    if (!navigator.onLine) {
+      return 'Using your saved sign-in while offline. Some backend features will sync when you reconnect.';
     }
 
     return error.message;
@@ -469,7 +511,9 @@ function bindEvents() {
     await refreshSitesAfterReconnect();
     if (state.user !== requestUser) return;
     if (state.user.role === 'worker') {
-      if (!state.workForms.length) {
+      if (workerForm.hasOfflineTemplates()) {
+        await workerForm.refreshAfterReconnect();
+      } else if (!state.workForms.length) {
         await workerForm.refreshWorkForms();
       }
       if (state.user !== requestUser) return;
@@ -873,6 +917,7 @@ function renderApp() {
     showView('supervisor');
     renderAdminWorkspaceFromLocation({ focus: shouldFocusWorkspace });
     supervisorReviewModule.renderPanel();
+    void staffSitesModule.renderTemplateDrafts();
   }
 
   if (hasPendingAppUpdate()) {
@@ -1201,6 +1246,22 @@ function resetRegistrationFlow() {
 
 async function handleLogout() {
   if (els.logoutButton.getAttribute('aria-busy') === 'true') return;
+  confirmationDialog.cancel({ restoreFocus: false });
+  const departingUser = state.user;
+  if (state.user?.role === 'supervisor') {
+    uiFeedback.setButtonBusy(els.logoutButton, true, 'Saving draft...');
+    const readiness = await staffSitesModule.prepareForNavigation();
+    uiFeedback.setButtonBusy(els.logoutButton, false);
+    if (state.user !== departingUser) {
+      staffSitesModule.cancelNavigationPreparation();
+      return;
+    }
+    if (!readiness.safe) {
+      activateAdminWorkspace('forms');
+      renderStatusBanner(readiness.message, true);
+      return;
+    }
+  }
   if (workerForm.hasUnsavedInput()) {
     uiFeedback.setButtonBusy(els.logoutButton, true, 'Saving draft...');
     try {
@@ -1253,6 +1314,13 @@ function handleSessionExpired(message = 'Your backend session expired. Please si
     renderStatusBanner(message);
     sessionExpiryInProgress = false;
   };
+
+  if (state.user?.role === 'supervisor') {
+    // Capture synchronously, then clear private UI without waiting on device storage.
+    void staffSitesModule.flushTemplateDrafts().catch(() => {});
+    finish();
+    return;
+  }
 
   if (state.submittingWorkForm) {
     window.setTimeout(() => {
@@ -1523,6 +1591,7 @@ function activateTab(targetId) {
     panel.classList.toggle('hidden', !active);
     panel.setAttribute('aria-hidden', String(!active));
   });
+  if (targetId === 'historyTab') void workerForm.renderDraftList({ flush: true });
 }
 
 async function syncQueueIfPossible(showMessage) {
@@ -1619,7 +1688,7 @@ function hasPendingAppUpdate() {
 }
 
 function renderAppUpdateBanner() {
-  renderSystemBanner('A new app version is ready. Your Report will be saved before the app reloads.', {
+  renderSystemBanner('A new app version is ready. Your drafts will be saved before the app reloads.', {
     tone: 'info'
   });
 }
@@ -1632,7 +1701,7 @@ function showServiceWorkerUpdate(worker) {
 
 function showAppUpdatePausedDialog(message) {
   els.appUpdatePausedDescription.textContent = message
-    || 'This Report has changes that are not saved on this device. Updating now could lose them.';
+    || 'This editor has changes that are not saved on this device. Updating now could lose them.';
   applyLanguage(els.appUpdatePausedDialog);
   if (!els.appUpdatePausedDialog.open) els.appUpdatePausedDialog.showModal();
   window.requestAnimationFrame(() => els.keepEditingWorkFormButton.focus());
@@ -1643,6 +1712,9 @@ function keepEditingWorkForm() {
   if (state.user?.role === 'worker') {
     activateTab('formTab');
     window.requestAnimationFrame(() => workerForm.focusUnsavedInput());
+  } else if (state.user?.role === 'supervisor') {
+    staffSitesModule.cancelNavigationPreparation();
+    activateAdminWorkspace('forms');
   }
 }
 
@@ -1651,14 +1723,17 @@ async function handleAppUpdate() {
   if (!worker || appUpdateAttemptInFlight) return;
 
   appUpdateAttemptInFlight = true;
+  confirmationDialog.cancel({ restoreFocus: false });
   uiFeedback.setButtonBusy(els.updateButton, true, 'Saving before update...');
   let draftReadiness;
   try {
-    draftReadiness = await workerForm.prepareForAppUpdate();
+    draftReadiness = state.user?.role === 'supervisor'
+      ? await staffSitesModule.prepareForNavigation()
+      : await workerForm.prepareForAppUpdate();
   } catch {
     draftReadiness = {
       safe: false,
-      message: 'This Report has changes that are not saved on this device. Updating now could lose them.'
+      message: 'This editor has changes that are not saved on this device. Updating now could lose them.'
     };
   }
   if (!draftReadiness.safe) {
@@ -1671,9 +1746,10 @@ async function handleAppUpdate() {
   worker = state.waitingServiceWorker;
   if (!worker) {
     workerForm.cancelAppUpdatePreparation();
+    staffSitesModule.cancelNavigationPreparation();
     appUpdateAttemptInFlight = false;
     uiFeedback.setButtonBusy(els.updateButton, false);
-    renderSystemBanner('The app update is no longer waiting. Your Report draft is saved.', { tone: 'info' });
+    renderSystemBanner('The app update is no longer waiting. Your draft is saved.', { tone: 'info' });
     return;
   }
 
@@ -1681,9 +1757,10 @@ async function handleAppUpdate() {
     worker.postMessage({ type: 'SKIP_WAITING' });
   } catch {
     workerForm.cancelAppUpdatePreparation();
+    staffSitesModule.cancelNavigationPreparation();
     appUpdateAttemptInFlight = false;
     uiFeedback.setButtonBusy(els.updateButton, false);
-    renderSystemBanner('Could not start the app update. Your Report draft is saved; try Update App again.', {
+    renderSystemBanner('Could not start the app update. Your draft is saved; try Update App again.', {
       tone: 'error'
     });
     return;

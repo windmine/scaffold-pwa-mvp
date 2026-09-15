@@ -230,11 +230,15 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
         raise HTTPException(status_code=403, detail="Only global admins can edit global admin accounts")
 
     fields = data.model_fields_set
+    if user.password_setup_required and "password" in fields and data.password:
+        raise HTTPException(status_code=409, detail="This Worker must set their own password using an invitation")
     next_role = user.role
     if "role" in fields and data.role is not None:
         next_role = data.role.strip().lower()
         if next_role not in VALID_ROLES:
             raise HTTPException(status_code=400, detail="Role must be worker or supervisor")
+        if user.password_setup_required and next_role != "worker":
+            raise HTTPException(status_code=409, detail="This Worker must complete password setup before changing role")
         if user.id == supervisor.id and next_role != "supervisor":
             raise HTTPException(status_code=400, detail="You cannot remove your own supervisor role")
 
@@ -313,6 +317,12 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
             raise HTTPException(status_code=400, detail="Password must be 72 bytes or shorter")
         user.password_hash = hash_password(data.password)
 
+    if user.password_setup_required and any(
+        before[field] != getattr(user, field) for field in ("email", "department_id", "role", "status")
+    ):
+        from app.use_cases.worker_invitations import invalidate_worker_invitations
+        invalidate_worker_invitations(user, session)
+
     session.add(user)
     add_audit_event(
         session=session,
@@ -349,6 +359,9 @@ def update_user_status(user_id: int, data, supervisor: User, session: Session):
 
     before = model_snapshot(user)
     user.status = status
+    if user.password_setup_required and before["status"] != status:
+        from app.use_cases.worker_invitations import invalidate_worker_invitations
+        invalidate_worker_invitations(user, session)
     session.add(user)
     add_audit_event(
         session=session,

@@ -386,6 +386,8 @@ check('production build exists', () => [
   'dist/assets/js/ui-feedback.js',
   'dist/assets/js/worker-sites.js',
   'dist/assets/js/work-form-builder.js',
+  'dist/assets/js/offline-report-template-snapshot.js',
+  'dist/assets/js/report-template-drafts.js',
   'dist/assets/icons/leader-logo-export.png',
   'dist/assets/icons/mutual-logo.svg',
   'dist/assets/icons/mc-logo.svg',
@@ -751,7 +753,8 @@ check('report-only data requests and exports exclude Daywork', () => (
   && read('assets/js/history.js').includes("recordSubmissionPurpose(record) === 'report'")
   && sourceWorkerLog.includes("submissionPurpose: 'daywork'")
   && sourceSupervisorReview.includes("purpose: reportOnly ? 'report' : ''")
-  && sourceSupervisorReview.includes("purpose: 'report'")
+  && sourceSupervisorReview.includes('reportCollectionExportFilters(reviewQueueQuery())')
+  && read('assets/js/review-export-adapters.js').includes("purpose: 'report'")
   && sourceApiClient.includes('if (purpose) params.set("purpose", purpose)')
   && sourceApiClient.includes('if (normalizedFilters.purpose) params.set("purpose", normalizedFilters.purpose)')
   && sourceApp.includes("dayworkPdfOption.hidden = REPORT_ONLY_MODE")

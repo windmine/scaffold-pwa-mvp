@@ -418,7 +418,66 @@ def test_upload_error_cache_middleware():
         server_temp.cleanup()
 
 
+def test_invitation_rate_limits_and_private_error_responses():
+    from app import main as app_main
+    from fastapi import Response
+    for path in ("/auth/worker-invitations/inspect", "/api/auth/worker-invitations/accept", "/supervisor/worker-invitations"):
+        limiter = InMemoryRateLimiter(
+            enabled=True, default_rule=RateLimitRule("general", 100, 60),
+            rules=[RateLimitRule(rule.name, 1, 60, rule.path_prefixes) for rule in app_main.rate_limiter.rules],
+        )
+        assert_ok("invitation auth bucket allows its first request", limiter.check(FakeRequest("/auth/login")) is None)
+        rejected = limiter.check(FakeRequest(path))
+        assert_ok("invitation endpoint shares the strict auth bucket", rejected is not None and rejected.status_code == 429)
+    for path in ("/auth/worker-invitations/accept", "/api/supervisor/users/42/invitation", "/supervisor/worker-invitations"):
+        for status in (200, 400, 401, 403, 409, 422, 429):
+            response = app_main.apply_upload_cache_policy(path, Response(status_code=status))
+            if response.headers.get("Cache-Control") != "private, no-store" or response.headers.get("Referrer-Policy") != "no-referrer":
+                raise AssertionError("Invitation success and error responses must stay private and uncacheable")
+    assert_ok("invitation success, validation, authorization and rate-limit errors remain private", True)
+
+
+def test_cookie_confirmation_distinguishes_csrf_from_invalid_authentication():
+    from datetime import datetime, timedelta, timezone
+    import jwt
+    from sqlmodel import SQLModel
+    from app import auth
+    from app.models import User
+
+    isolated_engine = create_engine("sqlite://")
+    key = "isolated-cookie-confirmation-key-never-used-outside-this-test"
+    try:
+        SQLModel.metadata.create_all(isolated_engine)
+        with Session(isolated_engine) as session, patch.object(auth, "JWT_SECRET_KEY", key):
+            user = User(email="cookie-confirmation@example.invalid", name="Cookie Fixture", password_hash="not-a-login-password")
+            session.add(user)
+            session.commit()
+            token = auth.create_access_token({"sub": user.email, "csrf": "fixture-csrf"})
+            assert_ok("missing CSRF fails write validation without invalidating the authentication cookie",
+                      not auth.csrf_tokens_match("fixture-csrf", "fixture-csrf", None)
+                      and auth.get_current_user(credentials=None, cookie_token=token, session=session).id == user.id)
+            expired = jwt.encode({"sub": user.email, "exp": datetime.now(timezone.utc) - timedelta(seconds=1)}, key, algorithm=auth.JWT_ALGORITHM)
+            for label, cookie, expected in (
+                ("expired cookie", expired, 401), ("malformed cookie", "invalid.session.cookie", 401),
+                ("resigned account cookie", token, 403),
+            ):
+                if expected == 403:
+                    user.status = "resigned"
+                    session.add(user)
+                    session.commit()
+                try:
+                    auth.get_current_user(credentials=None, cookie_token=cookie, session=session)
+                except HTTPException as error:
+                    assert_ok(f"{label} cannot confirm a saved session", error.status_code == expected)
+                else:
+                    raise AssertionError(f"{label} unexpectedly confirmed a saved session")
+    finally:
+        isolated_engine.dispose()
+
+
 def main():
+    test_cookie_confirmation_distinguishes_csrf_from_invalid_authentication()
+    test_invitation_rate_limits_and_private_error_responses()
     test_auto_migrate_environment_defaults()
     test_production_startup_rejects_automatic_migrations()
     test_readiness_validates_migration_ledger_without_writes()

@@ -498,6 +498,7 @@ export function createWorkFormBuilder(root, {
   const { signal } = controller;
   let fields = canonicalFields(initialFields);
   let rawDirty = false;
+  let editorGeneration = 0;
   let draggedId = '';
   let dropPosition = 'before';
 
@@ -524,8 +525,10 @@ export function createWorkFormBuilder(root, {
   }
 
   function announce(message) {
+    const generation = editorGeneration;
     announcement.textContent = '';
     window.requestAnimationFrame(() => {
+      if (signal.aborted || generation !== editorGeneration) return;
       setTranslatableText(announcement, message);
     });
   }
@@ -656,6 +659,7 @@ export function createWorkFormBuilder(root, {
   }
 
   async function removeField(fieldId) {
+    const generation = editorGeneration;
     const field = fieldById(fieldId);
     if (!field) return;
     const children = field.type === 'repeat' ? fields.filter((item) => item.repeat === field.id) : [];
@@ -667,6 +671,7 @@ export function createWorkFormBuilder(root, {
     })) {
       return;
     }
+    if (signal.aborted || generation !== editorGeneration || fieldById(fieldId) !== field) return;
     prepareVisualMutation();
     const candidate = fields.filter((item) => item.id !== field.id && item.repeat !== field.id);
     const validation = validateWorkFormBuilderFields(candidate);
@@ -692,16 +697,19 @@ export function createWorkFormBuilder(root, {
   }
 
   async function handleTypeChange(field, nextType, select) {
+    const generation = editorGeneration;
     const children = field.type === 'repeat' ? fields.filter((item) => item.repeat === field.id) : [];
     const losesData = (field.type === 'select' && field.options.length)
       || (field.type === 'formula' && field.formula)
       || children.length;
-    if (losesData && !await confirmAction({
+    const accepted = !losesData || await confirmAction({
       title: 'Change field type?',
       message: 'This removes current options, formula, or grouped fields from this draft.',
       confirmLabel: 'Change field type',
       tone: 'danger'
-    })) {
+    });
+    if (signal.aborted || generation !== editorGeneration || fieldById(field.id) !== field) return false;
+    if (!accepted) {
       select.value = field.type;
       select.focus({ preventScroll: true });
       return false;
@@ -729,6 +737,8 @@ export function createWorkFormBuilder(root, {
     const field = fieldById(card?.dataset.fieldId);
     const property = target.dataset.fieldProperty;
     if (!field || !property) return;
+    // These controls are committed by change, after any required confirmation.
+    if (['type', 'required', 'condition-enabled'].includes(property)) return;
     prepareVisualMutation();
 
     if (property === 'label') {
@@ -754,6 +764,7 @@ export function createWorkFormBuilder(root, {
   }
 
   async function handleFieldChange(target) {
+    const generation = editorGeneration;
     const card = target.closest('[data-work-form-field-card]');
     const field = fieldById(card?.dataset.fieldId);
     const property = target.dataset.fieldProperty;
@@ -761,6 +772,7 @@ export function createWorkFormBuilder(root, {
 
     if (property === 'type') {
       if (!await handleTypeChange(field, target.value, target)) return;
+      if (signal.aborted || generation !== editorGeneration || fieldById(field.id) !== field) return;
       prepareVisualMutation();
       fields = canonicalFields(fields);
       render();
@@ -873,6 +885,7 @@ export function createWorkFormBuilder(root, {
     syncRaw();
     setRawFeedback('Raw changes discarded.', 'success');
     announce('Raw syntax changes discarded.');
+    emitChange();
   }
 
   root.addEventListener('click', (event) => {
@@ -900,6 +913,7 @@ export function createWorkFormBuilder(root, {
       rawDirty = true;
       advanced.classList.add('has-pending-raw');
       setRawFeedback('Raw changes are pending. Apply or discard them before saving.', 'warning');
+      onChange?.(cloneFields(fields));
       return;
     }
     handleFieldInput(event.target);
@@ -957,26 +971,46 @@ export function createWorkFormBuilder(root, {
   return {
     applyRaw,
     destroy() {
+      editorGeneration += 1;
       controller.abort();
     },
     discardRaw,
     getFields() {
       return cloneFields(fields);
     },
+    getDraftState() {
+      return { fields: cloneFields(fields), rawText: rawInput.value, rawDirty };
+    },
+    restoreDraftState(draft) {
+      editorGeneration += 1;
+      fields = canonicalFields(draft.fields || []);
+      rawDirty = Boolean(draft.rawDirty);
+      rawInput.value = String(draft.rawText || '');
+      rawInput.removeAttribute('aria-invalid');
+      setFeedback();
+      setRawFeedback(rawDirty ? 'Raw changes are pending. Apply or discard them before saving.' : '', 'warning');
+      advanced.open = rawDirty;
+      render();
+      emitChange();
+    },
     hasPendingRawChanges() {
       return rawDirty;
     },
     reset() {
+      editorGeneration += 1;
       fields = [];
       rawDirty = false;
+      rawInput.removeAttribute('aria-invalid');
       setFeedback();
       setRawFeedback();
       render();
       emitChange();
     },
     setFields(nextFields = []) {
+      editorGeneration += 1;
       fields = canonicalFields(nextFields);
       rawDirty = false;
+      rawInput.removeAttribute('aria-invalid');
       setFeedback();
       setRawFeedback();
       render();

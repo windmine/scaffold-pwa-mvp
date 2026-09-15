@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
@@ -1510,6 +1510,529 @@ async function checkSharedDeviceSupervisorReportPrivacy(browser) {
   } finally {
     releaseOldQueue();
     releaseNewQueue();
+    await context.close();
+  }
+}
+
+async function selectReportPhoto(page, name, color) {
+  await page.locator('#workFormPhotos').evaluate(async (input, photo) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 20;
+    canvas.height = 20;
+    const drawing = canvas.getContext('2d');
+    drawing.fillStyle = photo.color;
+    drawing.fillRect(0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([blob], photo.name, { type: 'image/png' }));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }, { name, color });
+}
+
+function observeReportDraftReads() {
+  const nativeGetAll = IDBObjectStore.prototype.getAll;
+  const reads = { started: 0, completed: 0 };
+  window.__reportDraftReads = reads;
+  IDBObjectStore.prototype.getAll = function getDrafts(...args) {
+    const request = nativeGetAll.apply(this, args);
+    if (this.name === 'drafts') {
+      const sequence = ++reads.started;
+      request.addEventListener('success', () => { reads.completed = Math.max(reads.completed, sequence); }, { once: true });
+    }
+    return request;
+  };
+}
+
+async function openMyReportsAfterDraftRead(page) {
+  const priorRead = await page.evaluate(() => window.__reportDraftReads.started);
+  await page.locator('.tab[data-tab-target="historyTab"]').click();
+  await page.waitForFunction((sequence) => window.__reportDraftReads.completed > sequence, priorRead);
+}
+
+async function checkReportPhotoSelectionAppends(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.waitForFunction(() => (
+      [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent?.trim() === 'Inspection form')
+    ));
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
+    await selectReportPhoto(page, 'first-report-photo.png', '#dc2626');
+    await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+    const firstSource = await page.locator('#workFormPhotoPreview img').getAttribute('src');
+
+    await selectReportPhoto(page, 'second-report-photo.png', '#2563eb');
+    await page.waitForFunction((originalSource) => (
+      [...document.querySelectorAll('#workFormPhotoPreview img')]
+        .some((image) => image.getAttribute('src') !== originalSource)
+    ), firstSource);
+    const selectedSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => (
+      images.map((image) => image.getAttribute('src'))
+    ));
+    if (selectedSources.length !== 2 || selectedSources[0] !== firstSource || selectedSources[1] === firstSource) {
+      throw new Error(`choosing a second Report photo must retain the first and append the second; visible photos=${selectedSources.length}, first retained=${selectedSources[0] === firstSource}`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkReportRejectedPhotoSelectionPreserves(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.waitForFunction(() => (
+      [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent?.trim() === 'Inspection form')
+    ));
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
+    await selectReportPhoto(page, 'kept-report-photo.png', '#16a34a');
+    await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+    const originalSource = await page.locator('#workFormPhotoPreview img').getAttribute('src');
+
+    await page.locator('#workFormPhotos').setInputFiles({
+      name: 'not-a-photo.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('This is not a supported Report photo.')
+    });
+    await page.locator('#workFormFeedback').getByText('not-a-photo.txt must be a JPEG, PNG, or WebP image.', { exact: true }).waitFor({ state: 'visible' });
+    const remainingSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => (
+      images.map((image) => image.getAttribute('src'))
+    ));
+    if (remainingSources.length !== 1 || remainingSources[0] !== originalSource) {
+      throw new Error(`rejecting an invalid Report photo must preserve the earlier photo; visible photos=${remainingSources.length}, original retained=${remainingSources[0] === originalSource}`);
+    }
+    await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#workerView').waitFor({ state: 'visible' });
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+    if (await page.locator('#workFormPhotoPreview img').getAttribute('src') !== originalSource) {
+      throw new Error('rejected Report photo selection must not erase the earlier photo from the saved device draft');
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkReportPhotoRemovalPersists(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.waitForFunction(() => (
+      [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent?.trim() === 'Inspection form')
+    ));
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
+    await selectReportPhoto(page, 'remove-report-photo.png', '#dc2626');
+    await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+    await selectReportPhoto(page, 'keep-report-photo.png', '#2563eb');
+    await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 2);
+    const keptSource = await page.locator('#workFormPhotoPreview img').nth(1).getAttribute('src');
+    const removeFirst = page.locator('#workFormPhotoPreview').getByRole('button', { name: 'Remove photo 1', exact: true });
+    if (!(await removeFirst.isVisible())) {
+      throw new Error('each selected Report photo must provide its own accessible Remove photo N action');
+    }
+    await removeFirst.click();
+    await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 1);
+    if (await page.locator('#workFormPhotoPreview img').getAttribute('src') !== keptSource) {
+      throw new Error('Remove photo 1 removed the wrong Report photo');
+    }
+    await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#workerView').waitFor({ state: 'visible' });
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+    const restoredSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
+    if (restoredSources.length !== 1 || restoredSources[0] !== keptSource) {
+      throw new Error('Report photo removal was not retained when the device draft reopened');
+    }
+    await page.locator('#languageToggleButton').click();
+    await page.waitForFunction(() => document.documentElement.lang.startsWith('zh'));
+    await page.locator('#workFormPhotoPreview').getByRole('button', { name: '移除照片 1', exact: true }).waitFor({ state: 'visible' });
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkReportDraftVisibleAndResumable(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const answer = `Continue ordinary device draft ${Date.now()}`;
+  const reportDate = '2026-09-14';
+
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.waitForFunction(() => (
+      [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent?.trim() === 'Inspection form')
+    ));
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormField_inspection_area').fill(answer);
+    await page.locator('#workFormDate').fill(reportDate);
+    await selectReportPhoto(page, 'resume-report-photo.png', '#d97706');
+    await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+    const source = await page.locator('#workFormPhotoPreview img').getAttribute('src');
+    await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#workerView').waitFor({ state: 'visible' });
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    const continueDraft = page.locator('#reportDraftsList').getByRole('button', { name: 'Continue draft', exact: true });
+    if (!(await page.locator('#reportDraftsList').count())) {
+      throw new Error('My Reports must show ordinary saved device drafts with a Continue draft action after reload');
+    }
+    await continueDraft.waitFor({ state: 'visible', timeout: 10000 });
+    const draftText = await page.locator('#reportDraftsList').innerText();
+    if (!draftText.includes('Inspection form') || !/saved/i.test(draftText) || !draftText.includes(reportDate)) {
+      throw new Error(`visible device draft must identify its Template, Report Date, and saved time: ${draftText}`);
+    }
+    await continueDraft.click();
+    await page.locator('#formTab').waitFor({ state: 'visible' });
+    await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
+    await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+    if (await page.locator('#workFormSelect').locator('option:checked').innerText() !== 'Inspection form'
+      || await page.locator('#workFormDate').inputValue() !== reportDate
+      || await page.locator('#workFormField_inspection_area').inputValue() !== answer
+      || await page.locator('#workFormPhotoPreview img').getAttribute('src') !== source) {
+      throw new Error('Continue draft must restore the same Template, Report Date, answers, and selected photo');
+    }
+    const screenshotRoot = String(process.env.BROWSER_WORKFLOW_SCREENSHOT_DIR || '').trim();
+    if (screenshotRoot) {
+      const screenshotDirectory = resolve(root, screenshotRoot, 'report-photo-drafts');
+      mkdirSync(screenshotDirectory, { recursive: true });
+      for (const language of ['en', 'zh']) {
+        if (language === 'zh') {
+          await page.locator('#languageToggleButton').click();
+          await page.waitForFunction(() => document.documentElement.lang.startsWith('zh'));
+        }
+        for (const width of [390, 320]) {
+          await page.setViewportSize({ width, height: 844 });
+          for (const tab of ['formTab', 'historyTab']) {
+            await page.locator(`.tab[data-tab-target="${tab}"]`).click();
+            await page.locator(`#${tab}`).waitFor({ state: 'visible' });
+            const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+            if (overflow > 1) throw new Error(`Report draft ${tab} overflows ${width}px ${language} layout by ${overflow}px`);
+            const path = join(screenshotDirectory, `${tab}-${language}-${width}.png`);
+            await page.screenshot({ path, fullPage: true, animations: 'disabled' });
+            console.log(`  screenshot: ${path}`);
+          }
+        }
+      }
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkReportRestoredPhotosAppendAndSubmit(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  await context.addInitScript(observeReportDraftReads);
+  const page = await context.newPage();
+  const answer = `Restored plus new Report photos ${Date.now()}`;
+
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.waitForFunction(() => (
+      [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent?.trim() === 'Inspection form')
+    ));
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormField_inspection_area').fill(answer);
+    await page.locator('#workFormField_inspection_result').selectOption('Pass');
+    await selectReportPhoto(page, 'restored-report-photo.png', '#dc2626');
+    await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+    await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#workerView').waitFor({ state: 'visible' });
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+    await selectReportPhoto(page, 'appended-report-photo.png', '#2563eb');
+    await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 2);
+
+    const submission = page.waitForResponse((response) => (
+      response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/form-submissions'
+    ), { timeout: 20000 });
+    await page.locator('#submitWorkFormButton').click();
+    const response = await submission;
+    if (!response.ok()) throw new Error(`restored-plus-appended Report submission failed: ${response.status()} ${await response.text()}`);
+    const report = await response.json();
+    if (report.photo_urls?.length !== 2
+      || report.photo_metadata?.[0]?.name !== 'restored-report-photo.png'
+      || report.photo_metadata?.[1]?.name !== 'appended-report-photo.png') {
+      throw new Error(`Report submission must retain restored and new photo metadata in order: ${JSON.stringify(report.photo_metadata)}`);
+    }
+    const photoColors = await page.evaluate(async (sources) => Promise.all(sources.map(async (source) => {
+      const result = await fetch(source, { credentials: 'include' });
+      if (!result.ok) throw new Error(`saved Report photo failed to load: ${result.status}`);
+      const bitmap = await createImageBitmap(await result.blob());
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const drawing = canvas.getContext('2d');
+      drawing.drawImage(bitmap, 0, 0);
+      return [...drawing.getImageData(0, 0, 1, 1).data].slice(0, 3);
+    })), report.photo_urls);
+    if (JSON.stringify(photoColors) !== JSON.stringify([[220, 38, 38], [37, 99, 235]])) {
+      throw new Error(`restored and appended Report photo uploads changed content or order: ${JSON.stringify(photoColors)}`);
+    }
+    await page.locator('#workFormFeedback').getByText('Inspection form submitted for review').waitFor({ state: 'visible' });
+    await openMyReportsAfterDraftRead(page);
+    if ((await page.locator('#reportDraftsList').textContent()).trim()
+      || await page.locator('#reportDraftsPanel').isVisible()) {
+      throw new Error('a successfully submitted Report must disappear from ordinary device drafts');
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkReportOverlappingPhotoSelections(browser) {
+  const context = await newContext(browser, {
+    reportOnly: true,
+    initScript: () => {
+      const nativeRead = FileReader.prototype.readAsDataURL;
+      const reads = { pending: null, completed: [] };
+      window.__reportPhotoReads = reads;
+      FileReader.prototype.readAsDataURL = function readPhoto(blob) {
+        this.addEventListener('loadend', () => reads.completed.push(blob.name), { once: true });
+        if (blob.name === 'slow-report-photo.png') {
+          reads.pending = () => nativeRead.call(this, blob);
+          return;
+        }
+        return nativeRead.call(this, blob);
+      };
+    }
+  });
+  const page = await context.newPage();
+
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.waitForFunction(() => (
+      [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent?.trim() === 'Inspection form')
+    ));
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
+    await selectReportPhoto(page, 'slow-report-photo.png', '#dc2626');
+    await page.waitForFunction(() => Boolean(window.__reportPhotoReads.pending));
+    await selectReportPhoto(page, 'fast-report-photo.png', '#2563eb');
+    await page.evaluate(() => window.__reportPhotoReads.pending());
+    await page.waitForFunction(() => window.__reportPhotoReads.completed.length === 2);
+    const previewCount = await page.locator('#workFormPhotoPreview img').count();
+    if (previewCount !== 2) {
+      throw new Error(`a second Report photo selection during an earlier read must retain both selections; visible photos=${previewCount}`);
+    }
+    await page.waitForFunction(() => [...document.querySelectorAll('#workFormPhotoPreview img')].every((image) => image.complete && image.naturalWidth));
+    const colors = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const drawing = canvas.getContext('2d');
+      drawing.drawImage(image, 0, 0);
+      return [...drawing.getImageData(0, 0, 1, 1).data].slice(0, 3);
+    }));
+    if (JSON.stringify(colors) !== JSON.stringify([[220, 38, 38], [37, 99, 235]])) {
+      throw new Error(`overlapping Report photo selections must preserve selection order: ${JSON.stringify(colors)}`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkReportDraftSharedDeviceIsolation(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  await context.addInitScript(observeReportDraftReads);
+  const page = await context.newPage();
+  const nextWorkerEmail = `draft-private-${Date.now()}@example.com`;
+  const reportDate = '2003-02-01';
+
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await page.evaluate(async ({ email, workerPassword }) => {
+      const current = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!current.ok) throw new Error(`draft Worker fixture auth failed: ${current.status}`);
+      const supervisor = await current.json();
+      const csrf = document.cookie.split(';').map((value) => value.trim())
+        .find((value) => value.startsWith('geo_csrf_token='))?.slice('geo_csrf_token='.length);
+      const created = await fetch('/api/supervisor/users', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': decodeURIComponent(csrf || '') },
+        body: JSON.stringify({
+          name: 'Separate Draft Worker', email, password: workerPassword, role: 'worker',
+          worker_class: 'normal', department_id: supervisor.department_id, is_global_admin: false
+        })
+      });
+      if (!created.ok) throw new Error(`draft Worker fixture creation failed: ${created.status} ${await created.text()}`);
+    }, { email: nextWorkerEmail, workerPassword: password });
+    await logout(page);
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.waitForFunction(() => (
+      [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent?.trim() === 'Inspection form')
+    ));
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormField_inspection_area').fill('Private draft on a shared device');
+    await page.locator('#workFormDate').fill(reportDate);
+    await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await page.locator('#reportDraftsList').getByRole('button', { name: 'Continue draft', exact: true }).waitFor({ state: 'visible' });
+
+    await logout(page);
+    if ((await page.locator('#reportDraftsList').textContent()).trim()) {
+      throw new Error('logout must clear ordinary Report draft metadata from the signed-out DOM');
+    }
+    await loginAs(page, nextWorkerEmail, 'worker');
+    await openMyReportsAfterDraftRead(page);
+    if ((await page.locator('#reportDraftsList').textContent()).trim()
+      || await page.locator('#reportDraftsPanel').isVisible()) {
+      throw new Error('a replacement Worker must not see the previous Worker ordinary Report draft');
+    }
+    await logout(page);
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await page.locator('#reportDraftsList').getByRole('button', { name: 'Continue draft', exact: true }).waitFor({ state: 'visible' });
+    if (!(await page.locator('#reportDraftsList').innerText()).includes(reportDate)) {
+      throw new Error('the original Worker must retain their own saved Report draft after account switching');
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkSubmittedReportDraftCleanupFailure(browser) {
+  const context = await newContext(browser, {
+    reportOnly: true,
+    initScript: () => {
+      const nativeDelete = IDBObjectStore.prototype.delete;
+      const nativePut = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.delete = function deleteDraft(key) {
+        if (this.name === 'drafts' && String(key).startsWith('work-form-draft:')) {
+          throw new DOMException('Simulated submitted draft deletion failure', 'UnknownError');
+        }
+        return nativeDelete.call(this, key);
+      };
+      IDBObjectStore.prototype.put = function putDraft(value, ...args) {
+        if (this.name === 'drafts' && value?.value?.kind === 'submitted-draft-tombstone') {
+          throw new DOMException('Simulated submitted draft tombstone failure', 'QuotaExceededError');
+        }
+        return nativePut.call(this, value, ...args);
+      };
+    }
+  });
+  await context.addInitScript(observeReportDraftReads);
+  const page = await context.newPage();
+  const answer = `Already submitted cleanup-failure draft ${Date.now()}`;
+
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.waitForFunction(() => (
+      [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent?.trim() === 'Inspection form')
+    ));
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormField_inspection_area').fill(answer);
+    await page.locator('#workFormField_inspection_result').selectOption('Pass');
+    await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
+    const submission = page.waitForResponse((response) => (
+      response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/form-submissions'
+    ));
+    await page.locator('#submitWorkFormButton').click();
+    const response = await submission;
+    if (!response.ok()) throw new Error(`draft-cleanup fixture Report did not submit: ${response.status()}`);
+    const submitted = response.request().postDataJSON();
+    await page.locator('#workFormFeedback').getByText(/The submitted draft could not be cleared from this device/).waitFor({ state: 'visible' });
+    await openMyReportsAfterDraftRead(page);
+    await page.locator('#historyList .record-form').filter({ hasText: answer }).waitFor({ state: 'visible' });
+    const durableCount = await page.evaluate(async (idempotencyKey) => {
+      const result = await fetch('/api/my-form-submissions?purpose=report', { credentials: 'include' });
+      if (!result.ok) throw new Error(`my-form-submissions verification failed: ${result.status}`);
+      return (await result.json()).filter((record) => record.client_submission_id === idempotencyKey).length;
+    }, submitted.client_submission_id);
+    if (durableCount !== 1) throw new Error(`draft-cleanup fixture expected one durable Report, got ${durableCount}`);
+    const continueActions = page.locator('#reportDraftsList').getByRole('button', { name: 'Continue draft', exact: true });
+    const hasEnabledContinue = await continueActions.evaluateAll((buttons) => buttons.some((button) => !button.disabled));
+    if (hasEnabledContinue) {
+      throw new Error('a confirmed submitted Report with failed draft cleanup must not offer an enabled Continue draft action');
+    }
+    await page.locator('.tab[data-tab-target="formTab"]').click();
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
+    await page.waitForFunction(() => !document.querySelector('#workFormSubmissionForm').inert);
+    if (await page.locator('#workFormField_inspection_area').inputValue()) {
+      throw new Error('reselecting the Template must not restore a submitted draft after failed cleanup');
+    }
+    const newAnswer = `New independent Report draft ${Date.now()}`;
+    await page.locator('#workFormField_inspection_area').fill(newAnswer);
+    await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
+    await openMyReportsAfterDraftRead(page);
+    const newContinue = page.locator('#reportDraftsList').getByRole('button', { name: 'Continue draft', exact: true });
+    await newContinue.waitFor({ state: 'visible' });
+    if (!(await newContinue.isEnabled())) throw new Error('a newly saved draft must be resumable after replacing a suppressed submitted draft');
+    await newContinue.click();
+    await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
+    if (await page.locator('#workFormField_inspection_area').inputValue() !== newAnswer) {
+      throw new Error('Continue draft must reopen only the new Report answers after failed submitted-draft cleanup');
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkReportPhotoLimitAndEmptyPicker(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  await context.addInitScript(observeReportDraftReads);
+  const page = await context.newPage();
+
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.waitForFunction(() => (
+      [...document.querySelectorAll('#workFormSelect option')]
+        .some((option) => option.textContent?.trim() === 'Inspection form')
+    ));
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
+    await page.locator('#workFormPhotos').setInputFiles([]);
+    await openMyReportsAfterDraftRead(page);
+    if (await page.locator('#reportDraftsPanel').isVisible()) {
+      throw new Error('an empty Report photo picker selection must not create a blank device draft');
+    }
+    await page.locator('.tab[data-tab-target="formTab"]').click();
+    for (let index = 0; index < 8; index += 1) {
+      await selectReportPhoto(page, `limited-report-photo-${index + 1}.png`, `#${(0x113355 + index * 0x111111).toString(16)}`);
+      await page.waitForFunction((count) => document.querySelectorAll('#workFormPhotoPreview img').length === count, index + 1);
+    }
+    const originalSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
+    await page.locator('#workFormPhotos').setInputFiles([]);
+    await selectReportPhoto(page, 'excess-report-photo.png', '#ffffff');
+    await page.locator('#workFormFeedback').getByText('Reports can include up to 8 photos. The first 8 were kept.', { exact: true }).waitFor({ state: 'visible' });
+    const fullSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
+    if (JSON.stringify(fullSources) !== JSON.stringify(originalSources)) {
+      throw new Error('an empty or over-limit Report photo selection must preserve all eight earlier photos');
+    }
+    await page.locator('#workFormPhotoPreview').getByRole('button', { name: 'Remove photo 4', exact: true }).click();
+    await selectReportPhoto(page, 'replacement-report-photo.png', '#ffffff');
+    await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 8);
+    const replacementSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
+    originalSources.splice(3, 1);
+    if (JSON.stringify(replacementSources.slice(0, 7)) !== JSON.stringify(originalSources)
+      || originalSources.includes(replacementSources[7])) {
+      throw new Error('removing one Report photo must free exactly one append slot without changing other photos');
+    }
+  } finally {
     await context.close();
   }
 }
@@ -3589,17 +4112,26 @@ async function checkMutualDepartmentDefaults(browser) {
     const staffEmail = `mutual-default-worker-${Date.now()}@example.com`;
     await page.locator('#staffNameInput').fill('Mutual default Worker');
     await page.locator('#staffEmailInput').fill(staffEmail);
-    await page.locator('#staffPasswordInput').fill(password);
     const createdResponsePromise = page.waitForResponse((response) => (
-      response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/supervisor/users'
+      response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/supervisor/worker-invitations'
     ));
     await page.locator('#staffUserSubmitButton').click();
     const createdResponse = await createdResponsePromise;
     if (!createdResponse.ok()) throw new Error(`default Staff creation failed: ${await createdResponse.text()}`);
-    const created = await createdResponse.json();
+    const { user: created } = await createdResponse.json();
     if (created.department_id !== departments.mutual) {
       throw new Error(`All Departments Global Admin did not create Staff in Mutual by default: ${JSON.stringify(created)}`);
     }
+    await page.locator('#workerInvitationDialog[open]').waitFor();
+    const setup = await context.newPage();
+    await setup.goto(await page.locator('#workerInvitationLink').inputValue());
+    await setup.locator('#setupPasswordForm').waitFor({ state: 'visible' });
+    await setup.locator('#setupPasswordInput').fill(password);
+    await setup.locator('#setupPasswordConfirmInput').fill(password);
+    await setup.locator('#setupPasswordButton').click();
+    await setup.locator('#setupPasswordStatus').getByText('Password set. You can now sign in to ReportFlow.', { exact: true }).waitFor();
+    await setup.close();
+    await page.locator('#closeWorkerInvitationButton').click();
 
     // The saved-focus API is also used by the retained full-interface scope control.
     // Report-only mode must honour that preference without exposing retained settings.
@@ -3818,6 +4350,562 @@ async function checkReportOnlyResponsiveLayout(browser) {
       }
     }
     if (failures.length) throw new Error(`Report-only responsive layout failed:\n${failures.join('\n')}`);
+  } finally {
+    await context.close();
+  }
+}
+
+async function captureInvitationScreenshots(page, kind) {
+  const destination = String(process.env.BROWSER_WORKFLOW_SCREENSHOT_DIR || '').trim();
+  if (!destination) return;
+  const directory = resolve(root, destination, 'worker-invitations');
+  mkdirSync(directory, { recursive: true });
+  const setScreenshotLanguage = async (language) => {
+    if (kind === 'setup') {
+      if (await page.locator('html').getAttribute('data-language') !== language) {
+        await page.locator('#setupLanguageButton').click();
+      }
+    } else {
+      // The modal correctly blocks the background language button. Exercise the
+      // public translator for this visual-only locale matrix without closing it.
+      await page.evaluate(async (locale) => {
+        const { setLanguage } = await import('/assets/js/i18n.js');
+        setLanguage(locale);
+      }, language);
+    }
+  };
+  for (const language of ['en', 'zh']) {
+    await setScreenshotLanguage(language);
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      if (await page.evaluate(() => document.documentElement.scrollWidth - innerWidth > 1)) {
+        throw new Error(`invitation ${kind} overflows ${width}px ${language}`);
+      }
+      const path = join(directory, `${kind}-${language}-${width}.png`);
+      await page.screenshot({ path, fullPage: true, animations: 'disabled', mask: kind === 'handoff' ? [page.locator('#workerInvitationLink')] : [] });
+      console.log(`  screenshot: ${path}`);
+    }
+  }
+  await setScreenshotLanguage('en');
+  await page.setViewportSize({ width: 390, height: 844 });
+}
+
+async function checkTemplateDraftCrossTab(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const first = await context.newPage();
+  const second = await context.newPage();
+  try {
+    await loginAs(first, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(first, 'forms');
+    await first.locator('#addWorkFormButton').click();
+    await first.locator('#workFormNameInput').fill('Shared Template draft');
+    await first.locator('#addWorkFormFieldButton').click();
+    await first.locator('#workFormFieldCards [data-field-property="label"]').fill('Shared question');
+    await first.locator('#cancelWorkFormCreateButton').click();
+    await first.locator('#workFormCreatePanel').waitFor({ state: 'hidden' });
+    await second.goto('/', { waitUntil: 'domcontentloaded' });
+    await openAdminWorkspace(second, 'forms');
+    await second.locator('#templateDraftsList').getByRole('button', { name: 'Continue Template draft', exact: true }).click();
+    await second.locator('#workFormCreatePanel').waitFor({ state: 'visible' });
+    await first.locator('#templateDraftsList').getByRole('button', { name: 'Discard Template draft', exact: true }).click();
+    await first.locator('#confirmationDialog[open]').waitFor();
+    await second.locator('#workFormDescriptionInput').fill('Newer work in another tab');
+    await second.locator('#templateCreateDraftStatus').getByText('Template draft saved on this device.', { exact: true }).waitFor();
+    await first.locator('#confirmationDialogConfirmButton').click();
+    await first.locator('#toastViewport').getByText(/draft changed or was removed in another editor/).waitFor();
+    await first.locator('#templateDraftsList').getByRole('button', { name: 'Continue Template draft', exact: true }).click();
+    await first.locator('#workFormCreatePanel').waitFor({ state: 'visible' });
+    if (await first.locator('#workFormDescriptionInput').inputValue() !== 'Newer work in another tab') throw new Error('stale discard erased newer draft content');
+    await first.locator('#cancelWorkFormCreateButton').click();
+    await first.locator('#workFormCreatePanel').waitFor({ state: 'hidden' });
+    await first.locator('#templateDraftsList').getByRole('button', { name: 'Discard Template draft', exact: true }).click();
+    await first.locator('#confirmationDialogConfirmButton').click();
+    await first.locator('#templateDraftsPanel').waitFor({ state: 'hidden' });
+    await second.locator('#workFormDescriptionInput').fill('Recover this stale tab without republishing');
+    await second.locator('#templateCreateDraftStatus').getByText(/recovery copy is read-only/).waitFor();
+    if (!await second.locator('#workFormSubmitButton').isDisabled()) throw new Error('stale removed draft became publishable again');
+    await second.reload({ waitUntil: 'domcontentloaded' });
+    await openAdminWorkspace(second, 'forms');
+    await second.locator('#templateDraftsList').getByRole('button', { name: 'Continue Template draft', exact: true }).click();
+    await second.locator('#templateEditPanel').waitFor({ state: 'visible' });
+    if (!await second.locator('#saveTemplateEditButton').isDisabled()
+      || await second.locator('#editWorkFormDescription').inputValue() !== 'Recover this stale tab without republishing') throw new Error('stale removed draft recovery was lost or editable');
+  } finally { await context.close(); }
+}
+
+async function checkTemplateDraftLifecycle(browser) {
+  const context = await newContext(browser, { reportOnly: true, initScript: installWaitingServiceWorkerMock });
+  await context.addInitScript(() => {
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (value, ...args) {
+      if (window.failTemplateDraftWrites && this.name === 'drafts' && value?.value?.kind === 'report-template-editor') {
+        throw new DOMException('Template storage unavailable', 'QuotaExceededError');
+      }
+      return put.call(this, value, ...args);
+    };
+  });
+  const page = await context.newPage();
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#addWorkFormButton').click();
+    await page.evaluate(() => { window.failTemplateDraftWrites = true; });
+    await page.locator('#workFormNameInput').fill('Private unsaved Supervisor Template');
+    await page.locator('#logoutButton').click();
+    await page.locator('#templateCreateDraftStatus').getByText(/could not be saved/).waitFor();
+    if (!await page.locator('#supervisorView').isVisible()) throw new Error('logout discarded unsaved Template');
+    await page.evaluate(() => window.dispatchEvent(new Event('load')));
+    await page.locator('#updateButton').waitFor({ state: 'visible' });
+    await page.locator('#updateButton').click();
+    await page.locator('#appUpdatePausedDialog[open]').waitFor();
+    if (await page.evaluate(() => window.__serviceWorkerMessages.length)) throw new Error('update bypassed failed Template storage');
+    await page.locator('#keepEditingWorkFormButton').click();
+    await page.evaluate(() => { window.failTemplateDraftWrites = false; });
+    await logout(page);
+    if (await page.locator('#templateDraftsList').textContent() || await page.locator('#templateEditForm').textContent()) {
+      throw new Error('Supervisor draft details remained in signed-out DOM');
+    }
+    await loginAs(page, 'worker@example.com', 'worker');
+    if (await page.locator('#templateDraftsPanel').isVisible() || await page.locator('#templateDraftsList').textContent()) {
+      throw new Error('Supervisor Template drafts leaked to Worker');
+    }
+    await logout(page);
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#templateDraftsList').getByRole('button', { name: 'Continue Template draft', exact: true }).click();
+    await page.locator('#workFormCreatePanel').waitFor({ state: 'visible' });
+    if (await page.locator('#workFormNameInput').inputValue() !== 'Private unsaved Supervisor Template') throw new Error('own-account return lost private Template');
+    await page.locator('#workFormNameInput').fill('Latest Template before Update App');
+    await page.locator('#updateButton').click();
+    await page.waitForFunction(() => window.__serviceWorkerMessages.some((message) => message.type === 'SKIP_WAITING'));
+    const names = await page.evaluate(async () => {
+      const { listTemplateDrafts } = await import('/assets/js/report-template-drafts.js');
+      const { state } = await import('/assets/js/app-shell-state.js');
+      return (await listTemplateDrafts(state.user)).map((draft) => draft.name);
+    });
+    if (!names.includes('Latest Template before Update App')) throw new Error('update started before Template draft commit');
+  } finally { await context.close(); }
+}
+
+async function checkTemplateDraftPublishing(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const name = `Published Template ${Date.now()}`;
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#addWorkFormButton').click();
+    await page.locator('#workFormNameInput').fill(name);
+    await page.locator('#addWorkFormFieldButton').click();
+    await page.locator('#workFormFieldCards [data-field-property="label"]').fill('Area');
+    await context.setOffline(true);
+    await page.locator('#workFormSubmitButton').click();
+    await page.locator('#workFormBuilderActionFeedback').getByText(/Connect before publishing/).waitFor();
+    if (await page.locator('#workFormNameInput').isDisabled()) throw new Error('offline publishing attempt made a private draft read-only');
+    await context.setOffline(false);
+    await page.route('**/api/supervisor/work-forms', async (route) => {
+      if (route.request().method() === 'POST') return route.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({ detail: 'Template validation rejected for test.' }) });
+      await route.continue();
+    });
+    await page.locator('#workFormSubmitButton').click();
+    await page.locator('#workFormBuilderActionFeedback').getByText('Template validation rejected for test.').waitFor();
+    if (await page.locator('#workFormNameInput').isDisabled() || await page.locator('#workFormNameInput').inputValue() !== name) throw new Error('definite create rejection lost editable draft');
+    await page.unroute('**/api/supervisor/work-forms');
+    await page.route('**/api/work-forms?*', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'Template list temporarily unavailable.' }) }));
+    await page.locator('#workFormSubmitButton').click();
+    await page.locator('#workFormCreatePanel').waitFor({ state: 'hidden' });
+    await page.locator('#toastViewport').getByText('Report Template created, but the updated list could not load.').waitFor();
+    await page.locator('#templateDraftsPanel').waitFor({ state: 'hidden' });
+    await page.unroute('**/api/work-forms?*');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#workFormsList .record-card').filter({ hasText: name }).waitFor();
+    if (await page.locator('#templateDraftsList').getByRole('button', { name: 'Continue Template draft', exact: true }).count()) throw new Error('published create left an editable draft');
+    await page.locator('#addWorkFormButton').click();
+    await page.locator('#workFormNameInput').fill('Uncertain save recovery');
+    await page.locator('#addWorkFormFieldButton').click();
+    await page.locator('#workFormFieldCards [data-field-property="label"]').fill('Question');
+    await page.route('**/api/supervisor/work-forms', async (route) => {
+      if (route.request().method() === 'POST') return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: 'Response lost after possible save.' }) });
+      await route.continue();
+    });
+    await page.locator('#workFormSubmitButton').click();
+    await page.locator('#workFormBuilderActionFeedback').getByText(/previous save may have reached/).waitFor();
+    if (!await page.locator('#workFormSubmitButton').isDisabled()) throw new Error('ambiguous create allowed duplicate retry');
+    await page.locator('#cancelWorkFormCreateButton').click();
+    await page.locator('#workFormCreatePanel').waitFor({ state: 'hidden' });
+    await page.locator('#addWorkFormButton').click();
+    await page.locator('#workFormNameInput').fill('Fresh create after read-only recovery');
+    await page.locator('#cancelWorkFormCreateButton').click();
+    await page.locator('#workFormCreatePanel').waitFor({ state: 'hidden' });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#templateDraftsList .record-card').filter({ hasText: 'Uncertain save recovery' }).getByRole('button', { name: 'Continue Template draft' }).click();
+    await page.locator('#templateEditPanel').waitFor({ state: 'visible' });
+    if (!await page.locator('#saveTemplateEditButton').isDisabled() || await page.locator('#editWorkFormName').inputValue() !== 'Uncertain save recovery') throw new Error('uncertain publication did not restore read-only');
+  } finally { await context.close(); }
+}
+
+async function checkStaleTemplateDraft(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const name = `Concurrent Template ${Date.now()}`;
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    const template = await page.evaluate(async (templateName) => {
+      const api = await import('/assets/js/api-client.js');
+      return api.createWorkForm({ name: templateName, fields: [{ id: 'area', type: 'text', label: 'Area' }], template_purpose: 'report' });
+    }, name);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#workFormsList .record-card').filter({ hasText: name }).getByRole('button', { name: 'Edit', exact: true }).click();
+    await page.locator('#editWorkFormName').fill('Unpublished older version');
+    await page.locator('#templateEditDraftStatus').getByText('Template draft saved on this device.', { exact: true }).waitFor();
+    await page.evaluate(async (id) => {
+      const api = await import('/assets/js/api-client.js');
+      await api.updateWorkForm(id, { name: 'Authoritative newer version' });
+    }, template.id);
+    await page.locator('#saveTemplateEditButton').click();
+    await page.locator('#templateEditNotice').getByText(/not applied safely/).waitFor();
+    if (!await page.locator('#saveTemplateEditButton').isDisabled()) throw new Error('stale version remained publishable after 409');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#templateDraftsList').getByRole('button', { name: 'Continue Template draft', exact: true }).click();
+    await page.locator('#templateEditPanel').waitFor({ state: 'visible' });
+    if (!await page.locator('#saveTemplateEditButton').isDisabled() || await page.locator('#editWorkFormName').inputValue() !== 'Unpublished older version') throw new Error('stale draft lost or automatically rebased');
+    await page.locator('#workFormsList .record-card').filter({ hasText: 'Authoritative newer version' }).waitFor();
+  } finally { await context.close(); }
+}
+
+async function checkTemplateEditDraftNavigation(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const name = `Unpublished Template edit ${Date.now()}`;
+  const originalName = `Template edit fixture ${Date.now()}`;
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await page.evaluate(async (templateName) => {
+      const { createWorkForm } = await import('/assets/js/api-client.js');
+      await createWorkForm({ name: templateName, fields: [{ id: 'area', type: 'text', label: 'Area', required: true }], template_purpose: 'report' });
+    }, originalName);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#workFormsList .record-card').filter({ hasText: originalName }).getByRole('button', { name: 'Edit', exact: true }).click();
+    await page.locator('#editWorkFormName').fill(name);
+    await openAdminWorkspace(page, 'people');
+    await openAdminWorkspace(page, 'forms');
+    if (await page.locator('#editWorkFormName').count() !== 1) throw new Error('workspace navigation destroyed the unfinished Template editor');
+    if (await page.locator('#editWorkFormName').inputValue() !== name) throw new Error('workspace navigation replaced unfinished Template changes');
+    await page.locator('#templateEditDraftStatus').getByText('Template draft saved on this device.', { exact: true }).waitFor();
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#templateDraftsList').getByRole('button', { name: 'Continue Template draft', exact: true }).click();
+    await page.locator('#templateEditPanel').waitFor({ state: 'visible' });
+    if (await page.locator('#editWorkFormName').inputValue() !== name) throw new Error('existing Template draft did not survive reload');
+    await page.locator('#saveTemplateEditButton').click();
+    await page.locator('#templateEditPanel').waitFor({ state: 'hidden' });
+    await page.locator('#workFormsList .record-card').filter({ hasText: name }).waitFor();
+    if (await page.locator('#templateDraftsList').getByRole('button', { name: 'Continue Template draft', exact: true }).count()) {
+      throw new Error('successfully saved Template still appears as unfinished');
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkTemplateDraftCloseFailure(browser) {
+  const context = await newContext(browser, { reportOnly: true, initScript: () => {
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (value, ...rest) {
+      if (window.failTemplateDraftWrites && this.name === 'drafts' && value?.value?.kind === 'report-template-editor') {
+        throw new DOMException('Template storage unavailable', 'QuotaExceededError');
+      }
+      return put.call(this, value, ...rest);
+    };
+  } });
+  const page = await context.newPage();
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#addWorkFormButton').click();
+    await page.evaluate(() => { window.failTemplateDraftWrites = true; });
+    await page.locator('#workFormNameInput').fill('Do not lose this Template');
+    await page.locator('#cancelWorkFormCreateButton').click();
+    if (!await page.locator('#workFormCreatePanel').isVisible()
+      || await page.locator('#workFormNameInput').inputValue() !== 'Do not lose this Template') {
+      throw new Error('closing the Template editor must pause rather than discard changes when device storage fails');
+    }
+    await page.locator('#templateCreateDraftStatus').getByText(/could not be saved/).waitFor();
+    await page.evaluate(() => { window.failTemplateDraftWrites = false; });
+    await page.locator('#cancelWorkFormCreateButton').click();
+    await page.locator('#workFormCreatePanel').waitFor({ state: 'hidden' });
+    await page.locator('#templateDraftsList').getByRole('button', { name: 'Continue Template draft', exact: true }).click();
+    await page.locator('#workFormCreatePanel').waitFor({ state: 'visible' });
+    if (await page.locator('#workFormNameInput').inputValue() !== 'Do not lose this Template') throw new Error('close/continue did not recover the saved Template');
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkTemplateDraftSurvivesReload(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const name = `Unfinished Template ${Date.now()}`;
+  const raw = 'text|Unfinished raw question|required|id=unfinished\nnot finished yet';
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#addWorkFormButton').click();
+    await page.locator('#workFormNameInput').fill(name);
+    await page.locator('#workFormDescriptionInput').fill('Keep this unpublished work');
+    await page.locator('#addWorkFormFieldButton').click();
+    await page.locator('#workFormFieldCards [data-field-property="label"]').fill('Saved card question');
+    await page.locator('#workFormAdvancedDetails summary').click();
+    await page.locator('#workFormFieldsInput').fill(raw);
+    await page.locator('#templateCreateDraftStatus').getByText('Template draft saved on this device.', { exact: true }).waitFor({ timeout: 2500 });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#templateDraftsList').getByRole('button', { name: 'Continue Template draft', exact: true }).click();
+    await page.locator('#workFormCreatePanel').waitFor({ state: 'visible' });
+    if (await page.locator('#workFormNameInput').inputValue() !== name
+      || await page.locator('#workFormDescriptionInput').inputValue() !== 'Keep this unpublished work'
+      || await page.locator('#workFormFieldCards [data-field-property="label"]').inputValue() !== 'Saved card question'
+      || await page.locator('#workFormFieldsInput').inputValue() !== raw) {
+      throw new Error('unfinished Template reload lost names, field cards, or unapplied raw syntax');
+    }
+    await page.locator('#workFormSubmitButton').click();
+    await page.locator('#workFormRawFeedback').getByText('Apply or discard the pending raw syntax before previewing or saving.', { exact: true }).waitFor();
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const language of ['zh', 'en']) {
+        await page.evaluate(async (value) => { (await import('/assets/js/i18n.js')).setLanguage(value); }, language);
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+        if (overflow > 1) throw new Error(`unfinished Template editor overflows ${width}px ${language} by ${overflow}px`);
+      }
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkWorkerInvitationCreate(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'people');
+    await page.locator('#addStaffUserButton').click();
+    await page.locator('#staffNameInput').fill('Invited Field Worker');
+    await page.locator('#staffEmailInput').fill(`invited-ui-${Date.now()}@example.com`);
+    if (await page.locator('#staffPasswordInput').isVisible()
+      || await page.locator('#staffPasswordInput').getAttribute('required') !== null) {
+      throw new Error('new Worker onboarding must not ask the Supervisor to choose a password');
+    }
+    await page.locator('#staffUserSubmitButton').getByText('Create invitation', { exact: true }).waitFor();
+    await page.locator('#staffUserSubmitButton').click();
+    await page.locator('#workerInvitationDialog[open]').waitFor();
+    await captureInvitationScreenshots(page, 'handoff');
+    const link = new URL(await page.locator('#workerInvitationLink').inputValue());
+    if (link.origin !== new URL(appBase).origin || link.pathname !== '/setup-password.html'
+      || link.search || !link.hash.startsWith('#token=')) {
+      throw new Error('Worker invitation must use a private same-origin fragment setup link');
+    }
+    await page.locator('#closeWorkerInvitationButton').click();
+    if (await page.locator('#workerInvitationLink').inputValue()) {
+      throw new Error('closing the invitation dialog must clear its secret link');
+    }
+    await page.locator('#addStaffUserButton').click();
+    await page.locator('#staffNameInput').fill('Navigation privacy Worker');
+    await page.locator('#staffEmailInput').fill(`invited-navigation-${Date.now()}@example.com`);
+    await page.locator('#staffUserSubmitButton').click();
+    await page.locator('#workerInvitationDialog[open]').waitFor();
+    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })));
+    if (await page.locator('#workerInvitationLink').inputValue()
+      || (await page.locator('#workerInvitationIdentity').textContent()).trim()) {
+      throw new Error('navigation must clear private invitation details before a page can enter the back-forward cache');
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkWorkerInvitationPasswordSetup(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const email = `invited-password-${Date.now()}@example.com`;
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'people');
+    await page.locator('#addStaffUserButton').click();
+    await page.locator('#staffNameInput').fill('Worker chooses password');
+    await page.locator('#staffEmailInput').fill(email);
+    await page.locator('#staffUserSubmitButton').click();
+    await page.locator('#workerInvitationDialog[open]').waitFor();
+    const link = await page.locator('#workerInvitationLink').inputValue();
+    const setup = await context.newPage();
+    await setup.goto(link);
+    await setup.locator('#setupPasswordForm').waitFor({ state: 'visible', timeout: 8000 });
+    if (new URL(setup.url()).hash || new URL(setup.url()).search) {
+      throw new Error('password setup must remove the private token from the address bar');
+    }
+    if (!(await setup.locator('#setupInvitationIdentity').innerText()).includes(email)) {
+      throw new Error('password setup must show the intended invited Worker');
+    }
+    await captureInvitationScreenshots(setup, 'setup');
+    await setup.locator('#setupPasswordInput').fill(password);
+    await setup.locator('#setupPasswordConfirmInput').fill('Different-password!');
+    await setup.locator('#setupPasswordButton').click();
+    await setup.locator('#setupPasswordStatus').getByText('Passwords do not match.', { exact: true }).waitFor();
+    await setup.locator('#setupPasswordConfirmInput').fill(password);
+    const acceptance = setup.waitForResponse((response) => new URL(response.url()).pathname === '/api/auth/worker-invitations/accept');
+    await setup.locator('#setupPasswordButton').click();
+    const accepted = await acceptance;
+    if (!accepted.ok() || accepted.headers()['set-cookie']) throw new Error('setup must succeed without signing in or changing browser sessions');
+    await setup.locator('#setupPasswordStatus').getByText('Password set. You can now sign in to ReportFlow.', { exact: true }).waitFor();
+    const current = await page.evaluate(async () => (await fetch('/api/auth/me', { credentials: 'include' })).json());
+    if (current.email !== 'supervisor@example.com') throw new Error('accepting a Worker invitation changed the existing Supervisor session');
+    await page.locator('#closeWorkerInvitationButton').click();
+    await logout(page);
+    await loginAs(page, email, 'worker');
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkWorkerInvitationRevocation(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const email = `invited-revoke-${Date.now()}@example.com`;
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'people');
+    await page.locator('#addStaffUserButton').click();
+    await page.locator('#staffNameInput').fill('Worker invitation lifecycle');
+    await page.locator('#staffEmailInput').fill(email);
+    await page.locator('#staffUserSubmitButton').click();
+    await page.locator('#workerInvitationDialog[open]').waitFor();
+    const originalLink = await page.locator('#workerInvitationLink').inputValue();
+    await page.locator('#closeWorkerInvitationButton').click();
+    const card = page.locator('#staffUsersList .record-card').filter({ hasText: email });
+    await card.getByRole('button', { name: 'Create new setup link', exact: true }).click();
+    await page.locator('#confirmationDialogConfirmButton').click();
+    await page.locator('#workerInvitationDialog[open]').waitFor();
+    const replacement = await page.locator('#workerInvitationLink').inputValue();
+    if (replacement === originalLink) throw new Error('reissuing an invitation must replace the private token');
+    const setup = await context.newPage();
+    await setup.goto(originalLink);
+    await setup.locator('#setupPasswordStatus').getByText(/invitation is invalid or expired/).waitFor();
+    if (await setup.locator('#setupPasswordForm').isVisible()) throw new Error('a replaced invitation must not open password setup');
+    await setup.goto(replacement);
+    await setup.locator('#setupPasswordForm').waitFor({ state: 'visible' });
+    await page.locator('#closeWorkerInvitationButton').click();
+    await card.getByRole('button', { name: 'Revoke setup link', exact: true }).click();
+    await page.locator('#confirmationDialogConfirmButton').click();
+    await card.getByText('Invitation revoked', { exact: true }).waitFor();
+    await setup.locator('#setupPasswordInput').fill(password);
+    await setup.locator('#setupPasswordConfirmInput').fill(password);
+    await setup.locator('#setupPasswordButton').click();
+    await setup.locator('#setupPasswordStatus').getByText(/invitation is invalid or expired/).waitFor();
+    if (await setup.locator('#setupPasswordForm').isVisible()
+      || await setup.locator('#setupPasswordInput').inputValue()
+      || await setup.locator('#setupPasswordConfirmInput').inputValue()) {
+      throw new Error('revoked invitation acceptance must clear the password and stop further setup attempts');
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkWorkerInvitationLateResponsePrivacy(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  let releaseResponse = () => {};
+  const heldResponse = new Promise((resolve) => { releaseResponse = resolve; });
+  let notifyCreated = () => {};
+  const created = new Promise((resolve) => { notifyCreated = resolve; });
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'people');
+    await page.route('**/api/supervisor/worker-invitations', async (route) => {
+      const response = await route.fetch();
+      notifyCreated();
+      await heldResponse;
+      await route.fulfill({ response });
+    });
+    await page.locator('#addStaffUserButton').click();
+    await page.locator('#staffNameInput').fill('Late private invitation');
+    await page.locator('#staffEmailInput').fill(`invited-late-${Date.now()}@example.com`);
+    await page.locator('#staffUserSubmitButton').click();
+    await created;
+    await logout(page);
+    // Stay in the same document so the old creation handler really resumes
+    // after the account switch; loginAs intentionally navigates to a new page.
+    await page.locator('#emailInput').fill('worker@example.com');
+    await page.locator('#passwordInput').fill(password);
+    await page.locator('#loginForm button[type="submit"]').click();
+    await page.waitForFunction(() => document.body.dataset.activeView === 'worker');
+    const finished = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/supervisor/worker-invitations');
+    releaseResponse();
+    await (await finished).finished();
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    if (await page.locator('#workerInvitationDialog').isVisible()
+      || await page.locator('#workerInvitationLink').inputValue()
+      || (await page.locator('#workerInvitationIdentity').textContent()).trim()) {
+      throw new Error('a late invitation creation response exposed the previous Supervisor private handoff to a Worker');
+    }
+  } finally {
+    releaseResponse();
+    await context.close();
+  }
+}
+
+async function checkReportFindExportDownloads(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const marker = `Export Find ${Date.now()}`;
+  const wanted = `${marker} selected`;
+  const omitted = `${marker} excluded`;
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    for (const answer of [wanted, omitted]) {
+      await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+      await page.locator('#workFormField_inspection_area').fill(answer);
+      await page.locator('#workFormField_inspection_result').selectOption('Pass');
+      const submission = page.waitForResponse((response) => (
+        response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/form-submissions'
+      ));
+      await page.locator('#submitWorkFormButton').click();
+      if (!(await submission).ok()) throw new Error('export fixture Report submission failed');
+      await page.waitForFunction(() => !document.querySelector('#submitWorkFormButton').disabled);
+    }
+    await logout(page);
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'review');
+    const searched = page.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/api/supervisor/review-queue'
+      && new URL(response.url()).searchParams.get('search') === wanted
+    ));
+    await page.locator('#supervisorSearchInput').fill(wanted);
+    if (!(await searched).ok()) throw new Error('Report Find query failed');
+    await page.waitForFunction(({ wanted, omitted }) => {
+      const list = document.querySelector('#reviewQueueList').textContent;
+      return list.includes(wanted) && !list.includes(omitted);
+    }, { wanted, omitted });
+    for (const [format, buttonId] of [['csv', 'exportReportsCsvButton'], ['pdf', 'exportReportsPdfButton']]) {
+      const responsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === `/api/supervisor/form-submissions/export.${format}`);
+      const downloadPromise = page.waitForEvent('download');
+      await page.locator(`#${buttonId}`).click();
+      const response = await responsePromise;
+      if (!response.ok() || new URL(response.url()).searchParams.get('search') !== wanted) {
+        throw new Error(`${format} Report download must use the same Find as the inbox`);
+      }
+      const download = await downloadPromise;
+      const data = readFileSync(await download.path());
+      if (format === 'csv' && (!data.toString('utf8').includes(wanted) || data.toString('utf8').includes(omitted))) {
+        throw new Error('CSV download did not match the Reports shown by Find');
+      }
+      if (format === 'pdf' && data.subarray(0, 5).toString() !== '%PDF-') throw new Error('Report PDF download is invalid');
+    }
   } finally {
     await context.close();
   }
@@ -4877,21 +5965,17 @@ async function checkSupervisorReview(browser) {
     ), null, { timeout: 20000 });
     await supervisorPage.locator('#locationReviewMap .location-map-site-marker').first().waitFor({ timeout: 15000 });
     await supervisorPage.locator('#locationReviewMap .location-site-boundary').first().waitFor({ timeout: 15000 });
-    const mapDebug = await supervisorPage.evaluate(() => ({
-      pointLabels: [...document.querySelectorAll('#locationReviewMap .location-map-point')]
-        .map((element) => element.textContent.trim()),
-      siteLabels: [...document.querySelectorAll('#locationReviewMap .location-map-site-marker')]
-        .map((element) => element.textContent.trim()),
-      boundaryCount: document.querySelectorAll('#locationReviewMap .location-site-boundary').length
-    }));
-    if (
-      !mapDebug.pointLabels.includes('IN')
-      || !mapDebug.pointLabels.includes('OUT')
-      || !mapDebug.siteLabels.includes('SITE')
-      || mapDebug.boundaryCount < 1
-    ) {
-      throw new Error(`location map did not render visible site/check-in markers: ${JSON.stringify(mapDebug)}`);
-    }
+    // Filter refreshes can repaint between separate locator waits. Require all
+    // markers together instead of sampling midway through another map redraw.
+    await supervisorPage.waitForFunction(() => {
+      const pointLabels = [...document.querySelectorAll('#locationReviewMap .location-map-point')]
+        .map((element) => element.textContent.trim());
+      const siteLabels = [...document.querySelectorAll('#locationReviewMap .location-map-site-marker')]
+        .map((element) => element.textContent.trim());
+      return pointLabels.includes('IN') && pointLabels.includes('OUT')
+        && siteLabels.includes('SITE')
+        && document.querySelectorAll('#locationReviewMap .location-site-boundary').length > 0;
+    }, null, { timeout: 20000 });
 
     await supervisorPage.locator('#locationReviewMap .location-map-point').first().dispatchEvent('mouseover');
     await supervisorPage.locator('#locationReviewMap .leaflet-tooltip').first().waitFor({ timeout: 5000 });
@@ -5594,6 +6678,38 @@ async function checkSupervisorWorkspaceNavigation(browser) {
       document.querySelector('#adminWorkspaceDrawer')?.open === false
       && document.activeElement?.id === 'emailInput'
     ));
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkColdOfflineReportReturn(browser) {
+  const context = await newContext(browser, { baseURL: productionAppBase, reportOnly: true, serviceWorkers: 'allow' });
+  let page = await context.newPage();
+  const answer = `Offline return draft ${Date.now()}`;
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormField_inspection_area').fill(answer);
+    await page.locator('#workFormField_inspection_result').selectOption('Pass');
+    await page.waitForFunction(async () => Boolean(navigator.serviceWorker.controller) && Boolean(await caches.match('/index.html')));
+    await page.locator('#workFormAutosaveStatus.saved').waitFor();
+    await page.close();
+    await context.setOffline(true);
+    page = await context.newPage();
+    await page.goto('/index.html', { waitUntil: 'domcontentloaded' });
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    const resume = page.locator('#reportDraftsList').getByRole('button', { name: 'Continue draft', exact: true });
+    await resume.waitFor({ state: 'visible', timeout: 10000 });
+    if (!await resume.isEnabled()) throw new Error('returning offline Worker cannot resume a draft from a previously downloaded Report Template');
+    await resume.click();
+    if (await page.locator('#workFormField_inspection_area').inputValue() !== answer) throw new Error('cold offline return lost Report answers');
+    await page.locator('#submitWorkFormButton').click();
+    await page.locator('#workFormFeedback').getByText(/saved offline/i).waitFor();
+    await context.setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await page.locator('#historyList .record-card').filter({ hasText: answer }).getByText('Submitted', { exact: true }).waitFor({ timeout: 20000 });
   } finally {
     await context.close();
   }
@@ -6688,6 +7804,15 @@ async function main() {
     await runCheck('attendance presents one contextual action with a secondary correction path', () => checkContextualAttendanceAction(browser));
     await runCheck('normal Worker guide compacts and Site priority follows attendance context', () => checkNormalWorkerAttendanceShortcuts(browser));
     await runCheck('normal Workers submit active Work Forms and see their own history', () => checkNormalWorkerWorkFormSubmission(browser));
+    await runCheck('Report photo selection appends without replacing earlier photos', () => checkReportPhotoSelectionAppends(browser));
+    await runCheck('Report photo selection rejects invalid files without clearing earlier photos', () => checkReportRejectedPhotoSelectionPreserves(browser));
+    await runCheck('Report photo removal keeps other photos and persists in the draft', () => checkReportPhotoRemovalPersists(browser));
+    await runCheck('My Reports shows ordinary device drafts and continues their saved answers and photos', () => checkReportDraftVisibleAndResumable(browser));
+    await runCheck('Report photo drafts append new selections and submit both original images', () => checkReportRestoredPhotosAppendAndSubmit(browser));
+    await runCheck('Report photo overlapping selections retain both images in selection order', () => checkReportOverlappingPhotoSelections(browser));
+    await runCheck('My Reports ordinary drafts stay private across shared-device account switches', () => checkReportDraftSharedDeviceIsolation(browser));
+    await runCheck('My Reports blocks Continue for submitted drafts when local cleanup fails', () => checkSubmittedReportDraftCleanupFailure(browser));
+    await runCheck('Report photo capacity and empty picker preserve existing selections without blank drafts', () => checkReportPhotoLimitAndEmptyPicker(browser));
     await runCheck('shared-device Worker Reports clear on logout, pending login, and late responses', () => checkSharedDeviceWorkerReportPrivacy(browser));
     await runCheck('shared-device late authorization errors cannot sign out the replacement Worker', () => checkSharedDeviceWorkerReportPrivacy(browser, { staleStatus: 401 }));
     await runCheck('shared-device same-account relogin ignores the previous session authorization failure', () => checkSharedDeviceWorkerReportPrivacy(browser, { staleStatus: 401, sameAccount: true }));
@@ -6703,6 +7828,18 @@ async function main() {
     await runCheck('reconnect preserves in-progress Daywork and Work Form answers', () => checkReconnectPreservesWorkerForms(browser));
     await runCheck('ReportFlow branding and Mutual defaults preserve explicit Departments and global focus', () => checkMutualDepartmentDefaults(browser));
     await runCheck('report-only responsive layout keeps controls and final actions usable in light and dark themes', () => checkReportOnlyResponsiveLayout(browser));
+    await runCheck('unfinished Report Template creation survives reload with pending raw syntax', () => checkTemplateDraftSurvivesReload(browser));
+    await runCheck('unfinished Report Template close pauses on storage failure and keeps the draft', () => checkTemplateDraftCloseFailure(browser));
+    await runCheck('unfinished Report Template edits survive workspace navigation and reload', () => checkTemplateEditDraftNavigation(browser));
+    await runCheck('unfinished Report Template lifecycle protects logout, update, and account privacy', () => checkTemplateDraftLifecycle(browser));
+    await runCheck('unfinished Report Template publication retires drafts and isolates uncertain saves', () => checkTemplateDraftPublishing(browser));
+    await runCheck('unfinished Report Template stale versions stay read-only without overwriting newer work', () => checkStaleTemplateDraft(browser));
+    await runCheck('unfinished Report Template cross-tab protection preserves newer edits and removed-draft recovery', () => checkTemplateDraftCrossTab(browser));
+    await runCheck('Worker invitation replaces Supervisor-chosen passwords with a private setup link', () => checkWorkerInvitationCreate(browser));
+    await runCheck('Worker invitation password setup confirms ownership without changing another signed-in session', () => checkWorkerInvitationPasswordSetup(browser));
+    await runCheck('Worker invitation replacement and revocation clear invalid setup secrets', () => checkWorkerInvitationRevocation(browser));
+    await runCheck('Worker invitation late responses never expose a prior Supervisor private link', () => checkWorkerInvitationLateResponsePrivacy(browser));
+    await runCheck('Report Find exports download CSV and PDF matching the searched inbox', () => checkReportFindExportDownloads(browser));
     await runCheck('staff users scope global admin controls by role', () => checkStaffGlobalAdminScoping(browser));
     await runCheck('supervisors create and edit conditional Work Forms with field cards', () => checkSupervisorWorkFormCardBuilder(browser));
     await runCheck('Offline Submission ownership, occurrence time, and idempotent replay', () => checkOfflineQueueAndReplay(browser));
@@ -6716,6 +7853,7 @@ async function main() {
     await runCheck('supervisor workspaces remain navigable on desktop and mobile', () => checkSupervisorWorkspaceNavigation(browser));
     await runCheck('supervisor Review Desk is responsive', () => checkSupervisorReviewDeskLayout(browser));
     await runCheck('offline Review Queue is explicit and read-only', () => checkOfflineReviewQueueReadOnly(browser));
+    await runCheck('Report offline return resumes a downloaded Template draft after every page closes', () => checkColdOfflineReportReturn(browser));
     await runCheck('retained attendance app cold-launches offline and queues attendance', () => checkColdOfflineWorkerLaunch(browser));
     await runCheck('retained Work Form drafts protect production-mode app updates', () => checkWorkFormAutosaveAndUpdateProtection(browser));
     await runCheck('report-only service worker update prompt posts SKIP_WAITING', () => checkServiceWorkerUpdatePrompt(browser));
