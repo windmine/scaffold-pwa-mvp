@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "startedAtUtc": "2026-09-15T00:29:47.617Z",
+  "status": "failed",
+  "scope": "Read-only hosted shell parity, readiness, anonymous isolation and Chromium cold-offline PWA",
+  "assets": [],
+  "readiness": [],
+  "anonymous": [],
+  "pwa": {},
+  "failure": "Shell parity mismatch /manifest.webmanifest\n+ actual - expected\n\n+ '47085fc4c3ff8188bc78851c8ffb46a0195fe57cd65d0f6a322dc9265a04061a'\n- 'efa4d8fad1d38fa12d0cefebbcf77eda17022f18f5aa029b58a4a15fe3e52e2b'\n",
+  "completedAtUtc": "2026-09-15T00:29:47.937Z"
+}

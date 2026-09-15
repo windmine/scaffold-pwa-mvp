@@ -1,0 +1,30 @@
+{
+  "status": "passed",
+  "target": "live",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "provision": {
+    "status": "passed",
+    "action": "provision",
+    "runId": "live-20260915-a",
+    "accountIds": {
+      "SUPERVISOR": 9,
+      "WORKER": 10,
+      "SECOND_WORKER": 11
+    },
+    "existingAccountsChanged": false,
+    "note": "Operator-controlled synthetic fixtures; application audit rows are retained."
+  },
+  "deactivation": {
+    "status": "passed",
+    "action": "deactivate",
+    "runId": "live-20260915-a",
+    "accountIds": {
+      "SUPERVISOR": 9,
+      "WORKER": 10,
+      "SECOND_WORKER": 11
+    },
+    "existingAccountsChanged": false,
+    "note": "Operator-controlled synthetic fixtures; application audit rows are retained."
+  },
+  "completedAtUtc": "2026-09-15T01:25:17.059207+00:00"
+}

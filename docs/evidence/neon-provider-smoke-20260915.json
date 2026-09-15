@@ -1,0 +1,9 @@
+{
+  "scope": "Full smoke on separate empty owned Neon database with loopback-only local API",
+  "branchId": "br-withered-sound-a7m88khg",
+  "database": "report_smoke_20260915",
+  "status": "passed",
+  "checks": 209,
+  "migrationHead": "0021_worker_invitations",
+  "localProcessAndUploadCleanup": true
+}

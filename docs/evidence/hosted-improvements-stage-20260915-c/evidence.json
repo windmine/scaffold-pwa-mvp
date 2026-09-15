@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "runId": "stage-20260915-c",
+  "nonce": "af5218ad-069f-4c44-8d33-c5c6b1cf317e",
+  "origin": "https://geo-attendance-system-db9ca--verify-20260915-xttqom9z.web.app",
+  "startedAtUtc": "2026-09-15T00:42:21.202Z",
+  "status": "failed",
+  "scope": "Opt-in owned hosted candidate UI and real-service-worker checks; not a physical-phone test",
+  "checks": [
+    {
+      "name": "exact_owned_accounts_and_current_gcs_backend",
+      "status": "passed"
+    }
+  ],
+  "owned": {
+    "supervisorId": 10,
+    "workerId": 11,
+    "secondWorkerId": 12,
+    "departmentId": 1
+  },
+  "cleanup": {
+    "failures": [
+      "exactly_one_owned_template_required",
+      "mutation_outside_owned_fixture_boundary"
+    ],
+    "reportTrashed": false,
+    "templateArchived": false,
+    "invitedWorkerResigned": false,
+    "submissionOutcomeUnknown": false
+  },
+  "scriptSha256": "4ec8be13db9dcca2e60fd09e0d36ccaaa3cc10eb807c97179238a3ef2502636b",
+  "progress": {
+    "checkpoint": "private_template_create_draft_survives_reload_before_explicit_publish",
+    "operation": "create_publish_template",
+    "recordedAtUtc": "2026-09-15T00:42:31.852Z"
+  },
+  "failure": {
+    "checkpoint": "private_template_create_draft_survives_reload_before_explicit_publish",
+    "operation": "create_publish_template",
+    "code": "browser_or_api_operation_failed"
+  },
+  "completedAtUtc": "2026-09-15T00:43:17.330Z",
+  "browserPageErrors": 0
+}

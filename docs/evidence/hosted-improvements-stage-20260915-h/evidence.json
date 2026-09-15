@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "runId": "stage-20260915-h",
+  "nonce": "cac2f1b3-b056-4e15-ab83-d43ae283df0e",
+  "origin": "https://geo-attendance-system-db9ca--verify-20260915-xttqom9z.web.app",
+  "startedAtUtc": "2026-09-15T01:04:22.125Z",
+  "status": "failed",
+  "scope": "Opt-in owned hosted candidate UI and real-service-worker checks; not a physical-phone test",
+  "checks": [
+    {
+      "name": "exact_owned_accounts_and_current_gcs_backend",
+      "status": "passed"
+    },
+    {
+      "name": "private_template_create_draft_survives_reload_before_explicit_publish",
+      "status": "passed"
+    },
+    {
+      "name": "private_template_edit_draft_survives_reload_and_publishes_once",
+      "status": "passed"
+    },
+    {
+      "name": "stale_template_edit_returns_409_and_keeps_readonly_recovery",
+      "status": "passed"
+    },
+    {
+      "name": "private_invitation_reissue_password_setup_and_single_use",
+      "status": "passed"
+    },
+    {
+      "name": "downloaded_template_cold_offline_return_queues_and_replays_once",
+      "status": "passed"
+    }
+  ],
+  "owned": {
+    "supervisorId": 25,
+    "workerId": 26,
+    "secondWorkerId": 27,
+    "departmentId": 1,
+    "templateId": 7,
+    "invitedWorkerId": 28,
+    "reportId": 4,
+    "clientSubmissionId": "e9806795-2bf6-495c-af3b-71ed14669acb"
+  },
+  "cleanup": {
+    "failures": [],
+    "reportTrashed": true,
+    "templateArchived": true,
+    "invitedWorkerResigned": true,
+    "submissionOutcomeUnknown": false
+  },
+  "scriptSha256": "3429534ceddfbb2519f1666cbf1204d22be42349da04ffffd3809f4850383e14",
+  "progress": {
+    "checkpoint": "private_invitation_reissue_password_setup_and_single_use",
+    "operation": "invitation_inspect_replacement",
+    "recordedAtUtc": "2026-09-15T01:04:47.949Z"
+  },
+  "restoredCreateMatches": {
+    "name": true,
+    "description": true,
+    "raw": true,
+    "fieldLabel": true
+  },
+  "failure": {
+    "checkpoint": "matching_and_empty_find_filter_actual_csv_and_pdf_downloads",
+    "code": "pdf_find_did_not_match_owned_report"
+  },
+  "completedAtUtc": "2026-09-15T01:05:06.065Z",
+  "browserPageErrors": 0
+}

@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "runId": "old-20260915-a",
+  "nonce": "95f3c080-60af-4362-967c-2fd11f757b4c",
+  "origin": "https://geo-attendance-system-db9ca--old-verify-20260915-bk2aqu7o.web.app",
+  "status": "passed",
+  "startedAtUtc": "2026-09-15T00:35:06.036Z",
+  "scope": "Automated hosted Chromium, not a physical-phone or service-worker test",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "checks": [
+    {
+      "name": "hosted_database_migrations_and_gcs_ready",
+      "status": "passed",
+      "details": {
+        "checks": {
+          "database": "ok",
+          "migrations": "ok",
+          "upload_storage": "ok"
+        },
+        "uploadBackend": "gcs"
+      }
+    },
+    {
+      "name": "three_dedicated_department_accounts",
+      "status": "passed",
+      "details": {
+        "departmentScoped": true,
+        "normalWorkers": 2
+      }
+    },
+    {
+      "name": "create_nonce_bound_report_template",
+      "status": "passed"
+    },
+    {
+      "name": "worker_ui_date_optional_site_photo_and_handwritten_signature",
+      "status": "passed"
+    },
+    {
+      "name": "offline_report_preserves_original_answers_and_evidence",
+      "status": "passed"
+    },
+    {
+      "name": "online_replay_uploads_evidence_and_submits_once",
+      "status": "passed",
+      "details": {
+        "images": [
+          {
+            "path": "/uploads/dbd7ec673d6846178406e295c8a40259.png",
+            "status": 200,
+            "type": "image/png",
+            "width": 32,
+            "height": 32,
+            "sha256": "095060c9a5f1be32967483f56007686340d5135fd1d65b2e39b591bd9ab6f43e"
+          },
+          {
+            "path": "/uploads/201d7d670548475faf37c88ab0bcdadc.png",
+            "status": 200,
+            "type": "image/png",
+            "width": 720,
+            "height": 220,
+            "sha256": "32cbd01dedda747f494bcaa0f6b6886a3f35ed7b41e2104917e14b7cda99a4eb"
+          }
+        ]
+      }
+    },
+    {
+      "name": "second_worker_cannot_read_report_or_evidence",
+      "status": "passed",
+      "details": {
+        "deniedUploadStatuses": [
+          404,
+          404
+        ]
+      }
+    },
+    {
+      "name": "supervisor_phone_filters_and_starts_review",
+      "status": "passed"
+    },
+    {
+      "name": "supervisor_requires_note_and_resolves_report",
+      "status": "passed"
+    },
+    {
+      "name": "worker_sees_final_note_and_idempotent_replay_keeps_original",
+      "status": "passed"
+    }
+  ],
+  "owned": {
+    "templateId": 2,
+    "reportId": 2,
+    "clientSubmissionId": "ae0d79a4-4f91-4575-bfae-e5b180c3cd83",
+    "uploadPaths": [
+      "/uploads/201d7d670548475faf37c88ab0bcdadc.png",
+      "/uploads/dbd7ec673d6846178406e295c8a40259.png"
+    ],
+    "supervisorId": 4,
+    "workerId": 5,
+    "secondWorkerId": 6,
+    "departmentId": 1
+  },
+  "cleanup": {
+    "reportTrashed": true,
+    "templateArchived": true,
+    "submissionOutcomeUnknown": false,
+    "failures": []
+  },
+  "scriptSha256": "11abb49c6d2c672775b76bca9eb0886ea392fd76ecfb4edce063850b11424444",
+  "completedAtUtc": "2026-09-15T00:35:37.535Z",
+  "browserPageErrors": 0
+}

@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "runId": "live-20260915-a",
+  "nonce": "183601e9-be2e-43fe-b035-2011ec7351f4",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "startedAtUtc": "2026-09-15T01:24:28.426Z",
+  "status": "passed",
+  "scope": "Opt-in owned hosted candidate UI and real-service-worker checks; not a physical-phone test",
+  "checks": [
+    {
+      "name": "exact_owned_accounts_and_current_gcs_backend",
+      "status": "passed"
+    },
+    {
+      "name": "private_template_create_draft_survives_reload_before_explicit_publish",
+      "status": "passed"
+    },
+    {
+      "name": "private_template_edit_draft_survives_reload_and_publishes_once",
+      "status": "passed"
+    },
+    {
+      "name": "stale_template_edit_returns_409_and_keeps_readonly_recovery",
+      "status": "passed"
+    },
+    {
+      "name": "private_invitation_reissue_password_setup_and_single_use",
+      "status": "passed"
+    },
+    {
+      "name": "downloaded_template_cold_offline_return_queues_and_replays_once",
+      "status": "passed"
+    },
+    {
+      "name": "matching_and_empty_find_filter_actual_csv_and_pdf_downloads",
+      "status": "passed"
+    }
+  ],
+  "owned": {
+    "supervisorId": 9,
+    "workerId": 10,
+    "secondWorkerId": 11,
+    "departmentId": 1,
+    "templateId": 6,
+    "invitedWorkerId": 12,
+    "reportId": 3,
+    "clientSubmissionId": "14498705-2d9f-4e74-8d2f-35a84aaa1446"
+  },
+  "cleanup": {
+    "failures": [],
+    "reportTrashed": true,
+    "templateArchived": true,
+    "invitedWorkerResigned": true,
+    "submissionOutcomeUnknown": false
+  },
+  "scriptSha256": "a06a165584d0d0901c4160ba4ae767d108931ec52816e0d95f318d1735519d43",
+  "progress": {
+    "checkpoint": "private_invitation_reissue_password_setup_and_single_use",
+    "operation": "invitation_inspect_replacement",
+    "recordedAtUtc": "2026-09-15T01:24:54.530Z"
+  },
+  "restoredCreateMatches": {
+    "name": true,
+    "description": true,
+    "raw": true,
+    "fieldLabel": true
+  },
+  "completedAtUtc": "2026-09-15T01:25:15.260Z",
+  "browserPageErrors": 0
+}

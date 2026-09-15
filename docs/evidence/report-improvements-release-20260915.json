@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "completedAtUtc": "2026-09-15T01:30:59Z",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "frontendSourceCommit": "921be2dd4f0e215bc32528d1866850ea4f3213b0",
+  "hostedVerifierCommit": "750298f",
+  "backendSourceCommit": "8e33d21",
+  "buildId": "bd2c07c2-2d49-4e24-9594-9acfa256ed76",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/report-improvements@sha256:6692dac1a643e772c12383dff764de2e89bcdfb8fc9a85f3631344230a72fb4d",
+  "cloudRunRevision": "geo-backend-report-20260915-0025",
+  "productionSecretVersions": {"database": "2", "jwt": "1"},
+  "trafficPercent": 100,
+  "liveVerification": {
+    "baselineCheckpoints": 10,
+    "improvementCheckpoints": 7,
+    "ownedFixturesDeactivated": true,
+    "existingAccountsChanged": false,
+    "observedCandidateLogEntries": 533,
+    "errorOr5xxLogEntries": 0,
+    "logsCheckedAtUtc": "2026-09-15T01:26:44.874791Z",
+    "installerAndWaitingUpdateScreenshotsVisuallyChecked": true
+  },
+  "ownedStagingCleanup": {
+    "status": "passed",
+    "exactOwnedActions": 15,
+    "absenceVerified": true,
+    "softDeletedTestObjects": 7,
+    "objectRecoveryDays": 30,
+    "rollbackAndBackupRetained": true,
+    "postCleanupLiveReadiness": "passed"
+  },
+  "temporaryTrafficTagsRemoved": true,
+  "maintenance": {
+    "explicitUserApproval": true,
+    "revision": "geo-backend-maint-20260915-0025",
+    "startedAtUtc": "2026-09-15T01:10:22.871295Z",
+    "requiredDrainSeconds": 300,
+    "apiRestoredAtUtc": "2026-09-15T01:17:26.168054Z",
+    "elapsedSeconds": 423.297
+  },
+  "migration": {
+    "head": "0021_worker_invitations",
+    "ledgerVersions": 21,
+    "job": "geo-report-migrate-20260915",
+    "applyExecution": "geo-report-migrate-20260915-c595l",
+    "applyCompletedAtUtc": "2026-09-15T01:15:55.042304Z",
+    "checkExecution": "geo-report-migrate-20260915-j95p4",
+    "checkCompletedAtUtc": "2026-09-15T01:16:19.068180Z",
+    "preExistingReportCount": 1,
+    "immutableReportHashUnchanged": "1f83d6cf4983f93cb0aca74fbd7171183cfe4f2c1338c0873974c83da690d574"
+  },
+  "hosting": {
+    "version": "23c1ee5e712da7d7",
+    "promotedAtUtc": "2026-09-15T01:23:23.272Z",
+    "productionCacheVersion": "leader-field-57d5f43f282c",
+    "preview": "https://geo-attendance-system-db9ca--release-20260915-edpr7cq9.web.app",
+    "previewExpiresAtUtc": "2026-09-22T01:17:34.591766937Z",
+    "rewritesToProductionBackend": true,
+    "exactPreviewToLiveClone": true,
+    "matchingShellAssets": 63,
+    "previousVersion": "654ff0044465966e",
+    "rollbackChannel": "rollback-20260915"
+  },
+  "recovery": {
+    "retainedBackupBranch": "br-misty-wildflower-a7vty6d9",
+    "backupName": "release-backup-20260915-0025",
+    "backupExpiresAtUtc": "2026-09-22T01:15:39Z",
+    "currentProof": "neon-recovery-proof-20260915-current-final.json",
+    "strictCurrentGate": "passed",
+    "billingBudgetChecked": true,
+    "warnings": ["Neon history retention remains six hours."],
+    "earlierAttempt": "The first Current proof passed its recovery checks, but the strict gate rejected its exactly one-minute requested point. A new two-minute-offset proof passed the unchanged gate. The original evidence is preserved."
+  },
+  "evidence": [
+    "local-final-release-20260915.json",
+    "neon-clone-upgrade-20260915.json",
+    "neon-provider-smoke-20260915.json",
+    "hosted-report-stage-20260915-h/evidence.json",
+    "hosted-improvements-stage-20260915-i/evidence.json",
+    "hosted-report-old-20260915-a/evidence.json",
+    "hosted-live-shell-20260915.json",
+    "hosted-live-installer-20260915.json",
+    "hosted-waiting-update-20260915.json",
+    "hosted-report-live-20260915-a/evidence.json",
+    "hosted-improvements-live-20260915-a/evidence.json",
+    "hosted-accounts-live-20260915-a.json",
+    "owned-stage-cleanup-20260915.json"
+  ],
+  "physicalPhoneTest": false,
+  "remainingManualChecks": ["Real-device installed cold offline/update/upload checklist", "Private invitation handoff to a verified real recipient"],
+  "rollbackConstraint": "Keep the new 0021-compatible backend when rolling back frontend bytes. The old 0020-only backend is no longer ledger-compatible; database recovery requires a separate approved incident plan."
+}

@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "runId": "stage-20260915-c",
+  "transactionReadOnly": true,
+  "ownedTemplateCount": 0,
+  "ownedReportCount": 0,
+  "ownedInvitationCount": 0,
+  "supervisorResigned": true,
+  "workerResigned": true
+}

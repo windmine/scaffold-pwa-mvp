@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 1,
+  "origin": "https://geo-attendance-system-db9ca--release-20260915-edpr7cq9.web.app",
+  "status": "passed",
+  "startedAtUtc": "2026-09-15T01:18:17.334Z",
+  "scope": "Anonymous read-only hosted installer parity, language/layout, shared service worker, and cold-offline launch; not a physical-phone test",
+  "scriptSha256": "be271c9a5d75d1672291e5b423df8e95ef11dc4d88120229b204ef3f33c749dd",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "canonicalInstallUrl": "https://geo-attendance-system-db9ca.web.app/install.html",
+  "assets": [
+    {
+      "path": "/install.html",
+      "status": 200,
+      "mime": "text/html",
+      "sha256": "4067e3713271cb08111eafaef6a040afaac57d23afd907150c606c7639b06c65",
+      "bytes": 6343,
+      "cacheControl": "no-cache"
+    },
+    {
+      "path": "/assets/css/install.css",
+      "status": 200,
+      "mime": "text/css",
+      "sha256": "9d16fa4507b9e7b49801ae9f052c5e3d6084553dfa683e28292c9d9967832a36",
+      "bytes": 5732,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/install.js",
+      "status": 200,
+      "mime": "text/javascript",
+      "sha256": "4b293f9e1af53f5aa22653c7c815bf815371b006f03844d6ac0ed6ae8da08b0a",
+      "bytes": 10792,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/reportflow-install-qr.svg",
+      "status": 200,
+      "mime": "image/svg+xml",
+      "sha256": "300188ad752dd1aa5fec734584f43f2b77b36627f4894d477556874370557397",
+      "bytes": 5678,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/downloads/reportflow-install-qr.svg",
+      "status": 200,
+      "mime": "image/svg+xml",
+      "sha256": "300188ad752dd1aa5fec734584f43f2b77b36627f4894d477556874370557397",
+      "bytes": 5678,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/downloads/reportflow-install-qr.png",
+      "status": 200,
+      "mime": "image/png",
+      "sha256": "b7dbc5ed4a8b85656f6a86e130f47a5d2099387631d754fe31504c8253bbba08",
+      "bytes": 5742,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/downloads/reportflow-install-a4.pdf",
+      "status": 200,
+      "mime": "application/pdf",
+      "sha256": "278d5679ecf0bbd988e91ac47290e742e886de7b4fcb5a3e02317eaf373064c8",
+      "bytes": 19368,
+      "cacheControl": "max-age=3600"
+    }
+  ],
+  "checks": [
+    "seven installer artifacts match frozen local SHA-256 and MIME, including PDF and no-cache HTML",
+    "anonymous English and Chinese installer, shared manifest identity, images, and phone layout verified",
+    "shared service worker serves the exact installer and cached logo/QR after every prior page closes"
+  ],
+  "rendered": {
+    "english": {
+      "title": "Install ReportFlow",
+      "heading": "Install ReportFlow",
+      "language": "en",
+      "openLink": "https://geo-attendance-system-db9ca--release-20260915-edpr7cq9.web.app/index.html",
+      "installLink": "https://geo-attendance-system-db9ca.web.app/install.html",
+      "manifestUrl": "https://geo-attendance-system-db9ca--release-20260915-edpr7cq9.web.app/manifest.webmanifest",
+      "width": 390,
+      "scrollWidth": 390,
+      "instructions": "iPhone / iPad\n            \n              Open this page in Safari.\n              Tap Share (or More, then Share).\n              Choose Add to Home Screen.\n              Keep Open as Web App on if shown, then tap Add.",
+      "images": [
+        {
+          "src": "/assets/icons/reportflow-icon.svg",
+          "naturalWidth": 150,
+          "naturalHeight": 150
+        },
+        {
+          "src": "/assets/icons/reportflow-install-qr.svg",
+          "naturalWidth": 900,
+          "naturalHeight": 900
+        }
+      ],
+      "installerScriptReady": true,
+      "stylesheetReady": true
+    },
+    "chinese": {
+      "title": "安装 ReportFlow",
+      "heading": "安装 ReportFlow",
+      "language": "zh-Hans",
+      "openLink": "https://geo-attendance-system-db9ca--release-20260915-edpr7cq9.web.app/index.html",
+      "installLink": "https://geo-attendance-system-db9ca.web.app/install.html",
+      "manifestUrl": "https://geo-attendance-system-db9ca--release-20260915-edpr7cq9.web.app/manifest.webmanifest",
+      "width": 390,
+      "scrollWidth": 390,
+      "instructions": "iPhone / iPad\n            \n              在 Safari 中打开此页面。\n              点击“分享”（或先点击“更多”，再点击“分享”）。\n              选择“添加到主屏幕”。\n              如有“作为网页 App 打开”选项，请保持开启，然后点击“添加”。",
+      "images": [
+        {
+          "src": "/assets/icons/reportflow-icon.svg",
+          "naturalWidth": 150,
+          "naturalHeight": 150
+        },
+        {
+          "src": "/assets/icons/reportflow-install-qr.svg",
+          "naturalWidth": 900,
+          "naturalHeight": 900
+        }
+      ],
+      "installerScriptReady": true,
+      "stylesheetReady": true
+    },
+    "offline": {
+      "title": "Install ReportFlow",
+      "heading": "Install ReportFlow",
+      "language": "en",
+      "openLink": "https://geo-attendance-system-db9ca--release-20260915-edpr7cq9.web.app/index.html",
+      "installLink": "https://geo-attendance-system-db9ca.web.app/install.html",
+      "manifestUrl": "https://geo-attendance-system-db9ca--release-20260915-edpr7cq9.web.app/manifest.webmanifest",
+      "width": 390,
+      "scrollWidth": 390,
+      "instructions": "iPhone / iPad\n            \n              Open this page in Safari.\n              Tap Share (or More, then Share).\n              Choose Add to Home Screen.\n              Keep Open as Web App on if shown, then tap Add.",
+      "images": [
+        {
+          "src": "/assets/icons/reportflow-icon.svg",
+          "naturalWidth": 150,
+          "naturalHeight": 150
+        },
+        {
+          "src": "/assets/icons/reportflow-install-qr.svg",
+          "naturalWidth": 900,
+          "naturalHeight": 900
+        }
+      ],
+      "installerScriptReady": true,
+      "stylesheetReady": true
+    }
+  },
+  "screenshots": [],
+  "pwa": {
+    "registration": {
+      "scope": "https://geo-attendance-system-db9ca--release-20260915-edpr7cq9.web.app/",
+      "activeUrl": "https://geo-attendance-system-db9ca--release-20260915-edpr7cq9.web.app/sw.js",
+      "controllerUrl": "https://geo-attendance-system-db9ca--release-20260915-edpr7cq9.web.app/sw.js",
+      "waiting": ""
+    },
+    "closedEveryPageBeforeOffline": true,
+    "offline": {
+      "status": 200,
+      "fromServiceWorker": true,
+      "installerSha256": "4067e3713271cb08111eafaef6a040afaac57d23afd907150c606c7639b06c65",
+      "logoAndQrLoaded": true
+    },
+    "physicalPhoneTest": false
+  },
+  "isolation": {
+    "blockedRequests": [],
+    "pageErrors": [],
+    "nativePrompts": 0,
+    "workerMessages": []
+  },
+  "manifest": {
+    "name": "ReportFlow",
+    "shortName": "ReportFlow",
+    "startUrl": "/index.html",
+    "scope": "/",
+    "id": null
+  },
+  "completedAtUtc": "2026-09-15T01:18:20.294Z"
+}

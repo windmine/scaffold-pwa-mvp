@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "runId": "20260915-0025",
+  "startedAtUtc": "2026-09-15T01:26:01.632875+00:00",
+  "strictCurrentGateOperatorConfirmed": true,
+  "prerequisiteSha256": {
+    "hosted-live-shell-20260915.json": "20462e152dbeac701a1d68494906d21f1c066a4cd68318500c9a2a7487eca299",
+    "hosted-live-installer-20260915.json": "d6d7cef2e4883d202b5a647e1162c9cf1d3b482c2e97ea981eb93fb4dec43118",
+    "hosted-waiting-update-20260915.json": "c2e10996c2e9431c40dc1ccd469a8a4a9556106458497f45efdec26603d5a33b",
+    "hosted-report-live-20260915-a/evidence.json": "e8e259068b6281bce5ee844039e68b4178d6a20a8533541dd1c8a63d0845d5aa",
+    "hosted-improvements-live-20260915-a/evidence.json": "f50cefd9ec10a75f3d990f07128bee92ee695879897967063c8319bbbbe92bda",
+    "neon-recovery-proof-20260915-current-final.json": "b0779c9deb2c0827872c4c3e4c9639d8e6d7049c2aed24920c6f22826cf17375",
+    "failed-hosted-cleanup-stage-20260915-c.json": "3a78463d254cce5aa8c7f22dc5eacfec0552b220620155d704dd64a56c4451e7",
+    "hosted-accounts-live-20260915-a.json": "b6b6b8fa9e7be59dddd14c3cf7a60547d6770240485c9785725f93d20ffa6832",
+    "hosted-improvements-stage-20260915-a/evidence.json": "ebf50f19cc216c04698c4319238a97f020734874b0445a422b36206f4bd025fd",
+    "hosted-improvements-stage-20260915-b/evidence.json": "c1f75c0d8b849f9f14452647c6e01c79efea05ee2e4941c0bb2b28de3299bdb9",
+    "hosted-improvements-stage-20260915-c/evidence.json": "3baa89f0d9a0ee8bbecbdb252ac05a9a320ae2a86b7eb445b2a80d2835305ff9",
+    "hosted-improvements-stage-20260915-d/evidence.json": "9a454db0050aece1850afddc78355ce5c8f54a4fb63b094364c1aeb345289193",
+    "hosted-improvements-stage-20260915-e/evidence.json": "5ec9f9326c95b65e114c79f0716c39a3100c9b58303239574bc1be99f3a665b5",
+    "hosted-improvements-stage-20260915-f/evidence.json": "48cc6a6ef0cddf3c6a24716303729097d4d909f190277574014b00b8ef0e665c",
+    "hosted-improvements-stage-20260915-g/evidence.json": "ad10cd09611415a9a6fd5ca0ce0134febc4f9308648fd71c67644fdf5645f4e1",
+    "hosted-improvements-stage-20260915-h/evidence.json": "1e24c8116dc81bd13fd52db1e5fd84c674fee95cfee2cd2f0a3bb44c9762271c",
+    "hosted-improvements-stage-20260915-i/evidence.json": "09ff73edd44fc43d1dab95aa712436a196328d4c729f95e3c9bd319c79f2067d",
+    "hosted-old-compatible-shell-20260915.json": "84e7d89af94bccdc0d09f284b9eda6c5258ca08613aea84fb5a47127b2ba81f7",
+    "hosted-pre-release-20260915.json": "0139496f3dcc054d3d3ad2a612c65a05f0cb0038c45dd3ec7f1d8c9f8962b84d",
+    "hosted-pre-release-exact-20260915.json": "581720cca63dde11623479fbe8173809e48b49d312524bd939366e4840ad8a69",
+    "hosted-production-preview-installer-20260915.json": "e22e22a01b696ce23ac628e2b4b0a2a1591f87ce761c0c6ed00546ceb821c605",
+    "hosted-production-preview-shell-20260915.json": "94df5106f5f6349e22b7b1ff91bf82a6eeea908297be6504d4f769c7bac76b19",
+    "hosted-report-old-20260915-a/evidence.json": "18eee9dccfc168da7488c586d18c141d54e4976877aaa9e6085e4c8db5402e7f",
+    "hosted-report-stage-20260915-a/evidence.json": "b726597b95a05dc2b3066c56deb8653e00e29352999ebbbd2ccdd062c44d16df",
+    "hosted-report-stage-20260915-h/evidence.json": "425be67a0e9d3aa0f45d1c5e53df1d5d0bed6c5c1894ce27d16f4b7b27a5d678",
+    "hosted-stage-final-installer-20260915.json": "cc7e8d4a040a7cae22cb38536c5bb47051358a80b667d65bbe9e3cdc30bb9e7d",
+    "hosted-stage-final-shell-20260915.json": "80ab5ffe4e9e40020d77a5477bf77c9d5bfd9e4c685307fcb0a0f3e026a49c70",
+    "hosted-stage-installer-20260915.json": "a3509e5dd824fced41fedb875caef0ca340cc9aa0084c574d8b6808b560285a0",
+    "hosted-stage-shell-20260915.json": "d7dede21d1e45f08c791ac77a13e6e8b2386687c5954ed3cd433cd41dceac5c3"
+  },
+  "completedActions": [
+    "channel:verify-20260915",
+    "channel:old-verify-20260915",
+    "service:geo-report-verify-20260915-0025",
+    "job:geo-report-verify-migrate-20260915-0025",
+    "owned_object:.readiness",
+    "owned_object:201d7d670548475faf37c88ab0bcdadc.png",
+    "owned_object:28645c2059e2478f9f93abd3e6f5309c.png",
+    "owned_object:b55e455c1b6545aeaf8065353b04fba8.png",
+    "owned_object:dbd7ec673d6846178406e295c8a40259.png",
+    "owned_object:fea668e0aebc4f15ba3a0edefd7fdd8a.png",
+    "owned_object:ff07d88841a341d590914b6457e379ce.png",
+    "branch:br-withered-sound-a7m88khg",
+    "secret:geo-report-db-20260915-0025",
+    "secret:geo-report-jwt-20260915-0025",
+    "secret:geo-report-fixtures-20260915-0025"
+  ],
+  "softDeletedObjects": [
+    {
+      "name": "uploads/release-verification/20260915-0025/.readiness",
+      "generation": "1789432226531485"
+    },
+    {
+      "name": "uploads/release-verification/20260915-0025/201d7d670548475faf37c88ab0bcdadc.png",
+      "generation": "1789432513629102"
+    },
+    {
+      "name": "uploads/release-verification/20260915-0025/28645c2059e2478f9f93abd3e6f5309c.png",
+      "generation": "1789434237868739"
+    },
+    {
+      "name": "uploads/release-verification/20260915-0025/b55e455c1b6545aeaf8065353b04fba8.png",
+      "generation": "1789434238464195"
+    },
+    {
+      "name": "uploads/release-verification/20260915-0025/dbd7ec673d6846178406e295c8a40259.png",
+      "generation": "1789432514170469"
+    },
+    {
+      "name": "uploads/release-verification/20260915-0025/fea668e0aebc4f15ba3a0edefd7fdd8a.png",
+      "generation": "1789432368422172"
+    },
+    {
+      "name": "uploads/release-verification/20260915-0025/ff07d88841a341d590914b6457e379ce.png",
+      "generation": "1789432368943544"
+    }
+  ],
+  "absenceVerified": true,
+  "preservedRollbackVersion": "654ff0044465966e",
+  "preservedBackupBranchId": "br-misty-wildflower-a7vty6d9",
+  "preservedLiveVersion": "23c1ee5e712da7d7",
+  "preflightPassedAtUtc": "2026-09-15T01:26:59.008600+00:00",
+  "completedAtUtc": "2026-09-15T01:29:37.587116+00:00"
+}

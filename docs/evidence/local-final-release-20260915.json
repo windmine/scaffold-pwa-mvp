@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "recordedDateUtc": "2026-09-15",
+  "frontendCommit": "921be2dd4f0e215bc32528d1866850ea4f3213b0",
+  "backendImageSourceCommit": "8e33d21",
+  "sourceCacheVersion": "leader-field-0c6868b4075f",
+  "productionCacheVersion": "leader-field-57d5f43f282c",
+  "checks": {
+    "lint": "passed",
+    "checkMobileIncludingBuildAndFocusedModules": "passed",
+    "appBrowserScenarios": 67,
+    "installerScenarios": 11,
+    "databaseFreeMaintenanceTest": "passed",
+    "waitingUpdateLoopbackRegression": "passed",
+    "backendImageSourceUnchanged": "passed"
+  },
+  "notes": [
+    "All 67 app workflows were repeated after the final Template action-lock fix.",
+    "The delayed-audit regression reproduced the enabled-but-ignored Edit action before the fix and passed afterward.",
+    "Separate native PostgreSQL and provider-smoke evidence records backend validation.",
+    "This is local automation, not a physical-phone test."
+  ]
+}
