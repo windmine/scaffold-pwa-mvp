@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import process from 'node:process';
 import { chromium } from 'playwright';
 import { readConfiguration, assertMutationAllowed, assertOwnedExport, safeFailureDetails, ensureRequiredField } from './check-hosted-report-improvements.mjs';
 
@@ -77,6 +78,31 @@ assert.doesNotThrow(() => assertOwnedExport(pdf('0 Reports No Reports found'), '
 assert.throws(() => assertOwnedExport(pdf('2 Reports Report #43 our unique answer Report #99 other answer'), 'pdf', expected, false));
 assert.throws(() => assertOwnedExport(pdf('1 Reports Report #43 our unique answer'), 'pdf', expected, true));
 console.log('ok - parsed PDF checks reject additional Reports and ignored no-match filters');
+
+const collectionPdf = (items) => execFileSync('python', ['-c', `
+import json,sys
+from pathlib import Path
+from unittest.mock import patch
+sys.path.insert(0, str(Path.cwd() / 'backend'))
+from app.use_cases import supervisor_review as exports
+items = json.load(sys.stdin)
+with patch.object(exports, 'form_submission_pdf_items', return_value=items):
+    response = exports.export_form_submissions_pdf(None, None, purpose='report')
+sys.stdout.buffer.write(response.body)
+`], { input: JSON.stringify(items), timeout: 30000, windowsHide: true,
+  env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) =>
+    /^(path|systemroot|windir|pathext|temp|tmp|virtual_env|pythonpath|userprofile|localappdata|appdata)$/i.test(key))),
+  APP_ENV: 'development', DATABASE_URL: 'sqlite://', GEO_SECRET_KEY: 'local-export-verifier-test-only', UPLOAD_STORAGE_BACKEND: 'local' } });
+const ownedPdfItem = { id: 43, submission_purpose: 'report', workflow_status: 'submitted', form_name: 'Owned synthetic Template',
+  worker_name: 'Synthetic Worker', site_name: null, work_date: '2026-09-15', created_at: '2026-09-15T01:00:00Z',
+  fields: [{ id: 'issue', type: 'text', label: 'Issue' }], answers: { issue: expected.marker }, photo_urls: [] };
+const realCollection = collectionPdf([ownedPdfItem]);
+assert.doesNotThrow(() => assertOwnedExport(realCollection, 'pdf', expected, false));
+assert.doesNotThrow(() => assertOwnedExport(collectionPdf([]), 'pdf', expected, true));
+assert.throws(() => assertOwnedExport(collectionPdf([ownedPdfItem, { ...ownedPdfItem, id: 99 }]), 'pdf', expected, false));
+assert.throws(() => assertOwnedExport(collectionPdf([{ ...ownedPdfItem, id: 99 }]), 'pdf', expected, false));
+assert.throws(() => assertOwnedExport(realCollection, 'pdf', expected, true));
+console.log('ok - real collection PDF metadata preserves exact Report IDs and extra/wrong/no-match rejection');
 
 const secretError = new Error('Private URL https://example.invalid/#token=private-capability and password=private-password');
 secretError.stack = 'private stack with account details';

@@ -106,7 +106,7 @@ export function assertOwnedExport(bytes, format, expected, empty) {
     'csv_find_did_not_export_exact_owned_report');
   } else {
     const contains = parsed.replace(/\s+/g, '').includes(expected.marker.replace(/\s+/g, ''));
-    const reportIds = [...new Set([...parsed.matchAll(/\bReport\s*#(\d+)\b/g)].map((match) => Number(match[1])))];
+    const reportIds = [...new Set([...parsed.matchAll(/\bReport\s*#(\d+)\b/gi)].map((match) => Number(match[1])))];
     requireCondition(empty ? !contains && reportIds.length === 0 && /No Reports found/.test(parsed)
       : contains && reportIds.length === 1 && reportIds[0] === expected.reportId,
     'pdf_find_did_not_match_owned_report');
