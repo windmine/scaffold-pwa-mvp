@@ -194,7 +194,9 @@ python backend/postgres_rehearsal.py --pg-bin "C:/Program Files/PostgreSQL/17/bi
 
 The runner uses the chosen installed binaries, an owned temporary directory, generated SCRAM passwords, a random loopback port, and a non-superuser database-owner role. It never consumes `DATABASE_URL`, accepts no remote target, isolates inherited libpq configuration, verifies the server's data-directory/port identity, and validates ownership before stopping/removing its temporary cluster. Existing Windows PostgreSQL services and cloud resources are untouched. Failed phases remain failures, but a migration assertion does not prevent independent review fixtures from running. Exit code 1 means the full gate is not clear; `--migrations-only`/`--review-only` are diagnostic subsets. Evidence files are never silently overwritten and contain source hashes, version, pass/failure records, lock proofs, and cleanup status, not connection credentials.
 
-Final runs: [PostgreSQL 17.6](evidence/postgres-rehearsal-17-2026-09-07-release.json) and [PostgreSQL 18.4](evidence/postgres-rehearsal-18-2026-09-07-release.json), 2026-09-07. Each passes 53 checkpoints: fresh 20-migration application/idempotence, exact read-only history verification, `0017`→`0020` evidence-preserving upgrades, positive missing-snapshot correction and ambiguous-case refusal, native immutability/purpose/replay guards, transactional rollback/retry, and 20 genuinely blocking review races. Each race requires one winner, one 409, one audit, unchanged evidence, and rollback if audit insertion fails. Both owned clusters were removed.
+Current native candidate runs: [PostgreSQL 17.6](evidence/postgres-rehearsal-17-2026-09-15-invitation-template-release.json) and [PostgreSQL 18.4](evidence/postgres-rehearsal-18-2026-09-15-invitation-template-release.json), 2026-09-15. Each passes 64 checkpoints through `0021`, including 31 measured contention races across Report review, invitation claim/reissue/revoke/resign, and checked/legacy Template edits, with cleanup complete. The bounded application correction refreshes password-setup state after the invitation lock so concurrent acceptance/resignation audits reflect durable state; no migration bytes changed for this correction. Evidence binds exact source hashes. Candidate-image/provider staging, recovery, hosted UI and physical-phone gates remain separate.
+
+Historical final runs: [PostgreSQL 17.6](evidence/postgres-rehearsal-17-2026-09-07-release.json) and [PostgreSQL 18.4](evidence/postgres-rehearsal-18-2026-09-07-release.json), 2026-09-07. Each passes 53 checkpoints: fresh 20-migration application/idempotence, exact read-only history verification, `0017`→`0020` evidence-preserving upgrades, positive missing-snapshot correction and ambiguous-case refusal, native immutability/purpose/replay guards, transactional rollback/retry, and 20 genuinely blocking review races. Each race requires one winner, one 409, one audit, unchanged evidence, and rollback if audit insertion fails. Both owned clusters were removed.
 
 The earlier [17.6](evidence/postgres-rehearsal-17-2026-09-07-isolated.json)/[18.4](evidence/postgres-rehearsal-18-2026-09-07-isolated.json) runs remain failed historical evidence: unchanged `0019` misclassifies NULL/empty-snapshot Daywork. Additive `0020` corrects only positively identified pre-`0019` Daywork and records provenance, refusing ambiguity instead of fabricating a snapshot. Applied `0019`, stored checksums, and submitted answers/photos/signatures/dates/Site remain unchanged. The later read-only production inventory found no submissions; the snapshot/ledger findings at that time are preserved in [preflight evidence](evidence/report-release-preflight-2026-09-07.json), including the source-line-ending mismatch subsequently resolved by restoring canonical source bytes.
 
@@ -337,6 +339,7 @@ Choose a fresh lowercase run ID (`[a-z0-9][a-z0-9_-]{3,39}`), use it consistentl
 ```powershell
 python scripts/hosted-report-accounts.py --allow-hosted-fixtures --action provision --run-id new-run-id
 node scripts/check-hosted-report-workflow.mjs --allow-hosted-mutations --run-id new-run-id
+node scripts/check-hosted-report-improvements.mjs --allow-hosted-mutations --run-id new-run-id
 python scripts/hosted-report-accounts.py --allow-hosted-fixtures --action deactivate --run-id new-run-id
 ```
 
@@ -344,13 +347,18 @@ The provisioner requires exact approved database host/name, isolates inherited `
 
 The browser runner mutates only its nonce- and identity-bound Template/Report: it creates synthetic evidence, queues/replays, transitions and resolves, then uses supported soft-delete and archive APIs. It does not seed/reset databases, bulk-delete records, directly delete upload objects, purge the rubbish bin, or change existing users/passwords. Run account deactivation after browser cleanup, including on failure. Review `cleanup.failures` and `submissionOutcomeUnknown`; a cancelled browser request is not proof of server rollback. Preserve evidence and inspect any uncertain owned submission before cleanup—never broaden deletion scope or force an offline fixture online. Clear injected secrets from the process afterward.
 
+The separate improvements runner reuses those exact provisioner account emails/passwords (minimum 32 characters), same HTTPS origin/host guard, and run ID. Optional `HOSTED_REPORT_IMPROVEMENTS_EVIDENCE_DIR` must be new; otherwise it writes `docs/evidence/hosted-improvements-<run-id>/evidence.json`. It creates its own nonce-named Template, Report and invited Worker, exercises private create/edit draft reload/publish/stale 409, invitation reissue/setup/single use without replacing the Supervisor session, real-service-worker cold offline Report return/replay, and matching/empty Find CSV/PDF content. Python plus existing `pypdf` is required. Only its ownership-verified Report is soft-deleted, Template archived and new invited Worker resigned; the three provisioner accounts are left for the final deactivation command. It takes no screenshots/traces and never persists invitation URLs, tokens, passwords or parsed document text. It does not test explicit invitation revocation, shared-browser account-switch snapshot invalidation, or physical-phone behavior; retain the separate checks for those boundaries. Preserve failed evidence and investigate unknown outcomes rather than rerunning into the same evidence directory.
+
 The small runner regression suite is safe offline and does not invoke the hosted flow:
 
 ```powershell
 node scripts/check-hosted-report-workflow-test.mjs
+node scripts/check-hosted-report-improvements-test.mjs
 ```
 
 It checks actual labelled resolution-note markup, aborts stalled API requests, and preserves same-origin cookies/CSRF/JSON; all page traffic is intercepted locally and no network request reaches a server. The hosted runner itself blocks service workers, so its workflow result must be paired with the separate shell/PWA and physical-phone/update checks.
+
+The improvements test adds four no-network groups for exact configuration/mutation boundaries and actual CSV/PDF parsing, including negative controls for extra Reports and ignored Find filters. These local checker tests are not a hosted candidate pass.
 
 ## Public installer and printable QR releases
 
