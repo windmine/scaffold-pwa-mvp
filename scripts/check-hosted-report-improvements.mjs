@@ -18,6 +18,17 @@ function requireCondition(condition, code) {
   }
 }
 
+export function safeFailureDetails(error, checkpoint, operation) {
+  return { checkpoint, ...(operation ? { operation } : {}),
+    code: error.safeCode || 'browser_or_api_operation_failed' };
+}
+
+export async function ensureRequiredField(card) {
+  const required = card.locator('[data-field-property="required"]');
+  if (!await required.isChecked()) await card.locator('.work-form-required-toggle').click();
+  requireCondition(await required.isChecked(), 'required_field_toggle_not_checked');
+}
+
 // No runtime work occurs during import. Credentials and invitation capabilities
 // are process-only; never include them in evidence, screenshots or diagnostics.
 export function readConfiguration(args = process.argv.slice(2), env = process.env) {
@@ -57,7 +68,8 @@ export function assertMutationAllowed({ url, method, body = {} }, scope) {
     || (post && ['/api/auth/worker-invitations/inspect', '/api/auth/worker-invitations/accept'].includes(path)
       && scope.tokens.has(body.token))
     || (post && path === '/api/supervisor/work-forms' && scope.templateNames.has(body.name)
-      && body.template_purpose === 'report' && (!body.department_id || body.department_id === scope.departmentId))
+      && (body.template_purpose === undefined || body.template_purpose === 'report')
+      && (!body.department_id || body.department_id === scope.departmentId))
     || (patch && scope.templateId && path === `/api/supervisor/work-forms/${scope.templateId}`
       && (!body.name || scope.templateNames.has(body.name)) && (!body.status || body.status === 'archived'))
     || (post && path === '/api/form-submissions' && Number(body.form_id) === scope.templateId
@@ -152,7 +164,7 @@ export async function runImprovements(config) {
   const save = () => writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
   save();
   let browser, supervisor, worker, secondWorker, workerContext, identities;
-  let stage = 'start', questionId, capturedReport, templateAttempted = false, invitationAttempted = false;
+  let stage = 'start', operation = '', questionId, capturedReport, templateAttempted = false, invitationAttempted = false;
   let pageErrors = 0;
   const boundaryFailures = new Set();
   const contexts = [];
@@ -227,11 +239,18 @@ export async function runImprovements(config) {
   };
   const step = async (label, action) => {
     stage = label;
+    operation = '';
     await action();
     requireCondition(boundaryFailures.size === 0, 'request_boundary_violation');
     evidence.checks.push({ name: label, status: 'passed' });
     save();
     console.log(`ok - ${label}`);
+  };
+  const progress = (code) => {
+    operation = code;
+    evidence.progress = { checkpoint: stage, operation: code, recordedAtUtc: new Date().toISOString() };
+    save();
+    console.log(`[hosted-progress] ${code}`);
   };
   try {
     browser = await chromium.launch({ headless: true });
@@ -260,42 +279,64 @@ export async function runImprovements(config) {
         && ready.body?.details?.upload_storage?.backend === 'gcs', 'current_database_migrations_gcs_required');
     });
     await step('private_template_create_draft_survives_reload_before_explicit_publish', async () => {
+      progress('create_open_workspace');
       await openWorkspace(supervisor, 'forms');
+      progress('create_open_panel');
       await supervisor.locator('#addWorkFormButton').click();
+      progress('create_fill_name');
       await supervisor.locator('#workFormNameInput').fill(names.create);
+      progress('create_fill_description');
       await supervisor.locator('#workFormDescriptionInput').fill(`Unpublished description ${nonce}`);
+      progress('create_add_field');
       await supervisor.locator('#addWorkFormFieldButton').click();
+      progress('create_fill_field_label');
       await supervisor.locator('#workFormFieldCards [data-field-property="label"]').fill('Synthetic issue');
-      await supervisor.locator('#workFormFieldCards [data-field-property="required"]').check();
+      progress('create_set_required');
+      await ensureRequiredField(supervisor.locator('#workFormFieldCards'));
+      progress('create_open_raw_editor');
       await supervisor.locator('#workFormAdvancedDetails summary').click();
       const raw = `text|Unapplied ${nonce}|required|id=unfinished\nnot finished yet`;
+      progress('create_fill_unapplied_raw');
       await supervisor.locator('#workFormFieldsInput').fill(raw);
+      progress('create_wait_saved_status');
       await supervisor.locator('#templateCreateDraftStatus').getByText('Template draft saved on this device.', { exact: true }).waitFor();
+      progress('create_reload_saved_draft');
       await supervisor.reload({ waitUntil: 'domcontentloaded' });
+      progress('create_open_workspace_after_reload');
       await openWorkspace(supervisor, 'forms');
+      progress('create_continue_named_draft');
       await supervisor.locator('#templateDraftsList .record-card').filter({ hasText: names.create })
         .getByRole('button', { name: 'Continue Template draft', exact: true }).click();
+      progress('create_check_restored_values');
       requireCondition(await supervisor.locator('#workFormNameInput').inputValue() === names.create
         && await supervisor.locator('#workFormDescriptionInput').inputValue() === `Unpublished description ${nonce}`
         && await supervisor.locator('#workFormFieldsInput').inputValue() === raw
         && await supervisor.locator('#workFormFieldCards [data-field-property="label"]').inputValue() === 'Synthetic issue',
       'private_create_draft_content_lost');
+      progress('create_check_unpublished_worker_visibility');
       const available = await api(secondWorker, '/api/work-forms?purpose=report');
       requireCondition(available.ok && !available.body.some((row) => scope.templateNames.has(row.name)),
         'unpublished_template_visible_to_worker');
+      progress('create_attempt_submit_with_pending_raw');
       await supervisor.locator('#workFormSubmitButton').click();
+      progress('create_wait_pending_raw_feedback');
       await supervisor.locator('#workFormRawFeedback').getByText(/Apply or discard the pending raw syntax/).waitFor();
+      progress('create_discard_unapplied_raw');
       await supervisor.locator('#discardWorkFormRawButton').click();
       templateAttempted = true;
+      progress('create_publish_template');
       const created = await responseTo(supervisor, '/api/supervisor/work-forms', 'POST',
         () => supervisor.locator('#workFormSubmitButton').click());
+      progress('create_check_publish_response');
       requireCondition(created.ok(), 'template_create_rejected');
       const row = await created.json();
       requireCondition(templateOwned(row) && Number.isInteger(row.id), 'created_template_not_owned');
       scope.templateId = evidence.owned.templateId = row.id;
       questionId = scope.questionId = row.fields?.[0]?.id;
       requireCondition(typeof questionId === 'string' && /^[a-zA-Z0-9_-]+$/.test(questionId), 'created_question_id_unavailable');
+      progress('create_wait_panel_closed');
       await supervisor.locator('#workFormCreatePanel').waitFor({ state: 'hidden' });
+      progress('create_wait_draft_retired');
       await supervisor.locator('#templateDraftsPanel').waitFor({ state: 'hidden' });
     });
     await step('private_template_edit_draft_survives_reload_and_publishes_once', async () => {
@@ -490,8 +531,8 @@ export async function runImprovements(config) {
     evidence.status = 'passed';
   } catch (error) {
     evidence.status = 'failed';
-    evidence.failure = { checkpoint: stage, code: error.safeCode || 'browser_or_api_operation_failed' };
-    console.error(`Hosted improvements failed: ${stage} (${evidence.failure.code})`);
+    evidence.failure = safeFailureDetails(error, stage, operation);
+    console.error(`Hosted improvements failed: ${stage}${operation ? `/${operation}` : ''} (${evidence.failure.code})`);
   } finally {
     // Stop this isolated Worker's pending retries. Never force a failed offline
     // context online during cleanup; a sent POST is not proof of server rollback.
