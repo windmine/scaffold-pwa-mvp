@@ -64,6 +64,7 @@ from app.use_cases.supervisor_review_exports import (
     text_value,
 )
 from app.use_cases.review_queue import list_review_records, normalize_review_search
+from app.use_cases.report_pdf import build_report_pdf
 from app.use_cases.review_record_adapters import REVIEW_RECORD_ADAPTERS
 from app.use_cases.review_record_policy import apply_review_decision, enforce_review_status_unchanged
 from app.use_cases.team_work_logs import prepare_team_work_log_entries
@@ -1686,23 +1687,22 @@ def export_form_submissions_pdf(
         submitted_by = daywork_submitted_by(items[0]) if len(items) == 1 else "Multiple submitters"
         return export_daywork_pdf_document(story, filename, submitted_by)
 
-    styles = pdf_styles()
-    story = []
-
-    for index, item in enumerate(items):
-        if index:
-            story.append(PageBreak())
-        story.extend(pdf_form_submission_flowables(item, styles, template))
-
-    if not story:
-        empty_label = "No Daywork submissions found" if template == "daywork" else "No Reports found"
-        story = [Paragraph(empty_label, styles["title"])]
-
-    title = "Daywork PDF Export" if template == "daywork" else "Submitted Reports PDF"
-    subtitle = f"{len(items)} {'Daywork records' if template == 'daywork' else 'Reports'}"
-    filename_prefix = "daywork-submissions" if template == "daywork" else "reports"
-    filename = f"{filename_prefix}.pdf" if not status else f"{filename_prefix}-{status}.pdf"
-    return export_pdf_document(title, subtitle, story, filename)
+    filename = "reports.pdf" if not status else f"reports-{status}.pdf"
+    # Retained callers may omit purpose and receive a mixed legacy collection.
+    # Preserve its old per-record lifecycle/layout; Report-only callers always
+    # request purpose=report and use the branded renderer below.
+    if any(item.get("submission_purpose") == "daywork" for item in items):
+        styles = pdf_styles()
+        story = []
+        for index, item in enumerate(items):
+            if index:
+                story.append(PageBreak())
+            story.extend(pdf_form_submission_flowables(item, styles, template))
+        return export_pdf_document("Submitted Reports PDF", f"{len(items)} Reports", story, filename)
+    return Response(
+        content=build_report_pdf(items), media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 def export_form_submission_html(submission_id: int, session: Session, supervisor: User):
@@ -1758,15 +1758,9 @@ def export_form_submission_pdf(
             daywork_submitted_by(item),
         )
 
-    styles = pdf_styles()
-    title = item["form_name"] or "Report"
-    subtitle = f"Report #{item['id']}"
-    story = pdf_form_submission_flowables(item, styles, template)
-    return export_pdf_document(
-        title,
-        subtitle,
-        story,
-        f"{filename_prefix}-{item['id']}.pdf",
+    return Response(
+        content=build_report_pdf([item]), media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename_prefix}-{item["id"]}.pdf"'},
     )
 
 

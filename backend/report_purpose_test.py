@@ -1004,15 +1004,15 @@ def test_report_pdf_exports_workflow_lifecycle_details():
             for page in PdfReader(BytesIO(response.body)).pages
         )
         for expected in (
-            "STATUS",
+            "Status",
             "resolved",
             "Report review",
-            "SUPERVISOR NOTE",
+            "Supervisor note",
             "Safe access restored",
-            "REVIEWING",
+            "Reviewing Supervisor",
             supervisor.name,
-            "REVIEW STARTED",
-            "RESOLVED",
+            "Review started",
+            "Resolved",
         ):
             if expected not in text:
                 raise AssertionError(
@@ -1093,6 +1093,105 @@ def test_collection_document_exports_filter_reports_from_daywork():
         engine.dispose()
 
     print("ok - collection HTML/PDF exports filter Reports from Daywork")
+
+
+def test_omitted_purpose_pdf_preserves_mixed_record_lifecycles():
+    engine, session, supervisor = make_session()
+    try:
+        worker = User(
+            department_id=supervisor.department_id,
+            email="mixed-pdf-worker@example.com",
+            name="Mixed PDF Worker",
+            password_hash="test",
+            role="worker",
+            worker_class="leader",
+        )
+        report_form = WorkForm(
+            department_id=supervisor.department_id,
+            name="Mixed collection safety record",
+            fields_json="[]",
+            template_purpose="report",
+        )
+        daywork_forms = [
+            WorkForm(
+                department_id=supervisor.department_id,
+                name=f"Retained labour sheet {index}",
+                fields_json="[]",
+                template_purpose="daywork",
+            )
+            for index in (1, 2)
+        ]
+        for item in (worker, report_form, *daywork_forms):
+            session.add(item)
+        session.commit()
+        for item in (worker, report_form, *daywork_forms):
+            session.refresh(item)
+
+        reports = []
+        for index, form in enumerate((report_form, *daywork_forms)):
+            reports.append(create_work_form_submission(
+                WorkFormSubmissionCreate(
+                    form_id=form.id,
+                    work_date="2026-09-01",
+                    answers={},
+                    client_submission_id=f"mixed-pdf-{index}",
+                ),
+                worker,
+                session,
+            ))
+        transition_report(
+            reports[0]["id"], ReportTransitionRequest(status="in_review"),
+            supervisor, session,
+        )
+        transition_report(
+            reports[0]["id"],
+            ReportTransitionRequest(status="resolved", supervisor_note="Mixed export final note"),
+            supervisor, session,
+        )
+        for record, outcome in zip(reports[1:], ("approved", "rejected")):
+            decide_review_record(
+                "form", record["id"], ApprovalRequest(status=outcome),
+                supervisor, session,
+            )
+
+        # The retained interface omits purpose and uses the default submitted-form
+        # layout. A mixed collection must not reinterpret Daywork as Reports.
+        response = export_form_submissions_pdf(session, supervisor)
+        pages = [page.extract_text() or "" for page in PdfReader(BytesIO(response.body)).pages]
+        for form, outcome in zip(daywork_forms, ("approved", "rejected")):
+            matched = [page for page in pages if form.name in page]
+            assert len(matched) == 1, f"Expected one page for {form.name}: {pages}"
+            text = matched[0].lower()
+            assert outcome in text, f"Lost retained Daywork {outcome} status: {text}"
+            assert "report review" not in text and "resolved" not in text, text
+        matched_reports = [page for page in pages if report_form.name in page]
+        assert len(matched_reports) == 1, pages
+        report_text = matched_reports[0].lower()
+        for expected in ("resolved", "report review", "mixed export final note", supervisor.name.lower()):
+            assert expected in report_text, (expected, report_text)
+        assert "pending" not in report_text, report_text
+
+        # A form-filtered retained request also omits purpose, even though its
+        # result happens to contain only Daywork rather than a mixed collection.
+        retained = export_form_submissions_pdf(session, supervisor, form_id=daywork_forms[0].id)
+        retained_text = "\n".join(
+            page.extract_text() or "" for page in PdfReader(BytesIO(retained.body)).pages
+        ).lower()
+        assert "approved" in retained_text and "report review" not in retained_text, retained_text
+
+        # Explicit Report exports still use the new numbered, snapshot-aware form.
+        report_only = export_form_submissions_pdf(session, supervisor, purpose="report")
+        report_only_text = "\n".join(
+            page.extract_text() or "" for page in PdfReader(BytesIO(report_only.body)).pages
+        )
+        assert "Version 1" in report_only_text and "Page 1 of 1" in report_only_text, report_only_text
+        assert "Mixed export final note" in report_only_text, report_only_text
+        assert all(form.name not in report_only_text for form in daywork_forms), report_only_text
+    finally:
+        session.close()
+        engine.dispose()
+
+    print("ok - omitted-purpose PDF collections retain Daywork outcomes and Report lifecycle details")
 
 
 def test_daywork_exports_use_durable_purpose_after_template_rename():
@@ -1246,6 +1345,7 @@ def main():
     test_report_html_exports_workflow_lifecycle_details()
     test_report_pdf_exports_workflow_lifecycle_details()
     test_collection_document_exports_filter_reports_from_daywork()
+    test_omitted_purpose_pdf_preserves_mixed_record_lifecycles()
     test_daywork_exports_use_durable_purpose_after_template_rename()
     test_daywork_collection_exports_keep_retained_labels_and_filenames()
     print("report purpose test passed")

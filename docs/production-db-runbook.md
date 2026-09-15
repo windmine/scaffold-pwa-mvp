@@ -4,6 +4,12 @@ Use this runbook for managed PostgreSQL migrations, Cloud Run releases, durable 
 
 ## Deployment Truth
 
+### 2026-09-16 Report PDF-format candidate (not deployed)
+
+The local candidate changes only Report PDF rendering and bundles department logo PNGs under `backend/app/assets/report-logos`, included by the existing `COPY backend ./backend`. It needs a backend release, but no migration, schema change or Hosting promotion. Production remains on the September 15 identities below until an explicitly authorized release is verified. Do not reuse the completed migration maintenance approval for this candidate.
+
+Before promotion, run `npm run check:review-queue` (including `check:report-pdf`), compile/import the backend, and verify single/collection authenticated PDF downloads on the no-traffic candidate with owned fixtures. Inspect all pages: correct department branding and submitter, immutable Template content/version, long answers, inline signatures, photos, workflow/final note, and `Page N of M`. Missing evidence must say unavailable, never silently disappear. Check that PDF logos load from the backend image without the repository-root `assets/` directory. Retained Daywork, CSV/HTML, access scope, database/upload readiness and protected-response caching must remain unchanged. A synthetic local preview is not hosted or physical-phone evidence.
+
 ### 2026-09-15 coupled production release
 
 The backend and frontend are live. Healthy `geo-backend-report-20260915-0025` reached 100% traffic at **2026-09-15T01:17:26.168054Z**, and temporary tags were removed. The user-approved database-free maintenance/drain window on `geo-backend-maint-20260915-0025` ran from **01:10:22.871295Z** until that promotion, about **7 minutes 3 seconds**. Exact Hosting version `23c1ee5e712da7d7` was cloned from verified production-backend preview `release-20260915` at **01:23:23.272Z**. Live workflow, account-fixture verification and exact owned staging-resource cleanup all passed as recorded below. This is not a physical-phone completion claim.
