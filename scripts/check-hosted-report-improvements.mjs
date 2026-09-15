@@ -307,12 +307,17 @@ export async function runImprovements(config) {
       progress('create_continue_named_draft');
       await supervisor.locator('#templateDraftsList .record-card').filter({ hasText: names.create })
         .getByRole('button', { name: 'Continue Template draft', exact: true }).click();
+      progress('create_wait_restored_panel');
+      await supervisor.locator('#workFormCreatePanel').waitFor({ state: 'visible' });
       progress('create_check_restored_values');
-      requireCondition(await supervisor.locator('#workFormNameInput').inputValue() === names.create
-        && await supervisor.locator('#workFormDescriptionInput').inputValue() === `Unpublished description ${nonce}`
-        && await supervisor.locator('#workFormFieldsInput').inputValue() === raw
-        && await supervisor.locator('#workFormFieldCards [data-field-property="label"]').inputValue() === 'Synthetic issue',
-      'private_create_draft_content_lost');
+      evidence.restoredCreateMatches = {
+        name: await supervisor.locator('#workFormNameInput').inputValue() === names.create,
+        description: await supervisor.locator('#workFormDescriptionInput').inputValue() === `Unpublished description ${nonce}`,
+        raw: await supervisor.locator('#workFormFieldsInput').inputValue() === raw,
+        fieldLabel: await supervisor.locator('#workFormFieldCards [data-field-property="label"]').inputValue() === 'Synthetic issue'
+      };
+      save();
+      requireCondition(Object.values(evidence.restoredCreateMatches).every(Boolean), 'private_create_draft_content_lost');
       progress('create_check_unpublished_worker_visibility');
       const available = await api(secondWorker, '/api/work-forms?purpose=report');
       requireCondition(available.ok && !available.body.some((row) => scope.templateNames.has(row.name)),
@@ -338,21 +343,32 @@ export async function runImprovements(config) {
       await supervisor.locator('#workFormCreatePanel').waitFor({ state: 'hidden' });
       progress('create_wait_draft_retired');
       await supervisor.locator('#templateDraftsPanel').waitFor({ state: 'hidden' });
+      progress('create_wait_refresh_complete');
+      await supervisor.waitForFunction(() => !document.querySelector('#workFormNameInput').disabled);
     });
     await step('private_template_edit_draft_survives_reload_and_publishes_once', async () => {
+      progress('edit_read_original');
       const original = await template();
+      progress('edit_open_current_card');
       await supervisor.locator('#workFormsList .record-card').filter({ hasText: names.create })
         .getByRole('button', { name: 'Edit', exact: true }).click();
+      progress('edit_fill_name');
       await supervisor.locator('#editWorkFormName').fill(names.edit);
+      progress('edit_fill_description');
       await supervisor.locator('#editWorkFormDescription').fill(`Saved edited description ${nonce}`);
+      progress('edit_wait_saved');
       await supervisor.locator('#templateEditDraftStatus').getByText('Template draft saved on this device.', { exact: true }).waitFor();
+      progress('edit_reload');
       await supervisor.reload({ waitUntil: 'domcontentloaded' });
       await openWorkspace(supervisor, 'forms');
+      progress('edit_continue_draft');
       await supervisor.locator('#templateDraftsList .record-card').filter({ hasText: names.edit })
         .getByRole('button', { name: 'Continue Template draft', exact: true }).click();
+      await supervisor.locator('#templateEditPanel').waitFor({ state: 'visible' });
       requireCondition(await supervisor.locator('#editWorkFormName').inputValue() === names.edit
         && await supervisor.locator('#editWorkFormDescription').inputValue() === `Saved edited description ${nonce}`,
       'private_edit_draft_content_lost');
+      progress('edit_publish');
       const saved = await responseTo(supervisor, `/api/supervisor/work-forms/${scope.templateId}`, 'PATCH',
         () => supervisor.locator('#saveTemplateEditButton').click());
       requireCondition(saved.ok() && saved.request().postDataJSON().expected_definition_version === original.definition_version,
@@ -362,17 +378,21 @@ export async function runImprovements(config) {
       requireCondition(current.name === names.edit && current.definition_version > original.definition_version,
         'template_edit_not_durable');
       await supervisor.locator('#templateDraftsPanel').waitFor({ state: 'hidden' });
+      await supervisor.waitForFunction(() => !document.querySelector('#workFormNameInput').disabled);
     });
     await step('stale_template_edit_returns_409_and_keeps_readonly_recovery', async () => {
+      progress('stale_open_editor');
       const original = await template();
       await supervisor.locator('#workFormsList .record-card').filter({ hasText: names.edit })
         .getByRole('button', { name: 'Edit', exact: true }).click();
       await supervisor.locator('#editWorkFormName').fill(names.stale);
       await supervisor.locator('#templateEditDraftStatus').getByText('Template draft saved on this device.', { exact: true }).waitFor();
+      progress('stale_publish_newer');
       const newer = await api(supervisor, `/api/supervisor/work-forms/${scope.templateId}`, 'PATCH', {
         name: names.server, expected_definition_version: original.definition_version, confirmed: true
       });
       requireCondition(newer.ok && newer.body.definition_version > original.definition_version, 'newer_template_edit_failed');
+      progress('stale_reject_older');
       const rejected = await responseTo(supervisor, `/api/supervisor/work-forms/${scope.templateId}`, 'PATCH',
         () => supervisor.locator('#saveTemplateEditButton').click());
       const conflict = await rejected.json();
@@ -380,22 +400,28 @@ export async function runImprovements(config) {
         'stale_template_edit_not_rejected');
       await supervisor.locator('#templateEditNotice').getByText(/not applied safely/).waitFor();
       requireCondition(await supervisor.locator('#saveTemplateEditButton').isDisabled(), 'stale_template_still_publishable');
+      progress('stale_reload_and_restore');
       await supervisor.reload({ waitUntil: 'domcontentloaded' });
       await openWorkspace(supervisor, 'forms');
       await supervisor.locator('#templateDraftsList .record-card').filter({ hasText: names.stale })
         .getByRole('button', { name: 'Continue Template draft', exact: true }).click();
+      await supervisor.locator('#templateEditPanel').waitFor({ state: 'visible' });
       requireCondition(await supervisor.locator('#editWorkFormName').inputValue() === names.stale
         && await supervisor.locator('#saveTemplateEditButton').isDisabled()
         && (await template()).name === names.server, 'stale_recovery_overwrote_published_template');
       await supervisor.locator('#closeTemplateEditButton').click();
+      await supervisor.locator('#templateEditPanel').waitFor({ state: 'hidden' });
+      await supervisor.waitForFunction(() => !document.querySelector('#workFormNameInput').disabled);
     });
     await step('private_invitation_reissue_password_setup_and_single_use', async () => {
+      progress('invitation_open_staff_create');
       await openWorkspace(supervisor, 'people');
       await supervisor.locator('#addStaffUserButton').click();
       await supervisor.locator('#staffNameInput').fill(scope.invitedName);
       await supervisor.locator('#staffEmailInput').fill(scope.invitedEmail);
       requireCondition(!await supervisor.locator('#staffPasswordInput').isVisible(), 'supervisor_password_prompt_not_removed');
       invitationAttempted = true;
+      progress('invitation_issue');
       const issued = await responseTo(supervisor, '/api/supervisor/worker-invitations', 'POST',
         () => supervisor.locator('#staffUserSubmitButton').click());
       requireCondition(issued.ok(), 'invitation_create_rejected');
@@ -411,11 +437,13 @@ export async function runImprovements(config) {
       await supervisor.locator('#closeWorkerInvitationButton').click();
       requireCondition(!await supervisor.locator('#workerInvitationLink').inputValue(), 'closed_invitation_secret_not_cleared');
       const card = supervisor.locator('#staffUsersList .record-card').filter({ hasText: scope.invitedEmail });
+      progress('invitation_reissue');
       await card.getByRole('button', { name: 'Create new setup link', exact: true }).click();
       const reissued = await responseTo(supervisor, `/api/supervisor/users/${scope.invitedId}/invitation`, 'POST',
         () => supervisor.locator('#confirmationDialogConfirmButton').click());
       requireCondition(reissued.ok(), 'invitation_reissue_failed');
       const replacement = await reissued.json();
+      progress('invitation_inspect_replacement');
       requireCondition(invitedOwned(replacement.user) && replacement.token !== invitation.token, 'replacement_capability_not_rotated');
       scope.tokens.add(replacement.token);
       const invalidated = await api(supervisor, '/api/auth/worker-invitations/inspect', 'POST', { token: invitation.token });
@@ -474,6 +502,7 @@ export async function runImprovements(config) {
       await resume.waitFor();
       requireCondition(await resume.isEnabled(), 'cold_offline_draft_continue_disabled');
       await resume.click();
+      await worker.locator(`#workFormField_${questionId}`).waitFor({ state: 'visible' });
       requireCondition(await worker.locator(`#workFormField_${questionId}`).inputValue() === scope.marker,
         'cold_offline_draft_answer_lost');
       await worker.locator('#submitWorkFormButton').click();
@@ -532,6 +561,24 @@ export async function runImprovements(config) {
   } catch (error) {
     evidence.status = 'failed';
     evidence.failure = safeFailureDetails(error, stage, operation);
+    if (stage.startsWith('private_template_') && supervisor) {
+      evidence.templateDiagnostics = await supervisor.evaluate(() => {
+        const banner = document.querySelector('#statusBanner')?.textContent || '';
+        const name = document.querySelector('#editWorkFormName');
+        return {
+          editorPanelExists: Boolean(document.querySelector('#templateEditPanel')),
+          editorPanelHidden: document.querySelector('#templateEditPanel')?.hidden,
+          nameInputExists: Boolean(name), nameInputDisabled: name?.disabled,
+          nameInputVisible: Boolean(name?.getClientRects().length),
+          createInputDisabled: document.querySelector('#workFormNameInput')?.disabled,
+          currentTemplateUnavailable: banner.includes('Connect to load the current Report Template before editing.'),
+          editorOpenFailed: banner.includes('Could not open Template draft.'),
+          propertyFailure: banner.match(/Cannot read properties of (?:null|undefined) \(reading '[A-Za-z_]+'\)/)?.[0] || null,
+          templateWorkspaceVisible: Boolean(document.querySelector('#adminFormsWorkspace')?.getClientRects().length)
+        };
+      }).catch(() => ({ unavailable: true }));
+      save();
+    }
     console.error(`Hosted improvements failed: ${stage}${operation ? `/${operation}` : ''} (${evidence.failure.code})`);
   } finally {
     // Stop this isolated Worker's pending retries. Never force a failed offline

@@ -451,7 +451,7 @@ export function createStaffSitesModule({
   function lockTemplateEditors(locked) {
     templateEditorsLocked = locked;
     if (locked) {
-      document.querySelectorAll('#workFormBuilderForm input, #workFormBuilderForm select, #workFormBuilderForm textarea, #workFormBuilderForm button, #templateEditForm input, #templateEditForm select, #templateEditForm textarea, #templateEditForm button').forEach((control) => {
+      document.querySelectorAll('#workFormBuilderForm input, #workFormBuilderForm select, #workFormBuilderForm textarea, #workFormBuilderForm button, #templateEditForm input, #templateEditForm select, #templateEditForm textarea, #templateEditForm button, #workFormsList button').forEach((control) => {
         if (!templateDisabledControls.has(control)) templateDisabledControls.set(control, control.disabled);
         control.disabled = true;
       });
@@ -1232,6 +1232,8 @@ export function createStaffSitesModule({
       node.querySelector('.record-actions').append(previewButton, editButton, statusButton);
       els.workFormsList.appendChild(node);
     });
+    // A refresh may replace the list before the current Template operation finishes.
+    if (templateEditorsLocked) lockTemplateEditors(true);
   }
 
   async function handleSiteCreate(event) {

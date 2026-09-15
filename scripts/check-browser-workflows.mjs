@@ -4487,6 +4487,53 @@ async function checkTemplateDraftLifecycle(browser) {
   } finally { await context.close(); }
 }
 
+async function checkTemplateActionsWaitForPublicationRefresh(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const name = `Template awaiting refresh ${Date.now()}`;
+  let published = false;
+  let releaseAudit = () => {};
+  const auditGate = new Promise((resolve) => { releaseAudit = resolve; });
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'forms');
+    await page.locator('#addWorkFormButton').click();
+    await page.locator('#workFormNameInput').fill(name);
+    await page.locator('#addWorkFormFieldButton').click();
+    await page.locator('#workFormFieldCards [data-field-property="label"]').fill('Area');
+    page.on('response', (response) => {
+      if (new URL(response.url()).pathname === '/api/supervisor/work-forms'
+        && response.request().method() === 'POST' && response.ok()) published = true;
+    });
+    await page.route('**/api/supervisor/audit-events?*', async (route) => {
+      if (published) await auditGate;
+      await route.continue();
+    });
+    const auditReached = page.waitForRequest((request) => published
+      && new URL(request.url()).pathname === '/api/supervisor/audit-events');
+    await page.locator('#workFormSubmitButton').click();
+    await auditReached;
+    await page.locator('#workFormCreatePanel').waitFor({ state: 'hidden' });
+    const card = page.locator('#workFormsList .record-card').filter({ hasText: name });
+    await card.waitFor({ state: 'visible' });
+    if (!await page.locator('#workFormsList button').evaluateAll((buttons) => buttons.length > 0 && buttons.every((button) => button.disabled))) {
+      throw new Error('Template list actions became available before the post-publication refresh finished');
+    }
+    releaseAudit();
+    await card.getByRole('button', { name: 'Edit', exact: true }).click();
+    await page.locator('#templateEditPanel').waitFor({ state: 'visible' });
+    if (await page.locator('#editWorkFormName').inputValue() !== name) {
+      throw new Error('Template Edit did not open the newly published Definition after refresh');
+    }
+    if (await card.getByRole('button', { name: 'Archive', exact: true }).isDisabled()) {
+      throw new Error('Template list actions stayed disabled after the editor finished opening');
+    }
+  } finally {
+    releaseAudit();
+    await context.close();
+  }
+}
+
 async function checkTemplateDraftPublishing(browser) {
   const context = await newContext(browser, { reportOnly: true });
   const page = await context.newPage();
@@ -7833,6 +7880,7 @@ async function main() {
     await runCheck('unfinished Report Template edits survive workspace navigation and reload', () => checkTemplateEditDraftNavigation(browser));
     await runCheck('unfinished Report Template lifecycle protects logout, update, and account privacy', () => checkTemplateDraftLifecycle(browser));
     await runCheck('unfinished Report Template publication retires drafts and isolates uncertain saves', () => checkTemplateDraftPublishing(browser));
+    await runCheck('unfinished Report Template actions wait for post-publication refresh before editing', () => checkTemplateActionsWaitForPublicationRefresh(browser));
     await runCheck('unfinished Report Template stale versions stay read-only without overwriting newer work', () => checkStaleTemplateDraft(browser));
     await runCheck('unfinished Report Template cross-tab protection preserves newer edits and removed-draft recovery', () => checkTemplateDraftCrossTab(browser));
     await runCheck('Worker invitation replaces Supervisor-chosen passwords with a private setup link', () => checkWorkerInvitationCreate(browser));
