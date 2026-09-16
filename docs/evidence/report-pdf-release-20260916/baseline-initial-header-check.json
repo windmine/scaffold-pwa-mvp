@@ -1,0 +1,26 @@
+{
+  "phase": "baseline",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "status": "failed",
+  "startedAtUtc": "2026-09-16T00:11:05.037903+00:00",
+  "readiness": {
+    "status": "ok",
+    "checks": {
+      "database": "ok",
+      "migrations": "ok",
+      "upload_storage": "ok"
+    },
+    "details": {
+      "upload_storage": {
+        "backend": "gcs"
+      }
+    }
+  },
+  "reportDataSha256": "84b4a6fa66c61d1f1364cbc1a177a60e53485382effa9c509e76fbef91d175c9",
+  "templateDataSha256": "6c25031ab15fdf3c9e137f80e9d57c82baba2b2096cd8a7542e7e5a83df6b995",
+  "nonPdfExportHashes": {
+    "collection_csv": "547eea348996bd2f36c7afd6fc7b925e0aa51e8cf7b5255921449d0b9320731f"
+  },
+  "safeFailure": "protected_export_cache_header_missing",
+  "completedAtUtc": "2026-09-16T00:11:11.044497+00:00"
+}

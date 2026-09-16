@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "status": "deployed_and_verified",
+  "completedAtUtc": "2026-09-16T00:21:33.896631+00:00",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "backendSourceCommit": "7ad0f888ce3fc7a6fa5211044cdd9f14a4065661",
+  "revision": "geo-backend-pdf-20260916-0010",
+  "trafficPercent": 100,
+  "temporaryTagsRemoved": true,
+  "buildId": "50649bcc-9d50-455a-9df0-274bc296ab03",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:08edbc28d3dfca0922941619900c6c7102a7dd4dc825d56422a9437b7bfb82dc",
+  "previousCompatibleRevision": "geo-backend-report-20260915-0025",
+  "sourcePackaging": {
+    "method": "git archive exact commit; backend, Dockerfile, requirements and ignore files only",
+    "uploadFileCount": 86,
+    "excludedUntrackedPresentationFilesAndCredentials": true,
+    "archiveSha256": "54cf983a1735f0904fa5d5a8035c4561e7e224e4557080938dde3b76cdf4c37e"
+  },
+  "migration": {
+    "performed": false,
+    "existingHead": "0021_worker_invitations",
+    "existingLedgerCount": 21,
+    "readinessPassed": true
+  },
+  "hosting": {
+    "promotionPerformed": false,
+    "retainedVersion": "23c1ee5e712da7d7",
+    "shellHashesUnchanged": true
+  },
+  "runtimeConfigurationUnchanged": true,
+  "maintenancePausePerformed": false,
+  "localGates": {
+    "status": "passed",
+    "commands": [
+      "npm run check:review-queue",
+      "python backend/security_test.py",
+      "python backend/upload_storage_test.py",
+      "python backend/database_test.py",
+      "python -m compileall -q backend/app",
+      "python -m pip check"
+    ],
+    "python311GrammarModules": 30,
+    "localPython": "3.14.5",
+    "actualPython311CandidateStartup": "passed"
+  },
+  "productionHardening": {
+    "status": "passed",
+    "script": "scripts/check-production-hardening.ps1",
+    "runtime": "PowerShell 7",
+    "billingBudgetChecked": true,
+    "warning": "Existing six-hour Neon history window",
+    "initialWrapperAttempt": "Windows PowerShell environment did not expose Get-FileHash; unchanged script passed under available PowerShell runtime"
+  },
+  "checks": {
+    "candidate": "candidate.json",
+    "live": "live.json",
+    "browser": "live-browser.json",
+    "visual": "visual-qa.json",
+    "infrastructure": "live-infrastructure.json"
+  },
+  "pdfVerification": {
+    "singleReportId": 5,
+    "singlePages": 2,
+    "collectionReportIds": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "collectionPages": 16,
+    "mutualLogoPixelsEveryPage": true,
+    "all18CandidatePagesVisuallyReviewed": true,
+    "all18LivePagesPixelIdentical": true,
+    "browserDownloadsMatchApiPageTextDrawingAndImages": true
+  },
+  "dataPreservation": {
+    "reportsAndTemplatesUnchanged": true,
+    "sixUploadsUnchanged": true,
+    "csvAndHtmlUnchanged": true,
+    "presentationDataRetained": true,
+    "cleanupPerformed": false
+  },
+  "revisionLogs": {
+    "entries": 196,
+    "errorOr5xxEntries": 0,
+    "checkedAtUtc": "2026-09-16T00:18:34.682457+00:00"
+  },
+  "retainedFailedCheckerAttempts": [
+    "baseline-initial-header-check.json",
+    "baseline-initial-policy-assumption.json"
+  ],
+  "checkerCorrection": "Preserve actual export cache policy: Firebase private, no explicit direct Cloud Run header. Initial no-store assumption was incorrect; no application cache change.",
+  "limits": [
+    "Physical-phone PDF viewer not tested",
+    "Hosted verification used owned Mutual demo records; cross-department/unavailable-evidence/long-content coverage remains local",
+    "No new commit or push made for release records"
+  ]
+}

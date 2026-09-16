@@ -1,0 +1,34 @@
+{
+  "status": "passed",
+  "phase": "live",
+  "checkedAtUtc": "2026-09-16T00:18:34.682457+00:00",
+  "backendSourceCommit": "7ad0f888ce3fc7a6fa5211044cdd9f14a4065661",
+  "buildId": "50649bcc-9d50-455a-9df0-274bc296ab03",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:08edbc28d3dfca0922941619900c6c7102a7dd4dc825d56422a9437b7bfb82dc",
+  "revision": "geo-backend-pdf-20260916-0010",
+  "previousCompatibleRevision": "geo-backend-report-20260915-0025",
+  "runtimeConfigurationUnchanged": true,
+  "migrationRequired": false,
+  "hostingPromotionPerformed": false,
+  "traffic": [
+    {
+      "percent": 100,
+      "revisionName": "geo-backend-pdf-20260916-0010"
+    }
+  ],
+  "revisionLogEntries": 196,
+  "errorOr5xxLogEntries": 0,
+  "hostedShellHashes": {
+    "index.html": "1974a227ffbcab06f75a481a301213f6950ff4ae4e88b619ce6eb27e6ed07141",
+    "sw.js": "2d4dc515b5da1fb9d2402eafbb556e518695a0266d1ac3b0a46946cd73777cc1",
+    "manifest.webmanifest": "47085fc4c3ff8188bc78851c8ffb46a0195fe57cd65d0f6a322dc9265a04061a",
+    "offline.html": "5fafba297754c73156b6c05d37fbeb15c632fbd08bf20a603893346fecbe66f0"
+  },
+  "buildSource": {
+    "bucket": "run-sources-geo-attendance-system-db9ca-australia-southeast1",
+    "generation": "1789517352300442",
+    "object": "services/geo-backend/1789517352.081842-b5ed018c8c3e454db6984d693468264b.zip"
+  },
+  "candidateCreatedAtUtc": "2026-09-16T00:10:15.777628Z",
+  "routesReadyAtUtc": "2026-09-16T00:17:57.095778Z"
+}

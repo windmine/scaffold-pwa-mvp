@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "pageErrors": 0,
+  "downloads": [
+    {
+      "kind": "collection",
+      "filename": "leader-reports-2026-09-16.pdf",
+      "bytes": 197695
+    },
+    {
+      "kind": "single",
+      "filename": "leader-report-5-2026-09-16.pdf",
+      "bytes": 125666
+    }
+  ],
+  "completedAtUtc": "2026-09-16T00:18:01.797Z"
+}

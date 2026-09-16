@@ -1,0 +1,226 @@
+{
+  "schemaVersion": 1,
+  "runId": "demo-20260916",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "status": "ready_for_presentation",
+  "anchorDate": "2026-09-16",
+  "revisionUnchanged": "geo-backend-report-20260915-0025",
+  "departmentId": 2,
+  "baseline": {
+    "departmentId": 2,
+    "departmentName": "Mutual",
+    "existingMutualReports": 0,
+    "existing": {
+      "user": {
+        "count": 12,
+        "sha256": "0fabacc6c44f684d8d1d70b706b692da79a4524568b4d1cda17f979288a2dbdd"
+      },
+      "workform": {
+        "count": 6,
+        "sha256": "4eccce1a5c2fb68d01b1dea7ab02f8f52528061e0fde94ce9c6dbe087cccc6eb"
+      },
+      "workformsubmission": {
+        "count": 4,
+        "sha256": "61648dba63beae75c67c5fde0088de5c7d3f23086ab6abf2560e95eb833cf137"
+      },
+      "site": {
+        "count": 4,
+        "sha256": "575113713a2fa1fd55ede7d087018abd7c156ea8ae3272cf156efea0ecc6e3d2"
+      }
+    }
+  },
+  "accounts": {
+    "alex": {
+      "id": 13,
+      "email": "demo-20260916-alex@example.invalid",
+      "name": "Alex Example (DEMO)",
+      "role": "worker",
+      "departmentId": 2,
+      "isGlobalAdmin": false
+    },
+    "jamie": {
+      "id": 14,
+      "email": "demo-20260916-jamie@example.invalid",
+      "name": "Jamie Sample (DEMO)",
+      "role": "worker",
+      "departmentId": 2,
+      "isGlobalAdmin": false
+    },
+    "taylor": {
+      "id": 15,
+      "email": "demo-20260916-taylor@example.invalid",
+      "name": "Taylor Practice (DEMO)",
+      "role": "worker",
+      "departmentId": 2,
+      "isGlobalAdmin": false
+    },
+    "supervisor": {
+      "id": 16,
+      "email": "demo-20260916-supervisor@example.invalid",
+      "name": "DEMO Presenter demo-20260916",
+      "role": "supervisor",
+      "departmentId": 2,
+      "isGlobalAdmin": false
+    }
+  },
+  "templates": {
+    "toolbox": {
+      "id": 7,
+      "name": "DEMO - Toolbox Talk - demo-20260916",
+      "version": 1
+    },
+    "observation": {
+      "id": 8,
+      "name": "DEMO - Site Observation - demo-20260916",
+      "version": 1
+    },
+    "progress": {
+      "id": 9,
+      "name": "DEMO - Daily Progress - demo-20260916",
+      "version": 1
+    }
+  },
+  "sites": {
+    "harbour": {
+      "id": 5,
+      "name": "DEMO - Harbour Yard - demo-20260916"
+    },
+    "riverside": {
+      "id": 6,
+      "name": "DEMO - Riverside Workshop - demo-20260916"
+    }
+  },
+  "reports": {
+    "T01": {
+      "id": 5,
+      "clientSubmissionId": "demo-20260916-T01",
+      "templateKey": "toolbox",
+      "workerKey": "alex",
+      "workDate": "2026-09-14",
+      "workflow": "resolved"
+    },
+    "T02": {
+      "id": 6,
+      "clientSubmissionId": "demo-20260916-T02",
+      "templateKey": "toolbox",
+      "workerKey": "jamie",
+      "workDate": "2026-09-15",
+      "workflow": "in_review"
+    },
+    "T03": {
+      "id": 7,
+      "clientSubmissionId": "demo-20260916-T03",
+      "templateKey": "toolbox",
+      "workerKey": "taylor",
+      "workDate": "2026-09-16",
+      "workflow": "submitted"
+    },
+    "O01": {
+      "id": 8,
+      "clientSubmissionId": "demo-20260916-O01",
+      "templateKey": "observation",
+      "workerKey": "jamie",
+      "workDate": "2026-09-14",
+      "workflow": "resolved"
+    },
+    "O02": {
+      "id": 9,
+      "clientSubmissionId": "demo-20260916-O02",
+      "templateKey": "observation",
+      "workerKey": "taylor",
+      "workDate": "2026-09-15",
+      "workflow": "in_review"
+    },
+    "O03": {
+      "id": 10,
+      "clientSubmissionId": "demo-20260916-O03",
+      "templateKey": "observation",
+      "workerKey": "alex",
+      "workDate": "2026-09-16",
+      "workflow": "submitted"
+    },
+    "P01": {
+      "id": 11,
+      "clientSubmissionId": "demo-20260916-P01",
+      "templateKey": "progress",
+      "workerKey": "taylor",
+      "workDate": "2026-09-14",
+      "workflow": "resolved"
+    },
+    "P02": {
+      "id": 12,
+      "clientSubmissionId": "demo-20260916-P02",
+      "templateKey": "progress",
+      "workerKey": "alex",
+      "workDate": "2026-09-15",
+      "workflow": "in_review"
+    },
+    "P03": {
+      "id": 13,
+      "clientSubmissionId": "demo-20260916-P03",
+      "templateKey": "progress",
+      "workerKey": "jamie",
+      "workDate": "2026-09-16",
+      "workflow": "submitted"
+    }
+  },
+  "uploads": [
+    {
+      "workerKey": "alex",
+      "kind": "signature",
+      "path": "/uploads/2c9474177c1344b895e1984ce0c78165.png"
+    },
+    {
+      "workerKey": "alex",
+      "kind": "photo",
+      "path": "/uploads/59c2bd434a8341ef8d66ab4726da97bf.png"
+    },
+    {
+      "workerKey": "jamie",
+      "kind": "signature",
+      "path": "/uploads/bd17642b71ea43bdbef5bce7f23bb012.png"
+    },
+    {
+      "workerKey": "jamie",
+      "kind": "photo",
+      "path": "/uploads/fe8148af30cf434fb975773be41943c3.png"
+    },
+    {
+      "workerKey": "taylor",
+      "kind": "signature",
+      "path": "/uploads/c8f56cc2d526433d81367686d89240a5.png"
+    },
+    {
+      "workerKey": "taylor",
+      "kind": "photo",
+      "path": "/uploads/e02b705358ac423690fadbd521c77fcc.png"
+    }
+  ],
+  "createdAtUtc": "2026-09-15T23:46:52.022141+00:00",
+  "cleanup": "Not requested yet. Exact owned IDs only; trash Reports, archive Templates, resign accounts. Retain uploads/audit under normal retention. Demo Sites have no archive API; review their exact references before approved operator cleanup.",
+  "existingRecordsUnchanged": true,
+  "existingAfter": {
+    "user": {
+      "count": 12,
+      "sha256": "0fabacc6c44f684d8d1d70b706b692da79a4524568b4d1cda17f979288a2dbdd"
+    },
+    "workform": {
+      "count": 6,
+      "sha256": "4eccce1a5c2fb68d01b1dea7ab02f8f52528061e0fde94ce9c6dbe087cccc6eb"
+    },
+    "workformsubmission": {
+      "count": 4,
+      "sha256": "61648dba63beae75c67c5fde0088de5c7d3f23086ab6abf2560e95eb833cf137"
+    },
+    "site": {
+      "count": 4,
+      "sha256": "575113713a2fa1fd55ede7d087018abd7c156ea8ae3272cf156efea0ecc6e3d2"
+    }
+  },
+  "completedAtUtc": "2026-09-15T23:47:15.849078+00:00",
+  "browserVerification": {
+    "status": "passed",
+    "completedAtUtc": "2026-09-15T23:54:36.781Z",
+    "evidence": "docs/evidence/presentation-demo-20260916-browser/evidence.json"
+  }
+}
