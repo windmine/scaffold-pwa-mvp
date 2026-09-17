@@ -54,6 +54,7 @@ VALID_WORK_FORM_FIELD_TYPES = {
 }
 MAX_WORK_FORM_FIELDS = 30
 MAX_WORK_FORM_PHOTOS = 8
+MAX_REPORT_PHOTOS = 50
 MAX_REPEAT_ROWS = 50
 WORK_FORM_DEFINITION_SCHEMA_VERSION = 1
 SAFE_FIELD_ID_PATTERN = re.compile(r"^[a-z0-9_]+$")
@@ -1233,11 +1234,15 @@ def validate_time_value(field_label: str, part: str, value: str):
     return hours_int * 60 + minutes_int
 
 
-def normalize_work_form_photo_urls(photo_urls: list[str]):
-    if len(photo_urls) > MAX_WORK_FORM_PHOTOS:
+def normalize_work_form_photo_urls(photo_urls: list[str], *, purpose: str = "daywork"):
+    # Retained Supervisor-edit callers keep the legacy limit. Only the stored
+    # Report Template purpose can opt a Worker submission into the larger batch.
+    max_photos = MAX_REPORT_PHOTOS if purpose == "report" else MAX_WORK_FORM_PHOTOS
+    record_label = "Reports" if purpose == "report" else "Daywork forms"
+    if len(photo_urls) > max_photos:
         raise HTTPException(
             status_code=400,
-            detail=f"Reports can include up to {MAX_WORK_FORM_PHOTOS} photos"
+            detail=f"{record_label} can include up to {max_photos} photos"
         )
 
     urls = [url for url in photo_urls if url]

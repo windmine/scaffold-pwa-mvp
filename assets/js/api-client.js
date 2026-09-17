@@ -31,7 +31,25 @@ class ApiError extends Error {
     this.status = options.status;
     this.code = options.code;
     this.cause = options.cause;
+    this.retryAfterSeconds = options.retryAfterSeconds;
   }
+}
+
+function uploadRetryAfterSeconds(response, error) {
+  const header = response.headers.get("Retry-After");
+  let seconds;
+  if (header != null) {
+    const value = header.trim();
+    if (/^\d+$/.test(value)) seconds = Number(value);
+    else if (/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(value)) {
+      const retryAt = Date.parse(value);
+      if (Number.isFinite(retryAt)) seconds = Math.max(0, (retryAt - Date.now()) / 1000);
+    }
+  } else if (typeof error.retry_after_seconds === "number") {
+    seconds = error.retry_after_seconds;
+  }
+  // Do not shorten a longer server cooldown or retry malformed responses.
+  return Number.isFinite(seconds) && seconds >= 0 && seconds <= 60 ? Math.ceil(seconds) : undefined;
 }
 
 function clearLegacyBearerToken() {
@@ -319,7 +337,8 @@ export async function uploadPhoto(file, filename = "photo.jpg") {
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
     throw new ApiError(error.detail || "Photo upload failed", {
-      status: res.status
+      status: res.status,
+      retryAfterSeconds: res.status === 429 ? uploadRetryAfterSeconds(res, error) : undefined
     });
   }
 

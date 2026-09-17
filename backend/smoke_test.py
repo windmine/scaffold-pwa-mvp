@@ -130,6 +130,15 @@ def app_origin():
     return BASE_URL
 
 
+def assert_upload_retry_after(headers, body):
+    """A 50-photo client must be able to pause safely at the upload rate limit."""
+    retry_after = headers.get("Retry-After", "")
+    if not retry_after.isdigit() or int(retry_after) < 1:
+        raise AssertionError("rate-limited upload: missing positive Retry-After seconds")
+    if not isinstance(body, dict) or body.get("retry_after_seconds") != int(retry_after):
+        raise AssertionError("rate-limited upload: retry delay header/body do not match")
+
+
 def upload_test_file(token, filename, content_type, content):
     boundary = f"----geoSmokeBoundary{datetime.now(timezone.utc).timestamp()}"
     body = b"".join([
@@ -151,7 +160,10 @@ def upload_test_file(token, filename, content_type, content):
             return response.status, json.loads(response.read().decode("utf-8"))
     except HTTPError as error:
         raw = error.read().decode("utf-8")
-        return error.code, json.loads(raw) if raw else None
+        response_body = json.loads(raw) if raw else None
+        if error.code == 429:
+            assert_upload_retry_after(error.headers, response_body)
+        return error.code, response_body
 
 
 def upload_test_image(label, token, filename):

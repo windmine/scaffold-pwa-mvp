@@ -208,9 +208,10 @@ def create_work_form_submission(data, user: User, session: Session):
     form = session.get(WorkForm, data.form_id)
     if not form or form.status != "active" or not can_access_department(user, form.department_id):
         raise HTTPException(status_code=404, detail="Report Template not found")
-    if (form.template_purpose or "report") == "daywork":
+    submission_purpose = form.template_purpose or "report"
+    if submission_purpose == "daywork":
         require_leader(user)
-    if (form.template_purpose or "report") == "report":
+    if submission_purpose == "report":
         if not data.work_date:
             raise HTTPException(status_code=400, detail="Report Date is required")
         try:
@@ -222,7 +223,7 @@ def create_work_form_submission(data, user: User, session: Session):
             ) from exc
 
     definition = work_form_definition(form)
-    if (form.template_purpose or "report") == "report":
+    if submission_purpose == "report":
         expected_version = data.expected_definition_version
         # Older queues did not capture a version. They are safe only while the
         # Template is still its original, unedited definition.
@@ -243,7 +244,7 @@ def create_work_form_submission(data, user: User, session: Session):
             )
     ensure_site_exists(session, data.site_id, user)
     answers = validate_work_form_answers(definition, data.answers)
-    photo_urls = normalize_work_form_photo_urls(data.photo_urls)
+    photo_urls = normalize_work_form_photo_urls(data.photo_urls, purpose=submission_purpose)
     photo_metadata = normalize_work_form_photo_metadata(photo_urls, data.photo_metadata)
     validate_owned_upload_references(
         work_form_upload_references(definition, answers, photo_urls),
@@ -263,7 +264,7 @@ def create_work_form_submission(data, user: User, session: Session):
         photo_urls=json.dumps(photo_urls) if photo_urls else None,
         photo_metadata=json.dumps(photo_metadata) if photo_metadata else None,
         client_submission_id=client_submission_id,
-        submission_purpose=form.template_purpose or "report",
+        submission_purpose=submission_purpose,
         workflow_status="submitted",
         status="pending"
     )

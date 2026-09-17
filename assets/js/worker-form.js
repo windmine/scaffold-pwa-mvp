@@ -54,6 +54,7 @@ export function createWorkerFormModule({
   feedback,
   photoViewer,
   maxPhotos,
+  legacyMaxPhotos = 8,
   findSiteByFormValue,
   renderStatusBanner,
   syncQueueIfPossible,
@@ -418,6 +419,15 @@ export function createWorkerFormModule({
     state.workFormPhotoDataUrls = [];
     state.workFormPhotoMetadata = [];
     photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Report photo');
+    setPhotoStatus('');
+  }
+
+  function photoLimit() {
+    return formPurpose(renderedWorkForm) === 'daywork' ? legacyMaxPhotos : maxPhotos;
+  }
+
+  function setPhotoStatus(message) {
+    if (els.workFormPhotoStatus) setTranslatableText(els.workFormPhotoStatus, message);
   }
 
   function updatePhotoRemovalControls() {
@@ -425,6 +435,12 @@ export function createWorkerFormModule({
     els.workFormPhotoPreview.querySelectorAll('[data-remove-report-photo]').forEach((button) => {
       button.disabled = disabled;
     });
+    if (els.workFormPhotoLimit) {
+      setTranslatableText(els.workFormPhotoLimit, `Up to ${photoLimit()} photos. You can select them together.`);
+    }
+    if (!state.submittingWorkForm && (!photoProcessing.pending || photoProcessing.key !== activeDraftState()?.key)) {
+      setPhotoStatus(`${state.workFormPhotoDataUrls.length} of ${photoLimit()} photos selected.`);
+    }
   }
 
   function renderEditablePhotoPreviews() {
@@ -579,6 +595,7 @@ export function createWorkerFormModule({
     resetDraftSurface();
     renderWorkFormFields(els.workFormFields, form, { container: els.workFormFields });
     renderedWorkForm = form || null;
+    updatePhotoRemovalControls();
     showDefaultAutosaveStatus();
     if (!form || state.user?.role !== 'worker') return;
 
@@ -803,7 +820,8 @@ export function createWorkerFormModule({
   async function processPhotoChange(selectedFiles, token, draftState) {
     const isCurrent = () => token === photoSelectionToken && activeDraftState()?.key === draftState?.key;
     if (!isCurrent()) return;
-    const remainingSlots = Math.max(0, maxPhotos - state.workFormPhotoDataUrls.length);
+    const limit = photoLimit();
+    const remainingSlots = Math.max(0, limit - state.workFormPhotoDataUrls.length);
     const files = selectedFiles.slice(0, remainingSlots);
     const validationError = files.map(uploadImageValidationError).find(Boolean);
     if (validationError) {
@@ -816,7 +834,14 @@ export function createWorkerFormModule({
     }
 
     try {
-      const dataUrls = await Promise.all(files.map((file) => fileToDataUrl(file)));
+      const dataUrls = [];
+      // A large picker selection must not start 50 FileReaders simultaneously.
+      // Append atomically after all reads, preserving the prior draft on failure.
+      for (const [index, file] of files.entries()) {
+        if (!isCurrent()) return;
+        setPhotoStatus(`Preparing photo ${index + 1} of ${files.length}...`);
+        dataUrls.push(await fileToDataUrl(file));
+      }
       if (!isCurrent()) return;
       // Restored drafts only have data URLs. Keep the File fast path only when
       // every photo has one, so Offline Submission never pairs different images.
@@ -833,7 +858,7 @@ export function createWorkerFormModule({
       feedback.clearLocal(els.workFormFeedback);
 
       if (selectedFiles.length > remainingSlots) {
-        renderStatusBanner(`Reports can include up to ${maxPhotos} photos. The first ${maxPhotos} were kept.`, true, {
+        renderStatusBanner(`Reports can include up to ${limit} photos. The first ${limit} were kept.`, true, {
           local: els.workFormFeedback,
           tone: 'warning'
         });
@@ -944,13 +969,22 @@ export function createWorkerFormModule({
     feedback.clearLocal(els.workFormFeedback);
     setSubmitting(true);
     const submittedDraft = draftStateFor(form);
+    const submittedSessionGeneration = sessionGeneration;
+    const submittedWorker = { id: state.user.id, name: state.user.fullName };
+    const isCurrentSubmission = () => sessionGeneration === submittedSessionGeneration
+      && state.user?.role === 'worker'
+      && String(state.user.id) === String(submittedWorker.id);
     try {
       await waitForDraftPhotos(submittedDraft);
+      if (!isCurrentSubmission()) return;
       try {
         await flushActiveDraft();
       } catch {
         // A successful submission is also a durable way to protect the current work.
       }
+      if (!isCurrentSubmission()) return;
+      const answers = await collectWorkFormAnswers(form, { container: els.workFormFields });
+      if (!isCurrentSubmission()) return;
 
       const localRecord = {
         id: uuid(),
@@ -960,22 +994,29 @@ export function createWorkerFormModule({
         definitionVersion: definitionVersion(form),
         submissionPurpose: formPurpose(form),
         fields: form.fields || [],
-        userId: state.user.id,
-        userName: state.user.fullName,
+        userId: submittedWorker.id,
+        userName: submittedWorker.name,
         siteId: site?.id || null,
         siteName: site?.name || 'Unassigned site',
         workDate: els.workFormDate.value,
-        answers: await collectWorkFormAnswers(form, { container: els.workFormFields }),
-        photoDataUrls: state.workFormPhotoDataUrls,
-        photoMetadata: state.workFormPhotoMetadata,
+        answers,
+        photoDataUrls: [...state.workFormPhotoDataUrls],
+        photoMetadata: state.workFormPhotoMetadata.map((item) => ({ ...item })),
         photoUrls: [],
         createdAt: new Date().toISOString()
       };
 
       const result = await submitOfflineSubmission(localRecord, {
         draftKey: submittedDraft.key,
-        photoFiles: state.workFormPhotoFiles
+        photoFiles: state.workFormPhotoFiles,
+        onUploadProgress: ({ phase, completed, total, retryAfterSeconds }) => {
+          if (!isCurrentSubmission() || !state.submittingWorkForm) return;
+          setPhotoStatus(phase === 'waiting'
+            ? `Upload limit reached. Retrying in ${retryAfterSeconds} seconds. ${completed} of ${total} photos and signatures uploaded.`
+            : `Uploading photos and signatures: ${completed} of ${total}. Keep this page open.`);
+        }
       });
+      if (!isCurrentSubmission()) return;
 
       if (result.draftCleanupFailed) submittedDraftsPendingCleanup.add(submittedDraft.key);
       cancelAutosaveTimer();
@@ -987,7 +1028,9 @@ export function createWorkerFormModule({
       state.workFormPhotoMetadata = [];
       photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Report photo');
       await renderSelectedWorkForm({ preserveCurrent: false, skipFlush: true });
+      if (!isCurrentSubmission()) return;
       await syncQueueIfPossible(!result.offline);
+      if (!isCurrentSubmission()) return;
       const submissionMessage = reportOnly
         ? result.message.replace(/ submitted for approval\.$/, ' submitted for review.')
         : result.message;
@@ -999,9 +1042,12 @@ export function createWorkerFormModule({
         tone: result.offline || result.draftCleanupFailed ? 'warning' : 'success'
       });
       await renderWorkerSummary();
+      if (!isCurrentSubmission()) return;
       await renderHistory();
+      if (!isCurrentSubmission()) return;
       void renderDraftList();
     } catch (error) {
+      if (!isCurrentSubmission()) return;
       setSubmitting(false);
       if (isBackendSessionError(error)) {
         handleSessionExpired();
@@ -1014,7 +1060,7 @@ export function createWorkerFormModule({
         tone: 'error'
       });
     } finally {
-      if (state.submittingWorkForm) setSubmitting(false);
+      if (isCurrentSubmission() && state.submittingWorkForm) setSubmitting(false);
     }
   }
 
@@ -1134,6 +1180,7 @@ export function createWorkerFormModule({
     state.workFormPhotoMetadata = [];
     photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Report photo');
     photoProcessing = { key: '', pending: false, error: null, promise: Promise.resolve() };
+    setPhotoStatus('');
     draftStates.clear();
     submittedDraftsPendingCleanup.clear();
     showDefaultAutosaveStatus();

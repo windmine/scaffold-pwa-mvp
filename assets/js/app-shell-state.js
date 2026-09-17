@@ -1,4 +1,5 @@
 export const MAX_TASK_LOG_PHOTOS = 8;
+export const MAX_REPORT_PHOTOS = 50;
 export const THEME_STORAGE_KEY = 'leader-theme';
 export const THEME_COLORS = {
   dark: '#000000',
@@ -200,6 +201,8 @@ export const els = {
   workFormDate: document.getElementById('workFormDate'),
   workFormFields: document.getElementById('workFormFields'),
   workFormPhotos: document.getElementById('workFormPhotos'),
+  workFormPhotoLimit: document.getElementById('workFormPhotoLimit'),
+  workFormPhotoStatus: document.getElementById('workFormPhotoStatus'),
   workFormPhotoPreview: document.getElementById('workFormPhotoPreview'),
   submitWorkFormButton: document.getElementById('submitWorkFormButton'),
   workFormAutosaveStatus: document.getElementById('workFormAutosaveStatus'),

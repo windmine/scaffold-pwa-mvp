@@ -29,6 +29,16 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
+## Local candidate - 50 photos per Report (not deployed)
+
+The working source accepts up to **50 photos per Report**, selected together or added in several batches; JPEG, PNG and WebP still have a **5 MB per-file** limit. Required handwritten signatures are additional to those 50 photos. Retained Daywork and Task Logs stay at eight photos. The currently deployed app below still has the eight-photo Report limit until this candidate's backend and then frontend are released; no migration is needed.
+
+Photo selection reads files sequentially, later thumbnails load lazily, and submission shows upload progress. An explicit upload-rate-limit response can wait and retry at the server's requested delay (at most 60 seconds per wait, three retries per image and 120 seconds cumulative waiting per attempt). Other failures leave the Report queued with completed uploads checkpointed for later replay. Keep the app open during upload. Device drafts still store the original images: a worst-case 50 x 5 MB selection needs substantial memory/storage and is not yet validated on physical phones. A failed local save is not a durable draft; do not close the page until saving succeeds.
+
+PDF exports use page-sized copies of large photos and signatures (200 DPI), keeping evidence order, proportions and original uploaded bytes unchanged. `npm run check:report-photos` checks the 50/51-photo backend boundary and bounded upload/replay behavior; `check:mobile` also exercises one-picker 50-photo selection, draft reload and throttled submission. `check:report-pdf` includes 50 distinct 6-megapixel photos, source-integrity and pagination checks. These are local gates, not hosted or physical-phone approval.
+
+A local 64.56-MiB, 50-photo storage/replay smoke passed with every original hash/order preserved, but sampled desktop Chromium memory reached 1.20 GiB. Before deploying this increase, validate realistic large batches on the actual phones; per-image Blob storage/smaller checkpoints may be needed. Details and test limits are recorded in the [mobile checklist](docs/mobile-browser-workflow-checks.md#local-50-photo-report-candidate-not-deployed).
+
 ## Current Live Backend - Department-branded Report PDFs, 2026-09-16
 
 Backend `geo-backend-pdf-20260916-0010` is live at 100% with no temporary tags, built from committed source `7ad0f88`. Single and collection Report PDFs now use the supplied A4 form layout and each department's branding, including the supplied Mutual logo. This backend-only release required no migration, maintenance pause or Hosting promotion. The September 15 frontend, production cache, secrets, runtime settings and presentation data remain unchanged. [Release evidence](docs/evidence/report-pdf-release-20260916/release.json) records local gates, zero-traffic candidate checks, authenticated live downloads, 18 reviewed/pixel-matched PDF pages, phone-sized browser export buttons and clean revision logs. Physical-phone PDF-viewer checks remain pending.
@@ -113,7 +123,7 @@ The photo/draft, offline-return, private Supervisor Template-draft, Worker-invit
 
 - Workers see only **New Report** and **My Reports**. Normal Workers and Leaders use the same visible Report flow.
 - Logout, session expiry, and a new login synchronously clear the prior account's Report history, Supervisor queue, private lists, and photo/edit viewers. Late responses from an ended session are ignored, including after the same account signs back in. Worker-owned drafts and offline submissions remain stored for their owner.
-- A Report requires a Report Date, may omit Site, can include up to 8 photos and configured handwritten signatures, and keeps an immutable Definition snapshot after submission.
+- A Report requires a Report Date, may omit Site, can include up to 50 photos in the local candidate (eight in the current live release) and configured handwritten signatures, and keeps an immutable Definition snapshot after submission.
 - Photo selections add to the existing draft; **Remove** discards one photo without clearing the others. Invalid selections leave existing evidence intact.
 - **My Reports → Drafts on this device** lists the signed-in Worker's Department-scoped, unfinished Reports with Template, Report Date, last-saved time, and **Continue draft**. These device-only drafts are separate from Report records, counts, filters, exports, and sync actions.
 - A Report moves forward only through **Submitted → In review → Resolved**. Resolution requires a final Supervisor note; legacy approval statuses are not Report workflow actions.
@@ -252,7 +262,7 @@ Current visible Worker flow:
 - Choose an active Department Report Template. Archived Templates and Legacy Daywork templates are not offered.
 - Choose a required Report Date and, when relevant, an optional Site. A no-Site submission stores `site_id=null` and is shown as `Unassigned site` rather than being blocked.
 - Complete configured text, choice, checkbox, date, number, section, conditional, time-range, formula, repeat, and handwritten-signature fields. Browser calculations are previews; the backend stores authoritative duration/formula results.
-- Add up to 8 JPEG, PNG, or WebP photos of at most 5 MB each, in one or several selections. Use **Remove** beneath a thumbnail to discard only that photo; remaining photos keep their order after reload and submission. Required signatures must contain handwriting before submission.
+- Add up to 50 JPEG, PNG, or WebP photos of at most 5 MB each, in one or several selections (the current live release still allows eight until the local candidate is deployed). Use **Remove** beneath a thumbnail to discard only that photo; remaining photos keep their order after reload and submission. Required signatures must contain handwriting before submission and do not count toward the photo limit.
 - Let the Worker/Report Template draft autosave on this device, including Site, Report Date, answers, signatures, and photos. After reload or sign-in, open **My Reports → Drafts on this device → Continue draft** (or reselect the Template in **New Report**). Logout and **Update App** both wait for unsaved input; the update pauses instead of discarding work when local storage fails. Draft cards disappear after successful online or queued submission; a cleanup failure warns against submitting the old draft again and suppresses its Continue action for the current session.
 - Submit online or queue offline from a Template downloaded during an authenticated visit. After the shell and Templates are saved, cold offline returns can also start or continue a Report. Queued evidence uploads resume from persisted partial progress, remain bound to the capturing Worker, and reuse one stable client submission id.
 - Use **My Reports** to search by Template/answer/status, filter by **Submitted**, **In review**, **Resolved**, **Queued**, or local Report Date, open photo/signature evidence, retry a failed queue item, or discard only its unsynced local copy.
@@ -1425,7 +1435,7 @@ Current offline behavior is suitable for MVP testing, but production conflict ha
 ## Photo Behavior
 
 - Attendance supports one optional photo.
-- Task logs and Reports support up to 8 progress photos.
+- Task logs and retained Daywork support up to 8 progress photos. The local Report candidate supports 50; the current live Report release still supports 8.
 - Uploads are limited to 5 MB each. The Worker UI accepts JPEG, PNG, and WebP and validates type/size before queueing; the backend identifies decoded raster content rather than trusting the caller's filename or MIME type and re-encodes accepted images to remove metadata and trailing payloads.
 - New attendance, Task Log, and Report evidence references must exist in Upload Storage and belong to the authenticated uploader. Supervisor corrections may retain evidence already attached to that record.
 - Uploaded photos are served from `/uploads/...`.

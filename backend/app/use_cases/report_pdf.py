@@ -5,6 +5,7 @@ stays with Upload Storage; the renderer never resolves arbitrary remote URLs.
 """
 from io import BytesIO
 
+from PIL import Image as RasterImage, ImageOps
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import A4
@@ -31,6 +32,9 @@ BLUE = colors.HexColor("#1955a0")
 INK = colors.HexColor("#353a40")
 GRID = colors.HexColor("#c6c9cd")
 LABEL_FILL = colors.HexColor("#eeeeee")
+# Limit only the printable copy. Original authorized upload evidence is never
+# rewritten, and small images retain their original bytes and dimensions.
+EVIDENCE_DPI = 200
 
 
 def _styles():
@@ -84,12 +88,54 @@ def _row(label, value, styles, *, minimum_height=None):
     return table
 
 
-def _image(value, image_loader, max_height):
+def _printable_raster(content, max_width, max_height, *, lossless=False):
+    """Bound decoded PDF assets to their A4 cell, not the camera resolution.
+
+    Signatures and transparency stay lossless. Opaque photographs use a compact
+    JPEG only when resizing/orientation requires a new export copy. Keeping the
+    original draw ratio separately avoids stretching due to pixel rounding.
+    """
+    bounds = (
+        max(1, int(max_width * EVIDENCE_DPI / 72)),
+        max(1, int(max_height * EVIDENCE_DPI / 72)),
+    )
+    with RasterImage.open(BytesIO(content)) as source:
+        orientation = source.getexif().get(274, 1)
+        needs_orientation = orientation in (2, 3, 4, 5, 6, 7, 8)
+        width, height = source.size
+        if needs_orientation and orientation in (5, 6, 7, 8):
+            width, height = height, width
+        if not needs_orientation and width <= bounds[0] and height <= bounds[1]:
+            return content, width, height
+        raster = ImageOps.exif_transpose(source) if needs_orientation else source
+        try:
+            # Convert palette/1-bit images before thumbnail: Pillow otherwise
+            # silently uses nearest-neighbour and can erase thin signature marks.
+            transparent = "A" in raster.getbands() or "transparency" in raster.info
+            mode = "RGBA" if transparent else "RGB"
+            if raster.mode != mode:
+                converted = raster.convert(mode)
+                raster.close()
+                raster = converted
+            raster.thumbnail(bounds, RasterImage.Resampling.LANCZOS)
+            buffer = BytesIO()
+            if lossless or transparent:
+                raster.save(buffer, format="PNG", optimize=True)
+            else:
+                raster.save(buffer, format="JPEG", quality=85, optimize=True)
+            return buffer.getvalue(), width, height
+        finally:
+            raster.close()
+
+
+def _image(value, image_loader, max_height, *, lossless=False):
     try:
         content = image_loader(value)
         if not content:
             return None
-        width, height = ImageReader(BytesIO(content)).getSize()
+        content, width, height = _printable_raster(
+            content, VALUE_WIDTH - 16, max_height, lossless=lossless,
+        )
         scale = min((VALUE_WIDTH - 16) / width, max_height / height)
         result = Image(BytesIO(content), width=width * scale, height=height * scale)
         result.hAlign = "LEFT"
@@ -143,7 +189,7 @@ def _answer_rows(fields, answers, styles, image_loader):
                     result.extend([Spacer(1, 6), heading, Spacer(1, 4)])
                     result.extend(render(children.get(field_id, []), row if isinstance(row, dict) else {}))
             elif kind == "signature":
-                evidence = _image(value, image_loader, 94) if value else None
+                evidence = _image(value, image_loader, 94, lossless=True) if value else None
                 content = [evidence] if evidence else (
                     [_paragraph("Signature unavailable.", styles["muted"])] if value else ""
                 )

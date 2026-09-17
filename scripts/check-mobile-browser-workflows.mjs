@@ -723,6 +723,17 @@ check('the retained full interface keeps six responsive supervisor workspaces', 
   && sourceStyles.includes('@media (max-width: 979px)')
 ));
 
+check('Reports allow a visible 50-photo batch without expanding retained limits', () => (
+  read('assets/js/app-shell-state.js').includes('MAX_REPORT_PHOTOS = 50')
+  && read('assets/js/app-shell-state.js').includes('MAX_TASK_LOG_PHOTOS = 8')
+  && sourceApp.includes('maxPhotos: MAX_REPORT_PHOTOS')
+  && sourceApp.includes('legacyMaxPhotos: MAX_TASK_LOG_PHOTOS')
+  && sourceWorkerForm.includes("formPurpose(renderedWorkForm) === 'daywork' ? legacyMaxPhotos : maxPhotos")
+  && sourceWorkerForm.includes('dataUrls.push(await fileToDataUrl(file))')
+  && sourceIndex.includes('id="workFormPhotoStatus" class="muted" role="status" aria-live="polite"')
+  && sourceIndex.includes('Up to 50 photos. You can select them together.')
+));
+
 check('report-only mode exposes only report, template, and staff navigation', () => (
   sourceApp.includes("const REPORT_ONLY_MODE = typeof window.__REPORT_ONLY_MODE_OVERRIDE__ === 'boolean'")
   && sourceApp.includes("const REPORT_ONLY_WORKER_TABS = new Set(['formTab', 'historyTab'])")
@@ -796,7 +807,7 @@ check('worker Reports retain the submission engine and expose the report workflo
   && sourceWorkerForm.includes('collectWorkFormAnswers(form')
   && sourceWorkerForm.includes('submitOfflineSubmission(localRecord')
   && sourceWorkerForm.includes('draftStateFor(form)')
-  && sourceWorkerForm.includes('photoDataUrls: state.workFormPhotoDataUrls')
+  && sourceWorkerForm.includes('photoDataUrls: [...state.workFormPhotoDataUrls]')
   && read('assets/js/history.js').includes('workflowStatus: record.workflow_status')
   && read('assets/js/history.js').includes('Final supervisor note:')
   && read('assets/js/history.js').includes('Submitted: ${formatDateTime(record.createdAt)}')
@@ -1218,7 +1229,8 @@ check('normal workers can submit Reports while Daywork and weekly team logs rema
   && read('backend/app/use_cases/common.py').includes('def require_leader')
   && sourceWorkFormsUseCase.includes('def list_work_forms')
   && sourceWorkFormsUseCase.includes('require_worker(user)')
-  && sourceWorkFormsUseCase.includes('if (form.template_purpose or "report") == "daywork"')
+  && sourceWorkFormsUseCase.includes('submission_purpose = form.template_purpose or "report"')
+  && sourceWorkFormsUseCase.includes('if submission_purpose == "daywork"')
   && sourceWorkFormsUseCase.includes('require_leader(user)')
   && read('backend/app/use_cases/team_work_logs.py').includes('week_start.weekday() != 0')
   && read('backend/app/models.py').includes('class TeamWorkLogEntry')

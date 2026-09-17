@@ -15,9 +15,16 @@ const SUBMISSION_DRAFT_KEYS = {
 
 const QUEUED_SYNC_STATUSES = new Set(['queued', 'syncing']);
 const STALE_SYNCING_AFTER_MS = 2 * 60 * 1000;
+const MAX_UPLOAD_RATE_LIMIT_RETRIES = 3;
+const MAX_UPLOAD_RETRY_WAIT_MS = 60 * 1000;
+const MAX_SUBMISSION_UPLOAD_WAIT_MS = 2 * 60 * 1000;
 
 let syncQueuePromise = null;
 let syncQueueWorkerId = null;
+// The durable lease handles reload recovery; this set additionally prevents a
+// same-page queue sweep from replaying an individual upload that takes >2 min.
+// It is not a cross-tab lock. Other tabs still rely on the checkpoint lease.
+const activeSubmissionIds = new Set();
 
 function submissionPurpose(record) {
   const explicitPurpose = String(record?.submissionPurpose || record?.submission_purpose || '').trim().toLowerCase();
@@ -136,37 +143,76 @@ function requireValidUploadImage(file) {
   throw error;
 }
 
+function notifyUploadProgress(options, phase = 'uploading', retryAfterSeconds = null) {
+  const progress = options.uploadProgress;
+  if (!progress || typeof options.onUploadProgress !== 'function') return;
+  try {
+    // UI feedback must never prevent a durable checkpoint or fail an upload.
+    Promise.resolve(options.onUploadProgress({
+      phase, completed: progress.completed, total: progress.total,
+      ...(retryAfterSeconds == null ? {} : { retryAfterSeconds })
+    })).catch(() => {});
+  } catch {
+    // A detached or failed UI does not own the submission's persistence.
+  }
+}
+
+async function uploadWithRateLimitRetry(source, filename, options) {
+  for (let retries = 0; ; retries += 1) {
+    options.assertCanSync?.();
+    notifyUploadProgress(options);
+    try {
+      return await uploadPhoto(source, filename);
+    } catch (error) {
+      const seconds = error?.retryAfterSeconds;
+      const waitMs = Math.max(1000, Math.ceil(seconds * 1000));
+      const progress = options.uploadProgress;
+      if (error?.status !== 429 || !Number.isFinite(seconds) || seconds < 0
+        || waitMs > MAX_UPLOAD_RETRY_WAIT_MS || retries >= MAX_UPLOAD_RATE_LIMIT_RETRIES
+        || !progress || progress.waitedMs + waitMs > MAX_SUBMISSION_UPLOAD_WAIT_MS) throw error;
+      // A definite 429 did not create an upload. Other errors remain queued;
+      // retrying an uncertain network failure here could duplicate evidence.
+      await options.renewLease?.();
+      progress.waitedMs += waitMs;
+      notifyUploadProgress(options, 'waiting', Math.ceil(waitMs / 1000));
+      await new Promise((resolve) => window.setTimeout(resolve, waitMs));
+      options.assertCanSync?.();
+    }
+  }
+}
+
+async function checkpointUploadedEvidence(record, options) {
+  if (record.syncStatus === 'syncing') record.syncStartedAt = nowIso();
+  await options.onProgress?.(record);
+  if (options.uploadProgress) options.uploadProgress.completed += 1;
+  notifyUploadProgress(options);
+}
+
 async function uploadRecordPhotos(record, files = [], options = {}) {
   const fileList = Array.from(files || []);
   const dataUrls = Array.isArray(record.photoDataUrls)
     ? record.photoDataUrls.filter(Boolean)
     : (record.photoDataUrl ? [record.photoDataUrl] : []);
 
-  const sources = fileList.length
-    ? fileList.map((file, index) => ({
-      source: file,
-      file,
-      dataUrl: dataUrls[index] || ''
-    }))
-    : dataUrls.map((dataUrl) => ({
-      source: dataUrlToBlob(dataUrl),
-      file: null,
-      dataUrl
-    }));
-
+  const sourceCount = fileList.length || dataUrls.length;
   const uploadedUrls = normaliseRecordPhotoUrls(record);
-  if (!sources.length || uploadedUrls.length >= sources.length) {
+  if (!sourceCount || uploadedUrls.length >= sourceCount) {
     record.photoUrls = uploadedUrls;
     record.photoUrl = uploadedUrls[0] || '';
     return uploadedUrls;
   }
 
-  for (const [index, item] of sources.entries()) {
+  for (let index = 0; index < sourceCount; index += 1) {
     if (uploadedUrls[index]) continue;
 
     options.assertCanSync?.();
-    requireValidUploadImage(item.source);
-    const uploaded = await uploadPhoto(item.source, photoFilenameFor(record, item.file, index, item.dataUrl));
+    const file = fileList[index] || null;
+    const dataUrl = dataUrls[index] || '';
+    // Restored drafts can hold fifty originals. Decode only the next missing
+    // photo, not every original (including those already uploaded) at once.
+    const source = file || dataUrlToBlob(dataUrl);
+    requireValidUploadImage(source);
+    const uploaded = await uploadWithRateLimitRetry(source, photoFilenameFor(record, file, index, dataUrl), options);
     uploadedUrls[index] = uploaded.url;
     record.photoUrls = uploadedUrls.filter(Boolean);
     record.photoUrl = record.photoUrls[0] || '';
@@ -176,7 +222,7 @@ async function uploadRecordPhotos(record, files = [], options = {}) {
         url: uploaded.url
       };
     }
-    await options.onProgress?.(record);
+    await checkpointUploadedEvidence(record, options);
   }
 
   record.photoUrls = uploadedUrls.filter(Boolean);
@@ -206,13 +252,14 @@ async function uploadSignatureAnswers(record, options = {}) {
     options.assertCanSync?.();
     const signature = dataUrlToBlob(value);
     requireValidUploadImage(signature);
-    const uploaded = await uploadPhoto(
+    const uploaded = await uploadWithRateLimitRetry(
       signature,
-      `signature-${record.userId || 'worker'}-${record.formId || 'form'}-${field.id}-${record.id || Date.now()}.png`
+      `signature-${record.userId || 'worker'}-${record.formId || 'form'}-${field.id}-${record.id || Date.now()}.png`,
+      options
     );
     answers[field.id] = uploaded.url;
     record.answers = answers;
-    await options.onProgress?.(record);
+    await checkpointUploadedEvidence(record, options);
   }
 
   for (const field of signatureFields.filter((item) => item.repeat)) {
@@ -228,14 +275,15 @@ async function uploadSignatureAnswers(record, options = {}) {
       options.assertCanSync?.();
       const signature = dataUrlToBlob(value);
       requireValidUploadImage(signature);
-      const uploaded = await uploadPhoto(
+      const uploaded = await uploadWithRateLimitRetry(
         signature,
-        `signature-${record.userId || 'worker'}-${record.formId || 'form'}-${field.id}-${rowIndex + 1}-${record.id || Date.now()}.png`
+        `signature-${record.userId || 'worker'}-${record.formId || 'form'}-${field.id}-${rowIndex + 1}-${record.id || Date.now()}.png`,
+        options
       );
       row[field.id] = uploaded.url;
       answers[repeatId] = rows;
       record.answers = answers;
-      await options.onProgress?.(record);
+      await checkpointUploadedEvidence(record, options);
     }
   }
 
@@ -527,9 +575,28 @@ async function syncSubmission(record, options = {}) {
     };
   }
 
+  const signatureValues = (record.fields || []).filter((field) => field.type === 'signature')
+    .flatMap((field) => field.repeat
+      ? (Array.isArray(record.answers?.[field.repeat]) ? record.answers[field.repeat] : []).map((row) => row?.[field.id])
+      : [record.answers?.[field.id]])
+    .filter((value) => typeof value === 'string' && value);
+  const uploadedPhotoCount = normaliseRecordPhotoUrls(record).length;
+  const photoCount = options.photoFiles?.length || (Array.isArray(record.photoDataUrls)
+    ? record.photoDataUrls.filter(Boolean).length : (record.photoDataUrl ? 1 : 0));
   const uploadOptions = {
     onProgress: options.onProgress,
-    assertCanSync
+    onUploadProgress: options.onUploadProgress,
+    assertCanSync,
+    renewLease: async () => {
+      assertCanSync();
+      record.syncStartedAt = nowIso();
+      await options.onProgress?.(record);
+    },
+    uploadProgress: {
+      completed: uploadedPhotoCount + signatureValues.filter((value) => !isSignatureDataUrl(value)).length,
+      total: Math.max(photoCount, uploadedPhotoCount) + signatureValues.length,
+      waitedMs: 0
+    }
   };
 
   if (record.type === 'attendance') {
@@ -630,6 +697,19 @@ export async function preserveConflictingReportDraft(record, draftKey) {
 
 export async function submitOfflineSubmission(record, options = {}) {
   const ownedSubmission = createLocalSubmission(record);
+  const submissionId = String(ownedSubmission.record.id);
+  if (activeSubmissionIds.has(submissionId)) {
+    throw new Error('This submission is already being saved. Wait for it to finish.');
+  }
+  activeSubmissionIds.add(submissionId);
+  try {
+    return await submitOwnedOfflineSubmission(ownedSubmission, options);
+  } finally {
+    activeSubmissionIds.delete(submissionId);
+  }
+}
+
+async function submitOwnedOfflineSubmission(ownedSubmission, options) {
   const localRecord = ownedSubmission.record;
   const draftKey = options.draftKey ?? SUBMISSION_DRAFT_KEYS[localRecord.type];
   let result = {
@@ -703,6 +783,11 @@ async function flushQueuedSubmissions(worker, options = {}) {
 
   for (const item of queueItems) {
     const record = await get('records', item.id);
+    const submissionId = String(item.id);
+    if (activeSubmissionIds.has(submissionId)) {
+      skipped += 1;
+      continue;
+    }
     if (!record) {
       await remove('queue', item.id);
       continue;
@@ -747,13 +832,15 @@ async function flushQueuedSubmissions(worker, options = {}) {
       continue;
     }
 
+    activeSubmissionIds.add(submissionId);
     try {
       markSyncing(localRecord);
       await persistLocalSubmission(localRecord);
 
       const syncedRecord = await syncSubmission(localRecord, {
         worker,
-        onProgress: persistLocalSubmission
+        onProgress: persistLocalSubmission,
+        onUploadProgress: options.onUploadProgress
       });
       applySyncedResponse(localRecord, syncedRecord);
       await persistLocalSubmission(localRecord);
@@ -773,6 +860,8 @@ async function flushQueuedSubmissions(worker, options = {}) {
       await persistLocalSubmission(localRecord);
       if (authBlocked) failed += 1;
       if (authBlocked) break;
+    } finally {
+      activeSubmissionIds.delete(submissionId);
     }
   }
 

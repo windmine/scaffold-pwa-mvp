@@ -947,7 +947,7 @@ export function createHistoryModule({
         `).join('')}</div>` : ''}
         ${photoSources.length ? `<div class="record-photos">${photoSources.map((photoSrc, index) => `
           <button class="photo-thumb" type="button" data-photo-index="${index}">
-            <img src="${escapeHtml(photoSrc)}" alt="Record photo ${index + 1}" />
+            <img ${index >= 8 ? 'loading="lazy" ' : ''}decoding="async" src="${escapeHtml(photoSrc)}" alt="Record photo ${index + 1}" />
             ${photoMetadata[index]?.taken_at || photoMetadata[index]?.last_modified_iso ? `<span class="photo-time">${escapeHtml(formatDateTime(photoMetadata[index].taken_at || photoMetadata[index].last_modified_iso))}</span>` : ''}
           </button>
         `).join('')}</div>` : ''}

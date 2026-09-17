@@ -36,6 +36,7 @@ from app.use_cases.supervisor_review import task_logs_csv_response  # noqa: E402
 from app.use_cases.supervisor_review_exports import (  # noqa: E402
     write_spreadsheet_safe_csv_row,
 )
+from smoke_test import assert_upload_retry_after  # noqa: E402
 
 
 class FakeHeaders(dict):
@@ -329,6 +330,8 @@ def test_upload_error_cache_middleware():
         "RATE_LIMIT_ENABLED": "true",
         "RATE_LIMIT_GENERAL_REQUESTS": "1",
         "RATE_LIMIT_GENERAL_WINDOW_SECONDS": "600",
+        "RATE_LIMIT_UPLOAD_REQUESTS": "1",
+        "RATE_LIMIT_UPLOAD_WINDOW_SECONDS": "60",
         "UPLOAD_STORAGE_BACKEND": "local",
         "UPLOAD_DIR": str(server_temp_path / "uploads"),
     })
@@ -392,6 +395,17 @@ def test_upload_error_cache_middleware():
             "rate-limited upload denial bypasses shared edge caches",
             limited_headers,
         )
+
+        first_upload_status, _, _ = request_status(
+            f"{base_url}/api/photo-uploads", method="POST",
+        )
+        assert_ok("anonymous photo upload is denied", first_upload_status == 401)
+        upload_status, upload_headers, upload_body = request_status(
+            f"{base_url}/api/photo-uploads", method="POST",
+        )
+        assert_ok("photo upload uses its dedicated rate limit", upload_status == 429)
+        assert_upload_retry_after(upload_headers, json.loads(upload_body))
+        assert_ok("photo upload Retry-After matches its response delay", True)
 
         cors_status, cors_headers, _ = request_status(
             upload_url,

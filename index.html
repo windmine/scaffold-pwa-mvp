@@ -630,8 +630,10 @@
                   Photos
                   <input id="workFormPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple />
                   <small>JPEG, PNG, or WebP; maximum 5 MB each.</small>
+                  <small id="workFormPhotoLimit">Up to 50 photos. You can select them together.</small>
                   <small>Choose more photos to add them. Use Remove to discard an individual photo.</small>
                 </label>
+                <p id="workFormPhotoStatus" class="muted" role="status" aria-live="polite" aria-atomic="true"></p>
                 <div id="workFormPhotoPreview" class="photo-preview hidden"></div>
                 <div class="work-form-submit-row">
                   <button id="submitWorkFormButton" type="submit" data-full-text="Submit Report" data-report-only-text="Submit Report">Submit Report</button>

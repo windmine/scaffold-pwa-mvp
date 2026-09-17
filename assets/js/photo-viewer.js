@@ -207,7 +207,7 @@ export function createPhotoViewer({
     container.innerHTML = urls
       .map((dataUrl, index) => `
         <button class="photo-thumb" type="button" data-photo-index="${index}">
-          <img src="${dataUrl}" alt="${escapeHtml(`${alt} ${index + 1}`)}" />
+          <img ${index >= 8 ? 'loading="lazy" ' : ''}decoding="async" src="${dataUrl}" alt="${escapeHtml(`${alt} ${index + 1}`)}" />
           ${metadata[index]?.takenAtLabel ? `<span class="photo-time">${escapeHtml(metadata[index].takenAtLabel)}</span>` : ''}
         </button>
       `)

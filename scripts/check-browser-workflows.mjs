@@ -1530,6 +1530,24 @@ async function selectReportPhoto(page, name, color) {
   }, { name, color });
 }
 
+async function selectReportPhotoBatch(page, count) {
+  await page.locator('#workFormPhotos').evaluate(async (input, count) => {
+    const transfer = new DataTransfer();
+    for (let index = 0; index < count; index += 1) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 20;
+      canvas.height = 20;
+      const drawing = canvas.getContext('2d');
+      drawing.fillStyle = `rgb(${index * 5},${255 - index * 5},${index * 3})`;
+      drawing.fillRect(0, 0, 20, 20);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+      transfer.items.add(new File([blob], `batch-photo-${index + 1}.png`, { type: 'image/png' }));
+    }
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }, count);
+}
+
 function observeReportDraftReads() {
   const nativeGetAll = IDBObjectStore.prototype.getAll;
   const reads = { started: 0, completed: 0 };
@@ -2011,27 +2029,104 @@ async function checkReportPhotoLimitAndEmptyPicker(browser) {
       throw new Error('an empty Report photo picker selection must not create a blank device draft');
     }
     await page.locator('.tab[data-tab-target="formTab"]').click();
-    for (let index = 0; index < 8; index += 1) {
-      await selectReportPhoto(page, `limited-report-photo-${index + 1}.png`, `#${(0x113355 + index * 0x111111).toString(16)}`);
-      await page.waitForFunction((count) => document.querySelectorAll('#workFormPhotoPreview img').length === count, index + 1);
-    }
+    await selectReportPhotoBatch(page, 50);
+    await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 50);
+    await page.locator('#workFormPhotoStatus').getByText('50 of 50 photos selected.', { exact: true }).waitFor();
     const originalSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
     await page.locator('#workFormPhotos').setInputFiles([]);
     await selectReportPhoto(page, 'excess-report-photo.png', '#ffffff');
-    await page.locator('#workFormFeedback').getByText('Reports can include up to 8 photos. The first 8 were kept.', { exact: true }).waitFor({ state: 'visible' });
+    await page.locator('#workFormFeedback').getByText('Reports can include up to 50 photos. The first 50 were kept.', { exact: true }).waitFor({ state: 'visible' });
     const fullSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
     if (JSON.stringify(fullSources) !== JSON.stringify(originalSources)) {
-      throw new Error('an empty or over-limit Report photo selection must preserve all eight earlier photos');
+      throw new Error('an empty or over-limit Report photo selection must preserve all 50 earlier photos');
     }
     await page.locator('#workFormPhotoPreview').getByRole('button', { name: 'Remove photo 4', exact: true }).click();
     await selectReportPhoto(page, 'replacement-report-photo.png', '#ffffff');
-    await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 8);
+    await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 50);
     const replacementSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
     originalSources.splice(3, 1);
-    if (JSON.stringify(replacementSources.slice(0, 7)) !== JSON.stringify(originalSources)
-      || originalSources.includes(replacementSources[7])) {
+    if (JSON.stringify(replacementSources.slice(0, 49)) !== JSON.stringify(originalSources)
+      || originalSources.includes(replacementSources[49])) {
       throw new Error('removing one Report photo must free exactly one append slot without changing other photos');
     }
+    await page.locator('#workFormAutosaveStatus.saved').waitFor();
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#workerView').waitFor({ state: 'visible' });
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 50);
+    const restored = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
+    if (JSON.stringify(restored) !== JSON.stringify(replacementSources)) throw new Error('50-photo draft changed after reload');
+    const finalThumbnail = page.locator('#workFormPhotoPreview [data-photo-index="49"]');
+    await finalThumbnail.scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => {
+      const image = document.querySelector('#workFormPhotoPreview [data-photo-index="49"] img');
+      return image?.complete && image.naturalWidth > 0;
+    });
+    await finalThumbnail.click();
+    await page.locator('#photoViewer').waitFor({ state: 'visible' });
+    const finalImage = await page.locator('#photoViewer img').getAttribute('src');
+    if (finalImage !== replacementSources[49]) throw new Error('lazy final thumbnail must open the fiftieth original photo');
+    await page.keyboard.press('Escape');
+    await page.locator('#photoViewer').waitFor({ state: 'hidden' });
+    await page.locator('#languageToggleButton').click();
+    await page.locator('#workFormPhotoStatus').getByText('已选择 50 / 50 张照片。', { exact: true }).waitFor();
+    if (await page.evaluate(() => document.documentElement.scrollWidth - innerWidth > 1)) throw new Error('50-photo picker overflows phone layout');
+  } finally {
+    await context.close();
+  }
+}
+
+async function checkReportFiftyPhotoUpload(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const marker = `Fifty-photo batch ${Date.now()}`;
+  let uploads = 0;
+  let limitedAt = 0;
+  let retriedAt = 0;
+  try {
+    await loginAs(page, 'worker@example.com', 'worker');
+    await page.waitForFunction(() => [...document.querySelectorAll('#workFormSelect option')]
+      .some((option) => option.textContent?.trim() === 'Inspection form'));
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.locator('#workFormField_inspection_area').fill(marker);
+    await page.locator('#workFormField_inspection_result').selectOption('Pass');
+    await selectReportPhotoBatch(page, 50);
+    await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 50);
+    await page.locator('#workFormAutosaveStatus.saved').waitFor();
+    // Reload forces the data-URL replay path instead of retained browser Files.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#workerView').waitFor({ state: 'visible' });
+    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 50);
+    await page.route('**/api/photo-uploads', async (route) => {
+      uploads += 1;
+      if (uploads === 31) {
+        limitedAt = Date.now();
+        await route.fulfill({ status: 429, contentType: 'application/json', headers: { 'Retry-After': '1' },
+          body: JSON.stringify({ detail: 'Upload rate limit reached', retry_after_seconds: 1 }) });
+        return;
+      }
+      if (uploads === 32) retriedAt = Date.now();
+      await route.continue();
+    });
+    const submitted = page.waitForResponse((response) => response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/form-submissions', { timeout: 60000 });
+    await page.locator('#submitWorkFormButton').click();
+    await page.locator('#workFormPhotoStatus').getByText('Upload limit reached. Retrying in 1 seconds. 30 of 50 photos and signatures uploaded.', { exact: true }).waitFor();
+    const response = await submitted;
+    if (!response.ok()) throw new Error(`50-photo submission failed: ${response.status()}`);
+    const report = await response.json();
+    if (uploads !== 51 || retriedAt - limitedAt < 950 || report.photo_urls.length !== 50
+      || new Set(report.photo_urls).size !== 50
+      || !report.photo_metadata.every((item, index) => item.name === `batch-photo-${index + 1}.png`)) {
+      throw new Error('50-photo retry changed photo count, order, metadata or retried too early');
+    }
+    await waitForQueueCount(page, 0);
+    const stored = await page.evaluate(async (id) => {
+      const response = await fetch('/api/my-form-submissions?purpose=report', { credentials: 'include' });
+      return (await response.json()).filter((item) => item.client_submission_id === id).length;
+    }, report.client_submission_id);
+    if (stored !== 1) throw new Error('50-photo submission created duplicate Reports');
   } finally {
     await context.close();
   }
@@ -7860,6 +7955,7 @@ async function main() {
     await runCheck('My Reports ordinary drafts stay private across shared-device account switches', () => checkReportDraftSharedDeviceIsolation(browser));
     await runCheck('My Reports blocks Continue for submitted drafts when local cleanup fails', () => checkSubmittedReportDraftCleanupFailure(browser));
     await runCheck('Report photo capacity and empty picker preserve existing selections without blank drafts', () => checkReportPhotoLimitAndEmptyPicker(browser));
+    await runCheck('Report photo 50-file batch restores and uploads once across rate limiting', () => checkReportFiftyPhotoUpload(browser));
     await runCheck('shared-device Worker Reports clear on logout, pending login, and late responses', () => checkSharedDeviceWorkerReportPrivacy(browser));
     await runCheck('shared-device late authorization errors cannot sign out the replacement Worker', () => checkSharedDeviceWorkerReportPrivacy(browser, { staleStatus: 401 }));
     await runCheck('shared-device same-account relogin ignores the previous session authorization failure', () => checkSharedDeviceWorkerReportPrivacy(browser, { staleStatus: 401, sameAccount: true }));

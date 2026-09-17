@@ -137,7 +137,83 @@ async function checkAppSessionRestore(refreshStatus, currentUserStatus, expectSi
   }
 }
 
+async function checkSubmissionSessionReset(uploadStatus) {
+  // Explicit module reset is a defensive contract test, not a claimed live
+  // logout reproduction: the app itself blocks logout during submission.
+  const originalWorker = { ...worker, id: 200 + uploadStatus };
+  const replacementWorker = { ...worker, id: 1200 + uploadStatus };
+  const page = await context.newPage();
+  try {
+    await openWorkerPage(page, originalWorker);
+    await page.evaluate(async ({ currentWorker, status }) => {
+      const api = await import('/assets/js/api-client.js');
+      api.saveSession(currentWorker);
+      const nativeFetch = window.fetch.bind(window);
+      let release;
+      const pendingUpload = new Promise((resolve) => { release = resolve; });
+      window.fixture.releaseUpload = release;
+      window.fetch = async (url, options) => {
+        if (url !== '/api/photo-uploads') return nativeFetch(url, options);
+        window.fixture.uploadStarted = true;
+        await pendingUpload;
+        return Response.json(status === 200 ? { url: '/uploads/previous-worker.png' }
+          : { detail: 'Previous Worker session expired' }, { status });
+      };
+      window.fixture.selectPhoto = () => {
+        const selected = new DataTransfer();
+        selected.items.add(new File(['synthetic-photo'], 'fixture.png', { type: 'image/png' }));
+        const picker = document.getElementById('workFormPhotos');
+        picker.files = selected.files;
+        picker.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+    }, { currentWorker: originalWorker, status: uploadStatus });
+    await page.locator('#workFormSelect').selectOption('51');
+    await page.locator('#workFormField_issue').fill('Original Worker evidence');
+    await page.evaluate(() => window.fixture.selectPhoto());
+    await page.locator('#workFormAutosaveStatus.saved').waitFor();
+    await page.locator('#submitWorkFormButton').click();
+    await page.waitForFunction(() => window.fixture.uploadStarted);
+
+    await page.evaluate(async (currentWorker) => {
+      const { saveSession } = await import('/assets/js/api-client.js');
+      window.fixture.form.clearSessionState();
+      window.fixture.state.user = currentWorker;
+      saveSession(currentWorker);
+      await window.fixture.form.refreshWorkForms();
+    }, replacementWorker);
+    await page.locator('#workFormSelect').selectOption('51');
+    await page.locator('#workFormField_issue').fill('Replacement Worker private draft');
+    await page.evaluate(() => window.fixture.selectPhoto());
+    await page.locator('#workFormAutosaveStatus.saved').waitFor();
+    await page.evaluate(() => window.fixture.releaseUpload());
+    await page.waitForFunction(async (oldWorkerId) => {
+      const { getAll, get } = await import('/assets/js/db.js');
+      const records = await getAll('records');
+      return records.some((record) => record.ownerWorkerId === oldWorkerId && record.syncStatus === 'queued')
+        && !await get('drafts', `work-form-draft:${oldWorkerId}:51`);
+    }, originalWorker.id);
+    const actual = await page.evaluate(async (currentWorker) => {
+      const { getDraft } = await import('/assets/js/mock-api.js');
+      return {
+        issue: document.querySelector('#workFormField_issue')?.value,
+        photos: window.fixture.state.workFormPhotoDataUrls.length,
+        expired: window.fixture.expired(),
+        draftIssue: (await getDraft(`work-form-draft:${currentWorker.id}:51`))?.answers?.issue
+      };
+    }, replacementWorker);
+    assert.deepEqual(actual, {
+      issue: 'Replacement Worker private draft', photos: 1, expired: false,
+      draftIssue: 'Replacement Worker private draft'
+    });
+    console.log(`ok - explicit module reset ignores previous Worker upload ${uploadStatus} completion without changing replacement draft`);
+  } finally {
+    await page.close();
+  }
+}
+
 try {
+  await checkSubmissionSessionReset(200);
+  await checkSubmissionSessionReset(401);
   let page = await context.newPage();
   await openWorkerPage(page);
   assert.deepEqual(await page.locator('#workFormSelect option').allTextContents(), ['Select a Report Template', 'Site inspection']);
