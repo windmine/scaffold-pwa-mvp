@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "completedAtUtc": "2026-09-18T05:57:29.374363+00:00",
+  "scope": "Candidate versus live department-branded PDF raster parity; not a physical-phone viewer test",
+  "renderer": "Poppler pdftoppm",
+  "dpi": 100,
+  "renderCommand": "pdftoppm -r 100 -png INPUT.pdf OUTPUT_PREFIX",
+  "candidateDirectory": "output/pdf/report-release-20260918-candidate.local",
+  "liveDirectory": "output/pdf/report-release-20260918-live.local",
+  "pdfs": [
+    {
+      "file": "mutual-toolbox-talk.pdf",
+      "candidateSha256": "7f0810e560ce90ab1d9382a4fd4db949e549c03820222d9cbd0cd00fd3eddee4",
+      "liveSha256": "dc67f0c6f596bfc9f44d3adb3712c878c1d80cac6b3ef0cbd3e7ca0720e9908b",
+      "pages": 2
+    },
+    {
+      "file": "mutual-demo-collection.pdf",
+      "candidateSha256": "49e87ae3b7cef0846ec392cdd920c0d01f84bf40bba27f96fd716170b7739894",
+      "liveSha256": "3e0ff9f7fb0c7f9504ff26efe6d0df5c776f10767cc1379126c5cb4b9bcef2d3",
+      "pages": 16
+    }
+  ],
+  "renderedLivePageCount": 18,
+  "pixelIdenticalPageCount": 18,
+  "mismatchCount": 0,
+  "pageDimensions": { "width": 827, "height": 1170 },
+  "comparison": "Each candidate/live page was decoded to RGB, dimensions matched, and ImageChops.difference returned an empty bounding box. The shared hashes below are SHA-256 of ASCII str(image.size) followed by decoded RGB bytes, independently calculated for both sides.",
+  "visualReview": {
+    "candidatePagesInspected": 18,
+    "method": "Each 100-DPI candidate page inspected with view_image; exact live pixel parity confirms the same visible rendering.",
+    "findings": "Mutual branding, readable answers/tables, photos/signatures, A4 footers and page numbers intact; no clipping, overlap, missing glyphs or missing evidence observed.",
+    "preExistingPolishNote": "Collection page 13 ends with the Attendees - Row 2 heading; its name/signature rows begin page 14. Historical 2026-09-16 live pages 13-14 confirm identical pagination. No evidence loss; not introduced by this release."
+  },
+  "rendererWarnings": [
+    "Poppler emitted Symbol/ArialUnicode display-font map warnings; both render commands exited 0. Visible Latin text and all page pixels were verified."
+  ],
+  "pages": [
+    { "page": "toolbox-page-1.png", "candidateAndLiveRgbSha256": "68293c0b00425c867fb78493bb97592e986cece64b984c08b270c32c73b347a4", "pixelIdentical": true },
+    { "page": "toolbox-page-2.png", "candidateAndLiveRgbSha256": "d4352b5272471806ed0a9fff676f10537de27fddfac4269cf6f7396dc86ab403", "pixelIdentical": true },
+    { "page": "collection-page-01.png", "candidateAndLiveRgbSha256": "3bb64c7ec6f73029729d1de2ee03decbf9af85668e321ea1f1ed8d068990c7ee", "pixelIdentical": true },
+    { "page": "collection-page-02.png", "candidateAndLiveRgbSha256": "02d29808af02cea940b6153c0d09e3c938c3040b2b605039f11e8cc71367aabf", "pixelIdentical": true },
+    { "page": "collection-page-03.png", "candidateAndLiveRgbSha256": "12dfcc037bcb347c1985118c2b4ae1aa0d698af992d740b42d40d3c607926d8c", "pixelIdentical": true },
+    { "page": "collection-page-04.png", "candidateAndLiveRgbSha256": "8d8b7ea2f26b487039ff8d7a57dd1d1c86094164fe9737f6562beec529e9e150", "pixelIdentical": true },
+    { "page": "collection-page-05.png", "candidateAndLiveRgbSha256": "751e88e5c01cf80b4c01533a3a14c257dc3c15f7f46bdcb1c0e4d051339d0654", "pixelIdentical": true },
+    { "page": "collection-page-06.png", "candidateAndLiveRgbSha256": "4c3c29ce7a5c6194f1a4bd851f95ef277edf4ceddbc1d3ea4aa8f3b67fc2979b", "pixelIdentical": true },
+    { "page": "collection-page-07.png", "candidateAndLiveRgbSha256": "ced5d8cdaa688e98d28767a4281b0cb1113c6900b4349bb557e3518d4bed7cf2", "pixelIdentical": true },
+    { "page": "collection-page-08.png", "candidateAndLiveRgbSha256": "55cf9ff77615179a271ec14ae2e17df3ab8feac3f96716da00023a8e266d32d9", "pixelIdentical": true },
+    { "page": "collection-page-09.png", "candidateAndLiveRgbSha256": "2260490966bba2d1e71e8b886d816cfe9b8cad359be80e738e89c98b84f319ed", "pixelIdentical": true },
+    { "page": "collection-page-10.png", "candidateAndLiveRgbSha256": "e710ecfe1f5acb889d7fb42fdd736b9d23d5031376a8e3887bcd14231043155b", "pixelIdentical": true },
+    { "page": "collection-page-11.png", "candidateAndLiveRgbSha256": "50677d7b616670d414a0132b724d822115bbdb2f1492af845c83302bc78a4fd4", "pixelIdentical": true },
+    { "page": "collection-page-12.png", "candidateAndLiveRgbSha256": "747fa84f996faf848c6f0ca526bebd6c188b44c380216a3c673f34ea52a92c0c", "pixelIdentical": true },
+    { "page": "collection-page-13.png", "candidateAndLiveRgbSha256": "2c2cdb86a7f70ad64df17b6c6790864c8bea83920ceadea4b7d60a245064fbba", "pixelIdentical": true },
+    { "page": "collection-page-14.png", "candidateAndLiveRgbSha256": "78d2490e5369e4abe0c5eedf712bb52be5a2fe1d67fe1cafc9cac56b967c69bf", "pixelIdentical": true },
+    { "page": "collection-page-15.png", "candidateAndLiveRgbSha256": "1bd1f780b0dca3c7ff05d7324c7cdd879f9954375e260392c4cb8b4cc92cf165", "pixelIdentical": true },
+    { "page": "collection-page-16.png", "candidateAndLiveRgbSha256": "5c2e21e874e3be8af1eb6c79d950a91b56c2ca3f74b4f2c0a7765332b8df7eaf", "pixelIdentical": true }
+  ]
+}

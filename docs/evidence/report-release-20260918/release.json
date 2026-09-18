@@ -1,0 +1,192 @@
+{
+  "status": "deployed_and_verified",
+  "completedAtUtc": "2026-09-18 06:07:53 UTC",
+  "liveUrl": "https://geo-attendance-system-db9ca.web.app",
+  "authorization": "User explicitly approved live-pilot deployment despite pending physical-phone testing with large camera photos.",
+  "frontend": {
+    "sourceCommit": "44e04c321e74385b2a05c9e0ff01d8d443291926",
+    "sourceCache": "leader-field-60b7ac98be51",
+    "productionCache": "leader-field-ed9e6cddf6aa",
+    "hostingVersion": "3e7a08c85e6ca5e5",
+    "previewChannel": "release-20260918",
+    "promotedAtUtc": "2026-09-18T06:00:16.936Z",
+    "method": "Exact verified preview-to-live clone, without rebuild"
+  },
+  "backend": {
+    "sourceCommit": "d840fbf5cf270067a65655bea7a0c1da8059799b",
+    "buildId": "0220c539-b6e9-4026-83cd-37f02053df6e",
+    "imageDigest": "sha256:c9d87fd9afd9428767d65d719f990df6facabe31bdd6d6e2ecf1e1fda4609444",
+    "revision": "geo-backend-report50-20260918",
+    "trafficPercent": 100,
+    "tags": [],
+    "promotedAtUtc": "2026-09-18T05:40:58.110819Z",
+    "runtimeConfigurationUnchanged": true,
+    "migrationRequired": false,
+    "migrationLedgerEntries": 21,
+    "migrationHead": "0021_worker_invitations",
+    "maintenancePause": false,
+    "revisionLogEntriesChecked": 2301,
+    "errorOr5xxLogEntries": 0
+  },
+  "features": [
+    "50 Report photos, 5 MB per file; handwritten signatures are additional; retained Daywork/Task Logs remain at eight",
+    "Original Blob-backed photos and isolated device Report storage protect mixed-version tabs and durable partial replay",
+    "Compact Worker Report cards and phone/tablet Supervisor inbox/detail review",
+    "PDF is the default single-Report download and primary collection export; HTML/CSV remain available",
+    "Department-branded A4 PDFs use bounded export-only photo copies without rewriting uploaded evidence"
+  ],
+  "verification": {
+    "localGate": "local-gates.json",
+    "completeAppBrowserWorkflows": 68,
+    "installerLocalChecks": 11,
+    "mixedVersionStorageGroups": 7,
+    "submissionRenderRaceChecks": 2,
+    "hostedRunnerLocalGroups": 12,
+    "productionDependencyAuditFindings": 0,
+    "strictHardeningWithBillingBudget": "passed; existing six-hour Neon recovery-history warning only",
+    "previewShell": "preview-shell.json",
+    "liveShell": "live-shell.json",
+    "exactShellAssetsPerOrigin": 64,
+    "previewInstaller": "preview-installer.json",
+    "liveInstaller": "live-installer.json",
+    "waitingUpdate": "live-waiting-update.json",
+    "waitingUpdateChecks": 4,
+    "updateScreenshots": "update-visual.json",
+    "previewReportWorkflow": "preview-reports50-final/evidence.json",
+    "liveReportWorkflow": "live-reports50/evidence.json",
+    "reportChecksPerOrigin": 12,
+    "photosPerReportFixture": 50,
+    "signaturePerFixture": 1,
+    "partialUploadCheckpointPhotos": 25,
+    "remainingPhotosAfterReload": 25,
+    "exactlyOneReportPerSuccessfulRun": true,
+    "privacyReviewResolutionIdempotencyPassed": true,
+    "hostedOriginalFixtureSizes": "Small synthetic 32x32 PNG photos, not realistic large-camera or maximum-size photos",
+    "singleAndFilteredCollectionPdfPagesPerOwnedReport": 26,
+    "preview50PhotoPdfVisual": "preview-50-pdf-visual.json",
+    "previewPdfFirstBrowser": "preview-pdf-browser.json",
+    "livePdfFirstBrowserAfterCleanup": "live-pdf-browser.json",
+    "demoPdfCandidate": "candidate.json",
+    "demoPdfLive": "live.json",
+    "demoPdfVisual": "pdf-visual.json",
+    "demoPdfPixelParity": "pdf-pixel-parity.json",
+    "demoPdfPixelIdenticalPages": 18,
+    "oldFrontendAgainstNewBackend": "old-client-candidate.json",
+    "finalInfrastructure": "live-infrastructure.json"
+  },
+  "preservedPresentationData": {
+    "ownershipManifest": "../presentation-demo-20260916.json",
+    "reports": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "templates": [
+      7,
+      8,
+      9
+    ],
+    "accounts": [
+      13,
+      14,
+      15,
+      16
+    ],
+    "sites": [
+      5,
+      6
+    ],
+    "uploads": 6,
+    "reportAndTemplateContentHashesUnchanged": true,
+    "uploadByteHashesUnchanged": true,
+    "csvAndHtmlHashesUnchanged": true,
+    "workerBaselineHistoriesVerified": true,
+    "noDemoCleanupPerformed": true
+  },
+  "testAttempts": [
+    {
+      "run": "stage-20260918a",
+      "evidence": "preview-reports50/evidence.json",
+      "status": "failed",
+      "cause": "Test counted the signature in its 25-photo interruption limit, stopping after 24 photos.",
+      "templateId": 10,
+      "reportId": null,
+      "templateArchived": true,
+      "uploadsObserved": 25
+    },
+    {
+      "run": "stage-20260918b",
+      "evidence": "preview-reports50-rerun/evidence.json",
+      "status": "failed",
+      "cause": "25-photo checkpoint passed, but the test's 45-second Worker UI wait expired during real server cooldown after reload.",
+      "templateId": 11,
+      "reportId": null,
+      "templateArchived": true,
+      "uploadsObserved": 30
+    },
+    {
+      "run": "stage-20260918c",
+      "evidence": "preview-reports50-final/evidence.json",
+      "status": "passed",
+      "templateId": 12,
+      "reportId": 14,
+      "templateArchived": true,
+      "reportSoftDeleted": true,
+      "uploadsObserved": 51
+    },
+    {
+      "run": "live-20260918a",
+      "evidence": "live-reports50/evidence.json",
+      "status": "passed",
+      "templateId": 13,
+      "reportId": 15,
+      "templateArchived": true,
+      "reportSoftDeleted": true,
+      "uploadsObserved": 51
+    }
+  ],
+  "runnerCorrections": {
+    "signatureCountCommit": "c6d84e0",
+    "boundedReloadWaitCommit": "8cbe7736cb43e3c3959e43488e1409dea4bb2a66",
+    "applicationBuildUnchanged": true,
+    "regressionsPassed": true,
+    "failedEvidencePreserved": true
+  },
+  "cleanup": {
+    "allOwnedCleanupFailures": [],
+    "unknownSubmissionOutcomes": false,
+    "testReportsRecoverableInTrash": [
+      14,
+      15
+    ],
+    "archivedTestTemplates": [
+      10,
+      11,
+      12,
+      13
+    ],
+    "successfulRunUploadsRetainedWithTrashedReports": 102,
+    "failedRunUnreferencedUploadsObserved": 55,
+    "uploadsDeletedByReleaseRunner": 0,
+    "uploadDisposition": "Retained under normal upload lifecycle/recovery policy; no broad or direct upload deletion.",
+    "temporaryCloudRunTagRemoved": "report50-20260918",
+    "previewChannelRetainedUntilUtc": "2026-09-19T05:38:02.840451666Z",
+    "presentationAccountsKeptActive": true
+  },
+  "limitations": [
+    "Physical iOS/Android devices, realistic large camera batches, full-resolution gallery decoding, 50 near-5-MB files and native PDF viewers remain unverified.",
+    "Reload currently waits for queued replay before revealing the Worker screen; a real upload cooldown can delay that screen. Keep the app open during active uploads.",
+    "The existing six-hour Neon recovery window remains an operational limitation.",
+    "A pre-existing demo collection row heading straddles pages 13/14; candidate and live are pixel-identical and no content is lost."
+  ],
+  "rollback": [
+    "Keep a 50-photo-compatible backend now that 50-photo Reports have been accepted; the retained older eight-photo revision is not an automatically safe rollback.",
+    "Older frontends cannot display isolated Blob-backed drafts/queues. Prefer a compatible forward fix while devices have unfinished Reports; never clear device storage to force rollback."
+  ]
+}

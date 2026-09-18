@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "origin": "https://geo-attendance-system-db9ca--release-20260918-fcnezv5d.web.app",
+  "startedAtUtc": "2026-09-18T05:41:26.112Z",
+  "scope": "Owned demo Reports; no business-data mutations or physical-phone claim",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "pageErrors": 0,
+  "downloads": [
+    {
+      "kind": "collection",
+      "filename": "leader-reports-2026-09-18.pdf",
+      "bytes": 264601,
+      "sha256": "1f150696d8f0c8466d5ad73166174e69de6396953b9bac07c6361115b8509244",
+      "artifact": "browser-collection.pdf"
+    },
+    {
+      "kind": "single",
+      "filename": "leader-report-5-2026-09-18.pdf",
+      "bytes": 161568,
+      "sha256": "c639a332124c151f45a7aa605950eb10278b99a5ef8dc41e8d1f534eafa848e6",
+      "artifact": "browser-single.pdf"
+    }
+  ],
+  "scriptSha256": "b25d63c827a4080ab6eb2a889ca6375dc478270d73b904cac4205919e01c0a8c",
+  "collectionPdfPrimary": true,
+  "singlePdfDefaultWithoutSelection": true,
+  "alternateFormatsAvailable": [
+    "html",
+    "csv"
+  ],
+  "completedAtUtc": "2026-09-18T05:41:42.026Z",
+  "downloadArtifactDirectory": "output/pdf/report-release-20260918-preview-browser.local",
+  "frozenFrontendCommit": "44e04c321e74385b2a05c9e0ff01d8d443291926"
+}

@@ -1,0 +1,277 @@
+{
+  "status": "passed",
+  "startedAtUtc": "2026-09-18T05:39:26.248Z",
+  "liveFrontend": "https://geo-attendance-system-db9ca.web.app",
+  "backendCandidate": "https://report50-20260918---geo-backend-eitdijn7cq-ts.a.run.app",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scope": "Read-only existing demo Reports; old live frontend with only API/uploads forwarded to the zero-traffic candidate; auth-only writes",
+  "checks": [
+    {
+      "name": "old_live_shell_and_candidate_readiness",
+      "status": "passed",
+      "details": {
+        "readiness": {
+          "database": "ok",
+          "migrations": "ok",
+          "upload_storage": "ok"
+        },
+        "uploadBackend": "gcs",
+        "oldShell": {
+          "cache": "leader-field-57d5f43f282c",
+          "sha256": "2d4dc515b5da1fb9d2402eafbb556e518695a0266d1ac3b0a46946cd73777cc1"
+        }
+      }
+    },
+    {
+      "name": "old_ui_auth_and_exact_demo_supervisor_scope",
+      "status": "passed",
+      "details": {
+        "userId": 16,
+        "departmentId": 2,
+        "globalAdmin": false
+      }
+    },
+    {
+      "name": "old_ui_filters_exact_demo_collection_and_streams_report5_evidence",
+      "status": "passed",
+      "details": {
+        "reportIds": [
+          "form:10",
+          "form:11",
+          "form:12",
+          "form:13",
+          "form:5",
+          "form:6",
+          "form:7",
+          "form:8",
+          "form:9"
+        ],
+        "imageProof": [
+          {
+            "path": "/uploads/2c9474177c1344b895e1984ce0c78165.png",
+            "width": 960,
+            "height": 240
+          },
+          {
+            "path": "/uploads/2c9474177c1344b895e1984ce0c78165.png",
+            "width": 960,
+            "height": 240
+          },
+          {
+            "path": "/uploads/2c9474177c1344b895e1984ce0c78165.png",
+            "width": 960,
+            "height": 240
+          },
+          {
+            "path": "/uploads/59c2bd434a8341ef8d66ab4726da97bf.png",
+            "width": 960,
+            "height": 540
+          }
+        ],
+        "answersPresent": true
+      }
+    },
+    {
+      "name": "old_ui_single_and_collection_pdf_downloads",
+      "status": "passed",
+      "details": {
+        "single": {
+          "kind": "single",
+          "filename": "leader-report-5-2026-09-18.pdf",
+          "bytes": 161568,
+          "sha256": "ad5c2e3af64ce8966cb0fab2e9fc060ba4ca286bda1bf392e095268498664e7d",
+          "pages": 2,
+          "reportIds": [
+            5
+          ],
+          "allA4": true,
+          "evidenceUnavailable": false
+        },
+        "collection": {
+          "kind": "collection",
+          "filename": "leader-reports-2026-09-18.pdf",
+          "bytes": 264601,
+          "sha256": "e2f49943ed4db1ae6c3394df14c45e1288f7f11c8646d8fd3f74eec040dda3ef",
+          "pages": 16,
+          "reportIds": [
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13
+          ],
+          "allA4": true,
+          "evidenceUnavailable": false
+        },
+        "oldFormatSelectionExplicit": true
+      }
+    }
+  ],
+  "requests": [
+    {
+      "surface": "live-static",
+      "method": "GET",
+      "path": "/",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:27.335Z"
+    },
+    {
+      "surface": "live-static",
+      "method": "GET",
+      "path": "/assets/icons/reportflow-icon.svg",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:27.628Z"
+    },
+    {
+      "surface": "live-static",
+      "method": "GET",
+      "path": "/assets/main-CUkm2XY6.css",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:27.751Z"
+    },
+    {
+      "surface": "live-static",
+      "method": "GET",
+      "path": "/assets/main-BluTXhA_.js",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:28.309Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/health/ready",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:28.983Z"
+    },
+    {
+      "surface": "live-static",
+      "method": "GET",
+      "path": "/sw.js",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:29.287Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:29.791Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/departments",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:29.876Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/sites",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:29.952Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/auth/me",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:30.282Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/supervisor/review-queue",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:30.284Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/work-forms",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:30.433Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/uploads/bd17642b71ea43bdbef5bce7f23bb012.png",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:30.736Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/supervisor/users",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:30.824Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/uploads/2c9474177c1344b895e1984ce0c78165.png",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:30.915Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/uploads/59c2bd434a8341ef8d66ab4726da97bf.png",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:31.047Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/supervisor/review-queue",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:31.139Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/uploads/2c9474177c1344b895e1984ce0c78165.png",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:31.535Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/uploads/59c2bd434a8341ef8d66ab4726da97bf.png",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:31.644Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/supervisor/form-submissions/5/export.pdf",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:33.058Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/supervisor/form-submissions/export.pdf",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:41.059Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "status": 200,
+      "atUtc": "2026-09-18T05:39:41.863Z"
+    }
+  ],
+  "blockedRequests": [],
+  "pageErrors": 0,
+  "completedAtUtc": "2026-09-18T05:39:41.967Z",
+  "authOnlyWrites": true
+}

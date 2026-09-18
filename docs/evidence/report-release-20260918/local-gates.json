@@ -1,0 +1,58 @@
+{
+  "date": "2026-09-18",
+  "status": "passed",
+  "frontendSourceCommit": "44e04c321e74385b2a05c9e0ff01d8d443291926",
+  "backendSourceCommit": "d840fbf5cf270067a65655bea7a0c1da8059799b",
+  "sourceCache": "leader-field-60b7ac98be51",
+  "productionCache": "leader-field-ed9e6cddf6aa",
+  "gates": {
+    "lint": "passed",
+    "productionBuild": "passed",
+    "fullCheckMobile": "passed in one final complete run",
+    "appBrowserWorkflows": 68,
+    "installerChecks": 11,
+    "compactCardChecks": 12,
+    "mixedVersionStorageGroups": 7,
+    "submissionRenderRaceChecks": 2,
+    "hostedRunnerLocalChecks": 12,
+    "pdfBrowserRunnerLocalChecks": 3,
+    "backendSecurityUploadDatabaseDefinitions": "passed",
+    "backendReportWorkflowPurposeExportsReviewQueuePdf": "passed",
+    "backendMigrationMigrationCliInvitationTemplateEdit": "passed",
+    "pythonCompilationAndDependencyConsistency": "passed",
+    "disposableSqliteApiSmoke": "passed; owned temporary server and database removed",
+    "productionNpmAudit": "zero findings",
+    "strictProductionHardeningWithBillingBudget": "passed; existing six-hour Neon history warning only"
+  },
+  "releaseAuditFixes": [
+    "An exact deployed old client reproduced photo omission when replaying new Blob-only records in shared legacy storage. New Report evidence is isolated in scaffold-pwa-report-evidence-v1; seven mixed-version regression groups pass.",
+    "A deferred draft save demonstrated a pending Template render replacing submitting fields. Entry/post-flush guards preserve the submitting surface; two red-then-green tests pass.",
+    "Two old raw IndexedDB failure-injection hooks were updated for isolated envelopes. A prior full run also observed an intermittent recovery mismatch; the final full run and focused reruns pass after the render guard.",
+    "An earlier gate attempt ended on a native Vite-preview process exit; subsequent complete run passed. No production failure is inferred."
+  ],
+  "finalIsolatedStorageVolumeRerun": {
+    "transport": "mocked; real Chromium IndexedDB",
+    "originalPhotos": 50,
+    "originalBytes": 67691622,
+    "coldReloads": 2,
+    "partialUploaded": 25,
+    "remainingUploaded": 25,
+    "allOriginalHashesPreserved": true,
+    "finalReportCount": 1,
+    "queueEmpty": true,
+    "peakSampledWorkingSetBytes": 482914304,
+    "physicalPhoneOrFullGalleryProof": false
+  },
+  "backendArchive": {
+    "trackedSourceFilesUploaded": 88,
+    "sourceOnlyGitArchive": true,
+    "credentialsDatabasesUploadsBytecodeExcluded": true,
+    "migrationRequired": false
+  },
+  "operatorApproval": "Explicit live-pilot deployment approved despite pending physical-phone large-camera-batch checks.",
+  "remainingLimits": [
+    "Physical iOS/Android phones, full-resolution gallery decode, and 50 near-5-MB originals remain unverified.",
+    "Keep a Blob-compatible frontend and a 50-photo-compatible backend. Never clear device storage to permit rollback.",
+    "Reload currently awaits queued replay before revealing the Worker screen; real upload cooldown can delay that screen. Hosted verification uses a bounded 300-second replay wait."
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "project": "geo-attendance-system-db9ca",
+  "frontendSourceCommit": "44e04c321e74385b2a05c9e0ff01d8d443291926",
+  "productionCache": "leader-field-ed9e6cddf6aa",
+  "exactVersion": "3e7a08c85e6ca5e5",
+  "promotionMethod": "Clone the verified preview to live without rebuilding",
+  "preview": {
+    "channel": "release-20260918",
+    "url": "https://geo-attendance-system-db9ca--release-20260918-fcnezv5d.web.app",
+    "releaseTimeUtc": "2026-09-18T05:38:09.996Z",
+    "expiresAtUtc": "2026-09-19T05:38:02.840451666Z"
+  },
+  "live": {
+    "url": "https://geo-attendance-system-db9ca.web.app",
+    "releaseTimeUtc": "2026-09-18T06:00:16.936Z"
+  },
+  "previousLiveVersion": "23c1ee5e712da7d7",
+  "previousProductionCache": "leader-field-57d5f43f282c",
+  "compatibleBackendPromotedFirstAtUtc": "2026-09-18T05:40:58.110819Z",
+  "migrationRequired": false,
+  "maintenancePauseRequired": false,
+  "oldFrontendRollbackSafeWithUnfinishedBlobDrafts": false
+}

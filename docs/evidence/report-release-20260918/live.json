@@ -1,0 +1,94 @@
+{
+  "phase": "live",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "status": "passed",
+  "startedAtUtc": "2026-09-18T05:56:11.873257+00:00",
+  "readiness": {
+    "status": "ok",
+    "checks": {
+      "database": "ok",
+      "migrations": "ok",
+      "upload_storage": "ok"
+    },
+    "details": {
+      "upload_storage": {
+        "backend": "gcs"
+      }
+    }
+  },
+  "reportDataSha256": "84b4a6fa66c61d1f1364cbc1a177a60e53485382effa9c509e76fbef91d175c9",
+  "templateDataSha256": "eaaa3d2f45487b905bef4105b52d9e50512a36c4f54bfe53777e62a371685270",
+  "exactOwnedIds": {
+    "reports": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "templates": [
+      7,
+      8,
+      9
+    ]
+  },
+  "nonPdfExportHashes": {
+    "collection_csv": "547eea348996bd2f36c7afd6fc7b925e0aa51e8cf7b5255921449d0b9320731f",
+    "single_csv": "2a0e238d896c237fc5095f1165dc9082c271eaefef3914f86fdeb188246ae512",
+    "collection_html": "f5b21041505d5ad579169eb4b495a4e3ba6881112c70e41540d9eda60168aa40",
+    "single_html": "e92a6c46951cf78bdcc0df6877e7de36df7b3114333ab653778ba90cc12c6a4c"
+  },
+  "exportCacheControls": {
+    "collection_csv": "private",
+    "single_csv": "private",
+    "collection_html": "private",
+    "single_html": "private"
+  },
+  "uploadHashes": {
+    "/uploads/2c9474177c1344b895e1984ce0c78165.png": "ca34da231211d1fe4c297ac37cbda7381a08b279d1a6822bc61a5a4ef20c3bd4",
+    "/uploads/59c2bd434a8341ef8d66ab4726da97bf.png": "81fff28fbd1528973466a075d7d288c96465d3712de4be5385ea137ade38b6e4",
+    "/uploads/bd17642b71ea43bdbef5bce7f23bb012.png": "ca34da231211d1fe4c297ac37cbda7381a08b279d1a6822bc61a5a4ef20c3bd4",
+    "/uploads/fe8148af30cf434fb975773be41943c3.png": "60b7e23ba7ec55615add29c62a5d1298489eecad9eb265653b64c5d81709605c",
+    "/uploads/c8f56cc2d526433d81367686d89240a5.png": "ca34da231211d1fe4c297ac37cbda7381a08b279d1a6822bc61a5a4ef20c3bd4",
+    "/uploads/e02b705358ac423690fadbd521c77fcc.png": "c387007fcacdb1bf53391f5b88ac95bdfadec5ca3af6f9f0f43929e7220ec100"
+  },
+  "accessScopeAndExistingCachePolicy": "passed",
+  "existingDemoDataAndCsvHtmlUnchanged": true,
+  "pdfs": [
+    {
+      "path": "output/pdf/report-release-20260918-live.local/mutual-toolbox-talk.pdf",
+      "sha256": "dc67f0c6f596bfc9f44d3adb3712c878c1d80cac6b3ef0cbd3e7ca0720e9908b",
+      "pages": 2,
+      "reportIds": [
+        5
+      ],
+      "mutualLogoVerifiedEveryPage": true,
+      "evidenceImageOccurrences": 3,
+      "eachPhotoAndSignaturePixelsVerified": true
+    },
+    {
+      "path": "output/pdf/report-release-20260918-live.local/mutual-demo-collection.pdf",
+      "sha256": "3e0ff9f7fb0c7f9504ff26efe6d0df5c776f10767cc1379126c5cb4b9bcef2d3",
+      "pages": 16,
+      "reportIds": [
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "mutualLogoVerifiedEveryPage": true,
+      "evidenceImageOccurrences": 17,
+      "eachPhotoAndSignaturePixelsVerified": true
+    }
+  ],
+  "completedAtUtc": "2026-09-18T05:56:43.136908+00:00"
+}

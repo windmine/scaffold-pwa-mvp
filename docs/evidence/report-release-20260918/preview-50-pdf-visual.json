@@ -1,0 +1,123 @@
+{
+  "pagesPerDocument": 26,
+  "singleCollectionRenderedPixelIdentical": [
+    {
+      "page": "single-01.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-02.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-03.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-04.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-05.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-06.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-07.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-08.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-09.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-10.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-11.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-12.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-13.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-14.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-15.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-16.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-17.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-18.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-19.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-20.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-21.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-22.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-23.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-24.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-25.png",
+      "pixelIdentical": true
+    },
+    {
+      "page": "single-26.png",
+      "pixelIdentical": true
+    }
+  ],
+  "sourceHashes": {
+    "owned-single.pdf": "a61c702c4cbae19c1811c8f413332d884a0e656314c69a4cf88128fde49ec357",
+    "owned-collection.pdf": "bc3502d7a5c73d45feae46b0ea1703a7ecb7868c6713b69b4f38e346cd5838d3"
+  },
+  "status": "passed",
+  "scope": "Synthetic 50-photo hosted fixture; actual preview browser downloads",
+  "visuallyReviewedPagesPerDocument": 26,
+  "reviewMethod": "All pages through three contact sheets; first and final pages additionally at full size. All 26 single/collection pairs are pixel-identical.",
+  "findings": [
+    "Mutual branding, long title and answers, signature and final review note are readable",
+    "All 50 photo captions, image borders and page footers are present; no clipping or overlap observed"
+  ],
+  "physicalPhoneTest": false,
+  "renderDirectory": "output/report-release-20260918.local/preview-pdf-visual-qa"
+}

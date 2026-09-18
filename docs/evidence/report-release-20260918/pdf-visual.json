@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "candidatePagesRenderedAndVisuallyInspected": 18,
+  "singlePages": 2,
+  "collectionPages": 16,
+  "renderer": "Poppler pdftoppm",
+  "checks": [
+    "Mutual branding, report details and answers remain readable",
+    "Photos and handwritten signatures are present without clipping or overlap",
+    "A4 layout, footer and global page numbering are correct",
+    "Authenticated PDF checks verify exact source or printable photo/signature pixels for every owned Report"
+  ],
+  "nonBlockingPreExistingLayoutNote": "Collection page 13 ends with Attendees - Row 2 before its name/signature on page 14. Historical live PDF has the same pagination; no content is lost.",
+  "renderDirectory": "output/pdf/report-release-20260918-candidate.local",
+  "physicalPhoneViewerTest": false
+}

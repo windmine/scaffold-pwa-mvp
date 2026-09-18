@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "runId": "stage-20260918b",
+  "nonce": "1962b1b9-03b7-490e-bbbd-e67f82ada592",
+  "origin": "https://geo-attendance-system-db9ca--release-20260918-fcnezv5d.web.app",
+  "status": "failed",
+  "startedAtUtc": "2026-09-18T05:51:30.195Z",
+  "scope": "Automated hosted Chromium, not a physical-phone or service-worker test",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "photoCount": 50,
+  "existingHistoryAllowed": true,
+  "retainedWorkerBaselines": {
+    "worker": {
+      "workerId": 13,
+      "reports": [
+        {
+          "id": 5,
+          "sha256": "c844771e14502904ad6a0840e7da9ed0e45af6bb15776e266ba5caafdb11dc1c"
+        },
+        {
+          "id": 10,
+          "sha256": "4d447847b6e4ce24350b689a6c76d8e680265e4b1c8aa2a77ec85b5c88ad2d3d"
+        },
+        {
+          "id": 12,
+          "sha256": "f8b749120e42843153957268c4f029280402fc5728f7aa5604b3c67b7969f947"
+        }
+      ]
+    },
+    "secondWorker": {
+      "workerId": 14,
+      "reports": [
+        {
+          "id": 6,
+          "sha256": "410f113c363301430ae08e1c9ed75f08bef691b10eba664d37a10a42d4240798"
+        },
+        {
+          "id": 8,
+          "sha256": "e2392808fe9463dfa870b1a8467d009e6e91e93f8aa3e9a794e2bfb42429ffe9"
+        },
+        {
+          "id": 13,
+          "sha256": "365f5d2f2a54916a37f9670ee1d400b7c2aca09cebf0ff7ede70d046c0fe06bc"
+        }
+      ]
+    }
+  },
+  "photoFixture": "Small distinct synthetic PNGs; not large-camera-photo or physical-phone readiness proof",
+  "checks": [
+    {
+      "name": "hosted_database_migrations_and_gcs_ready",
+      "status": "passed",
+      "details": {
+        "checks": {
+          "database": "ok",
+          "migrations": "ok",
+          "upload_storage": "ok"
+        },
+        "uploadBackend": "gcs"
+      }
+    },
+    {
+      "name": "three_dedicated_department_accounts",
+      "status": "passed",
+      "details": {
+        "departmentScoped": true,
+        "normalWorkers": 2
+      }
+    },
+    {
+      "name": "create_nonce_bound_report_template",
+      "status": "passed"
+    },
+    {
+      "name": "worker_ui_date_optional_site_photo_and_handwritten_signature",
+      "status": "passed"
+    },
+    {
+      "name": "offline_report_preserves_original_answers_and_evidence",
+      "status": "passed",
+      "details": {
+        "photoStorage": "blob",
+        "originalPhotoHashesVerified": 50
+      }
+    }
+  ],
+  "owned": {
+    "templateId": 11,
+    "reportId": null,
+    "clientSubmissionId": "9cf4a355-1167-44bb-9271-837cd558c7e2",
+    "uploadPaths": [
+      "/uploads/ea325f294e764794960143ff94679e57.png",
+      "/uploads/445d4eff356a4c999d5637cf10878bf8.png",
+      "/uploads/e045a689511e4bb39d51a1679af67fad.png",
+      "/uploads/440aaf0e34c34e2d947423313c6e2b66.png",
+      "/uploads/0b323b98354e49608d78b7730cec46c8.png",
+      "/uploads/c8496be6e3f943239481fea6e96e3f0f.png",
+      "/uploads/b36cd18a6249486eba29e7173ed9e5b7.png",
+      "/uploads/9b044b257cb24d19900c5acfda6c8709.png",
+      "/uploads/243f0d0802d64ab0aadd93e585e4148c.png",
+      "/uploads/c842e1eac4ea4826baa29dcfff1236e9.png",
+      "/uploads/537a9a62289045aeb5e79a2bfa95f011.png",
+      "/uploads/f70de3bdea7e47f285bad84bf2857449.png",
+      "/uploads/1e4e6d0a17284f0fab537aa045dffa4d.png",
+      "/uploads/55b8ff555f7b4ad0b78a1067653a3482.png",
+      "/uploads/3efaeacffbbe44c4bd11ac811bbd6469.png",
+      "/uploads/3a87cba35e30491b8448fc843a4db38e.png",
+      "/uploads/07f0b306d48a4c90b7b827dbcc4ec096.png",
+      "/uploads/6b74b9b5ebda4bdc855908f9ecba3bac.png",
+      "/uploads/4c214bbd2df042c8a0fca06bc8413e3b.png",
+      "/uploads/84715d0b697e467688eeaac74eec34e7.png",
+      "/uploads/0d14738a14214ba693c26b1c33c4d2f1.png",
+      "/uploads/ac4d029cf869457f87daf2f59644bc0e.png",
+      "/uploads/f5b8a28e4ca348f99ff79fa00436e2b5.png",
+      "/uploads/7614cd9b1d1541d5a96c91610cd6870b.png",
+      "/uploads/a491ec5ea8004836a2510b4e3f3f292b.png",
+      "/uploads/8f5261cbfebe446381bbedaa30073185.png",
+      "/uploads/1288bc33525643adbf36f77e43d15456.png",
+      "/uploads/4dc3e528ad4a43aca176d1c4ddde9048.png",
+      "/uploads/51626f02de0946dfb90473c27e195e33.png",
+      "/uploads/4567054974dd41fe9554808c5fee7501.png"
+    ],
+    "supervisorId": 16,
+    "workerId": 13,
+    "secondWorkerId": 14,
+    "departmentId": 2
+  },
+  "cleanup": {
+    "reportTrashed": false,
+    "templateArchived": true,
+    "submissionOutcomeUnknown": false,
+    "failures": []
+  },
+  "scriptSha256": "ecbf2177f48deb119960a544cffc327f1b470951314c35f3ccb4083a28cc3ef5",
+  "originalPhotoSha256": [
+    "61a0237b806ee08e311e37b30cee1d491d9feb80438f8f27853750882e937a8e",
+    "899041c06f13e7fb982ab8f2f42df023e031938d631f3911c266316acd2c6b73",
+    "d57cf3c30f236da1516972fa05acf29269a93fe47c9977ac7e29143153736723",
+    "1cfdbe40b05735296fe14671d3e48511f1b65c5ad69b1a948a0f27fedbc2484e",
+    "e71e7ecaf3dd908b16a930644ecbf33533268049c03d8e6128521c74a5c94ab4",
+    "991e8eee7a90fb567ee8c8be06d2c27621af1af21d8a378f05acf310431e33bc",
+    "dc3e9045085d046f7504d3e8c2a9075a6d53333c8f9502f39854ecab894817bb",
+    "2edc3d20f853096c4fcfc3c7eabef644dead83123441c6e7eb5f702e12e9edb4",
+    "7eaea5ce3e0eb7c964b50a6d1d195113f71a1197d64855f8165a5f6efb0c97e1",
+    "741236629156bd9708b8a6770c88f0a802ea3b4c0012b62a3962251e89de5424",
+    "4f6e63d89836346d1c5def9495e17a96bc58ef74355789534df2d10e43beaa23",
+    "a0b778a3277bfa2f53a88bc1351e4ab63590947371421732d5ba525e35005ac5",
+    "ab61a2861e35f795db70c3d76fe33410dc3ca7cd91c27ffa5b6197aecf6b1dc8",
+    "1891ba26f9aac2895fa867117205feb1ced78d57d3162f05fcd2f970c86827bd",
+    "b4b0ed74126209d59d21af6ec31cfde85604de5965466a30877fde7896b8611b",
+    "aa11a0e889ab1428b0e89dab8e27b3e9c9b201d06d72ec69104cbd103045916b",
+    "45f4203e6af49b8e122d1e2d986579919d8a1c04bf0bfcb003cf11b2e414c663",
+    "dd202a6e5e68825c4fc408ae236ad8956df8d646f0a99d5dd4b4fa8133b437a2",
+    "278849cfd27132ea8e10c422aa1deadb65fb519a7a2cabba428e28c882f5777a",
+    "77417a12a05cfcacac1da6aa0d26bf50a5f12721c090da11db9d5c1a0eab756e",
+    "734b6fd718e4214c6180798c2b8bb31b76684b818022fd245ed27b5d2f5b482a",
+    "28f40f281aa06e94cf29c3c1c2178f875cfb88e339a3796b128576bff6821fca",
+    "973230c23354e5e28d55c53bcaf84aca6ed4a7ee5e2a403314a742d82845346e",
+    "aea50b9dfce7c54977712db6481ff505e8732dda47b83636cb27e770fd7129f3",
+    "178bf4832c0b87b9f1e78607de3014b0c24874da2450ee375e8f72ec6803637b",
+    "d1ff2168978f5665cda4c91d0edcb84dc9bc461c5b5e7cf7b41cd9e99a1b815b",
+    "5292e1a4b98316024cf72b9f3142ad91cffd66dff1ac0bf58b15f72cfaeebf6a",
+    "e92b704fae5e802d1d5a797a9967e21991f0f0786161269647d104e8fd56c3c2",
+    "48f5b35828bc9da8576fd63f9df5d83a04de76899ea9cb8fef2b64e6cd4529d1",
+    "4817eaa57e3bb5347a14569244677760a29d47374298869e08410074db1ba359",
+    "baf15dff2a4c1684ce4ad762c7440a04cb4c060ceb9054d0b14db7effbee9955",
+    "a4553e79f3d8d45747977335243797f1b21072fbf4a8d4c72a145b91ffd08bbb",
+    "4b4bb1b658488ec4bf9e4b23d9b46d8ef4f981af51383c882cb8e46588d3dd64",
+    "35ce7bdd308b549e344a89c899dea7d65971b205513e41e9e46ac8e91fdb0655",
+    "25749808ffc1844109bd6c8422f0def461b0e25d25970d9846ba3b653c1e34e6",
+    "bbf62b4f6e2be1429c9f20f7e28eade9fd9538c69a193d67b671a66eacfb07da",
+    "31ecb0fc5c7192ef9173baaa13c0bdf40d79e063546ec77a9acf2a8da9146ad9",
+    "0cd4b4fd14f5a71eeed2e21dc40556ff27b7c7e40fc59739147fcfb2ce89d0d7",
+    "942dc4b410770dfb4b774514b3b1bfbeeca75fe6130cd2abf86b95ab83edd0a8",
+    "3534b363920097ba9a78acf120b6f5e6c760b0aaf110f53c836d2d0f3eb83236",
+    "0c7cbe445b6633b4c574f63427fb68ec4b11d763b6d7cb93ad4a2ec5e6275774",
+    "c59e0b0370873b2e387d438a08607abaf2812a147ce4a1c47cf38443b253dcd4",
+    "848e27589ea7f9d2d45bb4bf8094982a8fbbacc0668f7eea805b3568c4567c9d",
+    "f9fbe491919927832394d0d3a8982f2cb315cc5c269f889927631429fe9f9628",
+    "88ccabb00fc2ffbbc4186d5980a3c01ba09418f7b6cf4ee3e696c97c38fbd668",
+    "dbc988ceeddd80dc6056cf4663e8d93e5633ca0135525591b7b9de3d6d6bc125",
+    "a2cf75fa551748f299a0a66d42c741246cda2ec8d43b326e7aa2de88a7fed26d",
+    "b02f1db66bba2077885b75946b0693efcea48f7868e705a221149ca4ecff217d",
+    "21978905549158e3ce0b59595d8a6adc3f90a8c5f73ee90d0023baeb8ccb677e",
+    "0043b3ae10d27525a58140628454cbb34c548bd4fc8fa3a803d4c6a21cfe3484"
+  ],
+  "partialUploadObserved": {
+    "successfulPhotoUploads": 25,
+    "successfulEvidenceUploads": 26,
+    "recordFound": true,
+    "syncStatus": "queued",
+    "persistedPhotoCount": 25,
+    "hasSyncError": true,
+    "originalPhotoCount": 50
+  },
+  "partialUploadCheckpoint": {
+    "uploadedPhotos": 25,
+    "originalPhotoHashesVerified": 50,
+    "photoStorage": "blob",
+    "uploadedPaths": [
+      "/uploads/445d4eff356a4c999d5637cf10878bf8.png",
+      "/uploads/e045a689511e4bb39d51a1679af67fad.png",
+      "/uploads/440aaf0e34c34e2d947423313c6e2b66.png",
+      "/uploads/0b323b98354e49608d78b7730cec46c8.png",
+      "/uploads/c8496be6e3f943239481fea6e96e3f0f.png",
+      "/uploads/b36cd18a6249486eba29e7173ed9e5b7.png",
+      "/uploads/9b044b257cb24d19900c5acfda6c8709.png",
+      "/uploads/243f0d0802d64ab0aadd93e585e4148c.png",
+      "/uploads/c842e1eac4ea4826baa29dcfff1236e9.png",
+      "/uploads/537a9a62289045aeb5e79a2bfa95f011.png",
+      "/uploads/f70de3bdea7e47f285bad84bf2857449.png",
+      "/uploads/1e4e6d0a17284f0fab537aa045dffa4d.png",
+      "/uploads/55b8ff555f7b4ad0b78a1067653a3482.png",
+      "/uploads/3efaeacffbbe44c4bd11ac811bbd6469.png",
+      "/uploads/3a87cba35e30491b8448fc843a4db38e.png",
+      "/uploads/07f0b306d48a4c90b7b827dbcc4ec096.png",
+      "/uploads/6b74b9b5ebda4bdc855908f9ecba3bac.png",
+      "/uploads/4c214bbd2df042c8a0fca06bc8413e3b.png",
+      "/uploads/84715d0b697e467688eeaac74eec34e7.png",
+      "/uploads/0d14738a14214ba693c26b1c33c4d2f1.png",
+      "/uploads/ac4d029cf869457f87daf2f59644bc0e.png",
+      "/uploads/f5b8a28e4ca348f99ff79fa00436e2b5.png",
+      "/uploads/7614cd9b1d1541d5a96c91610cd6870b.png",
+      "/uploads/a491ec5ea8004836a2510b4e3f3f292b.png",
+      "/uploads/8f5261cbfebe446381bbedaa30073185.png"
+    ]
+  },
+  "failure": {
+    "checkpoint": "partial_upload_checkpoint_keeps_originals_and_resumes",
+    "code": "browser_or_api_operation_failed"
+  },
+  "completedAtUtc": "2026-09-18T05:52:49.116Z",
+  "browserPageErrors": 0
+}

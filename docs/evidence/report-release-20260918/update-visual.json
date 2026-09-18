@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "screenshotsReviewed": [
+    "live-waiting-update-waiting.png",
+    "live-waiting-update-updated.png",
+    "live-waiting-update-offline.png"
+  ],
+  "findings": [
+    "Waiting client shows the Update App action and draft-save message",
+    "Updated client retains the report-only invited-account sign-in shell",
+    "Cold offline client retains the shell with an explicit offline status",
+    "No horizontal overflow or overlapping controls observed"
+  ],
+  "physicalPhoneTest": false,
+  "installerVisualReviewClaimed": false
+}

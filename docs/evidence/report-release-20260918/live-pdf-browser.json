@@ -1,0 +1,38 @@
+{
+  "status": "passed",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "startedAtUtc": "2026-09-18T06:06:07.181Z",
+  "scope": "Owned demo Reports; no business-data mutations or physical-phone claim",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "pageErrors": 0,
+  "downloads": [
+    {
+      "kind": "collection",
+      "filename": "leader-reports-2026-09-18.pdf",
+      "bytes": 264601,
+      "sha256": "dbee79afa8877c1581a78795fb4c11ba01196b689514dc8e9bba9491cc76d181",
+      "artifact": "browser-collection.pdf"
+    },
+    {
+      "kind": "single",
+      "filename": "leader-report-5-2026-09-18.pdf",
+      "bytes": 161568,
+      "sha256": "5e9ac59264246762cdb885a7547d3c6346b1746cc2b95ac863364a8caa6fb350",
+      "artifact": "browser-single.pdf"
+    }
+  ],
+  "scriptSha256": "b25d63c827a4080ab6eb2a889ca6375dc478270d73b904cac4205919e01c0a8c",
+  "collectionPdfPrimary": true,
+  "singlePdfDefaultWithoutSelection": true,
+  "alternateFormatsAvailable": [
+    "html",
+    "csv"
+  ],
+  "completedAtUtc": "2026-09-18T06:06:26.168Z",
+  "downloadArtifactDirectory": "output/pdf/report-release-20260918-live-browser-final.local",
+  "frozenFrontendCommit": "44e04c321e74385b2a05c9e0ff01d8d443291926",
+  "afterOwnedFixtureCleanup": true
+}
