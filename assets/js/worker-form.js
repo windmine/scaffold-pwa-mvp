@@ -1,6 +1,7 @@
 import { getWorkForms as getBackendWorkForms } from './api-client.js';
 import { getDraft, getDraftEntries, saveDraft } from './mock-api.js';
 import { isReportDraftForWorker, summarizeReportDrafts } from './report-drafts.js';
+import { createPhotoPreviewSources, reportPhotoSources, restoreReportPhotoEvidence } from './report-photo-evidence.js';
 import {
   saveWorkerReportTemplateSnapshot,
   loadWorkerReportTemplateSnapshot,
@@ -80,6 +81,8 @@ export function createWorkerFormModule({
   let reloadLocked = false;
   let submissionControlStates = [];
   let photoSelectionToken = 0;
+  let photoPreviewSources = createPhotoPreviewSources([]);
+  state.workFormPhotoBlobs ||= [];
   let draftListRequest = 0;
   let draftContinueInFlight = false;
   let photoProcessing = {
@@ -199,6 +202,7 @@ export function createWorkerFormModule({
         validate: false
       }),
       photoDataUrls: [...state.workFormPhotoDataUrls],
+      photoBlobs: [...state.workFormPhotoBlobs],
       photoMetadata: state.workFormPhotoMetadata.map((item) => ({ ...item })),
       savedAt
     };
@@ -218,6 +222,8 @@ export function createWorkerFormModule({
       && String(left.workDate || '') === String(right.workDate || '')
       && JSON.stringify(left.answers || {}) === JSON.stringify(right.answers || {})
       && JSON.stringify(left.photoMetadata || []) === JSON.stringify(right.photoMetadata || [])
+      && (left.photoBlobs || []).length === (right.photoBlobs || []).length
+      && (left.photoBlobs || []).every((value, index) => value === right.photoBlobs[index])
       && (left.photoDataUrls || []).length === (right.photoDataUrls || []).length
       && (left.photoDataUrls || []).every((value, index) => value === right.photoDataUrls[index]);
   }
@@ -401,7 +407,7 @@ export function createWorkerFormModule({
     const signatures = document.createElement('div');
     photoViewer.renderPreviews(signatures, localAnswerImageSources(draft.answers), 'Signature');
     els.workFormFields.append(signatures);
-    photoViewer.renderPreviews(els.workFormPhotoPreview, draft.photoDataUrls || [], 'Report photo');
+    renderPhotoPreviews(reportPhotoSources(draft), draft.photoMetadata || []);
     setAutosaveStatus('Saved draft is read-only because the Report Template changed.', 'error');
     renderStatusBanner('Report Template changed. Keep this draft in My Reports before starting a new report. Nothing will be submitted automatically.', true, {
       local: els.workFormFeedback,
@@ -416,14 +422,34 @@ export function createWorkerFormModule({
     setDateInputValue(els.workFormDate, todayDateInput());
     els.workFormPhotos.value = '';
     state.workFormPhotoFiles = [];
+    state.workFormPhotoBlobs = [];
     state.workFormPhotoDataUrls = [];
     state.workFormPhotoMetadata = [];
-    photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Report photo');
+    renderPhotoPreviews([]);
     setPhotoStatus('');
   }
 
   function photoLimit() {
     return formPurpose(renderedWorkForm) === 'daywork' ? legacyMaxPhotos : maxPhotos;
+  }
+
+  function currentPhotoSources() {
+    return state.workFormPhotoBlobs.length ? state.workFormPhotoBlobs : state.workFormPhotoDataUrls;
+  }
+
+  function renderPhotoPreviews(sources, metadata = []) {
+    // Allocate before releasing the old gallery. If URL creation fails, all
+    // prior previews and their original evidence remain usable.
+    const replacement = createPhotoPreviewSources(sources);
+    try {
+      photoViewer.renderPreviews(els.workFormPhotoPreview, replacement.urls, 'Report photo', metadata);
+    } catch (error) {
+      replacement.dispose();
+      throw error;
+    }
+    photoViewer.closeForSources?.(photoPreviewSources.urls, { restoreFocus: false });
+    photoPreviewSources.dispose();
+    photoPreviewSources = replacement;
   }
 
   function setPhotoStatus(message) {
@@ -439,16 +465,14 @@ export function createWorkerFormModule({
       setTranslatableText(els.workFormPhotoLimit, `Up to ${photoLimit()} photos. You can select them together.`);
     }
     if (!state.submittingWorkForm && (!photoProcessing.pending || photoProcessing.key !== activeDraftState()?.key)) {
-      setPhotoStatus(`${state.workFormPhotoDataUrls.length} of ${photoLimit()} photos selected.`);
+      setPhotoStatus(`${currentPhotoSources().length} of ${photoLimit()} photos selected.`);
     }
   }
 
-  function renderEditablePhotoPreviews() {
-    photoViewer.renderPreviews(
-      els.workFormPhotoPreview,
-      state.workFormPhotoDataUrls,
-      'Report photo',
-      state.workFormPhotoMetadata
+  function renderEditablePhotoPreviews(sources = currentPhotoSources(), metadata = state.workFormPhotoMetadata) {
+    renderPhotoPreviews(
+      sources,
+      metadata
     );
     els.workFormPhotoPreview.querySelectorAll('.photo-thumb').forEach((preview, index) => {
       const item = document.createElement('div');
@@ -462,13 +486,29 @@ export function createWorkerFormModule({
       removeButton.textContent = 'Remove';
       removeButton.addEventListener('click', () => {
         if (!removeButton.isConnected || conflictingDraft || reloadLocked || state.submittingWorkForm || photoProcessing.pending) return;
-        state.workFormPhotoFiles.splice(index, 1);
-        state.workFormPhotoDataUrls.splice(index, 1);
-        state.workFormPhotoMetadata.splice(index, 1);
+        const exceptRemoved = (_, sourceIndex) => sourceIndex !== index;
+        const nextFiles = state.workFormPhotoFiles.filter(exceptRemoved);
+        const nextBlobs = state.workFormPhotoBlobs.filter(exceptRemoved);
+        const nextDataUrls = state.workFormPhotoDataUrls.filter(exceptRemoved);
+        const nextMetadata = state.workFormPhotoMetadata.filter(exceptRemoved);
+        try {
+          renderEditablePhotoPreviews(state.workFormPhotoBlobs.length ? nextBlobs : nextDataUrls, nextMetadata);
+        } catch {
+          renderStatusBanner('Could not remove this photo. Your photos have not changed. Try again.', true, {
+            local: els.workFormFeedback,
+            tone: 'error'
+          });
+          return;
+        }
+        state.workFormPhotoFiles = nextFiles;
+        state.workFormPhotoBlobs = nextBlobs;
+        state.workFormPhotoDataUrls = nextDataUrls;
+        state.workFormPhotoMetadata = nextMetadata;
         els.workFormPhotos.value = '';
+        feedback.clearLocal(els.workFormFeedback);
         markActiveDraftDirty();
-        renderEditablePhotoPreviews();
-        const nextIndex = Math.min(index, state.workFormPhotoDataUrls.length - 1);
+        updatePhotoRemovalControls();
+        const nextIndex = Math.min(index, currentPhotoSources().length - 1);
         const nextButton = els.workFormPhotoPreview.querySelector(`[data-remove-report-photo="${nextIndex}"]`);
         (nextButton || els.workFormPhotos).focus();
       });
@@ -494,6 +534,7 @@ export function createWorkerFormModule({
       setDateInputValue(els.workFormDate, draft.workDate || todayDateInput());
       populateWorkFormAnswers(form, draft.answers || {}, { container: els.workFormFields });
       state.workFormPhotoFiles = [];
+      state.workFormPhotoBlobs = Array.isArray(draft.photoBlobs) ? [...draft.photoBlobs] : [];
       state.workFormPhotoDataUrls = Array.isArray(draft.photoDataUrls) ? [...draft.photoDataUrls] : [];
       state.workFormPhotoMetadata = Array.isArray(draft.photoMetadata)
         ? draft.photoMetadata.map((item) => ({ ...item }))
@@ -501,6 +542,7 @@ export function createWorkerFormModule({
       renderEditablePhotoPreviews();
       draftState.snapshot = {
         ...draft,
+        photoBlobs: [...state.workFormPhotoBlobs],
         photoDataUrls: [...state.workFormPhotoDataUrls],
         photoMetadata: state.workFormPhotoMetadata.map((item) => ({ ...item }))
       };
@@ -555,6 +597,17 @@ export function createWorkerFormModule({
       return;
     }
 
+    if (formPurpose(form) === 'report') {
+      try {
+        draft = restoreReportPhotoEvidence(draft);
+      } catch (error) {
+        draftState.error = error;
+        showConflictingDraft(draft, draftState);
+        showDraftSaveError();
+        return;
+      }
+    }
+
     applyDraftToSurface(form, draftState, draft);
     if (draftState.error) {
       showDraftSaveError();
@@ -574,6 +627,11 @@ export function createWorkerFormModule({
   }
 
   async function renderSelectedWorkForm(options = {}) {
+    // A selection/revalidation can already be awaiting a draft commit when
+    // Submit or Update acquires the editor. Only their own completed-operation
+    // reset (skipFlush) may replace that locked surface.
+    const externallyLocked = () => options.skipFlush !== true && (reloadLocked || state.submittingWorkForm);
+    if (externallyLocked()) return;
     const requestedFormId = els.workFormSelect.value;
     const token = ++selectionToken;
     if (options.preserveCurrent !== false) feedback.clearLocal(els.workFormFeedback);
@@ -589,7 +647,7 @@ export function createWorkerFormModule({
         return;
       }
     }
-    if (token !== selectionToken) return;
+    if (token !== selectionToken || externallyLocked()) return;
 
     const form = selectedWorkForm(requestedFormId);
     resetDraftSurface();
@@ -628,7 +686,7 @@ export function createWorkerFormModule({
         return false;
       }
     }
-    if (!isCurrentSession()) return false;
+    if (!isCurrentSession() || reloadLocked || state.submittingWorkForm) return false;
     state.workForms = workForms;
     renderWorkFormOptions();
     await renderSelectedWorkForm({ preserveCurrent: false });
@@ -821,7 +879,7 @@ export function createWorkerFormModule({
     const isCurrent = () => token === photoSelectionToken && activeDraftState()?.key === draftState?.key;
     if (!isCurrent()) return;
     const limit = photoLimit();
-    const remainingSlots = Math.max(0, limit - state.workFormPhotoDataUrls.length);
+    const remainingSlots = Math.max(0, limit - currentPhotoSources().length);
     const files = selectedFiles.slice(0, remainingSlots);
     const validationError = files.map(uploadImageValidationError).find(Boolean);
     if (validationError) {
@@ -834,27 +892,33 @@ export function createWorkerFormModule({
     }
 
     try {
+      const useBlobs = formPurpose(renderedWorkForm) === 'report';
       const dataUrls = [];
-      // A large picker selection must not start 50 FileReaders simultaneously.
-      // Append atomically after all reads, preserving the prior draft on failure.
+      // Reports keep exact File bytes; retained Daywork reads sequentially.
+      // Append atomically only after the replacement gallery is available.
       for (const [index, file] of files.entries()) {
         if (!isCurrent()) return;
         setPhotoStatus(`Preparing photo ${index + 1} of ${files.length}...`);
-        dataUrls.push(await fileToDataUrl(file));
+        if (!useBlobs) dataUrls.push(await fileToDataUrl(file));
       }
       if (!isCurrent()) return;
-      // Restored drafts only have data URLs. Keep the File fast path only when
-      // every photo has one, so Offline Submission never pairs different images.
-      const existingCount = state.workFormPhotoDataUrls.length;
-      state.workFormPhotoFiles = state.workFormPhotoFiles.length === existingCount
+      // Keep the retained Daywork File fast path only for a complete set.
+      const existingCount = currentPhotoSources().length;
+      const nextFiles = state.workFormPhotoFiles.length === existingCount
         ? [...state.workFormPhotoFiles, ...files]
         : [];
-      state.workFormPhotoMetadata = [
-        ...state.workFormPhotoDataUrls.map((_, index) => state.workFormPhotoMetadata[index] || {}),
+      const nextMetadata = [
+        ...currentPhotoSources().map((_, index) => state.workFormPhotoMetadata[index] || {}),
         ...files.map(photoMetadataFromFile)
       ];
-      state.workFormPhotoDataUrls = [...state.workFormPhotoDataUrls, ...dataUrls];
-      renderEditablePhotoPreviews();
+      const nextDataUrls = [...state.workFormPhotoDataUrls, ...dataUrls];
+      const nextBlobs = useBlobs ? [...state.workFormPhotoBlobs, ...files] : [];
+      renderEditablePhotoPreviews(useBlobs ? nextBlobs : nextDataUrls, nextMetadata);
+      state.workFormPhotoFiles = nextFiles;
+      state.workFormPhotoMetadata = nextMetadata;
+      state.workFormPhotoDataUrls = nextDataUrls;
+      state.workFormPhotoBlobs = nextBlobs;
+      updatePhotoRemovalControls();
       feedback.clearLocal(els.workFormFeedback);
 
       if (selectedFiles.length > remainingSlots) {
@@ -1001,6 +1065,7 @@ export function createWorkerFormModule({
         workDate: els.workFormDate.value,
         answers,
         photoDataUrls: [...state.workFormPhotoDataUrls],
+        photoBlobs: [...state.workFormPhotoBlobs],
         photoMetadata: state.workFormPhotoMetadata.map((item) => ({ ...item })),
         photoUrls: [],
         createdAt: new Date().toISOString()
@@ -1024,9 +1089,10 @@ export function createWorkerFormModule({
       els.workFormSubmissionForm.reset();
       setDateInputValue(els.workFormDate, todayDateInput());
       state.workFormPhotoFiles = [];
+      state.workFormPhotoBlobs = [];
       state.workFormPhotoDataUrls = [];
       state.workFormPhotoMetadata = [];
-      photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Report photo');
+      renderPhotoPreviews([]);
       await renderSelectedWorkForm({ preserveCurrent: false, skipFlush: true });
       if (!isCurrentSubmission()) return;
       await syncQueueIfPossible(!result.offline);
@@ -1092,6 +1158,7 @@ export function createWorkerFormModule({
         siteName: draft.siteId ? findSiteByFormValue(draft.siteId)?.name || String(draft.siteId) : 'Unassigned site',
         workDate: draft.workDate || '',
         photoDataUrls: draft.photoDataUrls || [],
+        photoBlobs: draft.photoBlobs || [],
         photoMetadata: draft.photoMetadata || [],
         createdAt: new Date().toISOString()
       }, draftState.key);
@@ -1176,9 +1243,10 @@ export function createWorkerFormModule({
     setDateInputValue(els.workFormDate, todayDateInput());
     els.workFormFields.innerHTML = '';
     state.workFormPhotoFiles = [];
+    state.workFormPhotoBlobs = [];
     state.workFormPhotoDataUrls = [];
     state.workFormPhotoMetadata = [];
-    photoViewer.renderPreviews(els.workFormPhotoPreview, [], 'Report photo');
+    renderPhotoPreviews([]);
     photoProcessing = { key: '', pending: false, error: null, promise: Promise.resolve() };
     setPhotoStatus('');
     draftStates.clear();

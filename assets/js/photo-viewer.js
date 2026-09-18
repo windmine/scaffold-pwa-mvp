@@ -148,6 +148,12 @@ export function createPhotoViewer({
     if (restoreFocus && focusTarget?.isConnected) focusElement(focusTarget);
   }
 
+  function closeForSources(sources, options = {}) {
+    if (!Array.isArray(sources) || !sources.some((source) => state.sources.includes(source))) return false;
+    close(options);
+    return true;
+  }
+
   function step(direction) {
     if (!isOpen()) return;
     const count = state.sources.length;
@@ -243,6 +249,7 @@ export function createPhotoViewer({
   return {
     bindEvents,
     close,
+    closeForSources,
     open,
     renderPreview,
     renderPreviews,

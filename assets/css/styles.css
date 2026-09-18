@@ -4873,7 +4873,7 @@ html[data-theme="dark"] .site-map-picker.leaflet-container {
   .review-inbox {
     max-height: calc(100vh - 36px);
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     overflow: hidden;
   }
 
@@ -6191,5 +6191,202 @@ body.report-only-mode .topbar-actions button,
 @media (prefers-reduced-motion: reduce) {
   button.is-busy::before {
     animation: none;
+  }
+}
+
+/* Summaries keep the Report list light; evidence is mounted only on demand. */
+.report-only-mode .record-report-compact {
+  gap: 10px;
+  padding: 16px;
+}
+
+.report-only-mode .record-report-compact .record-header {
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.report-only-mode .record-report-compact .record-title {
+  font-size: 1rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.report-only-mode .record-report-compact .record-meta,
+.report-only-mode .record-report-summary,
+.report-only-mode .record-report-cue {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.report-only-mode .record-report-cue {
+  border-left: 3px solid var(--line-strong);
+  padding-left: 10px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.report-only-mode .record-report-cue.is-warning {
+  border-left-color: var(--warning, #b7791f);
+}
+
+.report-only-mode .record-disclosure-button {
+  min-height: 44px;
+  width: auto;
+  padding: 8px 12px;
+}
+
+.report-only-mode .record-report-expanded {
+  margin: 0;
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line-strong);
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.report-only-mode .record-report-details[hidden] {
+  display: none;
+}
+
+.report-only-mode .report-review-filters {
+  margin-bottom: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  padding: 0 12px;
+}
+
+.report-only-mode .report-review-filters > summary {
+  min-height: 48px;
+  padding: 12px 0;
+  cursor: pointer;
+  line-height: 1.5;
+}
+
+.report-only-mode .report-review-filters > summary:focus-visible {
+  outline: 2px solid var(--primary, #176047);
+  outline-offset: 3px;
+}
+
+.report-only-mode .report-review-filter-summary {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.report-only-mode .report-review-filters .filter-bar {
+  margin-top: 4px;
+}
+
+.report-only-mode .report-review-back {
+  display: none;
+}
+
+.report-only-mode #reviewQueueActions.report-review-actions {
+  position: sticky;
+  top: 0;
+  bottom: auto;
+  z-index: 2;
+  margin: 0 0 12px;
+  padding: 10px 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line-strong);
+  border-top: 0;
+  box-shadow: 0 6px 10px -10px #000;
+}
+
+.report-only-mode #reviewQueueActions.report-review-actions button,
+.report-only-mode #reviewQueueActions.report-review-actions select {
+  min-height: 44px;
+}
+
+@media (max-width: 1099px) {
+  .report-only-mode .report-review-layout:not(.is-detail-open) .review-detail-shell,
+  .report-only-mode .report-review-layout.is-detail-open .review-inbox,
+  .report-only-mode .report-review-layout.is-detail-open > .fold-content > .review-desk-heading,
+  .report-only-mode .report-review-layout.is-detail-open > .fold-content > .report-export-scope,
+  .report-only-mode .report-review-layout.is-detail-open > .fold-content > .report-review-filters {
+    display: none;
+  }
+
+  .report-only-mode .report-review-layout .review-desk {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .report-only-mode .report-review-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+  }
+
+  .report-only-mode .review-detail-navigation {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .report-only-mode .review-detail-navigation > div {
+    display: flex;
+    flex: 1 1 100%;
+    gap: 8px;
+  }
+
+  .report-only-mode .review-detail-navigation > div button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .report-only-mode .review-detail-shell {
+    overflow: visible;
+    max-height: none;
+    scroll-margin-top: 90px;
+  }
+
+  .report-only-mode #reviewQueueActions.report-review-actions {
+    top: 84px;
+  }
+
+  .report-only-mode #reviewQueueActions .record-export-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .report-only-mode #reviewQueueActions .record-export-actions select,
+  .report-only-mode #reviewQueueActions .record-export-actions button {
+    min-width: 0;
+    width: auto;
+    padding-inline: 10px;
+    font-size: 0.875rem;
+  }
+
+  .report-only-mode .admin-mobile-toolbar > div {
+    flex: 1 1 auto;
+  }
+
+  .report-only-mode .admin-mobile-toolbar button {
+    width: auto;
+  }
+
+  .report-only-mode #reviewQueueDetail .record-header .record-title {
+    display: none;
+  }
+
+  .report-only-mode .report-export-scope {
+    font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .report-only-mode #supervisorFilterForm > label:has(#supervisorDateFilter) {
+    grid-column: 1 / -1;
   }
 }

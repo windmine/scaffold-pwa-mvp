@@ -1,0 +1,67 @@
+{
+  "date": "2026-09-18",
+  "scope": "Local compact Report cards, mobile review and Blob-backed photo evidence",
+  "baseCommit": "d840fbf",
+  "sourceState": "Uncommitted working tree",
+  "deploymentPerformed": false,
+  "productionDataChanged": false,
+  "pwaCache": "leader-field-6621996b4790",
+  "pdfPrimaryFollowUp": {
+    "pwaCache": "leader-field-f7071608ef58",
+    "scope": "Default single-Report PDF download; PDF-first primary collection action; HTML/CSV and retained Daywork alternatives preserved",
+    "checks": [
+      "Lint, production build, generated PWA/static checks and diff checks passed",
+      "12 compact-card checks passed, including default PDF, alternative formats, Chinese labels and unchanged Daywork defaults",
+      "Local authenticated collection PDF/CSV and default single PDF plus HTML/CSV downloads passed",
+      "Responsive 320/390/768/1280px layout passed; representative phone screenshots reviewed",
+      "Report export API filter checks passed"
+    ],
+    "screenshots": "output/pdf-primary.local/run-9lwmvd/",
+    "deployed": false
+  },
+  "validation": {
+    "lint": "passed",
+    "productionBuildAndStaticPwaChecks": "passed after final source change",
+    "installerChecks": 11,
+    "compactCardChecks": 11,
+    "photoUploadRegressionGroups": 8,
+    "browserWorkflows": {
+      "total": 68,
+      "fullRunPassed": 66,
+      "initialFailures": [
+        "Normal Worker lifecycle still expected the omitted optional Unassigned site label",
+        "Submitted-draft cleanup test searched full answers without expanding the compact card"
+      ],
+      "resolution": "Both assertions were adapted to the explicit disclosure and optional-Site UI; both complete workflows passed focused reruns on the final source. No remaining observed failure."
+    },
+    "reviewQueueReportExportAndPdfSuites": "passed",
+    "responsiveWidths": [320, 390, 768, 1280],
+    "themes": ["light", "dark"],
+    "languages": ["English", "Chinese"],
+    "visualReview": "Representative Worker, phone Supervisor inbox/detail, Chinese narrow detail and desktop master-detail screenshots reviewed",
+    "screenshots": "output/report-ui-final.local/run-v2wpj4/"
+  },
+  "photoMemoryComparison": {
+    "harness": "scripts/report-photo-memory-test.mjs",
+    "transport": "Fully mocked; real browser IndexedDB",
+    "fixture": "50 distinct deterministic 512x768 PNG originals",
+    "originalBytes": 67691622,
+    "allOriginalSha256HashesMatchAcrossModes": true,
+    "coldReloads": 2,
+    "partialResume": "25 completed photo uploads checkpointed, then remaining 25 uploaded; one Report and empty queue",
+    "legacySampledWorkingSetBytes": 1385697280,
+    "blobSampledWorkingSetBytes": 469479424,
+    "legacySampledJsHeapBytes": 765638621,
+    "blobSampledJsHeapBytes": 155146243,
+    "detailedLocalResults": [
+      "output/report-photo-memory.local/result-legacy.json",
+      "output/report-photo-memory.local/result-blob.json"
+    ]
+  },
+  "limits": [
+    "Sampled desktop Chromium memory is not an exact peak or physical-phone result",
+    "Full-resolution camera gallery and 50 x 5 MB batches remain unverified",
+    "No hosted API, GCS, deployment or live-device validation was performed",
+    "Do not roll back to a frontend lacking photoBlobs support while devices hold unfinished Blob-backed Reports"
+  ]
+}

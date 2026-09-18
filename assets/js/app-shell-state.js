@@ -66,6 +66,7 @@ export const state = {
   workForms: [],
   workFormPhotoFiles: [],
   workFormPhotoDataUrls: [],
+  workFormPhotoBlobs: [],
   workFormPhotoMetadata: [],
   submittingAttendance: false,
   submittingTask: false,

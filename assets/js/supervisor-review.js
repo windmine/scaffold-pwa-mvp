@@ -73,7 +73,70 @@ export function createSupervisorReviewModule({
   let sessionEpoch = 0;
   let auditRequestId = 0;
   let trashRequestId = 0;
+  let mobileDetailOpen = false;
   const activeExportButtons = new Map();
+  const reportReviewFilters = els.reviewQueueDetails.querySelector('#reportReviewFilters');
+  const reportReviewFilterSummary = els.reviewQueueDetails.querySelector('#reportReviewFilterSummary');
+  const reviewQueueBackButton = els.reviewQueueDetails.querySelector('#reviewQueueBackButton');
+
+  function isNarrowReportReview() {
+    return reportOnly && window.matchMedia('(max-width: 1099px)').matches;
+  }
+
+  function setMobileDetailOpen(open) {
+    mobileDetailOpen = Boolean(reportOnly && open);
+    els.reviewQueueDetails.classList.toggle('is-detail-open', mobileDetailOpen);
+  }
+
+  function selectedReviewRecord() {
+    return visibleReviewRecords.find((record) => reviewRecordKey(record) === selectedReviewRecordKey) || null;
+  }
+
+  function clearReviewDetail() {
+    if (historyModule.clearRecordsList) historyModule.clearRecordsList(els.reviewQueueDetail);
+    else els.reviewQueueDetail.replaceChildren();
+  }
+
+  function showReviewInbox({ restoreFocus = false } = {}) {
+    setMobileDetailOpen(false);
+    if (!isNarrowReportReview()) return;
+    clearReviewDetail();
+    if (!restoreFocus) return;
+    const selectedItem = [...els.reviewQueueList.querySelectorAll('.review-queue-item')]
+      .find((item) => item.dataset.recordKey === selectedReviewRecordKey);
+    const focusTarget = selectedItem || reportReviewFilters?.querySelector('summary');
+    focusTarget?.focus({ preventScroll: true });
+    focusTarget?.scrollIntoView({ block: 'nearest' });
+  }
+
+  function focusReviewDetail() {
+    const shell = els.reviewQueueDetail.closest('.review-detail-shell');
+    shell?.focus({ preventScroll: true });
+    shell?.scrollIntoView({ block: 'start' });
+  }
+
+  function renderReportFilterSummary() {
+    if (!reportOnly || !reportReviewFilterSummary) return;
+    const filters = getFilters();
+    const labels = [];
+    if (filters.status) {
+      labels.push({ text: { submitted: 'Submitted', in_review: 'In review', resolved: 'Resolved' }[filters.status] });
+    }
+    [els.supervisorTemplateFilter, els.supervisorWorkerFilter].forEach((select) => {
+      if (select.value) labels.push({ text: select.selectedOptions[0]?.textContent || select.value, literal: true });
+    });
+    if (filters.date) labels.push({ text: filters.date, literal: true });
+    if (filters.query.trim()) labels.push({ text: `“${filters.query.trim()}”`, literal: true });
+    if (!labels.length) labels.push({ text: 'All Reports' });
+    reportReviewFilterSummary.replaceChildren();
+    labels.forEach(({ text, literal }, index) => {
+      if (index) reportReviewFilterSummary.append(document.createTextNode(' · '));
+      const label = document.createElement('span');
+      if (literal) label.setAttribute('data-no-i18n', '');
+      label.textContent = text;
+      reportReviewFilterSummary.append(label);
+    });
+  }
 
   function captureSession() {
     return { epoch: sessionEpoch, user: state.user };
@@ -109,6 +172,9 @@ export function createSupervisorReviewModule({
     filterRefreshTimer = null;
     selectedReviewRecordKey = '';
     visibleReviewRecords = [];
+    setMobileDetailOpen(false);
+    if (reportReviewFilters) reportReviewFilters.open = !isNarrowReportReview();
+    clearReviewDetail();
     decisionInProgress = false;
     state.supervisorRecords = {
       reviewRecords: [],
@@ -255,6 +321,7 @@ export function createSupervisorReviewModule({
     els.supervisorWorkerFilter.value = workers.some(
       (worker) => String(worker.id) === currentWorkerId
     ) ? currentWorkerId : '';
+    renderReportFilterSummary();
   }
 
   function reviewQueueQuery() {
@@ -303,6 +370,7 @@ export function createSupervisorReviewModule({
     els.nextReviewRecordButton.disabled = selectedIndex < 0 || selectedIndex >= visibleReviewRecords.length - 1;
 
     if (!record) {
+      clearReviewDetail();
       els.reviewQueueDetailTitle.textContent = 'Select a record';
       els.reviewQueueDetail.innerHTML = `
         <div class="empty-state review-detail-empty">
@@ -315,6 +383,10 @@ export function createSupervisorReviewModule({
     }
 
     els.reviewQueueDetailTitle.textContent = recordTitleLabel(record);
+    if (isNarrowReportReview() && !mobileDetailOpen) {
+      clearReviewDetail();
+      return;
+    }
     historyModule.renderRecordsList(els.reviewQueueDetail, [record], {
       showDecisionActions: !readOnly && !reportOnly,
       showEditActions: !readOnly && !reportOnly,
@@ -326,6 +398,10 @@ export function createSupervisorReviewModule({
     const actions = detailCard?.querySelector('.record-actions');
     if (actions) actions.id = 'reviewQueueActions';
     renderReportTransitionActions(record, actions, readOnly);
+    if (reportOnly && actions) {
+      actions.classList.add('report-review-actions');
+      detailCard.prepend(actions);
+    }
   }
 
   function renderReportTransitionActions(record, actions, readOnly) {
@@ -366,6 +442,10 @@ export function createSupervisorReviewModule({
         tone: 'success'
       });
       await renderPanel();
+      if (isCurrentSession(session) && isNarrowReportReview() && els.reviewQueueDetails.getClientRects().length) {
+        if (mobileDetailOpen) focusReviewDetail();
+        else showReviewInbox({ restoreFocus: true });
+      }
       return true;
     } catch (error) {
       if (!isCurrentSession(session)) return false;
@@ -416,6 +496,7 @@ export function createSupervisorReviewModule({
   }
 
   function selectReviewRecord(record, { scrollOnSmallScreen = false } = {}) {
+    if (reportOnly && scrollOnSmallScreen) setMobileDetailOpen(true);
     selectedReviewRecordKey = reviewRecordKey(record);
     els.reviewQueueList.querySelectorAll('.review-queue-item').forEach((item) => {
       const selected = item.dataset.recordKey === selectedReviewRecordKey;
@@ -425,7 +506,9 @@ export function createSupervisorReviewModule({
     });
     renderReviewDetail(record);
 
-    if (scrollOnSmallScreen && window.matchMedia('(max-width: 979px)').matches) {
+    if (scrollOnSmallScreen && isNarrowReportReview()) {
+      focusReviewDetail();
+    } else if (scrollOnSmallScreen && window.matchMedia('(max-width: 979px)').matches) {
       els.reviewQueueDetail.closest('.review-detail-shell')?.scrollIntoView({
         behavior: 'smooth',
         block: 'start'
@@ -440,6 +523,10 @@ export function createSupervisorReviewModule({
     const nextRecord = visibleReviewRecords[currentIndex + offset];
     if (!nextRecord) return;
     selectReviewRecord(nextRecord);
+    if (isNarrowReportReview()) {
+      focusReviewDetail();
+      return;
+    }
     const selectedItem = [...els.reviewQueueList.querySelectorAll('.review-queue-item')]
       .find((item) => item.dataset.recordKey === selectedReviewRecordKey);
     selectedItem?.scrollIntoView({ block: 'nearest' });
@@ -1067,6 +1154,9 @@ export function createSupervisorReviewModule({
     const readOnly = reviewQueueIsReadOnly();
     const matchingTotal = state.supervisorRecords.queueCounts?.total ?? focusedRecords.length;
     els.supervisorResultCount.textContent = `${filteredRecords.length}/${matchingTotal} matching records loaded`;
+    if (reportOnly && !filteredRecords.some((record) => reviewRecordKey(record) === selectedReviewRecordKey)) {
+      setMobileDetailOpen(false);
+    }
     visibleReviewRecords = filteredRecords;
     const selectedRecord = filteredRecords.find(
       (record) => reviewRecordKey(record) === selectedReviewRecordKey
@@ -1078,9 +1168,11 @@ export function createSupervisorReviewModule({
       summaryOnly: true,
       getRecordKey: reviewRecordKey,
       selectedRecordKey: selectedReviewRecordKey,
+      onRecordFocus: reportOnly ? (record) => selectReviewRecord(record) : null,
       onRecordSelect: (record) => selectReviewRecord(record, { scrollOnSmallScreen: true })
     });
     renderReviewDetail(selectedRecord);
+    renderReportFilterSummary();
     els.exportAttendanceButton.disabled = readOnly;
     els.exportTaskLogsButton.disabled = readOnly;
     els.exportDocumentButton.disabled = readOnly;
@@ -1164,6 +1256,8 @@ export function createSupervisorReviewModule({
     els.supervisorTemplateFilter.value = '';
     els.supervisorWorkerFilter.value = '';
     setDateInputValue(els.supervisorDateFilter, '');
+    showReviewInbox();
+    renderReportFilterSummary();
   }
 
   async function clearFilters() {
@@ -1208,7 +1302,7 @@ export function createSupervisorReviewModule({
     selectReviewRecord(selectedRecord, { scrollOnSmallScreen: true });
     window.requestAnimationFrame(() => {
       if (!isCurrentSession(session)) return;
-      const smallScreen = window.matchMedia('(max-width: 979px)').matches;
+      const smallScreen = isNarrowReportReview() || window.matchMedia('(max-width: 979px)').matches;
       const selectedItem = [...els.reviewQueueList.querySelectorAll('.review-queue-item')]
         .find((item) => item.dataset.recordKey === selectedReviewRecordKey);
       const focusTarget = smallScreen
@@ -1224,6 +1318,10 @@ export function createSupervisorReviewModule({
   }
 
   function scheduleReviewQueueRefresh() {
+    if (reportOnly) {
+      showReviewInbox();
+      renderReportFilterSummary();
+    }
     window.clearTimeout(filterRefreshTimer);
     filterRefreshTimer = window.setTimeout(() => {
       refreshReviewQueue();
@@ -1235,6 +1333,7 @@ export function createSupervisorReviewModule({
     if (!isCurrentSession(session)) return;
     state.departmentFocusId = els.supervisorDepartmentFilter.value;
     if (reportOnly) {
+      showReviewInbox();
       els.supervisorTemplateFilter.value = '';
       els.supervisorWorkerFilter.value = '';
     }
@@ -1925,6 +2024,15 @@ export function createSupervisorReviewModule({
   }
 
   function bindEvents() {
+    els.reviewQueueDetails.classList.toggle('report-review-layout', reportOnly);
+    if (reportReviewFilters) reportReviewFilters.open = !isNarrowReportReview();
+    if (reportOnly) {
+      reviewQueueBackButton?.addEventListener('click', () => showReviewInbox({ restoreFocus: true }));
+      window.matchMedia('(max-width: 1099px)').addEventListener('change', (event) => {
+        if (!event.matches && reportReviewFilters) reportReviewFilters.open = true;
+        renderReviewDetail(selectedReviewRecord());
+      });
+    }
     els.supervisorStatusFilter.querySelectorAll('[data-report-only-option]').forEach((option) => {
       option.hidden = !reportOnly;
     });

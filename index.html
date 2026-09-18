@@ -920,13 +920,18 @@
                 </div>
                 <div class="review-heading-actions">
                   <div class="report-export-actions" data-report-only-visible>
+                    <button id="exportReportsPdfButton" type="button">Export Reports PDF</button>
                     <button id="exportReportsCsvButton" type="button" class="ghost">Export Reports CSV</button>
-                    <button id="exportReportsPdfButton" type="button" class="secondary">Export Reports PDF</button>
                   </div>
                   <button id="refreshSupervisorButton" type="button" class="ghost">Refresh</button>
                 </div>
               </div>
-              <p class="muted" data-report-only-visible>Exports include all Reports matching these filters and Find, across every page—not only the loaded records.</p>
+              <p class="muted report-export-scope" data-report-only-visible>Exports include all Reports matching these filters and Find, across every page—not only the loaded records.</p>
+              <details id="reportReviewFilters" class="report-review-filters" open>
+                <summary data-report-only-visible>
+                  <span>Filters</span>
+                  <span id="reportReviewFilterSummary" class="report-review-filter-summary">All Reports</span>
+                </summary>
               <form id="supervisorFilterForm" class="filter-bar">
                 <label>
                   Find
@@ -972,6 +977,9 @@
                 </label>
                 <button id="clearSupervisorFiltersButton" type="button" class="ghost">Clear</button>
               </form>
+              </details>
+              <div id="reviewQueueNotice" aria-live="polite"></div>
+              <div id="reviewQueueFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
               <div class="review-desk">
                 <section class="review-inbox" aria-labelledby="reviewInboxTitle">
                   <div class="review-pane-heading">
@@ -981,12 +989,10 @@
                     </div>
                     <span class="review-pane-hint">Select to review</span>
                   </div>
-                  <div id="reviewQueueNotice" aria-live="polite"></div>
-                  <div id="reviewQueueFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
                   <div id="reviewQueueList" class="records-list review-queue-list" role="listbox" aria-label="Review records"></div>
                   <div id="reviewQueuePagination" class="review-queue-pagination"></div>
                 </section>
-                <aside class="review-detail-shell" aria-labelledby="reviewQueueDetailTitle">
+                <aside class="review-detail-shell" aria-labelledby="reviewQueueDetailTitle" tabindex="-1">
                   <div class="review-pane-heading review-detail-heading">
                     <div>
                       <p class="eyebrow">Record detail</p>
@@ -995,6 +1001,7 @@
                     <span id="reviewQueueModeBadge" class="badge pending">Loading</span>
                   </div>
                   <div class="review-detail-navigation" aria-label="Selected record navigation">
+                    <button id="reviewQueueBackButton" type="button" class="ghost report-review-back" data-report-only-visible>Back to Reports</button>
                     <span id="reviewQueueSelectionPosition">0 of 0</span>
                     <div>
                       <button id="previousReviewRecordButton" type="button" class="ghost" aria-label="Previous review record">Previous record</button>

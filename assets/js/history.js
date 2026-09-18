@@ -5,7 +5,6 @@ import {
   getMyTeamWorkLogs as getBackendMyTeamWorkLogs
 } from './api-client.js';
 import { getWorkerRecords as getLocalWorkerRecords } from './mock-api.js';
-import { normaliseRecordPhotoUrls } from './offline-submissions.js';
 import {
   loadWorkerAttendanceSnapshot,
   saveWorkerAttendanceSnapshot
@@ -13,6 +12,8 @@ import {
 import { dateInputValue, formatDateTime, todayDateInput, escapeHtml } from './utils.js';
 import { formatWorkFormAnswer, localAnswerImageSources } from './work-form-fields.js';
 import { setDateInputValue } from './date-inputs.js';
+import { setTranslatableText } from './i18n.js';
+import { createPhotoPreviewSources, reportPhotoSources } from './report-photo-evidence.js';
 
 function getBackendSiteId(siteId) {
   if (!siteId) return null;
@@ -361,11 +362,28 @@ export function createHistoryModule({
   let sessionGeneration = 0;
   let lastAttendanceSnapshotRequestId = 0;
   let attendanceSnapshotWriteChain = Promise.resolve();
+  let reportDisclosureId = 0;
+  let lastHistoryFilterKey = '';
+  const recordListCleanups = new Map();
+
+  function clearRecordsList(container) {
+    const cleanups = recordListCleanups.get(container) || [];
+    recordListCleanups.delete(container);
+    cleanups.forEach((cleanup) => cleanup());
+    container.innerHTML = '';
+  }
+
+  function registerRecordCleanup(container, cleanup) {
+    const cleanups = recordListCleanups.get(container) || [];
+    cleanups.push(cleanup);
+    recordListCleanups.set(container, cleanups);
+  }
 
   function resetSession() {
     sessionGeneration += 1;
     workerSummaryRenderId += 1;
     workerHistoryRenderId += 1;
+    [...recordListCleanups.keys()].forEach(clearRecordsList);
     state.historyRecords = [];
     els.workerSummary.innerHTML = '';
     clearHistoryFilters();
@@ -734,10 +752,13 @@ export function createHistoryModule({
 
   function renderFilteredHistory() {
     if (state.user?.role !== 'worker') state.historyRecords = [];
-    const filteredRecords = filterRecords(state.historyRecords, getHistoryFilters());
+    const filters = getHistoryFilters();
+    lastHistoryFilterKey = JSON.stringify(filters);
+    const filteredRecords = filterRecords(state.historyRecords, filters);
     els.historyResultCount.textContent = `${filteredRecords.length} of ${state.historyRecords.length} records`;
     renderRecordsList(els.historyList, filteredRecords, {
-      showWorkerActions: true
+      showWorkerActions: true,
+      compactReports: reportOnly
     });
   }
 
@@ -759,6 +780,13 @@ export function createHistoryModule({
     }
 
     if (record.type === 'form') {
+      if (recordSubmissionPurpose(record) === 'report') {
+        return [
+          ['form-pdf', 'PDF'],
+          ['form-html', 'HTML'],
+          ['form-csv', 'CSV']
+        ];
+      }
       const options = [
         ['form-html', 'Report HTML'],
         ['form-pdf', 'Report PDF'],
@@ -773,6 +801,100 @@ export function createHistoryModule({
     return [];
   }
 
+  function recordPhotoCount(record) {
+    return reportPhotoSources(record).length;
+  }
+
+  function renderCompactReportCard(container, record, options) {
+    const session = sessionGeneration;
+    const workerId = String(state.user?.id || '');
+    const departmentId = String(state.user?.departmentId || '');
+    if (
+      state.user?.role !== 'worker'
+      || String(record.userId || '') !== workerId
+      || (record.departmentId != null && String(record.departmentId) !== departmentId)
+    ) return;
+    const node = els.recordTemplate.content.firstElementChild.cloneNode(true);
+    node.classList.add('record-form', 'record-report-compact');
+    node.querySelector('.record-title').textContent = record.formName || 'Report';
+    node.querySelector('.record-meta').textContent = `Report Date: ${record.workDate || 'Not set'}${record.siteId != null && record.siteId !== '' ? `  |  ${record.siteName || 'Site'}` : ''}`;
+    const badgeStatus = recordDisplayStatus(record);
+    const badge = node.querySelector('.badge');
+    badge.textContent = statusLabel(badgeStatus);
+    badge.className = `badge ${badgeStatus} ${record.syncStatus || ''}`.trim();
+    badge.title = `Report status: ${statusLabel(badgeStatus)}`;
+    const summary = node.querySelector('.record-detail');
+    summary.classList.add('record-report-summary');
+    setTranslatableText(summary, `${recordPhotoCount(record)} photos`);
+
+    const cueText = record.isDraftRecovery
+        ? 'Saved copy. Open details to recover your answers and evidence.'
+        : record.syncStatus === 'queued'
+          ? 'Saved on this device. Waiting to sync.'
+          : record.syncStatus === 'syncing'
+            ? 'Uploading your report.'
+            : '';
+    const hasFinalNote = reportWorkflowStatus(record) === 'resolved' && !['queued', 'syncing'].includes(record.syncStatus);
+    if (record.syncError || cueText || hasFinalNote) {
+      const cue = document.createElement('p');
+      cue.className = `record-report-cue${record.syncError ? ' is-warning' : ''}`;
+      if (record.syncError || hasFinalNote) {
+        const label = document.createElement('span');
+        setTranslatableText(label, record.syncError ? 'Sync needs attention.' : 'Final supervisor note:');
+        const value = document.createElement('span');
+        if (!record.syncError && record.supervisorNote) value.setAttribute('data-no-i18n', '');
+        value.textContent = record.syncError || record.supervisorNote || 'No supervisor note was recorded.';
+        cue.append(label, document.createTextNode(' '), value);
+      } else {
+        setTranslatableText(cue, cueText);
+      }
+      summary.insertAdjacentElement('afterend', cue);
+    }
+
+    const details = node.querySelector('.record-extra');
+    details.className = 'record-report-details';
+    details.id = `report-details-${++reportDisclosureId}`;
+    details.hidden = true;
+    const actions = node.querySelector('.record-actions');
+    actions.classList.remove('hidden');
+    const disclosure = document.createElement('button');
+    disclosure.type = 'button';
+    disclosure.className = 'ghost record-disclosure-button';
+    disclosure.setAttribute('aria-expanded', 'false');
+    disclosure.setAttribute('aria-controls', details.id);
+    setTranslatableText(disclosure, 'Show details');
+    actions.append(disclosure);
+    details.insertAdjacentElement('beforebegin', actions);
+
+    const currentScope = () => (
+      session === sessionGeneration
+      && state.user?.role === 'worker'
+      && String(state.user.id) === workerId
+      && String(state.user.departmentId || '') === departmentId
+      && node.isConnected
+    );
+    disclosure.addEventListener('click', () => {
+      if (!currentScope()) return;
+      const expanded = disclosure.getAttribute('aria-expanded') === 'true';
+      if (expanded) {
+        clearRecordsList(details);
+        details.hidden = true;
+      } else {
+        renderRecordsList(details, [record], { ...options, compactReports: false });
+        const expandedCard = details.querySelector('.record-card');
+        expandedCard.classList.add('record-report-expanded');
+        const submittedMeta = expandedCard.querySelector('.record-meta');
+        expandedCard.querySelector('.record-header').remove();
+        expandedCard.prepend(submittedMeta);
+        details.hidden = false;
+      }
+      disclosure.setAttribute('aria-expanded', String(!expanded));
+      setTranslatableText(disclosure, expanded ? 'Show details' : 'Hide details');
+    });
+    registerRecordCleanup(container, () => clearRecordsList(details));
+    container.append(node);
+  }
+
   function renderRecordsList(container, records, options = {}) {
     const showDecisionActions = typeof options === 'boolean' ? options : Boolean(options.showDecisionActions);
     const showEditActions = typeof options === 'object' && Boolean(options.showEditActions);
@@ -784,8 +906,10 @@ export function createHistoryModule({
       ? options.getRecordKey
       : (record) => `${record.type || 'record'}:${record.backendRecordId || record.id || ''}`;
     const onRecordSelect = typeof options?.onRecordSelect === 'function' ? options.onRecordSelect : null;
+    const onRecordFocus = typeof options?.onRecordFocus === 'function' ? options.onRecordFocus : null;
     const selectedRecordKey = String(options?.selectedRecordKey || '');
-    container.innerHTML = '';
+    const renderedRecords = new WeakMap();
+    clearRecordsList(container);
     if (!records.length) {
       container.innerHTML = '<div class="empty-state">No records found yet.</div>';
       return;
@@ -794,6 +918,10 @@ export function createHistoryModule({
     records.forEach((record) => {
       if (record.type === 'form' && ['queued', 'syncing'].includes(record.syncStatus) && record.capturedAnswers) {
         record = { ...record, answers: record.capturedAnswers };
+      }
+      if (options.compactReports && record.type === 'form' && recordSubmissionPurpose(record) === 'report') {
+        renderCompactReportCard(container, record, options);
+        return;
       }
       const node = els.recordTemplate.content.firstElementChild.cloneNode(true);
       node.classList.add(
@@ -841,6 +969,7 @@ export function createHistoryModule({
         : record.syncStatus ? `Sync: ${record.syncStatus}` : '';
 
       if (summaryOnly) {
+        renderedRecords.set(node, record);
         const recordKey = String(getRecordKey(record));
         const isSelected = Boolean(recordKey && recordKey === selectedRecordKey);
         node.classList.add('review-queue-item');
@@ -894,8 +1023,10 @@ export function createHistoryModule({
                 ? items.length - 1
                 : Math.max(0, Math.min(items.length - 1, currentIndex + (event.key === 'ArrowDown' ? 1 : -1)));
             event.preventDefault();
-            items[nextIndex]?.focus();
-            items[nextIndex]?.click();
+            const nextItem = items[nextIndex];
+            nextItem?.focus();
+            if (onRecordFocus && nextItem) onRecordFocus(renderedRecords.get(nextItem));
+            else nextItem?.click();
           });
         }
         container.appendChild(node);
@@ -903,11 +1034,14 @@ export function createHistoryModule({
       }
 
       const extra = node.querySelector('.record-extra');
-      const photoSources = (Array.isArray(record.photoDataUrls) && record.photoDataUrls.length)
-        ? record.photoDataUrls
-        : (normaliseRecordPhotoUrls(record).length ? normaliseRecordPhotoUrls(record) : (record.photoDataUrl ? [record.photoDataUrl] : []));
+      const photoPreviews = createPhotoPreviewSources(reportPhotoSources(record));
+      const photoSources = photoPreviews.urls;
       const photoMetadata = Array.isArray(record.photoMetadata) ? record.photoMetadata : [];
       const signatureSources = signatureImageSources(record);
+      registerRecordCleanup(container, () => {
+        photoViewer.closeForSources?.(photoSources.concat(signatureSources.map((signature) => signature.src)), { restoreFocus: false });
+        photoPreviews.dispose();
+      });
       const hasSiteDistance = record.type === 'attendance' && record.distanceFromSiteM != null;
       const finalSupervisorNote = record.type === 'form' && reportWorkflowStatus(record) === 'resolved'
         ? record.supervisorNote || 'No supervisor note was recorded.'
@@ -1060,8 +1194,14 @@ export function createHistoryModule({
 
         const exportButton = document.createElement('button');
         exportButton.type = 'button';
-        exportButton.className = 'ghost';
-        exportButton.textContent = 'Export';
+        const isReportDownload = record.type === 'form' && recordSubmissionPurpose(record) === 'report';
+        const updateDownloadLabel = () => {
+          const labels = { 'form-pdf': 'Download PDF', 'form-html': 'Download HTML', 'form-csv': 'Download CSV' };
+          setTranslatableText(exportButton, isReportDownload ? labels[exportSelect.value] : 'Export');
+          exportButton.className = isReportDownload && exportSelect.value === 'form-pdf' ? 'secondary' : 'ghost';
+        };
+        updateDownloadLabel();
+        exportSelect.addEventListener('change', updateDownloadLabel);
         exportButton.addEventListener('click', async () => {
           await handleSupervisorExportRecord(record, exportSelect.value);
         });
@@ -1102,14 +1242,20 @@ export function createHistoryModule({
     });
     if (reportOnly) els.historyTypeFilter.value = 'form';
     els.refreshHistoryButton.addEventListener('click', renderHistory);
+    const renderChangedHistoryFilters = () => {
+      // Search/date controls emit both input and a later blur-time change.
+      // Replacing the list for that identical change would swallow the click
+      // that just moved focus from the filter to a Report disclosure/action.
+      if (JSON.stringify(getHistoryFilters()) !== lastHistoryFilterKey) renderFilteredHistory();
+    };
     [
       els.historySearchInput,
       els.historyTypeFilter,
       els.historyStatusFilter,
       els.historyDateFilter
     ].forEach((element) => {
-      element.addEventListener('input', renderFilteredHistory);
-      element.addEventListener('change', renderFilteredHistory);
+      element.addEventListener('input', renderChangedHistoryFilters);
+      element.addEventListener('change', renderChangedHistoryFilters);
     });
     els.clearHistoryFiltersButton.addEventListener('click', clearHistoryFilters);
   }
@@ -1121,6 +1267,7 @@ export function createHistoryModule({
     fromBackendReviewRecord,
     getRecordDate,
     renderHistory,
+    clearRecordsList,
     renderFilteredHistory,
     renderRecordsList,
     renderWorkerSummary,

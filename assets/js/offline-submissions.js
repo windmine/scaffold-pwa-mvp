@@ -129,7 +129,9 @@ export function normaliseRecordPhotoMetadata(record) {
 
 function photoFilenameFor(record, file, index = 0, dataUrl = '') {
   if (file?.name) return file.name;
-  const extension = (dataUrl || record.photoDataUrl || '').match(/^data:image\/([a-z0-9+.-]+);base64,/i)?.[1] || 'jpg';
+  if (record.photoMetadata?.[index]?.name) return record.photoMetadata[index].name;
+  const extension = file?.type?.split('/')[1]
+    || (dataUrl || record.photoDataUrl || '').match(/^data:image\/([a-z0-9+.-]+);base64,/i)?.[1] || 'jpg';
   const suffix = index ? `-${index + 1}` : '';
   return `${record.type || 'record'}-${record.id || uuid()}${suffix}.${extension.replace('jpeg', 'jpg')}`;
 }
@@ -190,11 +192,12 @@ async function checkpointUploadedEvidence(record, options) {
 
 async function uploadRecordPhotos(record, files = [], options = {}) {
   const fileList = Array.from(files || []);
+  const blobs = Array.isArray(record.photoBlobs) ? record.photoBlobs : [];
   const dataUrls = Array.isArray(record.photoDataUrls)
     ? record.photoDataUrls.filter(Boolean)
     : (record.photoDataUrl ? [record.photoDataUrl] : []);
 
-  const sourceCount = fileList.length || dataUrls.length;
+  const sourceCount = blobs.length || fileList.length || dataUrls.length;
   const uploadedUrls = normaliseRecordPhotoUrls(record);
   if (!sourceCount || uploadedUrls.length >= sourceCount) {
     record.photoUrls = uploadedUrls;
@@ -206,7 +209,7 @@ async function uploadRecordPhotos(record, files = [], options = {}) {
     if (uploadedUrls[index]) continue;
 
     options.assertCanSync?.();
-    const file = fileList[index] || null;
+    const file = blobs[index] || fileList[index] || null;
     const dataUrl = dataUrls[index] || '';
     // Restored drafts can hold fifty originals. Decode only the next missing
     // photo, not every original (including those already uploaded) at once.
@@ -364,6 +367,7 @@ function normaliseLocalSubmission(record) {
   }
 
   return {
+    photoBlobs: [],
     photoDataUrl: '',
     photoDataUrls: [],
     photoMetadata: [],
@@ -581,7 +585,7 @@ async function syncSubmission(record, options = {}) {
       : [record.answers?.[field.id]])
     .filter((value) => typeof value === 'string' && value);
   const uploadedPhotoCount = normaliseRecordPhotoUrls(record).length;
-  const photoCount = options.photoFiles?.length || (Array.isArray(record.photoDataUrls)
+  const photoCount = record.photoBlobs?.length || options.photoFiles?.length || (Array.isArray(record.photoDataUrls)
     ? record.photoDataUrls.filter(Boolean).length : (record.photoDataUrl ? 1 : 0));
   const uploadOptions = {
     onProgress: options.onProgress,

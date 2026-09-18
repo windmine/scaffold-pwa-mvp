@@ -196,7 +196,7 @@ async function checkSubmissionSessionReset(uploadStatus) {
       const { getDraft } = await import('/assets/js/mock-api.js');
       return {
         issue: document.querySelector('#workFormField_issue')?.value,
-        photos: window.fixture.state.workFormPhotoDataUrls.length,
+        photos: window.fixture.state.workFormPhotoBlobs.length,
         expired: window.fixture.expired(),
         draftIssue: (await getDraft(`work-form-draft:${currentWorker.id}:51`))?.answers?.issue
       };

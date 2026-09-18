@@ -26,6 +26,7 @@ async function prepare() {
     const worker = { id: 7, role: 'worker', department_id: 2, name: 'Upload test Worker' };
     api.saveSession(worker);
     const dataUrl = 'data:image/png;base64,aW1hZ2U=';
+    const nativeFetch = window.fetch.bind(window);
     const checks = { attempts: 0, successful: 0, posts: [], decodes: 0, waits: [], progress: [] };
     let config = {};
     let activeId = '';
@@ -68,7 +69,7 @@ async function prepare() {
       return Response.json({ id: 701, worker_id: 7, status: 'pending', photo_urls: body.photo_urls, answers: body.answers });
     };
     window.fixture = {
-      api, offline, db, checks, expect,
+      api, offline, db, checks, expect, nativeFetch,
       configure(id, options = {}) { activeId = id; config = options; },
       setOnline(value) { online = value; },
       record(id, count, signatures = false) {
@@ -92,6 +93,75 @@ async function prepare() {
 }
 
 try {
+  await prepare();
+  await page.evaluate(async () => {
+    const f = window.fixture;
+    f.configure('blob-originals', { failAt: 3, status: 503 });
+    const record = f.record('blob-originals', 0);
+    record.photoBlobs = Array.from({ length: 5 }, (_, index) => new Blob([`original-${index}`], { type: 'image/png' }));
+    record.photoMetadata = record.photoBlobs.map((blob, index) => ({ name: `Original ${index + 1}.png`, size: blob.size, type: blob.type }));
+    const result = await f.offline.submitOfflineSubmission(record);
+    f.expect(result.queued && f.checks.successful === 2 && f.checks.posts.length === 0,
+      'Blob-backed originals must checkpoint and stop after a definite partial failure');
+    const stored = await f.db.get('records', record.id);
+    f.expect(stored.photoBlobs.length === 5 && stored.photoUrls.length === 2 && stored.photoDataUrls.length === 0,
+      'IndexedDB must retain all original Blobs without generating base64 copies');
+    for (const [index, blob] of stored.photoBlobs.entries()) {
+      f.expect(blob instanceof Blob && await blob.text() === `original-${index}`, 'Original Blob bytes and order survive persistence');
+    }
+  });
+  await prepare();
+  await page.evaluate(async () => {
+    const f = window.fixture;
+    f.configure('blob-originals', { alreadyUploaded: 2 });
+    const result = await f.offline.syncQueuedSubmissions({ purpose: 'report', onUploadProgress: f.progress });
+    f.expect(result.flushed === 1 && f.checks.successful === 3 && f.checks.decodes === 0,
+      'Reload must replay only missing Blob originals without any base64 decoding');
+    f.expect(f.checks.posts[0].photo_urls.length === 5 && f.checks.posts[0].photo_metadata.length === 5,
+      'Blob-backed replay submits every ordered URL and metadata');
+    f.expect(f.checks.progress[0].completed === 2 && f.checks.progress[0].total === 5, 'Blob progress includes durable uploaded originals');
+  });
+  console.log('ok - Blob originals persist byte-exactly and cold replay resumes only missing photos without base64 copies');
+
+  await prepare();
+  await page.evaluate(async () => {
+    const f = window.fixture;
+    const { restoreReportPhotoEvidence, reportPhotoSources, createPhotoPreviewSources } = await import('/assets/js/report-photo-evidence.js');
+    const oldDraft = { kind: 'work-form', schemaVersion: 1, ownerWorkerId: 7, departmentId: 2,
+      photoDataUrls: ['data:image/png;base64,bGVnYWN5LTE=', 'data:image/png;base64,bGVnYWN5LTI='],
+      photoMetadata: [{ name: 'Legacy 1.png' }, { name: 'Legacy 2.png' }], answers: { signed: 'data:image/png;base64,c2lnbmF0dXJl' } };
+    await f.db.put('drafts', { key: 'legacy-restore', value: oldDraft });
+    const restored = restoreReportPhotoEvidence(oldDraft);
+    f.expect(restored.schemaVersion === 1 && restored.ownerWorkerId === 7 && restored.departmentId === 2,
+      'Legacy draft restoration keeps identity and schema');
+    f.expect(restored.photoDataUrls.length === 0 && reportPhotoSources(restored).length === 2,
+      'Legacy photos normalize to one Blob-backed original per position');
+    f.expect(await restored.photoBlobs[0].text() === 'legacy-1' && await restored.photoBlobs[1].text() === 'legacy-2',
+      'Legacy conversion never recompresses or changes original bytes');
+    f.expect(restored.answers === oldDraft.answers && restored.photoMetadata === oldDraft.photoMetadata,
+      'Legacy conversion preserves captured signatures and metadata');
+    f.expect((await f.db.get('drafts', 'legacy-restore')).value.photoDataUrls.length === 2,
+      'Restoring a legacy draft must not overwrite its durable recovery copy');
+    await f.db.put('drafts', { key: 'legacy-restore', value: restored });
+    const saved = (await f.db.get('drafts', 'legacy-restore')).value;
+    f.expect(await saved.photoBlobs[1].text() === 'legacy-2' && !saved.photoDataUrls.length,
+      'Only a successful ordinary save replaces the legacy representation');
+    const revoked = [];
+    const revoke = URL.revokeObjectURL.bind(URL);
+    URL.revokeObjectURL = (url) => { revoked.push(url); revoke(url); };
+    const preview = createPhotoPreviewSources([...restored.photoBlobs, '/uploads/not-owned.png']);
+    f.expect(await (await f.nativeFetch(preview.urls[0])).text() === 'legacy-1', 'Preview URLs reference exact original bytes');
+    preview.dispose(); preview.dispose();
+    f.expect(revoked.length === 2 && !revoked.includes('/uploads/not-owned.png'), 'Dispose is idempotent and only revokes owned Blob URLs');
+    const create = URL.createObjectURL.bind(URL);
+    let allocations = 0;
+    URL.createObjectURL = (blob) => { if (++allocations === 2) throw new Error('Allocation failed'); return create(blob); };
+    let failed = false;
+    try { createPhotoPreviewSources(restored.photoBlobs); } catch { failed = true; }
+    f.expect(failed && revoked.length === 3, 'Partial preview allocation cleans only its newly allocated URL');
+  });
+  console.log('ok - legacy draft Blob restore preserves identity/evidence, persists only on save, and preview URLs clean up safely');
+
   await prepare();
   const batch = await page.evaluate(async () => {
     const f = window.fixture;

@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
@@ -13,6 +14,10 @@ import { chromium } from 'playwright';
 // Run: node scripts/check-hosted-report-workflow.mjs --allow-hosted-mutations --run-id NAME
 // The default evidence directory is docs/evidence/hosted-report-NAME. An optional
 // HOSTED_REPORT_EVIDENCE_DIR may select another NEW directory (never overwritten).
+// HOSTED_REPORT_PHOTO_COUNT defaults to 1; use 50 for distinct originals and a
+// locally interrupted, checkpointed upload/resume check. No server fault is induced.
+// Fresh Workers are required unless HOSTED_REPORT_ALLOW_EXISTING_HISTORY=1.
+// That explicit demo-only mode hashes and preserves every pre-existing Report.
 
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = resolve(dirname(scriptPath), '..');
@@ -50,7 +55,111 @@ function configuration() {
   const evidenceDir = resolve(process.env.HOSTED_REPORT_EVIDENCE_DIR
     || join(repoRoot, 'docs', 'evidence', `hosted-report-${runId}`));
   requireCondition(!existsSync(evidenceDir), 'evidence_directory_already_exists');
-  return { runId, baseURL: base.origin, accounts, evidenceDir };
+  return { runId, baseURL: base.origin, accounts, evidenceDir,
+    photoCount: hostedPhotoCount(process.env.HOSTED_REPORT_PHOTO_COUNT || ''),
+    allowExistingHistory: allowExistingReportHistory(process.env.HOSTED_REPORT_ALLOW_EXISTING_HISTORY || '') };
+}
+
+export function hostedPhotoCount(value) {
+  requireCondition(['', '1', '50'].includes(value), 'hosted_photo_count_must_be_1_or_50');
+  return value === '50' ? 50 : 1;
+}
+
+export function allowExistingReportHistory(value) {
+  requireCondition(['', '1'].includes(value), 'existing_history_requires_explicit_1');
+  return value === '1';
+}
+
+export function reportHistorySnapshot(reports, workerId) {
+  requireCondition(Array.isArray(reports) && reports.every((report) => Number.isInteger(report.id)
+    && report.worker_id === workerId && report.submission_purpose === 'report')
+    && new Set(reports.map((report) => report.id)).size === reports.length,
+  'worker_history_scope_or_identity_mismatch');
+  const stable = (value) => Array.isArray(value) ? value.map(stable)
+    : value && typeof value === 'object'
+      ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])])) : value;
+  return [...reports].sort((left, right) => left.id - right.id).map((report) => ({
+    id: report.id, sha256: createHash('sha256').update(JSON.stringify(stable(report))).digest('hex')
+  }));
+}
+
+export function assertOwnedReportPdf(bytes, expected) {
+  requireCondition(bytes.subarray(0, 5).equals(Buffer.from('%PDF-')), 'owned_report_pdf_header_invalid');
+  const code = String.raw`
+import base64, hashlib, io, json, re, sys
+from PIL import Image
+from pypdf import PdfReader
+from reportlab.lib.pagesizes import A4
+payload = json.load(sys.stdin)
+expected = payload['expected']
+reader = PdfReader(io.BytesIO(base64.b64decode(payload['pdf'])))
+# Match the released export-only 200 DPI thumbnail bound, including Pillow's
+# exact aspect-ratio rounding. The authorized GCS source dimensions stay intact.
+signature_probe = Image.new('RGB', tuple(expected['signatureDimensions']))
+signature_probe.thumbnail((int(((A4[0] - 100) * .7 - 16) * 200 / 72), int(94 * 200 / 72)))
+signature_size = list(signature_probe.size)
+signature_probe.close()
+texts = [re.sub(r'\s+', ' ', page.extract_text() or '').strip() for page in reader.pages]
+assert len(texts) > 0
+whole = ' '.join(texts)
+compact = ''.join(whole.split())
+assert set(int(value) for value in re.findall(r'Report\s*#\s*(\d+)', whole)) == {expected['reportId']}
+assert ''.join(expected['marker'].split()) in compact
+assert ''.join(expected['finalNote'].split()) in compact
+assert 'unavailable' not in whole.lower()
+names = expected['photoNames']
+positions = [compact.index(name) for name in names]
+assert positions == sorted(positions) and all(compact.count(name) == 1 for name in names)
+photo_hashes = []
+signature_paints = 0
+for index, page in enumerate(reader.pages):
+    assert abs(float(page.mediabox.width) - 595.2756) < 0.1
+    assert abs(float(page.mediabox.height) - 841.8898) < 0.1
+    assert re.search(r'\bPage\s+' + str(index + 1) + r'\s+of\s+' + str(len(texts)) + r'\b', texts[index])
+    resources = page['/Resources'].get_object()
+    rasters = resources['/XObject'].get_object() if '/XObject' in resources else {}
+    page_photos = []
+    page_signatures = []
+    def visit(operator, operands, matrix, _text_matrix):
+        if operator != b'Do' or not operands:
+            return
+        raster = rasters[operands[0]].get_object()
+        if raster.get('/Subtype') != '/Image':
+            return
+        size = [int(raster['/Width']), int(raster['/Height'])]
+        if size == [32, 32]:
+            photo_hashes.append(hashlib.sha256(raster.get_data()).hexdigest())
+            page_photos.append(True)
+        elif size == signature_size:
+            page_signatures.append(True)
+        else:
+            return
+        assert matrix[1] == matrix[2] == 0
+        assert matrix[4] >= 0 and matrix[5] >= 0
+        assert matrix[4] + matrix[0] <= float(page.mediabox.width) + 0.1
+        assert matrix[5] + matrix[3] <= float(page.mediabox.height) + 0.1
+    page.extract_text(visitor_operand_before=visit)
+    page_compact = ''.join(texts[index].split())
+    assert len(page_photos) == sum(name in page_compact for name in names)
+    if page_signatures:
+        assert 'Worker signature' in texts[index]
+    signature_paints += len(page_signatures)
+assert len(photo_hashes) == len(names) and len(set(photo_hashes)) == len(names)
+assert signature_paints == 1
+print(json.dumps({'pages': len(texts), 'a4Pages': len(texts), 'reportIds': [expected['reportId']],
+    'photoPaints': len(photo_hashes), 'distinctPhotoRasters': len(set(photo_hashes)),
+    'photoCaptionsInOrder': True, 'signaturePaints': signature_paints, 'signatureRasterDimensions': signature_size,
+    'pageNumbersVerified': True}))
+`;
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
+    /^(path|systemroot|windir|pathext|temp|tmp|virtual_env|pythonpath|userprofile|localappdata|appdata)$/i.test(key)));
+  try {
+    return JSON.parse(execFileSync('python', ['-c', code], {
+      input: JSON.stringify({ pdf: bytes.toString('base64'), expected }), encoding: 'utf8',
+      cwd: repoRoot, windowsHide: true, timeout: 30000, maxBuffer: 1024 * 1024, env,
+      stdio: ['pipe', 'pipe', 'pipe']
+    }));
+  } catch { requireCondition(false, 'owned_report_pdf_validation_failed'); }
 }
 
 async function api(page, path, method = 'GET', body) {
@@ -75,6 +184,22 @@ export async function browserApiRequest({ path, method = 'GET', body, timeoutMs 
 
 export function resolutionNoteLocator(container, note) {
   return container.locator('.report-supervisor-note').filter({ hasText: note });
+}
+
+export async function expandWorkerReport(card) {
+  const disclosure = card.locator(':scope > .record-actions .record-disclosure-button');
+  if (await disclosure.count() && await disclosure.getAttribute('aria-expanded') !== 'true') {
+    await disclosure.click();
+  }
+}
+
+export async function showSupervisorFilters(page) {
+  const back = page.locator('#reviewQueueBackButton');
+  if (await back.isVisible()) await back.click();
+  const filters = page.locator('#reportReviewFilters');
+  if (await filters.count() && !await filters.evaluate((element) => element.open)) {
+    await filters.locator(':scope > summary').click();
+  }
 }
 
 async function poll(test, code, timeout = 60000) {
@@ -110,29 +235,68 @@ async function assertPhoneLayout(page) {
     'phone_horizontal_overflow');
 }
 
-async function assertRenderedEvidence(container) {
-  await poll(async () => await container.locator('img').evaluateAll((images) => images.length >= 2
-    && images.every((image) => image.complete && image.naturalWidth > 0)), 'rendered_evidence_images_missing');
+async function assertRenderedEvidence(container, expectedCount = 2) {
+  const images = container.locator('img');
+  requireCondition(await images.count() === expectedCount, 'rendered_evidence_image_count_mismatch');
+  // Lazy originals deliberately do not decode until near the viewport.
+  for (const image of await images.all()) {
+    await image.scrollIntoViewIfNeeded();
+    await poll(() => image.evaluate((element) => element.complete && element.naturalWidth > 0),
+      'rendered_evidence_images_missing');
+  }
 }
 
 async function localRecords(page) {
   // Do not import source modules into a bundled production app: they have separate state.
-  return await page.evaluate(async () => {
+  return await page.evaluate(readLocalRecordEvidence);
+}
+
+export async function readLocalRecordEvidence() {
+  const readExisting = async (name) => {
+    if (!(await indexedDB.databases()).some((database) => database.name === name)) return [];
     const db = await new Promise((done, fail) => {
-      const request = indexedDB.open('scaffold-pwa-local', 1);
+      const request = indexedDB.open(name, 1);
+      // Do not create a database if another tab deleted it since databases().
+      request.onupgradeneeded = () => request.transaction.abort();
       request.onsuccess = () => done(request.result);
-      request.onerror = () => fail(request.error);
+      request.onerror = () => request.error?.name === 'AbortError' ? done(null) : fail(request.error);
     });
+    if (!db) return [];
     try {
+      if (!db.objectStoreNames.contains('records')) return [];
       return await new Promise((done, fail) => {
         const request = db.transaction('records', 'readonly').objectStore('records').getAll();
         request.onsuccess = () => done(request.result);
         request.onerror = () => fail(request.error);
       });
-    } finally {
-      db.close();
+    } finally { db.close(); }
+  };
+  const records = new Map((await readExisting('scaffold-pwa-local')).map((record) => [record.id, record]));
+  for (const envelope of await readExisting('scaffold-pwa-report-evidence-v1')) {
+    if (envelope.reportStorageVersion !== 1) continue;
+    if (envelope.deleted) records.delete(envelope.id);
+    else if (envelope.value) records.set(envelope.id, envelope.value);
+  }
+  const summaries = [];
+  for (const record of records.values()) {
+    const sources = record.photoBlobs?.length ? record.photoBlobs
+      : record.photoDataUrls?.length ? record.photoDataUrls : record.photoDataUrl ? [record.photoDataUrl] : [];
+    const hashes = [];
+    for (const source of sources) {
+      const bytes = source instanceof Blob ? await source.arrayBuffer()
+        : Uint8Array.from(atob(source.split(',')[1]), (character) => character.charCodeAt(0));
+      const hash = await crypto.subtle.digest('SHA-256', bytes);
+      hashes.push([...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, '0')).join(''));
     }
-  });
+    const summary = { ...record, photoEvidence: {
+      storage: record.photoBlobs?.length ? 'blob' : sources.length ? 'data-url' : 'none', sha256: hashes
+    } };
+    delete summary.photoBlobs;
+    delete summary.photoDataUrls;
+    delete summary.photoDataUrl;
+    summaries.push(summary);
+  }
+  return summaries;
 }
 
 function immutableContent(report) {
@@ -190,7 +354,9 @@ async function main() {
     schemaVersion: 1, runId: config.runId, nonce, origin: config.baseURL,
     status: 'running', startedAtUtc: new Date().toISOString(),
     scope: 'Automated hosted Chromium, not a physical-phone or service-worker test',
-    viewport: { width: 390, height: 844 }, checks: [],
+    viewport: { width: 390, height: 844 }, photoCount: config.photoCount,
+    existingHistoryAllowed: config.allowExistingHistory, retainedWorkerBaselines: {},
+    photoFixture: 'Small distinct synthetic PNGs; not large-camera-photo or physical-phone readiness proof', checks: [],
     owned: { templateId: null, reportId: null, clientSubmissionId: null, uploadPaths: [] },
     cleanup: { reportTrashed: false, templateArchived: false, submissionOutcomeUnknown: false, failures: [] },
     scriptSha256: createHash('sha256').update(readFileSync(scriptPath)).digest('hex')
@@ -209,10 +375,15 @@ async function main() {
   let identities;
   let submitted;
   let capturedPost;
+  let originalPhotoHashes = [];
+  let originalPhotoNames = [];
+  let uploadedEvidenceImages = [];
+  let interruptPhotoReplay = config.photoCount === 50;
   let templateCreateAttempted = false;
   let pageErrorCount = 0;
   const uploadResponses = [];
   const uploadPaths = new Set();
+  const workerBaselines = new Map();
   const step = async (label, run) => {
     stage = label;
     const details = await run();
@@ -224,6 +395,11 @@ async function main() {
     && report.worker_id === identities?.worker.id && report.answers?.issue_detail === marker
     && (!evidence.owned.clientSubmissionId
       || report.client_submission_id === evidence.owned.clientSubmissionId);
+  const assertPreservedWorkerHistory = (reports, workerId) => {
+    const unchanged = reportHistorySnapshot(reports.filter((report) => !ownedReport(report)), workerId);
+    requireCondition(JSON.stringify(unchanged) === JSON.stringify(workerBaselines.get(workerId)),
+      'preexisting_worker_reports_changed_or_unexpected_report_visible');
+  };
   try {
     browser = await chromium.launch({ headless: true });
     const pages = [];
@@ -255,6 +431,17 @@ async function main() {
         if (body?.answers?.issue_detail === marker) capturedPost = body;
       }
     });
+    if (config.photoCount === 50) {
+      await workerPage.route('**/api/photo-uploads', async (route) => {
+        await Promise.allSettled(uploadResponses);
+        if (route.request().method() === 'POST' && interruptPhotoReplay && uploadPaths.size >= 25) {
+          await route.fulfill({ status: 503, contentType: 'application/json',
+            body: JSON.stringify({ detail: 'Synthetic client-only interruption for owned Report fixture' }) });
+        } else {
+          await route.continue();
+        }
+      });
+    }
 
     await step('hosted_database_migrations_and_gcs_ready', async () => {
       await supervisorPage.goto('/', { waitUntil: 'domcontentloaded' });
@@ -276,10 +463,14 @@ async function main() {
           && user.department_id === supervisor.department_id)
         && new Set([supervisor.id, worker.id, secondWorker.id]).size === 3,
       'active_distinct_department_supervisor_and_normal_workers_required');
-      for (const page of [workerPage, secondPage]) {
+      for (const [page, user, role] of [[workerPage, worker, 'worker'], [secondPage, secondWorker, 'secondWorker']]) {
         const history = await api(page, '/api/my-form-submissions?purpose=report');
-        requireCondition(history.ok && Array.isArray(history.body) && history.body.length === 0,
+        requireCondition(history.ok && Array.isArray(history.body), 'worker_baseline_history_unavailable');
+        requireCondition(config.allowExistingHistory || history.body.length === 0,
           'fresh_dedicated_workers_without_report_history_required');
+        const baseline = reportHistorySnapshot(history.body, user.id);
+        workerBaselines.set(user.id, baseline);
+        evidence.retainedWorkerBaselines[role] = { workerId: user.id, reports: baseline };
       }
       evidence.owned.supervisorId = supervisor.id;
       evidence.owned.workerId = worker.id;
@@ -324,21 +515,30 @@ async function main() {
       }
       await workerPage.mouse.up();
       requireCondition(await canvas.getAttribute('data-signed') === 'true', 'pointer_signature_not_captured');
-      const photo = await workerPage.evaluate(() => {
+      const photos = await workerPage.evaluate((count) => {
         const canvas = document.createElement('canvas');
         canvas.width = 32;
         canvas.height = 32;
         const draw = canvas.getContext('2d');
-        draw.fillStyle = '#eab308';
-        draw.fillRect(0, 0, 32, 32);
-        draw.fillStyle = '#111827';
-        draw.fillRect(8, 8, 16, 16);
-        return canvas.toDataURL('image/png').split(',')[1];
-      });
-      await workerPage.locator('#workFormPhotos').setInputFiles({
-        name: `synthetic-ppe-${config.runId}.png`, mimeType: 'image/png', buffer: Buffer.from(photo, 'base64')
-      });
-      await workerPage.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+        return Array.from({ length: count }, (_, index) => {
+          draw.fillStyle = `rgb(${40 + index * 3},179,8)`;
+          draw.fillRect(0, 0, 32, 32);
+          draw.fillStyle = '#111827';
+          draw.fillRect(8, 8, 16, 16);
+          return canvas.toDataURL('image/png').split(',')[1];
+        });
+      }, config.photoCount);
+      const files = photos.map((photo, index) => ({
+        name: `synthetic-ppe-${config.runId}-${String(index + 1).padStart(2, '0')}.png`,
+        mimeType: 'image/png', buffer: Buffer.from(photo, 'base64')
+      }));
+      originalPhotoHashes = files.map(({ buffer }) => createHash('sha256').update(buffer).digest('hex'));
+      originalPhotoNames = files.map(({ name }) => name);
+      requireCondition(new Set(originalPhotoHashes).size === config.photoCount, 'distinct_photo_fixtures_required');
+      evidence.originalPhotoSha256 = originalPhotoHashes;
+      await workerPage.locator('#workFormPhotos').setInputFiles(files);
+      await poll(async () => await workerPage.locator('#workFormPhotoPreview img').count() === config.photoCount,
+        'selected_photo_preview_count_mismatch');
       await assertPhoneLayout(workerPage);
     });
     await step('offline_report_preserves_original_answers_and_evidence', async () => {
@@ -350,16 +550,41 @@ async function main() {
       requireCondition(queued.ownerWorkerId === identities.worker.id && queued.workDate === reportDate
         && queued.answers?.issue_detail === marker
         && queued.capturedAnswers?.report_signature?.startsWith('data:image/')
-        && queued.photoDataUrls?.length === 1 && queued.photoDataUrls[0].startsWith('data:image/'),
+        && JSON.stringify(queued.photoEvidence.sha256) === JSON.stringify(originalPhotoHashes),
       'queued_original_evidence_missing');
       evidence.owned.clientSubmissionId = queued.clientSubmissionId;
       await workerPage.locator('.tab[data-tab-target="historyTab"]').click();
-      const card = workerPage.locator('#historyList .record-form').filter({ hasText: marker });
+      const card = workerPage.locator('#historyList > .record-form').filter({ hasText: templateName });
       await card.waitFor({ state: 'visible' });
       requireCondition((await card.innerText()).includes('Queued'), 'offline_history_status_missing');
+      if (await card.locator('.record-disclosure-button').count()) {
+        requireCondition(await card.locator('img').count() === 0, 'collapsed_report_decoded_evidence');
+      }
+      await expandWorkerReport(card);
+      requireCondition((await card.innerText()).includes(marker), 'expanded_queued_answers_missing');
+      await assertRenderedEvidence(card, config.photoCount + 1);
       await assertPhoneLayout(workerPage);
-      await workerPage.screenshot({ path: join(config.evidenceDir, 'worker-queued.png'), fullPage: true });
+      await card.screenshot({ path: join(config.evidenceDir, 'worker-queued.png') });
+      return { photoStorage: queued.photoEvidence.storage, originalPhotoHashesVerified: config.photoCount };
     });
+    if (config.photoCount === 50) {
+      await step('partial_upload_checkpoint_keeps_originals_and_resumes', async () => {
+        await workerContext.setOffline(false);
+        const checkpoint = await poll(async () => (await localRecords(workerPage)).find((record) =>
+          record.clientSubmissionId === evidence.owned.clientSubmissionId && record.syncStatus === 'queued'
+          && record.photoUrls?.length === 25 && record.syncError), 'partial_upload_checkpoint_not_saved', 180000);
+        requireCondition(JSON.stringify(checkpoint.photoEvidence.sha256) === JSON.stringify(originalPhotoHashes)
+          && checkpoint.capturedAnswers?.report_signature?.startsWith('data:image/')
+          && checkpoint.photoUrls.every((path) => uploadPaths.has(path)), 'partial_checkpoint_changed_originals');
+        evidence.partialUploadCheckpoint = { uploadedPhotos: 25, originalPhotoHashesVerified: 50,
+          photoStorage: checkpoint.photoEvidence.storage, uploadedPaths: [...checkpoint.photoUrls] };
+        interruptPhotoReplay = false;
+        // Reload exercises durable Blob restoration, not only an in-memory retry.
+        await workerPage.reload({ waitUntil: 'domcontentloaded' });
+        await workerPage.locator('#workerView').waitFor({ state: 'visible' });
+        return { uploadedPhotos: 25, remainingPhotos: 25, signatureStillLocal: true, reloadedForResume: true };
+      });
+    }
     await step('online_replay_uploads_evidence_and_submits_once', async () => {
       await workerContext.setOffline(false);
       submitted = await poll(async () => {
@@ -368,11 +593,11 @@ async function main() {
         const own = result.body.filter(ownedReport);
         requireCondition(own.length <= 1, 'duplicate_durable_reports_created');
         return own[0];
-      }, 'online_report_replay_did_not_finish', 120000);
+      }, 'online_report_replay_did_not_finish', config.photoCount === 50 ? 300000 : 120000);
       evidence.owned.reportId = submitted.id;
       requireCondition(ownedReport(submitted) && submitted.site_id === null
         && submitted.work_date === reportDate && submitted.workflow_status === 'submitted'
-        && submitted.submission_purpose === 'report' && submitted.photo_urls?.length === 1
+        && submitted.submission_purpose === 'report' && submitted.photo_urls?.length === config.photoCount
         && /^\/uploads\/[a-z0-9_.-]+$/i.test(submitted.answers?.report_signature || '')
         && capturedPost?.client_submission_id === evidence.owned.clientSubmissionId,
       'durable_report_content_mismatch');
@@ -381,15 +606,23 @@ async function main() {
       requireCondition(paths.every((path) => /^\/uploads\/[a-z0-9_.-]+$/i.test(path)),
         'durable_evidence_paths_invalid');
       evidence.owned.uploadPaths = [...new Set([...uploadPaths, ...paths])];
+      requireCondition(new Set(paths).size === config.photoCount + 1 && uploadPaths.size === config.photoCount + 1,
+        'evidence_upload_count_or_resume_deduplication_failed');
+      if (evidence.partialUploadCheckpoint) {
+        requireCondition(JSON.stringify(submitted.photo_urls.slice(0, 25))
+          === JSON.stringify(evidence.partialUploadCheckpoint.uploadedPaths), 'resume_reuploaded_checkpointed_photos');
+      }
       const images = await verifyImages(workerPage, paths);
+      uploadedEvidenceImages = images;
       requireCondition(images.every((item) => item.status === 200 && item.width > 0 && item.height > 0),
         'worker_authenticated_upload_streaming_failed');
       return { images };
     });
     await step('second_worker_cannot_read_report_or_evidence', async () => {
       const history = await api(secondPage, '/api/my-form-submissions?purpose=report');
-      requireCondition(history.ok && Array.isArray(history.body) && history.body.length === 0,
+      requireCondition(history.ok && Array.isArray(history.body) && !history.body.some(ownedReport),
         'second_worker_history_leaked');
+      assertPreservedWorkerHistory(history.body, identities.secondWorker.id);
       const supervisorList = await api(secondPage, '/api/supervisor/form-submissions?purpose=report');
       requireCondition([401, 403].includes(supervisorList.status), 'worker_supervisor_endpoint_not_denied');
       const statuses = await secondPage.evaluate(async (paths) => {
@@ -401,13 +634,14 @@ async function main() {
         }
         return statuses;
       }, evidence.owned.uploadPaths);
-      requireCondition(statuses.length === 2 && statuses.every((status) => [401, 403, 404].includes(status)),
+      requireCondition(statuses.length === config.photoCount + 1 && statuses.every((status) => [401, 403, 404].includes(status)),
         'second_worker_evidence_leaked');
       return { deniedUploadStatuses: statuses };
     });
     await step('supervisor_phone_filters_and_starts_review', async () => {
       await supervisorPage.reload({ waitUntil: 'domcontentloaded' });
       await supervisorPage.locator('#supervisorView').waitFor({ state: 'visible' });
+      await showSupervisorFilters(supervisorPage);
       const filteredResponse = supervisorPage.waitForResponse((response) => {
         const url = new URL(response.url());
         return response.request().method() === 'GET' && url.pathname === '/api/supervisor/review-queue'
@@ -425,7 +659,7 @@ async function main() {
       await card.waitFor({ state: 'visible' });
       await card.click();
       await assertPhoneLayout(supervisorPage);
-      await assertRenderedEvidence(supervisorPage.locator('#reviewQueueDetail'));
+      await assertRenderedEvidence(supervisorPage.locator('#reviewQueueDetail'), config.photoCount + 1);
       const images = await verifyImages(supervisorPage, evidence.owned.uploadPaths);
       requireCondition(images.every((item) => item.status === 200 && item.width > 0),
         'supervisor_authenticated_upload_streaming_failed');
@@ -437,6 +671,7 @@ async function main() {
         'start_review_transition_failed');
     });
     await step('supervisor_requires_note_and_resolves_report', async () => {
+      await showSupervisorFilters(supervisorPage);
       await supervisorPage.locator('#supervisorStatusFilter').selectOption('in_review');
       const card = supervisorPage.locator('#reviewQueueList .record-form').filter({ hasText: marker });
       await card.waitFor({ state: 'visible' });
@@ -457,6 +692,7 @@ async function main() {
         && resolved.supervisor_note === finalNote && resolved.reviewing_supervisor_id === identities.supervisor.id
         && resolved.review_started_at && resolved.resolved_at
         && immutableContent(resolved) === immutableContent(submitted), 'resolved_report_or_immutable_content_mismatch');
+      await showSupervisorFilters(supervisorPage);
       await supervisorPage.locator('#supervisorStatusFilter').selectOption('resolved');
       await card.waitFor({ state: 'visible' });
       await card.click();
@@ -469,21 +705,59 @@ async function main() {
       await workerPage.reload({ waitUntil: 'domcontentloaded' });
       await workerPage.locator('#workerView').waitFor({ state: 'visible' });
       await workerPage.locator('.tab[data-tab-target="historyTab"]').click();
-      const card = workerPage.locator('#historyList .record-form').filter({ hasText: marker });
+      const card = workerPage.locator('#historyList > .record-form').filter({ hasText: templateName });
       await card.waitFor({ state: 'visible' });
       const text = await card.innerText();
       requireCondition(text.includes('Resolved') && text.includes(finalNote) && text.includes(reportDate),
         'worker_final_report_note_missing');
-      await assertRenderedEvidence(card);
+      await expandWorkerReport(card);
+      requireCondition((await card.innerText()).includes(marker), 'expanded_durable_answers_missing');
+      await assertRenderedEvidence(card, config.photoCount + 1);
       await assertPhoneLayout(workerPage);
-      await workerPage.screenshot({ path: join(config.evidenceDir, 'worker-resolved.png'), fullPage: true });
+      await card.screenshot({ path: join(config.evidenceDir, 'worker-resolved.png') });
       const replay = await api(workerPage, '/api/form-submissions', 'POST', capturedPost);
       requireCondition(replay.ok && replay.body.id === submitted.id && replay.body.workflow_status === 'resolved'
         && replay.body.supervisor_note === finalNote
         && immutableContent(replay.body) === immutableContent(submitted), 'durable_idempotent_replay_changed_report');
       const history = await api(workerPage, '/api/my-form-submissions?purpose=report');
       requireCondition(history.ok && history.body.filter(ownedReport).length === 1, 'replay_created_duplicate_report');
+      assertPreservedWorkerHistory(history.body, identities.worker.id);
+      evidence.retainedWorkerBaselinesVerified = true;
       requireCondition(pageErrorCount === 0, 'browser_page_errors_observed');
+    });
+    await step('owned_single_default_and_filtered_collection_pdf_downloads', async () => {
+      const signature = uploadedEvidenceImages.find((item) => item.path === submitted.answers.report_signature);
+      requireCondition(signature?.width > 32 && signature.height > 32, 'signature_export_dimensions_missing');
+      const expected = { reportId: submitted.id, marker, finalNote, photoNames: originalPhotoNames,
+        signatureDimensions: [signature.width, signature.height] };
+      const downloadPdf = async (button, kind) => {
+        const next = supervisorPage.waitForEvent('download');
+        await button.click();
+        const download = await next;
+        requireCondition(/\.pdf$/i.test(download.suggestedFilename()), 'owned_export_pdf_filename_invalid');
+        const artifact = `owned-${kind}.pdf`;
+        const path = join(config.evidenceDir, artifact);
+        await download.saveAs(path);
+        const bytes = readFileSync(path);
+        const parsed = assertOwnedReportPdf(bytes, expected);
+        return { kind, artifact, filename: download.suggestedFilename(), bytes: bytes.length,
+          sha256: createHash('sha256').update(bytes).digest('hex'), ...parsed };
+      };
+      const format = supervisorPage.locator('#reviewQueueActions select');
+      requireCondition(await format.inputValue() === 'form-pdf', 'owned_single_pdf_not_default');
+      const single = await downloadPdf(supervisorPage.locator('#reviewQueueActions')
+        .getByRole('button', { name: 'Download PDF', exact: true }), 'single');
+      await showSupervisorFilters(supervisorPage);
+      requireCondition(await supervisorPage.locator('#supervisorTemplateFilter').inputValue() === String(evidence.owned.templateId)
+        && await supervisorPage.locator('#supervisorWorkerFilter').inputValue() === String(identities.worker.id)
+        && await supervisorPage.locator('#supervisorDateFilter').inputValue() === reportDate
+        && await supervisorPage.locator('#supervisorStatusFilter').inputValue() === 'resolved'
+        && await supervisorPage.locator('#reviewQueueList .record-form').count() === 1,
+      'owned_collection_export_filters_not_exact');
+      const collection = await downloadPdf(supervisorPage.locator('#exportReportsPdfButton'), 'collection');
+      requireCondition(single.pages === collection.pages, 'owned_collection_page_count_mismatch');
+      requireCondition(pageErrorCount === 0, 'browser_page_errors_observed');
+      return { singleDefaultWithoutSelection: true, single, collection };
     });
     evidence.status = 'passed';
   } catch (error) {

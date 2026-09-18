@@ -336,49 +336,39 @@ async function pageWaitForRecordCount(page, expected) {
   }, expected, { timeout: 20000 });
 }
 
-async function waitForQueueCount(page, expected) {
-  await page.waitForFunction(async (value) => {
-    const db = await new Promise((resolve, reject) => {
-      const request = indexedDB.open('scaffold-pwa-local', 1);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-
-    try {
-      const count = await new Promise((resolve, reject) => {
-        const transaction = db.transaction('queue', 'readonly');
-        const request = transaction.objectStore('queue').count();
+async function waitForQueueCount(page, expected, { atLeast = false, timeout = 20000 } = {}) {
+  await page.waitForFunction(async ({ value, atLeast }) => {
+    const readExisting = async (name) => {
+      if (!(await indexedDB.databases()).some((database) => database.name === name)) return [];
+      const db = await new Promise((resolve, reject) => {
+        const request = indexedDB.open(name, 1);
+        request.onupgradeneeded = () => request.transaction.abort();
         request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
+        request.onerror = () => request.error?.name === 'AbortError' ? resolve(null) : reject(request.error);
       });
-      return count === value;
-    } finally {
-      db.close();
+      if (!db) return [];
+      try {
+        if (!db.objectStoreNames.contains('queue')) return [];
+        return await new Promise((resolve, reject) => {
+          const request = db.transaction('queue', 'readonly').objectStore('queue').getAll();
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+      } finally { db.close(); }
+    };
+    const items = new Map((await readExisting('scaffold-pwa-local')).map((item) => [item.id, item]));
+    for (const envelope of await readExisting('scaffold-pwa-report-evidence-v1')) {
+      if (envelope.reportStorageVersion !== 1) continue;
+      if (envelope.deleted) items.delete(envelope.id);
+      else if (envelope.value) items.set(envelope.id, envelope.value);
     }
-  }, expected, { timeout: 20000 });
+    return atLeast ? items.size >= value : items.size === value;
+  }, { value: expected, atLeast }, { timeout });
 }
 
 async function waitForQueueAtLeast(page, minimum) {
   try {
-    await page.waitForFunction(async (value) => {
-      const db = await new Promise((resolve, reject) => {
-        const request = indexedDB.open('scaffold-pwa-local', 1);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-
-      try {
-        const count = await new Promise((resolve, reject) => {
-          const transaction = db.transaction('queue', 'readonly');
-          const request = transaction.objectStore('queue').count();
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
-        });
-        return count >= value;
-      } finally {
-        db.close();
-      }
-    }, minimum, { timeout: 10000 });
+    await waitForQueueCount(page, minimum, { atLeast: true, timeout: 10000 });
   } catch (error) {
     const debug = await page.evaluate(() => ({
       activeView: document.body.dataset.activeView || '',
@@ -1302,6 +1292,9 @@ async function checkSharedDeviceWorkerReportPrivacy(browser, {
     }, { formId: template.id, answer: privateAnswer });
     await page.locator('.tab[data-tab-target="historyTab"]').click();
     await page.locator('#refreshHistoryButton').click();
+    const compactCard = page.locator('#historyList > .record-report-compact').filter({ hasText: template.name }).first();
+    await compactCard.waitFor({ state: 'visible', timeout: 20000 });
+    await compactCard.locator('.record-disclosure-button').click();
     const card = page.locator('#historyList .record-form').filter({ hasText: privateAnswer }).first();
     await card.waitFor({ state: 'visible', timeout: 20000 });
     await card.locator('[data-photo-index]').first().click();
@@ -1482,8 +1475,12 @@ async function checkSharedDeviceSupervisorReportPrivacy(browser) {
       await newQueueGate;
       await route.fulfill({ status: 503, json: { detail: 'Replacement Department queue unavailable.' } });
     });
+    await page.locator('#reviewQueueBackButton').click();
     await page.locator('#refreshSupervisorButton').click();
     await oldQueueSeen;
+    // Keep the private detail open during the delayed refresh/account switch.
+    await card.click();
+    await page.locator('#reviewQueueActions').getByRole('button', { name: 'Start review' }).waitFor();
     await logout(page);
     await assertDepartmentDataCleared('Supervisor logged out');
     // Preserve the document and its module state through the account handoff.
@@ -1548,6 +1545,19 @@ async function selectReportPhotoBatch(page, count) {
   }, count);
 }
 
+async function photoPreviewHashes(page, selector = '#workFormPhotoPreview img') {
+  return page.locator(selector).evaluateAll(async (images) => {
+    const hashes = [];
+    for (const image of images) {
+      const response = await fetch(image.getAttribute('src'));
+      if (!response.ok) throw new Error('Original Report photo preview is unavailable');
+      const digest = await crypto.subtle.digest('SHA-256', await response.arrayBuffer());
+      hashes.push([...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join(''));
+    }
+    return hashes;
+  });
+}
+
 function observeReportDraftReads() {
   const nativeGetAll = IDBObjectStore.prototype.getAll;
   const reads = { started: 0, completed: 0 };
@@ -1582,16 +1592,11 @@ async function checkReportPhotoSelectionAppends(browser) {
     await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
     await selectReportPhoto(page, 'first-report-photo.png', '#dc2626');
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
-    const firstSource = await page.locator('#workFormPhotoPreview img').getAttribute('src');
+    const [firstSource] = await photoPreviewHashes(page);
 
     await selectReportPhoto(page, 'second-report-photo.png', '#2563eb');
-    await page.waitForFunction((originalSource) => (
-      [...document.querySelectorAll('#workFormPhotoPreview img')]
-        .some((image) => image.getAttribute('src') !== originalSource)
-    ), firstSource);
-    const selectedSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => (
-      images.map((image) => image.getAttribute('src'))
-    ));
+    await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 2);
+    const selectedSources = await photoPreviewHashes(page);
     if (selectedSources.length !== 2 || selectedSources[0] !== firstSource || selectedSources[1] === firstSource) {
       throw new Error(`choosing a second Report photo must retain the first and append the second; visible photos=${selectedSources.length}, first retained=${selectedSources[0] === firstSource}`);
     }
@@ -1614,7 +1619,7 @@ async function checkReportRejectedPhotoSelectionPreserves(browser) {
     await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
     await selectReportPhoto(page, 'kept-report-photo.png', '#16a34a');
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
-    const originalSource = await page.locator('#workFormPhotoPreview img').getAttribute('src');
+    const [originalSource] = await photoPreviewHashes(page);
 
     await page.locator('#workFormPhotos').setInputFiles({
       name: 'not-a-photo.txt',
@@ -1622,9 +1627,7 @@ async function checkReportRejectedPhotoSelectionPreserves(browser) {
       buffer: Buffer.from('This is not a supported Report photo.')
     });
     await page.locator('#workFormFeedback').getByText('not-a-photo.txt must be a JPEG, PNG, or WebP image.', { exact: true }).waitFor({ state: 'visible' });
-    const remainingSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => (
-      images.map((image) => image.getAttribute('src'))
-    ));
+    const remainingSources = await photoPreviewHashes(page);
     if (remainingSources.length !== 1 || remainingSources[0] !== originalSource) {
       throw new Error(`rejecting an invalid Report photo must preserve the earlier photo; visible photos=${remainingSources.length}, original retained=${remainingSources[0] === originalSource}`);
     }
@@ -1633,8 +1636,32 @@ async function checkReportRejectedPhotoSelectionPreserves(browser) {
     await page.locator('#workerView').waitFor({ state: 'visible' });
     await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
-    if (await page.locator('#workFormPhotoPreview img').getAttribute('src') !== originalSource) {
+    if ((await photoPreviewHashes(page))[0] !== originalSource) {
       throw new Error('rejected Report photo selection must not erase the earlier photo from the saved device draft');
+    }
+    await page.evaluate(() => {
+      const create = URL.createObjectURL.bind(URL);
+      URL.createObjectURL = (blob) => {
+        if (blob.name === 'cannot-preview.png') throw new Error('Simulated object URL allocation failure');
+        return create(blob);
+      };
+    });
+    await selectReportPhoto(page, 'cannot-preview.png', '#000000');
+    await page.locator('#workFormFeedback').getByText('Could not prepare these photos. Choose them again before leaving this page.', { exact: true }).waitFor();
+    if (JSON.stringify(await photoPreviewHashes(page)) !== JSON.stringify([originalSource])) {
+      throw new Error('preview allocation failure must preserve the previous gallery and original bytes');
+    }
+    await selectReportPhoto(page, 'retry-preview.png', '#ffffff');
+    await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 2);
+    await page.locator('#workFormAutosaveStatus.saved').waitFor();
+    const savedNames = await page.evaluate(async () => {
+      const { getAll } = await import('/assets/js/db.js');
+      const draft = (await getAll('drafts')).find((entry) => entry.value?.kind === 'work-form');
+      if (draft.value.photoDataUrls.length || draft.value.photoBlobs.length !== 2) throw new Error('Report drafts must store only two original Blobs');
+      return draft.value.photoMetadata.map((item) => item.name);
+    });
+    if (JSON.stringify(savedNames) !== JSON.stringify(['kept-report-photo.png', 'retry-preview.png'])) {
+      throw new Error('failed preview must not invisibly append an extra photo to the saved draft');
     }
   } finally {
     await context.close();
@@ -1657,14 +1684,40 @@ async function checkReportPhotoRemovalPersists(browser) {
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
     await selectReportPhoto(page, 'keep-report-photo.png', '#2563eb');
     await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 2);
-    const keptSource = await page.locator('#workFormPhotoPreview img').nth(1).getAttribute('src');
+    const keptSource = (await photoPreviewHashes(page))[1];
     const removeFirst = page.locator('#workFormPhotoPreview').getByRole('button', { name: 'Remove photo 1', exact: true });
     if (!(await removeFirst.isVisible())) {
       throw new Error('each selected Report photo must provide its own accessible Remove photo N action');
     }
+    await page.locator('#workFormAutosaveStatus.saved').waitFor();
+    const sourcesBeforeFailedRemove = await photoPreviewHashes(page);
+    await page.evaluate(() => {
+      const create = URL.createObjectURL.bind(URL);
+      let failNext = true;
+      URL.createObjectURL = (blob) => {
+        if (failNext) { failNext = false; throw new Error('Simulated removal preview allocation failure'); }
+        return create(blob);
+      };
+    });
+    await removeFirst.click();
+    await page.locator('#workFormFeedback').getByText('Could not remove this photo. Your photos have not changed. Try again.', { exact: true }).waitFor();
+    if (JSON.stringify(await photoPreviewHashes(page)) !== JSON.stringify(sourcesBeforeFailedRemove)) {
+      throw new Error('failed removal must preserve the original gallery and indices');
+    }
+    await page.locator('#workFormField_inspection_area').fill('Save after failed photo removal');
+    await page.locator('#workFormAutosaveStatus.saved').waitFor();
+    const savedAfterFailedRemove = await page.evaluate(async () => {
+      const { getAll } = await import('/assets/js/db.js');
+      const draft = (await getAll('drafts')).find((entry) => entry.value?.kind === 'work-form');
+      return { count: draft.value.photoBlobs.length, names: draft.value.photoMetadata.map((item) => item.name) };
+    });
+    if (savedAfterFailedRemove.count !== 2
+      || JSON.stringify(savedAfterFailedRemove.names) !== JSON.stringify(['remove-report-photo.png', 'keep-report-photo.png'])) {
+      throw new Error('failed removal must not silently delete or reorder originals in the saved draft');
+    }
     await removeFirst.click();
     await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 1);
-    if (await page.locator('#workFormPhotoPreview img').getAttribute('src') !== keptSource) {
+    if ((await photoPreviewHashes(page))[0] !== keptSource) {
       throw new Error('Remove photo 1 removed the wrong Report photo');
     }
     await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
@@ -1672,7 +1725,7 @@ async function checkReportPhotoRemovalPersists(browser) {
     await page.locator('#workerView').waitFor({ state: 'visible' });
     await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
-    const restoredSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
+    const restoredSources = await photoPreviewHashes(page);
     if (restoredSources.length !== 1 || restoredSources[0] !== keptSource) {
       throw new Error('Report photo removal was not retained when the device draft reopened');
     }
@@ -1701,7 +1754,7 @@ async function checkReportDraftVisibleAndResumable(browser) {
     await page.locator('#workFormDate').fill(reportDate);
     await selectReportPhoto(page, 'resume-report-photo.png', '#d97706');
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
-    const source = await page.locator('#workFormPhotoPreview img').getAttribute('src');
+    const [source] = await photoPreviewHashes(page);
     await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
 
     await page.reload({ waitUntil: 'domcontentloaded' });
@@ -1723,7 +1776,7 @@ async function checkReportDraftVisibleAndResumable(browser) {
     if (await page.locator('#workFormSelect').locator('option:checked').innerText() !== 'Inspection form'
       || await page.locator('#workFormDate').inputValue() !== reportDate
       || await page.locator('#workFormField_inspection_area').inputValue() !== answer
-      || await page.locator('#workFormPhotoPreview img').getAttribute('src') !== source) {
+      || (await photoPreviewHashes(page))[0] !== source) {
       throw new Error('Continue draft must restore the same Template, Report Date, answers, and selected photo');
     }
     const screenshotRoot = String(process.env.BROWSER_WORKFLOW_SCREENSHOT_DIR || '').trim();
@@ -1822,14 +1875,10 @@ async function checkReportOverlappingPhotoSelections(browser) {
     reportOnly: true,
     initScript: () => {
       const nativeRead = FileReader.prototype.readAsDataURL;
-      const reads = { pending: null, completed: [] };
+      const reads = { count: 0 };
       window.__reportPhotoReads = reads;
       FileReader.prototype.readAsDataURL = function readPhoto(blob) {
-        this.addEventListener('loadend', () => reads.completed.push(blob.name), { once: true });
-        if (blob.name === 'slow-report-photo.png') {
-          reads.pending = () => nativeRead.call(this, blob);
-          return;
-        }
+        reads.count += 1;
         return nativeRead.call(this, blob);
       };
     }
@@ -1844,14 +1893,28 @@ async function checkReportOverlappingPhotoSelections(browser) {
     ));
     await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
     await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
-    await selectReportPhoto(page, 'slow-report-photo.png', '#dc2626');
-    await page.waitForFunction(() => Boolean(window.__reportPhotoReads.pending));
-    await selectReportPhoto(page, 'fast-report-photo.png', '#2563eb');
-    await page.evaluate(() => window.__reportPhotoReads.pending());
-    await page.waitForFunction(() => window.__reportPhotoReads.completed.length === 2);
+    await page.locator('#workFormPhotos').evaluate(async (input) => {
+      const selections = [];
+      for (const [index, color] of ['#dc2626', '#2563eb'].entries()) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 20; canvas.height = 20;
+        const drawing = canvas.getContext('2d');
+        drawing.fillStyle = color; drawing.fillRect(0, 0, 20, 20);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([blob], `overlapping-${index + 1}.png`, { type: 'image/png' }));
+        selections.push(transfer);
+      }
+      // Both events arrive before either queued processing microtask runs.
+      for (const selection of selections) {
+        input.files = selection.files;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 2);
     const previewCount = await page.locator('#workFormPhotoPreview img').count();
     if (previewCount !== 2) {
-      throw new Error(`a second Report photo selection during an earlier read must retain both selections; visible photos=${previewCount}`);
+      throw new Error(`overlapping Report photo events must retain both selections; visible photos=${previewCount}`);
     }
     await page.waitForFunction(() => [...document.querySelectorAll('#workFormPhotoPreview img')].every((image) => image.complete && image.naturalWidth));
     const colors = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => {
@@ -1865,6 +1928,7 @@ async function checkReportOverlappingPhotoSelections(browser) {
     if (JSON.stringify(colors) !== JSON.stringify([[220, 38, 38], [37, 99, 235]])) {
       throw new Error(`overlapping Report photo selections must preserve selection order: ${JSON.stringify(colors)}`);
     }
+    if (await page.evaluate(() => window.__reportPhotoReads.count)) throw new Error('New Report originals must not be copied into base64 FileReader results');
   } finally {
     await context.close();
   }
@@ -1944,7 +2008,9 @@ async function checkSubmittedReportDraftCleanupFailure(browser) {
         return nativeDelete.call(this, key);
       };
       IDBObjectStore.prototype.put = function putDraft(value, ...args) {
-        if (this.name === 'drafts' && value?.value?.kind === 'submitted-draft-tombstone') {
+        const draft = value?.reportStorageVersion === 1 ? value.value : value;
+        if (this.name === 'drafts' && (value?.deleted === true
+          || draft?.value?.kind === 'submitted-draft-tombstone')) {
           throw new DOMException('Simulated submitted draft tombstone failure', 'QuotaExceededError');
         }
         return nativePut.call(this, value, ...args);
@@ -1974,7 +2040,9 @@ async function checkSubmittedReportDraftCleanupFailure(browser) {
     const submitted = response.request().postDataJSON();
     await page.locator('#workFormFeedback').getByText(/The submitted draft could not be cleared from this device/).waitFor({ state: 'visible' });
     await openMyReportsAfterDraftRead(page);
-    await page.locator('#historyList .record-form').filter({ hasText: answer }).waitFor({ state: 'visible' });
+    await page.locator('#historyList > .record-report-compact').first().waitFor({ state: 'visible' });
+    await page.locator('#historyList > .record-report-compact .record-disclosure-button').first().click();
+    await page.locator('#historyList > .record-form').filter({ hasText: answer }).waitFor({ state: 'visible' });
     const durableCount = await page.evaluate(async (idempotencyKey) => {
       const result = await fetch('/api/my-form-submissions?purpose=report', { credentials: 'include' });
       if (!result.ok) throw new Error(`my-form-submissions verification failed: ${result.status}`);
@@ -2032,18 +2100,18 @@ async function checkReportPhotoLimitAndEmptyPicker(browser) {
     await selectReportPhotoBatch(page, 50);
     await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 50);
     await page.locator('#workFormPhotoStatus').getByText('50 of 50 photos selected.', { exact: true }).waitFor();
-    const originalSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
+    const originalSources = await photoPreviewHashes(page);
     await page.locator('#workFormPhotos').setInputFiles([]);
     await selectReportPhoto(page, 'excess-report-photo.png', '#ffffff');
     await page.locator('#workFormFeedback').getByText('Reports can include up to 50 photos. The first 50 were kept.', { exact: true }).waitFor({ state: 'visible' });
-    const fullSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
+    const fullSources = await photoPreviewHashes(page);
     if (JSON.stringify(fullSources) !== JSON.stringify(originalSources)) {
       throw new Error('an empty or over-limit Report photo selection must preserve all 50 earlier photos');
     }
     await page.locator('#workFormPhotoPreview').getByRole('button', { name: 'Remove photo 4', exact: true }).click();
     await selectReportPhoto(page, 'replacement-report-photo.png', '#ffffff');
     await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 50);
-    const replacementSources = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
+    const replacementSources = await photoPreviewHashes(page);
     originalSources.splice(3, 1);
     if (JSON.stringify(replacementSources.slice(0, 49)) !== JSON.stringify(originalSources)
       || originalSources.includes(replacementSources[49])) {
@@ -2054,7 +2122,7 @@ async function checkReportPhotoLimitAndEmptyPicker(browser) {
     await page.locator('#workerView').waitFor({ state: 'visible' });
     await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
     await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 50);
-    const restored = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
+    const restored = await photoPreviewHashes(page);
     if (JSON.stringify(restored) !== JSON.stringify(replacementSources)) throw new Error('50-photo draft changed after reload');
     const finalThumbnail = page.locator('#workFormPhotoPreview [data-photo-index="49"]');
     await finalThumbnail.scrollIntoViewIfNeeded();
@@ -2064,7 +2132,7 @@ async function checkReportPhotoLimitAndEmptyPicker(browser) {
     });
     await finalThumbnail.click();
     await page.locator('#photoViewer').waitFor({ state: 'visible' });
-    const finalImage = await page.locator('#photoViewer img').getAttribute('src');
+    const [finalImage] = await photoPreviewHashes(page, '#photoViewer img');
     if (finalImage !== replacementSources[49]) throw new Error('lazy final thumbnail must open the fiftieth original photo');
     await page.keyboard.press('Escape');
     await page.locator('#photoViewer').waitFor({ state: 'hidden' });
@@ -2093,7 +2161,7 @@ async function checkReportFiftyPhotoUpload(browser) {
     await selectReportPhotoBatch(page, 50);
     await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 50);
     await page.locator('#workFormAutosaveStatus.saved').waitFor();
-    // Reload forces the data-URL replay path instead of retained browser Files.
+    // Reload forces the persisted Blob path instead of retained browser Files.
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#workerView').waitFor({ state: 'visible' });
     await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
@@ -2266,6 +2334,8 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
 
     await page.locator('.tab[data-tab-target="historyTab"]').click();
     await page.locator('#historyTab').waitFor({ state: 'visible', timeout: 10000 });
+    await page.locator('#historyList > .record-report-compact').first().waitFor({ state: 'visible' });
+    await page.locator('#historyList > .record-report-compact .record-disclosure-button').first().click();
     const historyRecord = page.locator('#historyList .record-form').filter({ hasText: reportMarker }).first();
     await historyRecord.waitFor({ state: 'visible', timeout: 20000 });
     const historyText = await historyRecord.innerText();
@@ -2274,7 +2344,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
       || !historyText.includes('Submitted')
       || !historyText.includes('Submitted:')
       || !historyText.includes('Report Date: 2026-09-01')
-      || !historyText.includes('Unassigned site')
+      || historyText.includes('Unassigned site')
       || !historyText.includes(reportMarker)
       || historyText.includes('Final supervisor note:')
     ) {
@@ -2283,6 +2353,10 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
 
     await logout(page);
     await loginAs(page, 'supervisor@example.com', 'supervisor');
+    if (await page.locator('#reportReviewFilters').evaluate((filters) => filters.open)) {
+      throw new Error('Phone Supervisor filters must initially be collapsed');
+    }
+    await page.locator('#reportReviewFilters > summary').click();
     await page.locator('#adminMobileMenuButton').click();
     await page.locator('#adminWorkspaceDrawer[open]').waitFor({ state: 'visible', timeout: 10000 });
     const supervisorShell = await page.evaluate(() => ({
@@ -2367,6 +2441,18 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     if (!(await filteredQueueResponse).ok()) {
       throw new Error('combined Supervisor Report filters did not produce a successful scoped request');
     }
+    const literalFilterLabels = page.locator('#reportReviewFilterSummary [data-no-i18n]');
+    const originalFilterLabels = await literalFilterLabels.allTextContents();
+    if (JSON.stringify(originalFilterLabels) !== JSON.stringify(['Inspection form', 'Normal Report Worker', '2026-09-01'])) {
+      throw new Error(`Report filter labels must use the literal-content translation boundary: ${JSON.stringify(originalFilterLabels)}`);
+    }
+    await page.locator('#languageToggleButton').click();
+    await page.waitForFunction(() => document.documentElement.lang === 'zh-Hans');
+    if (JSON.stringify(await literalFilterLabels.allTextContents()) !== JSON.stringify(originalFilterLabels)) {
+      throw new Error('Report filter context translated a Template name, Worker name, or Report Date');
+    }
+    await page.locator('#languageToggleButton').click();
+    await page.waitForFunction(() => document.documentElement.lang === 'en-NZ');
     await supervisorReport.waitFor({ state: 'visible', timeout: 20000 });
     await supervisorReport.click();
 
@@ -2439,6 +2525,8 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     ) {
       throw new Error(`Resolve report transition was incomplete: ${JSON.stringify(resolvedPayload)}`);
     }
+    // The in-review filter removes the resolved Report and restores the inbox.
+    await page.locator('#reviewQueueList .empty-state').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#supervisorStatusFilter').selectOption('resolved');
     const resolvedSupervisorReport = page.locator('#reviewQueueList .record-form').filter({ hasText: reportMarker }).first();
     await resolvedSupervisorReport.waitFor({ state: 'visible', timeout: 20000 });
@@ -2485,6 +2573,8 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     await logout(page);
     await loginAs(page, workerEmail, 'worker');
     await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await page.locator('#historyList > .record-report-compact').first().waitFor({ state: 'visible' });
+    await page.locator('#historyList > .record-report-compact .record-disclosure-button').first().click();
     const resolvedHistoryRecord = page.locator('#historyList .record-form').filter({ hasText: reportMarker }).first();
     await resolvedHistoryRecord.waitFor({ state: 'visible', timeout: 20000 });
     const resolvedHistoryText = await resolvedHistoryRecord.innerText();
@@ -2501,6 +2591,8 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     await page.locator('#historyStatusFilter').selectOption('submitted');
     await page.locator('#historyList .empty-state').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#historyStatusFilter').selectOption('resolved');
+    await page.locator('#historyList > .record-report-compact').first().waitFor({ state: 'visible' });
+    await page.locator('#historyList > .record-report-compact .record-disclosure-button').first().click();
     await resolvedHistoryRecord.waitFor({ state: 'visible', timeout: 10000 });
   } finally {
     await context.close();
@@ -2667,6 +2759,25 @@ async function checkOfflineQueueAndReplay(browser) {
   }
 }
 
+async function storedReportPhotoProof(page, { draftKey, recordId }) {
+  return page.evaluate(async ({ draftKey, recordId }) => {
+    const { get } = await import('/assets/js/db.js');
+    const { getDraft } = await import('/assets/js/mock-api.js');
+    const { reportPhotoSources } = await import('/assets/js/report-photo-evidence.js');
+    const record = draftKey ? await getDraft(draftKey) : await get('records', recordId);
+    const proofs = [];
+    for (const source of reportPhotoSources(record)) {
+      const blob = source instanceof Blob ? source : await (await fetch(source)).blob();
+      const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+      proofs.push({
+        size: blob.size, type: blob.type,
+        sha256: [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+      });
+    }
+    return proofs;
+  }, { draftKey, recordId });
+}
+
 async function checkReportCalendarDates(browser) {
   const context = await newContext(browser, { reportOnly: true });
   const page = await context.newPage();
@@ -2752,6 +2863,7 @@ async function checkReportCalendarDates(browser) {
       });
       return result.record;
     }, { workForm: form, suffix: stamp });
+    const originalPhotoProof = await storedReportPhotoProof(page, { recordId: original.id });
     await context.setOffline(false);
     await replayQueuedSubmissions(page);
     const queuedState = await page.evaluate(async (recordId) => {
@@ -2762,11 +2874,13 @@ async function checkReportCalendarDates(browser) {
         durable: await getMyFormSubmissions('report')
       };
     }, original.id);
+    const queuedPhotoProof = await storedReportPhotoProof(page, { recordId: original.id });
     if (!queuedState.queue || queuedState.record?.syncStatus !== 'queued'
       || queuedState.record?.backendRecordId || queuedState.record?.workDate !== original.workDate
       || queuedState.record?.syncError !== dateError
       || JSON.stringify(queuedState.record?.capturedAnswers) !== JSON.stringify(original.capturedAnswers)
-      || JSON.stringify(queuedState.record?.photoDataUrls) !== JSON.stringify(original.photoDataUrls)
+      || originalPhotoProof.length !== 1
+      || JSON.stringify(queuedPhotoProof) !== JSON.stringify(originalPhotoProof)
       || queuedState.durable.length !== 1
       || queuedState.durable.some((record) => record.client_submission_id === original.clientSubmissionId)) {
       throw new Error(`invalid queued Report Date must preserve local date and evidence without insertion: ${JSON.stringify({
@@ -2777,8 +2891,9 @@ async function checkReportCalendarDates(browser) {
     }
     await page.locator('.tab[data-tab-target="historyTab"]').click();
     await page.locator('#refreshHistoryButton').click();
-    const queuedReport = page.locator('#historyList .record-form').filter({ hasText: 'Keep invalid-date queued evidence' }).first();
+    const queuedReport = page.locator('#historyList > .record-form').filter({ hasText: formName }).first();
     await queuedReport.waitFor({ state: 'visible', timeout: 20000 });
+    await queuedReport.getByRole('button', { name: 'Show details', exact: true }).click();
     if (!(await queuedReport.innerText()).includes(dateError) || await queuedReport.locator('img').count() !== 2) {
       throw new Error('My Reports did not explain the invalid queued date while retaining its photo and signature');
     }
@@ -2863,9 +2978,10 @@ async function checkOfflineReportTemplateChange(browser) {
       const { getAll } = await import('/assets/js/db.js');
       return (await getAll('records')).find((record) => record.formName === name);
     }, formName);
+    const originalPhotoProof = await storedReportPhotoProof(page, { recordId: original?.id });
     if (!original?.answers?.issue || !original.answers.signature?.startsWith('data:image/')
       || !original.answers.crews?.[0]?.crew_signature?.startsWith('data:image/')
-      || original.photoDataUrls?.length !== 1 || original.definitionVersion !== form.definition_version) {
+      || originalPhotoProof.length !== 1 || original.definitionVersion !== form.definition_version) {
       throw new Error('offline Report fixture did not capture its original answers, signatures, and photo');
     }
 
@@ -2887,6 +3003,7 @@ async function checkOfflineReportTemplateChange(browser) {
         durable: (await response.json()).filter((record) => record.client_submission_id === recordId)
       };
     }, original.id);
+    const replayedPhotoProof = await storedReportPhotoProof(page, { recordId: original.id });
     if (replayed.durable.length || !replayed.queued || replayed.record?.syncStatus !== 'queued') {
       throw new Error(`changed-template replay must stay queued without creating a lossy Report: ${JSON.stringify({
         durableCount: replayed.durable.length,
@@ -2897,7 +3014,7 @@ async function checkOfflineReportTemplateChange(browser) {
     }
     if (replayed.record.answers.issue !== answerMarker
       || JSON.stringify(replayed.record.fields) !== JSON.stringify(original.fields)
-      || JSON.stringify(replayed.record.photoDataUrls) !== JSON.stringify(original.photoDataUrls)
+      || JSON.stringify(replayedPhotoProof) !== JSON.stringify(originalPhotoProof)
       || JSON.stringify(replayed.record.capturedAnswers) !== JSON.stringify(original.answers)
       || replayed.record.definitionVersion !== form.definition_version
       || replayed.record.syncBlockedReason !== 'template_changed'
@@ -2909,6 +3026,7 @@ async function checkOfflineReportTemplateChange(browser) {
     await page.locator('#refreshHistoryButton').click();
     const report = page.locator('#historyList .record-form').filter({ hasText: formName }).first();
     await report.waitFor({ state: 'visible', timeout: 20000 });
+    await report.getByRole('button', { name: 'Show details', exact: true }).click();
     const historyText = await report.innerText();
     if (!historyText.includes(answerMarker) || !/template.*chang|chang.*template/i.test(historyText)) {
       throw new Error(`My Reports must explain the template conflict and retain original answers: ${historyText}`);
@@ -2931,9 +3049,13 @@ async function checkOfflineReportTemplateChange(browser) {
     await page.locator('.tab[data-tab-target="historyTab"]').click();
     await page.locator('#refreshHistoryButton').click();
     await report.waitFor({ state: 'visible', timeout: 20000 });
+    const priorHistoryCard = await report.elementHandle();
     await context.setOffline(true);
     await page.locator('#refreshHistoryButton').click();
+    await page.waitForFunction((card) => !card.isConnected, priorHistoryCard);
+    await priorHistoryCard.dispose();
     await report.waitFor({ state: 'visible', timeout: 20000 });
+    await report.getByRole('button', { name: 'Show details', exact: true }).click();
     await page.waitForFunction((name) => {
       const card = [...document.querySelectorAll('#historyList .record-form')]
         .find((element) => element.textContent.includes(name));
@@ -2943,7 +3065,8 @@ async function checkOfflineReportTemplateChange(browser) {
     const restoredImageSources = await report.locator('img').evaluateAll((images) => images.map((image) => image.src));
     if (!(await report.innerText()).includes(answerMarker)
       || restoredImageSources.length !== 3
-      || restoredImageSources.some((source) => !source.startsWith('data:image/'))) {
+      || restoredImageSources.some((source) => !source.startsWith('data:image/') && !source.startsWith('blob:'))
+      || JSON.stringify(await storedReportPhotoProof(page, { recordId: original.id })) !== JSON.stringify(originalPhotoProof)) {
       throw new Error('reloading discarded the original conflicted Report answers or evidence');
     }
     await waitForQueueCount(page, 1);
@@ -2968,7 +3091,10 @@ async function checkOfflineReportTemplateChange(browser) {
     const recoveredReport = await recoveryResponse.json();
     if (recoveredReport.client_submission_id === original.clientSubmissionId
       || recoveredReport.answers.replacement !== `Reviewed replacement ${stamp}`) {
-      throw new Error('explicit recovery did not create an independent current-template Report');
+      throw new Error(`explicit recovery did not create an independent current-template Report: ${JSON.stringify({
+        originalClientId: original.clientSubmissionId, recoveredClientId: recoveredReport.client_submission_id,
+        recoveredAnswers: recoveredReport.answers, expectedAnswer: `Reviewed replacement ${stamp}`
+      })}`);
     }
     await page.locator('#workFormFeedback').getByText(`${formName} submitted for review`).waitFor({ timeout: 20000 });
     await waitForQueueCount(page, 1);
@@ -2977,7 +3103,8 @@ async function checkOfflineReportTemplateChange(browser) {
       return await get('records', recordId);
     }, original.id);
     if (JSON.stringify(preservedOriginal.capturedAnswers) !== JSON.stringify(original.answers)
-      || preservedOriginal.backendRecordId || preservedOriginal.syncStatus !== 'queued') {
+      || preservedOriginal.backendRecordId || preservedOriginal.syncStatus !== 'queued'
+      || JSON.stringify(await storedReportPhotoProof(page, { recordId: original.id })) !== JSON.stringify(originalPhotoProof)) {
       throw new Error('submitting an explicit replacement discarded or rewrote the original queued Report');
     }
   } finally {
@@ -3050,19 +3177,24 @@ async function checkStaleReportDraftPreservation(browser, { legacyDraft = false 
       if (original.value?.answers?.issue === marker
         && original.value.answers.signature?.startsWith('data:image/')
         && original.value.answers.crews?.[0]?.crew_signature?.startsWith('data:image/')
-        && original.value.photoDataUrls?.length === 1) break;
+        && (original.value.photoBlobs?.length || original.value.photoDataUrls?.length) === 1) break;
       await page.waitForTimeout(100);
     }
-    if (!original.value?.answers?.issue || !original.value.photoDataUrls?.length) {
+    const originalPhotoProof = await storedReportPhotoProof(page, { draftKey: original.key });
+    if (!original.value?.answers?.issue || originalPhotoProof.length !== 1) {
       throw new Error('stale Report draft fixture did not finish saving original answers and evidence');
     }
     if (legacyDraft) {
       delete original.value.definitionVersion;
       delete original.value.fields;
-      await page.evaluate(async ({ key, value }) => {
-        const { saveDraft } = await import('/assets/js/mock-api.js');
+      await page.evaluate(async (key) => {
+        const { getDraft, saveDraft } = await import('/assets/js/mock-api.js');
+        // Keep Blob evidence in the browser structured-clone domain.
+        const value = await getDraft(key);
+        delete value.definitionVersion;
+        delete value.fields;
         await saveDraft(key, value);
-      }, original);
+      }, original.key);
     }
     const assertOriginalDraft = async (label) => {
       const saved = await page.evaluate(async (key) => (
@@ -3070,7 +3202,7 @@ async function checkStaleReportDraftPreservation(browser, { legacyDraft = false 
       ), original.key);
       if (JSON.stringify(saved?.answers) !== JSON.stringify(original.value.answers)
         || saved?.definitionVersion !== original.value.definitionVersion
-        || JSON.stringify(saved?.photoDataUrls) !== JSON.stringify(original.value.photoDataUrls)
+        || JSON.stringify(await storedReportPhotoProof(page, { draftKey: original.key })) !== JSON.stringify(originalPhotoProof)
         || JSON.stringify(saved?.fields) !== JSON.stringify(original.value.fields)) {
         throw new Error(`stale Report draft lost original content ${label}: ${JSON.stringify({
           version: saved?.definitionVersion, answers: saved?.answers,
@@ -3137,7 +3269,8 @@ async function checkStaleReportDraftPreservation(browser, { legacyDraft = false 
         const originalPut = IDBObjectStore.prototype.put;
         window.__restoreStaleDraftRecordWrites = () => { IDBObjectStore.prototype.put = originalPut; };
         IDBObjectStore.prototype.put = function (value, ...rest) {
-          if (this.name === 'records' && value?.type === 'form') {
+          const record = value?.reportStorageVersion === 1 ? value.value : value;
+          if (this.name === 'records' && record?.type === 'form') {
             throw new DOMException('Simulated full device storage', 'QuotaExceededError');
           }
           return originalPut.call(this, value, ...rest);
@@ -3175,7 +3308,7 @@ async function checkStaleReportDraftPreservation(browser, { legacyDraft = false 
     if (savedOriginal.length !== 1 || submissions.length
       || (savedOriginal[0].definitionVersion ?? null) !== (original.value.definitionVersion ?? null)
       || JSON.stringify(savedOriginal[0].capturedAnswers) !== JSON.stringify(original.value.answers)
-      || JSON.stringify(savedOriginal[0].photoDataUrls) !== JSON.stringify(original.value.photoDataUrls)
+      || JSON.stringify(await storedReportPhotoProof(page, { recordId: savedOriginal[0].id })) !== JSON.stringify(originalPhotoProof)
       || savedOriginal[0].syncBlockedReason !== 'template_changed'
       || !savedOriginal[0].isDraftRecovery
       || keptState.queue.some((item) => item.id === savedOriginal[0].id)
@@ -3186,8 +3319,10 @@ async function checkStaleReportDraftPreservation(browser, { legacyDraft = false 
       })}`);
     }
     await page.locator('.tab[data-tab-target="historyTab"]').click();
-    const keptReport = page.locator('#historyList .record-form').filter({ hasText: marker }).first();
+    const keptReport = page.locator('#historyList > .record-form').filter({ hasText: formName }).first();
     await keptReport.waitFor({ state: 'visible', timeout: 15000 });
+    await keptReport.getByRole('button', { name: 'Show details', exact: true }).click();
+    if (!(await keptReport.innerText()).includes(marker)) throw new Error('saved draft detail lost the original answer');
     if (await keptReport.locator('img').count() !== 3
       || !(await keptReport.innerText()).includes('Saved draft')
       || await keptReport.getByRole('button', { name: 'Retry sync' }).count()) {
@@ -3423,11 +3558,12 @@ async function checkRepeatSignatureUploadResume(browser) {
     await page.locator('.tab[data-tab-target="historyTab"]').click();
     await page.locator('#historyTab').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#refreshHistoryButton').click();
-    const myReport = page.locator('#historyList .record-form').filter({ hasText: formName });
+    const myReport = page.locator('#historyList > .record-form').filter({ hasText: formName });
     await myReport.first().waitFor({ state: 'visible', timeout: 20000 });
     if (await myReport.count() !== 1) {
       throw new Error(`My Reports did not contain exactly one replayed Report: ${await myReport.count()}`);
     }
+    await myReport.locator('.record-disclosure-button').click();
     const durableImageSources = await myReport.first().locator('img').evaluateAll((images) => (
       images.map((image) => new URL(image.src).pathname)
     ));
@@ -3611,6 +3747,10 @@ async function checkReportOnlyExcludesDaywork(browser) {
     await page.locator('#workFormFeedback').getByText('Inspection form submitted for review').waitFor({ timeout: 20000 });
 
     await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await page.locator('#historySearchInput').fill(reportMarker);
+    const compactReport = page.locator('#historyList > .record-report-compact').first();
+    await compactReport.waitFor({ state: 'visible', timeout: 20000 });
+    await compactReport.locator('.record-disclosure-button').click();
     const submittedReport = page.locator('#historyList .record-form').filter({ hasText: reportMarker }).first();
     await submittedReport.waitFor({ state: 'visible', timeout: 20000 });
     const myReportsText = await page.locator('#historyList').innerText();
@@ -3775,6 +3915,9 @@ async function checkReportOnlyOfflineHistoryFallback(browser) {
     ) {
       throw new Error(`offline My Reports fallback crossed the Report queue boundary: ${historyText}`);
     }
+    if (await page.locator('#historyList img').count()) {
+      throw new Error('offline My Reports eagerly rendered collapsed Report evidence');
+    }
   } finally {
     await context.close();
   }
@@ -3815,6 +3958,9 @@ async function checkExplicitReportPurposeOverridesDayworkName(browser) {
     await page.locator('#workFormFeedback').getByText(`${templateName} submitted for review`).waitFor({ timeout: 20000 });
 
     await page.locator('.tab[data-tab-target="historyTab"]').click();
+    const compactReport = page.locator('#historyList > .record-report-compact').filter({ hasText: templateName }).first();
+    await compactReport.waitFor({ state: 'visible', timeout: 20000 });
+    await compactReport.locator('.record-disclosure-button').click();
     await page.locator('#historyList .record-form').filter({ hasText: answerMarker }).first()
       .waitFor({ state: 'visible', timeout: 20000 });
 
@@ -4021,6 +4167,7 @@ async function checkReportOnlyReplayScope(browser) {
     await page.locator('#refreshHistoryButton').click();
     const manualCard = page.locator('#historyList .record-form').filter({ hasText: `Replay Report manual-` }).first();
     await manualCard.waitFor({ state: 'visible', timeout: 15000 });
+    await manualCard.locator('.record-disclosure-button').click();
     const manualRequestPromise = page.waitForRequest((request) => (
       request.method() === 'POST' && new URL(request.url()).pathname === '/api/form-submissions'
     ), { timeout: 15000 });
@@ -4382,6 +4529,11 @@ async function checkReportOnlyResponsiveLayout(browser) {
         answers: { inspection_area: 'North access platform', inspection_result: 'Needs action', inspection_notes: 'Replace the damaged safety rail before work resumes.' },
         client_submission_id: `layout-report-${Date.now()}`
       });
+      await createFormSubmission({
+        form_id: formId, site_id: null, work_date: '2026-09-10',
+        answers: { inspection_area: 'South access platform', inspection_result: 'Safe', inspection_notes: 'Second Report for next/previous navigation.' },
+        client_submission_id: `layout-report-second-${Date.now()}`
+      });
     }, form.id);
     await page.waitForFunction((formId) => (
       [...document.querySelectorAll('#workFormSelect option')].some((option) => option.value === String(formId))
@@ -4423,16 +4575,29 @@ async function checkReportOnlyResponsiveLayout(browser) {
         await page.locator('.tab[data-tab-target="historyTab"]').click();
         await page.locator('#historyDateFilter').fill('2026-09-10');
         await page.locator('#refreshHistoryButton').click();
-        await page.locator('#historyList .record-form').filter({ hasText: 'North access platform' }).waitFor({ state: 'visible' });
+        await page.locator('#historyList > .record-report-compact').first().waitFor({ state: 'visible' });
+        if (await page.locator('#historyList img, #historyList .record-report-expanded').count()) {
+          throw new Error('My Reports must not mount full answers or evidence before disclosure');
+        }
+        await page.locator('#historySearchInput').fill('North access platform');
+        await page.waitForFunction(() => document.querySelectorAll('#historyList > .record-report-compact').length === 1);
         await page.evaluate(() => window.scrollTo(0, 0));
         await capture(`my-reports-${label}`);
-        await checkTargets(`My Reports ${label}`, `${workerTargets}, #historySearchInput, #historyStatusFilter, #historyDateFilter, #clearHistoryFiltersButton, #refreshHistoryButton`);
+        await checkTargets(`My Reports ${label}`, `${workerTargets}, #historySearchInput, #historyStatusFilter, #historyDateFilter, #clearHistoryFiltersButton, #refreshHistoryButton, .record-disclosure-button`);
+        const disclosure = page.locator('#historyList > .record-report-compact .record-disclosure-button');
+        await disclosure.click();
+        await page.locator('#historyList .record-report-expanded').filter({ hasText: 'North access platform' }).waitFor({ state: 'visible' });
+        if (await disclosure.getAttribute('aria-expanded') !== 'true') throw new Error('Report disclosure did not announce expanded state');
+        await disclosure.click();
+        if (await page.locator('#historyList .record-report-expanded').count()) throw new Error('Collapsing must dispose the full Report detail');
+        await page.locator('#historySearchInput').fill('');
       }
     }
 
     await logout(page);
     await loginAs(page, 'supervisor@example.com', 'supervisor');
     await openAdminWorkspace(page, 'review');
+    await page.locator('#reportReviewFilters').evaluate((filters) => { filters.open = true; });
     await page.locator('#supervisorDateFilter').fill('2026-09-10');
     await page.locator('#reviewQueueList .record-form').filter({ hasText: 'North access platform' }).waitFor({ state: 'visible' });
     for (const viewport of viewports) {
@@ -4440,8 +4605,34 @@ async function checkReportOnlyResponsiveLayout(browser) {
         await setAppearance(viewport, theme);
         await page.evaluate(() => window.scrollTo(0, 0));
         const label = `${viewport.width}-${theme}`;
+        const narrow = viewport.width < 1100;
+        if (narrow) {
+          await page.locator('#reportReviewFilters').evaluate((filters) => { filters.open = false; });
+          if (await page.locator('#reviewQueueDetail .record-card').count()) throw new Error('Mobile inbox must not construct hidden Report evidence');
+        }
         await capture(`supervisor-reports-${label}`);
-        await checkTargets(`Supervisor Reports ${label}`, `${headerTargets}, #adminMobileMenuButton, #supervisorFilterForm input, #supervisorFilterForm select, #clearSupervisorFiltersButton, #exportReportsCsvButton, #exportReportsPdfButton, #refreshSupervisorButton`);
+        await checkTargets(`Supervisor Reports ${label}`, `${headerTargets}, #adminMobileMenuButton, #reportReviewFilters > summary, #supervisorFilterForm input, #supervisorFilterForm select, #clearSupervisorFiltersButton, #exportReportsCsvButton, #exportReportsPdfButton, #refreshSupervisorButton`);
+        if (!(await page.locator('#reportReviewFilterSummary').innerText()).includes('2026-09-10')) throw new Error('Collapsed filters must retain the active Report Date context');
+        await page.locator('#reviewQueueList .record-form').filter({ hasText: 'North access platform' }).click();
+        await page.locator('#reviewQueueDetail .record-card').waitFor({ state: 'visible' });
+        const actionBeforeContent = await page.locator('#reviewQueueDetail .record-card').evaluate((card) => card.firstElementChild?.id === 'reviewQueueActions');
+        if (!actionBeforeContent) throw new Error('Report review actions must precede long answers/evidence');
+        await checkTargets(`Report detail ${label}`, '#reviewQueueBackButton, #previousReviewRecordButton, #nextReviewRecordButton, #reviewQueueActions button, #reviewQueueActions select');
+        await capture(`supervisor-detail-${label}`);
+        if (narrow) {
+          if (await page.locator('.review-inbox').isVisible()) throw new Error('Phone Report detail must not stack below the full inbox');
+          const next = page.locator('#nextReviewRecordButton');
+          const adjacent = await next.isEnabled() ? next : page.locator('#previousReviewRecordButton');
+          await adjacent.click();
+          if (!(await page.locator('.review-detail-shell').evaluate((shell) => document.activeElement === shell))) throw new Error('Adjacent phone Report navigation must focus the detail, not the hidden inbox');
+          await page.locator('#languageToggleButton').click();
+          await page.locator('#reviewQueueBackButton').getByText('返回报告列表', { exact: true }).waitFor({ state: 'visible' });
+          await capture(`supervisor-detail-zh-${label}`);
+          await page.locator('#languageToggleButton').click();
+          await page.locator('#reviewQueueBackButton').click();
+          if (await page.locator('#reviewQueueDetail .record-card').count()) throw new Error('Back must dispose the selected Report evidence');
+          if (!(await page.locator('#reviewQueueList .review-queue-item[aria-selected="true"]').evaluate((item) => item === document.activeElement))) throw new Error('Back must restore selected inbox focus');
+        }
       }
     }
     if (failures.length) throw new Error(`Report-only responsive layout failed:\n${failures.join('\n')}`);
@@ -5023,6 +5214,7 @@ async function checkReportFindExportDownloads(browser) {
     await logout(page);
     await loginAs(page, 'supervisor@example.com', 'supervisor');
     await openAdminWorkspace(page, 'review');
+    await page.locator('#reportReviewFilters > summary').click();
     const searched = page.waitForResponse((response) => (
       new URL(response.url()).pathname === '/api/supervisor/review-queue'
       && new URL(response.url()).searchParams.get('search') === wanted
@@ -5033,7 +5225,18 @@ async function checkReportFindExportDownloads(browser) {
       const list = document.querySelector('#reviewQueueList').textContent;
       return list.includes(wanted) && !list.includes(omitted);
     }, { wanted, omitted });
-    for (const [format, buttonId] of [['csv', 'exportReportsCsvButton'], ['pdf', 'exportReportsPdfButton']]) {
+    if (!(await page.locator('#reportReviewFilterSummary').innerText()).includes(wanted)) {
+      throw new Error('collapsed filter context must retain the active Report Find');
+    }
+    await page.locator('#reportReviewFilters > summary').click();
+    const primaryDownload = await page.locator('.report-export-actions').evaluate((group) => ({
+      first: group.firstElementChild?.id,
+      primary: !group.firstElementChild?.matches('.ghost, .secondary')
+    }));
+    if (primaryDownload.first !== 'exportReportsPdfButton' || !primaryDownload.primary) {
+      throw new Error('PDF must be the first, primary Report collection download');
+    }
+    for (const [format, buttonId] of [['pdf', 'exportReportsPdfButton'], ['csv', 'exportReportsCsvButton']]) {
       const responsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === `/api/supervisor/form-submissions/export.${format}`);
       const downloadPromise = page.waitForEvent('download');
       await page.locator(`#${buttonId}`).click();
@@ -5047,6 +5250,23 @@ async function checkReportFindExportDownloads(browser) {
         throw new Error('CSV download did not match the Reports shown by Find');
       }
       if (format === 'pdf' && data.subarray(0, 5).toString() !== '%PDF-') throw new Error('Report PDF download is invalid');
+    }
+    await page.locator('#reviewQueueList .record-form').filter({ hasText: wanted }).click();
+    const formatSelect = page.locator('#reviewQueueActions .record-export-actions select');
+    if (await formatSelect.inputValue() !== 'form-pdf') throw new Error('A newly opened Report must default to PDF');
+    for (const format of ['pdf', 'html', 'csv']) {
+      // First download deliberately uses the default without changing the picker.
+      if (format !== 'pdf') await formatSelect.selectOption(`form-${format}`);
+      const responsePromise = page.waitForResponse((response) => new RegExp(`/api/supervisor/form-submissions/\\d+/export\\.${format}$`).test(new URL(response.url()).pathname));
+      const downloadPromise = page.waitForEvent('download');
+      await page.locator('#reviewQueueActions').getByRole('button', { name: `Download ${format.toUpperCase()}`, exact: true }).click();
+      if (!(await responsePromise).ok()) throw new Error(`Single Report ${format} download failed`);
+      const download = await downloadPromise;
+      const data = readFileSync(await download.path());
+      if (format === 'pdf' && data.subarray(0, 5).toString() !== '%PDF-') throw new Error('Default single Report download was not PDF');
+      if (format !== 'pdf' && (!data.toString('utf8').includes(wanted) || data.toString('utf8').includes(omitted))) {
+        throw new Error(`Single Report ${format} alternative downloaded the wrong Report`);
+      }
     }
   } finally {
     await context.close();
@@ -6850,8 +7070,13 @@ async function checkColdOfflineReportReturn(browser) {
     await page.locator('#workFormFeedback').getByText(/saved offline/i).waitFor();
     await context.setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await waitForQueueCount(page, 0);
     await page.locator('.tab[data-tab-target="historyTab"]').click();
-    await page.locator('#historyList .record-card').filter({ hasText: answer }).getByText('Submitted', { exact: true }).waitFor({ timeout: 20000 });
+    await page.locator('#historySearchInput').fill(answer);
+    const submitted = page.locator('#historyList > .record-report-compact').first();
+    await submitted.getByText('Submitted', { exact: true }).waitFor({ timeout: 20000 });
+    await submitted.getByRole('button', { name: 'Show details', exact: true }).click();
+    if (!(await submitted.innerText()).includes(answer)) throw new Error('synced offline Report lost its original answers');
   } finally {
     await context.close();
   }
