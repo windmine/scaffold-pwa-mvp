@@ -30,6 +30,24 @@ assert.notDeepEqual(runner.reportHistorySnapshot([{ ...baselineReports[0], answe
 assert.throws(() => runner.reportHistorySnapshot(baselineReports, 14), /worker_history_scope_or_identity_mismatch/);
 assert.throws(() => runner.reportHistorySnapshot([...baselineReports, ...baselineReports], 13), /worker_history_scope_or_identity_mismatch/);
 console.log('ok - retained Report baselines are opt-in, owner-scoped and hash both workflow and evidence');
+const expectedPhotoNames = Array.from({ length: 50 }, (_, index) => `synthetic-ppe-unit-${String(index + 1).padStart(2, '0')}.png`);
+const multipart = (filename) => Buffer.from(`--unit\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: image/png\r\n\r\nsynthetic-bytes\r\n--unit--\r\n`);
+const observedUploads = [{ filename: 'signature-worker-form-field.png', path: '/uploads/signature.png' },
+  ...expectedPhotoNames.map((filename, index) => ({ filename, path: `/uploads/photo-${index + 1}.png` }))];
+const completedPhotoPaths = new Set();
+for (const [index, upload] of observedUploads.entries()) {
+  if (runner.isExpectedPhotoUpload(multipart(upload.filename), expectedPhotoNames)) completedPhotoPaths.add(upload.path);
+  if (index === 24) {
+    assert.equal(index + 1, 25, 'Old all-upload cutoff has reached 25 including the signature');
+    assert.equal(completedPhotoPaths.size, 24);
+    assert.equal(completedPhotoPaths.size >= 25, false, 'Signature must not consume a photo checkpoint slot');
+  }
+  if (index === 25) assert.equal(completedPhotoPaths.size, 25);
+}
+assert.equal(completedPhotoPaths.size, 50);
+assert.equal(runner.isExpectedPhotoUpload(null, expectedPhotoNames), false);
+assert.equal(runner.isExpectedPhotoUpload(multipart('unowned-photo.png'), expectedPhotoNames), false);
+console.log('ok - signature-first uploads cannot trigger the 25-photo interruption after only 24 photos');
 for (const photoCount of [1, 50]) {
   const fixtureCode = String.raw`
 import base64, io, json, sys
@@ -205,7 +223,7 @@ try {
   } });
   assert.equal(requestCount, 1, 'Only the locally fulfilled fake document request is allowed');
   console.log('ok - bounded API wrapper preserves same-origin session, CSRF, and JSON payload');
-  console.log('10 hosted runner checks passed; no network requests reached a server');
+  console.log('11 hosted runner checks passed; no network requests reached a server');
 } finally {
   await browser.close();
 }

@@ -70,6 +70,15 @@ export function allowExistingReportHistory(value) {
   return value === '1';
 }
 
+export function isExpectedPhotoUpload(postBody, expectedPhotoNames) {
+  if (!Buffer.isBuffer(postBody)) return false;
+  const headerEnd = postBody.indexOf('\r\n\r\n');
+  if (headerEnd < 0 || headerEnd > 4096) return false;
+  const filename = postBody.subarray(0, headerEnd).toString('utf8')
+    .match(/(?:^|;\s*)filename="([^"]+)"/m)?.[1];
+  return Boolean(filename && expectedPhotoNames.includes(filename));
+}
+
 export function reportHistorySnapshot(reports, workerId) {
   requireCondition(Array.isArray(reports) && reports.every((report) => Number.isInteger(report.id)
     && report.worker_id === workerId && report.submission_purpose === 'report')
@@ -383,6 +392,7 @@ async function main() {
   let pageErrorCount = 0;
   const uploadResponses = [];
   const uploadPaths = new Set();
+  const uploadedPhotoPaths = new Set();
   const workerBaselines = new Map();
   const step = async (label, run) => {
     stage = label;
@@ -419,6 +429,11 @@ async function main() {
         uploadResponses.push(response.json().then((payload) => {
           if (response.ok() && typeof payload.url === 'string' && /^\/uploads\/[a-z0-9_.-]+$/i.test(payload.url)) {
             uploadPaths.add(payload.url);
+            // Signatures upload before photos. Only exact generated photo
+            // filenames count towards the deliberately interrupted checkpoint.
+            if (isExpectedPhotoUpload(response.request().postDataBuffer(), originalPhotoNames)) {
+              uploadedPhotoPaths.add(payload.url);
+            }
             evidence.owned.uploadPaths = [...uploadPaths];
             writeEvidence();
           }
@@ -434,7 +449,7 @@ async function main() {
     if (config.photoCount === 50) {
       await workerPage.route('**/api/photo-uploads', async (route) => {
         await Promise.allSettled(uploadResponses);
-        if (route.request().method() === 'POST' && interruptPhotoReplay && uploadPaths.size >= 25) {
+        if (route.request().method() === 'POST' && interruptPhotoReplay && uploadedPhotoPaths.size >= 25) {
           await route.fulfill({ status: 503, contentType: 'application/json',
             body: JSON.stringify({ detail: 'Synthetic client-only interruption for owned Report fixture' }) });
         } else {
@@ -570,9 +585,15 @@ async function main() {
     if (config.photoCount === 50) {
       await step('partial_upload_checkpoint_keeps_originals_and_resumes', async () => {
         await workerContext.setOffline(false);
-        const checkpoint = await poll(async () => (await localRecords(workerPage)).find((record) =>
-          record.clientSubmissionId === evidence.owned.clientSubmissionId && record.syncStatus === 'queued'
-          && record.photoUrls?.length === 25 && record.syncError), 'partial_upload_checkpoint_not_saved', 180000);
+        const checkpoint = await poll(async () => {
+          const record = (await localRecords(workerPage))
+            .find((item) => item.clientSubmissionId === evidence.owned.clientSubmissionId);
+          evidence.partialUploadObserved = { successfulPhotoUploads: uploadedPhotoPaths.size,
+            successfulEvidenceUploads: uploadPaths.size, recordFound: Boolean(record),
+            syncStatus: record?.syncStatus || null, persistedPhotoCount: record?.photoUrls?.length || 0,
+            hasSyncError: Boolean(record?.syncError), originalPhotoCount: record?.photoEvidence?.sha256?.length || 0 };
+          return record?.syncStatus === 'queued' && record.photoUrls?.length === 25 && record.syncError ? record : false;
+        }, 'partial_upload_checkpoint_not_saved', 180000);
         requireCondition(JSON.stringify(checkpoint.photoEvidence.sha256) === JSON.stringify(originalPhotoHashes)
           && checkpoint.capturedAnswers?.report_signature?.startsWith('data:image/')
           && checkpoint.photoUrls.every((path) => uploadPaths.has(path)), 'partial_checkpoint_changed_originals');
@@ -582,7 +603,9 @@ async function main() {
         // Reload exercises durable Blob restoration, not only an in-memory retry.
         await workerPage.reload({ waitUntil: 'domcontentloaded' });
         await workerPage.locator('#workerView').waitFor({ state: 'visible' });
-        return { uploadedPhotos: 25, remainingPhotos: 25, signatureStillLocal: true, reloadedForResume: true };
+        return { uploadedPhotos: 25, remainingPhotos: 25, signatureOriginalRetained: true,
+          signatureAlreadyUploaded: Boolean(checkpoint.answers?.report_signature?.startsWith('/uploads/')),
+          reloadedForResume: true };
       });
     }
     await step('online_replay_uploads_evidence_and_submits_once', async () => {
