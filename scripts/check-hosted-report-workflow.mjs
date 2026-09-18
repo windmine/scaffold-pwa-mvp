@@ -22,6 +22,7 @@ import { chromium } from 'playwright';
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = resolve(dirname(scriptPath), '..');
 const delay = (milliseconds) => new Promise((complete) => setTimeout(complete, milliseconds));
+const REPLAY_COMPLETION_TIMEOUT_MS = 300000;
 let approvedOrigin = '';
 
 function requireCondition(condition, code) {
@@ -77,6 +78,16 @@ export function isExpectedPhotoUpload(postBody, expectedPhotoNames) {
   const filename = postBody.subarray(0, headerEnd).toString('utf8')
     .match(/(?:^|;\s*)filename="([^"]+)"/m)?.[1];
   return Boolean(filename && expectedPhotoNames.includes(filename));
+}
+
+export async function reloadForQueuedReplay(page) {
+  try { await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 }); }
+  catch { requireCondition(false, 'partial_replay_document_reload_failed'); }
+  // Startup renders the Worker surface after queue replay. A real upload 429
+  // can legitimately wait 60s (120s total), beyond the ordinary UI timeout.
+  try {
+    await page.locator('#workerView').waitFor({ state: 'visible', timeout: REPLAY_COMPLETION_TIMEOUT_MS });
+  } catch { requireCondition(false, 'partial_replay_worker_surface_timeout'); }
 }
 
 export function reportHistorySnapshot(reports, workerId) {
@@ -601,8 +612,7 @@ async function main() {
           photoStorage: checkpoint.photoEvidence.storage, uploadedPaths: [...checkpoint.photoUrls] };
         interruptPhotoReplay = false;
         // Reload exercises durable Blob restoration, not only an in-memory retry.
-        await workerPage.reload({ waitUntil: 'domcontentloaded' });
-        await workerPage.locator('#workerView').waitFor({ state: 'visible' });
+        await reloadForQueuedReplay(workerPage);
         return { uploadedPhotos: 25, remainingPhotos: 25, signatureOriginalRetained: true,
           signatureAlreadyUploaded: Boolean(checkpoint.answers?.report_signature?.startsWith('/uploads/')),
           reloadedForResume: true };
@@ -616,7 +626,7 @@ async function main() {
         const own = result.body.filter(ownedReport);
         requireCondition(own.length <= 1, 'duplicate_durable_reports_created');
         return own[0];
-      }, 'online_report_replay_did_not_finish', config.photoCount === 50 ? 300000 : 120000);
+      }, 'online_report_replay_did_not_finish', config.photoCount === 50 ? REPLAY_COMPLETION_TIMEOUT_MS : 120000);
       evidence.owned.reportId = submitted.id;
       requireCondition(ownedReport(submitted) && submitted.site_id === null
         && submitted.work_date === reportDate && submitted.workflow_status === 'submitted'

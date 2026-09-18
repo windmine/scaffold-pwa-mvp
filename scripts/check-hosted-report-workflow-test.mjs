@@ -48,6 +48,25 @@ assert.equal(completedPhotoPaths.size, 50);
 assert.equal(runner.isExpectedPhotoUpload(null, expectedPhotoNames), false);
 assert.equal(runner.isExpectedPhotoUpload(multipart('unowned-photo.png'), expectedPhotoNames), false);
 console.log('ok - signature-first uploads cannot trigger the 25-photo interruption after only 24 photos');
+const resumeWaits = [];
+await runner.reloadForQueuedReplay({
+  reload: async (options) => { resumeWaits.push({ kind: 'reload', ...options }); },
+  locator: (selector) => ({ waitFor: async (options) => {
+    resumeWaits.push({ kind: selector, ...options });
+    // The old default 45s surface wait expired during an allowed 60s cooldown.
+    assert.ok(options.timeout > 60000);
+  } })
+});
+assert.deepEqual(resumeWaits, [
+  { kind: 'reload', waitUntil: 'domcontentloaded', timeout: 45000 },
+  { kind: '#workerView', state: 'visible', timeout: 300000 }
+]);
+await assert.rejects(runner.reloadForQueuedReplay({ reload: async () => { throw new Error('private browser diagnostic'); } }),
+  (error) => error.safeCode === 'partial_replay_document_reload_failed');
+await assert.rejects(runner.reloadForQueuedReplay({ reload: async () => {},
+  locator: () => ({ waitFor: async () => { throw new Error('private browser diagnostic'); } }) }),
+  (error) => error.safeCode === 'partial_replay_worker_surface_timeout');
+console.log('ok - replay reload has a bounded five-minute surface wait and distinct sanitized failure codes');
 for (const photoCount of [1, 50]) {
   const fixtureCode = String.raw`
 import base64, io, json, sys
@@ -223,7 +242,7 @@ try {
   } });
   assert.equal(requestCount, 1, 'Only the locally fulfilled fake document request is allowed');
   console.log('ok - bounded API wrapper preserves same-origin session, CSRF, and JSON payload');
-  console.log('11 hosted runner checks passed; no network requests reached a server');
+  console.log('12 hosted runner checks passed; no network requests reached a server');
 } finally {
   await browser.close();
 }
