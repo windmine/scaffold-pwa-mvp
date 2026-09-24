@@ -1,19 +1,31 @@
-import { setTranslatableText } from './i18n.js';
+import { setTranslatableText, translateText } from './i18n.js';
 import { formatDateTime } from './utils.js';
 
 export function createWorkerInvitationDialog(els) {
   let opener = null;
   let generation = 0;
+  let shareIdentity = '';
+  let sharing = false;
+
+  function updateShareButton() {
+    els.shareWorkerInvitationButton.hidden = typeof navigator.share !== 'function';
+    els.shareWorkerInvitationButton.disabled = sharing;
+    els.copyWorkerInvitationButton.classList.toggle('secondary', !els.shareWorkerInvitationButton.hidden);
+  }
+
+  updateShareButton();
 
   function clear({ restoreFocus = false } = {}) {
     generation += 1;
     const target = opener;
     opener = null;
+    shareIdentity = '';
     els.workerInvitationLink.value = '';
     els.workerInvitationIdentity.textContent = '';
     els.workerInvitationExpiry.textContent = '';
     els.workerInvitationStatus.textContent = '';
     els.copyWorkerInvitationButton.disabled = false;
+    updateShareButton();
     if (els.workerInvitationDialog.open) els.workerInvitationDialog.close();
     if (restoreFocus && target?.isConnected) target.focus({ preventScroll: true });
   }
@@ -29,6 +41,7 @@ export function createWorkerInvitationDialog(els) {
     url.hash = `token=${result.token}`;
     els.workerInvitationLink.value = url.href;
     els.workerInvitationIdentity.textContent = `${result.user.name} — ${result.user.email}`;
+    shareIdentity = `${result.user.name} (${result.user.email})`;
     els.workerInvitationExpiry.textContent = formatDateTime(result.expires_at);
     opener = focusTarget;
     try {
@@ -37,7 +50,8 @@ export function createWorkerInvitationDialog(els) {
       clear();
       throw error;
     }
-    els.copyWorkerInvitationButton.focus();
+    (!els.shareWorkerInvitationButton.hidden && !sharing
+      ? els.shareWorkerInvitationButton : els.copyWorkerInvitationButton).focus();
   }
 
   els.closeWorkerInvitationButton.addEventListener('click', () => clear({ restoreFocus: true }));
@@ -48,6 +62,42 @@ export function createWorkerInvitationDialog(els) {
   els.workerInvitationDialog.addEventListener('cancel', (event) => {
     event.preventDefault();
     clear({ restoreFocus: true });
+  });
+  els.shareWorkerInvitationButton.addEventListener('click', async () => {
+    const url = els.workerInvitationLink.value;
+    if (!url || !els.workerInvitationDialog.open || sharing) return;
+    const requestGeneration = generation;
+    sharing = true;
+    updateShareButton();
+    els.workerInvitationStatus.textContent = '';
+    try {
+      if (typeof navigator.share !== 'function') throw new Error('Sharing unavailable');
+      // Invoke directly within the click handler: the native chooser requires
+      // this user gesture. Never preselect a recipient or send automatically.
+      await navigator.share({
+        title: translateText('ReportFlow invitation'),
+        text: translateText('Private setup link for {identity}. Open it to choose your password.')
+          .replace('{identity}', shareIdentity),
+        url
+      });
+      if (requestGeneration === generation) {
+        setTranslatableText(els.workerInvitationStatus, 'Sharing finished. Confirm the intended Worker received the link.');
+      }
+    } catch (error) {
+      if (requestGeneration === generation) {
+        if (error?.name === 'AbortError') {
+          setTranslatableText(els.workerInvitationStatus, 'Sharing cancelled.');
+        } else {
+          setTranslatableText(els.workerInvitationStatus, 'Sharing is unavailable. Copy the link and send it privately.');
+          els.copyWorkerInvitationButton.focus();
+        }
+      }
+    } finally {
+      // A still-open native chooser remains single-flight even if the private
+      // dialog was cleared/replaced. Its result never updates another invite.
+      sharing = false;
+      updateShareButton();
+    }
   });
   els.copyWorkerInvitationButton.addEventListener('click', async () => {
     const url = els.workerInvitationLink.value;

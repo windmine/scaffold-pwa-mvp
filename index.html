@@ -290,15 +290,15 @@
 
       <main class="layout">
         <section id="statusBanner" class="status-banner hidden" role="status" aria-live="polite" aria-atomic="true"></section>
+        <section id="queueSyncStatus" class="queue-sync-status hidden" aria-label="Saved submission sync">
+          <p id="queueSyncMessage" role="status" aria-live="polite" aria-atomic="true"></p>
+          <progress id="queueSyncProgress" aria-label="Photos and signatures uploaded"></progress>
+          <p id="queueSyncHint" class="muted"></p>
+        </section>
 
         <section id="loginView" class="card view active">
           <h2>Sign in</h2>
-          <p class="muted">Sign in to continue.</p>
-
-          <div id="invitedAccountNotice" class="demo-box" role="note">
-            <p><strong>Invited accounts only.</strong> Sign in with the account provided by your supervisor. Contact your supervisor if you need access.</p>
-            <p>Newly invited? Open your private setup link first to choose your password, then return here to sign in.</p>
-          </div>
+          <p id="invitedAccountNotice" class="muted login-account-note" role="note"><strong>Invited accounts only.</strong></p>
 
           <form id="loginForm" class="form-grid">
             <label>
@@ -313,12 +313,28 @@
             <div id="loginFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
           </form>
 
-          <div class="install-box">
-            <div>
-              <strong>Use it like an app</strong>
-              <p id="downloadAppHelp" class="install-help">Download this app to your home screen from a supported browser.</p>
+          <details id="passwordRecoveryHelp" class="compact-help">
+            <summary>Forgot password?</summary>
+            <div class="compact-help-content">
+              <p>Password recovery is handled by your supervisor. Contact them privately and ask to restore your access.</p>
+              <p>Never share your password. Automatic password-reset emails are not available yet.</p>
             </div>
-            <button id="downloadAppButton" type="button" class="secondary">Download App</button>
+          </details>
+          <details id="signInHelp" class="compact-help">
+            <summary>Need help signing in?</summary>
+            <div class="compact-help-content">
+              <p>Sign in with the account provided by your supervisor. Contact your supervisor if you need access.</p>
+              <p>Newly invited? Open your private setup link to choose your password and continue into ReportFlow.</p>
+            </div>
+          </details>
+          <div class="install-box">
+            <details id="installHelp" class="compact-help">
+              <summary>Install on your phone</summary>
+              <div class="compact-help-content">
+              <p id="downloadAppHelp" class="install-help">Download this app to your home screen from a supported browser.</p>
+              <button id="downloadAppButton" type="button" class="ghost">Download App</button>
+              </div>
+            </details>
             <a class="install-guide-link" href="/install.html">Install guide and QR code</a>
           </div>
 
@@ -626,12 +642,12 @@
                   </label>
                 </div>
                 <div id="workFormFields" class="dynamic-fields"></div>
-                <label>
+                <label class="report-photo-field">
                   Photos
                   <input id="workFormPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple />
                   <small>JPEG, PNG, or WebP; maximum 5 MB each.</small>
                   <small id="workFormPhotoLimit">Up to 50 photos. You can select them together.</small>
-                  <small>Choose more photos to add them. Use Remove to discard an individual photo.</small>
+                  <small>Select again to add more photos.</small>
                 </label>
                 <p id="workFormPhotoStatus" class="muted" role="status" aria-live="polite" aria-atomic="true"></p>
                 <div id="workFormPhotoPreview" class="photo-preview hidden"></div>
@@ -902,7 +918,7 @@
                 <div>
                   <p class="eyebrow" data-full-text="Review" data-report-only-text="Reports">Reports</p>
                   <h2 id="adminReviewWorkspaceTitle" tabindex="-1" data-full-text="Review records and corrections" data-report-only-text="Review submitted reports">Review submitted reports</h2>
-                  <p class="muted" data-full-text="Validate field evidence, inspect attendance locations, and add approved corrections when records are missing." data-report-only-text="Review submitted report answers and evidence, then start review or resolve with a final note.">Review submitted report answers and evidence, then start review or resolve with a final note.</p>
+                  <p class="muted" data-report-only-hidden data-full-text="Validate field evidence, inspect attendance locations, and add approved corrections when records are missing." data-report-only-text="Review submitted report answers and evidence, then start review or resolve with a final note.">Review submitted report answers and evidence, then start review or resolve with a final note.</p>
                 </div>
               </header>
               <div class="admin-review-layout">
@@ -926,7 +942,7 @@
                   <button id="refreshSupervisorButton" type="button" class="ghost">Refresh</button>
                 </div>
               </div>
-              <p class="muted report-export-scope" data-report-only-visible>Exports include all Reports matching these filters and Find, across every page—not only the loaded records.</p>
+              <p class="muted report-export-scope" data-report-only-visible>Exports match Find and filters, across all pages.</p>
               <details id="reportReviewFilters" class="report-review-filters" open>
                 <summary data-report-only-visible>
                   <span>Filters</span>
@@ -1234,7 +1250,7 @@
                 <div>
                   <p class="eyebrow" data-full-text="Report Templates" data-report-only-text="Report Templates">Report Templates</p>
                   <h2 id="adminFormsWorkspaceTitle" tabindex="-1" data-full-text="Manage Report Templates" data-report-only-text="Manage Report Templates">Manage Report Templates</h2>
-                  <p class="muted" data-full-text="Build, preview, version, archive, and reactivate the forms used by field teams." data-report-only-text="Build, preview, version, archive, and reactivate the templates workers use for reports.">Build, preview, version, archive, and reactivate the templates workers use for reports.</p>
+                  <p class="muted" data-report-only-hidden data-full-text="Build, preview, version, archive, and reactivate the forms used by field teams." data-report-only-text="Build, preview, version, archive, and reactivate the templates workers use for reports.">Build, preview, version, archive, and reactivate the templates workers use for reports.</p>
                 </div>
               </header>
               <div class="admin-forms-layout">
@@ -1335,7 +1351,7 @@
                 <div>
                   <p class="eyebrow" data-full-text="People &amp; Sites" data-report-only-text="Staff">Staff</p>
                   <h2 id="adminPeopleWorkspaceTitle" tabindex="-1" data-full-text="Teams and job locations" data-report-only-text="Manage staff access">Manage staff access</h2>
-                  <p class="muted" data-full-text="Manage staff access, employment status, site coordinates, and allowed attendance radiuses." data-report-only-text="Create worker and supervisor accounts, manage access, and retain report ownership when employment status changes.">Create worker and supervisor accounts, manage access, and retain report ownership when employment status changes.</p>
+                  <p class="muted" data-report-only-hidden data-full-text="Manage staff access, employment status, site coordinates, and allowed attendance radiuses." data-report-only-text="Create worker and supervisor accounts, manage access, and retain report ownership when employment status changes.">Create worker and supervisor accounts, manage access, and retain report ownership when employment status changes.</p>
                 </div>
               </header>
               <div class="admin-people-layout">
@@ -1495,6 +1511,7 @@
         <p id="workerInvitationStatus" role="status" aria-live="polite"></p>
         <div class="confirmation-dialog-actions">
           <button id="closeWorkerInvitationButton" type="button" class="ghost">Done</button>
+          <button id="shareWorkerInvitationButton" type="button" hidden>Share privately</button>
           <button id="copyWorkerInvitationButton" type="button">Copy private link</button>
         </div>
       </div>

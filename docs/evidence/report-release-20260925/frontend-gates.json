@@ -1,0 +1,74 @@
+{
+  "date": "2026-09-25",
+  "completedAt": "2026-09-24T22:55:59Z",
+  "status": "passed",
+  "scope": "Local frontend preflight against the pending startup, presentation and onboarding changes; no cloud or production mutation.",
+  "baseCommit": "eabb50713baa7302fed68845e7969dcbb3644f53",
+  "sourceState": "Uncommitted working tree at validation; release commit is bound by the release record.",
+  "sourceCache": "leader-field-16d27ec7cb96",
+  "productionCache": "leader-field-0643513b54a8",
+  "runtime": {
+    "node": "v24.15.0",
+    "npm": "11.12.1",
+    "browser": "Playwright Chromium",
+    "platform": "Windows"
+  },
+  "gates": {
+    "npm run lint": { "status": "passed", "exitCode": 0 },
+    "npm run check:mobile": {
+      "status": "passed in one complete run",
+      "exitCode": 0,
+      "browserWorkflows": 69,
+      "installerChecks": 11,
+      "startupSyncScenarios": 8,
+      "replayDiscardLockGroups": 4,
+      "presentationCombinations": 64,
+      "invitationSharingGroups": 8,
+      "setupContinuationGroups": 17,
+      "additionalSuites": [
+        "Production build and generated PWA assets",
+        "Department defaults and branding boundaries",
+        "Report drafts and compact cards",
+        "Report photo limits, sequential uploads and mixed-version storage",
+        "Offline Report Template snapshots, Worker restoration and submission-render races",
+        "Report Template drafts, builder confirmation races and backend edit concurrency",
+        "Static mobile/browser, translation, report-only and PWA checks"
+      ]
+    },
+    "npm run build after full check:mobile": {
+      "status": "passed",
+      "exitCode": 0,
+      "sameProductionArtifactsAsInitialBuild": true
+    },
+    "git diff --check": { "status": "passed", "exitCode": 0 },
+    "npm audit --omit=dev --json": {
+      "status": "passed",
+      "exitCode": 0,
+      "vulnerabilities": 0
+    },
+    "npm audit --json": {
+      "status": "existing development-tool advisories reported; dependencies unchanged",
+      "exitCode": 1,
+      "vulnerabilities": { "high": 2, "moderate": 1, "total": 3 },
+      "packages": [
+        { "name": "brace-expansion", "severity": "high", "direct": false },
+        { "name": "nanoid", "severity": "high", "direct": false },
+        { "name": "postcss", "severity": "moderate", "direct": false }
+      ]
+    }
+  },
+  "sha256": {
+    "sw.js": "e9da2f731da6e23e3cde8c3dcb01d6650477c9a077ddcdf8a537a2d866b3f929",
+    "dist/sw.js": "175773701ba6513555cfab83cd394dbdf8d647159dedf8c2c2a6db32dc7f3d9f",
+    "dist/index.html": "fee9624dadbc0091343810c5797bdb0a6340e23fa6ef19d2837fa0793acd0ceb",
+    "dist/assets/main-DH93H0hp.js": "a2cdf1fe61da45a3115d2f6c5175352b750a17734a25b9bf1bdceb3b6ba76ccb",
+    "dist/assets/main-BGkEIlxW.css": "8caf40c8585307a542aeb34f36baa7d6b51cc3a7155e7c05a4863b576e4e6d2a"
+  },
+  "warningsAndLimits": [
+    "The existing main JavaScript bundle remains above the build's 500 kB warning threshold.",
+    "Browser workflows use isolated local servers and disposable data; focused scenarios may use mocked transport.",
+    "No production fixture or account was created, no email was sent, and no live environment was modified by these gates.",
+    "Physical iOS/Android sharing, invitation handoff, PDF viewers and full-resolution 50-photo gallery testing remain unverified.",
+    "Production deployment readiness and hosted verification are separate release gates."
+  ]
+}

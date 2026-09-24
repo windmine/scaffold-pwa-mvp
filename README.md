@@ -29,6 +29,26 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
+## Local Update - Easier Private Onboarding (not deployed)
+
+Private manual invitation sharing remains the selected pilot policy. Supported phones now offer **Share privately**, with **Copy private link** as the fallback. Supervisors still verify the intended recipient; opening a share chooser is not proof of delivery, and no email is sent automatically. On a clean browser, **Set password and continue** completes setup and signs the new Worker in without re-entering credentials. Existing browser sessions or saved identities are left in place; setup never logs another account out or clears its unfinished work. If continuation fails, the password stays set and normal sign-in remains available.
+
+**Forgot password?** is now directly visible on sign-in and explains supervisor-assisted recovery. It is not self-service password reset. Email delivery, verified recovery addresses, reset tokens and session revocation remain a separate future implementation. Do not reuse new-Worker invitation tokens for established-account recovery.
+
+The new `/auth/login/after-setup` endpoint refuses existing cookie/header credentials; old servers return an error and the UI falls back to normal sign-in. Deploy the compatible backend before the frontend. No database migration or email-provider configuration is added. Run `npm run check:onboarding`, `npm run check:invitations`, backend security/smoke and browser workflows; native sharing and physical phones still need manual checks.
+
+## Local Update - Quieter Screens (not deployed)
+
+Sign-in now leads with the fields and primary action. **Need help signing in?** and **Install on your phone** expand on demand; **Install guide and QR code** stays directly accessible. Language, theme and logout stay visible with 44px touch targets but no longer compete visually with primary actions. Report screens use shorter healthy/offline Template status, photo tips and export-scope copy, and omit repeated Supervisor introductions. Required fields, photo limits, draft status, upload progress, errors and private-invitation safety warnings remain visible in context.
+
+Run `npm run check:presentation` for 64 isolated Chromium layout combinations across screen sizes, English/Chinese and light/dark themes, plus keyboard help, preference persistence, draft recovery, offline warnings and healthy/read-only Supervisor exports. It is included in `check:mobile`; it does not contact production or certify physical-phone behavior.
+
+## Local Update - Non-blocking Saved Submission Sync (not deployed)
+
+After session and draft restoration, startup and sign-in now show the Worker screen before replaying queued submissions. A separate status panel shows uploaded photo/signature counts, server cooldowns, final submission, completion or attention needed. You can navigate and edit another Report while replay runs; completion refreshes history without replacing the active editor. Keep the page open until syncing finishes: this is foreground-page work, not an operating-system background upload guarantee.
+
+Replay retains its single-flight, Worker ownership, durable evidence checkpoints and idempotency guards. Logout clears progress immediately, late results cannot affect a replacement session, and an actively syncing submission cannot be discarded. Offline and failed submissions remain recoverable through My Reports. `npm run check:startup-sync` exercises delayed uploads, editing, sign-in, session changes and progress using isolated local browser fixtures, not production records or real-phone capacity tests.
+
 ## Current Live Release - 50 Photos, Compact Review and PDF Downloads, 2026-09-18
 
 The compatible backend was promoted before Firebase Hosting version `3e7a08c85e6ca5e5` was cloned from the exact `release-20260918` preview at **2026-09-18 06:00:16.936 UTC**. The frozen frontend is `44e04c3`, production cache `leader-field-ed9e6cddf6aa`. Backend `geo-backend-report50-20260918` serves 100% with no temporary tags, using source `d840fbf`, build `0220c539-b6e9-4026-83cd-37f02053df6e`, image `sha256:c9d87fd9afd9428767d65d719f990df6facabe31bdd6d6e2ecf1e1fda4609444`. No migration, maintenance pause, runtime configuration or infrastructure-policy change was required. The exact `0021` ledger and existing presentation records remain intact. See the [release record](docs/evidence/report-release-20260918/release.json) for final gate results, timing and exact fixture cleanup.

@@ -435,7 +435,7 @@ def test_upload_error_cache_middleware():
 def test_invitation_rate_limits_and_private_error_responses():
     from app import main as app_main
     from fastapi import Response
-    for path in ("/auth/worker-invitations/inspect", "/api/auth/worker-invitations/accept", "/supervisor/worker-invitations"):
+    for path in ("/auth/worker-invitations/inspect", "/api/auth/worker-invitations/accept", "/supervisor/worker-invitations", "/api/auth/login/after-setup"):
         limiter = InMemoryRateLimiter(
             enabled=True, default_rule=RateLimitRule("general", 100, 60),
             rules=[RateLimitRule(rule.name, 1, 60, rule.path_prefixes) for rule in app_main.rate_limiter.rules],
@@ -443,7 +443,7 @@ def test_invitation_rate_limits_and_private_error_responses():
         assert_ok("invitation auth bucket allows its first request", limiter.check(FakeRequest("/auth/login")) is None)
         rejected = limiter.check(FakeRequest(path))
         assert_ok("invitation endpoint shares the strict auth bucket", rejected is not None and rejected.status_code == 429)
-    for path in ("/auth/worker-invitations/accept", "/api/supervisor/users/42/invitation", "/supervisor/worker-invitations"):
+    for path in ("/auth/worker-invitations/accept", "/api/supervisor/users/42/invitation", "/supervisor/worker-invitations", "/api/auth/login/after-setup"):
         for status in (200, 400, 401, 403, 409, 422, 429):
             response = app_main.apply_upload_cache_policy(path, Response(status_code=status))
             if response.headers.get("Cache-Control") != "private, no-store" or response.headers.get("Referrer-Policy") != "no-referrer":
@@ -489,7 +489,46 @@ def test_cookie_confirmation_distinguishes_csrf_from_invalid_authentication():
         isolated_engine.dispose()
 
 
+def test_guarded_login_rejects_credentials_before_authentication():
+    from fastapi import Request as HttpRequest, Response
+    from pydantic import ValidationError
+    from unittest.mock import Mock
+    from app import main as application
+    from app.schemas import LoginRequest
+
+    payload = LoginRequest(email="guarded@example.invalid", password="NotVerified!", only_if_signed_out=True)
+    for headers in (
+        [(b"cookie", b"__session=existing")], [(b"cookie", b"__session=")],
+        [(b"cookie", b"geo_access_token=stale")], [(b"cookie", b"geo_access_token=")],
+        [(b"authorization", b"Bearer invalid")], [(b"authorization", b"")],
+    ):
+        request = HttpRequest({"type": "http", "headers": headers})
+        response = Response()
+        session = Mock()
+        with patch.object(application, "verify_password") as verify, patch.object(application, "set_auth_cookie") as set_cookie:
+            try:
+                application.login(payload, request, response, session)
+            except HTTPException as error:
+                assert_ok("guarded login rejects existing credentials without switching browser identity",
+                          error.status_code == 409 and error.detail["code"] == "browser_session_present")
+            else:
+                raise AssertionError("Guarded login unexpectedly accepted existing credentials")
+            session.exec.assert_not_called()
+            verify.assert_not_called()
+            set_cookie.assert_not_called()
+            assert not response.headers.get("Set-Cookie")
+    assert LoginRequest(email=payload.email, password=payload.password).only_if_signed_out is False
+    for value in ("true", "false", 1, 0, None):
+        try:
+            LoginRequest(email=payload.email, password=payload.password, only_if_signed_out=value)
+        except ValidationError:
+            continue
+        raise AssertionError("Guarded login option must be a strict boolean")
+    assert_ok("guarded login is opt-in and rejects coercible non-boolean options", True)
+
+
 def main():
+    test_guarded_login_rejects_credentials_before_authentication()
     test_cookie_confirmation_distinguishes_csrf_from_invalid_authentication()
     test_invitation_rate_limits_and_private_error_responses()
     test_auto_migrate_environment_defaults()

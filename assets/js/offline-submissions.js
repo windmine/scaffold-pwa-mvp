@@ -23,6 +23,8 @@ let syncQueuePromise = null;
 let syncQueueWorkerId = null;
 // The durable lease handles reload recovery; this set additionally prevents a
 // same-page queue sweep from replaying an individual upload that takes >2 min.
+// Replay and discard reserve the ID before reading so neither can act on a
+// record snapshot made stale by the other's pending storage operations.
 // It is not a cross-tab lock. Other tabs still rely on the checkpoint lease.
 const activeSubmissionIds = new Set();
 
@@ -606,6 +608,7 @@ async function syncSubmission(record, options = {}) {
   if (record.type === 'attendance') {
     await uploadRecordPhoto(record, options.photoFiles?.[0] || null, uploadOptions);
     assertCanSync();
+    notifyUploadProgress(uploadOptions, 'submitting');
     const syncedRecord = await createBackendAttendance(toBackendAttendancePayload(record));
     if (Number(syncedRecord?.worker_id) !== record.ownerWorkerId) {
       throw new Error('Backend attendance ownership did not match the offline submission.');
@@ -616,6 +619,7 @@ async function syncSubmission(record, options = {}) {
   if (record.type === 'task') {
     await uploadRecordPhotos(record, options.photoFiles || [], uploadOptions);
     assertCanSync();
+    notifyUploadProgress(uploadOptions, 'submitting');
     const syncedRecord = await createBackendTaskLog(toBackendTaskLogPayload(record));
     if (syncedRecord?.worker_id != null && Number(syncedRecord.worker_id) !== record.ownerWorkerId) {
       throw new Error('Backend task-log ownership did not match the offline submission.');
@@ -627,6 +631,7 @@ async function syncSubmission(record, options = {}) {
     await uploadSignatureAnswers(record, uploadOptions);
     await uploadRecordPhotos(record, options.photoFiles || [], uploadOptions);
     assertCanSync();
+    notifyUploadProgress(uploadOptions, 'submitting');
     const syncedRecord = await createBackendFormSubmission(toBackendFormSubmissionPayload(record));
     if (syncedRecord?.worker_id != null && Number(syncedRecord.worker_id) !== record.ownerWorkerId) {
       throw new Error('Backend form ownership did not match the offline submission.');
@@ -786,84 +791,86 @@ async function flushQueuedSubmissions(worker, options = {}) {
   let authBlocked = false;
 
   for (const item of queueItems) {
-    const record = await get('records', item.id);
     const submissionId = String(item.id);
     if (activeSubmissionIds.has(submissionId)) {
       skipped += 1;
       continue;
     }
-    if (!record) {
-      await remove('queue', item.id);
-      continue;
-    }
-
-    if (record.backendRecordId || record.syncStatus === 'synced' || record.isDraftRecovery) {
-      await remove('queue', item.id);
-      continue;
-    }
-
-    if (!matchesReplayScope(record, options)) {
-      scopeSkipped += 1;
-      continue;
-    }
-
-    if (record.syncStatus === 'syncing' && !isStaleSyncingRecord(record)) {
-      skipped += 1;
-      continue;
-    }
-
-    let localRecord;
-    try {
-      localRecord = normaliseLocalSubmission(record);
-    } catch (error) {
-      record.syncStatus = 'queued';
-      record.syncStartedAt = '';
-      record.syncBlockedByAuth = false;
-      record.syncBlockedReason = 'invalid_submission';
-      record.syncError = error.message || 'Offline submission invariants are invalid.';
-      record.lastSyncAttemptAt = nowIso();
-      await put('records', record);
-      invalidBlocked += 1;
-      skipped += 1;
-      continue;
-    }
-
-    if (localRecord.ownerWorkerId !== worker.id) {
-      markOwnershipBlocked(localRecord, worker);
-      await persistLocalSubmission(localRecord);
-      ownershipBlocked += 1;
-      skipped += 1;
-      continue;
-    }
-
     activeSubmissionIds.add(submissionId);
     try {
-      markSyncing(localRecord);
-      await persistLocalSubmission(localRecord);
+      const record = await get('records', item.id);
+      if (!record) {
+        await remove('queue', item.id);
+        continue;
+      }
 
-      const syncedRecord = await syncSubmission(localRecord, {
-        worker,
-        onProgress: persistLocalSubmission,
-        onUploadProgress: options.onUploadProgress
-      });
-      applySyncedResponse(localRecord, syncedRecord);
-      await persistLocalSubmission(localRecord);
-      flushed += 1;
-    } catch (error) {
-      if (isAuthError(error)) {
-        markAuthBlocked(localRecord, error);
-        authBlocked = true;
-      } else if (isOwnershipError(error)) {
-        markOwnershipBlocked(localRecord, activeWorker());
+      if (record.backendRecordId || record.syncStatus === 'synced' || record.isDraftRecovery) {
+        await remove('queue', item.id);
+        continue;
+      }
+
+      if (!matchesReplayScope(record, options)) {
+        scopeSkipped += 1;
+        continue;
+      }
+
+      if (record.syncStatus === 'syncing' && !isStaleSyncingRecord(record)) {
+        skipped += 1;
+        continue;
+      }
+
+      let localRecord;
+      try {
+        localRecord = normaliseLocalSubmission(record);
+      } catch (error) {
+        record.syncStatus = 'queued';
+        record.syncStartedAt = '';
+        record.syncBlockedByAuth = false;
+        record.syncBlockedReason = 'invalid_submission';
+        record.syncError = error.message || 'Offline submission invariants are invalid.';
+        record.lastSyncAttemptAt = nowIso();
+        await put('records', record);
+        invalidBlocked += 1;
+        skipped += 1;
+        continue;
+      }
+
+      if (localRecord.ownerWorkerId !== worker.id) {
+        markOwnershipBlocked(localRecord, worker);
+        await persistLocalSubmission(localRecord);
         ownershipBlocked += 1;
         skipped += 1;
-      } else {
-        markQueued(localRecord, error);
-        failed += 1;
+        continue;
       }
-      await persistLocalSubmission(localRecord);
-      if (authBlocked) failed += 1;
-      if (authBlocked) break;
+
+      try {
+        markSyncing(localRecord);
+        await persistLocalSubmission(localRecord);
+
+        const syncedRecord = await syncSubmission(localRecord, {
+          worker,
+          onProgress: persistLocalSubmission,
+          onUploadProgress: options.onUploadProgress
+        });
+        applySyncedResponse(localRecord, syncedRecord);
+        await persistLocalSubmission(localRecord);
+        flushed += 1;
+      } catch (error) {
+        if (isAuthError(error)) {
+          markAuthBlocked(localRecord, error);
+          authBlocked = true;
+        } else if (isOwnershipError(error)) {
+          markOwnershipBlocked(localRecord, activeWorker());
+          ownershipBlocked += 1;
+          skipped += 1;
+        } else {
+          markQueued(localRecord, error);
+          failed += 1;
+        }
+        await persistLocalSubmission(localRecord);
+        if (authBlocked) failed += 1;
+        if (authBlocked) break;
+      }
     } finally {
       activeSubmissionIds.delete(submissionId);
     }
@@ -904,14 +911,26 @@ export async function syncQueuedSubmissions(options = {}) {
 }
 
 export async function discardOfflineSubmission(recordId) {
-  const record = await get('records', recordId);
-  if (!record) throw new Error('Offline submission was not found on this device.');
-
-  assertOwnedByWorker(record);
-  if (record.backendRecordId || record.syncStatus === 'synced') {
-    throw new Error('A synced submission cannot be discarded from the offline queue.');
+  const submissionId = String(recordId);
+  if (activeSubmissionIds.has(submissionId)) {
+    throw new Error('This submission is still syncing. Wait for it to finish before discarding it.');
   }
+  activeSubmissionIds.add(submissionId);
+  try {
+    const record = await get('records', recordId);
+    if (!record) throw new Error('Offline submission was not found on this device.');
 
-  await remove('queue', record.id);
-  await remove('records', record.id);
+    assertOwnedByWorker(record);
+    if (record.syncStatus === 'syncing' && !isStaleSyncingRecord(record)) {
+      throw new Error('This submission is still syncing. Wait for it to finish before discarding it.');
+    }
+    if (record.backendRecordId || record.syncStatus === 'synced') {
+      throw new Error('A synced submission cannot be discarded from the offline queue.');
+    }
+
+    await remove('queue', record.id);
+    await remove('records', record.id);
+  } finally {
+    activeSubmissionIds.delete(submissionId);
+  }
 }

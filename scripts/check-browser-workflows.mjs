@@ -595,6 +595,7 @@ async function checkAccessibleActionFeedback(browser) {
       throw new Error('login button kept aria-busy after the failed request');
     }
 
+    await page.locator('#installHelp > summary').click();
     await page.locator('#downloadAppButton').click();
     const toast = page.locator('#toastViewport .toast[role="status"]').last();
     await toast.waitFor({ state: 'visible', timeout: 5000 });
@@ -5105,6 +5106,40 @@ async function checkWorkerInvitationPasswordSetup(browser) {
   }
 }
 
+async function checkWorkerInvitationCleanBrowserContinuation(browser) {
+  const supervisorContext = await newContext(browser, { reportOnly: true });
+  const workerContext = await newContext(browser, { reportOnly: true });
+  const supervisorPage = await supervisorContext.newPage();
+  const setup = await workerContext.newPage();
+  const email = `invited-continue-${Date.now()}@example.com`;
+  try {
+    await loginAs(supervisorPage, 'supervisor@example.com', 'supervisor');
+    const invitation = await supervisorPage.evaluate(async (workerEmail) => {
+      const { createWorkerInvitation } = await import('/assets/js/api-client.js');
+      return createWorkerInvitation({ name: 'Continue into ReportFlow', email: workerEmail });
+    }, email);
+    await setup.goto(`/setup-password.html#token=${invitation.token}`);
+    await setup.locator('#setupPasswordForm').waitFor({ state: 'visible' });
+    await setup.locator('#setupPasswordInput').fill(password);
+    await setup.locator('#setupPasswordConfirmInput').fill(password);
+    const continuation = setup.waitForResponse((response) => new URL(response.url()).pathname === '/api/auth/login/after-setup');
+    await setup.getByRole('button', { name: 'Set password and continue', exact: true }).click();
+    if (!(await continuation).ok()) throw new Error('clean-browser invitation continuation failed');
+    await setup.waitForURL('**/index.html');
+    await setup.waitForFunction(() => document.body.dataset.activeView === 'worker');
+    const identity = await setup.evaluate(async () => {
+      const { getSession } = await import('/assets/js/api-client.js');
+      return getSession();
+    });
+    if (identity.email !== email) throw new Error('invitation continuation did not restore the invited Worker');
+    const currentSupervisor = await supervisorPage.evaluate(async () => (await fetch('/api/auth/me', { credentials: 'include' })).json());
+    if (currentSupervisor.email !== 'supervisor@example.com') throw new Error('a separate browser invitation affected the Supervisor');
+  } finally {
+    await workerContext.close();
+    await supervisorContext.close();
+  }
+}
+
 async function checkWorkerInvitationRevocation(browser) {
   const context = await newContext(browser, { reportOnly: true });
   const page = await context.newPage();
@@ -8206,6 +8241,7 @@ async function main() {
     await runCheck('unfinished Report Template cross-tab protection preserves newer edits and removed-draft recovery', () => checkTemplateDraftCrossTab(browser));
     await runCheck('Worker invitation replaces Supervisor-chosen passwords with a private setup link', () => checkWorkerInvitationCreate(browser));
     await runCheck('Worker invitation password setup confirms ownership without changing another signed-in session', () => checkWorkerInvitationPasswordSetup(browser));
+    await runCheck('Worker invitation clean browser continues directly into Reports', () => checkWorkerInvitationCleanBrowserContinuation(browser));
     await runCheck('Worker invitation replacement and revocation clear invalid setup secrets', () => checkWorkerInvitationRevocation(browser));
     await runCheck('Worker invitation late responses never expose a prior Supervisor private link', () => checkWorkerInvitationLateResponsePrivacy(browser));
     await runCheck('Report Find exports download CSV and PDF matching the searched inbox', () => checkReportFindExportDownloads(browser));

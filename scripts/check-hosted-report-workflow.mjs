@@ -16,6 +16,8 @@ import { chromium } from 'playwright';
 // HOSTED_REPORT_EVIDENCE_DIR may select another NEW directory (never overwritten).
 // HOSTED_REPORT_PHOTO_COUNT defaults to 1; use 50 for distinct originals and a
 // locally interrupted, checkpointed upload/resume check. No server fault is induced.
+// HOSTED_REPORT_ASSERT_NONBLOCKING_STARTUP=1 additionally holds one owned replay
+// upload while proving the Worker surface and progress are usable within 15s.
 // Fresh Workers are required unless HOSTED_REPORT_ALLOW_EXISTING_HISTORY=1.
 // That explicit demo-only mode hashes and preserves every pre-existing Report.
 
@@ -56,8 +58,10 @@ function configuration() {
   const evidenceDir = resolve(process.env.HOSTED_REPORT_EVIDENCE_DIR
     || join(repoRoot, 'docs', 'evidence', `hosted-report-${runId}`));
   requireCondition(!existsSync(evidenceDir), 'evidence_directory_already_exists');
-  return { runId, baseURL: base.origin, accounts, evidenceDir,
-    photoCount: hostedPhotoCount(process.env.HOSTED_REPORT_PHOTO_COUNT || ''),
+  const photoCount = hostedPhotoCount(process.env.HOSTED_REPORT_PHOTO_COUNT || '');
+  return { runId, baseURL: base.origin, accounts, evidenceDir, photoCount,
+    assertNonblockingStartup: shouldAssertNonblockingStartup(
+      process.env.HOSTED_REPORT_ASSERT_NONBLOCKING_STARTUP || '', photoCount),
     allowExistingHistory: allowExistingReportHistory(process.env.HOSTED_REPORT_ALLOW_EXISTING_HISTORY || '') };
 }
 
@@ -68,6 +72,12 @@ export function hostedPhotoCount(value) {
 
 export function allowExistingReportHistory(value) {
   requireCondition(['', '1'].includes(value), 'existing_history_requires_explicit_1');
+  return value === '1';
+}
+
+export function shouldAssertNonblockingStartup(value, photoCount) {
+  requireCondition(['', '1'].includes(value), 'nonblocking_startup_requires_explicit_1');
+  requireCondition(value !== '1' || photoCount === 50, 'nonblocking_startup_requires_50_photos');
   return value === '1';
 }
 
@@ -83,11 +93,101 @@ export function isExpectedPhotoUpload(postBody, expectedPhotoNames) {
 export async function reloadForQueuedReplay(page) {
   try { await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 }); }
   catch { requireCondition(false, 'partial_replay_document_reload_failed'); }
-  // Startup renders the Worker surface after queue replay. A real upload 429
-  // can legitimately wait 60s (120s total), beyond the ordinary UI timeout.
+  // Compatibility path for older releases that render after queue replay. A real
+  // upload 429 may wait 60s (120s total), beyond the ordinary UI timeout.
   try {
     await page.locator('#workerView').waitFor({ state: 'visible', timeout: REPLAY_COMPLETION_TIMEOUT_MS });
   } catch { requireCondition(false, 'partial_replay_worker_surface_timeout'); }
+}
+
+export async function assertNonblockingQueuedReplay(page, expectedPhotoNames, assertQueuePreserved,
+  { timeoutMs = 15000 } = {}) {
+  requireCondition(Number.isInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= 15000,
+    'nonblocking_startup_timeout_out_of_bounds');
+  requireCondition(Array.isArray(expectedPhotoNames) && expectedPhotoNames.length > 0
+    && typeof assertQueuePreserved === 'function', 'nonblocking_startup_fixture_required');
+  let captured = false;
+  let held = false;
+  let timedOut = false;
+  let routeFailed = false;
+  let release;
+  let holdTimer;
+  let handling = Promise.resolve();
+  let passed = false;
+  const pattern = '**/api/photo-uploads';
+  const handler = async (route) => {
+    if (captured || route.request().method() !== 'POST'
+      || !isExpectedPhotoUpload(route.request().postDataBuffer(), expectedPhotoNames)) {
+      await route.fallback();
+      return;
+    }
+    captured = true;
+    held = true;
+    handling = (async () => {
+      const decision = await new Promise((resolve) => {
+        release = resolve;
+        // Independent bound even if the document reload or a browser assertion stalls.
+        holdTimer = setTimeout(() => { timedOut = true; resolve('abort'); }, 30000);
+      });
+      clearTimeout(holdTimer);
+      held = false;
+      try {
+        if (decision === 'continue') await route.fallback();
+        else await route.abort('aborted');
+      } catch { routeFailed = true; }
+    })();
+    await handling;
+  };
+  await page.route(pattern, handler);
+  let details;
+  try {
+    try { await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 }); }
+    catch { requireCondition(false, 'partial_replay_document_reload_failed'); }
+    const startedAt = Date.now();
+    const remaining = () => Math.max(1, timeoutMs - (Date.now() - startedAt));
+    try { await page.locator('#workerView').waitFor({ state: 'visible', timeout: remaining() }); }
+    catch { requireCondition(false, 'nonblocking_worker_surface_timeout'); }
+    const workerVisibleMs = Date.now() - startedAt;
+    while (!held && Date.now() - startedAt < timeoutMs) await delay(25);
+    requireCondition(held && !timedOut, 'nonblocking_owned_upload_not_held');
+    try {
+      await page.locator('#queueSyncStatus').waitFor({ state: 'visible', timeout: remaining() });
+      await page.locator('#queueSyncProgress').waitFor({ state: 'visible', timeout: remaining() });
+      requireCondition(await page.locator('#queueSyncStatus').getAttribute('data-state') === 'syncing'
+        && await page.locator('#queueSyncMessage').getAttribute('role') === 'status'
+        && (await page.locator('#queueSyncMessage').innerText()).trim().length > 0,
+      'nonblocking_upload_progress_missing');
+      const progress = await page.locator('#queueSyncProgress').evaluate((element) => ({
+        value: element.value, max: element.max
+      }));
+      requireCondition(progress.max >= 50 && progress.value >= 25 && progress.value < progress.max,
+        'nonblocking_upload_progress_checkpoint_invalid');
+      await page.locator('.tab[data-tab-target="historyTab"]').click({ timeout: remaining() });
+      await page.locator('#historyTab').waitFor({ state: 'visible', timeout: remaining() });
+      await page.locator('.tab[data-tab-target="formTab"]').click({ timeout: remaining() });
+      await page.locator('#formTab').waitFor({ state: 'visible', timeout: remaining() });
+      requireCondition(await page.locator('#workFormSelect').isEnabled(), 'nonblocking_new_report_unavailable');
+      await assertQueuePreserved();
+      requireCondition(held && !timedOut && Date.now() - startedAt < timeoutMs,
+        'nonblocking_owned_upload_released_before_assertions');
+      details = { workerVisibleWithinMs: workerVisibleMs, assertionLimitMs: timeoutMs,
+        uploadHeldDuringAssertions: true, visibleProgress: progress,
+        newReportOpened: true, queuedOriginalsPreserved: true };
+      passed = true;
+    } catch (error) {
+      if (error.safeCode) throw error;
+      requireCondition(false, 'nonblocking_progress_or_navigation_failed');
+    }
+  } finally {
+    // Failure aborts the client request; never start a late fixture upload from cleanup.
+    // Success falls through the existing photo route so normal resume/dedup checks run.
+    release?.(passed ? 'continue' : 'abort');
+    clearTimeout(holdTimer);
+    await handling;
+    await page.unroute(pattern, handler);
+  }
+  requireCondition(!routeFailed && !timedOut, 'nonblocking_upload_release_failed');
+  return details;
 }
 
 export function reportHistorySnapshot(reports, workerId) {
@@ -375,6 +475,7 @@ async function main() {
     status: 'running', startedAtUtc: new Date().toISOString(),
     scope: 'Automated hosted Chromium, not a physical-phone or service-worker test',
     viewport: { width: 390, height: 844 }, photoCount: config.photoCount,
+    assertNonblockingStartup: config.assertNonblockingStartup,
     existingHistoryAllowed: config.allowExistingHistory, retainedWorkerBaselines: {},
     photoFixture: 'Small distinct synthetic PNGs; not large-camera-photo or physical-phone readiness proof', checks: [],
     owned: { templateId: null, reportId: null, clientSubmissionId: null, uploadPaths: [] },
@@ -612,11 +713,25 @@ async function main() {
           photoStorage: checkpoint.photoEvidence.storage, uploadedPaths: [...checkpoint.photoUrls] };
         interruptPhotoReplay = false;
         // Reload exercises durable Blob restoration, not only an in-memory retry.
-        await reloadForQueuedReplay(workerPage);
+        if (!config.assertNonblockingStartup) await reloadForQueuedReplay(workerPage);
         return { uploadedPhotos: 25, remainingPhotos: 25, signatureOriginalRetained: true,
           signatureAlreadyUploaded: Boolean(checkpoint.answers?.report_signature?.startsWith('/uploads/')),
-          reloadedForResume: true };
+          reloadedForResume: !config.assertNonblockingStartup,
+          ...(config.assertNonblockingStartup ? { reloadVerifiedBy: 'worker_opens_with_progress_during_held_replay' } : {}) };
       });
+      if (config.assertNonblockingStartup) {
+        await step('worker_opens_with_progress_during_held_replay', async () =>
+          assertNonblockingQueuedReplay(workerPage, originalPhotoNames.slice(25), async () => {
+            const queued = (await localRecords(workerPage))
+              .find((record) => record.clientSubmissionId === evidence.owned.clientSubmissionId);
+            requireCondition(queued?.syncStatus === 'syncing' && queued.photoUrls?.length === 25
+              && queued.answers?.issue_detail === marker
+              && queued.ownerWorkerId === identities.worker.id
+              && JSON.stringify(queued.photoEvidence.sha256) === JSON.stringify(originalPhotoHashes)
+              && JSON.stringify(queued.photoUrls) === JSON.stringify(evidence.partialUploadCheckpoint.uploadedPaths)
+              && !capturedPost, 'nonblocking_navigation_changed_queued_originals');
+          }));
+      }
     }
     await step('online_replay_uploads_evidence_and_submits_once', async () => {
       await workerContext.setOffline(false);

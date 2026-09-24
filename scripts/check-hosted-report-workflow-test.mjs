@@ -18,6 +18,40 @@ for (const value of ['0', '51', '2', '1.5', '50oops']) {
   assert.throws(() => runner.hostedPhotoCount(value), /hosted_photo_count_must_be_1_or_50/);
 }
 console.log('ok - hosted photo count defaults to one and only allows the explicit 50-photo stress option');
+assert.equal(runner.shouldAssertNonblockingStartup('', 1), false);
+assert.equal(runner.shouldAssertNonblockingStartup('', 50), false);
+assert.equal(runner.shouldAssertNonblockingStartup('1', 50), true);
+assert.throws(() => runner.shouldAssertNonblockingStartup('1', 1), /nonblocking_startup_requires_50_photos/);
+for (const value of ['0', 'true', 'yes']) {
+  assert.throws(() => runner.shouldAssertNonblockingStartup(value, 50), /nonblocking_startup_requires_explicit_1/);
+}
+const wrapperProbe = String.raw`
+import importlib.util, json
+from pathlib import Path
+spec = importlib.util.spec_from_file_location('release_wrapper', 'scripts/run-hosted-report-release.py')
+wrapper = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(wrapper)
+accounts = {key: {'id': identifier, 'departmentId': 2,
+    'role': 'supervisor' if key == 'supervisor' else 'worker',
+    'email': key + '@example.invalid', 'password': 'synthetic-only-password'}
+    for key, identifier in [('supervisor', 16), ('alex', 13), ('jamie', 14)]}
+fixture = {'runId': wrapper.DEMO_RUN_ID, 'origin': wrapper.LIVE,
+    'departmentId': 2, 'accounts': accounts}
+args = (wrapper.LIVE, 'unit-only', 50, Path('unused-local-evidence'), fixture, fixture)
+assert wrapper.child_environment(*args)['HOSTED_REPORT_ASSERT_NONBLOCKING_STARTUP'] == ''
+assert wrapper.child_environment(*args, assert_nonblocking_startup=True)['HOSTED_REPORT_ASSERT_NONBLOCKING_STARTUP'] == '1'
+try:
+    wrapper.child_environment(wrapper.LIVE, 'unit-only', 1, Path('unused-local-evidence'),
+        fixture, fixture, assert_nonblocking_startup=True)
+    raise AssertionError('one-photo option accepted')
+except RuntimeError as error:
+    assert str(error) == 'nonblocking_startup_requires_50_photos'
+print(json.dumps({'passed': True}))
+`;
+assert.deepEqual(JSON.parse(execFileSync('python', ['-c', wrapperProbe], {
+  encoding: 'utf8', windowsHide: true, timeout: 10000, stdio: ['pipe', 'pipe', 'pipe']
+})), { passed: true });
+console.log('ok - nonblocking startup is explicit, requires50photos and survives wrapper environment sanitization');
 assert.equal(runner.allowExistingReportHistory(''), false);
 assert.equal(runner.allowExistingReportHistory('1'), true);
 assert.throws(() => runner.allowExistingReportHistory('yes'), /existing_history_requires_explicit_1/);
@@ -117,6 +151,60 @@ print(json.dumps({'pdf': base64.b64encode(pdf).decode(), 'expected': expected}))
 const browser = await chromium.launch({ headless: true });
 let requestCount = 0;
 try {
+  for (const blocksUntilUpload of [false, true]) {
+    const replay = await browser.newContext();
+    const replayPage = await replay.newPage();
+    let armed = false;
+    let completedUploads = 0;
+    let queuedChecks = 0;
+    await replayPage.route('**/*', async (route) => {
+      if (new URL(route.request().url()).pathname === '/api/photo-uploads') {
+        completedUploads += 1;
+        return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      }
+      return route.fulfill({ status: 200, contentType: 'text/html', body: `<!doctype html>
+        <section id="workerView" ${blocksUntilUpload && armed ? 'hidden' : ''}>
+          <section id="queueSyncStatus" data-state="syncing"><p id="queueSyncMessage" role="status">Uploading26of51</p>
+            <progress id="queueSyncProgress" value="26" max="51"></progress></section>
+          <button class="tab" data-tab-target="historyTab" onclick="historyTab.hidden=false;formTab.hidden=true">My Reports</button>
+          <button class="tab" data-tab-target="formTab" onclick="historyTab.hidden=true;formTab.hidden=false">New Report</button>
+          <section id="historyTab" hidden>Owned queued Report</section><section id="formTab"><select id="workFormSelect"><option>Owned Template</option></select></section>
+        </section>${armed ? `<script>
+          const data = new FormData(); data.append('file', new Blob(['synthetic']), ${JSON.stringify(expectedPhotoNames[25])});
+          fetch('/api/photo-uploads', {method:'POST', body:data}).then(() => {
+            window.uploadDone = true; workerView.hidden = false;
+          }).catch(() => { window.uploadAborted = true; });
+        </script>` : ''}` });
+    });
+    try {
+      await replayPage.goto('https://hosted-replay-test.invalid/');
+      armed = true;
+      const checkQueued = async () => { queuedChecks += 1; assert.equal(completedUploads, 0); };
+      if (blocksUntilUpload) {
+        await assert.rejects(runner.assertNonblockingQueuedReplay(replayPage, expectedPhotoNames.slice(25),
+          checkQueued, { timeoutMs: 500 }), (error) => error.safeCode === 'nonblocking_worker_surface_timeout');
+        await replayPage.waitForFunction(() => window.uploadAborted === true);
+        assert.equal(completedUploads, 0, 'Failed verification must abort rather than forward the owned upload');
+        assert.equal(queuedChecks, 0);
+        await replayPage.evaluate(() => fetch('/api/photo-uploads', { method: 'POST', body: 'after-helper' }));
+        assert.equal(completedUploads, 1, 'Failure must remove only its own temporary route');
+      } else {
+        const proof = await runner.assertNonblockingQueuedReplay(replayPage, expectedPhotoNames.slice(25), checkQueued);
+        assert.equal(proof.uploadHeldDuringAssertions, true);
+        assert.equal(proof.newReportOpened, true);
+        assert.equal(proof.queuedOriginalsPreserved, true);
+        assert.deepEqual(proof.visibleProgress, { value: 26, max: 51 });
+        assert.ok(proof.workerVisibleWithinMs <= 15000);
+        assert.equal(queuedChecks, 1);
+        await replayPage.waitForFunction(() => window.uploadDone === true);
+        assert.equal(completedUploads, 1, 'Success releases exactly one owned upload through the original route');
+        assert.equal(await replayPage.locator('#formTab').isVisible(), true);
+      }
+    } finally { await replay.close(); }
+  }
+  await assert.rejects(runner.assertNonblockingQueuedReplay({}, expectedPhotoNames, async () => {}, { timeoutMs: 15001 }),
+    /nonblocking_startup_timeout_out_of_bounds/);
+  console.log('ok - held replay proves usable Worker/progress/New Report; timeout aborts and removes its client-only route');
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   // Set an intercepted, non-routable document so normal cookie access is available.
   await context.route('**/*', (route) => {
@@ -242,7 +330,7 @@ try {
   } });
   assert.equal(requestCount, 1, 'Only the locally fulfilled fake document request is allowed');
   console.log('ok - bounded API wrapper preserves same-origin session, CSRF, and JSON payload');
-  console.log('12 hosted runner checks passed; no network requests reached a server');
+  console.log('14 hosted runner checks passed; no network requests reached a server');
 } finally {
   await browser.close();
 }

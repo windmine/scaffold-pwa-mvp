@@ -11,8 +11,26 @@ const button = document.getElementById('setupPasswordButton');
 const retryButton = document.getElementById('setupPasswordRetryButton');
 const status = document.getElementById('setupPasswordStatus');
 const identity = document.getElementById('setupInvitationIdentity');
+const continuationHelp = document.getElementById('setupContinuationHelp');
 let busy = false;
 let generation = 0;
+let invitationEmail = '';
+
+function canContinueOnThisBrowser() {
+  try {
+    // A saved/offline identity also owns unfinished work. Do not switch it from
+    // this separate setup page, even if its server session has expired.
+    return localStorage.getItem('geo_user') === null
+      && !document.cookie.split(';').some((part) => /^geo_csrf_token=/.test(part.trim()));
+  } catch {
+    return false;
+  }
+}
+
+function explainContinuation(message) {
+  setTranslatableText(continuationHelp, message);
+  continuationHelp.hidden = false;
+}
 
 initLanguageToggle({ button: document.getElementById('setupLanguageButton') });
 
@@ -29,7 +47,8 @@ function setBusy(value) {
   confirmationInput.disabled = value;
   retryButton.disabled = value;
   form.setAttribute('aria-busy', String(value));
-  setTranslatableText(button, value ? 'Setting password...' : 'Set password');
+  setTranslatableText(button, value ? 'Setting password...'
+    : canContinueOnThisBrowser() ? 'Set password and continue' : 'Set password');
 }
 
 function invalidInvitation(error) {
@@ -70,9 +89,11 @@ async function inspectInvitation() {
   try {
     const invitation = await invitationRequest('inspect', { token });
     if (currentGeneration !== generation) return;
+    invitationEmail = invitation.email;
     identity.textContent = `${invitation.name} — ${invitation.email} — ${invitation.department_name}`;
     form.hidden = false;
-    showStatus('Choose a password that only you know.');
+    showStatus('Your supervisor will not see your password.');
+    if (!canContinueOnThisBrowser()) explainContinuation('This browser may already have an account or saved work. Password setup will not switch accounts.');
   } catch (error) {
     if (currentGeneration !== generation) return;
     if (invalidInvitation(error)) token = '';
@@ -97,10 +118,13 @@ form.addEventListener('submit', async (event) => {
     return;
   }
   const currentGeneration = generation;
+  const shouldContinue = canContinueOnThisBrowser();
+  let newPassword = passwordInput.value;
+  const email = invitationEmail;
   setBusy(true);
   showStatus('Setting password...');
   try {
-    await invitationRequest('accept', { token, password: passwordInput.value });
+    await invitationRequest('accept', { token, password: newPassword });
     if (currentGeneration !== generation) return;
     token = '';
     passwordInput.value = '';
@@ -108,6 +132,51 @@ form.addEventListener('submit', async (event) => {
     form.hidden = true;
     identity.textContent = '';
     showStatus('Password set. You can now sign in to ReportFlow.');
+    if (shouldContinue && canContinueOnThisBrowser()) {
+      // Use ordinary password authentication, not the invitation capability.
+      // The backend refuses to replace any cookie/header session on this path.
+      // No password or invitation token is put in storage, a URL or a log.
+      showStatus('Password set. Signing you in...');
+      try {
+        const response = await fetch('/api/auth/login/after-setup', {
+          method: 'POST', credentials: 'include', cache: 'no-store', referrerPolicy: 'no-referrer',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password: newPassword, only_if_signed_out: true })
+        });
+        newPassword = '';
+        const data = await response.json().catch(() => ({}));
+        if (currentGeneration !== generation) return;
+        // Our own successful login sets the CSRF cookie. Only the saved identity
+        // is rechecked here; another page must not have its identity overwritten.
+        if (!response.ok || !data.user || data.user.email !== email) {
+          showStatus('Password set. You can now sign in to ReportFlow.');
+          explainContinuation(response.status === 409
+            ? 'An existing browser session was left unchanged. Open the app and sign out there before using this account.'
+            : 'Your password is saved, but sign-in could not finish. Use Sign in to ReportFlow below.');
+          return;
+        }
+        if (localStorage.getItem('geo_user') !== null) {
+          showStatus('Password set. You can now sign in to ReportFlow.');
+          explainContinuation('Another page changed the active account. Open the app to check your session before continuing.');
+          return;
+        }
+        const { saveSession } = await import('./api-client.js');
+        if (currentGeneration !== generation) return;
+        if (localStorage.getItem('geo_user') !== null) {
+          showStatus('Password set. You can now sign in to ReportFlow.');
+          explainContinuation('Another page changed the active account. Open the app to check your session before continuing.');
+          return;
+        }
+        saveSession(data.user);
+        window.location.replace('/index.html');
+      } catch {
+        if (currentGeneration !== generation) return;
+        showStatus('Password set. You can now sign in to ReportFlow.');
+        explainContinuation('Your password is saved, but sign-in could not finish. Use Sign in to ReportFlow below.');
+      }
+    } else {
+      explainContinuation('Open the app to continue with its current account, or sign out there before using your new account.');
+    }
   } catch (error) {
     if (currentGeneration === generation) {
       if (invalidInvitation(error)) {
@@ -122,6 +191,9 @@ form.addEventListener('submit', async (event) => {
       }
     }
   } finally {
+    // Drop the remaining local reference even on a failed/stale request.
+    // eslint-disable-next-line no-useless-assignment
+    newPassword = '';
     if (currentGeneration === generation) setBusy(false);
   }
 });
@@ -135,6 +207,9 @@ window.addEventListener('hashchange', () => {
   passwordInput.value = '';
   confirmationInput.value = '';
   identity.textContent = '';
+  invitationEmail = '';
+  continuationHelp.hidden = true;
+  continuationHelp.textContent = '';
   form.hidden = true;
   retryButton.hidden = true;
   setBusy(false);
@@ -146,6 +221,9 @@ window.addEventListener('pagehide', () => {
   passwordInput.value = '';
   confirmationInput.value = '';
   identity.textContent = '';
+  invitationEmail = '';
+  continuationHelp.hidden = true;
+  continuationHelp.textContent = '';
   form.hidden = true;
   retryButton.hidden = true;
   showStatus('Open the complete private setup link from your supervisor.', true);

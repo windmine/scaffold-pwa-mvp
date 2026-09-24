@@ -1,0 +1,107 @@
+{
+  "release": "report-release-20260925",
+  "scope": "Local backend release preflight only; not a hosted or physical-device verification",
+  "started_at": "2026-09-24T22:51:04.133Z",
+  "completed_at": "2026-09-24T22:52:26.9645516Z",
+  "base_commit": "eabb50713baa7302fed68845e7969dcbb3644f53",
+  "tested_working_tree": true,
+  "result": "passed",
+  "source_sha256": {
+    "backend/app/main.py": "649cd6bc4fbd4648f18939bfc9196cdb6a750426b61c7d7ca52cfacf8f24c198",
+    "backend/app/schemas.py": "f604bf86d46cab5f35124982012294928c2bdcd93765c487e5411202a9f090c1",
+    "backend/security_test.py": "547417485ee1452da32a4f0b62a6dfb3a02ea1a4488888f9910edcb4935d911d",
+    "backend/invitation_test.py": "4b9965663b7e21b14073d1d70262eca1ff73a2df20114632e662de8262a79135",
+    "backend/smoke_test.py": "f0edb1136b10618ef86a47be07095eeebb16a4ca1d93b017412d7d45362dfe3c"
+  },
+  "gates": [
+    {
+      "command": "npm.cmd run check:review-queue",
+      "exit_code": 0,
+      "duration_seconds": 33.010,
+      "coverage": [
+        "Review Queue adapters, paged query and authorization policy",
+        "Report workflow, ownership, purpose isolation and immutable evidence",
+        "Find-aware CSV/HTML/PDF exports preserve filters and include all 51 matching records across pages",
+        "Department PDF branding, A4 layout, signatures, wrapping and missing-evidence rendering",
+        "50-photo six-megapixel PDF volume: 26 pages, one signature, 3743258-byte PDF, source evidence unchanged"
+      ]
+    },
+    {
+      "command": "npm.cmd run check:invitations",
+      "exit_code": 0,
+      "duration_seconds": 14.689,
+      "groups": 10,
+      "coverage": [
+        "Password setup and guarded continuation preserve existing credentials and normal sign-in",
+        "Manual invitation reissue, revocation, expiry, concurrent claims and Department boundaries",
+        "Private no-store responses and absence of invitation credentials from Staff/audit responses"
+      ]
+    },
+    {
+      "command": "python -m compileall backend/app backend/smoke_test.py backend/database_test.py backend/migration_test.py backend/report_purpose_test.py backend/report_workflow_test.py backend/review_queue_test.py backend/work_form_definition_test.py backend/upload_storage_test.py backend/security_test.py",
+      "exit_code": 0,
+      "duration_seconds": 0.221
+    },
+    {
+      "command": "python backend/database_test.py",
+      "exit_code": 0,
+      "duration_seconds": 1.008
+    },
+    {
+      "command": "python backend/security_test.py",
+      "exit_code": 0,
+      "duration_seconds": 7.680
+    },
+    {
+      "command": "python backend/upload_storage_test.py",
+      "exit_code": 0,
+      "duration_seconds": 2.883,
+      "note": "Local and mocked GCS adapter checks; no production object access"
+    },
+    {
+      "command": "python backend/work_form_definition_test.py",
+      "exit_code": 0,
+      "duration_seconds": 2.047
+    },
+    {
+      "command": "python backend/migration_test.py",
+      "exit_code": 0,
+      "duration_seconds": 18.645,
+      "note": "Disposable local fixtures only; no production migration"
+    },
+    {
+      "command": "python backend/report_purpose_correction_test.py",
+      "exit_code": 0,
+      "duration_seconds": 5.951
+    },
+    {
+      "command": "python -m pip check",
+      "exit_code": 0,
+      "duration_seconds": 2.821,
+      "summary": "No broken requirements found"
+    },
+    {
+      "command": "python backend/smoke_test.py via InvitationServer",
+      "exit_code": 0,
+      "duration_seconds": 13.376,
+      "checkpoints": 214,
+      "loopback_only": true,
+      "fresh_temporary_sqlite": true,
+      "temporary_local_uploads": true,
+      "owned_temporary_directory_removed": true
+    }
+  ],
+  "preservation": {
+    "existing_local_database_unchanged": true,
+    "backend_geo_management_db_sha256_before": "fd4780abc31505cd8f4506ed8825a7cbc2996f607e1c057baa6adddb9e6b90bb",
+    "backend_geo_management_db_sha256_after": "fd4780abc31505cd8f4506ed8825a7cbc2996f607e1c057baa6adddb9e6b90bb",
+    "cloud_calls": false,
+    "production_mutations": false,
+    "frontend_build_or_generation": false
+  },
+  "limitations": [
+    "This gate uses local SQLite and mocked storage, not native PostgreSQL or hosted GCS.",
+    "Hosted candidate/live checks, physical-phone sharing, maximum-photo-capacity checks and deployment remain separate gates.",
+    "Source was tested as the uncommitted working tree on the recorded base commit."
+  ]
+}

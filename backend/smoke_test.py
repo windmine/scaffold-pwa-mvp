@@ -320,6 +320,21 @@ def main():
             raise AssertionError("cookie login: expected HttpOnly auth cookie")
         if not worker_cookies.get(CSRF_COOKIE_NAME):
             raise AssertionError("cookie login: expected CSRF cookie")
+        guarded_login = {"email": "supervisor@example.com", "password": "Passw0rd!"}
+        conflict = assert_status("setup continuation preserves an existing cookie session",
+                                 request_with_cookie_session("POST", "/auth/login/after-setup", guarded_login, worker_cookies), 409)
+        if conflict.get("detail", {}).get("code") != "browser_session_present":
+            raise AssertionError("guarded login: expected explicit browser-session conflict")
+        retained_user = assert_status("guarded continuation leaves current Worker signed in",
+                                      request_with_cookie_session("GET", "/auth/me", cookies=worker_cookies), 200)
+        if retained_user.get("email") != "worker@example.com":
+            raise AssertionError("guarded continuation changed the existing browser identity")
+        assert_status("setup continuation refuses stale cookies without clearing them",
+                      request_with_cookie_session("POST", "/auth/login/after-setup", guarded_login, {AUTH_COOKIE_NAME: "stale"}), 409)
+        assert_status("setup continuation refuses bearer-authenticated requests",
+                      request("POST", "/auth/login/after-setup", guarded_login, worker_token), 409)
+        assert_status("setup continuation signs in a clean browser normally",
+                      request("POST", "/auth/login/after-setup", guarded_login), 200)
         csrf_site_payload = {
             "name": f"Cookie CSRF Site {datetime.now(timezone.utc).timestamp()}",
             "address": "1 Cookie Test Road",

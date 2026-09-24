@@ -52,7 +52,10 @@ def evidence_directory(value):
     return directory
 
 
-def child_environment(origin, run_id, photo_count, evidence_dir, manifest, handoff):
+def child_environment(origin, run_id, photo_count, evidence_dir, manifest, handoff,
+                      assert_nonblocking_startup=False):
+    require(not assert_nonblocking_startup or photo_count == 50,
+            "nonblocking_startup_requires_50_photos")
     require(manifest["runId"] == handoff["runId"] == DEMO_RUN_ID
             and manifest["origin"] == handoff["origin"] == LIVE
             and manifest["departmentId"] == 2, "demo_handoff_scope_mismatch")
@@ -64,6 +67,7 @@ def child_environment(origin, run_id, photo_count, evidence_dir, manifest, hando
                 "HOSTED_REPORT_ALLOWED_HOST": urlsplit(origin).netloc,
                 "HOSTED_REPORT_ALLOW_EXISTING_HISTORY": "1",
                 "HOSTED_REPORT_PHOTO_COUNT": str(photo_count),
+                "HOSTED_REPORT_ASSERT_NONBLOCKING_STARTUP": "1" if assert_nonblocking_startup else "",
                 "HOSTED_REPORT_EVIDENCE_DIR": str(evidence_dir)})
     expected_ids = {"supervisor": 16, "alex": 13, "jamie": 14}
     for role, key in ACCOUNT_KEYS.items():
@@ -87,8 +91,12 @@ def main():
     parser.add_argument("--origin", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--photo-count", type=int, choices=(1, 50), default=1)
+    parser.add_argument("--assert-nonblocking-startup", action="store_true",
+                        help="Require the Worker screen and upload progress while a 50-photo replay request is held")
     parser.add_argument("--evidence-dir", required=True, type=Path)
     args = parser.parse_args()
+    require(not args.assert_nonblocking_startup or args.photo_count == 50,
+            "nonblocking_startup_requires_50_photos")
     origin = approved_origin(args.origin)
     directory = evidence_directory(args.evidence_dir)
     require(bool(re.fullmatch(r"[a-z0-9][a-z0-9_-]{3,39}", args.run_id)), "invalid_run_id")
@@ -99,7 +107,8 @@ def main():
     demo = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(demo)
     handoff = demo.read_private_handoff(DEMO_RUN_ID)
-    env = child_environment(origin, args.run_id, args.photo_count, directory, manifest, handoff)
+    env = child_environment(origin, args.run_id, args.photo_count, directory, manifest, handoff,
+                            assert_nonblocking_startup=args.assert_nonblocking_startup)
     result = subprocess.run(
         [node, str(ROOT / "scripts/check-hosted-report-workflow.mjs"),
          "--allow-hosted-mutations", "--run-id", args.run_id],

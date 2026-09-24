@@ -90,6 +90,8 @@ let workerAttendance;
 let reloadingForServiceWorkerUpdate = false;
 let appUpdateAttemptInFlight = false;
 let sessionExpiryInProgress = false;
+let queueSyncRun = null;
+let syncFeedbackRevision = 0;
 // Keep the broader field-operations interface available for a reversible rollback.
 // Production defaults to the report-only shell; browser regression tests may set
 // this boolean before the module loads to exercise the retained legacy screens.
@@ -181,12 +183,12 @@ function renderReportTemplateAvailability({ source, savedAt, templateCount }) {
   message.textContent = source === 'online'
     ? templateCount
       ? savedAt
-        ? 'Report Templates saved on this device for offline use.'
+        ? 'Templates saved for offline use.'
         : 'Report Templates are online only. Device storage is unavailable.'
       : 'No active Report Templates. Ask your supervisor to create or reactivate one.'
     : source === 'offline' && templateCount
       ? savedAt
-        ? 'Using saved Report Templates. You can start or continue a Report offline. Templates are checked again when you reconnect.'
+        ? 'Using saved Report Templates. Submissions will wait until you reconnect.'
         : 'Using this open page\'s Report Templates. They are not saved for offline return visits. Keep this page open.'
       : 'No Report Templates are saved for offline use. Connect to load your Department\'s active Templates.';
   availability.append(message);
@@ -326,12 +328,12 @@ async function init() {
   await restoreDrafts();
   bindEvents();
   renderInstallHelp();
-  await syncQueueIfPossible(false);
   renderApp();
   if (authRestoreMessage) {
     renderStatusBanner(authRestoreMessage, !navigator.onLine);
   }
   registerServiceWorker();
+  startBackgroundQueueSync();
 }
 
 async function loadSites() {
@@ -506,7 +508,7 @@ function bindEvents() {
 
   window.addEventListener('online', async () => {
     const requestUser = state.user;
-    uiFeedback.setSyncState('syncing', 'Online - checking queued submissions');
+    setSyncState('syncing', 'Online - checking queued submissions');
     const syncResult = await syncQueueIfPossible(true);
     if (!state.user || state.user !== requestUser) return;
 
@@ -540,7 +542,12 @@ function bindEvents() {
   });
 
   window.addEventListener('offline', () => {
-    uiFeedback.setSyncState('offline', 'Offline - submissions will wait');
+    setSyncState('offline', 'Offline - submissions will wait');
+    if (!els.queueSyncStatus.classList.contains('hidden')) {
+      showQueueSyncFeedback('offline', 'Offline - submissions will wait', {
+        hint: 'Saved submissions will retry when you reconnect. You can keep working offline.'
+      });
+    }
     renderStatusBanner('You are offline. New submissions will stay on this device until you reconnect.', true);
   });
 
@@ -876,6 +883,8 @@ function clearWorkerSessionState() {
 
 function clearSessionViewState() {
   // Clear private content before revealing another account or waiting on storage/network.
+  hideQueueSyncFeedback();
+  syncFeedbackRevision += 1;
   state.sites = [];
   state.sitesLoadError = '';
   state.departmentFocusId = '';
@@ -1045,13 +1054,17 @@ function renderSystemBanner(message, options = {}) {
 }
 
 async function refreshStatusBannerForSession() {
+  const requestUser = state.user;
+  const revision = syncFeedbackRevision;
   const lastSyncAt = await getLastSyncAt();
+  if (state.user !== requestUser || revision !== syncFeedbackRevision
+    || (queueSyncRun?.user === requestUser && queueSyncRun?.pending)) return;
   if (!navigator.onLine) {
-    uiFeedback.setSyncState('offline', 'Offline - submissions will wait');
+    setSyncState('offline', 'Offline - submissions will wait');
     return;
   }
 
-  uiFeedback.setSyncState(
+  setSyncState(
     'online',
     lastSyncAt ? `Online - last sync attempt ${formatDateTime(lastSyncAt)}` : 'Online'
   );
@@ -1081,10 +1094,9 @@ async function handleLogin(event) {
     fillSiteSelects();
     await restoreWorkerSubmissionDrafts();
     if (state.user !== signedInUser) return;
-    await syncQueueIfPossible(false);
-    if (state.user !== signedInUser) return;
     uiFeedback.clearLocal(els.loginFeedback);
     renderApp();
+    startBackgroundQueueSync();
   } catch (error) {
     renderStatusBanner(error.message, false, {
       local: els.loginFeedback,
@@ -1596,39 +1608,143 @@ function activateTab(targetId) {
   if (targetId === 'historyTab') void workerForm.renderDraftList({ flush: true });
 }
 
-async function syncQueueIfPossible(showMessage) {
-  const requestUser = state.user;
-  if (state.user && navigator.onLine) {
-    uiFeedback.setSyncState('syncing', 'Online - syncing');
+function setSyncState(status, message) {
+  syncFeedbackRevision += 1;
+  uiFeedback.setSyncState(status, message);
+}
+
+function hideQueueSyncFeedback() {
+  els.queueSyncStatus.classList.add('hidden');
+  els.queueSyncMessage.textContent = '';
+  els.queueSyncHint.textContent = '';
+  els.queueSyncProgress.removeAttribute('value');
+}
+
+function showQueueSyncFeedback(status, message, { completed, total, hint = '' } = {}) {
+  els.queueSyncStatus.classList.remove('hidden');
+  els.queueSyncStatus.dataset.state = status;
+  els.queueSyncMessage.textContent = message;
+  els.queueSyncHint.textContent = hint;
+  els.queueSyncHint.hidden = !hint;
+  els.queueSyncProgress.hidden = status !== 'syncing';
+  if (Number.isFinite(total) && total > 0) {
+    els.queueSyncProgress.max = total;
+    els.queueSyncProgress.value = completed;
+  } else {
+    els.queueSyncProgress.removeAttribute('value');
   }
-  const result = await syncQueuedSubmissions(REPORT_ONLY_MODE ? { purpose: 'report' } : {});
-  if (state.user !== requestUser) return result;
+  applyLanguage(els.queueSyncStatus);
+}
+
+function startBackgroundQueueSync() {
+  const requestUser = state.user;
+  if (requestUser?.role !== 'worker') return;
+  // Do not renderApp/refresh Templates on completion: the Worker may already
+  // be typing a new Report. History has its own session/render-generation guard.
+  void syncQueueIfPossible(false).then(async () => {
+    if (state.user !== requestUser) return;
+    await historyModule.renderHistory();
+    if (state.user !== requestUser) return;
+    if (!REPORT_ONLY_MODE) await historyModule.renderWorkerSummary();
+  }).catch(() => {
+    if (state.user === requestUser) {
+      renderStatusBanner('Could not refresh saved submissions. Open My Reports to check their status.', true);
+    }
+  });
+}
+
+function syncQueueIfPossible(showMessage) {
+  const requestUser = state.user;
+  if (queueSyncRun?.user === requestUser && queueSyncRun.pending) {
+    queueSyncRun.showMessage ||= showMessage;
+    return queueSyncRun.promise;
+  }
+  const previousRun = queueSyncRun;
+  const run = { user: requestUser, showMessage, pending: true, promise: null };
+  queueSyncRun = run;
+  run.promise = (async () => {
+    // A replacement login must not inherit an old session's progress callback
+    // or authorization failure, including when the same Worker signs in again.
+    if (previousRun?.pending) await previousRun.promise;
+    if (state.user !== requestUser) return {};
+    return performQueueSync(run);
+  })().catch(() => {
+    if (state.user === requestUser && queueSyncRun === run) {
+      setSyncState('attention', 'Sync paused - check saved submissions');
+      showQueueSyncFeedback('attention', 'Sync paused. Open My Reports to check saved submissions and retry.');
+    }
+    return { flushed: 0, failed: 1, skipped: 0 };
+  }).finally(() => { run.pending = false; });
+  return run.promise;
+}
+
+async function performQueueSync(run) {
+  const requestUser = run.user;
+  const isCurrentRun = () => state.user === requestUser && queueSyncRun === run;
+  if (requestUser?.role === 'worker' && navigator.onLine) {
+    setSyncState('syncing', 'Online - syncing');
+    showQueueSyncFeedback('syncing', 'Checking saved submissions...', {
+      hint: 'You can keep working. Keep this page open until syncing finishes.'
+    });
+  }
+  const result = await syncQueuedSubmissions({
+    ...(REPORT_ONLY_MODE ? { purpose: 'report' } : {}),
+    onUploadProgress: ({ phase, completed, total, retryAfterSeconds }) => {
+      if (!isCurrentRun() || !navigator.onLine) return;
+      setSyncState('syncing', 'Online - syncing');
+      const message = phase === 'waiting'
+        ? `Upload limit reached. Retrying in ${retryAfterSeconds} seconds. ${completed} of ${total} photos and signatures uploaded.`
+        : phase === 'submitting'
+          ? 'Finishing saved submission...'
+          : `Photos and signatures uploaded: ${completed} of ${total}.`;
+      showQueueSyncFeedback('syncing', message, {
+        completed, total,
+        hint: 'You can keep working. Keep this page open until syncing finishes.'
+      });
+    }
+  });
+  if (!isCurrentRun()) return result;
 
   if (result.authBlocked) {
+    hideQueueSyncFeedback();
     handleSessionExpired('Sign in again to sync queued submissions.');
     return result;
   }
 
   if (!navigator.onLine) {
-    uiFeedback.setSyncState('offline', 'Offline - submissions will wait');
+    setSyncState('offline', 'Offline - submissions will wait');
+    if (!els.queueSyncStatus.classList.contains('hidden')) {
+      showQueueSyncFeedback('offline', 'Offline - submissions will wait', {
+        hint: 'Saved submissions will retry when you reconnect. You can keep working offline.'
+      });
+    }
   } else if (result.failed || result.ownershipBlocked || result.invalidBlocked) {
     const attentionCount = result.failed + result.ownershipBlocked + result.invalidBlocked;
-    uiFeedback.setSyncState('attention', `Online - ${attentionCount} submission${attentionCount === 1 ? '' : 's'} need attention`);
+    setSyncState('attention', `Online - ${attentionCount} submission${attentionCount === 1 ? '' : 's'} need attention`);
+    showQueueSyncFeedback('attention', 'Some saved submissions need attention. Open My Reports to check and retry.');
+  } else if (result.skipped) {
+    setSyncState('queued', 'Saved submissions are waiting to sync');
+    showQueueSyncFeedback('queued', 'Saved submissions are waiting to sync', {
+      hint: 'Another upload may still be active. Check My Reports before retrying.'
+    });
   } else if (!result.noActiveWorker) {
-    uiFeedback.setSyncState('synced', result.flushed ? `Online - ${result.flushed} synced` : 'Online - queue checked');
+    setSyncState('synced', result.flushed ? `Online - ${result.flushed} synced` : 'Online - queue checked');
+    if (result.flushed) showQueueSyncFeedback('synced', 'Saved submissions synced.');
+    else hideQueueSyncFeedback();
   } else {
-    uiFeedback.setSyncState('online', 'Online');
+    setSyncState('online', 'Online');
+    hideQueueSyncFeedback();
   }
 
-  if (showMessage && result.flushed) {
+  if (run.showMessage && result.flushed) {
     renderStatusBanner(`${result.flushed} queued record${result.flushed === 1 ? '' : 's'} synced.`);
   }
 
-  if (showMessage && result.failed) {
+  if (run.showMessage && result.failed) {
     renderStatusBanner(`${result.failed} queued record${result.failed === 1 ? '' : 's'} could not sync yet.`, true);
   }
 
-  if (showMessage && !result.flushed && !result.failed && result.skipped) {
+  if (run.showMessage && !result.flushed && !result.failed && result.skipped) {
     renderStatusBanner('Queued submissions are already syncing.');
   }
 

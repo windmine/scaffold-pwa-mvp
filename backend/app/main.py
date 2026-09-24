@@ -62,6 +62,7 @@ from app.schemas import (
 )
 from app.auth import (
     AUTH_COOKIE_NAME,
+    LEGACY_AUTH_COOKIE_NAME,
     CSRF_COOKIE_NAME,
     CSRF_HEADER_NAME,
     clear_auth_cookie,
@@ -138,6 +139,7 @@ rate_limiter = InMemoryRateLimiter(
 SAFE_CSRF_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 CSRF_EXEMPT_PATHS = {
     "/auth/login",
+    "/auth/login/after-setup",
     "/auth/logout",
     "/auth/register",
     "/auth/registration/start",
@@ -152,7 +154,7 @@ def apply_upload_cache_policy(request_path: str, response: Response):
     normalized_path = request_path[4:] if request_path.startswith("/api/") else request_path
     if normalized_path.startswith("/uploads/") and response.status_code >= 400:
         response.headers["Cache-Control"] = "private, no-store"
-    if normalized_path.startswith(("/auth/worker-invitations", "/supervisor/worker-invitations")) or (
+    if normalized_path == "/auth/login/after-setup" or normalized_path.startswith(("/auth/worker-invitations", "/supervisor/worker-invitations")) or (
         normalized_path.startswith("/supervisor/users/") and normalized_path.endswith("/invitation")
     ):
         response.headers["Cache-Control"] = "private, no-store"
@@ -638,9 +640,22 @@ def get_upload(
 @app.post("/auth/login")
 def login(
     data: LoginRequest,
+    request: Request,
     response: Response,
     session: Session = Depends(get_session)
 ):
+    # Password setup may continue into sign-in only on a clean browser session.
+    # Do not decode, replace or clear existing credentials, including stale ones.
+    if data.only_if_signed_out and (
+        AUTH_COOKIE_NAME in request.cookies
+        or LEGACY_AUTH_COOKIE_NAME in request.cookies
+        or "authorization" in request.headers
+    ):
+        raise HTTPException(status_code=409, detail={
+            "code": "browser_session_present",
+            "message": "This browser already has a sign-in session. Continue with the current account, or sign out from the app before signing in with another account.",
+        })
+
     email = data.email.strip().lower()
     user = session.exec(
         select(User).where(User.email == email)
@@ -668,6 +683,19 @@ def login(
         "token_type": "bearer",
         "user": user_response(user, session)
     }
+
+
+@app.post("/auth/login/after-setup")
+def login_after_setup(
+    data: LoginRequest,
+    request: Request,
+    response: Response,
+    session: Session = Depends(get_session),
+):
+    # A distinct endpoint fails closed on older backends. The mandatory guard
+    # cannot be disabled by omitting or changing the optional normal-login flag.
+    guarded_data = data.model_copy(update={"only_if_signed_out": True})
+    return login(guarded_data, request, response, session)
 
 
 @app.post("/auth/register")

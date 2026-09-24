@@ -442,6 +442,47 @@ body[data-active-view="login"] .brand-heading {
   min-width: 0;
 }
 
+.queue-sync-status {
+  min-width: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--brand-blue-mid);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+
+.queue-sync-status[data-state="attention"],
+.queue-sync-status[data-state="offline"] {
+  border-left-color: var(--attention);
+}
+
+.queue-sync-status[data-state="synced"] {
+  border-left-color: var(--success);
+}
+
+.queue-sync-status p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+#queueSyncMessage {
+  font-weight: 700;
+}
+
+.queue-sync-status progress {
+  display: block;
+  width: 100%;
+  height: 8px;
+  margin: 8px 0;
+  accent-color: var(--brand-blue-mid);
+}
+
+.queue-sync-status [hidden] {
+  display: none;
+}
+
 .view,
 .card,
 form,
@@ -1878,6 +1919,61 @@ textarea {
   text-underline-offset: 3px;
 }
 
+.login-account-note {
+  margin: 0 0 18px;
+  font-size: 0.9rem;
+}
+
+.login-account-note strong {
+  font-weight: 500;
+}
+
+.compact-help > summary {
+  min-height: 44px;
+  padding: 10px 0;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.compact-help > summary:focus-visible {
+  outline: 2px solid var(--brand-blue-mid);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.compact-help-content {
+  padding: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.compact-help-content p {
+  margin: 0 0 10px;
+}
+
+#passwordRecoveryHelp {
+  margin-top: 14px;
+}
+
+#loginView .install-box {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#loginView .install-guide-link {
+  justify-content: flex-start;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
 .summary-list {
   display: grid;
   gap: 8px;
@@ -2457,6 +2553,18 @@ textarea {
 
 .setup-password-card button {
   min-height: 44px;
+}
+
+.setup-password-card .section-heading {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+#setupLanguageButton {
+  width: auto;
+  min-width: 44px;
+  margin-left: auto;
 }
 
 #workerInvitationLink {
@@ -6388,5 +6496,60 @@ body.report-only-mode .topbar-actions button,
 @media (max-width: 600px) {
   .report-only-mode #supervisorFilterForm > label:has(#supervisorDateFilter) {
     grid-column: 1 / -1;
+  }
+}
+
+/* Keep daily actions prominent; preferences remain direct, quiet touch targets. */
+body.report-only-mode .topbar-actions :is(#languageToggleButton, #themeToggleButton, #logoutButton, #installButton) {
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 10px;
+  background: transparent;
+  border-color: var(--line);
+  color: var(--topbar-text);
+  box-shadow: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+body.report-only-mode .topbar-actions :is(#languageToggleButton, #themeToggleButton, #logoutButton, #installButton):hover {
+  background: var(--surface-quiet);
+  border-color: var(--line-strong);
+}
+
+.report-only-mode .admin-workspace-header .eyebrow {
+  display: none;
+}
+
+.report-only-mode .admin-workspace-header h2 {
+  margin: 0;
+}
+
+.report-only-mode .admin-workspace-header {
+  padding: 12px 18px;
+}
+
+.report-only-mode #reportTemplateAvailability {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.report-only-mode .report-photo-field > small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+@media (max-width: 979px) {
+  body.report-only-mode .topbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  body.report-only-mode .sync-indicator {
+    flex: 1 1 100%;
   }
 }

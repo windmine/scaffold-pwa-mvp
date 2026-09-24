@@ -9,6 +9,7 @@ import sys
 from tempfile import TemporaryDirectory
 import time
 from datetime import datetime, timedelta, timezone
+from http.cookies import SimpleCookie
 import jwt
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
@@ -66,9 +67,10 @@ class InvitationServer:
         self.process.wait(timeout=15)
         self.directory.cleanup()
 
-    def request(self, method, path, payload=None, token=None):
+    def request(self, method, path, payload=None, token=None, headers=None):
         request = Request(self.base_url + path, method=method,
-                          data=json.dumps(payload).encode() if payload is not None else None)
+                          data=json.dumps(payload).encode() if payload is not None else None,
+                          headers=headers or {})
         if payload is not None:
             request.add_header("Content-Type", "application/json")
         if token:
@@ -81,8 +83,8 @@ class InvitationServer:
             body = response.read()
             return response.status, json.loads(body) if body else None, response.headers
 
-    def expect(self, method, path, payload, expected, token=None):
-        status, body, headers = self.request(method, path, payload, token)
+    def expect(self, method, path, payload, expected, token=None, headers=None):
+        status, body, headers = self.request(method, path, payload, token, headers)
         # Never include response payloads: successful issuance contains a credential.
         assert status == expected, f"{method} {path}: expected {expected}, got {status}"
         return body, headers
@@ -110,6 +112,68 @@ def test_worker_sets_their_own_password(server):
     }, 200)
     assert signed_in["user"]["password_setup_required"] is False
     print("ok - invited Worker chooses a password then signs in normally")
+
+
+def test_password_setup_continuation_preserves_existing_browser_sessions(server):
+    invitation = server.invite("continue-setup@example.com")
+    _, acceptance_headers = server.expect("POST", "/auth/worker-invitations/accept", {
+        "token": invitation["token"], "password": "ContinueWorkerPassword!",
+    }, 200)
+    assert not acceptance_headers.get_all("Set-Cookie"), "Acceptance must remain cookie-free"
+    payload = {"email": invitation["user"]["email"], "password": "ContinueWorkerPassword!",
+               "only_if_signed_out": True}
+    signed_in, headers = server.expect("POST", "/auth/login", payload, 200)
+    cookies = SimpleCookie()
+    for cookie in headers.get_all("Set-Cookie", []):
+        cookies.load(cookie)
+    assert signed_in["user"]["email"] == invitation["user"]["email"]
+    assert cookies["__session"]["httponly"] and cookies["geo_csrf_token"].value
+    session_cookie = f"__session={server.supervisor}"
+    for existing_credentials in (
+        {"Cookie": session_cookie}, {"Cookie": "__session=invalid-or-expired"},
+        {"Cookie": "__session="}, {"Cookie": "geo_access_token=legacy"},
+        {"Cookie": "geo_access_token="}, {"Authorization": f"Bearer {server.supervisor}"},
+        {"Authorization": ""},
+    ):
+        body, headers = server.expect("POST", "/auth/login", payload, 409, headers=existing_credentials)
+        assert body["detail"]["code"] == "browser_session_present"
+        assert not headers.get_all("Set-Cookie"), "Guarded continuation must not replace or clear credentials"
+    current, _ = server.expect("GET", "/auth/me", None, 200, headers={"Cookie": session_cookie})
+    assert current["email"] == "supervisor@example.com"
+    # This guard is opt-in. Ordinary explicit sign-in retains its existing behavior.
+    for ordinary_payload in (
+        {key: value for key, value in payload.items() if key != "only_if_signed_out"},
+        {**payload, "only_if_signed_out": False},
+    ):
+        result, headers = server.expect("POST", "/auth/login", ordinary_payload, 200,
+                                        headers={"Cookie": session_cookie})
+        assert result["user"]["email"] == invitation["user"]["email"]
+        assert headers.get_all("Set-Cookie")
+    for invalid_option in ("true", "false", 1, 0, None):
+        _, headers = server.expect("POST", "/auth/login", {**payload, "only_if_signed_out": invalid_option}, 422)
+        assert not headers.get_all("Set-Cookie")
+    for continuation_payload in (
+        {key: value for key, value in payload.items() if key != "only_if_signed_out"},
+        {**payload, "only_if_signed_out": False}, payload,
+    ):
+        result, headers = server.expect("POST", "/auth/login/after-setup", continuation_payload, 200)
+        assert result["user"]["email"] == invitation["user"]["email"]
+        assert headers.get_all("Set-Cookie")
+        assert headers.get("Cache-Control") == "private, no-store"
+        assert headers.get("Referrer-Policy") == "no-referrer"
+        for existing_credentials in (
+            {"Cookie": session_cookie}, {"Cookie": "__session=invalid-or-expired"},
+            {"Cookie": "__session="}, {"Cookie": "geo_access_token=legacy"},
+            {"Cookie": "geo_access_token="}, {"Authorization": f"Bearer {server.supervisor}"},
+            {"Authorization": ""},
+        ):
+            body, headers = server.expect("POST", "/auth/login/after-setup", continuation_payload, 409,
+                                          headers=existing_credentials)
+            assert body["detail"]["code"] == "browser_session_present"
+            assert not headers.get_all("Set-Cookie"), "Mandatory continuation guard must preserve credentials"
+            assert headers.get("Cache-Control") == "private, no-store"
+            assert headers.get("Referrer-Policy") == "no-referrer"
+    print("ok - guarded setup continuation signs in only without credentials and preserves normal sign-in")
 
 
 def test_only_latest_unrevoked_invitation_can_be_used(server):
@@ -268,6 +332,7 @@ def test_invitation_expiring_while_accept_waits_for_storage_is_rejected(server):
 if __name__ == "__main__":
     with InvitationServer() as server:
         test_worker_sets_their_own_password(server)
+        test_password_setup_continuation_preserves_existing_browser_sessions(server)
         test_only_latest_unrevoked_invitation_can_be_used(server)
         test_pending_accounts_cannot_bypass_worker_password_setup(server)
         test_staff_changes_permanently_revoke_prior_links(server)

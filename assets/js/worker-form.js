@@ -1078,6 +1078,8 @@ export function createWorkerFormModule({
           if (!isCurrentSubmission() || !state.submittingWorkForm) return;
           setPhotoStatus(phase === 'waiting'
             ? `Upload limit reached. Retrying in ${retryAfterSeconds} seconds. ${completed} of ${total} photos and signatures uploaded.`
+            : phase === 'submitting'
+              ? 'Uploads saved. Finishing submission...'
             : `Uploading photos and signatures: ${completed} of ${total}. Keep this page open.`);
         }
       });

@@ -1,0 +1,22 @@
+{
+  "release": "report-release-20260925",
+  "scope": "Read-only production preflight before source commit and promotion",
+  "status": "passed",
+  "project": "geo-attendance-system-db9ca",
+  "region": "australia-southeast1",
+  "previousRevision": "geo-backend-report50-20260918",
+  "previousTraffic": "100 percent; no tags",
+  "migrationRequired": false,
+  "maintenanceRequired": false,
+  "checks": {
+    "productionHardening": "Strict gate with billing passed; database, GCS, runtime IAM, Monitoring and recovery evidence verified",
+    "existingPresentationBaseline": "presentation-preservation/baseline.json",
+    "sourceUploadExclusions": "No unexpected secrets, runtime databases, uploads, dependencies or generated build output; Dockerfile, requirements.txt and backend/app/main.py included",
+    "initialGitSync": "Fetched origin; zero ahead and zero behind at eabb50713baa7302fed68845e7969dcbb3644f53",
+    "firebaseCliVersion": "15.31.0"
+  },
+  "warnings": [
+    "Existing six-hour Neon recovery history warning remains; no retention, plan, credentials or infrastructure policy changed.",
+    "Physical iOS/Android native sharing, invitation handoff and maximum-size photo testing remain separate manual checks."
+  ]
+}
