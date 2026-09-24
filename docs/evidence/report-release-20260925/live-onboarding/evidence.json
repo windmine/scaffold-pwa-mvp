@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "runId": "live-onboard-20260925a",
+  "nonce": "0785d0d7-1a65-4bfe-b373-646a5d436d5f",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "startedAtUtc": "2026-09-24T23:13:46.806Z",
+  "status": "passed",
+  "scope": "Real Firebase-proxy phone-width Chromium checks; private manual handoff only; not physical-phone verification",
+  "checks": [
+    {
+      "name": "phone_login_recovery_help_and_exact_demo_identity",
+      "status": "passed"
+    },
+    {
+      "name": "manual_private_invitation_share_and_copy_availability",
+      "status": "passed"
+    },
+    {
+      "name": "same_browser_password_setup_preserves_supervisor_session",
+      "status": "passed"
+    },
+    {
+      "name": "clean_browser_password_setup_continues_directly_into_worker",
+      "status": "passed"
+    },
+    {
+      "name": "existing_demo_identity_unchanged_and_no_browser_errors",
+      "status": "passed"
+    }
+  ],
+  "owned": [
+    {
+      "kind": "existing",
+      "workerId": 19,
+      "departmentId": 2
+    },
+    {
+      "kind": "clean",
+      "workerId": 20,
+      "departmentId": 2
+    }
+  ],
+  "cleanup": {
+    "resignedWorkerIds": [
+      19,
+      20
+    ],
+    "failures": []
+  },
+  "scriptSha256": "fcba442462f524483b4a7ea01820e50b14772d553ca97b2d64316375fcf50604",
+  "nativeShareAvailable": false,
+  "completedAtUtc": "2026-09-24T23:14:08.841Z",
+  "browserPageErrors": 0
+}

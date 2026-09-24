@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "scope": "Visual inspection of three anonymous live installer screenshots; not a physical-phone installation test.",
+  "viewport": { "width": 390, "height": 844 },
+  "screenshots": [
+    {
+      "file": "live-installer-english.png",
+      "sha256": "fe918fc0332323390798b432cf19753a8a43b2734591f7006a66e45976f126c6",
+      "review": "English branding, language controls, browser entry, iPhone/Android instructions, QR, Copy link and PDF/PNG/SVG controls remain readable with no overlap or horizontal overflow. Account and pending-Report safety guidance remains visible."
+    },
+    {
+      "file": "live-installer-chinese.png",
+      "sha256": "ae2a4382c73028c28abad7be9a58e7a25471f0ac0da0c197111385e7c3b5e53e",
+      "review": "Chinese text has intact glyphs and readable line wrapping. Controls, QR and download labels stay within the phone-width cards without clipping or overlap."
+    },
+    {
+      "file": "live-installer-offline.png",
+      "sha256": "fe918fc0332323390798b432cf19753a8a43b2734591f7006a66e45976f126c6",
+      "review": "Cold-offline rendering is byte-identical to English online rendering. The complete installer, including logo and QR, remains legible after all previous pages closed."
+    }
+  ],
+  "previewParity": "Each live screenshot is byte-identical to the corresponding reviewed preview screenshot.",
+  "automatedEvidence": "live-installer.json",
+  "automatedChecks": {
+    "installerArtifacts": "All seven artifacts match frozen local SHA-256 and MIME types.",
+    "layout": "390px document width in English, Chinese and cold-offline captures.",
+    "isolation": "No protected requests, page errors, native prompts or service-worker messages."
+  },
+  "limits": [
+    "Anonymous static-only inspection; no account or Report mutation.",
+    "Physical iOS/Android installation, native prompts and camera QR scanning remain unverified."
+  ]
+}

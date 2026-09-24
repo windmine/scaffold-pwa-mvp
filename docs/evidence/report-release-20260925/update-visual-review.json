@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "scope": "Visual inspection of the anonymous live waiting-update, updated and cold-offline screenshots from the root agent's completed probe.",
+  "viewport": { "width": 390, "height": 844 },
+  "screenshots": [
+    {
+      "file": "live-waiting-update-waiting.png",
+      "sha256": "55d434b6cfd6e23be4aef8a3d8d0b4cce7edd6e4d8efec3aebcda10f571577b6",
+      "review": "The previous release remains visible while the new worker waits. Update App is prominent and the full draft-saving-before-reload message is readable. Existing sign-in controls and installation guidance remain intact with no horizontal overlap."
+    },
+    {
+      "file": "live-waiting-update-updated.png",
+      "sha256": "489534251cbf640e0be24c2d2d0b864c7bc930965292c324d2d7a3932b28de09",
+      "review": "The new dark-mode sign-in page is visibly more compact: language/theme controls are quiet, Email/Password and Sign in are clear, and Forgot password, sign-in help and phone installation are collapsed but discoverable. QR guide remains visible. The complete sign-in card fits the initial phone viewport without overlap."
+    },
+    {
+      "file": "live-waiting-update-offline.png",
+      "sha256": "7977aa18481973011ed35f643b4eb06492daed02a449c906357a2b5ff610f97a",
+      "review": "The updated sign-in layout remains intact after a cold-offline launch. The red Offline - submissions will wait cue is visible above the sign-in card; controls and expandable help remain readable without missing assets or overlap."
+    }
+  ],
+  "automatedEvidence": "live-waiting-update.json",
+  "automatedChecks": {
+    "checkpointCount": 4,
+    "oldCache": "leader-field-ed9e6cddf6aa",
+    "newCache": "leader-field-0643513b54a8",
+    "pageErrors": 0,
+    "sensitiveCachedEntries": 0,
+    "blockedWriteAttempts": 0,
+    "coldOfflineAfterAllPreviousPagesClosed": true
+  },
+  "limits": [
+    "Anonymous Chromium evidence only; does not certify physical-phone updates or preservation of an authenticated live draft."
+  ]
+}
