@@ -1,6 +1,6 @@
 import { setTranslatableAttribute, setTranslatableText } from './i18n.js';
 import { createReportPhotoThumbnailCache } from './report-photo-thumbnails.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, formatDateTime } from './utils.js';
 
 let nextPreviewDescriptionId = 0;
 
@@ -14,6 +14,10 @@ export function createPhotoViewer({
   body = document.body
 }) {
   const ownerDocument = viewer.ownerDocument || document;
+  const stage = viewer.querySelector('.photo-viewer-stage');
+  const zoomButton = viewer.querySelector('.photo-viewer-zoom');
+  const errorMessage = viewer.querySelector('.photo-viewer-error');
+  const timestamp = viewer.querySelector('.photo-viewer-timestamp');
   const focusableSelector = [
     'a[href]',
     'area[href]',
@@ -30,12 +34,16 @@ export function createPhotoViewer({
   const state = {
     sources: [],
     index: 0,
-    title: ''
+    title: '',
+    photoMetadata: [],
+    reportGallery: false,
+    zoomed: false
   };
   const inertBackground = new Map();
   const thumbnailCaches = new WeakMap();
   let bound = false;
   let restoreFocusTarget = null;
+  let swipe = null;
 
   function isOpen() {
     return !viewer.classList.contains('hidden');
@@ -98,21 +106,112 @@ export function createPhotoViewer({
     inertBackground.clear();
   }
 
+  function resetZoom() {
+    state.zoomed = false;
+    swipe = null;
+    viewer.classList.remove('photo-viewer-zoomed');
+    image.style.removeProperty('width');
+    image.style.removeProperty('height');
+    if (stage) {
+      stage.scrollLeft = 0;
+      stage.scrollTop = 0;
+    }
+    if (zoomButton) {
+      zoomButton.setAttribute('aria-pressed', 'false');
+      setTranslatableText(zoomButton, 'Zoom in');
+    }
+  }
+
+  function setImageAvailability(loaded) {
+    if (zoomButton) zoomButton.disabled = !loaded;
+    if (errorMessage) {
+      errorMessage.hidden = loaded || !state.reportGallery;
+      setTranslatableText(errorMessage, loaded ? '' : 'Photo could not be loaded.');
+    }
+  }
+
+  function toggleZoom() {
+    if (!state.reportGallery || !stage || !image.naturalWidth || !image.naturalHeight) return;
+    if (state.zoomed) {
+      resetZoom();
+      return;
+    }
+
+    const scale = Math.min(stage.clientWidth / image.naturalWidth, stage.clientHeight / image.naturalHeight);
+    if (!scale) return;
+    state.zoomed = true;
+    swipe = null;
+    viewer.classList.add('photo-viewer-zoomed');
+    image.style.width = `${Math.round(image.naturalWidth * scale * 2)}px`;
+    image.style.height = `${Math.round(image.naturalHeight * scale * 2)}px`;
+    zoomButton.setAttribute('aria-pressed', 'true');
+    setTranslatableText(zoomButton, 'Fit photo');
+    stage.scrollLeft = Math.max(0, (stage.scrollWidth - stage.clientWidth) / 2);
+    stage.scrollTop = Math.max(0, (stage.scrollHeight - stage.clientHeight) / 2);
+  }
+
+  function canSwipe() {
+    return isOpen() && state.reportGallery && !state.zoomed && state.sources.length > 1
+      && Math.abs((ownerDocument.defaultView?.visualViewport?.scale || 1) - 1) < 0.01;
+  }
+
+  function handleTouchStart(event) {
+    if (!canSwipe() || event.touches.length !== 1) {
+      swipe = null;
+      return;
+    }
+    const touch = event.touches[0];
+    swipe = { id: touch.identifier, x: touch.clientX, y: touch.clientY, at: event.timeStamp };
+  }
+
+  function handleTouchMove(event) {
+    if (!swipe) return;
+    const touch = event.touches[0];
+    // Never take over a vertical scroll, pinch, or native browser zoom gesture.
+    if (!canSwipe() || event.touches.length !== 1 || touch.identifier !== swipe.id
+      || Math.abs(touch.clientY - swipe.y) > Math.max(20, Math.abs(touch.clientX - swipe.x))) swipe = null;
+  }
+
+  function handleTouchEnd(event) {
+    const started = swipe;
+    swipe = null;
+    if (!started || !canSwipe() || event.touches.length || event.changedTouches.length !== 1) return;
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - started.x;
+    const dy = touch.clientY - started.y;
+    if (touch.identifier === started.id && event.timeStamp - started.at <= 800
+      && Math.abs(dx) >= 48 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+  }
+
   function render() {
     const { sources, index, title } = state;
     const count = sources.length;
 
+    resetZoom();
+    if (errorMessage) {
+      errorMessage.hidden = true;
+      setTranslatableText(errorMessage, '');
+    }
+    if (zoomButton) zoomButton.disabled = true;
     image.src = sources[index] || '';
+    if (image.complete && image.naturalWidth) setImageAvailability(true);
     setTranslatableAttribute(image, 'alt', `${title} ${index + 1}`);
     setTranslatableText(
       caption,
       count > 1 ? `${title} ${index + 1} of ${count}` : title
     );
+    if (timestamp) {
+      const metadata = state.reportGallery ? state.photoMetadata[index] : null;
+      const takenAt = metadata?.taken_at || metadata?.last_modified_iso;
+      const validTime = takenAt && Number.isFinite(new Date(takenAt).getTime());
+      timestamp.hidden = !validTime;
+      timestamp.textContent = validTime ? formatDateTime(takenAt) : '';
+    }
     previousButton.disabled = count < 2;
     nextButton.disabled = count < 2;
   }
 
-  function open(sources, index = 0, title = 'Photo') {
+  function open(sources, index = 0, title = 'Photo', options = {}) {
     const cleanSources = Array.isArray(sources) ? sources.filter(Boolean) : [];
     if (!cleanSources.length) return;
 
@@ -126,6 +225,15 @@ export function createPhotoViewer({
     state.sources = cleanSources;
     state.index = Math.min(Math.max(index, 0), cleanSources.length - 1);
     state.title = title;
+    state.reportGallery = options.reportGallery === true;
+    state.photoMetadata = state.reportGallery && Array.isArray(options.photoMetadata)
+      ? sources.flatMap((source, sourceIndex) => source ? [options.photoMetadata[sourceIndex]] : []) : [];
+    viewer.classList.toggle('photo-viewer-report-gallery', state.reportGallery);
+    if (zoomButton) zoomButton.hidden = !state.reportGallery || !stage;
+    if (stage) {
+      stage.tabIndex = state.reportGallery ? 0 : -1;
+      setTranslatableAttribute(stage, 'aria-label', title);
+    }
 
     render();
     viewer.classList.remove('hidden');
@@ -135,7 +243,9 @@ export function createPhotoViewer({
   }
 
   function close({ restoreFocus = true } = {}) {
+    resetZoom();
     viewer.classList.add('hidden');
+    viewer.classList.remove('photo-viewer-report-gallery');
     body.classList.remove('viewer-open');
     image.removeAttribute('src');
     setTranslatableAttribute(image, 'alt', '');
@@ -143,6 +253,18 @@ export function createPhotoViewer({
     state.sources = [];
     state.index = 0;
     state.title = '';
+    state.photoMetadata = [];
+    if (timestamp) {
+      timestamp.hidden = true;
+      timestamp.textContent = '';
+    }
+    state.reportGallery = false;
+    if (stage) stage.tabIndex = -1;
+    if (zoomButton) zoomButton.hidden = true;
+    if (errorMessage) {
+      errorMessage.hidden = true;
+      setTranslatableText(errorMessage, '');
+    }
     previousButton.disabled = true;
     nextButton.disabled = true;
     restoreBackgroundInteraction();
@@ -191,9 +313,11 @@ export function createPhotoViewer({
         focusElement(firstElement);
       }
     } else if (event.key === 'ArrowLeft') {
+      if (state.zoomed && event.target === stage) return;
       event.preventDefault();
       step(-1);
     } else if (event.key === 'ArrowRight') {
+      if (state.zoomed && event.target === stage) return;
       event.preventDefault();
       step(1);
     }
@@ -279,6 +403,16 @@ export function createPhotoViewer({
     closeButton.addEventListener('click', close);
     previousButton.addEventListener('click', () => step(-1));
     nextButton.addEventListener('click', () => step(1));
+    zoomButton?.addEventListener('click', toggleZoom);
+    image.addEventListener('load', () => { if (isOpen()) setImageAvailability(true); });
+    image.addEventListener('error', () => { if (isOpen()) setImageAvailability(false); });
+    stage?.addEventListener('touchstart', handleTouchStart, { passive: true });
+    stage?.addEventListener('touchmove', handleTouchMove, { passive: true });
+    stage?.addEventListener('touchend', handleTouchEnd, { passive: true });
+    stage?.addEventListener('touchcancel', () => { swipe = null; }, { passive: true });
+    ownerDocument.defaultView?.addEventListener('resize', () => {
+      if (isOpen() && state.zoomed) resetZoom();
+    });
     viewer.addEventListener('click', (event) => {
       if (event.target.matches('[data-photo-viewer-close]')) {
         close();

@@ -1592,12 +1592,19 @@
       <div class="photo-viewer-backdrop" data-photo-viewer-close></div>
       <div class="photo-viewer-panel">
         <div class="photo-viewer-toolbar">
-          <p id="photoViewerCaption">Photo</p>
+          <div class="photo-viewer-heading">
+            <p id="photoViewerCaption" aria-live="polite" aria-atomic="true">Photo</p>
+            <p class="photo-viewer-timestamp" hidden></p>
+          </div>
           <button id="closePhotoViewerButton" type="button" class="ghost">Close</button>
         </div>
-        <img id="photoViewerImage" src="" alt="Expanded record photo" />
+        <div class="photo-viewer-stage" role="group" tabindex="-1" aria-label="Photo">
+          <img id="photoViewerImage" alt="Expanded record photo" />
+          <p class="photo-viewer-error" role="status" hidden></p>
+        </div>
         <div class="photo-viewer-actions">
           <button id="previousPhotoButton" type="button" class="ghost">Previous</button>
+          <button class="photo-viewer-zoom ghost" type="button" aria-pressed="false" hidden>Zoom in</button>
           <button id="nextPhotoButton" type="button" class="ghost">Next</button>
         </div>
       </div>

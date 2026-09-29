@@ -355,14 +355,40 @@ async function assertPhoneLayout(page) {
     'phone_horizontal_overflow');
 }
 
-async function assertRenderedEvidence(container, expectedCount = 2) {
+export async function assertRenderedEvidence(container, expectedCount = 2) {
+  const gallery = container.locator('.report-photo-gallery');
+  const compact = await gallery.count() === 1;
+  const photoCount = expectedCount - 1; // This owned fixture also requires one signature.
   const images = container.locator('img');
-  requireCondition(await images.count() === expectedCount, 'rendered_evidence_image_count_mismatch');
+  requireCondition(await images.count() === (compact ? Math.min(photoCount, 6) + 1 : expectedCount),
+    'rendered_evidence_image_count_mismatch');
   // Lazy originals deliberately do not decode until near the viewport.
   for (const image of await images.all()) {
     await image.scrollIntoViewIfNeeded();
     await poll(() => image.evaluate((element) => element.complete && element.naturalWidth > 0),
       'rendered_evidence_images_missing');
+  }
+  if (compact) {
+    requireCondition(await gallery.locator('.report-photo-gallery-count').textContent() === `${photoCount} photos`,
+      'compact_gallery_total_mismatch');
+    requireCondition(await gallery.locator('.report-photo-gallery-open').count() === (photoCount > 6 ? 1 : 0),
+      'compact_gallery_disclosure_mismatch');
+    const page = container.page();
+    if (photoCount > 6) await gallery.getByRole('button', { name: `View all ${photoCount} photos`, exact: true }).click();
+    else await gallery.locator('[data-photo-index]').first().click();
+    const viewerImage = page.locator('#photoViewerImage');
+    try {
+      for (let index = 0; index < photoCount; index += 1) {
+        await poll(async () => {
+          const caption = await page.locator('#photoViewerCaption').textContent();
+          return (photoCount === 1 || caption.endsWith(` ${index + 1} of ${photoCount}`))
+            && await viewerImage.evaluate((element) => element.complete && element.naturalWidth > 0);
+        }, 'compact_gallery_original_unavailable');
+        if (index + 1 < photoCount) await page.locator('#nextPhotoButton').click();
+      }
+    } finally {
+      await page.locator('#closePhotoViewerButton').click();
+    }
   }
 }
 

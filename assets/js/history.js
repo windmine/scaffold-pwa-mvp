@@ -14,6 +14,7 @@ import { formatWorkFormAnswer, localAnswerImageSources } from './work-form-field
 import { setDateInputValue } from './date-inputs.js';
 import { setTranslatableText } from './i18n.js';
 import { createPhotoPreviewSources, reportPhotoSources } from './report-photo-evidence.js';
+import { mountReportPhotoGallery } from './report-photo-gallery.js';
 
 function getBackendSiteId(siteId) {
   if (!siteId) return null;
@@ -1034,6 +1035,7 @@ export function createHistoryModule({
       }
 
       const extra = node.querySelector('.record-extra');
+      const compactPhotoGallery = record.type === 'form' && recordSubmissionPurpose(record) === 'report';
       const photoPreviews = createPhotoPreviewSources(reportPhotoSources(record));
       const photoSources = photoPreviews.urls;
       const photoMetadata = Array.isArray(record.photoMetadata) ? record.photoMetadata : [];
@@ -1079,14 +1081,26 @@ export function createHistoryModule({
             <img src="${escapeHtml(signature.src)}" alt="${escapeHtml(signature.label)}" />
           </button>
         `).join('')}</div>` : ''}
-        ${photoSources.length ? `<div class="record-photos">${photoSources.map((photoSrc, index) => `
+        ${photoSources.length && compactPhotoGallery ? '<div class="report-photo-gallery"></div>' : ''}
+        ${photoSources.length && !compactPhotoGallery ? `<div class="record-photos">${photoSources.map((photoSrc, index) => `
           <button class="photo-thumb" type="button" data-photo-index="${index}">
             <img ${index >= 8 ? 'loading="lazy" ' : ''}decoding="async" src="${escapeHtml(photoSrc)}" alt="Record photo ${index + 1}" />
             ${photoMetadata[index]?.taken_at || photoMetadata[index]?.last_modified_iso ? `<span class="photo-time">${escapeHtml(formatDateTime(photoMetadata[index].taken_at || photoMetadata[index].last_modified_iso))}</span>` : ''}
           </button>
         `).join('')}</div>` : ''}
       `;
+      if (photoSources.length && compactPhotoGallery) {
+        const gallerySession = sessionGeneration;
+        const scope = () => JSON.stringify([state.user?.id, state.user?.role,
+          state.user?.departmentId, state.user?.isGlobalAdmin, state.departmentFocusId]);
+        const galleryScope = scope();
+        registerRecordCleanup(container, mountReportPhotoGallery(extra.querySelector('.report-photo-gallery'), {
+          sources: photoSources, metadata: photoMetadata, title, photoViewer,
+          isCurrent: () => gallerySession === sessionGeneration && galleryScope === scope()
+        }));
+      }
       extra.querySelectorAll('[data-photo-index]').forEach((button) => {
+        if (compactPhotoGallery) return;
         button.addEventListener('click', () => {
           photoViewer.open(photoSources, Number(button.dataset.photoIndex || 0), title);
         });

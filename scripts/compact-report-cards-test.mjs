@@ -99,7 +99,7 @@ try {
   await page.locator('#historySearchInput').fill('Secret full answer');
   await page.locator('.record-disclosure-button').click();
   assert.equal(await page.locator('.record-disclosure-button').getAttribute('aria-expanded'), 'true');
-  assert.equal(await page.locator('#historyList .record-photos img').count(), 50);
+  assert.equal(await page.locator('#historyList .record-photos img').count(), 6);
   assert.equal(await page.locator('#historyList .record-signatures img').count(), 1);
   assert.match(await page.locator('#historyList .record-report-details').textContent(), /Secret full answer searchable/);
   assert.equal(await page.locator('#historyList .record-title').count(), 1);
@@ -208,14 +208,14 @@ try {
     fixture.module.renderRecordsList(document.getElementById('detailList'), [fixture.base]);
   });
   assert.equal(await page.locator('#detailList .record-report-compact').count(), 0);
-  assert.equal(await page.locator('#detailList .record-photos img').count(), 50);
+  assert.equal(await page.locator('#detailList .record-photos img').count(), 6);
   await page.evaluate(() => {
     const fixture = window.fixture;
     fixture.module.renderRecordsList(document.getElementById('detailList'), [{ ...fixture.base, submissionPurpose: 'daywork' }], { compactReports: true });
   });
   assert.equal(await page.locator('#detailList .record-report-compact').count(), 0);
   assert.equal(await page.locator('#detailList .record-photos img').count(), 50);
-  console.log('ok - Supervisor full detail and retained Daywork renderer remain full and unchanged');
+  console.log('ok - Supervisor Report detail uses six photo previews while retained Daywork stays unchanged');
 
   await page.evaluate(() => {
     const { module, base } = window.fixture;

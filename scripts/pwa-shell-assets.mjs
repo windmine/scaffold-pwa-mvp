@@ -46,6 +46,7 @@ export const appShell = Object.freeze([
   '/assets/js/worker-form.js',
   '/assets/js/report-drafts.js',
   '/assets/js/report-photo-evidence.js',
+  '/assets/js/report-photo-gallery.js',
   '/assets/js/report-photo-thumbnails.js',
   '/assets/js/report-submit-review.js',
   '/assets/js/report-template-drafts.js',

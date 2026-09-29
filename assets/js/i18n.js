@@ -37,6 +37,9 @@ const LANGUAGE_META = {
 };
 
 const ZH_TEXT = {
+  'Zoom in': '放大',
+  'Fit photo': '适合屏幕',
+  'Photo could not be loaded.': '无法加载照片。',
   'Search Templates': '搜索模板',
   'Name or description': '名称或描述',
   'Template status': '模板状态',
@@ -1241,6 +1244,9 @@ const ZH_PATTERNS = [
   [/^(.+) must come after: (.+)\.$/, (match) => `${translateText(match[1], 'zh')}必须位于以下字段之后：${match[2]}。`],
   [/^Report Templates can include up to (\d+) fields\.?$/, (match) => `每个报告模板最多可包含 ${match[1]} 个字段。`],
   [/^(\d+) photos$/, (match) => `${match[1]} 张照片`],
+  [/^View all (\d+) photos$/, (match) => `查看全部 ${match[1]} 张照片`],
+  [/^Open photo (\d+) of (\d+)$/, (match) => `打开照片 ${match[1]} / ${match[2]}`],
+  [/^Photo (\d+) of (\d+)\. Preview unavailable\. Open original\.$/, (match) => `照片 ${match[1]} / ${match[2]}。无法预览，打开原图。`],
   [/^(\d+)\/(\d+) matching records loaded$/, (match) => `已加载 ${match[1]}/${match[2]} 条匹配记录`],
   [/^Reports can include up to (\d+) photos\.?$/, (match) => `每份报告最多可包含 ${match[1]} 张照片。`],
   [/^Up to (\d+) photos\. You can select them together\.$/, (match) => `最多 ${match[1]} 张照片，可一次选择。`],

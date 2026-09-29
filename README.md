@@ -29,6 +29,12 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
+## Local Compact Photo Gallery - 2026-09-30 (not deployed)
+
+Expanded Worker Reports and Supervisor Report details now show at most six photo previews instead of a long list. **View all** opens all original photos in order, with each photo's recorded timestamp when available. The Report viewer supports horizontal swipe, Previous/Next, keyboard arrows and **Zoom in / Fit photo**; zoomed photos can be panned. Missing images show a clear message, and closing restores focus to the opener.
+
+Signatures, original files, New Report photo selection, offline replay and PDF/HTML/CSV exports are unchanged. Temporary image URLs are released when details close or the session changes. The retained Daywork viewer keeps its existing behavior. Run `npm run check:report-gallery`; it is also included in `check:mobile`. This frontend-only change needs no migration. Physical-phone gesture and maximum-photo-capacity testing remain separate from browser automation.
+
 ## Current Live Release - Report UX and Private Recovery, 2026-09-29
 
 Source `3fc9708325d02fef5565ad684b69275c54543b41` is committed, pushed and deployed. Backend `geo-backend-recovery-20260929` serves 100% without tags: build `c6d4b0c0-0850-40ee-9de4-2a7e6a9dbbbc`, image `sha256:49518231873062d6f745890f1d9184400f1df229d648e13ef4da65d883b53599`. Exact Hosting `adb5a717d76f2644` was cloned from `release-20260929` at **2026-09-29T01:25:18.146Z**; production cache `leader-field-d8c377e7a8c9`, source cache `leader-field-d5e6c62eeb82`. The five improvements below are live. See the [release record](docs/evidence/report-release-20260929/release.json).

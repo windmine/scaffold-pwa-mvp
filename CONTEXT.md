@@ -72,6 +72,9 @@ The Worker's final read-only summary of Template, Report Date, optional Site, an
 **Photo selection** (released 2026-09-29):
 Mixed batches retain valid files in order and name rejected files with type, size or capacity reasons. Serial, maximum-320-pixel editor thumbnails are disposable display copies; drafts, the original viewer and upload requests retain original File/Blob bytes. This does not certify physical-phone capacity for 50 near-5-MB originals.
 
+**Photo gallery** (local 2026-09-30; not deployed):
+The read-only evidence view in an expanded Worker Report or Supervisor Report detail. At most six previews are shown; View all opens the full original sequence with Report-mode swipe/zoom controls. Gallery state and Blob URLs are temporary and belong to the current rendered record/session. Closing, replacing or clearing that record releases its URLs and viewer. It does not alter evidence, metadata, signatures, photo selection, replay or exports, and does not apply to retained Daywork.
+
 **Report workflow**:
 The forward-only state machine **Submitted → In review → Resolved**. An authorised Department Supervisor starts review and resolves with a required final Supervisor note. Report transitions are separate from legacy approve/reject decisions, atomic, and audit-logged.
 _Avoid_: Pending, approved, rejected, approval, or rejection when describing a Report state
