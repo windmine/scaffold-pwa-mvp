@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-09-29T01:03:45Z",
+  "sourceCommit": "3fc9708325d02fef5565ad684b69275c54543b41",
+  "scope": "Hosted UX verifier only; no app source, deployed image, cloud configuration or existing account changes",
+  "originalFailure": {
+    "evidence": "stage-ux-a/evidence.json",
+    "checkpoint": "template_library_search_lifecycle_and_preview",
+    "code": "template_name_search_not_exact",
+    "causeEstablished": false,
+    "detail": "The original hosted failure had no DOM-state diagnostics. An unchanged diagnostic retry passed all nine checks, so the original cause is not claimed as proven."
+  },
+  "controlledReproduction": {
+    "command": "node scripts/hosted-report-ux-release-harness-test.mjs",
+    "network": "Fully intercepted local fixture; no server or live requests",
+    "module": "assets/js/staff-sites.js",
+    "ordering": "Create module with user:null as app-shell-state does, bind events, restore Supervisor identity, reveal Templates workspace, hold initial catalog render, type query",
+    "observations": [
+      "Template search is visible and enabled before the first catalog render",
+      "The input event invokes renderWorkFormsList; changed identity scope resets the typed query",
+      "With two active fixtures, both cards remain and the original exact-count symptom is reproduced",
+      "An initially authenticated module does not reproduce the query loss; identity-restoration ordering is required"
+    ],
+    "preFixResult": "Failed the verifier readiness regression: fill attempted with zero rendered cards, before the initial catalog barrier",
+    "postFixResult": "Passed exact owned-card search and query preservation after waiting for initial catalog",
+    "knownUserExperienceLimitation": "A very early search interaction on initial load can lose its query before identity-scoped initialization finishes. This is a minor real UI timing limitation, not solely a verifier defect; app code remains unchanged in this release."
+  },
+  "verifierCorrection": {
+    "file": "scripts/check-hosted-report-ux-release.mjs",
+    "sha256": "a9ca0a5268cb158960857ddbfb276e9fcd57dcf8eb00c36bc59ed276555ba8e9",
+    "description": "Await the exact owned Template card before entering the search query. Preserve the strict one-card assertion and add exact query and owned-card assertions.",
+    "timeoutsIncreased": false,
+    "retryOrRetypeAdded": false,
+    "debugInstrumentationRemoved": true
+  },
+  "regression": {
+    "file": "scripts/hosted-report-ux-release-harness-test.mjs",
+    "sha256": "587e86e08e06826a9145f0932f2cdc6d0fb6b22bf9127f26802feeacae68291e",
+    "status": "passed"
+  },
+  "checks": [
+    { "command": "node scripts/hosted-report-ux-release-harness-test.mjs", "status": "passed" },
+    { "command": "node scripts/hosted-report-ux-release-guard-test.mjs", "status": "passed" },
+    { "command": "npm run lint", "status": "passed" },
+    { "command": "git diff --check", "status": "passed", "warnings": "Existing unrelated PowerShell/Python source files have LF-to-CRLF conversion notices" }
+  ]
+}

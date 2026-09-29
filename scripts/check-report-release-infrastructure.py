@@ -36,7 +36,7 @@ def runtime_config(spec):
     return result
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--phase", choices=("candidate", "live"), required=True)
     parser.add_argument("--previous", required=True)
@@ -44,7 +44,9 @@ def main():
     parser.add_argument("--build", required=True)
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--evidence", type=Path, required=True)
-    args = parser.parse_args()
+    parser.add_argument("--migration-required", action="store_true",
+                        help="Record that this coupled release requires a database migration.")
+    args = parser.parse_args(argv)
     require(not args.evidence.exists(), "new_evidence_required")
     require(all(re.fullmatch(r"geo-backend-[a-z0-9-]+", value)
         for value in (args.previous, args.revision)), "exact_revision_names_required")
@@ -79,7 +81,7 @@ def main():
         for path in sorted((ROOT / "backend/migrations/versions").glob("[0-9]*.py"))}
     proof = {"status": "passed", "phase": args.phase, "checkedAtUtc": datetime.now(timezone.utc).isoformat(),
         "sourceCommit": args.source_commit, "buildId": args.build, "image": image, "revision": args.revision,
-        "previousRevision": args.previous, "runtimeConfigurationUnchanged": True, "migrationRequired": False,
+        "previousRevision": args.previous, "runtimeConfigurationUnchanged": True, "migrationRequired": args.migration_required,
         "localMigrationLedger": ledger, "traffic": traffic, "revisionLogEntries": len(entries),
         "errorOr5xxLogEntries": len(errors), "buildSource": build["source"]["storageSource"],
         "createdAtUtc": new["metadata"]["creationTimestamp"]}
@@ -88,7 +90,8 @@ def main():
         json.dump(proof, target, indent=2)
         target.write("\n")
     print(json.dumps({"status": "passed", "phase": args.phase, "revision": args.revision,
-        "logEntries": len(entries), "errors": 0, "configurationUnchanged": True, "image": image}))
+        "logEntries": len(entries), "errors": 0, "configurationUnchanged": True,
+        "migrationRequired": args.migration_required, "image": image}))
 
 
 if __name__ == "__main__":

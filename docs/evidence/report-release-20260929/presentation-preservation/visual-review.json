@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "recordedAtUtc": "2026-09-29T01:30:13Z",
+  "scope": "Read-only visual QA of existing presentation PDFs; no PDF design or record edits",
+  "renderParityEvidence": "render-parity.json",
+  "reviewedPages": 18,
+  "method": "Inspected the first A4 page at full-page size and all three six-page contact sheets rendered by Poppler; candidate and live pixels match on all 18 pages.",
+  "observations": "Department logo, tables, answers, signatures, photos, review notes and page footers remain legible and aligned, without observed clipping or overlap.",
+  "rendererWarnings": "Poppler reported unavailable Symbol/ArialUnicode display fallback fonts; no corresponding missing glyph or layout defect was observed in the rendered presentation fixtures.",
+  "physicalPhonePdfViewerVerified": false
+}

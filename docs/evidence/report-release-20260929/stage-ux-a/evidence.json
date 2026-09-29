@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "runId": "stage-ux-20260929a",
+  "nonce": "192ff65b-3daa-415c-bf18-1149047c2e3c",
+  "origin": "https://geo-attendance-system-db9ca--stage-20260929-49zfhj76.web.app",
+  "startedAtUtc": "2026-09-29T00:53:50.088Z",
+  "status": "failed",
+  "checks": [
+    {
+      "name": "hosted_readiness_and_exact_demo_supervisor",
+      "status": "passed"
+    },
+    {
+      "name": "new_nonce_owned_worker_and_template",
+      "status": "passed"
+    }
+  ],
+  "owned": {
+    "departmentId": 2,
+    "workerId": 21,
+    "templateId": 16
+  },
+  "scope": "Real Firebase-proxy Chromium at 390px; new nonce-owned Worker only; not physical-phone or maximum-size-photo certification",
+  "scriptSha256": "507f084b853a2e60e94df1fa957eefd122302c0c272c1cbdfe77f7f69c7d666b",
+  "cleanup": {
+    "reportTrashed": false,
+    "templateArchived": true,
+    "workerResigned": true,
+    "failures": []
+  },
+  "failure": {
+    "checkpoint": "template_library_search_lifecycle_and_preview",
+    "code": "template_name_search_not_exact"
+  },
+  "browserPageErrors": 0,
+  "completedAtUtc": "2026-09-29T00:54:06.615Z"
+}

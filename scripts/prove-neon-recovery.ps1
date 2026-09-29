@@ -123,12 +123,20 @@ function Remove-ProofBranch([string]$ProjectId, [string]$BranchId) {
   return [pscustomobject]@{ Deleted = $true; OperationIds = $operationIds }
 }
 
-function Parse-Utc([string]$Value, [string]$FieldName) {
+function Parse-Utc($Value, [string]$FieldName) {
   if (-not $Value) {
     throw "$FieldName is unavailable"
   }
   try {
-    return [DateTime]::Parse($Value).ToUniversalTime()
+    # PowerShell 7.5 ConvertFrom-Json materializes ISO timestamps as DateTime.
+    # Stringifying that value loses its UTC Kind before a second local parse.
+    if ($Value -is [DateTimeOffset]) { return $Value.UtcDateTime }
+    if ($Value -is [DateTime]) {
+      if ($Value.Kind -eq [DateTimeKind]::Unspecified) { throw 'Timezone required' }
+      return $Value.ToUniversalTime()
+    }
+    if ([string]$Value -notmatch '(Z|[+-]\d{2}:\d{2})$') { throw 'Timezone required' }
+    return [DateTimeOffset]::Parse([string]$Value, [Globalization.CultureInfo]::InvariantCulture).UtcDateTime
   } catch {
     throw "$FieldName is invalid"
   }
@@ -149,9 +157,9 @@ function Test-ProofBranchOwnership(
     return $false
   }
   try {
-    $createdAt = Parse-Utc ([string]$Branch.created_at) "Proof ownership creation time"
-    $parentTimestamp = Parse-Utc ([string]$Branch.parent_timestamp) "Proof ownership parent timestamp"
-    $expiresAt = Parse-Utc ([string]$Branch.expires_at) "Proof ownership expiry"
+    $createdAt = Parse-Utc $Branch.created_at "Proof ownership creation time"
+    $parentTimestamp = Parse-Utc $Branch.parent_timestamp "Proof ownership parent timestamp"
+    $expiresAt = Parse-Utc $Branch.expires_at "Proof ownership expiry"
     return (
       (-not $ExpectedId -or [string]$Branch.id -eq $ExpectedId) -and
       [string]$Branch.name -eq $ExpectedName -and
@@ -323,9 +331,9 @@ try {
   }
   $branchOwned = $true
 
-  $actualParentTimestamp = Parse-Utc ([string]$proofBranch.parent_timestamp) "Proof parent timestamp"
-  $actualExpiresAt = Parse-Utc ([string]$proofBranch.expires_at) "Proof branch expiry"
-  $actualCreatedAt = Parse-Utc ([string]$proofBranch.created_at) "Proof branch creation time"
+  $actualParentTimestamp = Parse-Utc $proofBranch.parent_timestamp "Proof parent timestamp"
+  $actualExpiresAt = Parse-Utc $proofBranch.expires_at "Proof branch expiry"
+  $actualCreatedAt = Parse-Utc $proofBranch.created_at "Proof branch creation time"
   $parentDeltaSeconds = [Math]::Abs(($actualParentTimestamp - $requestedRestorePoint).TotalSeconds)
   $expiryDeltaSeconds = [Math]::Abs(($actualExpiresAt - $requestedExpiresAt).TotalSeconds)
   if ($parentDeltaSeconds -gt 120 -or $actualParentTimestamp -ge $startedAt.AddMinutes(-1)) {

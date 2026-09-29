@@ -75,6 +75,28 @@ def inventory():
                 })
             cursor.execute('SELECT role, status, count(*) FROM public."user" GROUP BY role, status ORDER BY role, status')
             user_counts = [dict(zip(("role", "status", "count"), row)) for row in cursor.fetchall()]
+            # Hash, never publish, existing credentials so an additive recovery
+            # migration can be proven not to rotate any account's password.
+            cursor.execute('SELECT id, password_hash FROM public."user" ORDER BY id')
+            account_credentials_hash = digest(cursor.fetchall())
+            cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='user'")
+            user_columns = {row[0] for row in cursor.fetchall()}
+            recovery_columns = {"password_recovery_generation", "auth_generation", "legacy_auth_allowed"}
+            recovery_schema = {"columnsPresent": sorted(recovery_columns & user_columns)}
+            if recovery_columns <= user_columns:
+                cursor.execute('''SELECT count(*),
+                    count(*) FILTER (WHERE auth_generation = 0),
+                    count(*) FILTER (WHERE password_recovery_generation = 0),
+                    count(*) FILTER (WHERE legacy_auth_allowed = TRUE),
+                    count(*) FILTER (WHERE auth_generation IS NULL OR password_recovery_generation IS NULL OR legacy_auth_allowed IS NULL)
+                    FROM public."user"''')
+                recovery_schema.update(dict(zip(("accountCount", "zeroAuthGenerationCount", "zeroRecoveryGenerationCount",
+                                                   "legacyAllowedCount", "nullSecurityStateCount"), cursor.fetchone())))
+            cursor.execute("SELECT to_regclass('public.workerpasswordrecovery') IS NOT NULL")
+            recovery_schema["tablePresent"] = cursor.fetchone()[0]
+            if recovery_schema["tablePresent"]:
+                cursor.execute("SELECT count(*) FROM public.workerpasswordrecovery")
+                recovery_schema["recoveryRowCount"] = cursor.fetchone()[0]
             cursor.execute("SELECT count(*) FROM public.auditevent")
             audit_count = cursor.fetchone()[0]
     return {
@@ -94,6 +116,8 @@ def inventory():
         "immutableSubmissionsSha256": digest(submissions),
         "missingSnapshots": missing,
         "userCounts": user_counts,
+        "accountCredentialsSha256": account_credentials_hash,
+        "recoverySchema": recovery_schema,
         "auditCount": audit_count,
     }
 

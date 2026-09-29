@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "recordedAtUtc": "2026-09-29T01:29:13.822804+00:00",
+  "scope": "Read-only candidate/live PDF rendering and pixel parity; visual review recorded separately",
+  "pages": 18,
+  "pixelIdenticalPages": 18,
+  "checks": [
+    {
+      "page": "live-single-1.png",
+      "pixelSha256": "37a08a2a1500dc57dfa187ef3c2a08ab337eb18037fbe50290c758f70e0b7a07",
+      "identical": true
+    },
+    {
+      "page": "live-single-2.png",
+      "pixelSha256": "1f1098b5258ebb6e08e77b24e93975d6b553ea5119acb49cd963247e8d583c8e",
+      "identical": true
+    },
+    {
+      "page": "live-collection-01.png",
+      "pixelSha256": "fc71582b8bef744a16319403f2aaf2f2c262f209faa75866bcfed77d381363f2",
+      "identical": true
+    },
+    {
+      "page": "live-collection-02.png",
+      "pixelSha256": "d8a5381c43ea1b7347e16153eb7960cf964ebb6c201561ff3bd5285a6ce48ac9",
+      "identical": true
+    },
+    {
+      "page": "live-collection-03.png",
+      "pixelSha256": "e43497716fe9b8d9aeafbfb5a33696ba9908f45f33ba90fa55f98bfb6dc76215",
+      "identical": true
+    },
+    {
+      "page": "live-collection-04.png",
+      "pixelSha256": "660546ac0ddb88fdcba626e77206bd0e97fa9ee080c8c92aa32f035382d7962f",
+      "identical": true
+    },
+    {
+      "page": "live-collection-05.png",
+      "pixelSha256": "e58ffd5a8e6d51ccc819acf471ce056083de6835f0c9cda6ca8d849a3c91078e",
+      "identical": true
+    },
+    {
+      "page": "live-collection-06.png",
+      "pixelSha256": "4e0a7fb39fc4d37cf52c1507928a05e1c052000ea4b6e3f23a08789d44b06dfe",
+      "identical": true
+    },
+    {
+      "page": "live-collection-07.png",
+      "pixelSha256": "e06d88dd65f2358ea8415ae8963d1e5c20c5624a53c5195517acab31b8aa86e0",
+      "identical": true
+    },
+    {
+      "page": "live-collection-08.png",
+      "pixelSha256": "0418c7bb2dd8593c52956e03aa3d21a8c73df0864d68a1b4c95e7c143d20ccbd",
+      "identical": true
+    },
+    {
+      "page": "live-collection-09.png",
+      "pixelSha256": "f8c2f5985b04f561d49cba09490428e4342c31288599be6a7194d1cb9f724af7",
+      "identical": true
+    },
+    {
+      "page": "live-collection-10.png",
+      "pixelSha256": "eeaadafb671ba98b0af8266400848388d02e9dd410d51ce1ea3df51a826456e1",
+      "identical": true
+    },
+    {
+      "page": "live-collection-11.png",
+      "pixelSha256": "1e149e18d3eb86aca60188605045f64e14ce9acd4f896ccbf65216853e185d89",
+      "identical": true
+    },
+    {
+      "page": "live-collection-12.png",
+      "pixelSha256": "b86838fb4c3297d91c0134cbc50c256f560ffdcb5a982799f76ec959cd7ae0e5",
+      "identical": true
+    },
+    {
+      "page": "live-collection-13.png",
+      "pixelSha256": "6e88696f858153b190cfbcd77ce701e321e7647413b77ce4fff93a6156e3fcfe",
+      "identical": true
+    },
+    {
+      "page": "live-collection-14.png",
+      "pixelSha256": "baa8f7637a7111fe48e944e5a2565988afd00a400f61f529c34b2d54ddd81cac",
+      "identical": true
+    },
+    {
+      "page": "live-collection-15.png",
+      "pixelSha256": "70f678ca71f37f030a593046d314faf95bbc4285abc5e411b1ff5f095b08bd10",
+      "identical": true
+    },
+    {
+      "page": "live-collection-16.png",
+      "pixelSha256": "5cbc49fb062a0dd67f1248a2226686131929fba1c77799e054ab760167a4820f",
+      "identical": true
+    }
+  ],
+  "montages": [
+    "output\\pdf\\report-release-20260929-visual.local\\montage-1.png",
+    "output\\pdf\\report-release-20260929-visual.local\\montage-2.png",
+    "output\\pdf\\report-release-20260929-visual.local\\montage-3.png"
+  ],
+  "rendererWarnings": [
+    {
+      "phase": "candidate",
+      "document": "single",
+      "warning": "Poppler reported unavailable display fallback fonts Symbol/ArialUnicode; rendered output inspected separately."
+    },
+    {
+      "phase": "candidate",
+      "document": "collection",
+      "warning": "Poppler reported unavailable display fallback fonts Symbol/ArialUnicode; rendered output inspected separately."
+    },
+    {
+      "phase": "live",
+      "document": "single",
+      "warning": "Poppler reported unavailable display fallback fonts Symbol/ArialUnicode; rendered output inspected separately."
+    },
+    {
+      "phase": "live",
+      "document": "collection",
+      "warning": "Poppler reported unavailable display fallback fonts Symbol/ArialUnicode; rendered output inspected separately."
+    }
+  ]
+}

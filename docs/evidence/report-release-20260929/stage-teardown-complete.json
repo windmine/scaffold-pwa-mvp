@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "phase": "stage-teardown",
+  "status": "passed",
+  "runId": "20260929",
+  "resources": {
+    "service": "geo-report-stage-20260929",
+    "job": "geo-report-migrate-stage-20260929",
+    "databaseSecret": "report-stage-db-20260929",
+    "jwtSecret": "report-stage-jwt-20260929",
+    "uploadPrefix": "uploads/release-stage-20260929"
+  },
+  "startedAtUtc": "2026-09-29T01:31:58.094157+00:00",
+  "attempts": [
+    {
+      "action": "delete:geo-report-stage-20260929",
+      "atUtc": "2026-09-29T01:32:55.761169+00:00"
+    },
+    {
+      "action": "delete:geo-report-migrate-stage-20260929",
+      "atUtc": "2026-09-29T01:33:16.482025+00:00"
+    },
+    {
+      "action": "delete:report-stage-db-20260929",
+      "atUtc": "2026-09-29T01:33:39.611237+00:00"
+    },
+    {
+      "action": "delete:report-stage-jwt-20260929",
+      "atUtc": "2026-09-29T01:34:00.135415+00:00"
+    }
+  ],
+  "creationProofSha256": {
+    "snapshot": "245fef7717fd75a3c3588678c626329d442a0798f97adb58c9dd46a5a1f25bac",
+    "resources": "8c81300620734bfe39ed92969c05a771e5862a1e80e69ddcf86bdb0367afe4b3",
+    "service": "72b42690150f2dfd85b335161e61ea927b692774ac20e6acd4b2c61a87d9b8d4",
+    "originalServiceCreation": "7842cdad149dd7065d494ce4e47ec6ff49c0fdd4b37307dac6d67421c2d2058b",
+    "stagePlan": "2319d3d1da9d2e71cac2398c9ca10b7c0b7b791c475ee623289a1d4cf2d0b51a"
+  },
+  "neonUntouched": true,
+  "uploadsUntouched": true,
+  "verifiedResourceSha256": {
+    "service": "21608ad4894823b7db1050729d86c92cf211fe0d007bd493d347e7f4aa6de530",
+    "job": "d383566d6bb0c2b25ffdbbb955b225f127a21b5d640c0766b2f16fcf97cfa96f",
+    "databaseSecret": "e4175c630d8a427745e5235f4b37a79f6d9a04d7baa2c065029306b475d3b169",
+    "jwtSecret": "c9d1753e7b9a8ec7cca823cf206de2eba6cd4e373725e1b3929abf99717a0e7b"
+  },
+  "productionUnchanged": true,
+  "deletionComplete": true,
+  "finishedAtUtc": "2026-09-29T01:34:20.669979+00:00"
+}

@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "sourceCommit": "3fc9708325d02fef5565ad684b69275c54543b41",
+  "frontend": {
+    "lint": "passed",
+    "buildFocusedStaticAndInstaller": "passed",
+    "installerChecks": 11,
+    "reviewFilterChecks": 29,
+    "finalUninstrumentedBrowserWorkflows": 72,
+    "sourceCache": "leader-field-d5e6c62eeb82",
+    "builtCache": "leader-field-d8c377e7a8c9",
+    "initialFailure": "First full run timed out awaiting a fixture Report POST in the Report Find exports workflow. No root cause established; no app fix, timeout increase or assertion relaxation claimed.",
+    "subsequentVerification": "Eleven isolated runs, one instrumented full 72-workflow run and the final unchanged/uninstrumented full 72-workflow run passed. Temporary diagnostics removed; owned servers cleaned.",
+    "bundleWarning": "Main bundle 651.80 kB minified / 185.98 kB gzip exceeds Vite advisory threshold."
+  },
+  "backend": {
+    "suitesPassed": 19,
+    "disposableHttpSmokeCheckpoints": 214,
+    "smokeOwnedCleanupComplete": true,
+    "compileAndDependencyConsistency": "passed",
+    "nativePostgresVersions": ["17.6", "18.4"],
+    "checkpointsPerNativeVersion": 82,
+    "exactBoundSourceHashesPerNativeVersion": 38,
+    "nativeOwnedCleanupComplete": true,
+    "nativeEvidence": ["../../../output/password-recovery-pg17-20260929-final.json", "../../../output/password-recovery-pg18-20260929-final.json"],
+    "pdfVolumeRegression": "50 distinct 6 MP photos plus signature, 26 pages, 3.74 MB; original evidence unchanged."
+  },
+  "productionNpmAuditFindings": 0,
+  "preMigrationHardening": "Passed with exact fresh baseline recovery proof, existing upload recovery and recipient-confirmed alert delivery. Warnings: PreMigration is not Current proof; existing six-hour Neon history.",
+  "physicalPhoneCapacityCertified": false
+}

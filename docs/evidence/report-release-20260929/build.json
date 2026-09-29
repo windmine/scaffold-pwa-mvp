@@ -1,0 +1,19 @@
+{
+  "status": "SUCCESS",
+  "sourceCommit": "3fc9708325d02fef5565ad684b69275c54543b41",
+  "sourcePushed": true,
+  "buildId": "c6d4b0c0-0850-40ee-9de4-2a7e6a9dbbbc",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:49518231873062d6f745890f1d9184400f1df229d648e13ef4da65d883b53599",
+  "finishedAtUtc": "2026-09-29T00:36:05.173547Z",
+  "buildServiceAccount": "794826041820-compute@developer.gserviceaccount.com",
+  "sourceArchiveSha256": "100a252c8f33b6af0735b2367b3e9d41c4bb3514a0f4f4827ac68e662f40a0b2",
+  "sourceFileCount": 91,
+  "sourceSelection": "git archive of exact committed Dockerfile, requirements.txt, backend and .dockerignore, extracted into a fresh isolated build-artifact directory",
+  "excludedRuntimeAndCredentials": true,
+  "rootUploadManifestChecked": {"paths": 537, "forbiddenPaths": 0, "requiredBuildFilesPresent": true},
+  "cloudSource": {
+    "bucket": "geo-attendance-system-db9ca_cloudbuild",
+    "object": "source/1790642111.307238-c8976d5d0cd04f70b4d66195c0cc8338.tgz",
+    "generation": "1790642112604663"
+  }
+}

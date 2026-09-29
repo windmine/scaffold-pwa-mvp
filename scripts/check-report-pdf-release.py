@@ -247,7 +247,10 @@ def main():
             if args.phase == "live":
                 require(evidence["exportCacheControls"] == baseline["exportCacheControls"], "hosted_cache_policy_changed")
             evidence["existingDemoDataAndCsvHtmlUnchanged"] = True
-            output = ROOT / "output/pdf" / f"{base.name}-{args.phase}.local"
+            # Release directories may reuse a descriptive child folder name.
+            # Include its release parent so a later verification never collides
+            # with, or overwrites, an earlier release's rendered artifacts.
+            output = ROOT / "output/pdf" / f"{base.parent.name}-{base.name}-{args.phase}.local"
             require(not output.exists(), "pdf_directory_exists_do_not_overwrite")
             output.mkdir(parents=True, exist_ok=True)
             expected_images = expected_evidence_hashes(uploads, manifest)

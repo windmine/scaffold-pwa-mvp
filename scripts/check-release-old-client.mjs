@@ -1,27 +1,89 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { browserApiRequest, showSupervisorFilters } from './check-hosted-report-workflow.mjs';
 
 // Release-bound read-only compatibility probe: existing live static frontend,
-// only API/uploads forwarded to the exact zero-traffic candidate. Auth-only
+// only API/uploads forwarded to the exact tagged candidate. Auth-only
 // writes; no Report, Template, account, upload or infrastructure mutation.
 const live = 'https://geo-attendance-system-db9ca.web.app';
-const candidate = 'https://onboarding-20260925---geo-backend-eitdijn7cq-ts.a.run.app';
-const evidencePath = resolve('docs/evidence/report-release-20260925/old-client-candidate.json');
-const outputDir = resolve('output/report-release-20260925.local/old-client-candidate-artifacts');
-if (existsSync(evidencePath) || existsSync(outputDir)) throw new Error('New evidence paths required');
+const scriptPath = fileURLToPath(import.meta.url);
+const root = resolve(dirname(scriptPath), '..');
+const requireCondition = (condition, code) => { if (!condition) { const error = new Error(code); error.safeCode = code; throw error; } };
+const safeFailure = (error) => /^[a-z_]+$/.test(error?.safeCode || '') ? error.safeCode : 'browser_or_api_operation_failed';
+
+export function approvedCandidate(raw) {
+  requireCondition(typeof raw === 'string', 'candidate_origin_required');
+  let url;
+  try { url = new URL(raw); } catch { requireCondition(false, 'candidate_origin_invalid'); }
+  requireCondition(url.protocol === 'https:' && !url.username && !url.password && !url.port
+    && url.pathname === '/' && !url.search && !url.hash && raw === url.origin, 'canonical_candidate_origin_required');
+  // This fixed project/region suffix was independently verified for the deployed
+  // backend. Production's untagged URL and isolated staging services are not
+  // accepted. The exact tagged candidate must be verified externally before use.
+  requireCondition(/^[a-z0-9][a-z0-9-]{0,62}---geo-backend-eitdijn7cq-ts\.a\.run\.app$/.test(url.hostname),
+    'candidate_outside_exact_project_service_allowlist');
+  return url.origin;
+}
+
+export function newOwnedPath(raw, directory, { file = false } = {}) {
+  requireCondition(typeof raw === 'string' && raw.length > 0, 'new_evidence_and_output_paths_required');
+  const boundary = realpathSync(join(root, directory));
+  const target = resolve(root, raw);
+  const within = (path) => {
+    const suffix = relative(boundary, path);
+    return suffix !== '' && !suffix.startsWith('..') && !isAbsolute(suffix);
+  };
+  requireCondition(within(target) && !existsSync(target) && (!file || target.endsWith('.json')), 'new_owned_output_path_required');
+  let ancestor = dirname(target);
+  while (!existsSync(ancestor)) ancestor = dirname(ancestor);
+  const physical = realpathSync(ancestor);
+  requireCondition(physical === boundary || within(physical), 'output_symlink_escape_refused');
+  return target;
+}
+
+export function readConfiguration(args = process.argv.slice(2)) {
+  const keys = ['--candidate-origin', '--expected-live-cache', '--evidence', '--output-dir'];
+  requireCondition(args.length === keys.length * 2, 'four_explicit_release_arguments_required');
+  const values = new Map();
+  for (let index = 0; index < args.length; index += 2) {
+    requireCondition(keys.includes(args[index]) && !values.has(args[index]) && typeof args[index + 1] === 'string', 'unknown_or_duplicate_argument');
+    values.set(args[index], args[index + 1]);
+  }
+  requireCondition(/^leader-field-[a-f0-9]{12}$/.test(values.get('--expected-live-cache')), 'exact_live_cache_required');
+  return { candidate: approvedCandidate(values.get('--candidate-origin')),
+    candidateService: 'geo-backend', expectedLiveCache: values.get('--expected-live-cache'),
+    evidencePath: newOwnedPath(values.get('--evidence'), 'docs/evidence', { file: true }),
+    outputDir: newOwnedPath(values.get('--output-dir'), 'output') };
+}
+
+export function assertReadOnlyRequest({ url: raw, method, body = {} }, account) {
+  const url = new URL(raw);
+  requireCondition(url.origin === live && !url.username && !url.password, 'request_left_live_frontend_origin');
+  if (['GET', 'HEAD', 'OPTIONS'].includes(method)) return;
+  const exactKeys = (keys) => body && typeof body === 'object' && !Array.isArray(body)
+    && Object.keys(body).every((key) => keys.includes(key));
+  requireCondition(method === 'POST' && !url.search && (
+    (url.pathname === '/api/auth/login' && account?.email === 'demo-20260916-supervisor@example.invalid'
+      && body.email === account.email && body.password === account.password && exactKeys(['email', 'password']))
+    || (['/api/auth/refresh', '/api/auth/logout'].includes(url.pathname) && exactKeys([]))), 'non_auth_or_foreign_account_write_refused');
+}
+
+export async function runOldClient(config) {
+const { candidate, candidateService, expectedLiveCache, evidencePath, outputDir } = config;
+newOwnedPath(evidencePath, 'docs/evidence', { file: true });
+newOwnedPath(outputDir, 'output');
 mkdirSync(dirname(evidencePath), { recursive: true });
 mkdirSync(dirname(outputDir), { recursive: true });
 mkdirSync(outputDir);
 const evidence = { status: 'running', startedAtUtc: new Date().toISOString(),
-  liveFrontend: live, backendCandidate: candidate, viewport: { width: 390, height: 844 },
-  scope: 'Read-only existing demo Reports; old live frontend with only API/uploads forwarded to the zero-traffic candidate; auth-only writes',
+  liveFrontend: live, backendCandidate: candidate, candidateService, expectedLiveCache, viewport: { width: 390, height: 844 },
+  scope: 'Read-only existing demo Reports; old live frontend with only API/uploads forwarded to the exact tagged candidate; auth-only writes; traffic share is verified separately',
   checks: [], requests: [], blockedRequests: [], pageErrors: 0 };
 const save = () => writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
-const requireCondition = (condition, code) => { if (!condition) { const error = new Error(code); error.safeCode = code; throw error; } };
 const step = async (name, run) => { stage = name; const details = await run(); evidence.checks.push({ name, status: 'passed', details }); save(); console.log(`ok - ${name}`); };
 let stage = 'start';
 let browser;
@@ -29,14 +91,14 @@ let context;
 let page;
 let routeFailure = '';
 let account;
-save();
+writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, { flag: 'wx' });
 try {
   // Decrypt only the exact retained demo handoff in memory. Never echo raw child
   // output or place passwords, cookies or private links in evidence/arguments.
   const py = "import importlib.util,json; s=importlib.util.spec_from_file_location('demo','scripts/presentation-demo-live.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); print(json.dumps(m.read_private_handoff('demo-20260916')))";
   const handoff = JSON.parse(execFileSync('python', ['-c', py], { encoding: 'utf8', windowsHide: true,
-    timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] }));
-  const manifest = JSON.parse(readFileSync('docs/evidence/presentation-demo-20260916.json', 'utf8'));
+    cwd: root, timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] }));
+  const manifest = JSON.parse(readFileSync(join(root, 'docs/evidence/presentation-demo-20260916.json'), 'utf8'));
   account = handoff.accounts?.supervisor;
   requireCondition(handoff.runId === 'demo-20260916' && handoff.origin === live
     && manifest.runId === handoff.runId && manifest.origin === live && manifest.departmentId === 2
@@ -55,12 +117,14 @@ try {
     const url = new URL(request.url());
     const method = request.method();
     const backend = /^\/(api|uploads)\//.test(url.pathname);
-    const authWrite = method === 'POST' && ['/api/auth/login', '/api/auth/refresh', '/api/auth/logout'].includes(url.pathname);
-    if (url.origin !== live || (!['GET', 'HEAD', 'OPTIONS'].includes(method) && !authWrite)) {
-      evidence.blockedRequests.push({ origin: url.origin, path: url.pathname, method });
-      return route.abort();
-    }
     try {
+      const body = ['GET', 'HEAD', 'OPTIONS'].includes(method) ? undefined : request.postDataJSON() || {};
+      try { assertReadOnlyRequest({ url: request.url(), method, body }, account); }
+      catch (error) {
+        evidence.blockedRequests.push({ method, code: safeFailure(error) });
+        await route.abort();
+        return;
+      }
       const target = backend ? `${candidate}${url.pathname}${url.search}` : url.href;
       const response = await route.fetch({ url: target, maxRedirects: 0, timeout: 45000 });
       requireCondition(new URL(response.url()).origin === (backend ? candidate : live), 'response_left_exact_allowlist');
@@ -88,7 +152,7 @@ try {
       return { cache: text.match(/leader-field-[a-f0-9]+/)?.[0],
         sha256: [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, '0')).join('') };
     });
-    requireCondition(shell.cache === 'leader-field-ed9e6cddf6aa', 'frontend_is_not_expected_old_live_release');
+    requireCondition(shell.cache === expectedLiveCache, 'frontend_is_not_expected_old_live_release');
     return { readiness: ready.body.checks, uploadBackend: 'gcs', oldShell: shell };
   });
   await step('old_ui_auth_and_exact_demo_supervisor_scope', async () => {
@@ -135,7 +199,6 @@ try {
   evidence.status = 'failed';
   evidence.failure = { checkpoint: stage, code: error.safeCode || 'browser_or_api_operation_failed',
     ...(routeFailure ? { routeFailure } : {}) };
-  process.exitCode = 1;
 } finally {
   if (page) await page.evaluate(browserApiRequest, { path: '/api/auth/logout', method: 'POST' }).catch(() => {});
   account = null;
@@ -148,4 +211,16 @@ try {
   console.log(JSON.stringify({ status: evidence.status, failure: evidence.failure, checks: evidence.checks.length,
     candidateRequests: evidence.requests.filter((item) => item.surface === 'candidate').length,
     blockedRequests: evidence.blockedRequests.length, pageErrors: evidence.pageErrors, authOnlyWrites: evidence.authOnlyWrites }));
+}
+return evidence;
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === scriptPath) {
+  try {
+    const evidence = await runOldClient(readConfiguration());
+    if (evidence.status !== 'passed') process.exitCode = 1;
+  } catch (error) {
+    console.error(JSON.stringify({ status: 'refused', code: safeFailure(error) }));
+    process.exitCode = 1;
+  }
 }

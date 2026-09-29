@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "phase": "stage-teardown",
+  "status": "failed",
+  "runId": "20260929",
+  "resources": {
+    "service": "geo-report-stage-20260929",
+    "job": "geo-report-migrate-stage-20260929",
+    "databaseSecret": "report-stage-db-20260929",
+    "jwtSecret": "report-stage-jwt-20260929",
+    "uploadPrefix": "uploads/release-stage-20260929"
+  },
+  "startedAtUtc": "2026-09-29T01:22:37.995011+00:00",
+  "attempts": [],
+  "creationProofSha256": {
+    "snapshot": "245fef7717fd75a3c3588678c626329d442a0798f97adb58c9dd46a5a1f25bac",
+    "resources": "8c81300620734bfe39ed92969c05a771e5862a1e80e69ddcf86bdb0367afe4b3",
+    "service": "72b42690150f2dfd85b335161e61ea927b692774ac20e6acd4b2c61a87d9b8d4",
+    "originalServiceCreation": "7842cdad149dd7065d494ce4e47ec6ff49c0fdd4b37307dac6d67421c2d2058b"
+  },
+  "neonUntouched": true,
+  "uploadsUntouched": true,
+  "failureCode": "stage_service_revision_drift",
+  "finishedAtUtc": "2026-09-29T01:22:57.702200+00:00"
+}

@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "verifiedAtUtc": "2026-09-29T01:20:47.388491+00:00",
+  "channels": {
+    "release-20260929": {
+      "version": "adb5a717d76f2644",
+      "url": "https://geo-attendance-system-db9ca--release-20260929-ko1phbp6.web.app",
+      "expiresAt": "2026-10-06T01:19:26.270085895Z",
+      "releasedAtUtc": "2026-09-29T01:19:31.125Z",
+      "rewrites": [
+        {
+          "glob": "/api/**",
+          "run": {
+            "serviceId": "geo-backend",
+            "region": "australia-southeast1"
+          }
+        },
+        {
+          "glob": "/uploads/**",
+          "run": {
+            "serviceId": "geo-backend",
+            "region": "australia-southeast1"
+          }
+        }
+      ],
+      "fileCount": "81"
+    },
+    "stage-20260929": {
+      "version": "e82d93670399e8a9",
+      "url": "https://geo-attendance-system-db9ca--stage-20260929-49zfhj76.web.app",
+      "expiresAt": "2026-09-30T00:45:48.392549560Z",
+      "releasedAtUtc": "2026-09-29T00:45:56.025Z",
+      "rewrites": [
+        {
+          "glob": "/api/**",
+          "run": {
+            "serviceId": "geo-report-stage-20260929",
+            "region": "australia-southeast1"
+          }
+        },
+        {
+          "glob": "/uploads/**",
+          "run": {
+            "serviceId": "geo-report-stage-20260929",
+            "region": "australia-southeast1"
+          }
+        }
+      ],
+      "fileCount": "81"
+    },
+    "rollback-20260929": {
+      "version": "d492562f1d2bdb50",
+      "url": "https://geo-attendance-system-db9ca--rollback-20260929-x5fir2xl.web.app",
+      "expiresAt": "2026-10-06T00:43:06.261854919Z",
+      "releasedAtUtc": "2026-09-29T00:43:06.967Z",
+      "rewrites": [
+        {
+          "glob": "/api/**",
+          "run": {
+            "serviceId": "geo-backend",
+            "region": "australia-southeast1"
+          }
+        },
+        {
+          "glob": "/uploads/**",
+          "run": {
+            "serviceId": "geo-backend",
+            "region": "australia-southeast1"
+          }
+        }
+      ],
+      "fileCount": "76"
+    },
+    "live": {
+      "version": "d492562f1d2bdb50",
+      "url": "https://geo-attendance-system-db9ca.web.app",
+      "expiresAt": null,
+      "releasedAtUtc": "2026-09-24T23:13:21.309Z",
+      "rewrites": [
+        {
+          "glob": "/api/**",
+          "run": {
+            "serviceId": "geo-backend",
+            "region": "australia-southeast1"
+          }
+        },
+        {
+          "glob": "/uploads/**",
+          "run": {
+            "serviceId": "geo-backend",
+            "region": "australia-southeast1"
+          }
+        }
+      ],
+      "fileCount": "76"
+    }
+  }
+}

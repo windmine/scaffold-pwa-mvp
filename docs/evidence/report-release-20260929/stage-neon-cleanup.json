@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "startedAtUtc": "2026-09-29T01:37:29.5075348Z",
+  "branchId": "br-dawn-voice-a7x6459j",
+  "branchName": "release-stage-20260929",
+  "projectId": "plain-smoke-06194407",
+  "parentId": "br-snowy-tree-a7hfuph6",
+  "createdAtUtc": "2026-09-29T00:28:47.0000000Z",
+  "expiresAtUtc": "2026-09-30T00:28:45.0000000Z",
+  "exactOwnershipVerified": true,
+  "gcpStageResourcesAlreadyDeleted": true,
+  "deleteAttempted": true,
+  "productionBranchDeleted": false,
+  "retainedBackupBranchId": "br-young-sunset-a7x36uiu",
+  "deleted": true,
+  "absenceVerified": true,
+  "productionAndBackupRetained": true,
+  "finishedAtUtc": "2026-09-29T01:37:36.9113631Z"
+}

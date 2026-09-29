@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "phase": "pause",
+  "runId": "20260929",
+  "status": "passed",
+  "startedAtUtc": "2026-09-29T01:07:06.631520+00:00",
+  "attempts": [
+    {
+      "action": "route_maintenance_100_and_clear_tags",
+      "atUtc": "2026-09-29T01:07:20.975908+00:00"
+    }
+  ],
+  "artifact": {
+    "sourceCommit": "3fc9708325d02fef5565ad684b69275c54543b41",
+    "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:49518231873062d6f745890f1d9184400f1df229d648e13ef4da65d883b53599"
+  },
+  "baselineSha256": "245fef7717fd75a3c3588678c626329d442a0798f97adb58c9dd46a5a1f25bac",
+  "prepareProofSha256": "a11ec13bcafd300076ede7e84cc7646655ddbb3f6b813c0b467dbb72684639fa",
+  "maintenanceProbes": {
+    "direct": true,
+    "hosting": true,
+    "status": 503,
+    "retryAfterSeconds": 60,
+    "noStore": true
+  },
+  "maintenancePaused": true,
+  "maintenanceConfirmedAtUtc": "2026-09-29T01:07:31.416250+00:00",
+  "drainSeconds": 300,
+  "drainUntilUtc": "2026-09-29T01:12:31.416250+00:00",
+  "migrationExecuted": false,
+  "finishedAtUtc": "2026-09-29T01:07:38.058615+00:00",
+  "serviceIamUnchanged": true
+}

@@ -1,0 +1,17 @@
+{
+  "status": "completed",
+  "failedProof": "neon-baseline.json",
+  "cause": "PowerShell 7.5 ConvertFrom-Json yields UTC DateTime; the proof converted it to a timezone-free string then reparsed as local time, rejecting exact ownership.",
+  "regression": "scripts/check-neon-proof-timestamps-test.ps1 failed before the fix; string, UTC, local and JSON timestamp ownership tests pass after the fix in PowerShell 7 and Windows PowerShell 5.1.",
+  "branchId": "br-calm-surf-a7n4d49u",
+  "branchName": "recovery-proof-20260929t002256z-e1faee48ee",
+  "projectId": "plain-smoke-06194407",
+  "parentId": "br-snowy-tree-a7hfuph6",
+  "createdAtUtc": "2026-09-29T00:23:16Z",
+  "expiresAtUtc": "2026-09-29T01:22:56Z",
+  "exactOwnershipReverified": true,
+  "deleted": true,
+  "absenceVerified": true,
+  "productionModified": false,
+  "replacementProof": "neon-baseline-fixed.json"
+}

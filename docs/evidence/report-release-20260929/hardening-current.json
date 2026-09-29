@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "recordedAtUtc": "2026-09-29T01:30:13Z",
+  "command": "scripts/check-production-hardening.ps1 -ReleasePhase Current -NeonRecoveryEvidence docs/evidence/report-release-20260929/neon-current.json -UploadRecoveryEvidence docs/evidence/upload-recovery-proof-2026-09-07.json -BillingAccount 0123B1-051D70-935F73",
+  "exitCode": 0,
+  "servingRevision": "geo-backend-recovery-20260929",
+  "trafficPercent": 100,
+  "currentMigrationHead": "0022_worker_password_recovery",
+  "currentMigrationCount": 22,
+  "warnings": ["Neon history retention remains six hours; choose a longer window or external logical backups before relying on it for production recovery."],
+  "verified": ["Dedicated runtime identity and secret access", "Private GCS upload IAM and 30-day soft delete", "Readiness and 5xx alert policies with recipient-confirmed notification evidence", "Current exact-ledger historical read-only Neon recovery and owned proof-branch cleanup", "Exact GCS recovery generations", "Billing budget presence"],
+  "configurationChangedByCheck": false
+}

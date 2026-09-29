@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "runId": "preview-ux-20260929a",
+  "nonce": "e66800ec-ebe9-403a-b0f3-167eb3610c21",
+  "origin": "https://geo-attendance-system-db9ca--release-20260929-ko1phbp6.web.app",
+  "startedAtUtc": "2026-09-29T01:20:01.834Z",
+  "status": "passed",
+  "checks": [
+    {
+      "name": "hosted_readiness_and_exact_demo_supervisor",
+      "status": "passed"
+    },
+    {
+      "name": "new_nonce_owned_worker_and_template",
+      "status": "passed"
+    },
+    {
+      "name": "template_library_search_lifecycle_and_preview",
+      "status": "passed"
+    },
+    {
+      "name": "mixed_photo_selection_lightweight_preview_and_original_draft",
+      "status": "passed",
+      "details": {
+        "acceptedPhotos": 1,
+        "rejectedFiles": 2,
+        "originalSha256": "413bcda12b78f1cb62a651e8d78ef712466992d65cd7b86bb7091e31b3304609",
+        "thumbnailMaxEdge": 320
+      }
+    },
+    {
+      "name": "compact_review_back_and_explicit_submission_boundary",
+      "status": "passed"
+    },
+    {
+      "name": "structured_review_filters_reload_and_workflow_shortcuts",
+      "status": "passed"
+    },
+    {
+      "name": "private_recovery_replace_revoke_and_expiry",
+      "status": "passed"
+    },
+    {
+      "name": "cookie_free_reset_preserves_supervisor_and_worker_draft",
+      "status": "passed"
+    },
+    {
+      "name": "phone_layout_and_clean_browser_errors",
+      "status": "passed"
+    }
+  ],
+  "owned": {
+    "departmentId": 2,
+    "workerId": 21,
+    "templateId": 16,
+    "reportId": 18
+  },
+  "scope": "Real Firebase-proxy Chromium at 390px; new nonce-owned Worker only; not physical-phone or maximum-size-photo certification",
+  "scriptSha256": "a9ca0a5268cb158960857ddbfb276e9fcd57dcf8eb00c36bc59ed276555ba8e9",
+  "cleanup": {
+    "reportTrashed": true,
+    "templateArchived": true,
+    "workerResigned": true,
+    "failures": []
+  },
+  "browserPageErrors": 0,
+  "completedAtUtc": "2026-09-29T01:20:53.745Z"
+}

@@ -34,6 +34,7 @@ $ErrorActionPreference = "Stop"
 $failures = New-Object System.Collections.Generic.List[string]
 $warnings = New-Object System.Collections.Generic.List[string]
 $repoRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "check-recovery-evidence-safety.ps1")
 
 function Pass($message) {
   Write-Host "ok - $message"
@@ -148,7 +149,7 @@ function Read-RecoveryEvidence([string]$Path, [string]$Label) {
   foreach ($match in $matches) {
     try {
       $candidateEvidence = Get-Content -LiteralPath $match.FullName -Raw | ConvertFrom-Json
-      $candidateCompleted = [DateTime]::Parse([string]$candidateEvidence.completedAtUtc).ToUniversalTime()
+      $candidateCompleted = ConvertTo-RecoveryEvidenceUtc $candidateEvidence.completedAtUtc
       $candidates += [pscustomobject]@{
         Evidence = $candidateEvidence
         Completed = $candidateCompleted
@@ -746,15 +747,14 @@ if ($DatabaseProvider -eq "neon") {
   $neonEvidence = Read-RecoveryEvidence $NeonRecoveryEvidence "Neon"
   if ($neonEvidence) {
     try {
-      $startedAt = [DateTime]::Parse([string]$neonEvidence.startedAtUtc).ToUniversalTime()
-      $completedAt = [DateTime]::Parse([string]$neonEvidence.completedAtUtc).ToUniversalTime()
-      $requestedRestorePoint = [DateTime]::Parse([string]$neonEvidence.requestedRestorePointUtc).ToUniversalTime()
-      $actualRestorePoint = [DateTime]::Parse([string]$neonEvidence.proofBranch.parentTimestampUtc).ToUniversalTime()
-      $branchCreatedAt = [DateTime]::Parse([string]$neonEvidence.proofBranch.createdAtUtc).ToUniversalTime()
-      $requestedExpiry = [DateTime]::Parse([string]$neonEvidence.requestedExpiresAtUtc).ToUniversalTime()
-      $actualExpiry = [DateTime]::Parse([string]$neonEvidence.proofBranch.expiresAtUtc).ToUniversalTime()
+      $startedAt = ConvertTo-RecoveryEvidenceUtc $neonEvidence.startedAtUtc
+      $completedAt = ConvertTo-RecoveryEvidenceUtc $neonEvidence.completedAtUtc
+      $requestedRestorePoint = ConvertTo-RecoveryEvidenceUtc $neonEvidence.requestedRestorePointUtc
+      $actualRestorePoint = ConvertTo-RecoveryEvidenceUtc $neonEvidence.proofBranch.parentTimestampUtc
+      $branchCreatedAt = ConvertTo-RecoveryEvidenceUtc $neonEvidence.proofBranch.createdAtUtc
+      $requestedExpiry = ConvertTo-RecoveryEvidenceUtc $neonEvidence.requestedExpiresAtUtc
+      $actualExpiry = ConvertTo-RecoveryEvidenceUtc $neonEvidence.proofBranch.expiresAtUtc
       $historySeconds = [int64]$neonEvidence.productionBranch.historyRetentionSeconds
-      $serializedEvidence = $neonEvidence | ConvertTo-Json -Depth 12 -Compress
       $expectedCliVersion = ([string]$neonEvidence.toolVersions.neonCliPackage -split "@")[-1]
       $artifactHashesValid = (
         (Test-Sha256 ([string]$neonEvidence.artifactHashes.proofScriptSha256)) -and
@@ -794,8 +794,7 @@ if ($DatabaseProvider -eq "neon") {
         $neonEvidence.expectedMigrationHead -eq $expectedMigrationHead -and
         $neonEvidence.toolVersions.neonCliPackage -eq "neon@2.32.0" -and
         $neonEvidence.toolVersions.neonCli -eq $expectedCliVersion -and
-        $serializedEvidence -notmatch 'postgres(?:ql)?://' -and
-        $serializedEvidence -notmatch 'connectionUri|password'
+        (Test-NeonRecoveryEvidenceSanitized $recoveryMigrationContract $neonEvidence)
       )
       $verificationValid = (
         $neonEvidence.verification.status -eq "passed" -and
@@ -866,8 +865,8 @@ if ($DatabaseProvider -eq "neon") {
 $uploadEvidence = Read-RecoveryEvidence $UploadRecoveryEvidence "Upload"
 if ($uploadEvidence) {
   try {
-    $startedAt = [DateTime]::Parse([string]$uploadEvidence.startedAtUtc).ToUniversalTime()
-    $completedAt = [DateTime]::Parse([string]$uploadEvidence.completedAtUtc).ToUniversalTime()
+    $startedAt = ConvertTo-RecoveryEvidenceUtc $uploadEvidence.startedAtUtc
+    $completedAt = ConvertTo-RecoveryEvidenceUtc $uploadEvidence.completedAtUtc
     $originalGeneration = [string]$uploadEvidence.proofObject.originalGeneration
     $restoredGeneration = [string]$uploadEvidence.proofObject.restoredGeneration
     $ownershipMarker = [string]$uploadEvidence.proofObject.ownershipMarker

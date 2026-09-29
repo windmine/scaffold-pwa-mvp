@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "recordedAtUtc": "2026-09-29T01:38:44Z",
+  "scope": "Final unchanged application release: local release-tooling guard rerun only; no network calls in guard tests",
+  "lint": {"command": "npm run lint", "exitCode": 0},
+  "checks": [
+    {"command": "python scripts/report-release-operator-test.py", "groups": 13, "exitCode": 0},
+    {"command": "python scripts/report-production-cutover-test.py", "groups": 13, "exitCode": 0},
+    {"command": "python scripts/report-production-backup-test.py", "groups": 10, "exitCode": 0},
+    {"command": "python scripts/report-provider-smoke-test.py", "groups": 4, "exitCode": 0},
+    {"command": "python scripts/teardown-report-release-stage-test.py", "groups": 14, "exitCode": 0},
+    {"command": "python scripts/check-report-release-infrastructure-test.py", "groups": 3, "exitCode": 0},
+    {"command": "node scripts/hosted-report-ux-release-guard-test.mjs", "groups": 6, "exitCode": 0},
+    {"command": "node scripts/hosted-report-ux-release-harness-test.mjs", "groups": 2, "exitCode": 0},
+    {"command": "node scripts/release-old-client-guard-test.mjs", "groups": 3, "exitCode": 0},
+    {"command": "scripts/check-neon-proof-timestamps-test.ps1", "groups": 4, "exitCode": 0},
+    {"command": "scripts/check-recovery-evidence-safety-test.ps1", "groups": 7, "exitCode": 0}
+  ],
+  "totalGuardGroups": 79,
+  "applicationSourceChangedAfterLiveDeployment": false
+}
