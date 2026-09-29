@@ -53,6 +53,14 @@ class WorkerInvitationAcceptRequest(WorkerInvitationTokenRequest):
     password: str = Field(min_length=8, max_length=72)
 
 
+class WorkerPasswordRecoveryTokenRequest(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+
+
+class WorkerPasswordRecoveryAcceptRequest(WorkerPasswordRecoveryTokenRequest):
+    password: str = Field(min_length=8, max_length=72)
+
+
 class UserUpdateRequest(BaseModel):
     email: Optional[str] = Field(default=None, min_length=3, max_length=320)
     name: Optional[str] = Field(default=None, min_length=1, max_length=120)

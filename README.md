@@ -29,6 +29,42 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
+## Local Remembered Review Filters - Not Yet Deployed
+
+Supervisor Reports remembers **Workflow, Report Template, Worker and Report Date** on this device, separately for each account, home Department, global-admin capability and focused Department (including a separate All-departments view). Find text and Report content are never saved. The existing saved default Department is unchanged. Clear resets only the current view's filters; signing out clears the live screen without deleting these structured preferences.
+
+**Submitted**, **In review** and **All workflows** shortcuts remain visible above the mobile filter disclosure. They change only Workflow and preserve the other filters. Saved Template/Worker IDs are checked against current authorized catalogs before the first query; stale or out-of-scope choices are dropped. Unavailable catalogs retain saved choices for Refresh, while blocked device storage leaves filters usable with a notice. Filter changes reset pagination and selected detail, and exports still use the current visible filters across all pages.
+
+Run `npm run check:report-review-filters` for isolated storage/browser checks; it is included in `check:mobile`. This feature needs no backend or migration change. The combined local candidate still requires the password-recovery migration/backend ordering below.
+
+## Local Template Library - Not Yet Deployed
+
+Report Templates now opens on **Active**, with **Archived** and **All Templates** filters plus case-insensitive search across names and descriptions. Matching/total counts and clear empty states make filters visible; **Reset filters** returns to Active with an empty search. Cards show a two-line description, field/signature/repeating-group counts and Definition version instead of listing every field. **Preview** still opens the full Template on demand; Edit, Archive and Activate remain available with 44px action targets.
+
+Library filters affect only published cards, never unfinished create/edit panels or private draft recovery. Filters survive list refreshes and status actions within the same session/Department, reset on account or Department changes, and reset after successful creation so the new active Template is visible. Status actions stay single-flight even when filtering rebuilds the card. The report-only library continues to exclude retained Daywork. Run `npm run check:template-library` for focused browser/layout checks; it is included in `check:mobile`. No backend change or migration is added by this library feature; the separate pending password-recovery migration below still applies to a combined release.
+
+## Local Private Password Recovery - Not Yet Deployed
+
+In **Staff**, Supervisors can create a private recovery link for an active Worker who has already set a password, then use **Share privately** or **Copy private link**. Verify the recipient's identity through a trusted private channel before sharing. Links expire after one hour, work once, and can be replaced or revoked from Staff. No email service is used; anyone holding the link can reset that Worker's password. Pending invitations use their existing setup flow instead, and Supervisor accounts are not recovery targets.
+
+Issuing or revoking a link does not change the current password or sessions. Using the link lets the Worker choose and confirm a new password and invalidates their prior bearer/cookie sessions. The separate recovery page strips the fragment token from its URL, sends cookie-free requests, never auto-signs in, and leaves other browser identities and saved device drafts untouched. The Worker then uses normal sign-in. Report-only Staff editing no longer offers Supervisor-chosen Worker passwords; retained provisioning remains compatible.
+
+This requires additive migration `0022_worker_password_recovery` and its session-generation-aware backend before Hosting promotion. `WORKER_PASSWORD_RECOVERY_TTL_MINUTES` defaults to 60 and is bounded to 1–60. Never roll back to a backend that ignores session generations after any password has been rotated: it could accept invalidated sessions. Production remains on the September 25 release below; no migration or deployment has been performed for this local feature. See the [release precautions](docs/production-db-runbook.md#local-password-recovery-candidate-not-deployed).
+
+## Local Review & Submit - Not Yet Deployed
+
+Workers now review a compact summary of the Template, Report Date, optional Site, answers, photo count and handwritten signatures before confirming **Submit Report**. Required fields are checked first. **Back to edit** preserves the live editor, original photos and signatures; the summary warns that submitted Reports cannot be edited. Calculated values are marked as previews because the backend remains authoritative.
+
+Opening review attempts to save the draft but does not upload evidence or create a queued submission; failed saves remain visibly marked as unsaved. Only final confirmation submits or queues the reviewed snapshot. Changes to the Report, Template or session invalidate stale confirmation; failed submission retains the work for retry. Retained Daywork remains unchanged. `npm run check:report-submit-review` covers summary rendering and 12 browser flow/race groups, with eight 320/390px English/Chinese light/dark screenshots. This check is included in `check:mobile`; physical-phone validation and deployment remain separate.
+
+## Local Photo-selection Improvement - Not Yet Deployed
+
+Report selection now keeps valid JPEG/PNG/WebP files from a mixed batch and lists every skipped filename with its type, 5 MB size, or 50-photo count-limit reason. Invalid files do not consume available slots. Existing selections remain in order; cancelling the picker leaves them unchanged. The rejection list describes the latest non-empty selection and clears when the next selection is wholly accepted or the editor resets.
+
+Report editor previews are temporary, maximum-320-pixel display copies generated one at a time and reused while their original remains selected. Tapping a preview opens the original; drafts and upload requests retain the exact original File/Blob bytes. Preview failures offer access to the original and do not prevent saving. No thumbnail URLs or compressed display copies are persisted. Retained Daywork and signature previews are unchanged. Physical-phone and maximum-camera-batch validation is still required; this is not a live release.
+
+`npm run check:report-photos` includes six selection/draft regression groups and five thumbnail groups, including 50 synthetic 2400 × 1600 originals, cancellation/resource cleanup and language switching. The selection fixture checks eight width/language/theme combinations and saves screenshots under `output/report-photo-selection.local/`. These run in isolated Chromium with mocked transport; they do not change live Reports.
+
 ## Current Live Release - Faster Opening and Easier Onboarding, 2026-09-25
 
 Source `eb249ef1ee8b966a4149b15cfe092e3c0c3d10fc` is committed, pushed and live. Backend `geo-backend-onboarding-20260925` was promoted at **2026-09-24T23:08:09.118786Z**, serving 100% with no tags; build `858d7332-3923-457d-aebc-d58fe0176bb8`, image `sha256:c9c33ea6bd75f68e87ad44ddc81bf514c77fedddfda0dbe7252a642665ad40cf`. Exact Hosting `d492562f1d2bdb50` was cloned from `release-20260925` at **2026-09-24T23:13:21.309Z**, after the compatible backend. Production cache is `leader-field-0643513b54a8`; generated source cache is `leader-field-16d27ec7cb96`. No migration, maintenance pause or runtime configuration change was needed; the exact 21-entry ledger through `0021` remains current. See the [release record](docs/evidence/report-release-20260925/release.json).

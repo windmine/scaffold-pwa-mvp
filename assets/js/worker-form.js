@@ -2,6 +2,7 @@ import { getWorkForms as getBackendWorkForms } from './api-client.js';
 import { getDraft, getDraftEntries, saveDraft } from './mock-api.js';
 import { isReportDraftForWorker, summarizeReportDrafts } from './report-drafts.js';
 import { createPhotoPreviewSources, reportPhotoSources, restoreReportPhotoEvidence } from './report-photo-evidence.js';
+import { renderReportSubmitReview } from './report-submit-review.js';
 import {
   saveWorkerReportTemplateSnapshot,
   loadWorkerReportTemplateSnapshot,
@@ -15,6 +16,7 @@ import {
   fileToDataUrl,
   todayDateInput,
   uploadImageValidationError,
+  UPLOAD_IMAGE_TYPES,
   uuid,
   escapeHtml,
   photoMetadataFromFile,
@@ -82,6 +84,7 @@ export function createWorkerFormModule({
   let submissionControlStates = [];
   let photoSelectionToken = 0;
   let photoPreviewSources = createPhotoPreviewSources([]);
+  let submissionReview = null;
   state.workFormPhotoBlobs ||= [];
   let draftListRequest = 0;
   let draftContinueInFlight = false;
@@ -243,6 +246,7 @@ export function createWorkerFormModule({
 
   function markActiveDraftDirty(options = {}) {
     if (restoringDraft || conflictingDraft || reloadLocked || state.submittingWorkForm) return;
+    if (submissionReview) clearSubmissionReview();
     const draftState = activeDraftState();
     if (!draftState) return;
 
@@ -382,12 +386,77 @@ export function createWorkerFormModule({
   }
 
   function setDraftConflict(draft) {
+    clearSubmissionReview();
     conflictingDraft = draft;
     [els.workFormSite, els.workFormDate, els.workFormPhotos].forEach((control) => {
       control.disabled = Boolean(draft);
     });
     els.submitWorkFormButton.type = draft ? 'button' : 'submit';
-    setTranslatableText(els.submitWorkFormButton, draft ? 'Keep draft and start new report' : 'Submit Report');
+    setSubmitActionLabel();
+  }
+
+  function needsSubmissionReview(form = renderedWorkForm) {
+    return Boolean(els.workFormEditor && els.workFormReviewPanel && els.workFormReviewSummary
+      && els.confirmWorkFormSubmitButton && formPurpose(form) === 'report');
+  }
+
+  function setSubmitActionLabel() {
+    setTranslatableText(els.submitWorkFormButton, conflictingDraft ? 'Keep draft and start new report'
+      : needsSubmissionReview() ? 'Review & submit' : 'Submit Report');
+  }
+
+  function clearSubmissionReview({ focus = false } = {}) {
+    submissionReview = null;
+    if (els.workFormReviewPanel) els.workFormReviewPanel.hidden = true;
+    els.workFormReviewSummary?.replaceChildren();
+    if (els.workFormReviewPhotoWarning) els.workFormReviewPhotoWarning.hidden = true;
+    if (els.workFormEditor) {
+      els.workFormEditor.hidden = false;
+      els.workFormEditor.inert = false;
+    }
+    if (focus) {
+      updatePhotoRemovalControls();
+      els.submitWorkFormButton.focus({ preventScroll: true });
+      els.submitWorkFormButton.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  function showSubmissionReview(review) {
+    renderReportSubmitReview(els.workFormReviewSummary, {
+      form: review.form,
+      answers: review.snapshot.answers,
+      workDate: review.snapshot.workDate,
+      siteName: review.site?.name || '',
+      photoCount: review.snapshot.photoBlobs.length || review.snapshot.photoDataUrls.length
+    });
+    submissionReview = review;
+    els.workFormEditor.hidden = true;
+    els.workFormEditor.inert = true;
+    els.workFormReviewPanel.hidden = false;
+    if (els.workFormReviewPhotoWarning) {
+      els.workFormReviewPhotoWarning.hidden = !els.workFormPhotoSelectionFeedback
+        || els.workFormPhotoSelectionFeedback.hidden;
+    }
+    setPhotoStatus('');
+    els.workFormReviewHeading?.focus({ preventScroll: true });
+    els.workFormReviewHeading?.scrollIntoView({ block: 'start' });
+  }
+
+  function reviewStillMatches(review, form) {
+    try {
+      return review.generation === sessionGeneration
+        && review.selection === selectionToken
+        && review.workerId === String(state.user?.id)
+        && review.departmentId === String(state.user?.departmentId || '')
+        && review.form.id === form.id
+        && review.snapshot.definitionVersion === definitionVersion(form)
+        && definitionVersion(selectedWorkForm()) === review.snapshot.definitionVersion
+        && selectedWorkForm()?.status === 'active'
+        && sameDraftContent(review.snapshot, buildDraftSnapshot(form, activeDraftState()));
+    } catch {
+      // An unreadable editor must return to review, never submit an old copy.
+      return false;
+    }
   }
 
   function showConflictingDraft(draft, draftState) {
@@ -427,6 +496,7 @@ export function createWorkerFormModule({
     state.workFormPhotoMetadata = [];
     renderPhotoPreviews([]);
     setPhotoStatus('');
+    clearPhotoSelectionFeedback();
   }
 
   function photoLimit() {
@@ -442,7 +512,10 @@ export function createWorkerFormModule({
     // prior previews and their original evidence remain usable.
     const replacement = createPhotoPreviewSources(sources);
     try {
-      photoViewer.renderPreviews(els.workFormPhotoPreview, replacement.urls, 'Report photo', metadata);
+      photoViewer.renderPreviews(els.workFormPhotoPreview, replacement.urls, 'Report photo', metadata, {
+        lightweight: formPurpose(renderedWorkForm) === 'report',
+        sources
+      });
     } catch (error) {
       replacement.dispose();
       throw error;
@@ -456,6 +529,36 @@ export function createWorkerFormModule({
     if (els.workFormPhotoStatus) setTranslatableText(els.workFormPhotoStatus, message);
   }
 
+  function clearPhotoSelectionFeedback() {
+    const container = els.workFormPhotoSelectionFeedback;
+    if (!container) return;
+    container.hidden = true;
+    container.replaceChildren();
+  }
+
+  function showPhotoSelectionFeedback(addedCount, rejected) {
+    clearPhotoSelectionFeedback();
+    const container = els.workFormPhotoSelectionFeedback;
+    if (!container || !rejected.length) return;
+    const summary = document.createElement('p');
+    setTranslatableText(summary, `Added ${addedCount} ${addedCount === 1 ? 'photo' : 'photos'}. ${rejected.length} ${rejected.length === 1 ? 'file' : 'files'} not added.`);
+    const list = document.createElement('ul');
+    for (const { file, reason } of rejected) {
+      const item = document.createElement('li');
+      const name = document.createElement('bdi');
+      name.dataset.photoRejectedName = '';
+      name.dataset.noI18n = '';
+      name.textContent = file.name || '—';
+      const explanation = document.createElement('span');
+      explanation.dataset.photoRejectedReason = '';
+      setTranslatableText(explanation, reason);
+      item.append(name, document.createTextNode(' — '), explanation);
+      list.append(item);
+    }
+    container.append(summary, list);
+    container.hidden = false;
+  }
+
   function updatePhotoRemovalControls() {
     const disabled = Boolean(conflictingDraft || reloadLocked || state.submittingWorkForm || photoProcessing.pending);
     els.workFormPhotoPreview.querySelectorAll('[data-remove-report-photo]').forEach((button) => {
@@ -465,7 +568,7 @@ export function createWorkerFormModule({
       setTranslatableText(els.workFormPhotoLimit, `Up to ${photoLimit()} photos. You can select them together.`);
     }
     if (!state.submittingWorkForm && (!photoProcessing.pending || photoProcessing.key !== activeDraftState()?.key)) {
-      setPhotoStatus(`${currentPhotoSources().length} of ${photoLimit()} photos selected.`);
+      setPhotoStatus(submissionReview ? '' : `${currentPhotoSources().length} of ${photoLimit()} photos selected.`);
     }
   }
 
@@ -653,6 +756,7 @@ export function createWorkerFormModule({
     resetDraftSurface();
     renderWorkFormFields(els.workFormFields, form, { container: els.workFormFields });
     renderedWorkForm = form || null;
+    setSubmitActionLabel();
     updatePhotoRemovalControls();
     showDefaultAutosaveStatus();
     if (!form || state.user?.role !== 'worker') return;
@@ -880,19 +984,42 @@ export function createWorkerFormModule({
     if (!isCurrent()) return;
     const limit = photoLimit();
     const remainingSlots = Math.max(0, limit - currentPhotoSources().length);
-    const files = selectedFiles.slice(0, remainingSlots);
-    const validationError = files.map(uploadImageValidationError).find(Boolean);
-    if (validationError) {
-      renderStatusBanner(validationError, true, {
-        local: els.workFormFeedback,
-        field: els.workFormPhotos,
-        tone: 'error'
-      });
-      return;
+    const useBlobs = formPurpose(renderedWorkForm) === 'report';
+    const rejected = [];
+    let files;
+    if (useBlobs) {
+      files = [];
+      for (const file of selectedFiles) {
+        // Validate before applying the count limit so a rejected file never
+        // consumes a slot that a later, valid selection could use.
+        if (uploadImageValidationError(file)) {
+          rejected.push({ file, reason: UPLOAD_IMAGE_TYPES.has(String(file.type || '').toLowerCase())
+            ? 'File exceeds 5 MB.' : 'Use JPEG, PNG, or WebP.' });
+        } else if (files.length >= remainingSlots) {
+          rejected.push({ file, reason: `Would exceed the ${limit}-photo limit.` });
+        } else {
+          files.push(file);
+        }
+      }
+      if (!files.length) {
+        showPhotoSelectionFeedback(0, rejected);
+        return;
+      }
+    } else {
+      // Retained Daywork keeps its existing eight-photo selection behavior.
+      files = selectedFiles.slice(0, remainingSlots);
+      const validationError = files.map(uploadImageValidationError).find(Boolean);
+      if (validationError) {
+        renderStatusBanner(validationError, true, {
+          local: els.workFormFeedback,
+          field: els.workFormPhotos,
+          tone: 'error'
+        });
+        return;
+      }
     }
 
     try {
-      const useBlobs = formPurpose(renderedWorkForm) === 'report';
       const dataUrls = [];
       // Reports keep exact File bytes; retained Daywork reads sequentially.
       // Append atomically only after the replacement gallery is available.
@@ -921,7 +1048,9 @@ export function createWorkerFormModule({
       updatePhotoRemovalControls();
       feedback.clearLocal(els.workFormFeedback);
 
-      if (selectedFiles.length > remainingSlots) {
+      if (useBlobs) {
+        showPhotoSelectionFeedback(files.length, rejected);
+      } else if (selectedFiles.length > remainingSlots) {
         renderStatusBanner(`Reports can include up to ${limit} photos. The first ${limit} were kept.`, true, {
           local: els.workFormFeedback,
           tone: 'warning'
@@ -969,10 +1098,10 @@ export function createWorkerFormModule({
       });
   }
 
-  function setSubmitting(isSubmitting) {
+  function setSubmitting(isSubmitting, phase = 'submit') {
     if (isSubmitting) {
       submissionControlStates = [...els.workFormSubmissionForm.elements]
-        .filter((control) => control !== els.submitWorkFormButton)
+        .filter((control) => control !== els.submitWorkFormButton && control !== els.confirmWorkFormSubmitButton)
         .map((control) => ({ control, disabled: control.disabled }));
       submissionControlStates.forEach(({ control }) => {
         control.disabled = true;
@@ -987,15 +1116,24 @@ export function createWorkerFormModule({
       els.workFormFields.inert = false;
       els.workFormSubmissionForm.removeAttribute('aria-busy');
     }
-    feedback.setButtonBusy(els.submitWorkFormButton, isSubmitting, 'Submitting Report...');
+    feedback.setButtonBusy(els.submitWorkFormButton, isSubmitting,
+      phase === 'review' ? 'Preparing review...' : 'Submitting Report...');
+    if (els.confirmWorkFormSubmitButton) {
+      feedback.setButtonBusy(els.confirmWorkFormSubmitButton, isSubmitting && phase === 'submit', 'Submitting Report...');
+      els.confirmWorkFormSubmitButton.disabled = isSubmitting;
+    }
     state.submittingWorkForm = isSubmitting;
     els.submitWorkFormButton.disabled = isSubmitting;
+    if (!isSubmitting) setSubmitActionLabel();
     updatePhotoRemovalControls();
   }
 
-  async function handleSubmit(event) {
+  async function handleSubmit(event, { confirmed = false } = {}) {
     event.preventDefault();
-    if (!state.user || state.submittingWorkForm) return;
+    if (!state.user || state.submittingWorkForm || reloadLocked) return;
+    // A delayed confirmation from a closed/replaced review cannot trigger even
+    // the separate stale-draft recovery action.
+    if (confirmed && !submissionReview) return;
     if (conflictingDraft) {
       await keepConflictingDraft();
       return;
@@ -1007,6 +1145,22 @@ export function createWorkerFormModule({
         local: els.workFormFeedback,
         field: els.workFormSelect,
         tone: 'error'
+      });
+      return;
+    }
+
+    const reviewRequired = needsSubmissionReview(form);
+    const reviewed = confirmed ? submissionReview : null;
+    if (confirmed && (!reviewRequired || !reviewed)) return;
+    if (reviewRequired && submissionReview && !confirmed) {
+      els.workFormReviewHeading?.focus();
+      return;
+    }
+    if (reviewed && !reviewStillMatches(reviewed, form)) {
+      clearSubmissionReview({ focus: true });
+      markActiveDraftDirty();
+      renderStatusBanner('Report details changed. Review them again before submitting.', true, {
+        local: els.workFormFeedback, tone: 'warning'
       });
       return;
     }
@@ -1031,24 +1185,91 @@ export function createWorkerFormModule({
     }
 
     feedback.clearLocal(els.workFormFeedback);
-    setSubmitting(true);
+    setSubmitting(true, reviewRequired && !confirmed ? 'review' : 'submit');
     const submittedDraft = draftStateFor(form);
     const submittedSessionGeneration = sessionGeneration;
-    const submittedWorker = { id: state.user.id, name: state.user.fullName };
+    const submittedSelection = selectionToken;
+    const submittedWorker = { id: state.user.id, name: state.user.fullName, departmentId: state.user.departmentId };
     const isCurrentSubmission = () => sessionGeneration === submittedSessionGeneration
       && state.user?.role === 'worker'
-      && String(state.user.id) === String(submittedWorker.id);
+      && String(state.user.id) === String(submittedWorker.id)
+      && String(state.user.departmentId || '') === String(submittedWorker.departmentId || '');
+    const isCurrentCapture = () => isCurrentSubmission()
+      && selectionToken === submittedSelection
+      && renderedWorkForm?.id === form.id
+      && selectedWorkForm()?.id === form.id
+      && definitionVersion(selectedWorkForm()) === definitionVersion(form)
+      && selectedWorkForm()?.status === 'active';
     try {
       await waitForDraftPhotos(submittedDraft);
-      if (!isCurrentSubmission()) return;
+      if (!isCurrentCapture()) return;
       try {
         await flushActiveDraft();
       } catch {
         // A successful submission is also a durable way to protect the current work.
       }
-      if (!isCurrentSubmission()) return;
+      if (!isCurrentCapture()) return;
       const answers = await collectWorkFormAnswers(form, { container: els.workFormFields });
-      if (!isCurrentSubmission()) return;
+      if (!isCurrentCapture()) return;
+
+      // Site options can be refreshed by an already-running reconnect while
+      // photo/draft preparation waits. Recheck the complete reviewed content at
+      // the actual submission boundary, not only when Confirm was clicked.
+      if (reviewed && !reviewStillMatches(reviewed, form)) {
+        setSubmitting(false);
+        clearSubmissionReview({ focus: true });
+        markActiveDraftDirty();
+        renderStatusBanner('Report details changed. Review them again before submitting.', true, {
+          local: els.workFormFeedback, tone: 'warning'
+        });
+        return;
+      }
+
+      if (reviewRequired && !confirmed) {
+        const snapshot = { ...buildDraftSnapshot(form, submittedDraft), answers };
+        // Programmatic option refreshes do not dispatch input events. Capture
+        // their settled values as a draft too, so Review never claims an older
+        // saved copy represents the currently displayed details.
+        if (!sameDraftContent(snapshot, submittedDraft.snapshot)) {
+          submittedDraft.snapshot = snapshot;
+          submittedDraft.revision += 1;
+          try {
+            await persistDraftState(submittedDraft);
+          } catch {
+            // The visible unsaved warning remains; final submission can still
+            // protect the work durably, as in the ordinary submit path.
+          }
+          if (!isCurrentCapture()) return;
+          if (!sameDraftContent(snapshot, buildDraftSnapshot(form, submittedDraft))) {
+            setSubmitting(false);
+            markActiveDraftDirty();
+            renderStatusBanner('Report details changed. Review them again before submitting.', true, {
+              local: els.workFormFeedback, tone: 'warning'
+            });
+            return;
+          }
+        }
+        const reviewSite = snapshot.siteId ? findSiteByFormValue(snapshot.siteId) : null;
+        if (snapshot.siteId && !reviewSite) {
+          const error = new Error('Please select a valid site first.');
+          error.fieldId = 'workFormSite';
+          throw error;
+        }
+        showSubmissionReview({
+          form: JSON.parse(JSON.stringify(form)),
+          snapshot,
+          site: reviewSite ? { id: reviewSite.id, name: reviewSite.name } : null,
+          workerId: String(state.user.id),
+          departmentId: String(state.user.departmentId || ''),
+          generation: sessionGeneration,
+          selection: selectionToken
+        });
+        return;
+      }
+
+      // The confirmation sends the exact content the Worker reviewed. The
+      // editor stays mounted for Back, draft saving, and safe failure recovery.
+      const evidence = reviewed?.snapshot;
 
       const localRecord = {
         id: uuid(),
@@ -1057,16 +1278,16 @@ export function createWorkerFormModule({
         formName: form.name,
         definitionVersion: definitionVersion(form),
         submissionPurpose: formPurpose(form),
-        fields: form.fields || [],
+        fields: reviewed?.form.fields || form.fields || [],
         userId: submittedWorker.id,
         userName: submittedWorker.name,
-        siteId: site?.id || null,
-        siteName: site?.name || 'Unassigned site',
-        workDate: els.workFormDate.value,
-        answers,
-        photoDataUrls: [...state.workFormPhotoDataUrls],
-        photoBlobs: [...state.workFormPhotoBlobs],
-        photoMetadata: state.workFormPhotoMetadata.map((item) => ({ ...item })),
+        siteId: (reviewed ? reviewed.site : site)?.id || null,
+        siteName: (reviewed ? reviewed.site : site)?.name || 'Unassigned site',
+        workDate: evidence?.workDate || els.workFormDate.value,
+        answers: evidence?.answers || answers,
+        photoDataUrls: [...(evidence?.photoDataUrls || state.workFormPhotoDataUrls)],
+        photoBlobs: [...(evidence?.photoBlobs || state.workFormPhotoBlobs)],
+        photoMetadata: (evidence?.photoMetadata || state.workFormPhotoMetadata).map((item) => ({ ...item })),
         photoUrls: [],
         createdAt: new Date().toISOString()
       };
@@ -1121,6 +1342,7 @@ export function createWorkerFormModule({
         handleSessionExpired();
         return;
       }
+      if (submissionReview) clearSubmissionReview({ focus: true });
       const invalidField = error.fieldId ? document.getElementById(error.fieldId) : null;
       renderStatusBanner(error.message || 'Could not submit Report.', true, {
         local: els.workFormFeedback,
@@ -1128,7 +1350,7 @@ export function createWorkerFormModule({
         tone: 'error'
       });
     } finally {
-      if (isCurrentSubmission() && state.submittingWorkForm) setSubmitting(false);
+      if (sessionGeneration === submittedSessionGeneration && state.submittingWorkForm) setSubmitting(false);
     }
   }
 
@@ -1188,6 +1410,11 @@ export function createWorkerFormModule({
 
   function bindEvents() {
     els.workFormSubmissionForm.addEventListener('submit', handleSubmit);
+    els.confirmWorkFormSubmitButton?.addEventListener('click', (event) => { void handleSubmit(event, { confirmed: true }); });
+    els.workFormReviewBackButton?.addEventListener('click', () => {
+      if (state.submittingWorkForm || reloadLocked) return;
+      clearSubmissionReview({ focus: true });
+    });
     els.submitWorkFormButton.addEventListener('click', () => {
       if (conflictingDraft) void keepConflictingDraft();
     });
@@ -1251,6 +1478,7 @@ export function createWorkerFormModule({
     renderPhotoPreviews([]);
     photoProcessing = { key: '', pending: false, error: null, promise: Promise.resolve() };
     setPhotoStatus('');
+    clearPhotoSelectionFeedback();
     draftStates.clear();
     submittedDraftsPendingCleanup.clear();
     showDefaultAutosaveStatus();

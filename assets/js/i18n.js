@@ -37,7 +37,76 @@ const LANGUAGE_META = {
 };
 
 const ZH_TEXT = {
+  'Search Templates': '搜索模板',
+  'Name or description': '名称或描述',
+  'Template status': '模板状态',
+  'Archived': '已归档',
+  'All Templates': '全部模板',
+  'Reset filters': '重置筛选',
+  'Template updated, but the library could not refresh. Refresh before making another change.': '模板已更新，但列表未能刷新。请刷新后再进行更改。',
+  'No Templates match your search. Try another name or reset filters.': '没有匹配的模板。请尝试其他名称或重置筛选。',
+  'No archived Templates.': '没有已归档的模板。',
+  'No active Templates. Choose Archived or add a Template.': '没有使用中的模板。请选择已归档或添加模板。',
+  'Review & submit': '检查并提交',
+  'Answers': '答案',
+  'Back to edit': '返回编辑',
+  'Preparing review...': '正在准备检查页面……',
+  'Check the details below. Submitted Reports cannot be edited.': '请检查以下内容。报告提交后无法编辑。',
+  'Report details changed. Review them again before submitting.': '报告内容已更改。提交前请重新检查。',
+  'Some selected files were not added. Go back to see details.': '部分所选文件未添加。请返回查看详情。',
+  'No site selected': '未选择工地',
+  'Not provided': '未填写',
+  'No answers required': '无需填写答案',
+  'Signature preview unavailable': '签名预览不可用',
+  'Handwritten signature': '手写签名',
+  'Calculated values are previews; the server confirms them on submission.': '计算结果为预览值；提交时由服务器确认。',
   'Forgot password?': '忘记密码？',
+  'Worker recovery link ready': '员工密码恢复链接已准备好',
+  'Verify this Worker’s identity before sharing privately. Anyone with this link can choose a new password for this account. No email has been sent.': '私下分享前，请核实此员工的身份。持有此链接的人可以为此账户设置新密码。系统未发送邮件。',
+  'Private recovery link': '私密恢复链接',
+  'The current password stays unchanged until this link is used. The link is shown only now; closing this window hides it.': '使用此链接之前，当前密码保持不变。此链接仅在本次显示，关闭窗口后将隐藏。',
+  'ReportFlow password recovery': 'ReportFlow 密码恢复',
+  'Private recovery link for {identity}. Open it to choose your new password.': '{identity} 的私密恢复链接。请打开链接设置您的新密码。',
+  'The recovery link is unavailable. Refresh Staff and create a new link.': '恢复链接不可用。请刷新员工页面并创建新链接。',
+  'Password recovery link pending': '密码恢复链接待使用',
+  'Password recovery link expired': '密码恢复链接已过期',
+  'Password recovery link revoked': '密码恢复链接已撤销',
+  'Password recovery completed': '密码恢复已完成',
+  'Create recovery link': '创建恢复链接',
+  'Replace recovery link': '替换恢复链接',
+  'Revoke recovery link': '撤销恢复链接',
+  'Create recovery link?': '创建恢复链接？',
+  'Replace recovery link?': '替换恢复链接？',
+  'Revoke recovery link?': '撤销恢复链接？',
+  'This link will stop working. The Worker’s current password is unchanged. You can create a new recovery link later.': '此链接将失效。员工当前密码保持不变。您可稍后创建新的恢复链接。',
+  'The previous recovery link will stop working. Verify this Worker’s identity, then share the new link through a private channel. The current password stays unchanged until the new link is used.': '旧恢复链接将失效。请核实此员工的身份，再通过私密渠道分享新链接。使用新链接之前，当前密码保持不变。',
+  'Verify this Worker’s identity, then share the link through a private channel. The Worker chooses their own new password. Their current password stays unchanged until the link is used.': '请核实此员工的身份，再通过私密渠道分享链接。员工将自行设置新密码。使用链接之前，当前密码保持不变。',
+  'Creating recovery link...': '正在创建恢复链接……',
+  'Revoking link...': '正在撤销链接……',
+  'Password recovery is only available for active Workers who have already set a password': '只有已设置密码的在职员工可以使用密码恢复。',
+  'Session expired. Sign in again.': '登录会话已失效。请重新登录。',
+  'Recovery link revoked. The current password is unchanged.': '恢复链接已撤销。当前密码保持不变。',
+  'Recovery link revoked, but the Staff list could not refresh. Refresh Staff before making another change.': '恢复链接已撤销，但员工列表无法刷新。再次更改之前，请先刷新员工页面。',
+  'Recovery link created, but the Staff list could not refresh. You can still share the new link privately.': '恢复链接已创建，但员工列表无法刷新。您仍可私下分享新链接。',
+  'Could not update password recovery. Refresh Staff and try again.': '无法更新密码恢复设置。请刷新员工页面后重试。',
+  'Reset your password': '重置密码',
+  'Choose a new private password for your Worker account.': '请为您的员工账户设置新的私密密码。',
+  'Recovery link expires:': '恢复链接有效期至：',
+  'Checking recovery link...': '正在检查恢复链接……',
+  'Reset password': '重置密码',
+  'Resetting password...': '正在重置密码……',
+  'If this link expired, was already used or was replaced, ask your supervisor for a new private recovery link. No recovery email is sent.': '如果此链接已过期、已使用或已被替换，请向主管索取新的私密恢复链接。系统不会发送恢复邮件。',
+  'JavaScript and an internet connection are required to reset your password.': '重置密码需要启用 JavaScript 并连接互联网。',
+  'This recovery link is invalid or expired. If you just reset your password, try signing in; otherwise ask your supervisor for a new link.': '此恢复链接无效或已过期。如果您刚刚重置了密码，请尝试登录；否则请向主管索取新链接。',
+  'Too many attempts. Wait a little before trying again.': '尝试次数过多。请稍候重试。',
+  'Check your new password. Use at least 8 characters, up to 72 UTF-8 bytes.': '请检查新密码。密码须至少包含 8 个字符，且不超过 72 个 UTF-8 字节。',
+  'We could not confirm whether your password changed. Try signing in with the new password first. If it does not work, retry here or ask your supervisor for a new link.': '无法确认密码是否已更改。请先尝试使用新密码登录；如果无法登录，请在此重试或向主管索取新链接。',
+  'Open the complete private recovery link from your supervisor.': '请打开主管提供的完整私密恢复链接。',
+  'Resetting this password signs out this Worker’s existing sessions. It does not switch this browser’s account or delete saved drafts.': '重置密码会使此员工现有的登录会话失效，但不会切换此浏览器的账户或删除已保存的草稿。',
+  'Password must be at least 8 characters.': '密码须至少包含 8 个字符。',
+  'Password reset. You can now sign in to ReportFlow.': '密码已重置。现在可以登录 ReportFlow。',
+  'This Worker’s old sessions are signed out. Any other account in this browser is unchanged. Open the app and sign out there before switching accounts; saved drafts are kept.': '此员工旧的登录会话已失效。此浏览器中的其他账户不受影响。切换账户前，请打开应用并退出当前账户；已保存的草稿会保留。',
+  'Contact your supervisor privately for an expiring recovery link. Open it to choose your own new password.': '请私下联系主管，获取有有效期的密码恢复链接。打开链接后，您可自行设置新密码。',
   'Password recovery is handled by your supervisor. Contact them privately and ask to restore your access.': '密码恢复由主管处理。请私下联系主管，请求恢复账户访问。',
   'Never share your password. Automatic password-reset emails are not available yet.': '请勿分享您的密码。目前尚不支持自动发送密码重置邮件。',
   'Newly invited? Open your private setup link to choose your password and continue into ReportFlow.': '首次接受邀请？请打开私密设置链接，设置密码并进入 ReportFlow。',
@@ -62,7 +131,17 @@ const ZH_TEXT = {
   'Templates saved for offline use.': '模板已保存，可离线使用。',
   'Using saved Report Templates. Submissions will wait until you reconnect.': '正在使用已保存的报告模板。重新联网后将同步提交。',
   'Select again to add more photos.': '再次选择即可添加更多照片。',
+  'Use JPEG, PNG, or WebP.': '请使用 JPEG、PNG 或 WebP 格式。',
+  'File exceeds 5 MB.': '文件超过 5 MB。',
+  'Preparing preview…': '正在准备预览……',
+  'Preview unavailable. Tap to open original.': '预览不可用。点按可打开原图。',
   'Exports match Find and filters, across all pages.': '导出所有页面中符合搜索和筛选条件的报告。',
+  'Report workflow shortcuts': '报告流程快捷筛选',
+  'All workflows': '所有状态',
+  'Filters are remembered on this device for your account and Department. Find text is not saved.': '本设备会记住您当前账户和部门的筛选条件，但不会保存搜索文字。',
+  'Filters work now, but cannot be remembered on this device.': '筛选仍可使用，但无法在本设备上保存。',
+  'Some filter choices are unavailable. Refresh to restore saved Template and Worker filters.': '部分筛选选项暂时不可用。请刷新以恢复已保存的模板和员工筛选条件。',
+  'Loading Reports…': '正在加载报告…',
   'Saved submission sync': '已保存提交的同步状态',
   'Photos and signatures uploaded': '已上传的照片和签名',
   'Checking saved submissions...': '正在检查已保存的提交……',
@@ -1135,6 +1214,13 @@ const ZH_TEXT = {
 };
 
 const ZH_PATTERNS = [
+  [/^(\d+) of (\d+) Templates shown$/, (match) => `显示 ${match[1]} / ${match[2]} 个模板`],
+  [/^(\d+) fields?$/, (match) => `${match[1]} 个字段`],
+  [/^(\d+) signature fields?$/, (match) => `${match[1]} 个签名字段`],
+  [/^(\d+) repeating groups?$/, (match) => `${match[1]} 个重复组`],
+  [/^Version (\d+)$/, (match) => `版本 ${match[1]}`],
+  [/^Row (\d+)$/, (match) => `第 ${match[1]} 行`],
+  [/^(\d+(?:\.\d+)?) hours$/, (match) => `${match[1]} 小时`],
   [/^(\d+) of (\d+)$/, (match) => `${match[1]} / ${match[2]}`],
   [/^Saved at (.+)\.( Draft restored on this device\.)?$/, (match) => `已于 ${match[1]} 保存。${match[2] ? '已恢复本设备上的草稿。' : ''}`],
   [/^(\d+) exceptions?$/, (match) => `${match[1]} 个异常`],
@@ -1159,6 +1245,8 @@ const ZH_PATTERNS = [
   [/^Reports can include up to (\d+) photos\.?$/, (match) => `每份报告最多可包含 ${match[1]} 张照片。`],
   [/^Up to (\d+) photos\. You can select them together\.$/, (match) => `最多 ${match[1]} 张照片，可一次选择。`],
   [/^(\d+) of (\d+) photos selected\.$/, (match) => `已选择 ${match[1]} / ${match[2]} 张照片。`],
+  [/^Added (\d+) photos?\. (\d+) files? not added\.$/, (match) => `已添加 ${match[1]} 张照片。${match[2]} 个文件未添加。`],
+  [/^Would exceed the (\d+)-photo limit\.$/, (match) => `会超过 ${match[1]} 张照片的上限。`],
   [/^Preparing photo (\d+) of (\d+)\.\.\.$/, (match) => `正在准备照片 ${match[1]} / ${match[2]}……`],
   [/^Uploading photos and signatures: (\d+) of (\d+)\. Keep this page open\.$/, (match) => `正在上传照片和签名：${match[1]} / ${match[2]}。请保持此页面打开。`],
   [/^Photos and signatures uploaded: (\d+) of (\d+)\.$/, (match) => `已上传照片和签名：${match[1]} / ${match[2]}。`],
@@ -1308,7 +1396,7 @@ function normaliseText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
-export function translateText(value, language = currentLanguage) {
+export function translateText(value, language = currentLanguage, context = '') {
   const raw = String(value ?? '');
   if (language === 'en') return raw;
 
@@ -1318,7 +1406,8 @@ export function translateText(value, language = currentLanguage) {
   if (!text) return raw;
   if (PROTECTED_COMPANY_NAMES.has(text) || PROTECTED_TECHNICAL_TEXT.has(text)) return raw;
 
-  const exact = ZH_TEXT[text];
+  // Staff's "Active" means employed; a Template is available for use instead.
+  const exact = context === 'template' && text === 'Active' ? '使用中' : ZH_TEXT[text];
   if (exact) return `${leading}${exact}${trailing}`;
 
   for (const [pattern, replacer] of ZH_PATTERNS) {
@@ -1348,7 +1437,8 @@ function translateTextNode(node) {
   }
 
   const original = originalTextNodes.get(node);
-  const nextValue = currentLanguage === 'en' ? original : translateText(original, currentLanguage);
+  const context = node.parentElement?.closest('[data-i18n-context]')?.dataset.i18nContext;
+  const nextValue = currentLanguage === 'en' ? original : translateText(original, currentLanguage, context);
   if (node.nodeValue !== nextValue) {
     node.nodeValue = nextValue;
   }
@@ -1393,7 +1483,8 @@ export function setTranslatableTextParts(element, values) {
     const original = `${index ? ' ' : ''}${String(value ?? '')}`;
     const node = element.ownerDocument.createTextNode(original);
     originalTextNodes.set(node, original);
-    node.nodeValue = currentLanguage === 'en' ? original : translateText(original, currentLanguage);
+    const context = element.closest('[data-i18n-context]')?.dataset.i18nContext;
+    node.nodeValue = currentLanguage === 'en' ? original : translateText(original, currentLanguage, context);
     element.appendChild(node);
   });
 }

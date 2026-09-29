@@ -234,12 +234,12 @@ export async function refreshSession() {
   return user;
 }
 
-export async function updateDefaultDepartment(departmentId) {
+export async function updateDefaultDepartment(departmentId, { isCurrentSession = () => true } = {}) {
   const user = normalizeUser(await apiFetch("/auth/default-department", {
     method: "PATCH",
     body: JSON.stringify({ department_id: departmentId || null })
   }));
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  if (isCurrentSession()) localStorage.setItem(USER_KEY, JSON.stringify(user));
   return user;
 }
 
@@ -261,6 +261,14 @@ export async function reissueWorkerInvitation(userId) {
 
 export async function revokeWorkerInvitation(userId) {
   return apiFetch(`/supervisor/users/${encodeURIComponent(userId)}/invitation`, { method: 'DELETE' });
+}
+
+export async function createWorkerPasswordRecovery(userId) {
+  return apiFetch(`/supervisor/users/${encodeURIComponent(userId)}/password-recovery`, { method: 'POST' });
+}
+
+export async function revokeWorkerPasswordRecovery(userId) {
+  return apiFetch(`/supervisor/users/${encodeURIComponent(userId)}/password-recovery`, { method: 'DELETE' });
 }
 
 export async function createUser(user) {

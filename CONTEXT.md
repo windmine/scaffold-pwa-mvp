@@ -28,9 +28,17 @@ The invitation migration and compatible backend were deployed before the coupled
 
 Released 2026-09-25 improvements preserve manual handoff but add a user-triggered native Share option with Copy fallback. A clean browser can **Set password and continue** through ordinary password authentication at a distinct, mandatory-guard `/auth/login/after-setup` endpoint. Acceptance itself remains cookie-free. Existing browser credentials or saved identities block continuation without logout or draft removal; old backends lacking the route fall back to normal sign-in. The visible **Forgot password?** route explains supervisor-assisted recovery, not self-service reset. Established-account reset credentials and session revocation are not implemented by this change. Generation guards protect local identity/UI changes, but cannot cancel an in-flight server cookie response; independent simultaneous sign-ins are not globally atomic.
 
+**Private password recovery** (local candidate, not deployed):
+Distinct from an invitation: an authorized Supervisor verifies an established Worker's identity and privately shares a one-hour, single-use recovery link. Only active Workers who have completed setup qualify; no email service or public account-lookup/reset request is exposed. Creating/replacing/revoking a link leaves the current password and sessions unchanged. Acceptance rotates the password and authentication generation atomically; old bearer/cookie sessions are rejected. Hashed tokens are purpose-separated from invitations and bound to the Worker, Department, email and recovery generation. Replacement, revocation and relevant Staff edits invalidate outstanding links.
+
+The standalone recovery page keeps its URL-fragment token only in memory, makes cookie-free requests and never logs in automatically or modifies another account's saved identity/drafts. The Worker signs in normally after reset. A recovery link proves possession of the capability, not email ownership or verified delivery. Additive `0022_worker_password_recovery` and its compatible backend must precede Hosting; once credentials have rotated, an older backend that ignores authentication generations is not a safe rollback. September 25 deployment statements remain unchanged.
+
 **Global admin**:
 A Supervisor who may focus the dashboard on any Department or all Departments. The saved dashboard focus does not change the account's home Department.
 _Avoid_: Supervisor when cross-department authority is important
+
+**Remembered review filters** (local candidate, not deployed):
+Device-local, structured Supervisor Report preferences: Workflow, Template ID, Worker ID and Report Date. Keys bind Supervisor identity, home Department, global-admin capability and effective focused Department; All departments is its own global scope. Find text, names, Report content and authentication data are excluded. These preferences do not grant access, cache protected Reports, or change the backend saved default Department. Current authorized catalogs validate stored IDs before querying. Workflow shortcuts preserve other filters, and Clear resets only the current scope.
 
 **Accounting / Payroll**:
 The future office workflow that reviews approved attendance by pay period and exports payroll-ready hour summaries.
@@ -55,6 +63,8 @@ _Avoid_: Diary, Daywork, Work Form, or approval record in user-facing language
 **Report Template**:
 A reusable, versioned, Supervisor-managed definition with `template_purpose=report`. Every active Worker in its Department may submit it. Archived Report Templates cannot accept new Reports.
 _Avoid_: Work Form in user-facing language
+
+The local, not-yet-deployed Template library defaults to Active and filters published Templates by lifecycle state and name/description search. Its compact field/signature/group counts describe the Definition, not completed answers or submitted Reports. Private unfinished Template drafts remain separate and are never hidden or discarded by library filtering. Full Definitions remain available through Preview and Edit; filtering does not change Worker availability, versions or Report snapshots.
 
 **Report workflow**:
 The forward-only state machine **Submitted → In review → Resolved**. An authorised Department Supervisor starts review and resolves with a required final Supervisor note. Report transitions are separate from legacy approve/reject decisions, atomic, and audit-logged.

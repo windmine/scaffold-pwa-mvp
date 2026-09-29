@@ -16,6 +16,11 @@ import {
   updateSupervisorTaskLog as updateBackendSupervisorTaskLog
 } from './api-client.js';
 import { setDateInputValue } from './date-inputs.js';
+import {
+  readReportReviewPreferences,
+  reportReviewPreferenceKey,
+  writeReportReviewPreferences
+} from './report-review-preferences.js';
 import { createReviewExportAdapters, reportCollectionExportFilters } from './review-export-adapters.js';
 import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
 import { todayDateInput, escapeHtml, formatDateTime, reviewRecordKey } from './utils.js';
@@ -74,10 +79,19 @@ export function createSupervisorReviewModule({
   let auditRequestId = 0;
   let trashRequestId = 0;
   let mobileDetailOpen = false;
+  let reportPanelRequestId = 0;
+  let reportPreferenceScope = null;
+  let reportPreferenceAvailable = true;
+  let reportCatalogLoading = false;
+  let lastReportQueryKey = '';
+  let reportCatalogReady = { templates: false, workers: false };
+  let desiredReportFilters = { status: '', formId: '', workerId: '', date: '' };
   const activeExportButtons = new Map();
   const reportReviewFilters = els.reviewQueueDetails.querySelector('#reportReviewFilters');
   const reportReviewFilterSummary = els.reviewQueueDetails.querySelector('#reportReviewFilterSummary');
   const reviewQueueBackButton = els.reviewQueueDetails.querySelector('#reviewQueueBackButton');
+  const reportPreferenceNotice = els.reviewQueueDetails.querySelector('#reportReviewPreferenceNotice');
+  const workflowShortcuts = [...els.reviewQueueDetails.querySelectorAll('[data-report-workflow-shortcut]')];
 
   function isNarrowReportReview() {
     return reportOnly && window.matchMedia('(max-width: 1099px)').matches;
@@ -116,6 +130,9 @@ export function createSupervisorReviewModule({
   }
 
   function renderReportFilterSummary() {
+    workflowShortcuts.forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.reportWorkflowShortcut === els.supervisorStatusFilter.value));
+    });
     if (!reportOnly || !reportReviewFilterSummary) return;
     const filters = getFilters();
     const labels = [];
@@ -139,7 +156,7 @@ export function createSupervisorReviewModule({
   }
 
   function captureSession() {
-    return { epoch: sessionEpoch, user: state.user };
+    return { epoch: sessionEpoch, user: state.user, reportScope: currentReportPreferenceScope() };
   }
 
   function isCurrentSessionEpoch(session) {
@@ -149,7 +166,9 @@ export function createSupervisorReviewModule({
 
   function isCurrentSession(session) {
     return isCurrentSessionEpoch(session)
-      && session.user === state.user
+      && (reportOnly
+        ? Boolean(session.reportScope && session.reportScope === currentReportPreferenceScope())
+        : session.user === state.user)
       && state.user?.role === 'supervisor';
   }
 
@@ -168,6 +187,14 @@ export function createSupervisorReviewModule({
     reviewOverviewRequestId += 1;
     auditRequestId += 1;
     trashRequestId += 1;
+    reportPanelRequestId += 1;
+    reportPreferenceScope = null;
+    reportPreferenceAvailable = true;
+    reportCatalogLoading = false;
+    lastReportQueryKey = '';
+    reportCatalogReady = { templates: false, workers: false };
+    desiredReportFilters = { status: '', formId: '', workerId: '', date: '' };
+    if (reportPreferenceNotice) reportPreferenceNotice.textContent = '';
     window.clearTimeout(filterRefreshTimer);
     filterRefreshTimer = null;
     selectedReviewRecordKey = '';
@@ -298,7 +325,7 @@ export function createSupervisorReviewModule({
     );
     const templates = (state.workForms || [])
       .filter(inFocusedDepartment)
-      .filter((form) => !isDayworkForm(form));
+      .filter((form) => (form.template_purpose ?? form.templatePurpose) === 'report');
     const workers = (state.staffUsers || [])
       .filter((user) => user.role === 'worker' && inFocusedDepartment(user));
 
@@ -322,6 +349,135 @@ export function createSupervisorReviewModule({
       (worker) => String(worker.id) === currentWorkerId
     ) ? currentWorkerId : '';
     renderReportFilterSummary();
+  }
+
+  function currentReportPreferenceScope() {
+    return reportOnly ? reportReviewPreferenceKey(state.user, state.departmentFocusId) : null;
+  }
+
+  function updateReportFilterControls() {
+    if (!reportOnly) return;
+    [els.supervisorSearchInput, els.supervisorStatusFilter, els.supervisorDateFilter,
+      els.clearSupervisorFiltersButton, ...workflowShortcuts].forEach((control) => {
+      control.disabled = reportCatalogLoading;
+    });
+    els.supervisorTemplateFilter.disabled = reportCatalogLoading || !reportCatalogReady.templates;
+    els.supervisorWorkerFilter.disabled = reportCatalogLoading || !reportCatalogReady.workers;
+    if (reportPreferenceNotice) {
+      const messages = [];
+      if (!reportPreferenceAvailable) messages.push('Filters work now, but cannot be remembered on this device.');
+      if (!reportCatalogLoading && (!reportCatalogReady.templates || !reportCatalogReady.workers)) {
+        messages.push('Some filter choices are unavailable. Refresh to restore saved Template and Worker filters.');
+      }
+      reportPreferenceNotice.replaceChildren();
+      messages.forEach((message, index) => {
+        if (index) reportPreferenceNotice.append(document.createTextNode(' '));
+        const span = document.createElement('span');
+        span.textContent = message;
+        reportPreferenceNotice.append(span);
+      });
+      reportPreferenceNotice.hidden = !messages.length;
+    }
+  }
+
+  function rememberReportFilters() {
+    if (!reportOnly || reportCatalogLoading || !reportPreferenceScope
+      || reportPreferenceScope !== currentReportPreferenceScope()) return;
+    desiredReportFilters = {
+      status: els.supervisorStatusFilter.value,
+      formId: reportCatalogReady.templates ? els.supervisorTemplateFilter.value : desiredReportFilters.formId,
+      workerId: reportCatalogReady.workers ? els.supervisorWorkerFilter.value : desiredReportFilters.workerId,
+      date: els.supervisorDateFilter.value
+    };
+    reportPreferenceAvailable = writeReportReviewPreferences(state.user, state.departmentFocusId, desiredReportFilters);
+    updateReportFilterControls();
+  }
+
+  function invalidateReportResults({ preserveDurableResults = false } = {}) {
+    // Invalidate immediately, not after the debounce: old pages/actions cannot win a filter change.
+    reviewQueueRequestId += 1;
+    window.clearTimeout(filterRefreshTimer);
+    filterRefreshTimer = null;
+    if (!reportOnly) return;
+    if (preserveDurableResults) {
+      // An unchanged Refresh keeps the currently authorized detail usable until an actual failure.
+      state.supervisorRecords = { ...state.supervisorRecords, nextCursor: null, hasMore: false, loadingMore: false };
+      els.reviewQueuePagination.replaceChildren();
+      els.reviewQueueNotice.textContent = 'Loading Reports…';
+      return;
+    }
+    selectedReviewRecordKey = '';
+    visibleReviewRecords = [];
+    showReviewInbox();
+    clearReviewDetail();
+    state.supervisorRecords = {
+      ...state.supervisorRecords,
+      reviewRecords: [],
+      queueCounts: null, queueSummaryCounts: null,
+      queueMode: REVIEW_QUEUE_MODE.OFFLINE_READ_ONLY, queueQuery: {},
+      nextCursor: null, hasMore: false, loadingMore: false
+    };
+    renderFilteredLists();
+    els.reviewQueueNotice.textContent = 'Loading Reports…';
+  }
+
+  async function refreshReportPanel() {
+    const session = captureSession();
+    const scope = currentReportPreferenceScope();
+    const request = ++reportPanelRequestId;
+    // Saving the default Department replaces the profile object without changing this scope.
+    const isCurrent = () => isCurrentSessionEpoch(session) && state.user?.role === 'supervisor'
+      && request === reportPanelRequestId && scope === currentReportPreferenceScope();
+    const changedScope = scope !== reportPreferenceScope;
+    if (changedScope) {
+      const saved = readReportReviewPreferences(state.user, state.departmentFocusId);
+      reportPreferenceScope = scope;
+      reportPreferenceAvailable = saved.available;
+      desiredReportFilters = saved.filters;
+      els.supervisorSearchInput.value = '';
+      reportCatalogReady = { templates: false, workers: false };
+    }
+    reportCatalogLoading = true;
+    els.supervisorTypeFilter.value = 'form';
+    els.supervisorStatusFilter.value = desiredReportFilters.status;
+    setDateInputValue(els.supervisorDateFilter, desiredReportFilters.date);
+    // No stale options from another scope, including while the catalog requests are pending.
+    if (changedScope) {
+      els.supervisorTemplateFilter.innerHTML = '<option value="">All Report Templates</option>';
+      els.supervisorWorkerFilter.innerHTML = '<option value="">All workers</option>';
+    }
+    invalidateReportResults({ preserveDurableResults: !changedScope });
+    updateReportFilterControls();
+    const loadCatalog = async (load) => {
+      try { return await load(); } catch (error) {
+        if (isCurrent() && [401, 403].includes(error.status)) handleSessionExpired();
+        return false;
+      }
+    };
+    const templatesLoaded = await loadCatalog(refreshWorkForms);
+    if (!isCurrent()) return;
+    const workersLoaded = await loadCatalog(renderStaffUsers);
+    if (!isCurrent()) return;
+    reportCatalogReady = { templates: templatesLoaded !== false, workers: workersLoaded !== false };
+    renderReportFilterOptions();
+    if (reportCatalogReady.templates) {
+      els.supervisorTemplateFilter.value = [...els.supervisorTemplateFilter.options]
+        .some((option) => option.value === desiredReportFilters.formId) ? desiredReportFilters.formId : '';
+      desiredReportFilters.formId = els.supervisorTemplateFilter.value;
+    } else els.supervisorTemplateFilter.innerHTML = '<option value="">All Report Templates</option>';
+    if (reportCatalogReady.workers) {
+      els.supervisorWorkerFilter.value = [...els.supervisorWorkerFilter.options]
+        .some((option) => option.value === desiredReportFilters.workerId) ? desiredReportFilters.workerId : '';
+      desiredReportFilters.workerId = els.supervisorWorkerFilter.value;
+    } else els.supervisorWorkerFilter.innerHTML = '<option value="">All workers</option>';
+    reportCatalogLoading = false;
+    updateReportFilterControls();
+    renderReportFilterSummary();
+    if (!changedScope && JSON.stringify(reviewQueueQuery()) !== JSON.stringify(state.supervisorRecords.queueQuery)) {
+      // Catalog validation can remove a saved selection; never export a broadened query beside old results.
+      invalidateReportResults();
+    }
+    await refreshReviewQueue();
   }
 
   function reviewQueueQuery() {
@@ -1015,6 +1171,7 @@ export function createSupervisorReviewModule({
     const session = captureSession();
     if (!isCurrentSession(session)) return false;
     const query = reviewQueueQuery();
+    if (reportOnly) lastReportQueryKey = JSON.stringify(query);
     const requestId = ++reviewQueueRequestId;
     try {
       const page = await getBackendSupervisorReviewQueuePage({
@@ -1116,17 +1273,10 @@ export function createSupervisorReviewModule({
     if (!isCurrentSession(session)) return;
     renderDepartmentFilter();
     if (reportOnly) {
-      els.supervisorTypeFilter.value = 'form';
-    }
-    if (!await refreshReviewQueue() || !isCurrentSession(session)) return;
-    if (reportOnly) {
-      await refreshWorkForms();
-      if (!isCurrentSession(session)) return;
-      await renderStaffUsers();
-      if (!isCurrentSession(session)) return;
-      renderReportFilterOptions();
+      await refreshReportPanel();
       return;
     }
+    if (!await refreshReviewQueue() || !isCurrentSession(session)) return;
     if (!await refreshReviewOverview() || !isCurrentSession(session)) return;
     state.supervisorRecords = {
       ...state.supervisorRecords,
@@ -1261,9 +1411,15 @@ export function createSupervisorReviewModule({
   }
 
   async function clearFilters() {
+    if (!isCurrentSession(captureSession()) || (reportOnly && reportCatalogLoading)) return;
     window.clearTimeout(filterRefreshTimer);
     filterRefreshTimer = null;
     resetReviewQueueFilters();
+    if (reportOnly) {
+      desiredReportFilters = { status: '', formId: '', workerId: '', date: '' };
+      rememberReportFilters();
+      invalidateReportResults();
+    }
     await refreshReviewQueue();
   }
 
@@ -1318,36 +1474,45 @@ export function createSupervisorReviewModule({
   }
 
   function scheduleReviewQueueRefresh() {
+    if (!isCurrentSession(captureSession()) || (reportOnly && reportCatalogLoading)) return;
     if (reportOnly) {
-      showReviewInbox();
+      const queryKey = JSON.stringify(reviewQueueQuery());
+      // Search emits change on blur after input. Do not interrupt the following Export/card click.
+      if (queryKey === lastReportQueryKey) return;
+      lastReportQueryKey = queryKey;
+      rememberReportFilters();
+      invalidateReportResults();
       renderReportFilterSummary();
     }
+    const session = captureSession();
+    const scope = currentReportPreferenceScope();
     window.clearTimeout(filterRefreshTimer);
     filterRefreshTimer = window.setTimeout(() => {
-      refreshReviewQueue();
+      filterRefreshTimer = null;
+      if (isCurrentSession(session) && scope === currentReportPreferenceScope()) void refreshReviewQueue();
     }, 250);
+  }
+
+  async function selectWorkflowShortcut(status) {
+    if (!isCurrentSession(captureSession()) || reportCatalogLoading) return;
+    els.supervisorStatusFilter.value = status;
+    rememberReportFilters();
+    invalidateReportResults();
+    renderReportFilterSummary();
+    await refreshReviewQueue();
   }
 
   async function handleDepartmentFilterChange() {
     const session = captureSession();
     if (!isCurrentSession(session)) return;
     state.departmentFocusId = els.supervisorDepartmentFilter.value;
-    if (reportOnly) {
-      showReviewInbox();
-      els.supervisorTemplateFilter.value = '';
-      els.supervisorWorkerFilter.value = '';
-    }
     renderDepartmentFilter();
-    renderLocationMap();
-    if (!await refreshReviewQueue() || !isCurrentSession(session)) return;
     if (reportOnly) {
-      await refreshWorkForms();
-      if (!isCurrentSession(session)) return;
-      await renderStaffUsers();
-      if (!isCurrentSession(session)) return;
-      renderReportFilterOptions();
+      await refreshReportPanel();
       return;
     }
+    renderLocationMap();
+    if (!await refreshReviewQueue() || !isCurrentSession(session)) return;
     if (!await refreshReviewOverview() || !isCurrentSession(session)) return;
     renderDepartmentScopedAdminLists();
     renderManualAttendanceForm();
@@ -1628,19 +1793,24 @@ export function createSupervisorReviewModule({
   async function handleSaveDefaultDepartment() {
     if (!state.user?.isGlobalAdmin) return;
     const session = captureSession();
+    const accountScope = reportReviewPreferenceKey(state.user, '');
+    const isCurrentAccount = () => reportOnly
+      ? isCurrentSessionEpoch(session) && Boolean(accountScope && accountScope === reportReviewPreferenceKey(state.user, ''))
+      : isCurrentSession(session);
 
     try {
       const user = await updateBackendDefaultDepartment(
-        state.departmentFocusId ? Number(state.departmentFocusId) : null
+        state.departmentFocusId ? Number(state.departmentFocusId) : null,
+        { isCurrentSession: isCurrentAccount }
       );
-      if (!isCurrentSession(session)) return;
+      if (!isCurrentAccount()) return;
       onDefaultDepartmentChanged(user);
       renderDepartmentFilter();
       renderStatusBanner(
         `Default dashboard view set to ${user.dashboardDepartmentName || 'All departments'}.`
       );
     } catch (error) {
-      if (!isCurrentSession(session)) return;
+      if (!isCurrentAccount()) return;
       renderStatusBanner(error.message || 'Could not save the default department.', true);
     }
   }
@@ -2027,6 +2197,9 @@ export function createSupervisorReviewModule({
     els.reviewQueueDetails.classList.toggle('report-review-layout', reportOnly);
     if (reportReviewFilters) reportReviewFilters.open = !isNarrowReportReview();
     if (reportOnly) {
+      workflowShortcuts.forEach((button) => button.addEventListener('click', () => {
+        void selectWorkflowShortcut(button.dataset.reportWorkflowShortcut);
+      }));
       reviewQueueBackButton?.addEventListener('click', () => showReviewInbox({ restoreFocus: true }));
       window.matchMedia('(max-width: 1099px)').addEventListener('change', (event) => {
         if (!event.matches && reportReviewFilters) reportReviewFilters.open = true;

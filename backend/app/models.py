@@ -33,6 +33,9 @@ class User(SQLModel, table=True):
     password_hash: str
     password_setup_required: bool = Field(default=False)
     invitation_generation: int = Field(default=0)
+    password_recovery_generation: int = Field(default=0)
+    auth_generation: int = Field(default=0)
+    legacy_auth_allowed: bool = Field(default=False)
 
     # "worker" or "supervisor"
     role: str = Field(default="worker")
@@ -61,6 +64,20 @@ class RegistrationVerification(SQLModel, table=True):
 
 
 class WorkerInvitation(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    worker_id: int = Field(index=True)
+    department_id: int = Field(index=True)
+    email: str
+    generation: int
+    token_hash: str = Field(index=True, unique=True)
+    issued_by: int
+    expires_at: datetime
+    consumed_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class WorkerPasswordRecovery(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     worker_id: int = Field(index=True)
     department_id: int = Field(index=True)

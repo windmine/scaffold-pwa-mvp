@@ -671,6 +671,8 @@ async function main() {
     await step('offline_report_preserves_original_answers_and_evidence', async () => {
       await workerContext.setOffline(true);
       await workerPage.locator('#submitWorkFormButton').click();
+      await workerPage.locator('#workFormReviewPanel').waitFor({ state: 'visible' });
+      await workerPage.locator('#confirmWorkFormSubmitButton').click();
       const queued = await poll(async () => (await localRecords(workerPage))
         .find((record) => record.formId === evidence.owned.templateId && record.syncStatus === 'queued'),
       'offline_report_not_queued');

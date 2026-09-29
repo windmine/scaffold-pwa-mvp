@@ -637,6 +637,7 @@ function activateAdminWorkspace(workspaceId, options = {}) {
   const nextPanel = document.getElementById(config.panelId);
   if (!nextPanel) return;
 
+  if (state.adminWorkspace !== workspace) staffSitesModule?.clearPrivateLinks?.();
   if (state.adminWorkspace !== workspace && !els.supervisorEditPanel.classList.contains('hidden')) {
     closeEditPanel();
   }

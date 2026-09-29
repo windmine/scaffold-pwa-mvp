@@ -2062,6 +2062,77 @@ textarea {
   flex: 0 0 auto;
 }
 
+.template-library-toolbar .filter-bar {
+  display: grid;
+  grid-template-columns: minmax(160px, 2fr) minmax(140px, 1fr) auto;
+  min-width: 0;
+}
+
+.template-library-toolbar label,
+.template-library-toolbar input,
+.template-library-toolbar select {
+  min-width: 0;
+}
+
+.template-library-results {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+}
+
+.template-library-card .record-title,
+.template-library-card .record-meta,
+.template-library-card .work-form-preview {
+  overflow-wrap: anywhere;
+}
+
+.template-library-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.template-library-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.9rem;
+}
+
+.template-library-card .record-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.template-library-card .record-actions button {
+  min-width: 0;
+  min-height: 44px;
+  width: 100%;
+  padding-inline: 6px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .template-library-toolbar .filter-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    flex-basis: 100%;
+  }
+
+  .template-library-toolbar .filter-bar label:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .template-library-toolbar .filter-bar button {
+    grid-column: auto;
+  }
+
+  .template-library-toolbar > button {
+    width: 100%;
+  }
+}
+
 .admin-create-panel {
   margin-bottom: 18px;
   padding: 16px;
@@ -2477,6 +2548,120 @@ textarea {
   width: 100%;
 }
 
+#workFormEditor[hidden],
+.report-submit-review[hidden],
+.report-review-warning[hidden] {
+  display: none;
+}
+
+.report-submit-review,
+.report-submit-summary {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.report-submit-review > h3,
+.report-submit-review > p,
+.report-submit-summary > h4,
+.report-submit-summary > h3,
+.report-review-meta,
+.report-review-answers {
+  margin: 0;
+}
+
+.report-review-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--surface-quiet);
+}
+
+.report-review-item {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.report-review-item > dt {
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.report-review-item > dd {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.report-review-answers {
+  display: grid;
+  gap: 12px;
+}
+
+.report-review-answers > .report-review-item {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.report-review-rows {
+  margin: 0;
+  padding-inline-start: 20px;
+}
+
+.report-review-row + .report-review-row {
+  margin-top: 12px;
+}
+
+.report-review-row-label {
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.report-review-signature {
+  margin: 0;
+}
+
+.report-review-signature img {
+  display: block;
+  width: min(100%, 300px);
+  max-height: 110px;
+  object-fit: contain;
+  object-position: left center;
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+
+.report-review-signature figcaption,
+.report-review-calculation-note,
+.report-review-duration,
+.report-review-empty {
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.report-review-warning {
+  color: var(--warning-text);
+}
+
+.report-review-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.report-review-actions > button {
+  min-height: 44px;
+  min-width: 0;
+  padding-inline: 10px;
+  white-space: normal;
+}
+
 .autosave-status {
   color: var(--muted);
   font-size: 0.86rem;
@@ -2561,7 +2746,8 @@ textarea {
   align-items: center;
 }
 
-#setupLanguageButton {
+#setupLanguageButton,
+#recoveryLanguageButton {
   width: auto;
   min-width: 44px;
   margin-left: auto;
@@ -6031,6 +6217,48 @@ body.report-only-mode .topbar-actions button,
   font-size: 0.875rem;
 }
 
+.report-photo-selection-feedback {
+  min-width: 0;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--warning-text);
+  border-radius: var(--radius);
+  background: var(--surface-quiet);
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.report-photo-selection-feedback > p {
+  margin: 0 0 6px;
+  font-weight: 700;
+}
+
+.report-photo-selection-feedback > ul {
+  margin: 0;
+  padding-inline-start: 20px;
+}
+
+.photo-thumb-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-quiet);
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.photo-thumb-placeholder[hidden] {
+  display: none;
+}
+
 .report-drafts-panel {
   margin-block: 16px;
   padding: 14px;
@@ -6368,6 +6596,33 @@ body.report-only-mode .topbar-actions button,
   padding: 0 12px;
 }
 
+.report-only-mode .report-workflow-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.report-only-mode .report-workflow-shortcuts button {
+  width: auto;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+}
+
+.report-only-mode .report-workflow-shortcuts button[aria-pressed="true"] {
+  color: var(--text);
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--text);
+  font-weight: 700;
+}
+
+.report-only-mode .report-filter-memory-hint,
+.report-only-mode .report-filter-preference-notice {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 .report-only-mode .report-review-filters > summary {
   min-height: 48px;
   padding: 12px 0;
@@ -6418,6 +6673,8 @@ body.report-only-mode .topbar-actions button,
   .report-only-mode .report-review-layout.is-detail-open .review-inbox,
   .report-only-mode .report-review-layout.is-detail-open > .fold-content > .review-desk-heading,
   .report-only-mode .report-review-layout.is-detail-open > .fold-content > .report-export-scope,
+  .report-only-mode .report-review-layout.is-detail-open > .fold-content > .report-workflow-shortcuts,
+  .report-only-mode .report-review-layout.is-detail-open > .fold-content > .report-filter-preference-notice,
   .report-only-mode .report-review-layout.is-detail-open > .fold-content > .report-review-filters {
     display: none;
   }

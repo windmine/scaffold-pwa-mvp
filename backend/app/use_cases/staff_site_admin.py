@@ -276,6 +276,8 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
             raise HTTPException(status_code=409, detail="A user with this email already exists")
         if user.id == supervisor.id and email != user.email:
             raise HTTPException(status_code=400, detail="Sign out and use another supervisor to change your own email")
+        if user.email != email:
+            user.legacy_auth_allowed = False
         user.email = email
 
     if "name" in fields and data.name is not None:
@@ -323,6 +325,13 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
         from app.use_cases.worker_invitations import invalidate_worker_invitations
         invalidate_worker_invitations(user, session)
 
+    password_changed = "password" in fields and bool(data.password)
+    if password_changed or any(before[field] != getattr(user, field) for field in (
+        "email", "name", "department_id", "role", "status", "worker_class", "is_global_admin",
+    )):
+        from app.use_cases.worker_password_recovery import invalidate_worker_password_recovery
+        invalidate_worker_password_recovery(user, session, password_changed=password_changed)
+
     session.add(user)
     add_audit_event(
         session=session,
@@ -362,6 +371,9 @@ def update_user_status(user_id: int, data, supervisor: User, session: Session):
     if user.password_setup_required and before["status"] != status:
         from app.use_cases.worker_invitations import invalidate_worker_invitations
         invalidate_worker_invitations(user, session)
+    if before["status"] != status:
+        from app.use_cases.worker_password_recovery import invalidate_worker_password_recovery
+        invalidate_worker_password_recovery(user, session)
     session.add(user)
     add_audit_event(
         session=session,

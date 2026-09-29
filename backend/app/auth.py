@@ -167,6 +167,15 @@ def get_current_user(
     if user.password_setup_required:
         raise HTTPException(status_code=403, detail="Complete your Worker invitation to set a password before signing in")
 
+    # Subject-only tokens survive the migration only on their original,
+    # unchanged identity. Never let a recycled email inherit a legacy session.
+    generation = payload.get("auth_generation", 0)
+    token_user_id = payload.get("user_id")
+    if (type(generation) is not int or generation != user.auth_generation
+            or (token_user_id is None and (not user.legacy_auth_allowed or generation != 0))
+            or (token_user_id is not None and (type(token_user_id) is not int or token_user_id != user.id))):
+        raise HTTPException(status_code=401, detail="Session expired. Sign in again.")
+
     return user
 
 

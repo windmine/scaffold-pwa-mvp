@@ -967,6 +967,62 @@ export function collectWorkFormAnswers(form, options = {}) {
   return submittedAnswers;
 }
 
+// Read-only presentation of the captured payload. Walk in the same order as
+// collection so conditional fields and calculated previews use the same scope;
+// stale values belonging to hidden fields never leak into the review screen.
+export function summarizeWorkFormAnswers(form, capturedAnswers = {}) {
+  const fields = normalisedFields(form);
+  let hasCalculatedValues = false;
+
+  function summarizeFields(visibleFields, source, parentAnswers = {}) {
+    const entries = [];
+    const answers = {};
+    const submittedAnswers = {};
+
+    for (const field of visibleFields) {
+      if (field.type === 'section') continue;
+      const scope = { ...parentAnswers, ...answers };
+      if (!conditionMet(field.show_if, scope)) {
+        answers[field.id] = field.type === 'repeat' ? [] : '';
+        if (field.type !== 'formula') submittedAnswers[field.id] = answers[field.id];
+        continue;
+      }
+
+      const entry = { id: field.id, label: field.label || field.id, type: field.type };
+      if (field.type === 'repeat') {
+        const rows = Array.isArray(source?.[field.id]) ? source[field.id] : [];
+        const summaries = rows.map((row) => summarizeFields(repeatChildren(fields, field.id), row, scope));
+        entry.rows = summaries.map((summary) => summary.entries);
+        answers[field.id] = summaries.map((summary) => summary.submittedAnswers);
+        submittedAnswers[field.id] = answers[field.id];
+      } else if (field.type === 'formula') {
+        entry.value = evaluateFormula(field.formula, scope);
+        answers[field.id] = entry.value;
+        hasCalculatedValues = true;
+      } else {
+        const value = source?.[field.id] ?? '';
+        if (field.type === 'time_range') {
+          const start = typeof value === 'object' && value ? value.start || '' : '';
+          const end = typeof value === 'object' && value ? value.end || '' : '';
+          answers[field.id] = { start, end };
+          entry.value = { start, end, duration_hours: start && end ? timeRangeDurationHours(start, end) : null };
+          hasCalculatedValues = true;
+        } else {
+          entry.value = value;
+          answers[field.id] = value;
+        }
+        submittedAnswers[field.id] = answers[field.id];
+        if (field.type === 'signature') entry.signatureSource = isLocalAnswerImage(value) ? value : '';
+      }
+      entries.push(entry);
+    }
+    return { entries, submittedAnswers };
+  }
+
+  const { entries } = summarizeFields(topLevelFields(fields), capturedAnswers);
+  return { entries, hasCalculatedValues };
+}
+
 function populateSignatureAnswer(field, value, idPrefix, rowContext = null) {
   const canvas = document.getElementById(fieldInputId(field, idPrefix, rowContext));
   if (!canvas || typeof value !== 'string' || !value.startsWith('data:image/')) return;

@@ -316,7 +316,7 @@
           <details id="passwordRecoveryHelp" class="compact-help">
             <summary>Forgot password?</summary>
             <div class="compact-help-content">
-              <p>Password recovery is handled by your supervisor. Contact them privately and ask to restore your access.</p>
+              <p>Contact your supervisor privately for an expiring recovery link. Open it to choose your own new password.</p>
               <p>Never share your password. Automatic password-reset emails are not available yet.</p>
             </div>
           </details>
@@ -624,43 +624,56 @@
             <article class="card">
               <h2 data-full-text="New Report" data-report-only-text="New Report">New Report</h2>
               <form id="workFormSubmissionForm" class="form-grid">
-                <label>
-                  <span data-full-text="Report Template" data-report-only-text="Report Template">Report Template</span>
-                  <select id="workFormSelect" required>
-                    <option value="">Select a Report Template</option>
-                  </select>
-                </label>
-                <p id="reportTemplateAvailability" class="muted" role="status" aria-live="polite" aria-atomic="true" hidden></p>
-                <div class="report-context-fields form-grid">
+                <div id="workFormEditor" class="form-grid">
                   <label>
-                    Report Date
-                    <input id="workFormDate" type="date" required />
+                    <span data-full-text="Report Template" data-report-only-text="Report Template">Report Template</span>
+                    <select id="workFormSelect" required>
+                      <option value="">Select a Report Template</option>
+                    </select>
                   </label>
-                  <label>
-                    Site (optional)
-                    <select id="workFormSite"></select>
+                  <p id="reportTemplateAvailability" class="muted" role="status" aria-live="polite" aria-atomic="true" hidden></p>
+                  <div class="report-context-fields form-grid">
+                    <label>
+                      Report Date
+                      <input id="workFormDate" type="date" required />
+                    </label>
+                    <label>
+                      Site (optional)
+                      <select id="workFormSite"></select>
+                    </label>
+                  </div>
+                  <div id="workFormFields" class="dynamic-fields"></div>
+                  <label class="report-photo-field">
+                    Photos
+                    <input id="workFormPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+                    <small>JPEG, PNG, or WebP; maximum 5 MB each.</small>
+                    <small id="workFormPhotoLimit">Up to 50 photos. You can select them together.</small>
+                    <small>Select again to add more photos.</small>
                   </label>
+                  <div id="workFormPhotoSelectionFeedback" class="report-photo-selection-feedback" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+                  <div id="workFormPhotoPreview" class="photo-preview hidden"></div>
+                  <div class="work-form-submit-row">
+                    <button id="submitWorkFormButton" type="submit" data-full-text="Review &amp; submit" data-report-only-text="Review &amp; submit">Review &amp; submit</button>
+                  </div>
                 </div>
-                <div id="workFormFields" class="dynamic-fields"></div>
-                <label class="report-photo-field">
-                  Photos
-                  <input id="workFormPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple />
-                  <small>JPEG, PNG, or WebP; maximum 5 MB each.</small>
-                  <small id="workFormPhotoLimit">Up to 50 photos. You can select them together.</small>
-                  <small>Select again to add more photos.</small>
-                </label>
+                <section id="workFormReviewPanel" class="report-submit-review" aria-labelledby="workFormReviewHeading" hidden>
+                  <h3 id="workFormReviewHeading" tabindex="-1">Review &amp; submit</h3>
+                  <p class="muted">Check the details below. Submitted Reports cannot be edited.</p>
+                  <div id="workFormReviewSummary"></div>
+                  <p id="workFormReviewPhotoWarning" class="report-review-warning" hidden>Some selected files were not added. Go back to see details.</p>
+                  <div class="report-review-actions">
+                    <button id="workFormReviewBackButton" type="button" class="ghost">Back to edit</button>
+                    <button id="confirmWorkFormSubmitButton" type="button">Submit Report</button>
+                  </div>
+                </section>
                 <p id="workFormPhotoStatus" class="muted" role="status" aria-live="polite" aria-atomic="true"></p>
-                <div id="workFormPhotoPreview" class="photo-preview hidden"></div>
-                <div class="work-form-submit-row">
-                  <button id="submitWorkFormButton" type="submit" data-full-text="Submit Report" data-report-only-text="Submit Report">Submit Report</button>
-                  <p
-                    id="workFormAutosaveStatus"
-                    class="autosave-status"
-                    role="status"
-                    aria-live="polite"
-                    aria-atomic="true"
-                  >Changes save automatically on this device.</p>
-                </div>
+                <p
+                  id="workFormAutosaveStatus"
+                  class="autosave-status"
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >Changes save automatically on this device.</p>
                 <div id="workFormFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
               </form>
             </article>
@@ -943,6 +956,11 @@
                 </div>
               </div>
               <p class="muted report-export-scope" data-report-only-visible>Exports match Find and filters, across all pages.</p>
+              <div class="report-workflow-shortcuts" role="group" aria-label="Report workflow shortcuts" data-report-only-visible>
+                <button type="button" class="ghost" data-report-workflow-shortcut="" aria-pressed="true">All workflows</button>
+                <button type="button" class="ghost" data-report-workflow-shortcut="submitted" aria-pressed="false">Submitted</button>
+                <button type="button" class="ghost" data-report-workflow-shortcut="in_review" aria-pressed="false">In review</button>
+              </div>
               <details id="reportReviewFilters" class="report-review-filters" open>
                 <summary data-report-only-visible>
                   <span>Filters</span>
@@ -993,7 +1011,9 @@
                 </label>
                 <button id="clearSupervisorFiltersButton" type="button" class="ghost">Clear</button>
               </form>
+              <p class="muted report-filter-memory-hint" data-report-only-visible>Filters are remembered on this device for your account and Department. Find text is not saved.</p>
               </details>
+              <p id="reportReviewPreferenceNotice" class="muted report-filter-preference-notice" role="status" aria-live="polite" data-report-only-visible hidden></p>
               <div id="reviewQueueNotice" aria-live="polite"></div>
               <div id="reviewQueueFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
               <div class="review-desk">
@@ -1260,7 +1280,22 @@
               <span id="workFormsCount" class="fold-count">0</span>
             </summary>
             <div class="fold-content work-forms-content">
-              <div class="admin-list-toolbar">
+              <div class="admin-list-toolbar template-library-toolbar" data-i18n-context="template">
+                <div class="filter-bar">
+                  <label>
+                    Search Templates
+                    <input id="workFormSearchInput" type="search" maxlength="160" placeholder="Name or description" aria-controls="workFormsList" />
+                  </label>
+                  <label>
+                    Template status
+                    <select id="workFormStatusFilter" aria-controls="workFormsList">
+                      <option value="active">Active</option>
+                      <option value="archived">Archived</option>
+                      <option value="all">All Templates</option>
+                    </select>
+                  </label>
+                  <button id="clearWorkFormFiltersButton" type="button" class="ghost">Reset filters</button>
+                </div>
                 <button
                   id="addWorkFormButton"
                   type="button"
@@ -1340,6 +1375,7 @@
                 <p id="templateEditDraftStatus" class="muted" role="status" aria-live="polite"></p>
                 <button id="closeTemplateEditButton" type="button" class="ghost">Close and keep draft</button>
               </section>
+              <p id="workFormsResults" class="template-library-results muted" role="status" aria-live="polite" aria-atomic="true"></p>
               <div id="workFormsList" class="records-list staff-users-list"></div>
             </div>
           </details>
@@ -1506,8 +1542,8 @@
         <p id="workerInvitationIdentity" data-no-i18n></p>
         <p id="workerInvitationHelp">Share this link privately with the intended Worker. Anyone with it can set this account's password. No email has been sent.</p>
         <p><span>Expires</span>: <span id="workerInvitationExpiry" data-no-i18n></span></p>
-        <label>Private setup link<input id="workerInvitationLink" type="text" readonly autocomplete="off" spellcheck="false" data-no-i18n /></label>
-        <p class="muted">The link is shown only now. Closing this window hides it; create a new link from Staff if needed.</p>
+        <label><span id="workerInvitationLinkLabel">Private setup link</span><input id="workerInvitationLink" type="text" readonly autocomplete="off" spellcheck="false" data-no-i18n /></label>
+        <p id="workerInvitationLinkNotice" class="muted">The link is shown only now. Closing this window hides it; create a new link from Staff if needed.</p>
         <p id="workerInvitationStatus" role="status" aria-live="polite"></p>
         <div class="confirmation-dialog-actions">
           <button id="closeWorkerInvitationButton" type="button" class="ghost">Done</button>

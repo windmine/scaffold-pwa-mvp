@@ -1,5 +1,8 @@
 import { setTranslatableAttribute, setTranslatableText } from './i18n.js';
+import { createReportPhotoThumbnailCache } from './report-photo-thumbnails.js';
 import { escapeHtml } from './utils.js';
+
+let nextPreviewDescriptionId = 0;
 
 export function createPhotoViewer({
   viewer,
@@ -30,6 +33,7 @@ export function createPhotoViewer({
     title: ''
   };
   const inertBackground = new Map();
+  const thumbnailCaches = new WeakMap();
   let bound = false;
   let restoreFocusTarget = null;
 
@@ -201,8 +205,10 @@ export function createPhotoViewer({
     focusElement(getFocusableElements()[0] || closeButton);
   }
 
-  function renderPreviews(container, dataUrls, alt, metadata = []) {
+  function renderPreviews(container, dataUrls, alt, metadata = [], options = {}) {
     const urls = Array.isArray(dataUrls) ? dataUrls.filter(Boolean) : [];
+    const lightweight = options.lightweight === true;
+    if (!urls.length || !lightweight) thumbnailCaches.get(container)?.dispose();
     if (!urls.length) {
       container.classList.add('hidden');
       container.innerHTML = '';
@@ -213,17 +219,53 @@ export function createPhotoViewer({
     container.innerHTML = urls
       .map((dataUrl, index) => `
         <button class="photo-thumb" type="button" data-photo-index="${index}">
-          <img ${index >= 8 ? 'loading="lazy" ' : ''}decoding="async" src="${dataUrl}" alt="${escapeHtml(`${alt} ${index + 1}`)}" />
+          <img ${index >= 8 ? 'loading="lazy" ' : ''}decoding="async" ${lightweight ? 'hidden' : `src="${escapeHtml(dataUrl)}"`} alt="${escapeHtml(`${alt} ${index + 1}`)}" />
+          ${lightweight ? '<span class="photo-thumb-placeholder"></span>' : ''}
           ${metadata[index]?.takenAtLabel ? `<span class="photo-time">${escapeHtml(metadata[index].takenAtLabel)}</span>` : ''}
         </button>
       `)
       .join('');
 
     container.querySelectorAll('[data-photo-index]').forEach((button) => {
+      if (lightweight) {
+        setTranslatableAttribute(button, 'aria-label', `${alt} ${Number(button.dataset.photoIndex || 0) + 1}`);
+        button.querySelector('.photo-thumb-placeholder').id = `report-photo-preview-description-${++nextPreviewDescriptionId}`;
+      }
       button.addEventListener('click', () => {
         open(urls, Number(button.dataset.photoIndex || 0), alt);
       });
     });
+
+    if (lightweight) {
+      let cache = thumbnailCaches.get(container);
+      if (!cache) {
+        cache = createReportPhotoThumbnailCache();
+        thumbnailCaches.set(container, cache);
+      }
+      const sources = Array.isArray(options.sources) ? options.sources.filter(Boolean) : urls;
+      const buttons = [...container.querySelectorAll('[data-photo-index]')];
+      cache.update(sources, (source, preview) => {
+        sources.forEach((entry, index) => {
+          if (entry !== source) return;
+          const button = buttons[index];
+          if (!button || !container.contains(button)) return;
+          const thumbnail = button.querySelector('img');
+          const placeholder = button.querySelector('.photo-thumb-placeholder');
+          const ready = preview.status === 'ready';
+          const unavailable = preview.status === 'unavailable';
+          button.classList.toggle('photo-thumb-preview-failed', unavailable);
+          // The image's alt is hidden while pending or unavailable. Keep a
+          // numbered accessible button name and describe the fallback separately.
+          if (ready) button.removeAttribute('aria-describedby');
+          else button.setAttribute('aria-describedby', placeholder.id);
+          thumbnail.hidden = !ready;
+          placeholder.hidden = ready;
+          if (ready) thumbnail.src = preview.url;
+          else setTranslatableText(placeholder, unavailable
+            ? 'Preview unavailable. Tap to open original.' : 'Preparing preview…');
+        });
+      });
+    }
   }
 
   function renderPreview(container, dataUrl, alt, metadata = []) {

@@ -506,6 +506,8 @@ export async function runImprovements(config) {
       requireCondition(await worker.locator(`#workFormField_${questionId}`).inputValue() === scope.marker,
         'cold_offline_draft_answer_lost');
       await worker.locator('#submitWorkFormButton').click();
+      await worker.locator('#workFormReviewPanel').waitFor({ state: 'visible' });
+      await worker.locator('#confirmWorkFormSubmitButton').click();
       await worker.locator('#workFormFeedback').getByText(/saved offline/i).waitFor();
       await workerContext.setOffline(false);
       await worker.evaluate(() => window.dispatchEvent(new Event('online')));

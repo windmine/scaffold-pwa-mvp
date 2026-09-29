@@ -73,6 +73,8 @@ class InMemoryRateLimiter:
 
     def _rule_for_path(self, path: str):
         for rule in self.rules:
+            if rule.name == "auth" and path.startswith("/supervisor/users/") and path.endswith("/password-recovery"):
+                return rule
             if any(path.startswith(prefix) for prefix in rule.path_prefixes):
                 return rule
         return self.default_rule

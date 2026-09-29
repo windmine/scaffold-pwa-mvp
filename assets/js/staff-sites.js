@@ -4,6 +4,8 @@ import {
   createWorkerInvitation,
   reissueWorkerInvitation,
   revokeWorkerInvitation,
+  createWorkerPasswordRecovery,
+  revokeWorkerPasswordRecovery,
   createWorkForm as createBackendWorkForm,
   getUsers as getBackendUsers,
   updateSite as updateBackendSite,
@@ -58,6 +60,43 @@ export function createStaffSitesModule({
     && String(state.user.id) === String(user.id) && String(state.user.departmentId) === String(user.departmentId)
     && Boolean(state.user.isGlobalAdmin) === Boolean(user.isGlobalAdmin));
   const invitationDialog = createWorkerInvitationDialog(els);
+  let privateLinkGeneration = 0;
+  let privateLinkScope = staffScopeKey();
+  const recoveryRequests = new Map();
+  let templateLibraryScope = staffScopeKey();
+  const templateStatusRequests = new Map();
+
+  function staffScopeKey() {
+    return JSON.stringify([state.user?.id, state.user?.role, state.user?.departmentId,
+      Boolean(state.user?.isGlobalAdmin), state.departmentFocusId || '']);
+  }
+
+  function clearPrivateLinks() {
+    privateLinkGeneration += 1;
+    privateLinkScope = staffScopeKey();
+    invitationDialog.clear();
+  }
+
+  function syncPrivateLinkScope() {
+    if (privateLinkScope !== staffScopeKey()) clearPrivateLinks();
+  }
+
+  function canRecoverWorker(user) {
+    return state.user?.role === 'supervisor' && user?.role === 'worker'
+      && (user.status || 'active') === 'active' && user.password_setup_required !== true
+      && !(user.is_global_admin || user.isGlobalAdmin) && matchesDepartmentFocus(user)
+      && (state.user.isGlobalAdmin || String(user.department_id ?? user.departmentId) === String(state.user.departmentId));
+  }
+
+  function recoveryWorkerIdentity(user) {
+    return JSON.stringify([user?.id, user?.name, user?.email, user?.department_id ?? user?.departmentId]);
+  }
+
+  function refreshRecoveryControls(userId) {
+    els.staffUsersList.querySelectorAll('[data-password-recovery-user-id]').forEach((button) => {
+      if (button.dataset.passwordRecoveryUserId === String(userId)) button.disabled = recoveryRequests.has(String(userId));
+    });
+  }
   const workFormBuilder = createWorkFormBuilder(els.workFormFieldBuilder, {
     onChange: () => {
       refreshOpenDraftWorkFormPreview();
@@ -470,6 +509,7 @@ export function createStaffSitesModule({
   }
 
   async function prepareForNavigation() {
+    clearPrivateLinks();
     if (!reportOnly || state.user?.role !== 'supervisor') return { safe: true };
     if (templateMutationInFlight || templateEditorsLocked) return { safe: false, message: 'Wait for the Template operation to finish before leaving or updating.' };
     lockTemplateEditors(true);
@@ -523,7 +563,7 @@ export function createStaffSitesModule({
     els.templateCreateDraftStatus.textContent = '';
     els.templateDraftsList.innerHTML = '';
     els.templateDraftsPanel.hidden = true;
-    invitationDialog.clear();
+    clearPrivateLinks();
     resetStaffUserCreate();
     resetWorkFormCreate();
     if (els.workFormDraftPreview) els.workFormDraftPreview.innerHTML = '';
@@ -535,6 +575,9 @@ export function createStaffSitesModule({
     els.staffUsersList.innerHTML = '';
     els.workFormsCount.textContent = '0';
     els.workFormsList.innerHTML = '';
+    resetTemplateLibraryFilters();
+    templateStatusRequests.clear();
+    setTranslatableText(els.workFormsResults, '');
     els.supervisorSitesCount.textContent = '0';
     els.supervisorSitesList.innerHTML = '';
     els.siteForm.reset();
@@ -645,12 +688,15 @@ export function createStaffSitesModule({
 
   async function renderStaffUsers({ preserveOnError = false, reportError = true } = {}) {
     if (state.user?.role !== 'supervisor') return false;
+    syncPrivateLinkScope();
     const requestUserId = state.user.id;
     const requestGeneration = sessionGeneration;
+    const requestScope = staffScopeKey();
     const isCurrentSession = () => (
       requestGeneration === sessionGeneration
       && state.user?.role === 'supervisor'
       && String(state.user.id) === String(requestUserId)
+      && requestScope === staffScopeKey()
     );
     try {
       renderStaffCreateControls();
@@ -671,6 +717,7 @@ export function createStaffSitesModule({
   }
 
   function renderFilteredStaffUsers() {
+    syncPrivateLinkScope();
     const query = els.staffSearchInput.value.trim().toLowerCase();
     const departmentUsers = state.staffUsers
       .filter((user) => state.user?.isGlobalAdmin || !(user.is_global_admin || user.isGlobalAdmin))
@@ -685,6 +732,7 @@ export function createStaffSitesModule({
         user.status || 'active',
         user.password_setup_required ? 'invited password setup required' : '',
         user.invitation_status || '',
+        user.password_recovery_status || '',
         user.department_name || user.departmentName,
         user.is_global_admin || user.isGlobalAdmin ? 'global admin' : ''
       ].join(' ').toLowerCase();
@@ -708,6 +756,10 @@ export function createStaffSitesModule({
       const invitationStatus = {
         pending: 'Awaiting password setup', expired: 'Invitation expired', revoked: 'Invitation revoked'
       }[user.invitation_status] || 'No active invitation';
+      const recoveryStatus = {
+        pending: 'Password recovery link pending', expired: 'Password recovery link expired',
+        revoked: 'Password recovery link revoked', used: 'Password recovery completed'
+      }[user.password_recovery_status];
       node.innerHTML = `
         <div class="record-header">
           <div>
@@ -717,6 +769,7 @@ export function createStaffSitesModule({
           <span class="badge ${status === 'active' ? 'synced' : 'rejected'}">${escapeHtml(status === 'active' ? needsSetup ? 'Password setup required' : `${user.role === 'worker' ? workerClass : user.role}${isGlobalAdmin ? ' global' : ''}` : 'resigned worker')}</span>
         </div>
         ${needsSetup ? `<p class="record-meta"><span>${invitationStatus}</span>${user.invitation_status === 'pending' && user.invitation_expires_at ? ` · <span>Expires</span>: <span data-no-i18n>${escapeHtml(formatDateTime(user.invitation_expires_at))}</span>` : ''}</p>` : ''}
+        ${!needsSetup && user.role === 'worker' && recoveryStatus ? `<p class="record-meta"><span>${recoveryStatus}</span>${user.password_recovery_status === 'pending' && user.password_recovery_expires_at ? ` · <span>Expires</span>: <span data-no-i18n>${escapeHtml(formatDateTime(user.password_recovery_expires_at))}</span>` : ''}</p>` : ''}
         <div class="record-actions"></div>
       `;
       const actions = node.querySelector('.record-actions');
@@ -744,6 +797,26 @@ export function createStaffSitesModule({
           revoke.className = 'ghost';
           revoke.textContent = 'Revoke setup link';
           revoke.addEventListener('click', () => { void handleInvitationAction(user, 'revoke', revoke); });
+          actions.append(revoke);
+        }
+      }
+      if (canRecoverWorker(user)) {
+        const recover = document.createElement('button');
+        recover.type = 'button';
+        recover.className = 'secondary';
+        recover.dataset.passwordRecoveryUserId = String(user.id);
+        recover.disabled = recoveryRequests.has(String(user.id));
+        setTranslatableText(recover, user.password_recovery_status === 'pending' ? 'Replace recovery link' : 'Create recovery link');
+        recover.addEventListener('click', () => { void handlePasswordRecoveryAction(user, 'create', recover); });
+        actions.append(recover);
+        if (user.password_recovery_status === 'pending') {
+          const revoke = document.createElement('button');
+          revoke.type = 'button';
+          revoke.className = 'ghost';
+          revoke.dataset.passwordRecoveryUserId = String(user.id);
+          revoke.disabled = recoveryRequests.has(String(user.id));
+          setTranslatableText(revoke, 'Revoke recovery link');
+          revoke.addEventListener('click', () => { void handlePasswordRecoveryAction(user, 'revoke', revoke); });
           actions.append(revoke);
         }
       }
@@ -792,6 +865,7 @@ export function createStaffSitesModule({
       );
       els.addWorkFormButton.disabled = true;
       renderStatusBanner('Report Template created.');
+      resetTemplateLibraryFilters();
       const workFormsRefreshed = await refreshWorkForms();
       if (!workFormsRefreshed) {
         throw new Error('Report Template created, but the updated list could not load.');
@@ -952,6 +1026,7 @@ export function createStaffSitesModule({
       resetWorkFormCreate();
       els.templateCreateDraftStatus.textContent = '';
       setCreatePanelOpen(els.addWorkFormButton, els.workFormCreatePanel, els.workFormNameInput, false);
+      resetTemplateLibraryFilters();
       const refreshed = await refreshWorkForms();
       if (generation !== sessionGeneration) return;
       renderStatusBanner(!cleared ? 'Template saved, but its local draft could not be cleared. The recovery copy is read-only.'
@@ -1150,45 +1225,118 @@ export function createStaffSitesModule({
     );
   }
 
-  function renderWorkFormsList() {
-    void renderTemplateDrafts();
+  function resetTemplateLibraryFilters() {
+    templateLibraryScope = staffScopeKey();
+    if (els.workFormSearchInput) els.workFormSearchInput.value = '';
+    if (els.workFormStatusFilter) els.workFormStatusFilter.value = 'active';
+  }
+
+  function syncTemplateStatusControls({ beforeEditorLock = false } = {}) {
+    els.workFormsList.querySelectorAll('[data-template-mutation-action]').forEach((button) => {
+      const pending = templateStatusRequests.has(button.closest('[data-template-id]').dataset.templateId);
+      if (templateDisabledControls.has(button)) templateDisabledControls.set(button, pending);
+      if (button.dataset.templateMutationAction === 'status') {
+        setButtonBusy(button, pending, 'Updating...');
+      }
+      // Let lockTemplateEditors capture the true pre-lock state of new cards.
+      button.disabled = pending || (!beforeEditorLock && templateEditorsLocked);
+    });
+  }
+
+  async function changeTemplateStatus(form, button) {
+    const id = String(form.id);
+    if (templateEditorsLocked || templateStatusRequests.has(id) || state.user?.role !== 'supervisor') return;
+    const request = { generation: sessionGeneration, scope: staffScopeKey() };
+    const current = () => request.generation === sessionGeneration && request.scope === staffScopeKey();
+    const nextStatus = form.status === 'active' ? 'archived' : 'active';
+    const restoreFocus = document.activeElement === button;
+    templateStatusRequests.set(id, request);
+    syncTemplateStatusControls();
+    try {
+      await updateBackendWorkForm(form.id, { status: nextStatus });
+      if (!current()) return;
+      renderStatusBanner(nextStatus === 'active' ? 'Report Template activated.' : 'Report Template archived.');
+      const refreshed = await refreshWorkForms();
+      if (!current()) return;
+      if (refreshed === false) renderStatusBanner('Template updated, but the library could not refresh. Refresh before making another change.', true);
+      await refreshSupervisorAuditHistory?.();
+    } catch (error) {
+      if (current()) renderStatusBanner(error.message || 'Could not update Report Template.', true);
+    } finally {
+      if (templateStatusRequests.get(id) === request) templateStatusRequests.delete(id);
+      if (current()) syncTemplateStatusControls();
+      if (current() && restoreFocus && document.activeElement === document.body) {
+        const replacement = [...els.workFormsList.querySelectorAll('[data-template-mutation-action="status"]')]
+          .find((control) => control.closest('[data-template-id]').dataset.templateId === id);
+        // Filtering can remove the changed card; keep keyboard users in the library.
+        (replacement || els.workFormStatusFilter)?.focus();
+      }
+    }
+  }
+
+  function renderWorkFormsList({ refreshDrafts = true } = {}) {
+    if (templateLibraryScope !== staffScopeKey()) resetTemplateLibraryFilters();
+    if (refreshDrafts) void renderTemplateDrafts();
     els.workFormsList.innerHTML = '';
-    const forms = state.workForms.filter(matchesDepartmentFocus);
-    els.workFormsCount.textContent = String(forms.length);
+    const available = state.user?.role === 'supervisor' ? state.workForms.filter((form) => (
+      matchesDepartmentFocus(form) && (!reportOnly || (form.template_purpose ?? form.templatePurpose) === 'report')
+    )) : [];
+    const query = (els.workFormSearchInput?.value || '').normalize('NFKC').trim().toLocaleLowerCase();
+    const status = els.workFormStatusFilter?.value || 'active';
+    const forms = available.filter((form) => (status === 'all' || (form.status || 'active') === status)
+      && (!query || `${form.name || ''} ${form.description || ''}`.normalize('NFKC').toLocaleLowerCase().includes(query)));
+    els.workFormsCount.textContent = String(available.length);
+    setTranslatableText(els.workFormsResults, `${forms.length} of ${available.length} Templates shown`);
 
     if (!forms.length) {
-      els.workFormsList.innerHTML = '<div class="empty-state">No Report Templates found yet.</div>';
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      setTranslatableText(empty, !available.length ? 'No Report Templates found yet.'
+        : query ? 'No Templates match your search. Try another name or reset filters.'
+          : status === 'archived' ? 'No archived Templates.' : 'No active Templates. Choose Archived or add a Template.');
+      els.workFormsList.append(empty);
       return;
     }
 
     forms.forEach((form) => {
       const node = document.createElement('article');
-      node.className = 'record-card record-form';
+      node.className = 'record-card record-form template-library-card';
+      node.dataset.templateId = String(form.id);
+      node.dataset.i18nContext = 'template';
       node.innerHTML = `
         <div class="record-header">
           <div>
-            <h3 class="record-title">${escapeHtml(form.name)}</h3>
-            <p class="record-meta">${escapeHtml(form.description || 'No description')}</p>
+            <h3 class="record-title" data-no-i18n>${escapeHtml(form.name)}</h3>
+            ${form.description ? `<p class="record-meta template-library-description" data-no-i18n>${escapeHtml(form.description)}</p>` : ''}
           </div>
-          <span class="badge ${form.status === 'active' ? 'synced' : 'rejected'}">${escapeHtml(form.status)}</span>
+          <span class="badge ${form.status === 'active' ? 'synced' : 'rejected'}">${form.status === 'archived' ? 'Archived' : 'Active'}</span>
         </div>
-        <p class="record-detail">${escapeHtml((form.fields || []).filter((field) => !isHiddenDayworkHelperField(form, field)).map((field) => {
-          if (field.type === 'section') return `Section: ${field.label}`;
-          if (field.type === 'time_range') return `${field.label} (time range)`;
-          if (isDayworkForm(form) && field.type === 'formula') return `${field.label} (calculated)`;
-          if (field.type === 'formula') return `${field.label} = ${field.formula || 'formula'}`;
-          if (field.type === 'repeat') return `${field.label} (repeat ${field.min_rows ?? 0}-${field.max_rows ?? 12})`;
-          if (field.repeat) return `> ${field.label}`;
-          return field.label;
-        }).join(' | '))}</p>
+        <p class="record-detail template-library-summary"></p>
         <div class="record-actions"></div>
         <div class="work-form-preview hidden" data-work-form-preview></div>
       `;
+      const fields = (form.fields || []).filter((field) => !isHiddenDayworkHelperField(form, field));
+      const fieldCount = fields.filter((field) => !['section', 'repeat'].includes(field.type)).length;
+      const signatureCount = fields.filter((field) => field.type === 'signature').length;
+      const groupCount = fields.filter((field) => field.type === 'repeat').length;
+      const summary = [`${fieldCount} ${fieldCount === 1 ? 'field' : 'fields'}`];
+      if (signatureCount) summary.push(`${signatureCount} ${signatureCount === 1 ? 'signature field' : 'signature fields'}`);
+      if (groupCount) summary.push(`${groupCount} ${groupCount === 1 ? 'repeating group' : 'repeating groups'}`);
+      summary.push(`Version ${Number(form.definition_version) || 1}`);
+      summary.forEach((text) => {
+        const part = document.createElement('span');
+        setTranslatableText(part, text);
+        node.querySelector('.template-library-summary').append(part);
+      });
 
       const previewButton = document.createElement('button');
       previewButton.type = 'button';
       previewButton.className = 'ghost';
-      previewButton.textContent = 'Preview';
+      setTranslatableText(previewButton, 'Preview');
+      previewButton.setAttribute('aria-expanded', 'false');
+      const previewId = `templateLibraryPreview_${form.id}`;
+      node.querySelector('[data-work-form-preview]').id = previewId;
+      previewButton.setAttribute('aria-controls', previewId);
       previewButton.addEventListener('click', () => {
         const preview = node.querySelector('[data-work-form-preview]');
         const isOpening = preview.classList.contains('hidden');
@@ -1198,13 +1346,15 @@ export function createStaffSitesModule({
         }
 
         preview.classList.toggle('hidden', !isOpening);
-        previewButton.textContent = isOpening ? 'Hide preview' : 'Preview';
+        setTranslatableText(previewButton, isOpening ? 'Hide preview' : 'Preview');
+        previewButton.setAttribute('aria-expanded', String(isOpening));
       });
 
       const editButton = document.createElement('button');
       editButton.type = 'button';
       editButton.className = 'ghost';
-      editButton.textContent = 'Edit';
+      editButton.dataset.templateMutationAction = 'edit';
+      setTranslatableText(editButton, 'Edit');
       editButton.addEventListener('click', async () => {
         await handleWorkFormEdit(form);
       });
@@ -1212,26 +1362,14 @@ export function createStaffSitesModule({
       const statusButton = document.createElement('button');
       statusButton.type = 'button';
       statusButton.className = form.status === 'active' ? 'secondary' : '';
-      statusButton.textContent = form.status === 'active' ? 'Archive' : 'Activate';
-      statusButton.addEventListener('click', async () => {
-        if (statusButton.getAttribute('aria-busy') === 'true') return;
-        const nextStatus = form.status === 'active' ? 'archived' : 'active';
-        setButtonBusy(statusButton, true, 'Updating...');
-        try {
-          await updateBackendWorkForm(form.id, { status: nextStatus });
-          renderStatusBanner(nextStatus === 'active' ? 'Report Template activated.' : 'Report Template archived.');
-          await refreshWorkForms();
-          await refreshSupervisorAuditHistory?.();
-        } catch (error) {
-          renderStatusBanner(error.message || 'Could not update Report Template.', true);
-        } finally {
-          setButtonBusy(statusButton, false);
-        }
-      });
+      statusButton.dataset.templateMutationAction = 'status';
+      setTranslatableText(statusButton, form.status === 'active' ? 'Archive' : 'Activate');
+      statusButton.addEventListener('click', () => { void changeTemplateStatus(form, statusButton); });
 
       node.querySelector('.record-actions').append(previewButton, editButton, statusButton);
       els.workFormsList.appendChild(node);
     });
+    syncTemplateStatusControls({ beforeEditorLock: true });
     // A refresh may replace the list before the current Template operation finishes.
     if (templateEditorsLocked) lockTemplateEditors(true);
   }
@@ -1319,6 +1457,7 @@ export function createStaffSitesModule({
   async function handleStaffUserEdit(user) {
     const isGlobalAdmin = Boolean(user.is_global_admin || user.isGlobalAdmin);
     const isSelf = String(user.id) === String(state.user?.id);
+    const allowsDirectPassword = !user.password_setup_required && !(reportOnly && user.role === 'worker');
     if (isGlobalAdmin && !state.user?.isGlobalAdmin) {
       renderStatusBanner('Only global admins can edit global admin accounts.', true);
       return;
@@ -1374,7 +1513,7 @@ export function createStaffSitesModule({
           { value: 'resigned', label: 'Resigned' }
         ]
       },
-      ...(!user.password_setup_required ? [{ id: 'editUserPassword', label: 'New password (optional)', type: 'password', value: '' }] : [])
+      ...(allowsDirectPassword ? [{ id: 'editUserPassword', label: 'New password (optional)', type: 'password', value: '' }] : [])
     ];
 
     showEditPanel(
@@ -1388,7 +1527,7 @@ export function createStaffSitesModule({
           confirmLabel: 'Save account changes'
         })) return;
 
-        const newPassword = user.password_setup_required ? '' : editValue('editUserPassword');
+        const newPassword = allowsDirectPassword ? editValue('editUserPassword') : '';
         const payload = {
           name: editValue('editUserName'),
           email: editValue('editUserEmail'),
@@ -1520,6 +1659,67 @@ export function createStaffSitesModule({
     }
   }
 
+  async function handlePasswordRecoveryAction(user, action, button) {
+    syncPrivateLinkScope();
+    const key = String(user.id);
+    if (recoveryRequests.has(key) || !canRecoverWorker(user) || !button.isConnected) return;
+    clearPrivateLinks();
+    const generation = sessionGeneration;
+    const linkGeneration = privateLinkGeneration;
+    const scope = staffScopeKey();
+    const workerIdentity = recoveryWorkerIdentity(user);
+    const request = {};
+    const isCurrent = () => generation === sessionGeneration && linkGeneration === privateLinkGeneration
+      && scope === staffScopeKey() && state.staffUsers.some((item) => String(item.id) === key
+        && canRecoverWorker(item) && recoveryWorkerIdentity(item) === workerIdentity);
+    const revoke = action === 'revoke';
+    const replacement = user.password_recovery_status === 'pending';
+    recoveryRequests.set(key, request);
+    refreshRecoveryControls(key);
+    try {
+      if (!await confirmAction({
+        title: revoke ? 'Revoke recovery link?' : replacement ? 'Replace recovery link?' : 'Create recovery link?',
+        message: revoke
+          ? 'This link will stop working. The Worker’s current password is unchanged. You can create a new recovery link later.'
+          : replacement
+            ? 'The previous recovery link will stop working. Verify this Worker’s identity, then share the new link through a private channel. The current password stays unchanged until the new link is used.'
+            : 'Verify this Worker’s identity, then share the link through a private channel. The Worker chooses their own new password. Their current password stays unchanged until the link is used.',
+        confirmLabel: revoke ? 'Revoke recovery link' : replacement ? 'Replace recovery link' : 'Create recovery link'
+      }) || !isCurrent()) return;
+      setButtonBusy(button, true, revoke ? 'Revoking link...' : 'Creating recovery link...');
+      const result = revoke ? await revokeWorkerPasswordRecovery(user.id) : await createWorkerPasswordRecovery(user.id);
+      if (!isCurrent()) return;
+      const updated = revoke ? result.user || result : result.user;
+      if (!updated || String(updated.id) !== key || !canRecoverWorker(updated)
+        || recoveryWorkerIdentity(updated) !== workerIdentity) {
+        throw new Error('The recovery link is unavailable. Refresh Staff and create a new link.');
+      }
+      // Keep action labels accurate even when the follow-up list request fails.
+      state.staffUsers = state.staffUsers.map((item) => String(item.id) === key ? updated : item);
+      if (revoke) {
+        invitationDialog.clear();
+        renderStatusBanner('Recovery link revoked. The current password is unchanged.');
+      } else {
+        invitationDialog.show(result, els.addStaffUserButton, { mode: 'recovery', isCurrent });
+      }
+      renderFilteredStaffUsers();
+      const refreshed = await renderStaffUsers({ preserveOnError: true, reportError: false });
+      if (isCurrent() && !refreshed) {
+        renderStatusBanner(revoke
+          ? 'Recovery link revoked, but the Staff list could not refresh. Refresh Staff before making another change.'
+          : 'Recovery link created, but the Staff list could not refresh. You can still share the new link privately.', true);
+      }
+    } catch (error) {
+      if (isCurrent()) renderStatusBanner(error.message || 'Could not update password recovery. Refresh Staff and try again.', true);
+    } finally {
+      if (recoveryRequests.get(key) === request) {
+        recoveryRequests.delete(key);
+        if (button.isConnected) setButtonBusy(button, false);
+        refreshRecoveryControls(key);
+      }
+    }
+  }
+
   async function handleStaffUserCreate(event) {
     event.preventDefault();
     if (els.staffUserSubmitButton.getAttribute('aria-busy') === 'true') return;
@@ -1624,6 +1824,13 @@ export function createStaffSitesModule({
     els.workFormDescriptionInput.addEventListener('input', scheduleTemplateDraft);
     els.templateEditForm.addEventListener('input', scheduleTemplateDraft);
     els.closeTemplateEditButton.addEventListener('click', closeTemplateEdit);
+    els.workFormSearchInput?.addEventListener('input', () => renderWorkFormsList({ refreshDrafts: false }));
+    els.workFormStatusFilter?.addEventListener('change', () => renderWorkFormsList({ refreshDrafts: false }));
+    els.clearWorkFormFiltersButton?.addEventListener('click', () => {
+      resetTemplateLibraryFilters();
+      renderWorkFormsList({ refreshDrafts: false });
+      els.workFormSearchInput?.focus();
+    });
     window.addEventListener('beforeunload', (event) => {
       if (!reportOnly || (!templateMutationInFlight && !hasUnsavedTemplateInput())) return;
       event.preventDefault();
@@ -1639,6 +1846,7 @@ export function createStaffSitesModule({
 
   return {
     bindEvents,
+    clearPrivateLinks,
     flushTemplateDrafts,
     prepareForNavigation,
     cancelNavigationPreparation: () => lockTemplateEditors(false),

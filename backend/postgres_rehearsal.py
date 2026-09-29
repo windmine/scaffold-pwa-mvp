@@ -157,8 +157,10 @@ def _rehearsal(pg_bin, *, migrations_only=False, review_only=False):
             if not migrations_only and not review_only:
                 from postgres_invitation_rehearsal import run_invitation_checks
                 from postgres_template_edit_rehearsal import run_template_edit_checks
+                from postgres_password_recovery_rehearsal import run_password_recovery_checks
                 phases.append(("invitations", run_invitation_checks))
                 phases.append(("template_edits", run_template_edit_checks))
+                phases.append(("password_recovery", run_password_recovery_checks))
             for phase, run_checks in phases:
                 try:
                     run_checks(database, report)
@@ -212,6 +214,8 @@ def main():
                             BACKEND / "app" / "models.py", BACKEND / "app" / "schemas.py",
                             BACKEND / "app" / "use_cases" / "work_forms.py",
                             BACKEND / "app" / "use_cases" / "worker_invitations.py",
+                            BACKEND / "app" / "use_cases" / "worker_password_recovery.py",
+                            BACKEND / "app" / "auth.py", BACKEND / "app" / "main.py",
                             BACKEND / "app" / "use_cases" / "staff_site_admin.py",
                             * (BACKEND / "migrations" / "versions").glob("*.py")])
     }

@@ -466,7 +466,7 @@ def test_cookie_confirmation_distinguishes_csrf_from_invalid_authentication():
             user = User(email="cookie-confirmation@example.invalid", name="Cookie Fixture", password_hash="not-a-login-password")
             session.add(user)
             session.commit()
-            token = auth.create_access_token({"sub": user.email, "csrf": "fixture-csrf"})
+            token = auth.create_access_token({"sub": user.email, "csrf": "fixture-csrf", "user_id": user.id, "auth_generation": user.auth_generation})
             assert_ok("missing CSRF fails write validation without invalidating the authentication cookie",
                       not auth.csrf_tokens_match("fixture-csrf", "fixture-csrf", None)
                       and auth.get_current_user(credentials=None, cookie_token=token, session=session).id == user.id)

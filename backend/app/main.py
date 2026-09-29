@@ -6,6 +6,8 @@ from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, Request, UploadFile, File, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from sqlalchemy import text
 from sqlmodel import Session, select
 
@@ -59,6 +61,8 @@ from app.schemas import (
     WorkerInvitationCreateRequest,
     WorkerInvitationTokenRequest,
     WorkerInvitationAcceptRequest,
+    WorkerPasswordRecoveryTokenRequest,
+    WorkerPasswordRecoveryAcceptRequest,
 )
 from app.auth import (
     AUTH_COOKIE_NAME,
@@ -87,6 +91,7 @@ from app.use_cases import task_logs as task_log_use_cases
 from app.use_cases import team_work_logs as team_work_log_use_cases
 from app.use_cases import work_forms as work_form_use_cases
 from app.use_cases import worker_invitations as worker_invitation_use_cases
+from app.use_cases import worker_password_recovery as worker_password_recovery_use_cases
 from app.use_cases.common import (
     DEPARTMENT_NAMES,
     list_departments,
@@ -122,6 +127,7 @@ rate_limiter = InMemoryRateLimiter(
                 "/auth/registration/start",
                 "/auth/registration/verify",
                 "/auth/worker-invitations",
+                "/auth/worker-password-recovery",
                 "/supervisor/worker-invitations",
                 "/auth/refresh",
             ),
@@ -146,6 +152,8 @@ CSRF_EXEMPT_PATHS = {
     "/auth/registration/verify",
     "/auth/worker-invitations/inspect",
     "/auth/worker-invitations/accept",
+    "/auth/worker-password-recovery/inspect",
+    "/auth/worker-password-recovery/accept",
     "/dev/seed",
 }
 
@@ -154,12 +162,22 @@ def apply_upload_cache_policy(request_path: str, response: Response):
     normalized_path = request_path[4:] if request_path.startswith("/api/") else request_path
     if normalized_path.startswith("/uploads/") and response.status_code >= 400:
         response.headers["Cache-Control"] = "private, no-store"
-    if normalized_path == "/auth/login/after-setup" or normalized_path.startswith(("/auth/worker-invitations", "/supervisor/worker-invitations")) or (
-        normalized_path.startswith("/supervisor/users/") and normalized_path.endswith("/invitation")
+    if normalized_path == "/auth/login/after-setup" or normalized_path.startswith(("/auth/worker-invitations", "/auth/worker-password-recovery", "/supervisor/worker-invitations")) or (
+        normalized_path.startswith("/supervisor/users/") and normalized_path.endswith(("/invitation", "/password-recovery"))
     ):
         response.headers["Cache-Control"] = "private, no-store"
         response.headers["Referrer-Policy"] = "no-referrer"
     return response
+
+
+@app.exception_handler(RequestValidationError)
+async def redact_recovery_validation(request: Request, exc: RequestValidationError):
+    path = request.url.path.removeprefix("/api")
+    if path.startswith("/auth/worker-password-recovery") or (
+        path.startswith("/supervisor/users/") and path.endswith("/password-recovery")
+    ):
+        return JSONResponse(status_code=422, content={"detail": "Check the recovery link and use a password of at least 8 characters and no more than 72 UTF-8 bytes."})
+    return await request_validation_exception_handler(request, exc)
 
 
 @app.middleware("http")
@@ -675,6 +693,8 @@ def login(
         "sub": user.email,
         "role": user.role,
         "csrf": csrf_token,
+        "auth_generation": user.auth_generation,
+        "user_id": user.id,
     })
     set_auth_cookie(response, token, csrf_token)
 
@@ -720,6 +740,16 @@ def accept_worker_invitation(data: WorkerInvitationAcceptRequest, session: Sessi
     return worker_invitation_use_cases.accept_worker_invitation(data, session)
 
 
+@app.post("/auth/worker-password-recovery/inspect")
+def inspect_worker_password_recovery(data: WorkerPasswordRecoveryTokenRequest, session: Session = Depends(get_session)):
+    return worker_password_recovery_use_cases.inspect_worker_password_recovery(data, session)
+
+
+@app.post("/auth/worker-password-recovery/accept")
+def accept_worker_password_recovery(data: WorkerPasswordRecoveryAcceptRequest, session: Session = Depends(get_session)):
+    return worker_password_recovery_use_cases.accept_worker_password_recovery(data, session)
+
+
 @app.post("/auth/registration/start")
 def start_registration(
     data: RegistrationStartRequest,
@@ -753,6 +783,8 @@ def refresh_session(
         "sub": user.email,
         "role": user.role,
         "csrf": csrf_token,
+        "auth_generation": user.auth_generation,
+        "user_id": user.id,
     })
     set_auth_cookie(response, token, csrf_token)
     return user_response(user, session)
@@ -812,6 +844,20 @@ def revoke_worker_invitation(
     user_id: int, supervisor: User = Depends(require_supervisor), session: Session = Depends(get_session),
 ):
     return worker_invitation_use_cases.revoke_worker_invitation(user_id, supervisor, session)
+
+
+@app.post("/supervisor/users/{user_id}/password-recovery")
+def issue_worker_password_recovery(
+    user_id: int, supervisor: User = Depends(require_supervisor), session: Session = Depends(get_session),
+):
+    return worker_password_recovery_use_cases.issue_worker_password_recovery(user_id, supervisor, session)
+
+
+@app.delete("/supervisor/users/{user_id}/password-recovery")
+def revoke_worker_password_recovery(
+    user_id: int, supervisor: User = Depends(require_supervisor), session: Session = Depends(get_session),
+):
+    return worker_password_recovery_use_cases.revoke_worker_password_recovery(user_id, supervisor, session)
 
 
 @app.patch("/supervisor/users/{user_id}")

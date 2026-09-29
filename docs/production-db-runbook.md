@@ -4,6 +4,16 @@ Use this runbook for managed PostgreSQL migrations, Cloud Run releases, durable 
 
 ## Deployment Truth
 
+### Local password-recovery candidate (not deployed)
+
+Migration `0022_worker_password_recovery` adds a separate hashed-capability table plus per-Worker recovery and authentication generations. It does not change Report evidence or existing passwords. Expiry defaults to one hour (`WORKER_PASSWORD_RECOVERY_TTL_MINUTES`, bounded 1–60); delivery remains manual and private, with no new email provider or secret. Keep existing migration files/checksums unchanged.
+
+The additive `legacy_auth_allowed` flag preserves pre-release email-only sessions for unchanged existing accounts. New accounts default to disallowing them; email/password changes and recovery permanently disable them. New login/refresh tokens carry an immutable `user_id` as well as the generation. This prevents a revoked token for an old email from authenticating as an account that later receives that email. The migration itself does not force a global sign-out.
+
+Before release, run the focused recovery/security/migration checks, the complete mobile/browser gate and native PostgreSQL contention rehearsal. Obtain fresh migration/release authorization and follow the managed migration procedure below; current production still has 21 migrations through `0021`. Deploy the `0022`-compatible backend before promoting the coupled Hosting build. Test issuance/replacement/revocation, cookie-free acceptance, old-password and old-session rejection, new login, scope boundaries, and exact-owned fixture cleanup separately on candidate and live. Local automation does not authorize or establish deployment.
+
+**Rollback boundary:** after any password rotation advances `auth_generation`, do not serve the September 25 or any older backend that ignores this field. Such code can accept sessions that recovery revoked. Use a generation-aware forward fix or a separately verified compatible rollback. Keep the migration and revocation state; never zero generations, restore old credentials, clear device storage, or disable the check to enable rollback. A frontend-only rollback must retain Blob/50-photo compatibility and does not undo password resets. Already-authorized in-flight requests are not cancelled by session rotation; subsequent protected requests and refreshes must reject old sessions.
+
 ### Current 2026-09-25 release - non-blocking startup, quieter screens and private onboarding
 
 Committed/pushed source `eb249ef1ee8b966a4149b15cfe092e3c0c3d10fc` is live. Backend `geo-backend-onboarding-20260925` was promoted at **2026-09-24T23:08:09.118786Z** and serves 100% with no tags: build `858d7332-3923-457d-aebc-d58fe0176bb8`, immutable image `sha256:c9c33ea6bd75f68e87ad44ddc81bf514c77fedddfda0dbe7252a642665ad40cf`. Hosting version `d492562f1d2bdb50` was cloned exactly from production-backend preview `release-20260925` at **2026-09-24T23:13:21.309Z**, after the compatible backend. Production cache is `leader-field-0643513b54a8`; source cache is `leader-field-16d27ec7cb96`. No migration, maintenance pause, runtime configuration or secret-binding change occurred; the exact ledger remains 21 entries through `0021_worker_invitations`. The [release record](evidence/report-release-20260925/release.json) owns final verification and cleanup facts.

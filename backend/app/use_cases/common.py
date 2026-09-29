@@ -478,6 +478,7 @@ def default_department(session: Session):
 
 def user_response(user: User, session: Session | None = None):
     from app.use_cases.worker_invitations import invitation_metadata
+    from app.use_cases.worker_password_recovery import password_recovery_metadata
     department = session.get(Department, user.department_id) if session and user.department_id else None
     dashboard_department = (
         session.get(Department, user.dashboard_department_id)
@@ -499,6 +500,7 @@ def user_response(user: User, session: Session | None = None):
         "is_global_admin": user_is_global_admin(user),
         "password_setup_required": getattr(user, "password_setup_required", False),
         **invitation_metadata(user, session),
+        **password_recovery_metadata(user, session),
     }
 
 

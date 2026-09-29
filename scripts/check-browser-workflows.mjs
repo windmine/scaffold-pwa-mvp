@@ -28,6 +28,12 @@ function delay(ms) {
   });
 }
 
+async function reviewAndSubmitReport(page) {
+  await page.locator('#submitWorkFormButton').click();
+  await page.locator('#workFormReviewPanel').waitFor({ state: 'visible' });
+  await page.locator('#confirmWorkFormSubmitButton').click();
+}
+
 function sqliteUrl(filePath) {
   return `sqlite:///${filePath.replace(/\\/g, '/')}`;
 }
@@ -656,13 +662,15 @@ async function checkAccessibleActionFeedback(browser) {
       await route.continue();
     });
 
-    const submitPromise = page.locator('#submitWorkFormButton').click();
+    await page.locator('#submitWorkFormButton').click();
+    await page.locator('#workFormReviewPanel').waitFor({ state: 'visible' });
+    const submitPromise = page.locator('#confirmWorkFormSubmitButton').click();
     await requestReached;
-    const busyState = await page.locator('#submitWorkFormButton').evaluate((button) => ({
+    const busyState = await page.locator('#confirmWorkFormSubmitButton').evaluate((button) => ({
       disabled: button.disabled,
       busy: button.getAttribute('aria-busy'),
       label: button.textContent || '',
-      formBusy: button.form?.getAttribute('aria-busy'),
+      formBusy: document.querySelector('#workFormSubmissionForm')?.getAttribute('aria-busy'),
       fieldsInert: document.querySelector('#workFormFields')?.inert
     }));
     if (
@@ -684,14 +692,14 @@ async function checkAccessibleActionFeedback(browser) {
       return button
         && !button.disabled
         && button.getAttribute('aria-busy') === null
-        && button.textContent.trim() === 'Submit Report';
+        && button.textContent.trim() === 'Review & submit';
     }, null, { timeout: 20000 });
     const completedButton = await page.locator('#submitWorkFormButton').evaluate((button) => ({
       disabled: button.disabled,
       busy: button.getAttribute('aria-busy'),
       label: button.textContent || ''
     }));
-    if (completedButton.disabled || completedButton.busy !== null || completedButton.label.trim() !== 'Submit Report') {
+    if (completedButton.disabled || completedButton.busy !== null || completedButton.label.trim() !== 'Review & submit') {
       throw new Error(`Report submit did not restore after completion: ${JSON.stringify(completedButton)}`);
     }
     const duplicateToastCount = await page.locator('#toastViewport .toast', {
@@ -1548,10 +1556,20 @@ async function selectReportPhotoBatch(page, count) {
 
 async function photoPreviewHashes(page, selector = '#workFormPhotoPreview img') {
   return page.locator(selector).evaluateAll(async (images) => {
+    // Thumbnails are disposable display copies. Exercise each real gallery
+    // click handler and hash the original evidence shown by the full viewer.
+    const sources = images.map((image) => {
+      if (!image.closest('#workFormPhotoPreview')) return image.getAttribute('src');
+      image.closest('[data-photo-index]').click();
+      const source = document.querySelector('#photoViewerImage').getAttribute('src');
+      document.querySelector('#closePhotoViewerButton').click();
+      if (!source) throw new Error('Report thumbnail did not open its original evidence');
+      return source;
+    });
     const hashes = [];
-    for (const image of images) {
-      const response = await fetch(image.getAttribute('src'));
-      if (!response.ok) throw new Error('Original Report photo preview is unavailable');
+    for (const source of sources) {
+      const response = await fetch(source);
+      if (!response.ok) throw new Error('Original Report photo evidence is unavailable');
       const digest = await crypto.subtle.digest('SHA-256', await response.arrayBuffer());
       hashes.push([...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join(''));
     }
@@ -1627,7 +1645,8 @@ async function checkReportRejectedPhotoSelectionPreserves(browser) {
       mimeType: 'text/plain',
       buffer: Buffer.from('This is not a supported Report photo.')
     });
-    await page.locator('#workFormFeedback').getByText('not-a-photo.txt must be a JPEG, PNG, or WebP image.', { exact: true }).waitFor({ state: 'visible' });
+    await page.locator('#workFormPhotoSelectionFeedback [data-photo-rejected-name]').getByText('not-a-photo.txt', { exact: true }).waitFor({ state: 'visible' });
+    await page.locator('#workFormPhotoSelectionFeedback [data-photo-rejected-reason]').getByText('Use JPEG, PNG, or WebP.', { exact: true }).waitFor({ state: 'visible' });
     const remainingSources = await photoPreviewHashes(page);
     if (remainingSources.length !== 1 || remainingSources[0] !== originalSource) {
       throw new Error(`rejecting an invalid Report photo must preserve the earlier photo; visible photos=${remainingSources.length}, original retained=${remainingSources[0] === originalSource}`);
@@ -1691,6 +1710,8 @@ async function checkReportPhotoRemovalPersists(browser) {
       throw new Error('each selected Report photo must provide its own accessible Remove photo N action');
     }
     await page.locator('#workFormAutosaveStatus.saved').waitFor();
+    await page.waitForFunction(() => [...document.querySelectorAll('#workFormPhotoPreview img')]
+      .every((image) => !image.hidden && image.complete && image.naturalWidth));
     const sourcesBeforeFailedRemove = await photoPreviewHashes(page);
     await page.evaluate(() => {
       const create = URL.createObjectURL.bind(URL);
@@ -1837,7 +1858,7 @@ async function checkReportRestoredPhotosAppendAndSubmit(browser) {
       response.request().method() === 'POST'
       && new URL(response.url()).pathname === '/api/form-submissions'
     ), { timeout: 20000 });
-    await page.locator('#submitWorkFormButton').click();
+    await reviewAndSubmitReport(page);
     const response = await submission;
     if (!response.ok()) throw new Error(`restored-plus-appended Report submission failed: ${response.status()} ${await response.text()}`);
     const report = await response.json();
@@ -1918,14 +1939,31 @@ async function checkReportOverlappingPhotoSelections(browser) {
       throw new Error(`overlapping Report photo events must retain both selections; visible photos=${previewCount}`);
     }
     await page.waitForFunction(() => [...document.querySelectorAll('#workFormPhotoPreview img')].every((image) => image.complete && image.naturalWidth));
-    const colors = await page.locator('#workFormPhotoPreview img').evaluateAll((images) => images.map((image) => {
-      const canvas = document.createElement('canvas');
-      canvas.width = image.naturalWidth;
-      canvas.height = image.naturalHeight;
-      const drawing = canvas.getContext('2d');
-      drawing.drawImage(image, 0, 0);
-      return [...drawing.getImageData(0, 0, 1, 1).data].slice(0, 3);
-    }));
+    const colors = await page.locator('#workFormPhotoPreview [data-photo-index]').evaluateAll(async (buttons) => {
+      const sources = buttons.map((button) => {
+        button.click();
+        const source = document.querySelector('#photoViewerImage').getAttribute('src');
+        document.querySelector('#closePhotoViewerButton').click();
+        return source;
+      });
+      const originalColors = [];
+      for (const source of sources) {
+        const response = await fetch(source);
+        if (!response.ok) throw new Error('Overlapping Report selection lost its original evidence');
+        const bitmap = await createImageBitmap(await response.blob());
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          const drawing = canvas.getContext('2d');
+          drawing.drawImage(bitmap, 0, 0);
+          originalColors.push([...drawing.getImageData(0, 0, 1, 1).data].slice(0, 3));
+        } finally {
+          bitmap.close();
+        }
+      }
+      return originalColors;
+    });
     if (JSON.stringify(colors) !== JSON.stringify([[220, 38, 38], [37, 99, 235]])) {
       throw new Error(`overlapping Report photo selections must preserve selection order: ${JSON.stringify(colors)}`);
     }
@@ -2035,7 +2073,7 @@ async function checkSubmittedReportDraftCleanupFailure(browser) {
     const submission = page.waitForResponse((response) => (
       response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/form-submissions'
     ));
-    await page.locator('#submitWorkFormButton').click();
+    await reviewAndSubmitReport(page);
     const response = await submission;
     if (!response.ok()) throw new Error(`draft-cleanup fixture Report did not submit: ${response.status()}`);
     const submitted = response.request().postDataJSON();
@@ -2104,7 +2142,8 @@ async function checkReportPhotoLimitAndEmptyPicker(browser) {
     const originalSources = await photoPreviewHashes(page);
     await page.locator('#workFormPhotos').setInputFiles([]);
     await selectReportPhoto(page, 'excess-report-photo.png', '#ffffff');
-    await page.locator('#workFormFeedback').getByText('Reports can include up to 50 photos. The first 50 were kept.', { exact: true }).waitFor({ state: 'visible' });
+    await page.locator('#workFormPhotoSelectionFeedback [data-photo-rejected-name]').getByText('excess-report-photo.png', { exact: true }).waitFor({ state: 'visible' });
+    await page.locator('#workFormPhotoSelectionFeedback [data-photo-rejected-reason]').getByText('Would exceed the 50-photo limit.', { exact: true }).waitFor({ state: 'visible' });
     const fullSources = await photoPreviewHashes(page);
     if (JSON.stringify(fullSources) !== JSON.stringify(originalSources)) {
       throw new Error('an empty or over-limit Report photo selection must preserve all 50 earlier photos');
@@ -2180,7 +2219,7 @@ async function checkReportFiftyPhotoUpload(browser) {
     });
     const submitted = page.waitForResponse((response) => response.request().method() === 'POST'
       && new URL(response.url()).pathname === '/api/form-submissions', { timeout: 60000 });
-    await page.locator('#submitWorkFormButton').click();
+    await reviewAndSubmitReport(page);
     await page.locator('#workFormPhotoStatus').getByText('Upload limit reached. Retrying in 1 seconds. 30 of 50 photos and signatures uploaded.', { exact: true }).waitFor();
     const response = await submitted;
     if (!response.ok()) throw new Error(`50-photo submission failed: ${response.status()}`);
@@ -2272,7 +2311,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
       || workerShell.horizontalOverflow > 1
       || workerShell.smallestPrimaryActionHeight < 44
       || JSON.stringify(workerShell.statusOptions) !== JSON.stringify(['', 'submitted', 'in_review', 'resolved', 'queued'])
-      || workerShell.submitLabel !== 'Submit Report'
+      || workerShell.submitLabel !== 'Review & submit'
     ) {
       throw new Error(`normal Worker report-only shell was incorrect: ${JSON.stringify(workerShell)}`);
     }
@@ -2321,7 +2360,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
       response.request().method() === 'POST'
       && new URL(response.url()).pathname === '/api/form-submissions'
     ), { timeout: 20000 });
-    await page.locator('#submitWorkFormButton').click();
+    await reviewAndSubmitReport(page);
     const submissionResponse = await submissionResponsePromise;
     if (!submissionResponse.ok()) {
       throw new Error(`normal Worker Work Form submission failed: ${submissionResponse.status()} ${await submissionResponse.text()}`);
@@ -2973,7 +3012,7 @@ async function checkOfflineReportTemplateChange(browser) {
     });
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
     await context.setOffline(true);
-    await page.locator('#submitWorkFormButton').click();
+    await reviewAndSubmitReport(page);
     await waitForQueueCount(page, 1);
     const original = await page.evaluate(async (name) => {
       const { getAll } = await import('/assets/js/db.js');
@@ -3084,7 +3123,7 @@ async function checkOfflineReportTemplateChange(browser) {
       && new URL(response.url()).pathname === '/api/form-submissions'
       && response.request().postDataJSON().expected_definition_version === form.definition_version + 1
     ), { timeout: 20000 });
-    await page.locator('#submitWorkFormButton').click();
+    await reviewAndSubmitReport(page);
     const recoveryResponse = await recoveryResponsePromise;
     if (!recoveryResponse.ok()) {
       throw new Error(`current-template recovery Report failed: ${recoveryResponse.status()} ${await recoveryResponse.text()}`);
@@ -3686,14 +3725,53 @@ async function checkReportOnlyExcludesDaywork(browser) {
   const retainedContext = await newContext(browser, { reportOnly: false });
   const retainedPage = await retainedContext.newPage();
   const reportMarker = `Report boundary ${Date.now()}`;
+  const retainedSubmissionResponses = [];
+  retainedPage.on('response', (response) => {
+    const pathname = new URL(response.url()).pathname;
+    if (response.request().method() !== 'POST'
+      || !['/api/photo-uploads', '/api/form-submissions'].includes(pathname)) return;
+    retainedSubmissionResponses.push({
+      pathname, status: response.status(), retryAfter: response.headers()['retry-after'] || ''
+    });
+  });
 
   try {
     await loginAs(retainedPage, 'worker@example.com', 'worker');
     await fillDayworkSubmission(retainedPage);
     await retainedPage.locator('#submitTaskButton').click();
-    await retainedPage.locator('#taskFeedback')
-      .getByText('Daywork log form submitted for approval')
-      .waitFor({ timeout: 20000 });
+    try {
+      await retainedPage.locator('#taskFeedback')
+        .getByText('Daywork log form submitted for approval')
+        .waitFor({ timeout: 20000 });
+    } catch (error) {
+      const state = await retainedPage.evaluate(() => {
+        const feedback = document.querySelector('#taskFeedback');
+        const submit = document.querySelector('#submitTaskButton');
+        const signature = document.querySelector('#dayworkFormField_signature');
+        return {
+          activeView: document.body.dataset.activeView || '',
+          navigatorOnline: navigator.onLine,
+          feedback: feedback?.textContent || '',
+          feedbackTone: feedback?.dataset.tone || '',
+          feedbackHidden: feedback?.classList.contains('hidden') ?? null,
+          invalidControls: [...document.querySelectorAll('#taskForm :invalid')].map((control) => ({
+            id: control.id, validationMessage: control.validationMessage || ''
+          })),
+          siteId: document.querySelector('#taskSite')?.value || '',
+          workDate: document.querySelector('#taskDate')?.value || '',
+          submitDisabled: submit?.disabled ?? null,
+          submitBusy: submit?.getAttribute('aria-busy') || '',
+          signatureSigned: signature?.dataset.signed || '',
+          signatureReady: signature?.dataset.signatureReady || '',
+          signatureRestoring: Boolean(signature?.dataset.restoredSignature),
+          queueSyncState: document.querySelector('#queueSyncStatus')?.dataset.state || '',
+          queueSyncMessage: document.querySelector('#queueSyncMessage')?.textContent || ''
+        };
+      }).catch((diagnosticError) => ({ unavailable: diagnosticError.name || 'Error' }));
+      throw new Error(`Retained Daywork submission feedback did not appear: ${JSON.stringify({
+        state, responses: retainedSubmissionResponses
+      })}`, { cause: error });
+    }
   } finally {
     await retainedContext.close();
   }
@@ -3744,7 +3822,7 @@ async function checkReportOnlyExcludesDaywork(browser) {
     await page.locator('#workFormDate').fill('2026-09-01');
     await page.locator('#workFormField_inspection_area').fill(reportMarker);
     await page.locator('#workFormField_inspection_result').selectOption('Pass');
-    await page.locator('#submitWorkFormButton').click();
+    await reviewAndSubmitReport(page);
     await page.locator('#workFormFeedback').getByText('Inspection form submitted for review').waitFor({ timeout: 20000 });
 
     await page.locator('.tab[data-tab-target="historyTab"]').click();
@@ -3955,7 +4033,7 @@ async function checkExplicitReportPurposeOverridesDayworkName(browser) {
     await page.locator('#workFormSelect').selectOption({ label: templateName });
     await page.locator('#workFormDate').fill('2026-09-01');
     await page.locator('#workFormField_issue').fill(answerMarker);
-    await page.locator('#submitWorkFormButton').click();
+    await reviewAndSubmitReport(page);
     await page.locator('#workFormFeedback').getByText(`${templateName} submitted for review`).waitFor({ timeout: 20000 });
 
     await page.locator('.tab[data-tab-target="historyTab"]').click();
@@ -4588,9 +4666,12 @@ async function checkReportOnlyResponsiveLayout(browser) {
         const disclosure = page.locator('#historyList > .record-report-compact .record-disclosure-button');
         await disclosure.click();
         await page.locator('#historyList .record-report-expanded').filter({ hasText: 'North access platform' }).waitFor({ state: 'visible' });
+        const expandedDetailsId = await disclosure.getAttribute('aria-controls');
         if (await disclosure.getAttribute('aria-expanded') !== 'true') throw new Error('Report disclosure did not announce expanded state');
         await disclosure.click();
-        if (await page.locator('#historyList .record-report-expanded').count()) throw new Error('Collapsing must dispose the full Report detail');
+        if (await page.locator('#historyList .record-report-expanded').count()) {
+          throw new Error(`Collapsing must dispose the full Report detail (${label}; expanded details=${expandedDetailsId}; current details=${await disclosure.getAttribute('aria-controls')}; current expanded=${await disclosure.getAttribute('aria-expanded')})`);
+        }
         await page.locator('#historySearchInput').fill('');
       }
     }
@@ -4669,7 +4750,7 @@ async function captureInvitationScreenshots(page, kind) {
         throw new Error(`invitation ${kind} overflows ${width}px ${language}`);
       }
       const path = join(directory, `${kind}-${language}-${width}.png`);
-      await page.screenshot({ path, fullPage: true, animations: 'disabled', mask: kind === 'handoff' ? [page.locator('#workerInvitationLink')] : [] });
+      await page.screenshot({ path, fullPage: true, animations: 'disabled', mask: kind.endsWith('handoff') ? [page.locator('#workerInvitationLink')] : [] });
       console.log(`  screenshot: ${path}`);
     }
   }
@@ -5140,6 +5221,121 @@ async function checkWorkerInvitationCleanBrowserContinuation(browser) {
   }
 }
 
+async function checkWorkerPasswordRecovery(browser) {
+  const supervisorContext = await newContext(browser, { reportOnly: true });
+  const workerContext = await newContext(browser, { reportOnly: true });
+  const page = await supervisorContext.newPage();
+  const worker = await workerContext.newPage();
+  const recovery = await supervisorContext.newPage();
+  const email = `recovery-flow-${Date.now()}@example.com`;
+  const newPassword = 'Recovered-private-password!';
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    const created = await page.evaluate(async ({ email, password }) => {
+      const { createUser } = await import('/assets/js/api-client.js');
+      return createUser({ name: 'Private recovery Worker', email, password, role: 'worker', worker_class: 'normal' });
+    }, { email, password });
+    await page.reload();
+    await page.waitForFunction(() => document.body.dataset.activeView === 'supervisor');
+    await openAdminWorkspace(page, 'people');
+    const card = page.locator('#staffUsersList .record-card').filter({ hasText: email });
+    await card.getByRole('button', { name: 'Create recovery link', exact: true }).waitFor();
+    const supervisorIdentity = await page.evaluate(() => localStorage.getItem('geo_user'));
+    await loginAs(worker, email, 'worker');
+    // A real IndexedDB fixture establishes that the recovery page/session
+    // rotation must not clear device work; no live account is used here.
+    const draftKey = `password-recovery-check-${created.id}`;
+    await worker.evaluate(async ({ draftKey, id }) => {
+      const { saveDraft } = await import('/assets/js/mock-api.js');
+      await saveDraft(draftKey, { userId: id, answers: { note: 'Keep unfinished evidence' } });
+    }, { draftKey, id: created.id });
+    const authStatus = () => worker.evaluate(async () => (await fetch('/api/auth/me', { credentials: 'include' })).status);
+    async function issue(label) {
+      await card.getByRole('button', { name: label, exact: true }).click();
+      await page.locator('#confirmationDialogConfirmButton').click();
+      await page.locator('#workerInvitationDialog[open]').waitFor();
+      await page.locator('#workerInvitationTitle').getByText('Worker recovery link ready', { exact: true }).waitFor();
+      const value = await page.locator('#workerInvitationLink').inputValue();
+      const link = new URL(value);
+      if (link.origin !== new URL(appBase).origin || link.pathname !== '/recover-password.html'
+        || link.search || !/^#token=[A-Za-z0-9_-]{32,256}$/.test(link.hash)) {
+        throw new Error('recovery must use a private same-origin fragment link');
+      }
+      if (label === 'Replace recovery link') await captureInvitationScreenshots(page, 'recovery-handoff');
+      await page.locator('#closeWorkerInvitationButton').click();
+      if (await page.locator('#workerInvitationLink').inputValue()) throw new Error('closed recovery dialog retained its secret');
+      return value;
+    }
+    const original = await issue('Create recovery link');
+    if (await authStatus() !== 200) throw new Error('issuing recovery prematurely revoked the Worker session');
+    const replacement = await issue('Replace recovery link');
+    if (replacement === original) throw new Error('recovery replacement reused the prior token');
+    await recovery.goto(original);
+    await recovery.locator('#recoveryPasswordStatus').getByText(/recovery link is invalid or expired/).waitFor();
+    if (await recovery.locator('#recoveryPasswordForm').isVisible()) throw new Error('replaced recovery still allows password entry');
+    await recovery.goto(replacement);
+    await recovery.locator('#recoveryPasswordForm').waitFor({ state: 'visible' });
+    await card.getByRole('button', { name: 'Revoke recovery link', exact: true }).click();
+    await page.locator('#confirmationDialogConfirmButton').click();
+    await card.getByText('Password recovery link revoked', { exact: true }).waitFor();
+    await recovery.locator('#recoveryPasswordInput').fill(newPassword);
+    await recovery.locator('#recoveryPasswordConfirmInput').fill(newPassword);
+    await recovery.locator('#recoveryPasswordButton').click();
+    await recovery.locator('#recoveryPasswordStatus').getByText(/recovery link is invalid or expired/).waitFor();
+    if (await authStatus() !== 200) throw new Error('revoking recovery changed the Worker session');
+
+    const currentLink = await issue('Create recovery link');
+    await recovery.goto(currentLink);
+    await recovery.locator('#recoveryPasswordForm').waitFor({ state: 'visible' });
+    if (new URL(recovery.url()).hash || new URL(recovery.url()).search
+      || !(await recovery.locator('#recoveryIdentity').innerText()).includes(email)) {
+      throw new Error('recovery must show the Worker and strip the secret URL before password entry');
+    }
+    const expiry = Date.parse(await recovery.locator('#recoveryExpiryTime').getAttribute('datetime'));
+    if (!(expiry > Date.now() && expiry <= Date.now() + 61 * 60 * 1000)) throw new Error('recovery expiry is not bounded to one hour');
+    await recovery.locator('#recoveryPasswordInput').fill(newPassword);
+    await recovery.locator('#recoveryPasswordConfirmInput').fill(newPassword);
+    const completion = recovery.waitForResponse((response) => new URL(response.url()).pathname === '/api/auth/worker-password-recovery/accept');
+    await recovery.locator('#recoveryPasswordButton').click();
+    const completed = await completion;
+    if (!completed.ok() || completed.headers()['set-cookie']) throw new Error('recovery acceptance must be successful and cookie-free');
+    await recovery.locator('#recoveryPasswordStatus').getByText('Password reset. You can now sign in to ReportFlow.', { exact: true }).waitFor();
+    const supervisor = await page.evaluate(async () => ({
+      current: await (await fetch('/api/auth/me', { credentials: 'include' })).json(),
+      saved: localStorage.getItem('geo_user')
+    }));
+    if (supervisor.current.email !== 'supervisor@example.com' || supervisor.saved !== supervisorIdentity) {
+      throw new Error('Worker recovery replaced the existing Supervisor identity');
+    }
+    if (await authStatus() !== 401) throw new Error('password recovery did not reject the old Worker session');
+    const oldPasswordStatus = await worker.evaluate(async ({ email, password }) => (await fetch('/api/auth/login', {
+      method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    })).status, { email, password });
+    if (oldPasswordStatus !== 401) throw new Error('old Worker password remained usable after recovery');
+    await recovery.goto(currentLink);
+    await recovery.locator('#recoveryPasswordStatus').getByText(/recovery link is invalid or expired/).waitFor();
+    await worker.goto('/index.html');
+    await worker.waitForFunction(() => document.body.dataset.activeView === 'login');
+    await worker.locator('#emailInput').fill(email);
+    await worker.locator('#passwordInput').fill(newPassword);
+    await worker.locator('#loginSubmitButton').click();
+    await worker.waitForFunction(() => document.body.dataset.activeView === 'worker');
+    const draft = await worker.evaluate(async (key) => {
+      const { getDraft } = await import('/assets/js/mock-api.js');
+      return getDraft(key);
+    }, draftKey);
+    if (draft?.answers?.note !== 'Keep unfinished evidence') throw new Error('recovery/login lost the saved device draft');
+    await page.reload();
+    await page.waitForFunction(() => document.body.dataset.activeView === 'supervisor');
+    await openAdminWorkspace(page, 'people');
+    await card.getByText('Password recovery completed', { exact: true }).waitFor();
+  } finally {
+    await workerContext.close();
+    await supervisorContext.close();
+  }
+}
+
 async function checkWorkerInvitationRevocation(browser) {
   const context = await newContext(browser, { reportOnly: true });
   const page = await context.newPage();
@@ -5227,6 +5423,174 @@ async function checkWorkerInvitationLateResponsePrivacy(browser) {
   }
 }
 
+async function checkRememberedSupervisorReportFilters(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const privateSearch = `Unsaved private Report Find ${Date.now()}`;
+  const empty = { status: '', formId: '', workerId: '', date: '', search: '' };
+  const queueFilters = (url) => ({
+    departmentId: url.searchParams.get('department_id') || '',
+    status: url.searchParams.get('workflow_status') || '',
+    formId: url.searchParams.get('form_id') || '',
+    workerId: url.searchParams.get('worker_id') || '',
+    date: url.searchParams.get('record_date') || '',
+    search: url.searchParams.get('search') || ''
+  });
+  const matches = (actual, expected) => Object.entries(expected).every(([key, value]) => actual[key] === value);
+  const waitForQueue = (expected) => page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.request().method() === 'GET'
+      && url.pathname === '/api/supervisor/review-queue'
+      && url.searchParams.get('purpose') === 'report'
+      && matches(queueFilters(url), expected);
+  }, { timeout: 20000 });
+  const changeAndCheckQueue = async (expected, change) => {
+    const responsePromise = waitForQueue(expected);
+    await change();
+    const response = await responsePromise;
+    if (!response.ok()) throw new Error(`Remembered Report filters query failed: ${response.status()} ${await response.text()}`);
+    await page.waitForFunction((wanted) => {
+      const values = {
+        departmentId: document.querySelector('#supervisorDepartmentFilter').value,
+        status: document.querySelector('#supervisorStatusFilter').value,
+        formId: document.querySelector('#supervisorTemplateFilter').value,
+        workerId: document.querySelector('#supervisorWorkerFilter').value,
+        date: document.querySelector('#supervisorDateFilter').value,
+        search: document.querySelector('#supervisorSearchInput').value
+      };
+      return Object.entries(wanted).every(([key, value]) => values[key] === value);
+    }, expected);
+  };
+  const openFilters = async () => {
+    if (!await page.locator('#reportReviewFilters').evaluate((element) => element.open)) {
+      await page.locator('#reportReviewFilters > summary').click();
+    }
+  };
+  const reloadAndCheckFirstQueue = async (expected) => {
+    const requestedFilters = [];
+    const recordRequest = (request) => {
+      const url = new URL(request.url());
+      if (url.pathname === '/api/supervisor/review-queue') requestedFilters.push(queueFilters(url));
+    };
+    page.on('request', recordRequest);
+    try {
+      await changeAndCheckQueue(expected, () => page.reload({ waitUntil: 'domcontentloaded' }));
+      if (!requestedFilters.length || !matches(requestedFilters[0], expected)) {
+        throw new Error(`Reload queried Reports before restoring scoped filters: ${JSON.stringify(requestedFilters)}`);
+      }
+    } finally {
+      page.off('request', recordRequest);
+    }
+  };
+  const switchDepartment = async (departmentId, expected) => {
+    await changeAndCheckQueue({ ...empty, ...expected, departmentId }, () => (
+      // The existing Department control lives in the retained Overview. Exercise its
+      // normal change handler without exposing that workspace in the Report shell.
+      page.locator('#supervisorDepartmentFilter').evaluate((select, value) => {
+        select.value = value;
+        if (select.value !== value) throw new Error(`Department fixture ${value} is unavailable`);
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }, departmentId)
+    ));
+  };
+  const clearFilters = async (departmentId) => {
+    await openFilters();
+    await changeAndCheckQueue({ ...empty, departmentId }, () => page.locator('#clearSupervisorFiltersButton').click());
+  };
+
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await page.waitForFunction(() => (
+      [...document.querySelectorAll('#supervisorTemplateFilter option')].some((option) => option.textContent === 'Inspection form')
+      && document.querySelector('#supervisorWorkerFilter option:not([value=""])')
+    ));
+    await openFilters();
+    await page.locator('#supervisorTemplateFilter').selectOption({ label: 'Inspection form' });
+    await page.locator('#supervisorWorkerFilter').selectOption({ index: 1 });
+    const saved = {
+      departmentId: await page.locator('#supervisorDepartmentFilter').inputValue(),
+      status: 'submitted',
+      formId: await page.locator('#supervisorTemplateFilter').inputValue(),
+      workerId: await page.locator('#supervisorWorkerFilter').inputValue(),
+      date: '2026-09-08',
+      search: ''
+    };
+    await changeAndCheckQueue({ ...saved, search: privateSearch }, async () => {
+      await page.locator('#supervisorStatusFilter').selectOption(saved.status);
+      await page.locator('#supervisorDateFilter').fill(saved.date);
+      await page.locator('#supervisorSearchInput').fill(privateSearch);
+    });
+    const persistedSearch = await page.evaluate((needle) => (
+      Object.keys(localStorage).some((key) => (localStorage.getItem(key) || '').includes(needle))
+    ), privateSearch);
+    if (persistedSearch) throw new Error('Private Report Find text was saved in localStorage');
+    await reloadAndCheckFirstQueue(saved);
+    if (await page.locator('#reportReviewFilters').evaluate((element) => element.open)) {
+      throw new Error('Remembered filters unexpectedly opened the phone filter disclosure');
+    }
+    const submitted = page.locator('[data-report-workflow-shortcut="submitted"]');
+    const inReview = page.locator('[data-report-workflow-shortcut="in_review"]');
+    for (const shortcut of [submitted, inReview]) {
+      if (!await shortcut.isVisible() || await shortcut.evaluate((button) => button.getBoundingClientRect().height < 44)) {
+        throw new Error('Report workflow shortcuts must remain visible with a 44px target outside collapsed filters');
+      }
+    }
+    if (await submitted.getAttribute('aria-pressed') !== 'true' || await inReview.getAttribute('aria-pressed') !== 'false') {
+      throw new Error('Workflow shortcut pressed state did not reflect the restored Submitted filter');
+    }
+    await changeAndCheckQueue({ ...saved, status: 'in_review' }, () => inReview.click());
+    if (await inReview.getAttribute('aria-pressed') !== 'true' || await submitted.getAttribute('aria-pressed') !== 'false') {
+      throw new Error('Workflow shortcut pressed state did not follow In review');
+    }
+    await changeAndCheckQueue(saved, () => submitted.click());
+
+    await logout(page);
+    await changeAndCheckQueue({ ...empty, departmentId: '' }, () => loginAs(page, 'admin@example.com', 'supervisor'));
+    const mutualId = await page.locator('#supervisorDepartmentFilter').evaluate((select) => (
+      [...select.options].find((option) => option.textContent === 'Mutual')?.value || ''
+    ));
+    if (!mutualId || mutualId === saved.departmentId) throw new Error('Scope regression needs separate seeded Leader and Mutual Departments');
+    // Same Department, different Supervisor: never inherit the first account's selections.
+    await switchDepartment(saved.departmentId, empty);
+    const leaderPreference = { ...empty, status: 'in_review', date: '2026-09-09' };
+    await openFilters();
+    await changeAndCheckQueue({ ...leaderPreference, departmentId: saved.departmentId, search: privateSearch }, async () => {
+      await inReview.click();
+      await page.locator('#supervisorDateFilter').fill(leaderPreference.date);
+      await page.locator('#supervisorSearchInput').fill(privateSearch);
+    });
+    await switchDepartment(mutualId, empty);
+    const mutualPreference = { ...empty, status: 'submitted', date: '2026-09-10' };
+    await changeAndCheckQueue({ ...mutualPreference, departmentId: mutualId }, async () => {
+      await submitted.click();
+      await page.locator('#supervisorDateFilter').fill(mutualPreference.date);
+    });
+    await switchDepartment(saved.departmentId, leaderPreference);
+    await switchDepartment('', empty);
+    await changeAndCheckQueue({ ...empty, status: 'resolved', departmentId: '' }, () => (
+      page.locator('#supervisorStatusFilter').selectOption('resolved')
+    ));
+    await switchDepartment(mutualId, mutualPreference);
+    await clearFilters(mutualId);
+    await switchDepartment(saved.departmentId, leaderPreference);
+    await clearFilters(saved.departmentId);
+    await switchDepartment('', { ...empty, status: 'resolved' });
+    await clearFilters('');
+    await switchDepartment(mutualId, empty);
+
+    await logout(page);
+    await changeAndCheckQueue(saved, () => loginAs(page, 'supervisor@example.com', 'supervisor'));
+    await clearFilters(saved.departmentId);
+    await reloadAndCheckFirstQueue({ ...empty, departmentId: saved.departmentId });
+    if (await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth) > 1) {
+      throw new Error('Remembered Report filters or shortcuts overflow the phone viewport');
+    }
+  } finally {
+    // This context is private to the workflow; closing it removes every owned local preference.
+    await context.close();
+  }
+}
+
 async function checkReportFindExportDownloads(browser) {
   const context = await newContext(browser, { reportOnly: true });
   const page = await context.newPage();
@@ -5242,7 +5606,7 @@ async function checkReportFindExportDownloads(browser) {
       const submission = page.waitForResponse((response) => (
         response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/form-submissions'
       ));
-      await page.locator('#submitWorkFormButton').click();
+      await reviewAndSubmitReport(page);
       if (!(await submission).ok()) throw new Error('export fixture Report submission failed');
       await page.waitForFunction(() => !document.querySelector('#submitWorkFormButton').disabled);
     }
@@ -5847,6 +6211,165 @@ async function checkStaffGlobalAdminScoping(browser) {
   }
 }
 
+async function checkTemplateLibrarySearchAndStatus(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  const marker = `Library ${Date.now()}`;
+  const names = {
+    active: `${marker} North inspection`,
+    second: `${marker} South toolbox`,
+    archived: `${marker} Retired inspection`,
+    created: `${marker} Newly published`
+  };
+  const cards = page.locator('#workFormsList .template-library-card');
+  const search = page.locator('#workFormSearchInput');
+  const status = page.locator('#workFormStatusFilter');
+  const waitForCardCount = async (count) => {
+    try {
+      await page.waitForFunction((expected) => (
+        document.querySelectorAll('#workFormsList .template-library-card').length === expected
+      ), count, { timeout: 20000 });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({
+        names: [...document.querySelectorAll('#workFormsList .template-library-card .record-title')]
+          .map((title) => title.textContent),
+        status: document.querySelector('#workFormStatusFilter')?.value,
+        search: document.querySelector('#workFormSearchInput')?.value
+      }));
+      throw new Error(`Template library expected ${count} cards: ${JSON.stringify(diagnostic)}`, { cause: error });
+    }
+  };
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await page.evaluate(async (fixtureNames) => {
+      const { createWorkForm, updateWorkForm } = await import('/assets/js/api-client.js');
+      await createWorkForm({
+        name: fixtureNames.active,
+        description: 'Morning safety inspection for the north site.',
+        fields: [
+          { id: 'heading', type: 'section', label: 'Private section label' },
+          { id: 'area', type: 'text', label: 'Private area question' },
+          { id: 'approval', type: 'signature', label: 'Private approval signature' },
+          { id: 'items', type: 'repeat', label: 'Private repeated items', min_rows: 1, max_rows: 4 },
+          { id: 'item', type: 'text', label: 'Private item question', repeat: 'items' }
+        ]
+      });
+      await createWorkForm({
+        name: fixtureNames.second,
+        description: 'Compassneedle handover discussion.',
+        fields: [{ id: 'notes', type: 'text', label: 'Discussion notes' }]
+      });
+      const archived = await createWorkForm({
+        name: fixtureNames.archived,
+        fields: [{ id: 'notes', type: 'text', label: 'Retired notes' }]
+      });
+      await updateWorkForm(archived.id, { status: 'archived' });
+    }, names);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await openAdminWorkspace(page, 'forms');
+    if (await status.inputValue() !== 'active') throw new Error('Template library did not default to Active');
+    await cards.filter({ hasText: names.active }).waitFor({ state: 'visible', timeout: 20000 });
+    if (await cards.filter({ hasText: 'Daywork log form' }).count()) {
+      throw new Error('Active Report Template library included the seeded retained Daywork Template');
+    }
+    await search.fill(marker.toUpperCase());
+    await waitForCardCount(2);
+    const initialText = await cards.allTextContents();
+    if (initialText.some((text) => text.includes(names.archived))) {
+      throw new Error('Active Report Template library included an archived Template');
+    }
+    const activeCard = cards.filter({ hasText: names.active });
+    const compactState = await activeCard.evaluate((card) => ({
+      summary: card.querySelector('.template-library-summary')?.textContent || '',
+      text: card.textContent,
+      previewChildren: card.querySelector('[data-work-form-preview]')?.children.length || 0,
+      description: card.querySelector('.template-library-description')?.textContent || ''
+    }));
+    if (!compactState.summary.includes('3 fields')
+      || !compactState.summary.includes('1 signature field')
+      || !compactState.summary.includes('1 repeating group')
+      || !compactState.summary.includes('Version 1')
+      || compactState.text.includes('Private area question')
+      || compactState.text.includes('Private repeated items')
+      || compactState.previewChildren) {
+      throw new Error(`Template library did not show a compact, lazy summary: ${JSON.stringify(compactState)}`);
+    }
+    if (!await activeCard.getByText('Morning safety inspection for the north site.', { exact: true }).count()) {
+      throw new Error('Template library lost its short description');
+    }
+    await activeCard.getByRole('button', { name: 'Preview', exact: true }).click();
+    const preview = activeCard.locator('[data-work-form-preview]');
+    await preview.waitFor({ state: 'visible' });
+    if (!await preview.getByLabel('Private area question', { exact: true }).count()) {
+      throw new Error('Template full field labels were unavailable in Preview');
+    }
+    await activeCard.getByRole('button', { name: 'Hide preview', exact: true }).click();
+    await search.fill('  COMPASSNEEDLE  ');
+    await waitForCardCount(1);
+    if (!await cards.filter({ hasText: names.second }).count()) throw new Error('Template description search was not case/space tolerant');
+    await search.fill('Private area question');
+    await waitForCardCount(0);
+    if (!(await page.locator('#workFormsList').innerText()).trim()) throw new Error('Template search had no helpful empty state');
+    await page.locator('#clearWorkFormFiltersButton').click();
+    if (await search.inputValue() !== '' || await status.inputValue() !== 'active') {
+      throw new Error('Reset Template filters did not restore the default library');
+    }
+    await search.fill(marker);
+    await status.selectOption('all');
+    await waitForCardCount(3);
+    await search.fill('Daywork log form');
+    await waitForCardCount(0);
+    await search.fill(marker);
+    await status.selectOption('archived');
+    await waitForCardCount(1);
+    await cards.filter({ hasText: names.archived }).getByRole('button', { name: 'Activate', exact: true }).waitFor();
+    await status.selectOption('active');
+    await waitForCardCount(2);
+    await activeCard.getByRole('button', { name: 'Archive', exact: true }).click();
+    await activeCard.waitFor({ state: 'hidden', timeout: 20000 });
+    await waitForCardCount(1);
+    if (await search.inputValue() !== marker || await status.inputValue() !== 'active') {
+      throw new Error('Archiving unexpectedly reset Template library filters');
+    }
+    await status.selectOption('archived');
+    await waitForCardCount(2);
+    await activeCard.getByRole('button', { name: 'Activate', exact: true }).click();
+    await activeCard.waitFor({ state: 'hidden', timeout: 20000 });
+    await waitForCardCount(1);
+    await status.selectOption('active');
+    await waitForCardCount(2);
+    await activeCard.getByRole('button', { name: 'Edit', exact: true }).click();
+    await page.locator('#templateEditPanel').waitFor({ state: 'visible' });
+    const draftName = `${names.active} unfinished edit`;
+    await page.locator('#editWorkFormName').fill(draftName);
+    await search.fill('No matching Template for this private editor');
+    await status.selectOption('archived');
+    await waitForCardCount(0);
+    if (!await page.locator('#templateEditPanel').isVisible()
+      || await page.locator('#editWorkFormName').inputValue() !== draftName) {
+      throw new Error('Filtering the Template library discarded the open editor');
+    }
+    await page.locator('#closeTemplateEditButton').click();
+    await page.locator('#templateEditPanel').waitFor({ state: 'hidden' });
+    await page.locator('#templateDraftsList').getByText(draftName, { exact: true }).waitFor();
+    await page.locator('#addWorkFormButton').click();
+    await page.locator('#workFormNameInput').fill(names.created);
+    await page.locator('#addWorkFormFieldButton').click();
+    await page.locator('#workFormFieldCards [data-field-property="label"]').fill('New question');
+    await page.locator('#workFormSubmitButton').click();
+    await page.locator('#workFormCreatePanel').waitFor({ state: 'hidden' });
+    await cards.filter({ hasText: names.created }).waitFor({ state: 'visible', timeout: 20000 });
+    if (await search.inputValue() !== '' || await status.inputValue() !== 'active') {
+      throw new Error('Publishing a new Template left it hidden behind prior filters');
+    }
+    if (await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth) > 1) {
+      throw new Error('Phone Template library caused horizontal overflow');
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 async function checkSupervisorWorkFormCardBuilder(browser) {
   const context = await newContext(browser, {
     viewport: { width: 1280, height: 900 },
@@ -6271,16 +6794,21 @@ async function checkSupervisorWorkFormCardBuilder(browser) {
     if (!updatePayload.fields[0].options.includes('Blocked')) {
       throw new Error(`edit did not preserve changed options: ${JSON.stringify(updatePayload.fields[0])}`);
     }
-    await page.waitForFunction((name) => (
-      [...document.querySelectorAll('#workFormsList .record-form')]
-        .some((card) => card.textContent.includes(name) && card.textContent.includes('Inspection result'))
-    ), formName, { timeout: 20000 });
-    const updatedSummary = await page.locator('#workFormsList .record-form').filter({ hasText: formName }).first().innerText();
-    if (!updatedSummary.includes('Inspection result')) {
-      throw new Error(`updated form list did not reflect card edits: ${updatedSummary}`);
+    const updatedCard = page.locator('#workFormsList .record-form').filter({ hasText: formName }).first();
+    await updatedCard.locator('.template-library-summary').getByText('Version 2', { exact: true }).waitFor({ timeout: 20000 });
+    await updatedCard.getByRole('button', { name: 'Preview', exact: true }).click();
+    const updatedPreview = updatedCard.locator('[data-work-form-preview]');
+    await updatedPreview.waitFor({ state: 'visible', timeout: 20000 });
+    if (!await updatedPreview.getByLabel('Inspection result').count()
+      || !await updatedPreview.locator('option[value="Blocked"]').count()) {
+      throw new Error(`updated form preview did not reflect card edits: ${await updatedPreview.innerText()}`);
+    }
+    await updatedCard.getByRole('button', { name: 'Hide preview', exact: true }).click();
+    const updatedSummary = await updatedCard.innerText();
+    if (updatedSummary.includes('Inspection result')) {
+      throw new Error(`compact form list still exposed every field label: ${updatedSummary}`);
     }
 
-    const updatedCard = page.locator('#workFormsList .record-form').filter({ hasText: formName }).first();
     const archiveRequestPromise = page.waitForRequest((request) => (
       request.method() === 'PATCH'
       && /\/api\/supervisor\/work-forms\/\d+$/.test(new URL(request.url()).pathname)
@@ -6294,6 +6822,8 @@ async function checkSupervisorWorkFormCardBuilder(browser) {
     if (archiveRequest.postDataJSON()?.status !== 'archived') {
       throw new Error(`Work Form archive sent the wrong payload: ${archiveRequest.postData()}`);
     }
+    await updatedCard.waitFor({ state: 'hidden', timeout: 20000 });
+    await page.locator('#workFormStatusFilter').selectOption('archived');
     await page.locator('#workFormsList .record-form').filter({ hasText: formName })
       .getByRole('button', { name: 'Activate' })
       .waitFor({ state: 'visible', timeout: 20000 });
@@ -7100,8 +7630,11 @@ async function checkColdOfflineReportReturn(browser) {
     await resume.waitFor({ state: 'visible', timeout: 10000 });
     if (!await resume.isEnabled()) throw new Error('returning offline Worker cannot resume a draft from a previously downloaded Report Template');
     await resume.click();
+    // Continue activates New Report only after asynchronous draft restoration;
+    // attached fields can still be blank while that tab remains hidden.
+    await page.locator('#formTab').waitFor({ state: 'visible' });
     if (await page.locator('#workFormField_inspection_area').inputValue() !== answer) throw new Error('cold offline return lost Report answers');
-    await page.locator('#submitWorkFormButton').click();
+    await reviewAndSubmitReport(page);
     await page.locator('#workFormFeedback').getByText(/saved offline/i).waitFor();
     await context.setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
@@ -7533,7 +8066,7 @@ async function checkWorkFormAutosaveAndUpdateProtection(browser) {
     await page.waitForFunction(() => document.activeElement?.id === 'workFormField_inspection_result');
     await waitForDraftAnswer(inspectionFormId, 'inspection_area', inspectionMarker);
     await page.locator('#workFormField_inspection_result').selectOption('Pass');
-    await page.locator('#submitWorkFormButton').click();
+    await reviewAndSubmitReport(page);
     await page.locator('#workFormFeedback[role="status"]')
       .getByText('Inspection form submitted for approval.')
       .waitFor({ timeout: 20000 });
@@ -8244,8 +8777,11 @@ async function main() {
     await runCheck('Worker invitation clean browser continues directly into Reports', () => checkWorkerInvitationCleanBrowserContinuation(browser));
     await runCheck('Worker invitation replacement and revocation clear invalid setup secrets', () => checkWorkerInvitationRevocation(browser));
     await runCheck('Worker invitation late responses never expose a prior Supervisor private link', () => checkWorkerInvitationLateResponsePrivacy(browser));
+    await runCheck('Private Worker password recovery replaces and revokes links, preserves shared accounts and drafts, and invalidates old sessions', () => checkWorkerPasswordRecovery(browser));
     await runCheck('Report Find exports download CSV and PDF matching the searched inbox', () => checkReportFindExportDownloads(browser));
+    await runCheck('Supervisor Report filters remember structured selections per account and Department without saving Find', () => checkRememberedSupervisorReportFilters(browser));
     await runCheck('staff users scope global admin controls by role', () => checkStaffGlobalAdminScoping(browser));
+    await runCheck('Template library searches names and descriptions, filters lifecycle states, and protects unfinished edits', () => checkTemplateLibrarySearchAndStatus(browser));
     await runCheck('supervisors create and edit conditional Work Forms with field cards', () => checkSupervisorWorkFormCardBuilder(browser));
     await runCheck('Offline Submission ownership, occurrence time, and idempotent replay', () => checkOfflineQueueAndReplay(browser));
     await runCheck('Report Dates reject impossible calendar values and preserve invalid queued evidence', () => checkReportCalendarDates(browser));

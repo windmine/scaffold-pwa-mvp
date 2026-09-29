@@ -133,6 +133,7 @@ check('Chinese catalogue fully translates high-value UI labels instead of mixed 
   ['My Reports', /\b(?:My|Reports)\b/i],
   ['Report Date', /\b(?:Report|Date)\b/i],
   ['Submit Report', /\b(?:Submit|Report)\b/i],
+  ['Review & submit', /\b(?:Review|submit)\b/i],
   ['Report Templates', /\b(?:Report|Templates)\b/i],
   ['Select a Report Template', /\b(?:Select|Report|Template)\b/i],
   ['Review submitted reports', /\b(?:Review|submitted|reports)\b/i],
@@ -1631,6 +1632,25 @@ check('global admin access requires the Supervisor role', () => (
     'global Supervisor cannot become Worker while retaining global access'
   )
 ));
+
+check('private password recovery shell is copied without caching credentials or protected responses', () => (
+  ['/recover-password.html', '/assets/js/recover-password.js'].every(pwaShellCopies)
+  && read('recover-password.html').includes('name="referrer" content="no-referrer"')
+  && read('recover-password.html').includes('autocomplete="new-password"')
+  && read('assets/js/recover-password.js').includes("credentials: 'omit', cache: 'no-store', referrerPolicy: 'no-referrer'")
+  && !read('assets/js/recover-password.js').includes('saveSession(')
+  && !read('assets/js/recover-password.js').includes("fetch('/api/auth/login")
+  && sourceApp.includes('staffSitesModule?.clearPrivateLinks?.()')
+));
+
+check('private password recovery has translated entry points and safety copy', () => [
+  ['Create recovery link', /\b(?:Create|recovery|link)\b/i],
+  ['Replace recovery link', /\b(?:Replace|recovery|link)\b/i],
+  ['Revoke recovery link', /\b(?:Revoke|recovery|link)\b/i],
+  ['Reset your password', /\b(?:Reset|your|password)\b/i],
+  ['Password reset. You can now sign in to ReportFlow.', /\b(?:Password|reset|You|can|now|sign|in|to)\b/i],
+  ['Contact your supervisor privately for an expiring recovery link. Open it to choose your own new password.', /\b(?:Contact|supervisor|privately|recovery|link|password)\b/i]
+].every(([source, forbiddenEnglish]) => isCompleteChineseTranslation(i18nTestApi, source, forbiddenEnglish)));
 
 const failures = [];
 
