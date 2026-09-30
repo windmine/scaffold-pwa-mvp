@@ -2894,6 +2894,39 @@ textarea {
   min-width: 0;
 }
 
+.report-note-panel {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.report-note-panel[hidden],
+.report-note-panel [hidden],
+.report-review-actions > button[hidden] {
+  display: none;
+}
+
+.report-note-panel .section-heading {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.report-note-panel .section-heading > div,
+.report-note-panel textarea {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.report-note-panel p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.report-note-panel button {
+  min-height: 44px;
+  white-space: normal;
+}
+
 .report-photo-gallery-header {
   display: flex;
   align-items: center;

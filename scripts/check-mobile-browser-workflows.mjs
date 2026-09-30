@@ -389,6 +389,8 @@ check('production build exists', () => [
   'dist/assets/js/work-form-builder.js',
   'dist/assets/js/offline-report-template-snapshot.js',
   'dist/assets/js/report-template-drafts.js',
+  'dist/assets/js/report-note-drafts.js',
+  'dist/assets/js/report-note-editor.js',
   'dist/assets/icons/leader-logo-export.png',
   'dist/assets/icons/mutual-logo.svg',
   'dist/assets/icons/mc-logo.svg',
@@ -828,7 +830,8 @@ check('Supervisor Reports use report transitions, durable filters, and Report ex
     'id="exportReportsPdfButton"'
   ])
   && sourceSupervisorReview.includes("button.textContent = workflowStatus === 'submitted' ? 'Start review' : 'Resolve report'")
-  && sourceSupervisorReview.includes("renderStatusBanner('A resolution note is required.'")
+  && read('assets/js/report-note-editor.js').includes('A resolution note is required.')
+  && sourceIndex.includes('id="reportResolutionNote" rows="4" maxlength="1000" required')
   && sourceSupervisorReview.includes('transitionBackendReportSubmission(record.backendRecordId')
   && sourceSupervisorReview.includes("handleReportCollectionExport('form-submissions-csv'")
   && sourceSupervisorReview.includes("handleReportCollectionExport('form-submissions-pdf'")
@@ -1651,6 +1654,19 @@ check('private password recovery has translated entry points and safety copy', (
   ['Password reset. You can now sign in to ReportFlow.', /\b(?:Password|reset|You|can|now|sign|in|to)\b/i],
   ['Contact your supervisor privately for an expiring recovery link. Open it to choose your own new password.', /\b(?:Contact|supervisor|privately|recovery|link|password)\b/i]
 ].every(([source, forbiddenEnglish]) => isCompleteChineseTranslation(i18nTestApi, source, forbiddenEnglish)));
+
+check('private Supervisor notes have offline shell modules and translated recovery controls', () => (
+  ['/assets/js/report-note-drafts.js', '/assets/js/report-note-editor.js'].every(pwaShellCopies)
+  && [
+    ['Continue note', /\b(?:Continue|note)\b/i],
+    ['View saved note', /\b(?:View|saved|note)\b/i],
+    ['Load saved note', /\b(?:Load|saved|note)\b/i],
+    ['Refresh Report', /\b(?:Refresh|Report)\b/i],
+    ['Note saved on this device.', /\b(?:Note|saved|device)\b/i],
+    ['Your note could not be saved. Keep this page open and try again.', /\b(?:note|saved|Keep|page|try)\b/i],
+    ['The resolution could not be confirmed. Your note is kept. Refresh Report before trying again.', /\b(?:resolution|confirmed|note|Refresh|Report)\b/i]
+  ].every(([source, forbiddenEnglish]) => isCompleteChineseTranslation(i18nTestApi, source, forbiddenEnglish))
+));
 
 const failures = [];
 

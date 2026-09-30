@@ -2531,7 +2531,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     await resolutionNote.waitFor({ state: 'visible', timeout: 10000 });
     const resolutionPhoneLayout = await page.evaluate(() => ({
       horizontalOverflow: document.documentElement.scrollWidth - window.innerWidth,
-      submitHeight: document.querySelector('#editPanelForm button[type="submit"]')?.getBoundingClientRect().height || 0,
+      submitHeight: document.querySelector('#reportNoteForm button[type="submit"]')?.getBoundingClientRect().height || 0,
       focusedField: document.activeElement?.id || ''
     }));
     if (
@@ -2544,7 +2544,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     if ((await resolutionNote.getAttribute('required')) === null) {
       throw new Error('Resolution note was not required');
     }
-    await page.locator('#editPanelForm button[type="submit"]').click();
+    await page.locator('#reportNoteForm button[type="submit"]').click();
     if (!(await resolutionNote.evaluate((field) => field.matches(':invalid') && document.activeElement === field))) {
       throw new Error('empty resolution note was not blocked and focused');
     }
@@ -2553,7 +2553,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
       response.request().method() === 'POST'
       && new URL(response.url()).pathname === `/api/supervisor/form-submissions/${submittedReport.id}/transition`
     ));
-    await page.locator('#editPanelForm button[type="submit"]').click();
+    await page.locator('#reportNoteForm button[type="submit"]').click();
     const resolvedResponse = await resolveResponse;
     const resolveRequestPayload = resolvedResponse.request().postDataJSON();
     const resolvedPayload = await resolvedResponse.json();

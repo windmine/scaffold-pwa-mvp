@@ -1052,6 +1052,32 @@
             </div>
           </details>
 
+          <section id="reportNotePanel" class="card report-note-panel" aria-labelledby="reportNoteTitle" hidden>
+            <div class="section-heading">
+              <div>
+                <h2 id="reportNoteTitle">Resolution note</h2>
+                <p id="reportNoteIdentity" class="muted" data-no-i18n></p>
+              </div>
+              <button id="closeReportNoteButton" type="button" class="ghost">Close and keep draft</button>
+            </div>
+            <form id="reportNoteForm" class="form-grid">
+              <label>
+                Resolution note
+                <textarea id="reportResolutionNote" rows="4" maxlength="1000" required aria-describedby="reportNoteHelp reportNoteStatus"></textarea>
+              </label>
+              <p id="reportNoteHelp" class="muted">Private draft on this device. Resolving shares the final note with the Worker.</p>
+              <p id="reportNoteStatus" class="muted" role="status" aria-live="polite"></p>
+              <div id="reportNoteFeedback" class="local-feedback hidden" role="status" aria-live="polite"></div>
+              <div class="split-actions">
+                <button id="resolveReportNoteButton" type="submit">Resolve report</button>
+                <button id="discardReportNoteButton" type="button" class="ghost">Discard draft</button>
+                <button id="retryReportNoteSaveButton" type="button" class="ghost" hidden>Try saving again</button>
+                <button id="refreshReportNoteButton" type="button" class="ghost" hidden>Refresh Report</button>
+                <button id="reloadReportNoteButton" type="button" class="ghost" hidden>Load saved note</button>
+              </div>
+            </form>
+          </section>
+
           <details id="locationMapDetails" class="card fold-card location-review-card" data-report-only-hidden>
             <summary>
               <span>Maps and location review</span>

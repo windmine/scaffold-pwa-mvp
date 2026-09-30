@@ -89,6 +89,7 @@ let supervisorAnalyticsModule;
 let workerAttendance;
 let reloadingForServiceWorkerUpdate = false;
 let appUpdateAttemptInFlight = false;
+let appUpdatePausedWorkspace = 'forms';
 let sessionExpiryInProgress = false;
 let queueSyncRun = null;
 let syncFeedbackRevision = 0;
@@ -270,6 +271,7 @@ supervisorReviewModule = createSupervisorReviewModule({
   editNumber,
   siteSelectOptions: () => staffSitesModule.siteSelectOptions(),
   reportOnly: REPORT_ONLY_MODE,
+  revealReportNote: () => activateAdminWorkspace('review'),
   confirmAction
 });
 
@@ -1265,14 +1267,16 @@ async function handleLogout() {
   const departingUser = state.user;
   if (state.user?.role === 'supervisor') {
     uiFeedback.setButtonBusy(els.logoutButton, true, 'Saving draft...');
-    const readiness = await staffSitesModule.prepareForNavigation();
+    const readiness = await prepareSupervisorNavigation();
     uiFeedback.setButtonBusy(els.logoutButton, false);
     if (state.user !== departingUser) {
       staffSitesModule.cancelNavigationPreparation();
+      supervisorReviewModule.cancelNavigationPreparation();
       return;
     }
     if (!readiness.safe) {
-      activateAdminWorkspace('forms');
+      if (readiness.workspace === 'review') supervisorReviewModule.focusNoteEditor();
+      else activateAdminWorkspace('forms');
       renderStatusBanner(readiness.message, true);
       return;
     }
@@ -1333,6 +1337,7 @@ function handleSessionExpired(message = 'Your backend session expired. Please si
   if (state.user?.role === 'supervisor') {
     // Capture synchronously, then clear private UI without waiting on device storage.
     void staffSitesModule.flushTemplateDrafts().catch(() => {});
+    void supervisorReviewModule.flushNoteDraft().catch(() => {});
     finish();
     return;
   }
@@ -1833,7 +1838,36 @@ function keepEditingWorkForm() {
     window.requestAnimationFrame(() => workerForm.focusUnsavedInput());
   } else if (state.user?.role === 'supervisor') {
     staffSitesModule.cancelNavigationPreparation();
-    activateAdminWorkspace('forms');
+    supervisorReviewModule.cancelNavigationPreparation();
+    if (appUpdatePausedWorkspace === 'review') supervisorReviewModule.focusNoteEditor();
+    else activateAdminWorkspace('forms');
+  }
+}
+
+async function prepareSupervisorNavigation() {
+  // Both editors keep their own private drafts. A safe result freezes both until
+  // logout/update completes; every cancelled attempt releases both locks.
+  try {
+    const note = await supervisorReviewModule.prepareForNavigation();
+    if (!note.safe) {
+      supervisorReviewModule.cancelNavigationPreparation();
+      staffSitesModule.cancelNavigationPreparation();
+      return { ...note, workspace: 'review' };
+    }
+    const template = await staffSitesModule.prepareForNavigation();
+    if (!template.safe) {
+      supervisorReviewModule.cancelNavigationPreparation();
+      staffSitesModule.cancelNavigationPreparation();
+      return { ...template, workspace: 'forms' };
+    }
+    return { safe: true };
+  } catch {
+    supervisorReviewModule.cancelNavigationPreparation();
+    staffSitesModule.cancelNavigationPreparation();
+    return {
+      safe: false, workspace: supervisorReviewModule.hasActiveNote() ? 'review' : 'forms',
+      message: 'Your changes are not saved on this device. Keep this page open and try again.'
+    };
   }
 }
 
@@ -1842,12 +1876,13 @@ async function handleAppUpdate() {
   if (!worker || appUpdateAttemptInFlight) return;
 
   appUpdateAttemptInFlight = true;
+  const updatingUser = state.user;
   confirmationDialog.cancel({ restoreFocus: false });
   uiFeedback.setButtonBusy(els.updateButton, true, 'Saving before update...');
   let draftReadiness;
   try {
     draftReadiness = state.user?.role === 'supervisor'
-      ? await staffSitesModule.prepareForNavigation()
+      ? await prepareSupervisorNavigation()
       : await workerForm.prepareForAppUpdate();
   } catch {
     draftReadiness = {
@@ -1855,7 +1890,16 @@ async function handleAppUpdate() {
       message: 'This editor has changes that are not saved on this device. Updating now could lose them.'
     };
   }
+  if (state.user !== updatingUser) {
+    workerForm.cancelAppUpdatePreparation();
+    staffSitesModule.cancelNavigationPreparation();
+    supervisorReviewModule.cancelNavigationPreparation();
+    appUpdateAttemptInFlight = false;
+    uiFeedback.setButtonBusy(els.updateButton, false);
+    return;
+  }
   if (!draftReadiness.safe) {
+    appUpdatePausedWorkspace = draftReadiness.workspace || 'forms';
     appUpdateAttemptInFlight = false;
     uiFeedback.setButtonBusy(els.updateButton, false);
     showAppUpdatePausedDialog(draftReadiness.message);
@@ -1866,6 +1910,7 @@ async function handleAppUpdate() {
   if (!worker) {
     workerForm.cancelAppUpdatePreparation();
     staffSitesModule.cancelNavigationPreparation();
+    supervisorReviewModule.cancelNavigationPreparation();
     appUpdateAttemptInFlight = false;
     uiFeedback.setButtonBusy(els.updateButton, false);
     renderSystemBanner('The app update is no longer waiting. Your draft is saved.', { tone: 'info' });
@@ -1877,6 +1922,7 @@ async function handleAppUpdate() {
   } catch {
     workerForm.cancelAppUpdatePreparation();
     staffSitesModule.cancelNavigationPreparation();
+    supervisorReviewModule.cancelNavigationPreparation();
     appUpdateAttemptInFlight = false;
     uiFeedback.setButtonBusy(els.updateButton, false);
     renderSystemBanner('Could not start the app update. Your draft is saved; try Update App again.', {

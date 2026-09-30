@@ -79,6 +79,11 @@ The read-only evidence view in an expanded Worker Report or Supervisor Report de
 The forward-only state machine **Submitted → In review → Resolved**. An authorised Department Supervisor starts review and resolves with a required final Supervisor note. Report transitions are separate from legacy approve/reject decisions, atomic, and audit-logged.
 _Avoid_: Pending, approved, rejected, approval, or rejection when describing a Report state
 
+**Resolution-note draft** (local 2026-10-01; not deployed):
+A Supervisor's private unfinished text for one durable Report, saved only in this browser's IndexedDB. The key binds Supervisor identity, home Department, global capability, actual Report Department and Report ID. It is not a Report field, a shared reviewer note, an export, or an offline mutation. Close keeps it; Continue note restores it; explicit Discard removes only that draft. Raw whitespace is preserved up to the existing 1,000-character limit; only explicit Resolve trims the final note and sends it to the existing workflow endpoint after fresh authorization/workflow validation.
+
+Saved notes survive ordinary reload/logout and workspace/Report switching. Failed saves block app-controlled departure, and cross-tab revisions prevent stale overwrite/deletion. Failed or uncertain resolution keeps the draft for explicit refresh/retry; confirmed success cannot submit again, even if draft cleanup fails. A saved copy for an already-resolved Report is read-only and cannot replace its final note. Device storage can be evicted or cleared, is not encrypted or cross-device backup, and cannot guarantee the last write survives browser/OS termination. Forced authorization expiry prioritizes clearing private UI and only attempts a best-effort save.
+
 **Legacy Daywork**:
 A retained Work Form and submission with purpose `daywork`. It is excluded from New Report, My Reports, Supervisor Reports, and Report exports. Its code and legacy approval behaviour remain available only through the reversible full-interface path.
 _Avoid_: Calling Daywork a Report

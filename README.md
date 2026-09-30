@@ -29,6 +29,12 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
+## Local Supervisor Note Protection - 2026-10-01 (not deployed)
+
+Unfinished resolution notes autosave privately on this device for the signed-in Supervisor and exact Report. **Close and keep draft** preserves the note; **Continue note** restores it. **Discard draft** requires confirmation and never changes the Report. Logout, Department changes and Update App pause when text cannot be saved. Switching Reports or workspaces keeps unfinished work, and another tab cannot silently overwrite or delete a newer draft.
+
+Only **Resolve report** sends the final note to the Worker, after checking the current Report online. Failed/uncertain requests preserve the draft for explicit refresh/retry; confirmed success cannot be submitted again even when local cleanup fails. Notes for already-resolved Reports remain read-only recovery copies. Run `npm run check:report-notes` (also in `check:mobile`). This frontend-only change needs no migration and is not deployed. Drafts are not encrypted or synced across devices; clearing browser data or terminating the browser/OS before a save completes can lose work.
+
 ## Local Compact Photo Gallery - 2026-09-30 (not deployed)
 
 Expanded Worker Reports and Supervisor Report details now show at most six photo previews instead of a long list. **View all** opens all original photos in order, with each photo's recorded timestamp when available. The Report viewer supports horizontal swipe, Previous/Next, keyboard arrows and **Zoom in / Fit photo**; zoomed photos can be panned. Missing images show a clear message, and closing restores focus to the opener.

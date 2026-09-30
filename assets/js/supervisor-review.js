@@ -16,6 +16,8 @@ import {
   updateSupervisorTaskLog as updateBackendSupervisorTaskLog
 } from './api-client.js';
 import { setDateInputValue } from './date-inputs.js';
+import { createReportNoteEditor } from './report-note-editor.js';
+import { reportNoteContext, reportNoteDraftKey } from './report-note-drafts.js';
 import {
   readReportReviewPreferences,
   reportReviewPreferenceKey,
@@ -67,6 +69,7 @@ export function createSupervisorReviewModule({
   editNumber,
   siteSelectOptions,
   reportOnly = false,
+  revealReportNote = () => {},
   confirmAction = async () => false
 }) {
   let filterRefreshTimer = null;
@@ -92,6 +95,21 @@ export function createSupervisorReviewModule({
   const reviewQueueBackButton = els.reviewQueueDetails.querySelector('#reviewQueueBackButton');
   const reportPreferenceNotice = els.reviewQueueDetails.querySelector('#reportReviewPreferenceNotice');
   const workflowShortcuts = [...els.reviewQueueDetails.querySelectorAll('[data-report-workflow-shortcut]')];
+  const noteEditor = createReportNoteEditor({
+    state,
+    enabled: reportOnly,
+    confirmAction,
+    validateReport: validateNoteReport,
+    resolveReport: resolveNoteReport,
+    onResolved: async () => {
+      const session = captureSession();
+      renderStatusBanner('Report resolved.', false, { local: els.reviewQueueFeedback, tone: 'success' });
+      await renderPanel();
+      if (isCurrentSession(session) && isNarrowReportReview()) showReviewInbox({ restoreFocus: true });
+    },
+    revealWorkspace: revealReportNote,
+    canResolve: (record) => navigator.onLine && record?.durability === 'durable' && !record.readOnly
+  });
 
   function isNarrowReportReview() {
     return reportOnly && window.matchMedia('(max-width: 1099px)').matches;
@@ -182,6 +200,7 @@ export function createSupervisorReviewModule({
 
   function resetSession() {
     // A new login is a new session even when the same account signs in again.
+    noteEditor.resetSession();
     sessionEpoch += 1;
     reviewQueueRequestId += 1;
     reviewOverviewRequestId += 1;
@@ -512,6 +531,7 @@ export function createSupervisorReviewModule({
   }
 
   function renderReviewDetail(record) {
+    noteEditor.setSelection(record);
     const readOnly = reviewQueueIsReadOnly();
     const selectedIndex = record
       ? visibleReviewRecords.findIndex((item) => reviewRecordKey(item) === reviewRecordKey(record))
@@ -561,22 +581,82 @@ export function createSupervisorReviewModule({
   }
 
   function renderReportTransitionActions(record, actions, readOnly) {
-    if (!reportOnly || !actions || readOnly || record.type !== 'form') return;
+    if (!reportOnly || !actions || record.type !== 'form') return;
     const workflowStatus = record.workflowStatus || 'submitted';
-    if (!['submitted', 'in_review'].includes(workflowStatus)) return;
+    if (!['submitted', 'in_review', 'resolved'].includes(workflowStatus)) return;
+    if (workflowStatus === 'submitted' && readOnly) return;
 
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = workflowStatus === 'submitted' ? 'Start review' : 'Resolve report';
+    button.dataset.noteReadOnly = String(readOnly);
+    button.hidden = workflowStatus === 'resolved' || readOnly;
     button.addEventListener('click', () => {
       if (workflowStatus === 'submitted') {
         void transitionReport(record, 'in_review', '', button);
         return;
       }
-      openReportResolution(record);
+      void noteEditor.open(record);
     });
     actions.classList.remove('hidden');
     actions.prepend(button);
+    if (workflowStatus !== 'submitted') noteEditor.decorateAction(button, record);
+  }
+
+  async function validateNoteReport(record) {
+    const session = captureSession();
+    const context = reportNoteContext(state.user, record, state.departmentFocusId);
+    if (!isCurrentSession(session) || !context) throw new Error('This note does not belong to the current Report scope.');
+    const key = reportNoteDraftKey(context);
+    let cursor = '';
+    const seen = new Set();
+    try {
+      // Check the immutable Report identity independently of inbox filters. An absent
+      // filtered row never proves that a Report was deleted or that its note is safe to erase.
+      for (let pageNumber = 0; pageNumber < 20; pageNumber += 1) {
+        const page = await getBackendSupervisorReviewQueuePage({
+          purpose: 'report', kind: 'form', departmentId: context.departmentId,
+          formId: record.formId || '', workerId: record.userId || '',
+          recordDate: record.workDate || '', pageSize: REVIEW_QUEUE_PAGE_SIZE, cursor
+        });
+        const currentContext = reportNoteContext(state.user, record, state.departmentFocusId);
+        if (!isCurrentSession(session) || !currentContext || reportNoteDraftKey(currentContext) !== key) {
+          throw new Error('This note does not belong to the current Report scope.');
+        }
+        const current = recordsFromPage(page).find((item) => {
+          const candidate = reportNoteContext(state.user, item, state.departmentFocusId);
+          return candidate && reportNoteDraftKey(candidate) === key;
+        });
+        if (current) return current;
+        if (!page.has_more || !page.next_cursor || seen.has(page.next_cursor)) break;
+        seen.add(page.next_cursor);
+        cursor = page.next_cursor;
+      }
+      throw new Error('This Report is unavailable. Your note has been kept on this device.');
+    } catch (error) {
+      if (isCurrentSession(session) && [401, 403].includes(error.status)) handleSessionExpired();
+      throw error;
+    }
+  }
+
+  async function resolveNoteReport(record, note) {
+    const session = captureSession();
+    const context = reportNoteContext(state.user, record, state.departmentFocusId);
+    if (!isCurrentSession(session) || !context || record.workflowStatus !== 'in_review'
+      || record.readOnly || !navigator.onLine || decisionInProgress) {
+      throw new Error('Refresh the Report before resolving it. Your note has been kept.');
+    }
+    decisionInProgress = true;
+    try {
+      return await transitionBackendReportSubmission(record.backendRecordId, {
+        status: 'resolved', supervisor_note: note
+      });
+    } catch (error) {
+      if (isCurrentSession(session) && [401, 403].includes(error.status)) handleSessionExpired();
+      throw error;
+    } finally {
+      if (isCurrentSessionEpoch(session)) decisionInProgress = false;
+    }
   }
 
   async function transitionReport(record, status, supervisorNote = '', button = null) {
@@ -615,39 +695,6 @@ export function createSupervisorReviewModule({
         feedback.setButtonBusy(button, false);
         decisionInProgress = false;
       }
-    }
-  }
-
-  function openReportResolution(record) {
-    showEditPanel(
-      `Resolve report: ${record.formName}`,
-      [{
-        id: 'reportResolutionNote',
-        label: 'Resolution note',
-        type: 'textarea',
-        rows: 4,
-        value: ''
-      }],
-      'Resolve report',
-      async () => {
-        const noteField = document.getElementById('reportResolutionNote');
-        const note = noteField?.value.trim() || '';
-        if (!note) {
-          renderStatusBanner('A resolution note is required.', true, {
-            local: els.reviewQueueFeedback,
-            field: noteField,
-            tone: 'error'
-          });
-          return;
-        }
-        const submitButton = els.editPanelForm.querySelector('button[type="submit"]');
-        await transitionReport(record, 'resolved', note, submitButton);
-      }
-    );
-    const noteField = document.getElementById('reportResolutionNote');
-    if (noteField) {
-      noteField.required = true;
-      noteField.focus();
     }
   }
 
@@ -1298,6 +1345,7 @@ export function createSupervisorReviewModule({
 
   function renderFilteredLists() {
     const { reviewRecords } = state.supervisorRecords;
+    noteEditor.updateRecords(reviewRecords);
     const focusedRecords = departmentFocusedRecords(reviewRecords);
     const filteredRecords = historyModule.filterRecords(reviewRecords, getFilters());
 
@@ -1505,7 +1553,17 @@ export function createSupervisorReviewModule({
   async function handleDepartmentFilterChange() {
     const session = captureSession();
     if (!isCurrentSession(session)) return;
-    state.departmentFocusId = els.supervisorDepartmentFilter.value;
+    const nextFocus = els.supervisorDepartmentFilter.value;
+    const readiness = await noteEditor.prepareForNavigation();
+    if (!isCurrentSession(session)) { noteEditor.cancelNavigationPreparation(); return; }
+    if (!readiness.safe) {
+      els.supervisorDepartmentFilter.value = state.departmentFocusId;
+      noteEditor.focusNoteEditor();
+      renderStatusBanner(readiness.message, true);
+      return;
+    }
+    noteEditor.resetSession();
+    state.departmentFocusId = nextFocus;
     renderDepartmentFilter();
     if (reportOnly) {
       await refreshReportPanel();
@@ -2194,6 +2252,7 @@ export function createSupervisorReviewModule({
   }
 
   function bindEvents() {
+    noteEditor.bindEvents();
     els.reviewQueueDetails.classList.toggle('report-review-layout', reportOnly);
     if (reportReviewFilters) reportReviewFilters.open = !isNarrowReportReview();
     if (reportOnly) {
@@ -2255,6 +2314,11 @@ export function createSupervisorReviewModule({
 
   return {
     bindEvents,
+    flushNoteDraft: noteEditor.flushNoteDraft,
+    prepareForNavigation: noteEditor.prepareForNavigation,
+    cancelNavigationPreparation: noteEditor.cancelNavigationPreparation,
+    focusNoteEditor: noteEditor.focusNoteEditor,
+    hasActiveNote: noteEditor.hasActiveNote,
     handleDecision,
     handleEditRecord,
     handleExportRecord,

@@ -31,6 +31,8 @@ export const appShell = Object.freeze([
   '/assets/js/photo-viewer.js',
   '/assets/js/review-export-adapters.js',
   '/assets/js/report-review-preferences.js',
+  '/assets/js/report-note-drafts.js',
+  '/assets/js/report-note-editor.js',
   '/assets/js/site-map-picker.js',
   '/assets/js/staff-sites.js',
   '/assets/js/worker-invitation-dialog.js',
