@@ -1009,8 +1009,16 @@
                   Date
                   <input id="supervisorDateFilter" type="date" />
                 </label>
+                <label class="report-sort-order-field" data-report-only-visible>
+                  Sort order
+                  <select id="supervisorSortOrder" aria-describedby="supervisorSortOrderHelp">
+                    <option value="newest">Newest first</option>
+                    <option value="oldest_waiting">Oldest waiting</option>
+                  </select>
+                </label>
                 <button id="clearSupervisorFiltersButton" type="button" class="ghost">Clear</button>
               </form>
+              <p id="supervisorSortOrderHelp" class="muted report-sort-order-hint" data-report-only-visible hidden>Submitted first, then In review and Resolved; oldest submission first within each workflow.</p>
               <p class="muted report-filter-memory-hint" data-report-only-visible>Filters are remembered on this device for your account and Department. Find text is not saved.</p>
               </details>
               <p id="reportReviewPreferenceNotice" class="muted report-filter-preference-notice" role="status" aria-live="polite" data-report-only-visible hidden></p>

@@ -2529,6 +2529,12 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     await resolveButton.click();
     const resolutionNote = page.locator('#reportResolutionNote');
     await resolutionNote.waitFor({ state: 'visible', timeout: 10000 });
+    // Visibility precedes the private IndexedDB read; focus is applied only
+    // after the saved note has loaded and the field is safe to edit.
+    await page.waitForFunction(() => {
+      const field = document.querySelector('#reportResolutionNote');
+      return Boolean(field && !field.disabled);
+    }, null, { timeout: 10000 });
     const resolutionPhoneLayout = await page.evaluate(() => ({
       horizontalOverflow: document.documentElement.scrollWidth - window.innerWidth,
       submitHeight: document.querySelector('#reportNoteForm button[type="submit"]')?.getBoundingClientRect().height || 0,

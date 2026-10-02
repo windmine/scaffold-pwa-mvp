@@ -416,15 +416,19 @@ export async function runUxRelease(config) {
       await openWorkspace(supervisor, 'review');
       await poll(() => supervisor.locator('#supervisorTemplateFilter').isEnabled(), 'review_filter_catalog_not_ready');
       const filters = await supervisor.evaluate(() => Object.fromEntries(['supervisorTemplateFilter', 'supervisorWorkerFilter',
-        'supervisorDateFilter', 'supervisorStatusFilter', 'supervisorSearchInput'].map((id) => [id, document.getElementById(id).value])));
+        'supervisorDateFilter', 'supervisorStatusFilter', 'supervisorSearchInput', 'supervisorSortOrder'].map((id) => [id, document.getElementById(id).value])));
       requireCondition(filters.supervisorTemplateFilter === String(scope.templateId) && filters.supervisorWorkerFilter === String(scope.workerId)
         && filters.supervisorDateFilter === scope.reportDate && filters.supervisorStatusFilter === 'submitted'
-        && filters.supervisorSearchInput === '', 'structured_filters_not_restored_or_search_persisted');
+        && filters.supervisorSearchInput === '' && filters.supervisorSortOrder === 'newest', 'structured_filters_not_restored_or_search_persisted');
       const stored = await supervisor.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('report-review-preferences:'))
         .map((key) => JSON.parse(localStorage.getItem(key))));
       requireCondition(stored.length > 0 && !JSON.stringify(stored).includes(scope.marker)
-        && stored.every((entry) => Object.keys(entry.filters).every((key) => ['status', 'formId', 'workerId', 'date'].includes(key))),
+        && stored.every((entry) => Object.keys(entry.filters).every((key) => ['status', 'formId', 'workerId', 'date', 'sortOrder'].includes(key))
+          && (entry.filters.sortOrder === undefined || ['newest', 'oldest_waiting'].includes(entry.filters.sortOrder))),
       'private_search_or_unstructured_values_persisted');
+      requireCondition(stored.some((entry) => entry.filters.formId === String(scope.templateId)
+        && entry.filters.workerId === String(scope.workerId) && entry.filters.date === scope.reportDate
+        && entry.filters.status === 'submitted' && entry.filters.sortOrder === 'newest'), 'current_review_sort_not_persisted');
       await supervisor.locator('[data-report-workflow-shortcut="in_review"]').click();
       await poll(async () => await supervisor.locator('#reviewQueueList .record-form').count() === 0, 'in_review_shortcut_not_applied');
       requireCondition(await supervisor.locator('#supervisorTemplateFilter').inputValue() === String(scope.templateId)

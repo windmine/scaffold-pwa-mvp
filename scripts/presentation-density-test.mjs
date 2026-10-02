@@ -32,6 +32,7 @@ async function fixture(browser, user = null) {
   const unexpectedRequests = [];
   let offline = false;
   let loginFailure = false;
+  let loginGate = null;
   await context.addInitScript(() => {
     localStorage.setItem('leader-theme', localStorage.getItem('leader-theme') || 'light');
     // Exercise the actual update-found handler without installing a service worker.
@@ -59,8 +60,13 @@ async function fixture(browser, user = null) {
     if (url.pathname === '/fixture') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Isolated presentation fixture</title>' });
     if (offline && url.pathname.startsWith('/api/')) return route.abort('internetdisconnected');
     if (['/api/auth/refresh', '/api/auth/me'].includes(url.pathname)) return json(user || worker);
-    if (url.pathname === '/api/auth/login') return loginFailure
-      ? json({ detail: 'Check your email and password.' }, 401) : json({ user: user || worker });
+    if (url.pathname === '/api/auth/login') {
+      if (loginGate) {
+        loginGate.started();
+        await loginGate.wait;
+      }
+      return loginFailure ? json({ detail: 'Check your email and password.' }, 401) : json({ user: user || worker });
+    }
     if (url.pathname === '/api/auth/logout') return json({ message: 'Signed out' });
     if (url.pathname === '/api/departments') return json([{ id: 2, name: 'Mutual' }]);
     if (url.pathname === '/api/sites') return json([]);
@@ -107,6 +113,13 @@ async function fixture(browser, user = null) {
     && document.querySelectorAll('#reviewQueueList [role="option"]').length === 3);
   return { page, context, errors, unexpectedRequests,
     setLoginFailure(value) { loginFailure = value; },
+    holdNextLogin() {
+      let notifyStarted, release;
+      const started = new Promise((resolve) => { notifyStarted = resolve; });
+      const wait = new Promise((resolve) => { release = resolve; });
+      loginGate = { started: notifyStarted, wait, release };
+      return { started, release: () => { release(); loginGate = null; } };
+    },
     async goOffline() {
       offline = true;
       await context.addInitScript(() => Object.defineProperty(navigator, 'onLine', { configurable: true, value: false }));
@@ -116,6 +129,7 @@ async function fixture(browser, user = null) {
       });
     },
     async close() {
+      loginGate?.release();
       await context.close();
       assert.deepEqual(errors, [], 'No unhandled browser errors');
       assert.deepEqual(unexpectedRequests, [], 'All requests stay within the narrow mocked Report contract');
@@ -222,8 +236,15 @@ try {
     login.setLoginFailure(true);
     await login.page.locator('#emailInput').fill(worker.email);
     await login.page.locator('#passwordInput').fill('Isolated-fixture-only');
+    const heldLogin = login.holdNextLogin();
     await login.page.locator('#loginSubmitButton').click();
+    await heldLogin.started;
     await login.page.locator('#loginFeedback').waitFor({ state: 'visible' });
+    assert.equal(await login.page.locator('#loginSubmitButton').isDisabled(), true);
+    assert.match(await login.page.locator('#loginFeedback').innerText(), /Signing in with the backend/,
+      'Visible feedback is still pending while the login response is held');
+    heldLogin.release();
+    await login.page.waitForFunction(() => !document.querySelector('#loginSubmitButton').disabled);
     assert.match(await login.page.locator('#loginFeedback').innerText(), /email|password/i);
     assert.equal(await login.page.locator('#loginFeedback').evaluate((element) => Boolean(element.closest('details'))), false,
       'Action errors never hide inside optional guidance');

@@ -72,6 +72,19 @@ function csrfHeadersFor(method = "GET") {
   return token ? { [CSRF_HEADER_KEY]: decodeURIComponent(token) } : {};
 }
 
+function reportRecoveryHeaders(scope) {
+  if (scope == null) return {};
+  const validId = (value) => ["string", "number"].includes(typeof value)
+    && /^[1-9]\d*$/.test(String(value)) && Number.isSafeInteger(Number(value));
+  if (!validId(scope.workerId) || !validId(scope.departmentId)) {
+    throw new ApiError("A valid Report recovery identity scope is required.", { code: "REPORT_RECOVERY_SCOPE_INVALID" });
+  }
+  return {
+    "X-Report-Recovery-Worker": String(scope.workerId),
+    "X-Report-Recovery-Department": String(scope.departmentId)
+  };
+}
+
 function normalizeUser(user) {
   if (!user) return null;
 
@@ -322,11 +335,11 @@ export async function updateSite(siteId, site) {
   });
 }
 
-export async function uploadPhoto(file, filename = "photo.jpg") {
+export async function uploadPhoto(file, filename = "photo.jpg", recoveryScope = null) {
   const formData = new FormData();
   formData.append("file", file, filename);
 
-  const headers = csrfHeadersFor("POST");
+  const headers = { ...csrfHeadersFor("POST"), ...reportRecoveryHeaders(recoveryScope) };
 
   let res;
   try {
@@ -344,8 +357,9 @@ export async function uploadPhoto(file, filename = "photo.jpg") {
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    throw new ApiError(error.detail || "Photo upload failed", {
+    throw new ApiError(error.detail?.message || error.detail || "Photo upload failed", {
       status: res.status,
+      code: error.detail?.code,
       retryAfterSeconds: res.status === 429 ? uploadRetryAfterSeconds(res, error) : undefined
     });
   }
@@ -476,9 +490,10 @@ export async function updateWorkForm(formId, form) {
   });
 }
 
-export async function createFormSubmission(submission) {
+export async function createFormSubmission(submission, recoveryScope = null) {
   return await apiFetch("/form-submissions", {
     method: "POST",
+    headers: reportRecoveryHeaders(recoveryScope),
     body: JSON.stringify(submission)
   });
 }
@@ -492,6 +507,18 @@ export async function createSupervisorFormSubmission(submission) {
 
 export async function getMyFormSubmissions(purpose = "") {
   return await apiFetch(`/my-form-submissions${purposeQuery(purpose)}`);
+}
+
+export async function getMyReportSubmissionByClientId(clientSubmissionId) {
+  if (typeof clientSubmissionId !== "string" || !clientSubmissionId
+    || clientSubmissionId.length > 120 || clientSubmissionId !== clientSubmissionId.trim()
+    || [...clientSubmissionId].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) {
+    throw new Error("A valid Client Submission ID is required.");
+  }
+  const query = new URLSearchParams({ client_submission_id: clientSubmissionId, purpose: "report" });
+  // A generic 404 may be an old backend, not proof that the Report is absent.
+  // Keep all failures explicit and require the caller to validate the envelope.
+  return await apiFetch(`/my-form-submissions/by-client-id?${query}`, { cache: "no-store" });
 }
 
 export async function getSupervisorFormSubmissions(purpose = "") {
@@ -556,6 +583,7 @@ export async function getSupervisorReviewQueuePage({
   recordDate = "",
   search = "",
   purpose = "",
+  sortOrder = "",
   cursor = "",
   pageSize = 50
 } = {}) {
@@ -569,6 +597,7 @@ export async function getSupervisorReviewQueuePage({
   if (recordDate) params.set("record_date", recordDate);
   if (search) params.set("search", search);
   if (purpose) params.set("purpose", purpose);
+  if (purpose === "report" && sortOrder) params.set("sort_order", sortOrder);
   if (cursor) params.set("cursor", cursor);
   return await apiFetch(`/supervisor/review-queue?${params.toString()}`);
 }

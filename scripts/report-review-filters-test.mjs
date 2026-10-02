@@ -28,6 +28,8 @@ async function fixture(browser, { reportOnly = true, user = supervisor, focus = 
   const errors = [], unexpected = [], queue = [], exports = [], events = [], held = [];
   let forms = structuredClone(templates), staff = structuredClone(workers);
   let failForms = false, failStaff = false, failQueue = false, paginated = false, holdRule = null;
+  let sortEcho = true, orderedPages = null;
+  let orderChanged = false;
   let sequence = 0;
   await context.route('**/*', async (route) => {
     const request = route.request();
@@ -63,10 +65,19 @@ async function fixture(browser, { reportOnly = true, user = supervisor, focus = 
         has_more: paginated && !query.cursor, next_cursor: paginated && !query.cursor ? `cursor-${id}` : null,
         snapshot_at: '2026-09-29T00:00:00Z'
       };
+      if (sortEcho && query.purpose === 'report') body.sort_order = query.sort_order || 'newest';
+      if (orderedPages) {
+        const base = body.items[0];
+        body.items = orderedPages[query.cursor ? 1 : 0].map((record) => ({ ...base, ...record }));
+        body.counts.total = body.summary_counts.total = orderedPages.flat().length;
+        body.has_more = !query.cursor;
+        body.next_cursor = query.cursor ? null : `cursor-${id}`;
+      }
       if (holdRule?.kind === 'queue' && (!holdRule.test || holdRule.test(query))) {
         holdRule = null;
         await new Promise((resolve) => held.push({ kind: 'queue', query, id, resolve }));
       }
+      if (orderChanged) return json({ detail: { code: 'report_review_order_changed', message: 'Fixture detected a changed ordering snapshot.' } }, 409);
       return failQueue ? json({ detail: 'Fixture queue temporarily unavailable' }, 503) : json(body);
     }
     if (/^\/api\/supervisor\/form-submissions\/export\.(pdf|csv)$/.test(url.pathname)) {
@@ -177,6 +188,9 @@ async function fixture(browser, { reportOnly = true, user = supervisor, focus = 
     },
     paginate(value = true) { paginated = value; },
     failQueue(value = true) { failQueue = value; },
+    sortEcho(value) { sortEcho = value; },
+    orderChanged(value = true) { orderChanged = value; },
+    orderedPages(value) { orderedPages = value; },
     hold(kind, test) { holdRule = { kind, test }; },
     release() { held.splice(0).forEach(({ resolve }) => resolve()); },
     async close() {
@@ -219,6 +233,13 @@ async function switchFocus(fixture, focus) {
   await fixture.page.locator('#supervisorDepartmentFilter').selectOption(focus);
   await waitQueue(fixture, before);
   await fixture.page.waitForFunction((focus) => String(window.fixture.state.supervisorRecords.queueQuery.departmentId) === focus, focus);
+}
+async function selectSort(fixture, sortOrder) {
+  await fixture.page.locator('#reportReviewFilters').evaluate((node) => { node.open = true; });
+  const before = fixture.queue.length;
+  await fixture.page.locator('#supervisorSortOrder').selectOption(sortOrder);
+  await waitQueue(fixture, before);
+  await fixture.page.waitForFunction((value) => window.fixture.state.supervisorRecords.queueQuery.sortOrder === value, sortOrder);
 }
 async function freshSession(fixture, user, focus) {
   await fixture.page.evaluate(async ({ user, focus }) => {
@@ -267,7 +288,7 @@ try {
     const beforeReload = basic.queue.length;
     await basic.mount({ reload: true });
     assert.deepEqual(await values(page), { status: 'submitted', template: '22', worker: '26', date: '2026-09-18', search: '' });
-    assert.deepEqual(basic.queue[beforeReload], { page_size: '50', workflow_status: 'submitted', kind: 'form', department_id: '2', form_id: '22', worker_id: '26', record_date: '2026-09-18', purpose: 'report' });
+    assert.deepEqual(basic.queue[beforeReload], { page_size: '50', workflow_status: 'submitted', kind: 'form', department_id: '2', form_id: '22', worker_id: '26', record_date: '2026-09-18', purpose: 'report', sort_order: 'newest' });
     console.log('ok - workflow shortcuts preserve other filters; reload restores structured filters before querying and never saves Find text or private labels');
 
     await switchFocus(basic, '3');
@@ -367,6 +388,145 @@ try {
     console.log('ok - blocked preference reads fall back to usable empty filters without blocking the Report inbox');
   } finally { await recovery.close(); }
 
+  const sorting = await fixture(browser);
+  try {
+    const { page } = sorting;
+    const sortControl = page.locator('#supervisorSortOrder');
+    assert.equal(await sortControl.inputValue(), 'newest');
+    assert.equal(sorting.queue[0].sort_order, 'newest');
+    assert.equal(await page.locator('#supervisorSortOrderHelp').isVisible(), false);
+    await selectSort(sorting, 'oldest_waiting');
+    assert.equal(sorting.queue.at(-1).purpose, 'report');
+    assert.equal(sorting.queue.at(-1).sort_order, 'oldest_waiting');
+    assert.match(await page.locator('#reportReviewFilterSummary').innerText(), /Oldest waiting/);
+    assert.equal(await page.locator('#supervisorSortOrderHelp').isVisible(), true);
+    for (const status of ['submitted', 'in_review', '']) {
+      const before = sorting.queue.length;
+      await shortcut(page, status).click();
+      await waitQueue(sorting, before);
+      assert.equal(await sortControl.inputValue(), 'oldest_waiting');
+      assert.equal(sorting.queue.at(-1).sort_order, 'oldest_waiting');
+    }
+    await sorting.mount({ reload: true });
+    assert.equal(await sortControl.inputValue(), 'oldest_waiting');
+    assert.equal(sorting.queue.at(-1).sort_order, 'oldest_waiting');
+    await switchFocus(sorting, '3');
+    assert.equal(await sortControl.inputValue(), 'newest');
+    await switchFocus(sorting, '2');
+    assert.equal(await sortControl.inputValue(), 'oldest_waiting');
+    console.log('ok - Newest first is the default; Oldest waiting is sent only with Reports, summarized, restored before querying and preserved by shortcuts within its exact scope');
+
+    sorting.orderedPages([
+      [{ id: 'form-201', backendRecordId: 201, createdAt: '2026-09-20T00:00:00Z', workflowStatus: 'submitted' },
+        { id: 'form-202', backendRecordId: 202, createdAt: '2026-09-29T00:00:00Z', workflowStatus: 'submitted' }],
+      [{ id: 'form-203', backendRecordId: 203, createdAt: '2026-09-10T00:00:00Z', workflowStatus: 'in_review' },
+        { id: 'form-204', backendRecordId: 204, createdAt: '2026-09-01T00:00:00Z', workflowStatus: 'resolved' }]
+    ]);
+    await page.evaluate(() => window.fixture.module.renderPanel());
+    assert.deepEqual(await page.locator('#reviewQueueList .record-card').evaluateAll((nodes) => nodes.map((node) => node.dataset.recordKey)), ['form:201', 'form:202']);
+    await page.locator('#reviewQueuePagination button').click();
+    await page.waitForFunction(() => window.fixture.state.supervisorRecords.reviewRecords.length === 4);
+    assert.deepEqual(await page.locator('#reviewQueueList .record-card').evaluateAll((nodes) => nodes.map((node) => node.dataset.recordKey)), ['form:201', 'form:202', 'form:203', 'form:204']);
+    assert.equal(sorting.queue.at(-1).sort_order, 'oldest_waiting');
+    console.log('ok - first-page rendering and Load more preserve the server workflow/oldest submission order without a client-side newest-first re-sort');
+
+    await page.evaluate(() => window.fixture.module.renderPanel());
+    sorting.hold('queue', (query) => Boolean(query.cursor));
+    await page.locator('#reviewQueuePagination button').click();
+    for (let count = 0; !sorting.held.length && count < 100; count++) await page.waitForTimeout(10);
+    assert.equal(sorting.held.length, 1);
+    sorting.orderedPages(null);
+    await page.locator('#reportReviewFilters').evaluate((node) => { node.open = true; });
+    const pendingSort = sorting.queue.length;
+    await sortControl.selectOption('newest');
+    assert.equal(await page.locator('#reviewQueueList .record-card').count(), 0, 'Sort changes clear old cards before the debounce');
+    assert.equal(await page.locator('#exportReportsPdfButton').isDisabled(), true);
+    sorting.release();
+    await waitQueue(sorting, pendingSort);
+    assert.equal(await page.evaluate(() => window.fixture.state.supervisorRecords.queueQuery.sortOrder), 'newest');
+    assert.equal(await page.locator('#reviewQueueList .record-card').count(), 1);
+    assert.equal(await page.evaluate(() => window.fixture.state.supervisorRecords.reviewRecords.some((record) => [203, 204].includes(record.backendRecordId))), false);
+    console.log('ok - changing sort invalidates cursor pages immediately, clears old cards and disables exports until the new sorted query completes');
+
+    await selectSort(sorting, 'oldest_waiting');
+    const durableIds = await page.evaluate(() => window.fixture.state.supervisorRecords.reviewRecords.map((record) => record.backendRecordId));
+    sorting.failQueue();
+    await page.evaluate(() => window.fixture.module.renderPanel());
+    assert.deepEqual(await page.evaluate(() => window.fixture.state.supervisorRecords.reviewRecords.map((record) => record.backendRecordId)), durableIds);
+    assert.equal(await page.evaluate(() => window.fixture.state.supervisorRecords.queueQuery.sortOrder), 'oldest_waiting');
+    assert.equal(await page.evaluate(() => window.fixture.state.supervisorRecords.queueMode), 'offline_read_only');
+    await sortControl.selectOption('newest');
+    await page.waitForFunction(() => window.fixture.state.supervisorRecords.queueQuery.sortOrder === 'newest');
+    assert.equal(await page.locator('#reviewQueueList .record-card').count(), 0);
+    assert.equal(await page.evaluate(() => window.fixture.state.supervisorRecords.queueMode), 'offline_read_only');
+    sorting.failQueue(false);
+    await page.evaluate(() => window.fixture.module.renderPanel());
+    console.log('ok - failed unchanged-sort Refresh retains durable ordering read-only, while offline sort changes never relabel or reuse the old-sort results');
+
+    sorting.sortEcho(false);
+    await page.evaluate(() => window.fixture.module.renderPanel());
+    assert.equal(await page.evaluate(() => window.fixture.state.supervisorRecords.queueMode), 'live', 'Old servers remain compatible with default newest');
+    await sortControl.selectOption('oldest_waiting');
+    await page.waitForFunction(() => window.fixture.state.supervisorRecords.queueQuery.sortOrder === 'oldest_waiting');
+    assert.equal(await page.evaluate(() => window.fixture.state.supervisorRecords.queueMode), 'offline_read_only');
+    assert.equal(await page.locator('#reviewQueueList .record-card').count(), 0);
+    assert.equal(await page.locator('#exportReportsPdfButton').isDisabled(), true);
+    assert.match(await page.evaluate(() => window.fixture.banners.at(-1)), /Choose Newest first/);
+    assert.match(await page.locator('#reportReviewPreferenceNotice').innerText(), /Choose Newest first/);
+    assert.equal(await page.locator('#reportReviewPreferenceNotice').isVisible(), true);
+    assert.equal(await sortControl.isDisabled(), false);
+    sorting.sortEcho(true);
+    const beforeClear = sorting.queue.length;
+    await page.locator('#clearSupervisorFiltersButton').click();
+    await waitQueue(sorting, beforeClear);
+    assert.equal(await sortControl.inputValue(), 'newest');
+    await sorting.mount({ reload: true });
+    assert.equal(await sortControl.inputValue(), 'newest');
+    assert.doesNotMatch(await page.locator('#reportReviewFilterSummary').innerText(), /Oldest waiting/);
+    assert.equal(await page.locator('#supervisorSortOrderHelp').isVisible(), false);
+    console.log('ok - unsupported Oldest waiting fails closed with actionable guidance, default newest remains compatible, and Clear persists Newest first');
+
+    await selectSort(sorting, 'oldest_waiting');
+    sorting.paginate();
+    await page.evaluate(() => window.fixture.module.renderPanel());
+    const beforeConflict = await page.evaluate(() => window.fixture.state.supervisorRecords.reviewRecords.map((record) => record.backendRecordId));
+    sorting.orderChanged();
+    await page.locator('#reviewQueuePagination button').click();
+    await page.waitForFunction(() => window.fixture.state.supervisorRecords.queueMode === 'offline_read_only');
+    assert.deepEqual(await page.evaluate(() => window.fixture.state.supervisorRecords.reviewRecords.map((record) => record.backendRecordId)), beforeConflict);
+    assert.ok(await page.evaluate(() => window.fixture.state.supervisorRecords.reviewRecords.every((record) => record.readOnly)));
+    assert.equal(await page.evaluate(() => window.fixture.state.supervisorRecords.nextCursor), null);
+    assert.equal(await page.locator('#reviewQueuePagination button').count(), 0);
+    assert.equal(await page.locator('#exportReportsPdfButton').isDisabled(), true);
+    assert.equal(await page.locator('#reportReviewPreferenceNotice').innerText(), 'Reports changed while loading. Refresh to continue in the selected order.');
+    await page.locator('#reportReviewFilters').evaluate((node) => { node.open = false; });
+    assert.equal(await page.locator('#reportReviewPreferenceNotice').isVisible(), true);
+    assert.equal(await sortControl.inputValue(), 'oldest_waiting');
+    await page.locator('#refreshSupervisorButton').click();
+    await page.waitForFunction(() => !document.querySelector('#supervisorSortOrder').disabled);
+    assert.deepEqual(await page.evaluate(() => window.fixture.state.supervisorRecords.reviewRecords.map((record) => record.backendRecordId)), beforeConflict);
+    assert.equal(await page.locator('#reportReviewPreferenceNotice').innerText(), 'Reports changed while loading. Refresh to continue in the selected order.');
+    sorting.orderChanged(false);
+    const beforeRecovery = sorting.queue.length;
+    await page.locator('#refreshSupervisorButton').click();
+    await waitQueue(sorting, beforeRecovery);
+    assert.equal(await sortControl.inputValue(), 'oldest_waiting');
+    assert.equal(await page.locator('#reportReviewPreferenceNotice').isVisible(), false);
+    assert.equal(await page.locator('#exportReportsPdfButton').isDisabled(), false);
+    console.log('ok - changed-order 409s preserve same-query rows read-only, remove stale pagination and show persistent Refresh guidance until a new inbox snapshot succeeds');
+
+    sorting.orderChanged();
+    await page.locator('#reportReviewFilters').evaluate((node) => { node.open = true; });
+    await page.locator('#supervisorStatusFilter').selectOption('in_review');
+    await page.waitForFunction(() => window.fixture.state.supervisorRecords.queueQuery.workflowStatus === 'in_review');
+    assert.equal(await page.evaluate(() => window.fixture.state.supervisorRecords.queueMode), 'offline_read_only');
+    assert.equal(await page.locator('#reviewQueueList .record-card').count(), 0);
+    assert.equal(await page.locator('#reportReviewPreferenceNotice').innerText(), 'Reports changed while loading. Refresh to continue in the selected order.');
+    assert.equal(await sortControl.inputValue(), 'oldest_waiting');
+    assert.equal(await page.locator('#supervisorStatusFilter').inputValue(), 'in_review');
+    console.log('ok - a first-page changed-order conflict never reuses prior-filter rows and retains the selected order and workflow for explicit retry');
+  } finally { await sorting.close(); }
+
   const races = await fixture(browser);
   try {
     const { page } = races;
@@ -411,6 +571,7 @@ try {
       for (let count = 0; !races.held.length && count < 100; count++) await page.waitForTimeout(10);
       assert.equal(races.held.length, 1);
       if (kind === 'templates') assert.equal(await shortcut(page, 'submitted').isDisabled(), true);
+      assert.equal(await page.locator('#supervisorSortOrder').isDisabled(), true, 'Sort waits for catalog and first-page loading');
       await page.evaluate(() => {
         const { state } = window.fixture;
         state.user = { ...state.user, dashboardDepartmentId: 2, dashboardDepartmentName: 'Mutual' };
@@ -419,6 +580,7 @@ try {
       await refresh;
       assert.deepEqual(await values(page), { status: 'resolved', template: '22', worker: '26', date: '2026-09-18', search: '' });
       assert.equal(await shortcut(page, 'submitted').isDisabled(), false);
+      assert.equal(await page.locator('#supervisorSortOrder').isDisabled(), false);
       assert.equal(await page.evaluate(() => window.fixture.state.supervisorRecords.queueMode), 'live');
     }
     console.log('ok - same-scope profile replacement during catalog or final queue loading preserves filters, finishes loading, and unlocks controls');
@@ -565,6 +727,8 @@ try {
     assert.equal(await page.locator('#supervisorStatusFilter').inputValue(), 'pending');
     assert.equal(retained.queue[0].status, 'pending');
     assert.equal(retained.queue[0].purpose, undefined);
+    assert.equal(retained.queue[0].sort_order, undefined);
+    assert.equal(await page.locator('#supervisorSortOrder').isVisible(), false);
     assert.equal(await shortcut(page, 'submitted').isVisible(), false);
     await page.locator('#supervisorStatusFilter').selectOption('approved');
     await page.waitForFunction(() => window.fixture.state.supervisorRecords.queueQuery.status === 'approved');

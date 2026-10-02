@@ -4,14 +4,19 @@ import { dataUrlToBlob, reviewRecordKey } from './utils.js';
 const TEAM_BREAK_MINUTE_OPTIONS = [0, 15, 30, 45, 60];
 
 export function mergeReviewRecords(...recordGroups) {
+  return mergeReviewRecordsInPageOrder(...recordGroups)
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
+
+// Preserve the server's full-queue order and stable tie-breakers across pages.
+export function mergeReviewRecordsInPageOrder(...recordGroups) {
   const recordsByKey = new Map();
 
   recordGroups.flat().filter(Boolean).forEach((record) => {
     recordsByKey.set(reviewRecordKey(record), record);
   });
 
-  return Array.from(recordsByKey.values())
-    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return Array.from(recordsByKey.values());
 }
 
 export function reviewRecordCounts(records) {

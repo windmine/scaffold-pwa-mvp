@@ -160,6 +160,8 @@ CSRF_EXEMPT_PATHS = {
 
 def apply_upload_cache_policy(request_path: str, response: Response):
     normalized_path = request_path[4:] if request_path.startswith("/api/") else request_path
+    if normalized_path == "/my-form-submissions/by-client-id":
+        response.headers["Cache-Control"] = "private, no-store"
     if normalized_path.startswith("/uploads/") and response.status_code >= 400:
         response.headers["Cache-Control"] = "private, no-store"
     if normalized_path == "/auth/login/after-setup" or normalized_path.startswith(("/auth/worker-invitations", "/auth/worker-password-recovery", "/supervisor/worker-invitations")) or (
@@ -607,11 +609,32 @@ def update_site(
     return staff_site_admin_use_cases.update_site(site_id, data, supervisor, session)
 
 
+def require_report_recovery_identity(request: Request, user: User):
+    workers = request.headers.getlist("X-Report-Recovery-Worker")
+    departments = request.headers.getlist("X-Report-Recovery-Department")
+    if not workers and not departments:
+        return
+    # These optional headers bind a recovered attempt to its captured identity,
+    # rather than trusting whichever account a shared browser cookie now holds.
+    # Reject partial, duplicated or non-canonical scope before any side effect.
+    if (
+        len(workers) != 1 or len(departments) != 1
+        or user.role != "worker" or not user.department_id
+        or workers[0] != str(user.id) or departments[0] != str(user.department_id)
+    ):
+        raise HTTPException(status_code=409, detail={
+            "code": "report_recovery_identity_mismatch",
+            "message": "The authenticated Worker or Department no longer matches this recovered Report. Sign in with its original account before trying again.",
+        })
+
+
 @app.post("/photo-uploads")
 async def upload_photo(
+    request: Request,
     file: UploadFile = File(...),
     user: User = Depends(get_current_user)
 ):
+    require_report_recovery_identity(request, user)
     try:
         stored = await store_verified_raster_upload(file, uploaded_by=user.id)
     except UploadTooLargeError as error:
@@ -1080,10 +1103,12 @@ def update_work_form(
 @app.post("/form-submissions")
 def create_work_form_submission(
     data: WorkFormSubmissionCreate,
+    request: Request,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    return work_form_use_cases.create_work_form_submission(data, user, session)
+    require_report_recovery_identity(request, user)
+    return work_form_use_cases.create_work_form_submission(data, user, session, include_replay_marker=True)
 
 
 @app.post("/supervisor/form-submissions")
@@ -1105,6 +1130,18 @@ def get_my_form_submissions(
         user,
         session,
         purpose=purpose,
+    )
+
+
+@app.get("/my-form-submissions/by-client-id")
+def get_my_report_submission_by_client_id(
+    client_submission_id: str,
+    purpose: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    return work_form_use_cases.find_my_report_submission_by_client_id(
+        client_submission_id, user, session, purpose=purpose,
     )
 
 
@@ -1145,6 +1182,7 @@ def get_supervisor_review_queue(
     search: Optional[str] = None,
     cursor: Optional[str] = None,
     page_size: int = 50,
+    sort_order: Optional[str] = None,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session),
 ):
@@ -1162,6 +1200,7 @@ def get_supervisor_review_queue(
         search=search,
         cursor=cursor,
         page_size=page_size,
+        sort_order=sort_order,
     )
 
 

@@ -36,6 +36,7 @@ import {
   loadReviewOverview,
   mergeExistingSignatureAnswers,
   mergeReviewRecords,
+  mergeReviewRecordsInPageOrder,
   reviewOverviewCounts,
   teamBreakOptions,
   uploadAdminFormSignatureAnswers
@@ -44,6 +45,7 @@ import {
 const ADMIN_TASK_LOG_FORM_PREFIX = 'adminTaskLogFormField';
 const EDIT_FORM_FIELD_PREFIX = 'editFormSubmissionField';
 const REVIEW_QUEUE_PAGE_SIZE = 50;
+const REPORT_ORDER_CHANGED_MESSAGE = 'Reports changed while loading. Refresh to continue in the selected order.';
 const REVIEW_QUEUE_MODE = {
   LIVE: 'live',
   OFFLINE_READ_ONLY: 'offline_read_only'
@@ -86,11 +88,16 @@ export function createSupervisorReviewModule({
   let reportPreferenceScope = null;
   let reportPreferenceAvailable = true;
   let reportCatalogLoading = false;
+  let reportQueueLoading = false;
+  let reportSortUnavailable = false;
+  let reportOrderChanged = false;
   let lastReportQueryKey = '';
   let reportCatalogReady = { templates: false, workers: false };
-  let desiredReportFilters = { status: '', formId: '', workerId: '', date: '' };
+  let desiredReportFilters = { status: '', formId: '', workerId: '', date: '', sortOrder: 'newest' };
   const activeExportButtons = new Map();
   const reportReviewFilters = els.reviewQueueDetails.querySelector('#reportReviewFilters');
+  const supervisorSortOrder = els.reviewQueueDetails.querySelector('#supervisorSortOrder');
+  const supervisorSortOrderHelp = els.reviewQueueDetails.querySelector('#supervisorSortOrderHelp');
   const reportReviewFilterSummary = els.reviewQueueDetails.querySelector('#reportReviewFilterSummary');
   const reviewQueueBackButton = els.reviewQueueDetails.querySelector('#reviewQueueBackButton');
   const reportPreferenceNotice = els.reviewQueueDetails.querySelector('#reportReviewPreferenceNotice');
@@ -108,7 +115,7 @@ export function createSupervisorReviewModule({
       if (isCurrentSession(session) && isNarrowReportReview()) showReviewInbox({ restoreFocus: true });
     },
     revealWorkspace: revealReportNote,
-    canResolve: (record) => navigator.onLine && record?.durability === 'durable' && !record.readOnly
+    canResolve: (record) => !reportOrderChanged && navigator.onLine && record?.durability === 'durable' && !record.readOnly
   });
 
   function isNarrowReportReview() {
@@ -153,6 +160,7 @@ export function createSupervisorReviewModule({
     });
     if (!reportOnly || !reportReviewFilterSummary) return;
     const filters = getFilters();
+    if (supervisorSortOrderHelp) supervisorSortOrderHelp.hidden = filters.sortOrder !== 'oldest_waiting';
     const labels = [];
     if (filters.status) {
       labels.push({ text: { submitted: 'Submitted', in_review: 'In review', resolved: 'Resolved' }[filters.status] });
@@ -163,6 +171,7 @@ export function createSupervisorReviewModule({
     if (filters.date) labels.push({ text: filters.date, literal: true });
     if (filters.query.trim()) labels.push({ text: `“${filters.query.trim()}”`, literal: true });
     if (!labels.length) labels.push({ text: 'All Reports' });
+    if (filters.sortOrder === 'oldest_waiting') labels.push({ text: 'Oldest waiting' });
     reportReviewFilterSummary.replaceChildren();
     labels.forEach(({ text, literal }, index) => {
       if (index) reportReviewFilterSummary.append(document.createTextNode(' · '));
@@ -210,9 +219,12 @@ export function createSupervisorReviewModule({
     reportPreferenceScope = null;
     reportPreferenceAvailable = true;
     reportCatalogLoading = false;
+    reportQueueLoading = false;
+    reportSortUnavailable = false;
+    reportOrderChanged = false;
     lastReportQueryKey = '';
     reportCatalogReady = { templates: false, workers: false };
-    desiredReportFilters = { status: '', formId: '', workerId: '', date: '' };
+    desiredReportFilters = { status: '', formId: '', workerId: '', date: '', sortOrder: 'newest' };
     if (reportPreferenceNotice) reportPreferenceNotice.textContent = '';
     window.clearTimeout(filterRefreshTimer);
     filterRefreshTimer = null;
@@ -312,6 +324,7 @@ export function createSupervisorReviewModule({
       reportWorkflow: reportOnly,
       formId: reportOnly ? els.supervisorTemplateFilter.value : '',
       workerId: reportOnly ? els.supervisorWorkerFilter.value : '',
+      sortOrder: reportOnly ? supervisorSortOrder.value : '',
       date: els.supervisorDateFilter.value
     };
   }
@@ -382,8 +395,11 @@ export function createSupervisorReviewModule({
     });
     els.supervisorTemplateFilter.disabled = reportCatalogLoading || !reportCatalogReady.templates;
     els.supervisorWorkerFilter.disabled = reportCatalogLoading || !reportCatalogReady.workers;
+    supervisorSortOrder.disabled = reportCatalogLoading || reportQueueLoading;
     if (reportPreferenceNotice) {
       const messages = [];
+      if (reportOrderChanged) messages.push(REPORT_ORDER_CHANGED_MESSAGE);
+      if (reportSortUnavailable) messages.push('Oldest waiting is not supported by this server. Choose Newest first.');
       if (!reportPreferenceAvailable) messages.push('Filters work now, but cannot be remembered on this device.');
       if (!reportCatalogLoading && (!reportCatalogReady.templates || !reportCatalogReady.workers)) {
         messages.push('Some filter choices are unavailable. Refresh to restore saved Template and Worker filters.');
@@ -406,7 +422,8 @@ export function createSupervisorReviewModule({
       status: els.supervisorStatusFilter.value,
       formId: reportCatalogReady.templates ? els.supervisorTemplateFilter.value : desiredReportFilters.formId,
       workerId: reportCatalogReady.workers ? els.supervisorWorkerFilter.value : desiredReportFilters.workerId,
-      date: els.supervisorDateFilter.value
+      date: els.supervisorDateFilter.value,
+      sortOrder: supervisorSortOrder.value
     };
     reportPreferenceAvailable = writeReportReviewPreferences(state.user, state.departmentFocusId, desiredReportFilters);
     updateReportFilterControls();
@@ -418,6 +435,9 @@ export function createSupervisorReviewModule({
     window.clearTimeout(filterRefreshTimer);
     filterRefreshTimer = null;
     if (!reportOnly) return;
+    reportQueueLoading = false;
+    reportSortUnavailable = false;
+    updateReportFilterControls();
     if (preserveDurableResults) {
       // An unchanged Refresh keeps the currently authorized detail usable until an actual failure.
       state.supervisorRecords = { ...state.supervisorRecords, nextCursor: null, hasMore: false, loadingMore: false };
@@ -449,6 +469,7 @@ export function createSupervisorReviewModule({
       && request === reportPanelRequestId && scope === currentReportPreferenceScope();
     const changedScope = scope !== reportPreferenceScope;
     if (changedScope) {
+      reportOrderChanged = false;
       const saved = readReportReviewPreferences(state.user, state.departmentFocusId);
       reportPreferenceScope = scope;
       reportPreferenceAvailable = saved.available;
@@ -459,6 +480,7 @@ export function createSupervisorReviewModule({
     reportCatalogLoading = true;
     els.supervisorTypeFilter.value = 'form';
     els.supervisorStatusFilter.value = desiredReportFilters.status;
+    supervisorSortOrder.value = desiredReportFilters.sortOrder;
     setDateInputValue(els.supervisorDateFilter, desiredReportFilters.date);
     // No stale options from another scope, including while the catalog requests are pending.
     if (changedScope) {
@@ -510,7 +532,8 @@ export function createSupervisorReviewModule({
       workerId: filters.workerId,
       recordDate: filters.date,
       search: filters.query.trim(),
-      purpose: reportOnly ? 'report' : ''
+      purpose: reportOnly ? 'report' : '',
+      ...(reportOnly ? { sortOrder: filters.sortOrder } : {})
     };
   }
 
@@ -640,6 +663,7 @@ export function createSupervisorReviewModule({
   }
 
   async function resolveNoteReport(record, note) {
+    if (reportOrderChanged) throw new Error(REPORT_ORDER_CHANGED_MESSAGE);
     const session = captureSession();
     const context = reportNoteContext(state.user, record, state.departmentFocusId);
     if (!isCurrentSession(session) || !context || record.workflowStatus !== 'in_review'
@@ -1197,14 +1221,16 @@ export function createSupervisorReviewModule({
     };
   }
 
-  function setOfflineReadOnlyQueue(error) {
+  function setOfflineReadOnlyQueue(error, query) {
     const previous = state.supervisorRecords || {};
-    const durableRecords = (previous.reviewRecords || [])
+    const sameQuery = !reportOnly || JSON.stringify(previous.queueQuery) === JSON.stringify(query);
+    const durableRecords = (sameQuery ? previous.reviewRecords || [] : [])
       .filter((record) => record.backendRecordId && record.durability !== 'local_only')
       .map((record) => ({ ...record, durability: 'durable', readOnly: true }));
     state.supervisorRecords = {
       ...previous,
       reviewRecords: durableRecords,
+      ...(sameQuery ? {} : { queueCounts: null, queueSummaryCounts: null, queueQuery: query, snapshotAt: '', loadedAt: '' }),
       usingBackend: false,
       queueMode: REVIEW_QUEUE_MODE.OFFLINE_READ_ONLY,
       nextCursor: null,
@@ -1212,6 +1238,19 @@ export function createSupervisorReviewModule({
       loadingMore: false,
       queueError: error?.message || 'Backend Review Queue is unreachable.'
     };
+    if (reportOnly) {
+      reportSortUnavailable = error?.code === 'report_sort_unavailable';
+      if (error?.status === 409 && error.code === 'report_review_order_changed') reportOrderChanged = true;
+      updateReportFilterControls();
+    }
+  }
+
+  function validateReportSort(page, query) {
+    if (reportOnly && query.sortOrder === 'oldest_waiting' && page.sort_order !== 'oldest_waiting') {
+      const error = new Error('Oldest waiting is not supported by this server. Choose Newest first.');
+      error.code = 'report_sort_unavailable';
+      throw error;
+    }
   }
 
   async function refreshReviewQueue() {
@@ -1220,12 +1259,18 @@ export function createSupervisorReviewModule({
     const query = reviewQueueQuery();
     if (reportOnly) lastReportQueryKey = JSON.stringify(query);
     const requestId = ++reviewQueueRequestId;
+    if (reportOnly) {
+      reportQueueLoading = true;
+      reportSortUnavailable = false;
+      updateReportFilterControls();
+    }
     try {
       const page = await getBackendSupervisorReviewQueuePage({
         ...query,
         pageSize: REVIEW_QUEUE_PAGE_SIZE
       });
       if (!isCurrentSession(session) || requestId !== reviewQueueRequestId) return false;
+      validateReportSort(page, query);
       state.supervisorRecords = {
         ...state.supervisorRecords,
         reviewRecords: recordsFromPage(page),
@@ -1241,14 +1286,21 @@ export function createSupervisorReviewModule({
         loadingMore: false,
         queueError: ''
       };
+      reportOrderChanged = false;
     } catch (error) {
       if (!isCurrentSession(session) || requestId !== reviewQueueRequestId) return false;
       if (error.status === 401 || error.status === 403) {
         handleSessionExpired();
         return false;
       }
-      setOfflineReadOnlyQueue(error);
-      renderStatusBanner('Backend Review Queue is unreachable. Only the last durable results are available read-only.', true);
+      setOfflineReadOnlyQueue(error, query);
+      renderStatusBanner(reportOrderChanged ? REPORT_ORDER_CHANGED_MESSAGE : error.code === 'report_sort_unavailable' ? error.message
+        : 'Backend Review Queue is unreachable. Only the last durable results are available read-only.', true);
+    } finally {
+      if (reportOnly && isCurrentSessionEpoch(session) && requestId === reviewQueueRequestId) {
+        reportQueueLoading = false;
+        updateReportFilterControls();
+      }
     }
     renderFocusedDashboard();
     return true;
@@ -1427,8 +1479,11 @@ export function createSupervisorReviewModule({
         || state.supervisorRecords.nextCursor !== requestedCursor
         || JSON.stringify(state.supervisorRecords.queueQuery || {}) !== requestedQuery
       ) return;
+      validateReportSort(page, recordsState.queueQuery);
       const additionalRecords = recordsFromPage(page);
-      recordsState.reviewRecords = mergeReviewRecords(recordsState.reviewRecords, additionalRecords);
+      recordsState.reviewRecords = (reportOnly ? mergeReviewRecordsInPageOrder : mergeReviewRecords)(
+        recordsState.reviewRecords, additionalRecords
+      );
       recordsState.nextCursor = page.next_cursor || null;
       recordsState.hasMore = Boolean(page.has_more && recordsState.nextCursor);
     } catch (error) {
@@ -1437,8 +1492,9 @@ export function createSupervisorReviewModule({
         handleSessionExpired();
         return;
       }
-      setOfflineReadOnlyQueue(error);
-      renderStatusBanner('The Review Queue went offline. Loaded durable results are now read-only.', true);
+      setOfflineReadOnlyQueue(error, recordsState.queueQuery);
+      renderStatusBanner(reportOrderChanged ? REPORT_ORDER_CHANGED_MESSAGE : error.code === 'report_sort_unavailable' ? error.message
+        : 'The Review Queue went offline. Loaded durable results are now read-only.', true);
     } finally {
       if (isCurrentSessionEpoch(session) && requestId === reviewQueueRequestId) {
         state.supervisorRecords.loadingMore = false;
@@ -1453,6 +1509,7 @@ export function createSupervisorReviewModule({
     els.supervisorStatusFilter.value = '';
     els.supervisorTemplateFilter.value = '';
     els.supervisorWorkerFilter.value = '';
+    if (supervisorSortOrder) supervisorSortOrder.value = 'newest';
     setDateInputValue(els.supervisorDateFilter, '');
     showReviewInbox();
     renderReportFilterSummary();
@@ -1464,7 +1521,7 @@ export function createSupervisorReviewModule({
     filterRefreshTimer = null;
     resetReviewQueueFilters();
     if (reportOnly) {
-      desiredReportFilters = { status: '', formId: '', workerId: '', date: '' };
+      desiredReportFilters = { status: '', formId: '', workerId: '', date: '', sortOrder: 'newest' };
       rememberReportFilters();
       invalidateReportResults();
     }
@@ -2256,6 +2313,7 @@ export function createSupervisorReviewModule({
     els.reviewQueueDetails.classList.toggle('report-review-layout', reportOnly);
     if (reportReviewFilters) reportReviewFilters.open = !isNarrowReportReview();
     if (reportOnly) {
+      supervisorSortOrder.addEventListener('change', scheduleReviewQueueRefresh);
       workflowShortcuts.forEach((button) => button.addEventListener('click', () => {
         void selectWorkflowShortcut(button.dataset.reportWorkflowShortcut);
       }));

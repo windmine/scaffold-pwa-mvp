@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { isReportDraftForWorker, summarizeReportDrafts } from '../assets/js/report-drafts.js';
+import { isReportDraftForWorker, reportDraftKeyForWorker, summarizeReportDrafts } from '../assets/js/report-drafts.js';
 
 const worker = { id: 12, role: 'worker', departmentId: 3 };
 const template = {
@@ -16,6 +16,7 @@ const value = {
 const entry = { key: 'work-form-draft:12:51', value, updatedAt: value.savedAt };
 
 assert.deepEqual(summarizeReportDrafts([entry], worker, [template]), [{
+  draftKey: entry.key, recovered: false,
   formId: 51, formName: 'Site inspection', workDate: '2026-09-15',
   savedAt: value.savedAt, availability: 'editable'
 }]);
@@ -79,6 +80,7 @@ console.log('ok - unclassified legacy drafts require the current active scoped R
 
 for (const unavailableTemplates of [[], null, [null], [{ ...template, status: 'archived' }]]) {
   assert.deepEqual(summarizeReportDrafts([entry], worker, unavailableTemplates), [{
+    draftKey: entry.key, recovered: false,
     formId: 51, formName: 'Site inspection', workDate: '2026-09-15',
     savedAt: value.savedAt, availability: 'unavailable'
   }]);
@@ -150,3 +152,61 @@ assert.deepEqual(summarizeReportDrafts([legacyEntry], worker, [submissionShapedT
 const legacySubmissionPurpose = { ...legacyValue, departmentId: 3, submissionPurpose: 'report' };
 assert.deepEqual(summarizeReportDrafts([{ ...entry, value: legacySubmissionPurpose }], worker, []), []);
 console.log('ok - legacy classification requires Template purpose, not a submission-shaped substitute');
+
+const recoveredValue = { ...value, uploadRecovery: {
+  sourceRecordId: 'failed-report-1', clientSubmissionId: 'original-attempt-1',
+  ownerWorkerId: 12, departmentId: 3, formId: 51,
+  recoveredAt: '2026-10-01T02:30:00.000Z', omittedPhotos: []
+} };
+const recoveredEntry = {
+  key: 'work-form-recovery:12:3:failed-report-1', value: recoveredValue,
+  updatedAt: recoveredValue.savedAt
+};
+assert.deepEqual(summarizeReportDrafts([entry, recoveredEntry], worker, [template]).map((draft) => ({
+  formId: draft.formId, draftKey: draft.draftKey, recovered: draft.recovered
+})), [
+  { formId: 51, draftKey: entry.key, recovered: false },
+  { formId: 51, draftKey: recoveredEntry.key, recovered: true }
+]);
+assert.equal(isReportDraftForWorker(recoveredValue, worker, template), true);
+console.log('ok - separate recovered and ordinary drafts remain independently continuable');
+
+for (const recovery of [null, {}, [],
+  { ...recoveredValue.uploadRecovery, sourceRecordId: '' },
+  { ...recoveredValue.uploadRecovery, sourceRecordId: 'x'.repeat(121) },
+  { ...recoveredValue.uploadRecovery, clientSubmissionId: ' ' },
+  { ...recoveredValue.uploadRecovery, clientSubmissionId: 12 },
+  { ...recoveredValue.uploadRecovery, ownerWorkerId: 99 },
+  { ...recoveredValue.uploadRecovery, departmentId: 4 },
+  { ...recoveredValue.uploadRecovery, formId: 52 },
+  { ...recoveredValue.uploadRecovery, recoveredAt: 'invalid' },
+  { ...recoveredValue.uploadRecovery, omittedPhotos: null },
+  { ...recoveredValue.uploadRecovery, omittedPhotos: [{ index: -1, name: 'photo', reason: 'invalid' }] },
+  { ...recoveredValue.uploadRecovery, omittedPhotos: [{ index: 0, name: {}, reason: 'invalid' }] }
+]) {
+  const invalid = { ...recoveredValue, uploadRecovery: recovery };
+  assert.equal(reportDraftKeyForWorker(invalid, worker), '');
+  assert.equal(isReportDraftForWorker(invalid, worker, template), false);
+  assert.deepEqual(summarizeReportDrafts([{ ...recoveredEntry, value: invalid }], worker, [template]), []);
+}
+for (const key of [entry.key, 'work-form-recovery:99:3:failed-report-1',
+  'work-form-recovery:12:4:failed-report-1', 'work-form-recovery:12:3:failed-report-2']) {
+  assert.deepEqual(summarizeReportDrafts([{ ...recoveredEntry, key }], worker, [template]), []);
+}
+assert.equal(reportDraftKeyForWorker(recoveredValue, worker), recoveredEntry.key);
+const recoveryBefore = structuredClone(recoveredEntry);
+assert.equal(summarizeReportDrafts([recoveredEntry], worker, [{ ...template, definition_version: 3 }])[0].availability, 'template_changed');
+assert.equal(summarizeReportDrafts([recoveredEntry], worker, [])[0].availability, 'unavailable');
+assert.deepEqual(recoveredEntry, recoveryBefore);
+console.log('ok - recovered attempts reject malformed ownership, metadata and slot aliases without reinterpreting version drift');
+
+for (const definitionVersion of [undefined, null, 0, -1, '', 'unknown', {}, []]) {
+  const unknownDefinition = { ...recoveredValue, definitionVersion };
+  assert.equal(isReportDraftForWorker(unknownDefinition, worker, uneditedTemplate), true,
+    'The recovered copy remains discoverable rather than discarding unknown-version evidence');
+  assert.equal(summarizeReportDrafts([{ ...recoveredEntry, value: unknownDefinition }], worker, [uneditedTemplate])[0].availability,
+    'template_changed', 'Recovery must not infer the legacy version-one default for an unknown queued Definition');
+}
+assert.equal(summarizeReportDrafts([{ ...recoveredEntry, value: { ...recoveredValue, definitionVersion: '1' } }], worker, [uneditedTemplate])[0].availability, 'editable');
+assert.equal(summarizeReportDrafts([{ ...entry, value: incompleteLegacy }], worker, [uneditedTemplate])[0].availability, 'editable');
+console.log('ok - unknown recovered Definitions stay read-only while ordinary legacy version-one drafts remain editable');

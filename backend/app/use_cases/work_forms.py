@@ -6,7 +6,7 @@ from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from app.models import User, WorkForm, WorkFormSubmission
+from app.models import AuditEvent, User, WorkForm, WorkFormSubmission
 from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
     VALID_REPORT_WORKFLOW_STATUSES,
@@ -192,8 +192,57 @@ def update_work_form(form_id: int, data, supervisor: User, session: Session):
     return work_form_response(form, session)
 
 
-def create_work_form_submission(data, user: User, session: Session):
+def _trashed_submission_purpose_for_client_id(
+    client_submission_id: str,
+    worker_id: int,
+    session: Session,
+):
+    # Rubbish-bin purge removes the submission row, but not its original trash
+    # audit. Read both retained snapshots so a purged Report cannot be mistaken
+    # for a failed first submission. Do not limit the scan: absence is a safety
+    # decision, and matching must use exact decoded values, not JSON substrings.
+    statement = select(AuditEvent.before_json, AuditEvent.after_json).where(
+        AuditEvent.action == "form_trash",
+        AuditEvent.entity_type == "form",
+    ).execution_options(yield_per=100)
+    rows = session.exec(statement)
+    try:
+        for before_json, after_json in rows:
+            for raw in (after_json, before_json):
+                try:
+                    snapshot = json.loads(raw) if raw else None
+                except (ValueError, TypeError):
+                    continue
+                if (
+                    isinstance(snapshot, dict)
+                    and snapshot.get("worker_id") == worker_id
+                    and snapshot.get("client_submission_id") == client_submission_id
+                ):
+                    return snapshot.get("submission_purpose") or "unknown"
+    finally:
+        rows.close()
+    return None
+
+
+def _report_recovery_key_conflict():
+    return HTTPException(status_code=409, detail={
+        "code": "report_recovery_key_conflict",
+        "message": "This Client Submission ID cannot be recovered as a Report draft.",
+    })
+
+
+def create_work_form_submission(data, user: User, session: Session, include_replay_marker: bool = False):
     require_worker(user)
+
+    def response(submission, replay=False):
+        result = work_form_submission_response(submission, session)
+        if include_replay_marker and submission.submission_purpose == "report":
+            # Transport metadata only: the immutable Report and read APIs are
+            # unchanged. A recovered editor can retain its edits if an older
+            # in-flight request won this stable Client Submission ID.
+            result["idempotent_replay"] = replay
+        return result
+
     client_submission_id = normalize_client_submission_id(data.client_submission_id)
     if client_submission_id:
         existing_submission = session.exec(
@@ -203,7 +252,7 @@ def create_work_form_submission(data, user: User, session: Session):
             )
         ).first()
         if existing_submission:
-            return work_form_submission_response(existing_submission, session)
+            return response(existing_submission, replay=True)
 
     form = session.get(WorkForm, data.form_id)
     if not form or form.status != "active" or not can_access_department(user, form.department_id):
@@ -212,6 +261,17 @@ def create_work_form_submission(data, user: User, session: Session):
     if submission_purpose == "daywork":
         require_leader(user)
     if submission_purpose == "report":
+        if client_submission_id:
+            previous_purpose = _trashed_submission_purpose_for_client_id(
+                client_submission_id, user.id, session,
+            )
+            if previous_purpose == "report":
+                raise HTTPException(status_code=409, detail={
+                    "code": "report_previously_submitted",
+                    "message": "This Report was already submitted and subsequently removed. It cannot be submitted again.",
+                })
+            if previous_purpose is not None:
+                raise _report_recovery_key_conflict()
         if not data.work_date:
             raise HTTPException(status_code=400, detail="Report Date is required")
         try:
@@ -281,11 +341,11 @@ def create_work_form_submission(data, user: User, session: Session):
                 )
             ).first()
             if existing_submission:
-                return work_form_submission_response(existing_submission, session)
+                return response(existing_submission, replay=True)
         raise
     session.refresh(submission)
 
-    return work_form_submission_response(submission, session)
+    return response(submission)
 
 
 def transition_report(submission_id: int, data, supervisor: User, session: Session):
@@ -384,6 +444,51 @@ def transition_report(submission_id: int, data, supervisor: User, session: Sessi
     session.commit()
     session.refresh(submission)
     return work_form_submission_response(submission, session)
+
+
+def find_my_report_submission_by_client_id(
+    client_submission_id: str,
+    user: User,
+    session: Session,
+    purpose: str,
+):
+    require_worker(user)
+    if purpose != "report":
+        raise HTTPException(status_code=400, detail="purpose must be report")
+    if (
+        not client_submission_id
+        or len(client_submission_id) > 120
+        or client_submission_id != client_submission_id.strip()
+        or any(ord(character) < 32 or ord(character) == 127 for character in client_submission_id)
+    ):
+        raise HTTPException(status_code=400, detail="A valid Client Submission ID is required")
+    submission = session.exec(
+        select(WorkFormSubmission).where(
+            WorkFormSubmission.worker_id == user.id,
+            WorkFormSubmission.client_submission_id == client_submission_id,
+        )
+    ).first()
+    if submission:
+        if submission.submission_purpose != "report":
+            raise _report_recovery_key_conflict()
+        deleted = submission.deleted_at is not None
+        return {
+            "status": "deleted" if deleted else "submitted",
+            "client_submission_id": client_submission_id,
+            "worker_id": user.id,
+            "department_id": user.department_id,
+            "submission": None if deleted else work_form_submission_response(submission, session),
+        }
+    previous_purpose = _trashed_submission_purpose_for_client_id(client_submission_id, user.id, session)
+    if previous_purpose is not None and previous_purpose != "report":
+        raise _report_recovery_key_conflict()
+    return {
+        "status": "deleted" if previous_purpose == "report" else "not_found",
+        "client_submission_id": client_submission_id,
+        "worker_id": user.id,
+        "department_id": user.department_id,
+        "submission": None,
+    }
 
 
 def list_my_form_submissions(

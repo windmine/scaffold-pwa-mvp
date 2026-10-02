@@ -5,8 +5,8 @@ import {
 
 const supervisor = { id: 17, departmentId: 3, role: 'supervisor', isGlobalAdmin: false };
 const administrator = { ...supervisor, isGlobalAdmin: true };
-const defaults = { status: '', formId: '', workerId: '', date: '' };
-const selected = { status: 'in_review', formId: '5', workerId: '19', date: '2026-09-29' };
+const defaults = { status: '', formId: '', workerId: '', date: '', sortOrder: 'newest' };
+const selected = { status: 'in_review', formId: '5', workerId: '19', date: '2026-09-29', sortOrder: 'oldest_waiting' };
 let groups = 0;
 
 function memoryStorage() {
@@ -84,7 +84,7 @@ check('only Report workflow values and canonical safe identifiers survive', () =
   for (const status of ['', 'submitted', 'in_review', 'resolved']) {
     writeReportReviewPreferences(supervisor, '', { status, formId: 7, workerId: Number.MAX_SAFE_INTEGER }, { storage });
     assert.deepEqual(readReportReviewPreferences(supervisor, '', { storage }).filters,
-      { status, formId: '7', workerId: String(Number.MAX_SAFE_INTEGER), date: '' });
+      { status, formId: '7', workerId: String(Number.MAX_SAFE_INTEGER), date: '', sortOrder: 'newest' });
   }
   for (const value of ['approved', 'rejected', 'pending', 'Submitted', null, {}, [], 7]) {
     writeReportReviewPreferences(supervisor, '', { status: value }, { storage });
@@ -93,6 +93,25 @@ check('only Report workflow values and canonical safe identifiers survive', () =
   for (const value of ['00', '05', '1.5', '1e2', ' 9 ', '-3', '9007199254740992', 0, -1, 1.5, {}, true, null]) {
     writeReportReviewPreferences(supervisor, '', { formId: value, workerId: value }, { storage });
     assert.deepEqual(readReportReviewPreferences(supervisor, '', { storage }).filters, defaults);
+  }
+});
+
+check('v1 records without sort retain filters and invalid sorts fall back to newest', () => {
+  const storage = memoryStorage();
+  const key = reportReviewPreferenceKey(supervisor, '3');
+  const legacy = { ...selected };
+  delete legacy.sortOrder;
+  storage.setItem(key, JSON.stringify({ schemaVersion: 1, filters: legacy }));
+  assert.deepEqual(readReportReviewPreferences(supervisor, '3', { storage }).filters, { ...legacy, sortOrder: 'newest' });
+  for (const sortOrder of ['newest', 'oldest_waiting']) {
+    writeReportReviewPreferences(supervisor, '3', { ...selected, sortOrder }, { storage });
+    assert.deepEqual(readReportReviewPreferences(supervisor, '3', { storage }).filters, { ...selected, sortOrder });
+  }
+  for (const sortOrder of ['', 'oldest', 'Oldest waiting', 'newest ', null, {}, [], 1, true]) {
+    storage.setItem(key, JSON.stringify({ schemaVersion: 1, filters: { ...selected, sortOrder } }));
+    assert.deepEqual(readReportReviewPreferences(supervisor, '3', { storage }).filters, { ...selected, sortOrder: 'newest' });
+    writeReportReviewPreferences(supervisor, '3', { ...selected, sortOrder }, { storage });
+    assert.equal(readReportReviewPreferences(supervisor, '3', { storage }).filters.sortOrder, 'newest');
   }
 });
 

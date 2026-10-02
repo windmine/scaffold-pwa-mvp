@@ -18,7 +18,8 @@ import {
   deleteMyRecord as deleteBackendMyRecord,
   logout as clearBackendSession
 } from './api-client.js';
-import { discardOfflineSubmission, syncQueuedSubmissions } from './offline-submissions.js';
+import { discardOfflineSubmission, recoverOfflineReportAsDraft, syncQueuedSubmissions } from './offline-submissions.js';
+import { getAll as getLocalEntries } from './db.js';
 import { clearWorkerAttendanceSnapshot } from './offline-attendance-snapshot.js';
 import { clearWorkerReportTemplateSnapshot } from './offline-report-template-snapshot.js';
 import {
@@ -112,6 +113,7 @@ const historyModule = createHistoryModule({
   handleWorkerEditRecord,
   handleWorkerDeleteRecord,
   handleRetryQueuedRecord,
+  handleRecoverQueuedReport,
   handleDiscardQueuedRecord,
   handleSupervisorEditRecord,
   handleSupervisorTrashRecord,
@@ -1342,6 +1344,13 @@ function handleSessionExpired(message = 'Your backend session expired. Please si
     return;
   }
 
+  if (workerForm.finishRecoveryOnSessionExpiry()) {
+    // Recovery already owns an immutable saved source. Do not keep private
+    // screens visible behind a pending lookup after an independent 401/403.
+    finish();
+    return;
+  }
+
   if (state.submittingWorkForm) {
     window.setTimeout(() => {
       sessionExpiryInProgress = false;
@@ -1555,7 +1564,67 @@ async function handleRetryQueuedRecord() {
   await historyModule.renderWorkerSummary();
   if (result?.failed) {
     const retryDestination = REPORT_ONLY_MODE ? 'My Reports' : 'My history';
-    renderStatusBanner(`Sync still failed. Check the error in ${retryDestination}, then discard and resubmit if the photo needs replacing.`, true);
+    renderStatusBanner(REPORT_ONLY_MODE
+      ? 'Sync still failed. Open My Reports and use Recover as draft to keep your answers and replace invalid photos.'
+      : `Sync still failed. Check the error in ${retryDestination}, then discard and resubmit if the photo needs replacing.`, true);
+  }
+}
+
+async function handleRecoverQueuedReport(record, button) {
+  if (!REPORT_ONLY_MODE || state.user?.role !== 'worker' || !button?.isConnected
+    || button.getAttribute('aria-busy') === 'true') return;
+  const worker = state.user;
+  const current = () => state.user === worker;
+  uiFeedback.setButtonBusy(button, true, 'Checking submission...');
+  try {
+    const result = await workerForm.recoverFailedReport(record,
+      (options) => recoverOfflineReportAsDraft(record.id, options));
+    if (!current() || !result) return;
+    const message = result.status === 'recovered'
+      ? 'Recovered as a draft on this device. Review your answers and photos before submitting.'
+      : result.status === 'submitted'
+        ? result.savedEdits
+          ? 'This Report was already submitted. No duplicate was created. Your recovered edits are kept in My Reports.'
+          : 'This Report was already submitted. No duplicate draft was created.'
+        : 'This Report was already submitted and later removed. Your saved copy is read-only and will not sync.';
+    renderStatusBanner(message, result.status === 'deleted', { tone: result.status === 'deleted' ? 'warning' : 'success' });
+    await historyModule.renderHistory();
+    if (!current()) return;
+    await historyModule.renderWorkerSummary();
+    if (current()) await workerForm.renderDraftList();
+    if (current()) await refreshRecoveryQueueFeedback(worker);
+  } catch (error) {
+    if (!current()) return;
+    if (isBackendSessionError(error)) { handleSessionExpired(); return; }
+    renderStatusBanner(error.message || 'Could not recover this Report. Your saved copy is unchanged.', true);
+  } finally {
+    if (current() && button.isConnected) uiFeedback.setButtonBusy(button, false);
+  }
+}
+
+async function refreshRecoveryQueueFeedback(worker) {
+  const revision = syncFeedbackRevision;
+  if (queueSyncRun?.pending) return;
+  const records = await getLocalEntries('records');
+  if (state.user !== worker || revision !== syncFeedbackRevision || queueSyncRun?.pending) return;
+  const remaining = records.filter((record) => record.type === 'form'
+    && (record.submissionPurpose || record.submission_purpose) === 'report'
+    && String(record.ownerWorkerId ?? record.userId) === String(worker.id)
+    && !record.backendRecordId && !record.isDraftRecovery && ['queued', 'syncing'].includes(record.syncStatus));
+  if (!navigator.onLine) {
+    setSyncState('offline', 'Offline - submissions will wait');
+    if (!remaining.length) hideQueueSyncFeedback();
+  } else if (!remaining.length) {
+    setSyncState('online', 'Online');
+    hideQueueSyncFeedback();
+  } else {
+    const failed = remaining.filter((record) => record.syncError).length;
+    setSyncState(failed ? 'attention' : 'queued', failed
+      ? `Online - ${failed} submission${failed === 1 ? '' : 's'} need attention`
+      : 'Saved submissions are waiting to sync');
+    showQueueSyncFeedback(failed ? 'attention' : 'queued', failed
+      ? 'Some saved submissions need attention. Open My Reports to check and retry.'
+      : 'Saved submissions are waiting to sync');
   }
 }
 

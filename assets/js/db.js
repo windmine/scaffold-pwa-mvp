@@ -231,3 +231,61 @@ export async function remove(storeName, key) {
   }
   return writeStore(openDb, storeName, (store) => store.delete(key));
 }
+
+function recoveryRecordVersion(record) {
+  // Queued originals are immutable. The comparison includes every replay
+  // checkpoint/status field and Blob identity metadata; it never decodes or
+  // rewrites original bytes inside a live IndexedDB transaction.
+  return JSON.stringify(record, (_, value) => value instanceof Blob ? {
+    blobSize: value.size, blobType: value.type, blobName: value.name || '',
+    blobLastModified: value.lastModified || 0
+  } : value);
+}
+
+// Recovery publishes a separate draft and retires its source in one Report-DB
+// transaction. A failed write to any store leaves all three stores unchanged.
+// Legacy copies remain untouched; the isolated envelopes shadow them for new
+// clients, and the unchanged server idempotency key protects an old open tab.
+export async function commitReportRecovery(expectedRecord, nextRecord, draftEntry = null, isCurrent = () => true) {
+  if (expectedRecord?.type !== 'form' || (expectedRecord.submissionPurpose || expectedRecord.submission_purpose) !== 'report'
+    || !expectedRecord.id || nextRecord?.id !== expectedRecord.id
+    || (draftEntry && (!isReportDraft(draftEntry) || !draftEntry.value.uploadRecovery))) {
+    throw new Error('Invalid Report recovery transaction.');
+  }
+  const legacy = await readStore(openDb, 'records', expectedRecord.id);
+  if (!isCurrent()) throw new Error('The Report recovery session changed. Your saved copy is unchanged.');
+  const expectedVersion = recoveryRecordVersion(expectedRecord);
+  const db = await openReportDb();
+  return new Promise((resolve, reject) => {
+    let tx, caught;
+    try { tx = db.transaction(['records', 'queue', 'drafts'], 'readwrite'); }
+    catch (error) { db.close(); reject(error); return; }
+    const records = tx.objectStore('records');
+    const drafts = tx.objectStore('drafts');
+    const request = records.get(expectedRecord.id);
+    const draftRequest = draftEntry ? drafts.get(draftEntry.key) : null;
+    let recordReady = false, draftReady = !draftEntry;
+    const publish = () => {
+      if (!recordReady || !draftReady) return;
+      try {
+        const envelope = request.result;
+        const current = envelope ? (envelope.deleted ? undefined : envelope.value) : legacy;
+        if (!isCurrent()) throw new Error('The Report recovery session changed. Your saved copy is unchanged.');
+        if (!current || recoveryRecordVersion(current) !== expectedVersion) {
+          throw new Error('This saved Report changed in another tab. Refresh My Reports before recovering it.');
+        }
+        if (draftEntry && draftRequest.result) {
+          // Even a tombstone is not permission to overwrite another operation.
+          throw new Error('A recovered draft already exists. Open it in My Reports instead of recovering again.');
+        }
+        if (draftEntry) drafts.put({ key: draftEntry.key, reportStorageVersion: 1, value: draftEntry, legacyFingerprint: null });
+        records.put({ id: current.id, reportStorageVersion: 1, value: nextRecord });
+        tx.objectStore('queue').put({ id: current.id, reportStorageVersion: 1, deleted: true });
+      } catch (error) { caught = error; tx.abort(); }
+    };
+    request.onsuccess = () => { recordReady = true; publish(); };
+    if (draftRequest) draftRequest.onsuccess = () => { draftReady = true; publish(); };
+    tx.oncomplete = () => { db.close(); resolve(nextRecord); };
+    tx.onerror = tx.onabort = () => { db.close(); reject(caught || tx.error || new Error('The recovered draft could not be saved.')); };
+  });
+}

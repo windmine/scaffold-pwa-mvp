@@ -1,5 +1,19 @@
 # AGENTS.md
 
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs use GitHub Issues for `windmine/scaffold-pwa-mvp`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the five standard triage-role labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repository: root `CONTEXT.md`, with architecture decisions under `docs/adr/` when present. See `docs/agents/domain.md`.
+
 ## Final Aim For Codex
 
 Build and release a mobile-first report-only MVP. Every active Worker can submit a Supervisor-defined Report with a required Report Date, optional Site, answers, photos, and handwritten signatures; Workers see only their own Reports. Supervisors review Department-scoped Reports through **Submitted → In review → Resolved**, resolve with a required final note, manage Report Templates, and manage Staff.
@@ -44,6 +58,16 @@ Create a practical report-submission product for two active user groups. Account
 - Deploy the coupled backend/migration before any report-only Hosting promotion. A Firebase preview is not live approval.
 
 ## Current Implementation Notes
+
+- Local 2026-10-02 Oldest waiting (not deployed): Supervisor Report filters offer unchanged-default Newest first and Oldest waiting (Submitted, In review, Resolved; ascending server submission time and durable ID within each workflow). Full-query backend ordering precedes cursor pagination; oldest cursors bind filters/order and reconstruct workflow rank at the first-page snapshot, while serialized workflow remains current. Sort is remembered in exact Supervisor/Department preferences; changes invalidate old pages/cursors/late replies, shortcuts preserve it and Clear resets it. Submitted Report age labels use elapsed server submission time, never Report Date, and update without remounting notes. Worker history, Daywork, exports and workflow mutation are unchanged. `check:report-review-order` is part of `check:mobile`. Compatible backend must precede future Hosting; no migration or deployment is included. September 29 remains live.
+
+- Oldest-waiting pagination additionally binds a fixed-size SHA-256 of exact matching IDs/submission times/snapshot ranks and rechecks it after page/load/count reads. This catches a transition timestamped before the first page but committed later, which otherwise duplicated/skipped Reports. Changed traversal returns an explicit 409: retain loaded results read-only, preserve notes and require inbox Refresh before mutations/exports. Two streamed key scans per page add linear read cost with bounded application memory and constant cursor size; newest pagination stays unchanged.
+
+- Oldest-waiting local validation: 11 HTTP groups, six concurrent-read transaction cases, PostgreSQL query compilation, seven age/merge groups, 15 real-app ordering groups and 11 preference/26 filter groups pass. Seven screenshots were regenerated with EN-light/ZH-dark phone visual review. All focused mobile suites, lint/build, static shell, 11 installer checks and Review Queue/workflow/purpose/export/PDF pass. The full real-backend browser run passed 70/72: invitation creation timed out on its second dialog, and replacement/revocation timed out on its first dialog. Unchanged isolated reruns passed creation 3/3 and replacement/revocation 2/2, but causes remain unconfirmed; this is not a clean full-suite release gate. Earlier offline Template and retained-navigation intermittents passed this run. A separate presentation verifier race was reproduced with a held login response and fixed only in its readiness assertion; authentication source was unchanged. Source cache `leader-field-82017f24431c`, built `leader-field-857c21407d6b`. No commit, push or deployment for this feature.
+
+- Local 2026-10-01 failed Report upload recovery (not deployed): **Recover as draft** first verifies online exact submission identity and authenticated Worker/Department, including trashed/purged Reports. Unknown/offline/old-backend results block unchanged. Recovery atomically saves a separate source-scoped draft and retires replay while retaining the original read-only; it preserves answers, signatures, Date, Site and valid original photos, with a historical omitted-photo list. Existing ordinary drafts are not overwritten. Unknown/changed Definitions stay read-only. Recovered uploads and final POST bind authenticated identity; resubmission keeps the original Client Submission ID, rechecks existence and preserves edited copies if an old request already won. Browser Web Locks are required for recovery; explicit logout/update wait, forced expiry clears private UI and invalidates late work. `check:report-upload-recovery` is included in `check:mobile`. Backend/API changes must precede future Hosting; no migration. Purged-key protection depends on retained `form_trash` audits. September 29 remains live; no deployment is included.
+
+- Upload recovery local validation: 11 HTTP, six API, 11 evidence and 37 real-app browser groups pass, plus 12 draft groups, 69 upload-storage/84 security checkpoints, Review Queue/workflow/purpose/export/PDF, all focused mobile suites, lint/build/static shell and 11 installer checks. Six phone screenshots were regenerated and representative EN-light/ZH-dark screens reviewed. Initial full run was 70/72: a visible-but-loading Supervisor note caused a premature focus assertion (reproduced 5/5 with native storage held; only harness readiness was corrected), and an invitation-dialog timeout passed unchanged in isolation with cause unconfirmed. The final unchanged-app-source full rerun passed all 72, including both prior offline Template and retained-navigation intermittents. Preserve the unexplained invitation timeout as a regression risk; see the mobile checklist. Source cache `leader-field-ffd957c87ac1`, built `leader-field-34249167da7d`. No commit, push or deployment for recovery.
 
 - Local 2026-10-01 Supervisor resolution-note protection (not deployed): unfinished Report notes autosave as private device-local drafts scoped to Supervisor, home Department/global capability, actual Report Department and durable Report ID. Close keeps work; Continue note restores it; Discard is explicit and changes no Report. Logout, Department changes and Update App wait for safe saves; forced auth expiry clears private UI immediately with best-effort saving. Cross-tab revision checks prevent stale saves/deletes. Only an explicit online Resolve freshly validates and sends the final note; failed/uncertain requests keep the draft, while confirmed success cannot be resubmitted even if local cleanup/list refresh fails. Already-resolved Reports expose saved copies read-only. No backend, migration, Worker replay or export changes; September 29 remains live. `check:report-notes` is part of `check:mobile`. Device storage is not encrypted or cross-device backup, and browser/OS termination can interrupt unsaved writes.
 

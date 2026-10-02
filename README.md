@@ -29,6 +29,22 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
+## Local Oldest-Waiting Review Order - 2026-10-02 (not deployed)
+
+Supervisor Report filters now offer **Newest first** (the unchanged default) and **Oldest waiting**. Oldest waiting places Submitted Reports first, then In review and Resolved, with oldest server submission time first within each workflow. The server orders the complete filtered queue before pagination; changing order clears old pages and keeps the existing Workflow, Template, Worker, Report Date and Find filters. Sort preference is remembered per Supervisor and Department; Clear resets it to Newest first.
+
+Submitted Reports display a waiting-age label in the inbox and detail. Age uses elapsed time since server submission, never the Report Date, and updates without redrawing an open note. This is not an overdue deadline or service-level promise. If concurrent changes invalidate the paginated order, the app asks for Refresh, keeps loaded results read-only and preserves unfinished notes. Report evidence, workflow transitions, exports, Worker history and retained Daywork behavior are unchanged.
+
+Run `npm run check:report-review-order` (included in `check:mobile`). Deploy the compatible backend before any future Hosting promotion; no migration is required. An older server that cannot confirm the requested order fails safely with guidance to use Newest first. September 29 remains live; no deployment is included.
+
+## Local Failed Upload Recovery - 2026-10-01 (not deployed)
+
+Failed queued Reports now offer **Recover as draft** in My Reports. An online, Worker/Department-verified lookup first checks the original submission identity, including removed Reports. Unknown results, unavailable backends and offline recovery leave the saved submission unchanged. An already-submitted Report is reconciled instead of creating a new draft.
+
+Recovery preserves the Report Date, Site, answers, handwritten signatures and valid photo originals in a separate draft, without replacing another unfinished Report. Invalid/missing/rejected photos are listed for review; the original remains a read-only device copy. The draft and queue retirement save atomically. Changed or unknown Template Definitions stay read-only. Resubmission retains the original identity, so a delayed older attempt cannot create a duplicate; if it already won, recovered edits remain a read-only copy.
+
+Run `npm run check:report-upload-recovery` (included in `check:mobile`). This change includes a compatible backend/API update but no migration: deploy the backend before any future Hosting promotion. Recovery requires Web Locks support and this device's retained browser storage; it is not cross-device backup. Purged-Report protection depends on retaining the existing trash audit snapshots. No deployment is included in this local change.
+
 ## Local Supervisor Note Protection - 2026-10-01 (not deployed)
 
 Unfinished resolution notes autosave privately on this device for the signed-in Supervisor and exact Report. **Close and keep draft** preserves the note; **Continue note** restores it. **Discard draft** requires confirmation and never changes the Report. Logout, Department changes and Update App pause when text cannot be saved. Switching Reports or workspaces keeps unfinished work, and another tab cannot silently overwrite or delete a newer draft.

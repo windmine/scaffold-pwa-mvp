@@ -2,11 +2,17 @@ import {
   createAttendance as createBackendAttendance,
   createTaskLog as createBackendTaskLog,
   createFormSubmission as createBackendFormSubmission,
+  getMyReportSubmissionByClientId,
   getSession,
   uploadPhoto
 } from './api-client.js';
-import { get, getAll, put, remove } from './db.js';
+import * as submissionStorage from './db.js';
 import { dataUrlToBlob, uploadImageValidationError, uuid } from './utils.js';
+import {
+  isRecoverableQueuedReport, prepareReportRecoveryDraft, validateReportRecoveryLookup
+} from './report-upload-recovery.js';
+
+const { get, getAll, put, remove } = submissionStorage;
 
 const SUBMISSION_DRAFT_KEYS = {
   attendance: 'attendance-form',
@@ -27,6 +33,16 @@ let syncQueueWorkerId = null;
 // record snapshot made stale by the other's pending storage operations.
 // It is not a cross-tab lock. Other tabs still rely on the checkpoint lease.
 const activeSubmissionIds = new Set();
+
+async function withSubmissionBrowserLock(id, operation, onBusy) {
+  if (!globalThis.navigator?.locks?.request) return operation();
+  return navigator.locks.request(`report-submission:${id}`, { mode: 'exclusive', ifAvailable: true },
+    (lock) => lock ? operation() : onBusy());
+}
+
+function submissionBusy() {
+  throw new Error('This submission is still syncing or being recovered. Wait for it to finish.');
+}
 
 function submissionPurpose(record) {
   const explicitPurpose = String(record?.submissionPurpose || record?.submission_purpose || '').trim().toLowerCase();
@@ -166,7 +182,7 @@ async function uploadWithRateLimitRetry(source, filename, options) {
     options.assertCanSync?.();
     notifyUploadProgress(options);
     try {
-      return await uploadPhoto(source, filename);
+      return await uploadPhoto(source, filename, options.recoveryScope);
     } catch (error) {
       const seconds = error?.retryAfterSeconds;
       const waitMs = Math.max(1000, Math.ceil(seconds * 1000));
@@ -217,8 +233,17 @@ async function uploadRecordPhotos(record, files = [], options = {}) {
     // photo, not every original (including those already uploaded) at once.
     const source = file || dataUrlToBlob(dataUrl);
     requireValidUploadImage(source);
-    const uploaded = await uploadWithRateLimitRetry(source, photoFilenameFor(record, file, index, dataUrl), options);
+    let uploaded;
+    try {
+      uploaded = await uploadWithRateLimitRetry(source, photoFilenameFor(record, file, index, dataUrl), options);
+    } catch (error) {
+      if ([400, 413, 415, 422].includes(error.status)) {
+        record.failedPhotoUpload = { index, status: error.status, message: String(error.message || '') };
+      }
+      throw error;
+    }
     uploadedUrls[index] = uploaded.url;
+    if (record.failedPhotoUpload?.index === index) delete record.failedPhotoUpload;
     record.photoUrls = uploadedUrls.filter(Boolean);
     record.photoUrl = record.photoUrls[0] || '';
     if (Array.isArray(record.photoMetadata)) {
@@ -566,7 +591,14 @@ async function clearSubmissionDraft(draftKey) {
 }
 
 async function syncSubmission(record, options = {}) {
-  const assertCanSync = () => assertOwnedByWorker(record, options.worker);
+  const assertCanSync = () => {
+    assertOwnedByWorker(record, options.worker);
+    if (record.uploadRecovery && String(getSession()?.departmentId) !== String(record.uploadRecovery.departmentId)) {
+      const error = new Error('This recovered Report belongs to another Department. Your saved copy is unchanged.');
+      error.code = 'OFFLINE_OWNER_MISMATCH';
+      throw error;
+    }
+  };
   assertCanSync();
 
   if (record.backendRecordId) {
@@ -581,6 +613,22 @@ async function syncSubmission(record, options = {}) {
     };
   }
 
+  if (record.type === 'form' && record.uploadRecovery) {
+    // A recovered draft keeps the original idempotency key. Recheck it before
+    // uploading replacements too; an old open client may have finished while
+    // the Worker was editing. A network/old-backend failure is not absence.
+    const worker = { ...getSession() };
+    const result = validateReportRecoveryLookup(
+      await getMyReportSubmissionByClientId(record.clientSubmissionId), record, worker);
+    assertCanSync();
+    if (result.status === 'submitted') return { ...result.submission, idempotent_replay: true };
+    if (result.status === 'deleted') {
+      const error = new Error('This Report was already submitted and later removed. Your recovered copy is kept read-only.');
+      error.code = 'report_previously_submitted';
+      throw error;
+    }
+  }
+
   const signatureValues = (record.fields || []).filter((field) => field.type === 'signature')
     .flatMap((field) => field.repeat
       ? (Array.isArray(record.answers?.[field.repeat]) ? record.answers[field.repeat] : []).map((row) => row?.[field.id])
@@ -592,6 +640,9 @@ async function syncSubmission(record, options = {}) {
   const uploadOptions = {
     onProgress: options.onProgress,
     onUploadProgress: options.onUploadProgress,
+    recoveryScope: record.uploadRecovery ? {
+      workerId: record.ownerWorkerId, departmentId: record.uploadRecovery.departmentId
+    } : null,
     assertCanSync,
     renewLease: async () => {
       assertCanSync();
@@ -632,7 +683,7 @@ async function syncSubmission(record, options = {}) {
     await uploadRecordPhotos(record, options.photoFiles || [], uploadOptions);
     assertCanSync();
     notifyUploadProgress(uploadOptions, 'submitting');
-    const syncedRecord = await createBackendFormSubmission(toBackendFormSubmissionPayload(record));
+    const syncedRecord = await createBackendFormSubmission(toBackendFormSubmissionPayload(record), uploadOptions.recoveryScope);
     if (syncedRecord?.worker_id != null && Number(syncedRecord.worker_id) !== record.ownerWorkerId) {
       throw new Error('Backend form ownership did not match the offline submission.');
     }
@@ -640,6 +691,30 @@ async function syncSubmission(record, options = {}) {
   }
 
   throw new Error('Unsupported queued record type.');
+}
+
+async function preserveReplayedRecovery(record, syncedRecord) {
+  if (!record.uploadRecovery || syncedRecord?.idempotent_replay !== true) return false;
+  // The old in-flight attempt may have won with different answers. Save the
+  // recovered edits as a non-replaying copy before clearing the editable draft.
+  await persistLocalSubmission({
+    ...record, id: `${record.id}-submitted-recovery`, backendRecordId: null,
+    isDraftRecovery: true, syncStatus: 'queued', syncStartedAt: '',
+    syncBlockedReason: 'previously_submitted', syncBlockedByAuth: false,
+    syncError: 'This Report was already submitted. Your recovered edits are kept as a read-only saved copy.'
+  });
+  return true;
+}
+
+function preserveRemovedRecovery(record, error) {
+  if (!record.uploadRecovery || error?.code !== 'report_previously_submitted') return false;
+  record.isDraftRecovery = true;
+  record.syncStatus = 'queued';
+  record.syncStartedAt = '';
+  record.syncBlockedByAuth = false;
+  record.syncBlockedReason = 'previously_submitted';
+  record.syncError = 'This Report was already submitted and later removed. Your recovered copy is kept read-only.';
+  return true;
 }
 
 function syncedSubmissionMessage(record) {
@@ -712,7 +787,8 @@ export async function submitOfflineSubmission(record, options = {}) {
   }
   activeSubmissionIds.add(submissionId);
   try {
-    return await submitOwnedOfflineSubmission(ownedSubmission, options);
+    return await withSubmissionBrowserLock(submissionId,
+      () => submitOwnedOfflineSubmission(ownedSubmission, options), submissionBusy);
   } finally {
     activeSubmissionIds.delete(submissionId);
   }
@@ -739,15 +815,21 @@ async function submitOwnedOfflineSubmission(ownedSubmission, options) {
         worker: ownedSubmission.worker,
         onProgress: persistLocalSubmission
       });
+      const alreadySubmitted = await preserveReplayedRecovery(localRecord, syncedRecord);
       applySyncedResponse(localRecord, syncedRecord);
       result = {
         record: localRecord,
         offline: false,
         queued: false,
-        message: syncedSubmissionMessage(localRecord)
+        message: alreadySubmitted
+          ? 'This Report was already submitted. No duplicate was created. Your recovered edits are kept in My Reports.'
+          : syncedSubmissionMessage(localRecord)
       };
     } catch (error) {
-      if (isAuthError(error)) {
+      if (preserveRemovedRecovery(localRecord, error)) {
+        // A retained trash audit is authoritative even after the Report row was
+        // purged. Do not retry or turn this copy into a new submission identity.
+      } else if (isAuthError(error)) {
         markAuthBlocked(localRecord, error);
         authError = error;
       } else if (isOwnershipError(error)) {
@@ -758,8 +840,8 @@ async function submitOwnedOfflineSubmission(ownedSubmission, options) {
       result = {
         record: localRecord,
         offline: true,
-        queued: true,
-        message: authError
+        queued: !localRecord.isDraftRecovery,
+        message: localRecord.isDraftRecovery ? localRecord.syncError : authError
           ? 'Submission saved locally. Sign in again to sync it.'
           : queuedSubmissionMessage(localRecord, true)
       };
@@ -798,79 +880,84 @@ async function flushQueuedSubmissions(worker, options = {}) {
     }
     activeSubmissionIds.add(submissionId);
     try {
-      const record = await get('records', item.id);
-      if (!record) {
-        await remove('queue', item.id);
-        continue;
-      }
+      await withSubmissionBrowserLock(submissionId, async () => {
+        const record = await get('records', item.id);
+        if (!record) {
+          await remove('queue', item.id);
+          return;
+        }
 
-      if (record.backendRecordId || record.syncStatus === 'synced' || record.isDraftRecovery) {
-        await remove('queue', item.id);
-        continue;
-      }
+        if (record.backendRecordId || record.syncStatus === 'synced' || record.isDraftRecovery) {
+          await remove('queue', item.id);
+          return;
+        }
 
-      if (!matchesReplayScope(record, options)) {
-        scopeSkipped += 1;
-        continue;
-      }
+        if (!matchesReplayScope(record, options)) {
+          scopeSkipped += 1;
+          return;
+        }
 
-      if (record.syncStatus === 'syncing' && !isStaleSyncingRecord(record)) {
-        skipped += 1;
-        continue;
-      }
+        if (record.syncStatus === 'syncing' && !isStaleSyncingRecord(record)) {
+          skipped += 1;
+          return;
+        }
 
-      let localRecord;
-      try {
-        localRecord = normaliseLocalSubmission(record);
-      } catch (error) {
-        record.syncStatus = 'queued';
-        record.syncStartedAt = '';
-        record.syncBlockedByAuth = false;
-        record.syncBlockedReason = 'invalid_submission';
-        record.syncError = error.message || 'Offline submission invariants are invalid.';
-        record.lastSyncAttemptAt = nowIso();
-        await put('records', record);
-        invalidBlocked += 1;
-        skipped += 1;
-        continue;
-      }
+        let localRecord;
+        try {
+          localRecord = normaliseLocalSubmission(record);
+        } catch (error) {
+          record.syncStatus = 'queued';
+          record.syncStartedAt = '';
+          record.syncBlockedByAuth = false;
+          record.syncBlockedReason = 'invalid_submission';
+          record.syncError = error.message || 'Offline submission invariants are invalid.';
+          record.lastSyncAttemptAt = nowIso();
+          await put('records', record);
+          invalidBlocked += 1;
+          skipped += 1;
+          return;
+        }
 
-      if (localRecord.ownerWorkerId !== worker.id) {
-        markOwnershipBlocked(localRecord, worker);
-        await persistLocalSubmission(localRecord);
-        ownershipBlocked += 1;
-        skipped += 1;
-        continue;
-      }
-
-      try {
-        markSyncing(localRecord);
-        await persistLocalSubmission(localRecord);
-
-        const syncedRecord = await syncSubmission(localRecord, {
-          worker,
-          onProgress: persistLocalSubmission,
-          onUploadProgress: options.onUploadProgress
-        });
-        applySyncedResponse(localRecord, syncedRecord);
-        await persistLocalSubmission(localRecord);
-        flushed += 1;
-      } catch (error) {
-        if (isAuthError(error)) {
-          markAuthBlocked(localRecord, error);
-          authBlocked = true;
-        } else if (isOwnershipError(error)) {
-          markOwnershipBlocked(localRecord, activeWorker());
+        if (localRecord.ownerWorkerId !== worker.id) {
+          markOwnershipBlocked(localRecord, worker);
+          await persistLocalSubmission(localRecord);
           ownershipBlocked += 1;
           skipped += 1;
-        } else {
-          markQueued(localRecord, error);
-          failed += 1;
+          return;
         }
-        await persistLocalSubmission(localRecord);
-        if (authBlocked) failed += 1;
-        if (authBlocked) break;
-      }
+
+        try {
+          markSyncing(localRecord);
+          await persistLocalSubmission(localRecord);
+
+          const syncedRecord = await syncSubmission(localRecord, {
+            worker,
+            onProgress: persistLocalSubmission,
+            onUploadProgress: options.onUploadProgress
+          });
+          await preserveReplayedRecovery(localRecord, syncedRecord);
+          applySyncedResponse(localRecord, syncedRecord);
+          await persistLocalSubmission(localRecord);
+          flushed += 1;
+        } catch (error) {
+          if (preserveRemovedRecovery(localRecord, error)) {
+            skipped += 1;
+          } else if (isAuthError(error)) {
+            markAuthBlocked(localRecord, error);
+            authBlocked = true;
+          } else if (isOwnershipError(error)) {
+            markOwnershipBlocked(localRecord, activeWorker());
+            ownershipBlocked += 1;
+            skipped += 1;
+          } else {
+            markQueued(localRecord, error);
+            failed += 1;
+          }
+          await persistLocalSubmission(localRecord);
+          if (authBlocked) failed += 1;
+        }
+      }, () => { skipped += 1; });
+      if (authBlocked) break;
     } finally {
       activeSubmissionIds.delete(submissionId);
     }
@@ -917,20 +1004,78 @@ export async function discardOfflineSubmission(recordId) {
   }
   activeSubmissionIds.add(submissionId);
   try {
-    const record = await get('records', recordId);
-    if (!record) throw new Error('Offline submission was not found on this device.');
+    return await withSubmissionBrowserLock(submissionId, async () => {
+      const record = await get('records', recordId);
+      if (!record) throw new Error('Offline submission was not found on this device.');
 
-    assertOwnedByWorker(record);
-    if (record.syncStatus === 'syncing' && !isStaleSyncingRecord(record)) {
-      throw new Error('This submission is still syncing. Wait for it to finish before discarding it.');
-    }
-    if (record.backendRecordId || record.syncStatus === 'synced') {
-      throw new Error('A synced submission cannot be discarded from the offline queue.');
-    }
+      assertOwnedByWorker(record);
+      if (record.syncStatus === 'syncing' && !isStaleSyncingRecord(record)) {
+        throw new Error('This submission is still syncing. Wait for it to finish before discarding it.');
+      }
+      if (record.backendRecordId || record.syncStatus === 'synced') {
+        throw new Error('A synced submission cannot be discarded from the offline queue.');
+      }
 
-    await remove('queue', record.id);
-    await remove('records', record.id);
+      await remove('queue', record.id);
+      await remove('records', record.id);
+    }, submissionBusy);
   } finally {
     activeSubmissionIds.delete(submissionId);
   }
+}
+
+export async function recoverOfflineReportAsDraft(recordId, { isCurrent = () => true } = {}) {
+  if (!globalThis.navigator?.locks?.request) {
+    throw new Error('This browser cannot safely recover uploads. Update this browser, then retry without clearing its data.');
+  }
+  const submissionId = String(recordId);
+  if (activeSubmissionIds.has(submissionId)) submissionBusy();
+  activeSubmissionIds.add(submissionId);
+  try {
+    return await withSubmissionBrowserLock(submissionId, async () => {
+      const worker = { ...getSession() };
+      const assertCurrent = () => {
+        const session = getSession();
+        if (!isCurrent() || worker.role !== 'worker' || session?.role !== 'worker'
+          || String(worker.id) !== String(session.id)
+          || String(worker.departmentId) !== String(session.departmentId)) {
+          throw new Error('The Report recovery session changed. Your saved copy is unchanged.');
+        }
+      };
+      assertCurrent();
+      if (!navigator.onLine) throw new Error('Reconnect before recovering this Report so we can check it was not already submitted.');
+      const record = await get('records', recordId);
+      assertCurrent();
+      if (!isRecoverableQueuedReport(record, worker)) {
+        throw new Error('This Report cannot be recovered now. Refresh My Reports and check its current status.');
+      }
+      const clientSubmissionId = String(record.clientSubmissionId || record.client_submission_id || record.id || '').trim();
+      const lookup = validateReportRecoveryLookup(await getMyReportSubmissionByClientId(clientSubmissionId), record, worker);
+      assertCurrent();
+      const { commitReportRecovery } = submissionStorage;
+      const currentScope = () => { try { assertCurrent(); return true; } catch { return false; } };
+      if (lookup.status === 'submitted') {
+        const savedEdits = await preserveReplayedRecovery(record, { idempotent_replay: true });
+        assertCurrent();
+        const nextRecord = applySyncedResponse({ ...record }, lookup.submission);
+        await commitReportRecovery(record, nextRecord, null, currentScope);
+        return { status: 'submitted', record: nextRecord, savedEdits };
+      }
+      if (lookup.status === 'deleted') {
+        const nextRecord = { ...record, isDraftRecovery: true, syncStatus: 'queued', syncStartedAt: '',
+          syncBlockedByAuth: false, syncBlockedReason: 'previously_submitted',
+          syncError: 'This Report was already submitted and later removed. Your saved copy is read-only and will not sync.' };
+        await commitReportRecovery(record, nextRecord, null, currentScope);
+        return { status: 'deleted', record: nextRecord };
+      }
+      const draft = await prepareReportRecoveryDraft(record, worker, { assertCurrent });
+      assertCurrent();
+      const nextRecord = { ...record, isDraftRecovery: true, recoveredToDraft: draft.key,
+        syncStatus: 'queued', syncStartedAt: '', syncBlockedByAuth: false, syncBlockedReason: 'recovered',
+        syncError: 'Original kept as a read-only copy after recovery.' };
+      await commitReportRecovery(record, nextRecord, draft, currentScope);
+      return { status: 'recovered', draftKey: draft.key, formId: draft.value.formId,
+        omittedPhotos: draft.value.uploadRecovery.omittedPhotos, validPhotoCount: draft.value.photoBlobs.length };
+    }, submissionBusy);
+  } finally { activeSubmissionIds.delete(submissionId); }
 }

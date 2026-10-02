@@ -3741,6 +3741,15 @@ body.viewer-open {
   margin-top: 9px;
 }
 
+.report-waiting-age {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
 .review-item-signal {
   padding: 0.24rem 0.48rem;
   border: 1px solid var(--line);
@@ -6777,6 +6786,7 @@ body.report-only-mode .topbar-actions button,
 }
 
 .report-only-mode .report-filter-memory-hint,
+.report-only-mode .report-sort-order-hint,
 .report-only-mode .report-filter-preference-notice {
   font-size: 0.875rem;
   line-height: 1.5;
@@ -6828,6 +6838,10 @@ body.report-only-mode .topbar-actions button,
 }
 
 @media (max-width: 1099px) {
+  .report-only-mode .report-review-filters .report-sort-order-field {
+    grid-column: 1 / -1;
+  }
+
   .report-only-mode .report-review-layout:not(.is-detail-open) .review-detail-shell,
   .report-only-mode .report-review-layout.is-detail-open .review-inbox,
   .report-only-mode .report-review-layout.is-detail-open > .fold-content > .review-desk-heading,

@@ -1,6 +1,6 @@
 import { getWorkForms as getBackendWorkForms } from './api-client.js';
 import { getDraft, getDraftEntries, saveDraft } from './mock-api.js';
-import { isReportDraftForWorker, summarizeReportDrafts } from './report-drafts.js';
+import { isReportDraftForWorker, reportDraftKeyForWorker, summarizeReportDrafts } from './report-drafts.js';
 import { createPhotoPreviewSources, reportPhotoSources, restoreReportPhotoEvidence } from './report-photo-evidence.js';
 import { renderReportSubmitReview } from './report-submit-review.js';
 import {
@@ -72,6 +72,7 @@ export function createWorkerFormModule({
   onWorkFormsChanged = () => {}
 }) {
   let renderedWorkForm = null;
+  let renderedDraftKey = '';
   let autosaveTimer = null;
   let selectionToken = 0;
   let sessionGeneration = 0;
@@ -88,6 +89,7 @@ export function createWorkerFormModule({
   state.workFormPhotoBlobs ||= [];
   let draftListRequest = 0;
   let draftContinueInFlight = false;
+  let recoveryInFlight = false;
   let photoProcessing = {
     key: '',
     pending: false,
@@ -162,9 +164,11 @@ export function createWorkerFormModule({
     return state.workForms.find((form) => String(form.id) === String(formId));
   }
 
-  function draftStateFor(form, workerId = state.user?.id) {
+  function draftStateFor(form, workerId = state.user?.id, requestedKey = '') {
     if (!form || workerId == null) return null;
-    const key = workFormDraftKey(workerId, form.id);
+    const key = requestedKey || (String(renderedWorkForm?.id) === String(form.id)
+      && String(workerId) === String(state.user?.id) && renderedDraftKey)
+      || workFormDraftKey(workerId, form.id);
     if (!draftStates.has(key)) {
       draftStates.set(key, {
         key,
@@ -207,6 +211,7 @@ export function createWorkerFormModule({
       photoDataUrls: [...state.workFormPhotoDataUrls],
       photoBlobs: [...state.workFormPhotoBlobs],
       photoMetadata: state.workFormPhotoMetadata.map((item) => ({ ...item })),
+      ...(draftState.snapshot?.uploadRecovery ? { uploadRecovery: structuredClone(draftState.snapshot.uploadRecovery) } : {}),
       savedAt
     };
   }
@@ -286,7 +291,7 @@ export function createWorkerFormModule({
     draftState.flushPromise = (async () => {
       while (draftState.savedRevision < draftState.revision) {
         await waitForDraftPhotos(draftState);
-        if (activeDraftState()?.key === draftState.key) captureVisibleWorkFormDraft();
+        if (activeDraftState() === draftState) captureVisibleWorkFormDraft();
         if (!draftState.snapshot) throw new Error('Could not capture this Report draft.');
 
         const revisionToSave = draftState.revision;
@@ -306,11 +311,11 @@ export function createWorkerFormModule({
 
     try {
       await draftState.flushPromise;
-      if (activeDraftState()?.key === draftState.key) showSavedStatus(draftState.savedAt);
+      if (activeDraftState() === draftState) showSavedStatus(draftState.savedAt);
       void renderDraftList();
     } catch (error) {
       draftState.error = error;
-      if (activeDraftState()?.key === draftState.key) showDraftSaveError();
+      if (activeDraftState() === draftState) showDraftSaveError();
       throw error;
     } finally {
       draftState.flushPromise = null;
@@ -337,6 +342,7 @@ export function createWorkerFormModule({
   }
 
   async function flushPendingDrafts() {
+    if (recoveryInFlight) throw new Error('Wait for Report recovery to finish.');
     if (state.submittingWorkForm) {
       throw new Error('Wait for the Report submission to finish.');
     }
@@ -344,13 +350,18 @@ export function createWorkerFormModule({
     if (hasUnsavedInput()) throw new Error('This Report still has unsaved changes.');
   }
 
-  function hasUnsavedInput() {
+  function hasUnsavedDraftInput() {
     if (state.submittingWorkForm) return true;
     if (photoProcessing.pending) return true;
     return [...draftStates.values()].some((draftState) => draftState.revision > draftState.savedRevision);
   }
 
+  function hasUnsavedInput() {
+    return recoveryInFlight || hasUnsavedDraftInput();
+  }
+
   async function prepareForAppUpdate() {
+    if (recoveryInFlight) return { safe: false, message: 'Wait for Report recovery to finish before updating.' };
     if (state.submittingWorkForm) {
       return {
         safe: false,
@@ -381,6 +392,7 @@ export function createWorkerFormModule({
   }
 
   function cancelAppUpdatePreparation() {
+    if (recoveryInFlight) return;
     reloadLocked = false;
     els.workFormSubmissionForm.inert = false;
   }
@@ -401,8 +413,10 @@ export function createWorkerFormModule({
   }
 
   function setSubmitActionLabel() {
-    setTranslatableText(els.submitWorkFormButton, conflictingDraft ? 'Keep draft and start new report'
+    setTranslatableText(els.submitWorkFormButton, conflictingDraft?.uploadRecovery ? 'Recovered draft is read-only'
+      : conflictingDraft ? 'Keep draft and start new report'
       : needsSubmissionReview() ? 'Review & submit' : 'Submit Report');
+    els.submitWorkFormButton.disabled = Boolean(state.submittingWorkForm || conflictingDraft?.uploadRecovery);
   }
 
   function clearSubmissionReview({ focus = false } = {}) {
@@ -478,7 +492,9 @@ export function createWorkerFormModule({
     els.workFormFields.append(signatures);
     renderPhotoPreviews(reportPhotoSources(draft), draft.photoMetadata || []);
     setAutosaveStatus('Saved draft is read-only because the Report Template changed.', 'error');
-    renderStatusBanner('Report Template changed. Keep this draft in My Reports before starting a new report. Nothing will be submitted automatically.', true, {
+    renderStatusBanner(draft.uploadRecovery
+      ? 'Report Template changed. This recovered draft is kept read-only in My Reports. Nothing will be submitted automatically.'
+      : 'Report Template changed. Keep this draft in My Reports before starting a new report. Nothing will be submitted automatically.', true, {
       local: els.workFormFeedback,
       tone: 'warning'
     });
@@ -536,12 +552,12 @@ export function createWorkerFormModule({
     container.replaceChildren();
   }
 
-  function showPhotoSelectionFeedback(addedCount, rejected) {
+  function showPhotoSelectionFeedback(addedCount, rejected, summaryMessage = '') {
     clearPhotoSelectionFeedback();
     const container = els.workFormPhotoSelectionFeedback;
     if (!container || !rejected.length) return;
     const summary = document.createElement('p');
-    setTranslatableText(summary, `Added ${addedCount} ${addedCount === 1 ? 'photo' : 'photos'}. ${rejected.length} ${rejected.length === 1 ? 'file' : 'files'} not added.`);
+    setTranslatableText(summary, summaryMessage || `Added ${addedCount} ${addedCount === 1 ? 'photo' : 'photos'}. ${rejected.length} ${rejected.length === 1 ? 'file' : 'files'} not added.`);
     const list = document.createElement('ul');
     for (const { file, reason } of rejected) {
       const item = document.createElement('li');
@@ -622,7 +638,8 @@ export function createWorkerFormModule({
 
   function validStoredDraft(value, form, draftState) {
     if (submittedDraftsPendingCleanup.has(draftState.key)) return false;
-    if (reportOnly) return isReportDraftForWorker(value, state.user, form);
+    if (reportOnly) return isReportDraftForWorker(value, state.user, form)
+      && reportDraftKeyForWorker(value, state.user) === draftState.key;
     return value?.kind === 'work-form'
       && String(value.ownerWorkerId || '') === String(draftState.ownerWorkerId)
       && String(value.formId || '') === String(form.id);
@@ -643,6 +660,11 @@ export function createWorkerFormModule({
         ? draft.photoMetadata.map((item) => ({ ...item }))
         : [];
       renderEditablePhotoPreviews();
+      if (draft.uploadRecovery?.omittedPhotos?.length) {
+        showPhotoSelectionFeedback(state.workFormPhotoBlobs.length, draft.uploadRecovery.omittedPhotos.map((photo) => ({
+          file: { name: photo.name }, reason: photo.reason
+        })), 'Some photos were omitted during recovery. Review the list and add replacements if needed.');
+      }
       draftState.snapshot = {
         ...draft,
         photoBlobs: [...state.workFormPhotoBlobs],
@@ -691,7 +713,7 @@ export function createWorkerFormModule({
     }
 
     const draftVersion = draft.definitionVersion == null
-      ? 1
+      ? draft.uploadRecovery ? NaN : 1
       : ['number', 'string'].includes(typeof draft.definitionVersion) ? Number(draft.definitionVersion) : NaN;
     if (formPurpose(form) === 'report' && (
       !Number.isSafeInteger(draftVersion) || draftVersion <= 0 || draftVersion !== definitionVersion(form)
@@ -736,6 +758,9 @@ export function createWorkerFormModule({
     const externallyLocked = () => options.skipFlush !== true && (reloadLocked || state.submittingWorkForm);
     if (externallyLocked()) return;
     const requestedFormId = els.workFormSelect.value;
+    const requestedDraftKey = options.draftKey || (options.normalDraft !== true
+      && String(renderedWorkForm?.id) === String(requestedFormId) && renderedDraftKey)
+      || workFormDraftKey(state.user?.id, requestedFormId);
     const token = ++selectionToken;
     if (options.preserveCurrent !== false) feedback.clearLocal(els.workFormFeedback);
 
@@ -756,12 +781,13 @@ export function createWorkerFormModule({
     resetDraftSurface();
     renderWorkFormFields(els.workFormFields, form, { container: els.workFormFields });
     renderedWorkForm = form || null;
+    renderedDraftKey = form ? requestedDraftKey : '';
     setSubmitActionLabel();
     updatePhotoRemovalControls();
     showDefaultAutosaveStatus();
     if (!form || state.user?.role !== 'worker') return;
 
-    const draftState = draftStateFor(form);
+    const draftState = draftStateFor(form, state.user.id, renderedDraftKey);
     await restoreSelectedDraft(form, draftState, token);
   }
 
@@ -918,6 +944,7 @@ export function createWorkerFormModule({
             <h4 data-no-i18n>${escapeHtml(draft.formName)}</h4>
             <p><span>Report Date</span>: <span data-no-i18n>${escapeHtml(draft.workDate || '-')}</span></p>
             <p><span>Last saved</span>: <span data-no-i18n>${escapeHtml(formatDateTime(draft.savedAt))}</span></p>
+            ${draft.recovered ? '<p class="muted">Recovered upload draft. Review before submitting.</p>' : ''}
             ${draft.availability === 'template_changed' ? '<p class="muted">Report Template changed. Review the saved draft before starting a new Report.</p>' : ''}
             ${draft.availability === 'unavailable' ? '<p class="muted">Report Template unavailable. Connect and refresh, or ask your supervisor.</p>' : ''}
           </div>`;
@@ -930,7 +957,7 @@ export function createWorkerFormModule({
           if (draftContinueInFlight) return;
           feedback.setButtonBusy(button, true, 'Opening draft...');
           try {
-            await continueReportDraft(draft.formId);
+            await continueReportDraft(draft.formId, draft.draftKey);
           } finally {
             if (button.isConnected) feedback.setButtonBusy(button, false);
           }
@@ -945,26 +972,32 @@ export function createWorkerFormModule({
     }
   }
 
-  async function continueReportDraft(formId) {
-    if (!reportOnly || state.user?.role !== 'worker' || draftContinueInFlight || reloadLocked || state.submittingWorkForm) return false;
-    const worker = state.user;
+  async function continueReportDraft(formId, requestedKey = '') {
+    if (!reportOnly || state.user?.role !== 'worker' || draftContinueInFlight || recoveryInFlight || reloadLocked || state.submittingWorkForm) return false;
+    const worker = { ...state.user };
     const generation = sessionGeneration;
     draftContinueInFlight = true;
     try {
       await flushPendingDrafts();
       if (!draftScopeStillActive(worker, generation)) return false;
       const form = selectedWorkForm(formId);
-      const key = workFormDraftKey(worker.id, formId);
+      const key = requestedKey || workFormDraftKey(worker.id, formId);
       const draft = await getDraft(key);
-      if (!draftScopeStillActive(worker, generation)) return false;
-      if (submittedDraftsPendingCleanup.has(key) || !isReportDraftForWorker(draft, worker, form)) {
+      if (!draftScopeStillActive(worker, generation) || reloadLocked || state.submittingWorkForm) return false;
+      if (submittedDraftsPendingCleanup.has(key) || !isReportDraftForWorker(draft, worker, form)
+        || reportDraftKeyForWorker(draft, worker) !== key) {
         void renderDraftList();
         renderStatusBanner('This draft cannot be opened with the available Report Templates. Your saved work is unchanged.', true);
         return false;
       }
+      // Inactive slots were flushed above and may have newer stored recovery
+      // copies. An active editor can receive input while getDraft is pending:
+      // retain its cache so renderSelectedWorkForm flushes those latest edits.
+      if (activeDraftState()?.key !== key) draftStates.delete(key);
       els.workFormSelect.value = String(form.id);
-      await renderSelectedWorkForm();
-      if (!draftScopeStillActive(worker, generation) || String(renderedWorkForm?.id) !== String(formId)) return false;
+      await renderSelectedWorkForm({ draftKey: key });
+      if (!draftScopeStillActive(worker, generation) || String(renderedWorkForm?.id) !== String(formId)
+        || renderedDraftKey !== key) return false;
       onContinueDraft();
       els.workFormSelect.focus();
       els.workFormSelect.scrollIntoView({ block: 'start' });
@@ -977,6 +1010,79 @@ export function createWorkerFormModule({
     } finally {
       if (generation === sessionGeneration) draftContinueInFlight = false;
     }
+  }
+
+  async function recoverFailedReport(record, recover) {
+    if (!reportOnly || state.user?.role !== 'worker' || typeof recover !== 'function'
+      || draftContinueInFlight || recoveryInFlight || reloadLocked || state.submittingWorkForm) {
+      throw new Error('Finish the current Report operation before recovering this upload.');
+    }
+    const worker = { ...state.user };
+    const generation = sessionGeneration;
+    const isCurrent = () => draftScopeStillActive(worker, generation);
+    if (String(record?.ownerWorkerId ?? record?.userId) !== String(worker.id)
+      || (record.departmentId != null && String(record.departmentId) !== String(worker.departmentId))) {
+      throw new Error('This upload belongs to another Worker or Department.');
+    }
+    recoveryInFlight = true;
+    reloadLocked = true;
+    els.workFormSubmissionForm.inert = true;
+    let result;
+    try {
+      await flushAllDrafts();
+      if (hasUnsavedDraftInput()) throw new Error('This Report still has unsaved changes.');
+      if (!isCurrent()) return null;
+      result = await recover({ isCurrent });
+    } finally {
+      // A forced logout owns its new session's UI/locks; never release those
+      // from an operation started under an earlier identity.
+      if (generation === sessionGeneration) {
+        recoveryInFlight = false;
+        reloadLocked = false;
+        els.workFormSubmissionForm.inert = false;
+      }
+    }
+    if (!isCurrent()) return result;
+    if (result?.status === 'recovered') {
+      await continueReportDraft(result.formId, result.draftKey);
+      if (isCurrent()) await renderDraftList();
+    }
+    return result;
+  }
+
+  function finishRecoveryOnSessionExpiry() {
+    if (!recoveryInFlight) return false;
+    const expiredGeneration = sessionGeneration;
+    const visibleDraft = activeDraftState();
+    if (visibleDraft) {
+      const previous = visibleDraft.snapshot;
+      try {
+        const captured = captureVisibleWorkFormDraft();
+        if (captured && !sameDraftContent(previous, captured)) visibleDraft.revision += 1;
+      } catch {
+        // The previous captured snapshot may still be recoverable. Forced auth
+        // expiry must not leave private UI mounted while waiting for storage.
+      }
+    }
+    const pending = [];
+    for (const draftState of draftStates.values()) {
+      if (!draftState.snapshot || (draftState.revision <= draftState.savedRevision && !draftState.flushPromise)) continue;
+      try {
+        pending.push({ draftState, key: draftState.key, revision: draftState.revision,
+          snapshot: structuredClone(draftState.snapshot), previousWrite: draftState.flushPromise });
+      } catch { /* Best effort only; never postpone clearing private UI. */ }
+    }
+    for (const captured of pending) {
+      void Promise.resolve(captured.previousWrite).catch(() => {}).then(async () => {
+        if (captured.draftState.savedRevision >= captured.revision) return;
+        // An earlier write must settle before this captured version. If the
+        // same slot has already been opened by a new session, do not overwrite
+        // that editor with an expired session's delayed best-effort save.
+        if (sessionGeneration !== expiredGeneration && draftStates.has(captured.key)) return;
+        await saveDraft(captured.key, { ...captured.snapshot, savedAt: new Date().toISOString() });
+      }).catch(() => {});
+    }
+    return true;
   }
 
   async function processPhotoChange(selectedFiles, token, draftState) {
@@ -1281,6 +1387,11 @@ export function createWorkerFormModule({
         fields: reviewed?.form.fields || form.fields || [],
         userId: submittedWorker.id,
         userName: submittedWorker.name,
+        departmentId: submittedWorker.departmentId,
+        ...(submittedDraft.snapshot?.uploadRecovery ? {
+          uploadRecovery: structuredClone(submittedDraft.snapshot.uploadRecovery),
+          clientSubmissionId: submittedDraft.snapshot.uploadRecovery.clientSubmissionId
+        } : {}),
         siteId: (reviewed ? reviewed.site : site)?.id || null,
         siteName: (reviewed ? reviewed.site : site)?.name || 'Unassigned site',
         workDate: evidence?.workDate || els.workFormDate.value,
@@ -1316,7 +1427,7 @@ export function createWorkerFormModule({
       state.workFormPhotoDataUrls = [];
       state.workFormPhotoMetadata = [];
       renderPhotoPreviews([]);
-      await renderSelectedWorkForm({ preserveCurrent: false, skipFlush: true });
+      await renderSelectedWorkForm({ preserveCurrent: false, skipFlush: true, normalDraft: true });
       if (!isCurrentSubmission()) return;
       await syncQueueIfPossible(!result.offline);
       if (!isCurrentSubmission()) return;
@@ -1360,7 +1471,7 @@ export function createWorkerFormModule({
   }
 
   async function keepConflictingDraft() {
-    if (!conflictingDraft || state.submittingWorkForm || reloadLocked) return;
+    if (!conflictingDraft || conflictingDraft.uploadRecovery || state.submittingWorkForm || reloadLocked) return;
     const draft = conflictingDraft;
     const draftState = activeDraftState();
     const generation = sessionGeneration;
@@ -1419,7 +1530,7 @@ export function createWorkerFormModule({
       if (conflictingDraft) void keepConflictingDraft();
     });
     els.workFormSelect.addEventListener('change', () => {
-      void renderSelectedWorkForm();
+      void renderSelectedWorkForm({ normalDraft: true });
     });
     els.workFormPhotos.addEventListener('change', handlePhotoChange);
     els.refreshHistoryButton.addEventListener('click', () => { void renderDraftList({ flush: true }); });
@@ -1448,6 +1559,7 @@ export function createWorkerFormModule({
     templateRequest += 1;
     draftListRequest += 1;
     draftContinueInFlight = false;
+    recoveryInFlight = false;
     if (els.reportDraftsPanel) {
       els.reportDraftsPanel.hidden = true;
       els.reportDraftsList.replaceChildren();
@@ -1458,6 +1570,7 @@ export function createWorkerFormModule({
     selectionToken += 1;
     photoSelectionToken += 1;
     renderedWorkForm = null;
+    renderedDraftKey = '';
     restoringDraft = false;
     setDraftConflict(null);
     reloadLocked = false;
@@ -1490,9 +1603,11 @@ export function createWorkerFormModule({
     clearSessionState,
     focusUnsavedInput,
     flushPendingDrafts,
+    finishRecoveryOnSessionExpiry,
     hasUnsavedInput,
     hasOfflineTemplates,
     prepareForAppUpdate,
+    recoverFailedReport,
     refreshAfterReconnect,
     refreshWorkForms,
     renderDraftList,

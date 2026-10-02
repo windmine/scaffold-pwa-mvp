@@ -813,7 +813,8 @@ check('worker Reports retain the submission engine and expose the report workflo
   && sourceWorkerForm.includes('photoDataUrls: [...state.workFormPhotoDataUrls]')
   && read('assets/js/history.js').includes('workflowStatus: record.workflow_status')
   && read('assets/js/history.js').includes('Final supervisor note:')
-  && read('assets/js/history.js').includes('Submitted: ${formatDateTime(record.createdAt)}')
+  && read('assets/js/history.js').includes('Submitted: ${formatReportSubmissionTime(record.createdAt)}')
+  && read('assets/js/history.js').includes('try { return formatDateTime(value); } catch')
   && sourceWorkFormsUseCase.includes('detail="Report Date is required"')
 ));
 
@@ -1666,6 +1667,35 @@ check('private Supervisor notes have offline shell modules and translated recove
     ['Your note could not be saved. Keep this page open and try again.', /\b(?:note|saved|Keep|page|try)\b/i],
     ['The resolution could not be confirmed. Your note is kept. Refresh Report before trying again.', /\b(?:resolution|confirmed|note|Refresh|Report)\b/i]
   ].every(([source, forbiddenEnglish]) => isCompleteChineseTranslation(i18nTestApi, source, forbiddenEnglish))
+));
+
+check('failed Report recovery has offline shell coverage and translated safety controls', () => (
+  pwaShellCopies('/assets/js/report-upload-recovery.js')
+  && read('package.json').includes('check:report-upload-recovery')
+  && [
+    'Recover as draft',
+    'Checking submission...',
+    'Recovered upload draft. Review before submitting.',
+    'This Report was already submitted. No duplicate draft was created.',
+    'Could not confirm whether this Report was submitted. Your saved copy is unchanged.',
+    'Some photos were omitted during recovery. Review the list and add replacements if needed.',
+    'Reconnect before recovering this Report so we can check it was not already submitted.',
+    'Retry when online, or use Recover as draft to keep your answers and replace invalid photos. We first check whether this Report was already submitted.'
+  ].every((source) => isCompleteChineseTranslation(i18nTestApi, source, /\b(?:Report|draft|Recover|submitted|saved|photos|online)\b/i))
+  && !/Draft restored/.test(i18nTestApi.translateText('Saved at 10:30. Draft restored on this device.', 'zh'))
+));
+
+check('Report oldest-waiting order has offline shell coverage and translated labels', () => (
+  pwaShellCopies('/assets/js/report-review-age.js')
+  && read('package.json').includes('check:report-review-order')
+  && [
+    'Sort order', 'Newest first', 'Oldest waiting', 'Waiting less than 1 minute',
+    'Waiting 1 minute', 'Waiting 23 hours', 'Waiting 2 days',
+    'Time since submission, not Report Date.',
+    'Submitted first, then In review and Resolved; oldest submission first within each workflow.',
+    'Oldest waiting is not supported by this server. Choose Newest first.',
+    'Reports changed while loading. Refresh to continue in the selected order.'
+  ].every((source) => isCompleteChineseTranslation(i18nTestApi, source, /\b(?:Sort|Newest|Oldest|Waiting|Report|Submitted|review|Resolved|submission|workflow|server)\b/i))
 ));
 
 const failures = [];

@@ -15,6 +15,7 @@ import { setDateInputValue } from './date-inputs.js';
 import { setTranslatableText } from './i18n.js';
 import { createPhotoPreviewSources, reportPhotoSources } from './report-photo-evidence.js';
 import { mountReportPhotoGallery } from './report-photo-gallery.js';
+import { reportWaitingAgeLabel } from './report-review-age.js';
 
 function getBackendSiteId(siteId) {
   if (!siteId) return null;
@@ -33,6 +34,11 @@ function compareRecordsNewestFirst(left, right) {
     return rightBackendId - leftBackendId;
   }
   return 0;
+}
+
+function formatReportSubmissionTime(value) {
+  if (typeof value !== 'string' || !value.trim()) return 'Unavailable';
+  try { return formatDateTime(value); } catch { return 'Unavailable'; }
 }
 
 function reportWorkflowStatus(record) {
@@ -349,6 +355,7 @@ export function createHistoryModule({
   handleWorkerEditRecord,
   handleWorkerDeleteRecord,
   handleRetryQueuedRecord,
+  handleRecoverQueuedReport,
   handleDiscardQueuedRecord,
   handleSupervisorEditRecord,
   handleSupervisorTrashRecord,
@@ -838,10 +845,10 @@ export function createHistoryModule({
     const hasFinalNote = reportWorkflowStatus(record) === 'resolved' && !['queued', 'syncing'].includes(record.syncStatus);
     if (record.syncError || cueText || hasFinalNote) {
       const cue = document.createElement('p');
-      cue.className = `record-report-cue${record.syncError ? ' is-warning' : ''}`;
+      cue.className = `record-report-cue${record.syncError && !record.isDraftRecovery ? ' is-warning' : ''}`;
       if (record.syncError || hasFinalNote) {
         const label = document.createElement('span');
-        setTranslatableText(label, record.syncError ? 'Sync needs attention.' : 'Final supervisor note:');
+        setTranslatableText(label, record.isDraftRecovery ? 'Saved copy.' : record.syncError ? 'Sync needs attention.' : 'Final supervisor note:');
         const value = document.createElement('span');
         if (!record.syncError && record.supervisorNote) value.setAttribute('data-no-i18n', '');
         value.textContent = record.syncError || record.supervisorNote || 'No supervisor note was recorded.';
@@ -910,6 +917,7 @@ export function createHistoryModule({
     const onRecordFocus = typeof options?.onRecordFocus === 'function' ? options.onRecordFocus : null;
     const selectedRecordKey = String(options?.selectedRecordKey || '');
     const renderedRecords = new WeakMap();
+    const waitingLabels = [];
     clearRecordsList(container);
     if (!records.length) {
       container.innerHTML = '<div class="empty-state">No records found yet.</div>';
@@ -955,7 +963,7 @@ export function createHistoryModule({
       node.querySelector('.record-meta').textContent = record.isDraftRecovery
         ? `${record.userName || 'Worker'}  |  ${formatDateTime(record.createdAt)}${record.workDate ? `  |  Report Date: ${record.workDate}` : ''}`
         : record.type === 'form'
-        ? `${record.userName || 'Worker'}  |  Submitted: ${formatDateTime(record.createdAt)}${record.workDate ? `  |  Report Date: ${record.workDate}` : ''}`
+        ? `${record.userName || 'Worker'}  |  Submitted: ${formatReportSubmissionTime(record.createdAt)}${record.workDate ? `  |  Report Date: ${record.workDate}` : ''}`
         : `${record.userName || 'Worker'}  |  ${formatDateTime(record.createdAt)}${record.workDate ? `  |  Work date: ${record.workDate}` : ''}${record.entrySource === 'supervisor_manual' ? '  |  Manual entry' : ''}`;
       node.querySelector('.record-detail').textContent = detail;
 
@@ -968,6 +976,18 @@ export function createHistoryModule({
       badge.title = record.type === 'form'
         ? `Report status: ${statusLabel(badgeStatus)}`
         : record.syncStatus ? `Sync: ${record.syncStatus}` : '';
+
+      const waitingAge = reportOnly && state.user?.role === 'supervisor' ? reportWaitingAgeLabel(record) : '';
+      if (waitingAge) {
+        const age = document.createElement('span');
+        age.className = 'report-waiting-age';
+        age.id = `report-waiting-age-${++reportDisclosureId}`;
+        age.title = 'Time since submission, not Report Date.';
+        setTranslatableText(age, waitingAge);
+        node.querySelector('.record-header')?.insertAdjacentElement('afterend', age);
+        if (summaryOnly) node.setAttribute('aria-describedby', age.id);
+        waitingLabels.push({ age, record });
+      }
 
       if (summaryOnly) {
         renderedRecords.set(node, record);
@@ -1069,11 +1089,13 @@ export function createHistoryModule({
         ${record.syncStatus ? `<p><strong>Sync:</strong> ${escapeHtml(record.syncStatus)}</p>` : ''}
         ${record.syncStatus === 'queued' && record.syncError ? `
           <div class="edit-warning" role="alert">
-            <strong>Sync needs attention.</strong>
+            <strong>${record.isDraftRecovery ? 'Saved copy.' : 'Sync needs attention.'}</strong>
             ${escapeHtml(record.syncError)}
             ${record.syncBlockedReason === 'template_changed'
               ? '<p>Your original answers and evidence are kept below. Open New Report and complete the current template. Keep this saved copy until the new report is submitted.</p>'
-              : 'Retry when online. If a photo is rejected, discard this local submission and create it again with a JPEG, PNG, or WebP image under 5 MB.'}
+              : record.isDraftRecovery ? '' : reportOnly && record.type === 'form'
+                ? '<p>Retry when online, or use Recover as draft to keep your answers and replace invalid photos. We first check whether this Report was already submitted.</p>'
+                : 'Retry when online. If a photo is rejected, discard this local submission and create it again with a JPEG, PNG, or WebP image under 5 MB.'}
           </div>
         ` : ''}
         ${signatureSources.length ? `<div class="record-signatures">${signatureSources.map((signature, index) => `
@@ -1148,6 +1170,23 @@ export function createHistoryModule({
         });
 
         if (!record.isDraftRecovery) actions.append(retryButton);
+        if (reportOnly && record.type === 'form' && recordSubmissionPurpose(record) === 'report'
+          && !record.isDraftRecovery && (record.syncError || Number(record.retryCount) > 0)
+          && typeof handleRecoverQueuedReport === 'function') {
+          const recoverySession = sessionGeneration;
+          const workerId = String(state.user?.id || '');
+          const departmentId = String(state.user?.departmentId || '');
+          const recoverButton = document.createElement('button');
+          recoverButton.type = 'button';
+          recoverButton.className = 'secondary';
+          setTranslatableText(recoverButton, 'Recover as draft');
+          recoverButton.addEventListener('click', () => {
+            if (!recoverButton.isConnected || recoverySession !== sessionGeneration || state.user?.role !== 'worker'
+              || String(state.user.id) !== workerId || String(state.user.departmentId || '') !== departmentId) return;
+            void handleRecoverQueuedReport(record, recoverButton);
+          });
+          actions.append(recoverButton);
+        }
         actions.append(discardButton);
       }
 
@@ -1245,6 +1284,25 @@ export function createHistoryModule({
 
       container.appendChild(node);
     });
+    if (waitingLabels.length) {
+      const generation = sessionGeneration;
+      const refreshAges = () => {
+        if (generation !== sessionGeneration || state.user?.role !== 'supervisor') return;
+        const now = Date.now();
+        waitingLabels.forEach(({ age, record }) => {
+          if (age.isConnected) setTranslatableText(age, reportWaitingAgeLabel(record, now));
+        });
+      };
+      // Update text only: preserve keyboard focus, evidence and an unfinished note.
+      const timer = window.setInterval(refreshAges, 60_000);
+      window.addEventListener('focus', refreshAges);
+      document.addEventListener('visibilitychange', refreshAges);
+      registerRecordCleanup(container, () => {
+        window.clearInterval(timer);
+        window.removeEventListener('focus', refreshAges);
+        document.removeEventListener('visibilitychange', refreshAges);
+      });
+    }
   }
 
   function bindEvents() {

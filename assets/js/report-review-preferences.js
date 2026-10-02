@@ -1,10 +1,11 @@
 const SCHEMA_VERSION = 1;
 const MAX_STORED_LENGTH = 1024;
-const FILTER_KEYS = new Set(['status', 'formId', 'workerId', 'date']);
+const FILTER_KEYS = new Set(['status', 'formId', 'workerId', 'date', 'sortOrder']);
 const WORKFLOW_STATES = new Set(['', 'submitted', 'in_review', 'resolved']);
+const SORT_ORDERS = new Set(['newest', 'oldest_waiting']);
 
 function emptyFilters() {
-  return { status: '', formId: '', workerId: '', date: '' };
+  return { status: '', formId: '', workerId: '', date: '', sortOrder: 'newest' };
 }
 
 function identifier(value) {
@@ -34,7 +35,8 @@ function sanitizeFilters(filters) {
     status: WORKFLOW_STATES.has(filters.status) ? filters.status : '',
     formId: identifier(filters.formId),
     workerId: identifier(filters.workerId),
-    date: calendarDate(filters.date)
+    date: calendarDate(filters.date),
+    sortOrder: SORT_ORDERS.has(filters.sortOrder) ? filters.sortOrder : 'newest'
   };
 }
 
