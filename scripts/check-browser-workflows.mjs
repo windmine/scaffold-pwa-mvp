@@ -334,8 +334,29 @@ async function myRecordCount(page) {
   });
 }
 
+async function waitForAsyncCondition(page, predicate, value, { timeout = 30000, polling = 50 } = {}) {
+  const deadline = Date.now() + timeout;
+  const timeoutError = () => new Error('Timeout waiting for an asynchronous browser condition');
+  while (Date.now() < deadline) {
+    let timer;
+    try {
+      // This Playwright build treats a Promise as truthy before its boolean
+      // resolves. Evaluate explicitly and never accept a resolved false handle.
+      const matched = await Promise.race([
+        page.evaluate(predicate, value),
+        new Promise((_resolve, reject) => {
+          timer = setTimeout(() => reject(timeoutError()), Math.max(1, deadline - Date.now()));
+        })
+      ]);
+      if (matched === true) return;
+    } finally { clearTimeout(timer); }
+    await delay(Math.min(polling, Math.max(0, deadline - Date.now())));
+  }
+  throw timeoutError();
+}
+
 async function pageWaitForRecordCount(page, expected) {
-  await page.waitForFunction(async (count) => {
+  await waitForAsyncCondition(page, async (count) => {
     const response = await fetch('/api/my-records', { credentials: 'include' });
     if (!response.ok) return false;
     return (await response.json()).length >= count;
@@ -343,7 +364,7 @@ async function pageWaitForRecordCount(page, expected) {
 }
 
 async function waitForQueueCount(page, expected, { atLeast = false, timeout = 20000 } = {}) {
-  await page.waitForFunction(async ({ value, atLeast }) => {
+  await waitForAsyncCondition(page, async ({ value, atLeast }) => {
     const readExisting = async (name) => {
       if (!(await indexedDB.databases()).some((database) => database.name === name)) return [];
       const db = await new Promise((resolve, reject) => {
@@ -363,10 +384,12 @@ async function waitForQueueCount(page, expected, { atLeast = false, timeout = 20
       } finally { db.close(); }
     };
     const items = new Map((await readExisting('scaffold-pwa-local')).map((item) => [item.id, item]));
-    for (const envelope of await readExisting('scaffold-pwa-report-evidence-v1')) {
-      if (envelope.reportStorageVersion !== 1) continue;
-      if (envelope.deleted) items.delete(envelope.id);
-      else if (envelope.value) items.set(envelope.id, envelope.value);
+    for (const name of ['scaffold-pwa-report-evidence-v1', 'scaffold-pwa-report-recovery-v1']) {
+      for (const envelope of await readExisting(name)) {
+        if (envelope.reportStorageVersion !== 1) continue;
+        if (envelope.deleted) items.delete(envelope.id);
+        else if (envelope.value) items.set(envelope.id, envelope.value);
+      }
     }
     return atLeast ? items.size >= value : items.size === value;
   }, { value: expected, atLeast }, { timeout });
@@ -4217,7 +4240,7 @@ async function checkReportOnlyReplayScope(browser) {
     await waitForReportTemplate(page);
     const automatic = await seedQueue(page, `automatic-${Date.now()}`, true);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    await page.waitForFunction(async (recordId) => {
+    await waitForAsyncCondition(page, async (recordId) => {
       const { get } = await import('/assets/js/db.js');
       return (await get('records', recordId))?.syncStatus === 'synced';
     }, automatic.reportId, { timeout: 20000, polling: 100 });
@@ -4258,7 +4281,7 @@ async function checkReportOnlyReplayScope(browser) {
     ), { timeout: 15000 });
     await manualCard.getByRole('button', { name: 'Retry sync' }).click();
     await manualRequestPromise;
-    await page.waitForFunction(async (recordId) => {
+    await waitForAsyncCondition(page, async (recordId) => {
       const { get } = await import('/assets/js/db.js');
       return (await get('records', recordId))?.syncStatus === 'synced';
     }, manual.reportId, { timeout: 20000, polling: 100 });
@@ -7625,7 +7648,7 @@ async function checkColdOfflineReportReturn(browser) {
     await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
     await page.locator('#workFormField_inspection_area').fill(answer);
     await page.locator('#workFormField_inspection_result').selectOption('Pass');
-    await page.waitForFunction(async () => Boolean(navigator.serviceWorker.controller) && Boolean(await caches.match('/index.html')));
+    await waitForAsyncCondition(page, async () => Boolean(navigator.serviceWorker.controller) && Boolean(await caches.match('/index.html')));
     await page.locator('#workFormAutosaveStatus.saved').waitFor();
     await page.close();
     await context.setOffline(true);
@@ -7669,7 +7692,7 @@ async function checkColdOfflineWorkerLaunch(browser) {
 
   try {
     await loginAs(page, 'worker@example.com', 'worker');
-    await page.waitForFunction(async () => {
+    await waitForAsyncCondition(page, async () => {
       const registration = await navigator.serviceWorker.getRegistration();
       return document.body.dataset.activeView === 'worker'
         && registration?.active?.state === 'activated'
@@ -7854,7 +7877,7 @@ async function checkColdOfflineWorkerLaunch(browser) {
     await captureLocation(page);
     await page.waitForFunction(() => !document.querySelector('#attendancePrimaryButton')?.disabled);
     await page.locator('#attendancePrimaryButton').click();
-    await page.waitForFunction(async (expectedWorkerId) => {
+    await waitForAsyncCondition(page, async (expectedWorkerId) => {
       const { getAll } = await import('/assets/js/db.js');
       const records = await getAll('records');
       return records.some((record) => (
@@ -7948,14 +7971,9 @@ async function checkWorkFormAutosaveAndUpdateProtection(browser) {
   let workerId = '';
 
   const waitForDraftAnswer = async (formId, fieldId, expected) => {
-    await page.waitForFunction(async ({ selectedWorkerId, selectedFormId, selectedFieldId, expectedValue }) => {
-      const { openDb } = await import('/assets/js/db.js');
-      const db = await openDb();
-      const drafts = await new Promise((resolve, reject) => {
-        const request = db.transaction('drafts', 'readonly').objectStore('drafts').getAll();
-        request.onsuccess = () => resolve(request.result || []);
-        request.onerror = () => reject(request.error);
-      }).finally(() => db.close());
+    await waitForAsyncCondition(page, async ({ selectedWorkerId, selectedFormId, selectedFieldId, expectedValue }) => {
+      const { getAll } = await import('/assets/js/db.js');
+      const drafts = await getAll('drafts');
       const expectedKey = `work-form-draft:${selectedWorkerId}:${selectedFormId}`;
       return drafts.some((item) => (
         item.key === expectedKey
@@ -8076,14 +8094,9 @@ async function checkWorkFormAutosaveAndUpdateProtection(browser) {
     await page.locator('#workFormFeedback[role="status"]')
       .getByText('Inspection form submitted for approval.')
       .waitFor({ timeout: 20000 });
-    await page.waitForFunction(async ({ selectedWorkerId, clearedFormId, remainingFormId }) => {
-      const { openDb } = await import('/assets/js/db.js');
-      const db = await openDb();
-      const drafts = await new Promise((resolve, reject) => {
-        const request = db.transaction('drafts', 'readonly').objectStore('drafts').getAll();
-        request.onsuccess = () => resolve(request.result || []);
-        request.onerror = () => reject(request.error);
-      }).finally(() => db.close());
+    await waitForAsyncCondition(page, async ({ selectedWorkerId, clearedFormId, remainingFormId }) => {
+      const { getAll } = await import('/assets/js/db.js');
+      const drafts = await getAll('drafts');
       return !drafts.some((item) => item.key === `work-form-draft:${selectedWorkerId}:${clearedFormId}`)
         && drafts.some((item) => item.key === `work-form-draft:${selectedWorkerId}:${remainingFormId}`)
         && drafts.some((item) => item.key === `work-form-draft:foreign-worker:${clearedFormId}`);

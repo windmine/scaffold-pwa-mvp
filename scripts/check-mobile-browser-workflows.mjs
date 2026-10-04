@@ -658,7 +658,7 @@ check('Work Form drafts autosave per Worker and form before app updates', () => 
   && sourceWorkerForm.includes('prepareForAppUpdate')
   && sourceWorkerForm.includes("window.addEventListener('beforeunload'")
   && sourceWorkerForm.includes('els.workFormFields.inert = true')
-  && sourceApp.includes('await workerForm.flushPendingDrafts()')
+  && sourceApp.includes('await workerForm.flushPendingDrafts({ cancelPhotoSelection: true })')
   && sourceApp.includes('await workerForm.prepareForAppUpdate()')
   && sourceApp.indexOf('await workerForm.prepareForAppUpdate()')
     < sourceApp.indexOf("worker.postMessage({ type: 'SKIP_WAITING' })")
@@ -1672,6 +1672,8 @@ check('private Supervisor notes have offline shell modules and translated recove
 check('failed Report recovery has offline shell coverage and translated safety controls', () => (
   pwaShellCopies('/assets/js/report-upload-recovery.js')
   && read('package.json').includes('check:report-upload-recovery')
+  && read('package.json').includes('report-recovery-compatibility-test.mjs')
+  && read('assets/js/db.js').includes('scaffold-pwa-report-recovery-v1')
   && [
     'Recover as draft',
     'Checking submission...',
@@ -1679,6 +1681,7 @@ check('failed Report recovery has offline shell coverage and translated safety c
     'This Report was already submitted. No duplicate draft was created.',
     'Could not confirm whether this Report was submitted. Your saved copy is unchanged.',
     'Some photos were omitted during recovery. Review the list and add replacements if needed.',
+    'This pre-release recovery copy is read-only. Keep the original photos and contact your Supervisor.',
     'Reconnect before recovering this Report so we can check it was not already submitted.',
     'Retry when online, or use Recover as draft to keep your answers and replace invalid photos. We first check whether this Report was already submitted.'
   ].every((source) => isCompleteChineseTranslation(i18nTestApi, source, /\b(?:Report|draft|Recover|submitted|saved|photos|online)\b/i))
@@ -1696,6 +1699,26 @@ check('Report oldest-waiting order has offline shell coverage and translated lab
     'Oldest waiting is not supported by this server. Choose Newest first.',
     'Reports changed while loading. Refresh to continue in the selected order.'
   ].every((source) => isCompleteChineseTranslation(i18nTestApi, source, /\b(?:Sort|Newest|Oldest|Waiting|Report|Submitted|review|Resolved|submission|workflow|server)\b/i))
+));
+
+check('Report storage warnings have offline shell coverage and translated recovery guidance', () => (
+  pwaShellCopies('/assets/js/report-storage-budget.js')
+  && hasFile('dist/assets/js/report-storage-budget.js')
+  && read('package.json').includes('check:report-storage')
+  && sourceIndex.includes('id="workFormStorageWarning"')
+  && sourceIndex.includes('id="workFormStorageRetryButton"')
+  && sourceIndex.includes('id="reportLocalStorageGuidance"')
+  && [
+    'Check photo storage', 'Checking photo storage...', 'Add photos anyway', 'Choose fewer photos', 'Try saving again',
+    'Browser storage limit reached. Your latest changes are not saved.',
+    'Storage stopped this submission. Keep this page open and check My Reports before trying again.',
+    'Local drafts and queued Reports are not backups. Browser storage can be cleared or evicted under pressure. Keep original photos until submission is confirmed in My Reports.',
+    ...[
+      'Browser storage may be low. This photo batch may not save.',
+      'Large photo batch. Saving may fail even when the browser reports storage space.',
+      'Storage space could not be checked. This large photo batch may not save.'
+    ].map((reason) => `${reason} Choose fewer photos or free space elsewhere on your device. Do not clear this app's site data. Keep original photos and keep this page open if saving fails. Local drafts are not backups.`)
+  ].every((source) => isCompleteChineseTranslation(i18nTestApi, source, /\b(?:storage|photos|drafts|saved|Choose|Keep|Reports|backups|submission)\b/i))
 ));
 
 const failures = [];

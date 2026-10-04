@@ -1,8 +1,9 @@
-import { getWorkForms as getBackendWorkForms } from './api-client.js';
+import { getWorkForms as getBackendWorkForms, getSession } from './api-client.js';
 import { getDraft, getDraftEntries, saveDraft } from './mock-api.js';
 import { isReportDraftForWorker, reportDraftKeyForWorker, summarizeReportDrafts } from './report-drafts.js';
 import { createPhotoPreviewSources, reportPhotoSources, restoreReportPhotoEvidence } from './report-photo-evidence.js';
 import { renderReportSubmitReview } from './report-submit-review.js';
+import { estimateReportPhotoStorage, isStorageQuotaError } from './report-storage-budget.js';
 import {
   saveWorkerReportTemplateSnapshot,
   loadWorkerReportTemplateSnapshot,
@@ -26,6 +27,13 @@ import {
 const WORK_FORM_DRAFT_PREFIX = 'work-form-draft';
 const WORK_FORM_DRAFT_SCHEMA_VERSION = 1;
 const AUTOSAVE_DELAY_MS = 650;
+const STORAGE_GUIDANCE = "Choose fewer photos or free space elsewhere on your device. Do not clear this app's site data. Keep original photos and keep this page open if saving fails.";
+const STORAGE_SUBMISSION_GUIDANCE = 'Connect and submit when possible, then confirm Submitted in My Reports. Submission also needs local storage first.';
+const STORAGE_REASONS = {
+  low: 'Browser storage may be low. This photo batch may not save.',
+  large: 'Large photo batch. Saving may fail even when the browser reports storage space.',
+  unknown: 'Storage space could not be checked. This large photo batch may not save.'
+};
 
 function workFormDraftKey(workerId, formId) {
   return `${WORK_FORM_DRAFT_PREFIX}:${workerId}:${formId}`;
@@ -65,6 +73,8 @@ export function createWorkerFormModule({
   renderHistory,
   handleSessionExpired,
   isBackendSessionError,
+  confirmAction = async () => false,
+  cancelPhotoConfirmation = () => {},
   reportOnly = false,
   onContinueDraft = () => {},
   onReportTemplateSourceChanged = () => {},
@@ -84,6 +94,13 @@ export function createWorkerFormModule({
   let reloadLocked = false;
   let submissionControlStates = [];
   let photoSelectionToken = 0;
+  let photoStorageGeneration = 0;
+  let photoStoragePending = 0;
+  let photoStorageDecisionOpen = false;
+  let storageNotice = null;
+  const storageWarning = els.workFormSubmissionForm.querySelector('#workFormStorageWarning');
+  const storageRetry = els.workFormSubmissionForm.querySelector('#workFormStorageRetryButton');
+  const localStorageGuidance = els.workFormSubmissionForm.querySelector('#reportLocalStorageGuidance');
   let photoPreviewSources = createPhotoPreviewSources([]);
   let submissionReview = null;
   state.workFormPhotoBlobs ||= [];
@@ -134,10 +151,44 @@ export function createWorkerFormModule({
       ? `Saved at ${time}.${restored ? ' Draft restored on this device.' : ''}`
       : 'Draft saved on this device.';
     setAutosaveStatus(message, 'saved', savedAt || '');
+    if (storageNotice?.saveFailed) {
+      storageNotice = { message: 'Latest changes saved on this device. Storage may still be limited.', saveFailed: false };
+      renderStorageNotice();
+    }
   }
 
-  function showDraftSaveError() {
-    setAutosaveStatus('Changes not saved. Keep this page open and try again.', 'error');
+  function showDraftSaveError(error = activeDraftState()?.error) {
+    const quota = formPurpose(renderedWorkForm) === 'report' && isStorageQuotaError(error);
+    setAutosaveStatus(quota
+      ? 'Not saved: browser storage limit reached. Keep this page open.'
+      : 'Changes not saved. Keep this page open and try again.', 'error');
+    if (formPurpose(renderedWorkForm) === 'report') {
+      storageNotice = { message: quota
+        ? 'Browser storage limit reached. Your latest changes are not saved.'
+        : 'Your latest changes could not be saved on this device.', saveFailed: true };
+      renderStorageNotice();
+    }
+  }
+
+  function renderStorageNotice() {
+    if (!storageWarning) return;
+    storageWarning.hidden = !storageNotice || formPurpose(renderedWorkForm) !== 'report';
+    if (storageWarning.hidden) return;
+    setTranslatableText(storageWarning.querySelector('[data-storage-message]'), storageNotice.message);
+    setTranslatableText(storageWarning.querySelector('[data-storage-guidance]'), STORAGE_GUIDANCE);
+    setTranslatableText(storageWarning.querySelector('[data-storage-submission]'), STORAGE_SUBMISSION_GUIDANCE);
+    if (storageRetry) {
+      storageRetry.hidden = !storageNotice.saveFailed;
+      storageRetry.disabled = Boolean(reloadLocked || state.submittingWorkForm || photoProcessing.pending || conflictingDraft);
+    }
+  }
+
+  function cancelPendingPhotoCheck() {
+    photoStorageGeneration += 1;
+    if (photoStorageDecisionOpen) {
+      photoStorageDecisionOpen = false;
+      cancelPhotoConfirmation();
+    }
   }
 
   function renderWorkFormOptions() {
@@ -281,9 +332,11 @@ export function createWorkerFormModule({
   }
 
   async function persistDraftState(draftState) {
+    const writeGeneration = sessionGeneration;
     if (!draftState || draftState.savedRevision >= draftState.revision) return;
     if (draftState.flushPromise) {
       await draftState.flushPromise;
+      if (writeGeneration !== sessionGeneration) return;
       if (draftState.savedRevision < draftState.revision) await persistDraftState(draftState);
       return;
     }
@@ -291,6 +344,10 @@ export function createWorkerFormModule({
     draftState.flushPromise = (async () => {
       while (draftState.savedRevision < draftState.revision) {
         await waitForDraftPhotos(draftState);
+        // Forced expiry can release a held photo preflight after the same
+        // Worker has signed back in. The captured best-effort expiry write owns
+        // that old snapshot; this retired autosave must not overwrite a new one.
+        if (writeGeneration !== sessionGeneration) return;
         if (activeDraftState() === draftState) captureVisibleWorkFormDraft();
         if (!draftState.snapshot) throw new Error('Could not capture this Report draft.');
 
@@ -315,7 +372,7 @@ export function createWorkerFormModule({
       void renderDraftList();
     } catch (error) {
       draftState.error = error;
-      if (activeDraftState() === draftState) showDraftSaveError();
+      if (activeDraftState() === draftState) showDraftSaveError(error);
       throw error;
     } finally {
       draftState.flushPromise = null;
@@ -341,7 +398,10 @@ export function createWorkerFormModule({
     }
   }
 
-  async function flushPendingDrafts() {
+  async function flushPendingDrafts({ cancelPhotoSelection = false } = {}) {
+    // Unaccepted picker batches are not draft evidence. Departure cancels them
+    // before waiting on autosave, rather than waiting on a hidden user choice.
+    if (cancelPhotoSelection) cancelPendingPhotoCheck();
     if (recoveryInFlight) throw new Error('Wait for Report recovery to finish.');
     if (state.submittingWorkForm) {
       throw new Error('Wait for the Report submission to finish.');
@@ -370,7 +430,7 @@ export function createWorkerFormModule({
     }
 
     try {
-      await flushPendingDrafts();
+      await flushPendingDrafts({ cancelPhotoSelection: true });
     } catch {
       return {
         safe: false,
@@ -491,8 +551,10 @@ export function createWorkerFormModule({
     photoViewer.renderPreviews(signatures, localAnswerImageSources(draft.answers), 'Signature');
     els.workFormFields.append(signatures);
     renderPhotoPreviews(reportPhotoSources(draft), draft.photoMetadata || []);
-    setAutosaveStatus('Saved draft is read-only because the Report Template changed.', 'error');
-    renderStatusBanner(draft.uploadRecovery
+    const legacyRecoveryMessage = 'This pre-release recovery copy is read-only. Keep the original photos and contact your Supervisor.';
+    setAutosaveStatus(draft.recoveryStorageReadOnly ? legacyRecoveryMessage
+      : 'Saved draft is read-only because the Report Template changed.', 'error');
+    renderStatusBanner(draft.recoveryStorageReadOnly ? legacyRecoveryMessage : draft.uploadRecovery
       ? 'Report Template changed. This recovered draft is kept read-only in My Reports. Nothing will be submitted automatically.'
       : 'Report Template changed. Keep this draft in My Reports before starting a new report. Nothing will be submitted automatically.', true, {
       local: els.workFormFeedback,
@@ -501,6 +563,9 @@ export function createWorkerFormModule({
   }
 
   function resetDraftSurface() {
+    cancelPendingPhotoCheck();
+    storageNotice = null;
+    if (storageWarning) storageWarning.hidden = true;
     photoSelectionToken += 1;
     setDraftConflict(null);
     els.workFormSite.value = '';
@@ -580,6 +645,8 @@ export function createWorkerFormModule({
     els.workFormPhotoPreview.querySelectorAll('[data-remove-report-photo]').forEach((button) => {
       button.disabled = disabled;
     });
+    if (storageRetry) storageRetry.disabled = disabled;
+    if (localStorageGuidance) localStorageGuidance.hidden = formPurpose(renderedWorkForm) !== 'report';
     if (els.workFormPhotoLimit) {
       setTranslatableText(els.workFormPhotoLimit, `Up to ${photoLimit()} photos. You can select them together.`);
     }
@@ -624,6 +691,10 @@ export function createWorkerFormModule({
         state.workFormPhotoDataUrls = nextDataUrls;
         state.workFormPhotoMetadata = nextMetadata;
         els.workFormPhotos.value = '';
+        if (!storageNotice?.saveFailed) {
+          storageNotice = null;
+          if (storageWarning) storageWarning.hidden = true;
+        }
         feedback.clearLocal(els.workFormFeedback);
         markActiveDraftDirty();
         updatePhotoRemovalControls();
@@ -716,7 +787,7 @@ export function createWorkerFormModule({
       ? draft.uploadRecovery ? NaN : 1
       : ['number', 'string'].includes(typeof draft.definitionVersion) ? Number(draft.definitionVersion) : NaN;
     if (formPurpose(form) === 'report' && (
-      !Number.isSafeInteger(draftVersion) || draftVersion <= 0 || draftVersion !== definitionVersion(form)
+      draft.recoveryStorageReadOnly || !Number.isSafeInteger(draftVersion) || draftVersion <= 0 || draftVersion !== definitionVersion(form)
     )) {
       showConflictingDraft(draft, draftState);
       return;
@@ -757,6 +828,7 @@ export function createWorkerFormModule({
     // reset (skipFlush) may replace that locked surface.
     const externallyLocked = () => options.skipFlush !== true && (reloadLocked || state.submittingWorkForm);
     if (externallyLocked()) return;
+    cancelPendingPhotoCheck();
     const requestedFormId = els.workFormSelect.value;
     const requestedDraftKey = options.draftKey || (options.normalDraft !== true
       && String(renderedWorkForm?.id) === String(requestedFormId) && renderedDraftKey)
@@ -944,7 +1016,8 @@ export function createWorkerFormModule({
             <h4 data-no-i18n>${escapeHtml(draft.formName)}</h4>
             <p><span>Report Date</span>: <span data-no-i18n>${escapeHtml(draft.workDate || '-')}</span></p>
             <p><span>Last saved</span>: <span data-no-i18n>${escapeHtml(formatDateTime(draft.savedAt))}</span></p>
-            ${draft.recovered ? '<p class="muted">Recovered upload draft. Review before submitting.</p>' : ''}
+            ${draft.recovered && draft.availability !== 'storage_incompatible' ? '<p class="muted">Recovered upload draft. Review before submitting.</p>' : ''}
+            ${draft.availability === 'storage_incompatible' ? '<p class="muted">This pre-release recovery copy is read-only. Keep the original photos and contact your Supervisor.</p>' : ''}
             ${draft.availability === 'template_changed' ? '<p class="muted">Report Template changed. Review the saved draft before starting a new Report.</p>' : ''}
             ${draft.availability === 'unavailable' ? '<p class="muted">Report Template unavailable. Connect and refresh, or ask your supervisor.</p>' : ''}
           </div>`;
@@ -1025,6 +1098,7 @@ export function createWorkerFormModule({
       throw new Error('This upload belongs to another Worker or Department.');
     }
     recoveryInFlight = true;
+    cancelPendingPhotoCheck();
     reloadLocked = true;
     els.workFormSubmissionForm.inert = true;
     let result;
@@ -1051,7 +1125,8 @@ export function createWorkerFormModule({
   }
 
   function finishRecoveryOnSessionExpiry() {
-    if (!recoveryInFlight) return false;
+    if (!recoveryInFlight && !photoStoragePending) return false;
+    cancelPendingPhotoCheck();
     const expiredGeneration = sessionGeneration;
     const visibleDraft = activeDraftState();
     if (visibleDraft) {
@@ -1085,8 +1160,19 @@ export function createWorkerFormModule({
     return true;
   }
 
-  async function processPhotoChange(selectedFiles, token, draftState) {
-    const isCurrent = () => token === photoSelectionToken && activeDraftState()?.key === draftState?.key;
+  async function processPhotoChange(selectedFiles, token, draftState, scope) {
+    const sameSavedIdentity = () => {
+      try {
+        const current = getSession();
+        return current?.role === 'worker' && current.status === 'active'
+          && String(current.id) === scope.workerId
+          && String(current.departmentId || '') === scope.departmentId;
+      } catch { return false; }
+    };
+    const isCurrent = () => token === photoSelectionToken && activeDraftState() === draftState
+      && scope.generation === sessionGeneration && state.user?.role === 'worker'
+      && String(state.user.id) === scope.workerId && String(state.user.departmentId || '') === scope.departmentId
+      && (formPurpose(renderedWorkForm) !== 'report' || sameSavedIdentity());
     if (!isCurrent()) return;
     const limit = photoLimit();
     const remainingSlots = Math.max(0, limit - currentPhotoSources().length);
@@ -1126,6 +1212,43 @@ export function createWorkerFormModule({
     }
 
     try {
+      if (useBlobs) {
+        const canAdd = () => isCurrent() && scope.storageGeneration === photoStorageGeneration;
+        if (!canAdd()) return;
+        setPhotoStatus('Checking photo storage...');
+        const signatures = localAnswerImageSources(collectWorkFormAnswers(renderedWorkForm, {
+          container: els.workFormFields, validate: false
+        }));
+        const budget = await estimateReportPhotoStorage(files, [...currentPhotoSources(), ...signatures]);
+        if (!canAdd()) return;
+        if (budget.warning) {
+          const reason = STORAGE_REASONS[budget.warning];
+          storageNotice = { message: reason, saveFailed: Boolean(storageNotice?.saveFailed) };
+          renderStorageNotice();
+          photoStorageDecisionOpen = true;
+          let accepted;
+          try {
+            accepted = await confirmAction({
+              title: 'Check photo storage',
+              message: `${reason} ${STORAGE_GUIDANCE} Local drafts are not backups.`,
+              confirmLabel: 'Add photos anyway',
+              cancelLabel: 'Choose fewer photos'
+            });
+          } finally {
+            if (scope.generation === sessionGeneration) photoStorageDecisionOpen = false;
+          }
+          if (!canAdd()) return;
+          if (!accepted) {
+            storageNotice = { message: 'No photos from this batch were added. Choose a smaller batch when ready.', saveFailed: Boolean(storageNotice?.saveFailed) };
+            renderStorageNotice();
+            showPhotoSelectionFeedback(0, rejected);
+            return;
+          }
+        } else if (!storageNotice?.saveFailed) {
+          storageNotice = null;
+          if (storageWarning) storageWarning.hidden = true;
+        }
+      }
       const dataUrls = [];
       // Reports keep exact File bytes; retained Daywork reads sequentially.
       // Append atomically only after the replacement gallery is available.
@@ -1181,9 +1304,13 @@ export function createWorkerFormModule({
     if (!draftState || !files.length) return;
     markActiveDraftDirty({ capture: false });
     const token = photoSelectionToken;
+    const scope = { generation: sessionGeneration, storageGeneration: photoStorageGeneration,
+      workerId: String(state.user?.id), departmentId: String(state.user?.departmentId || '') };
+    const reportPhotos = formPurpose(renderedWorkForm) === 'report';
+    if (reportPhotos) photoStoragePending += 1;
     // Complete selections in order. A second picker event must not cancel an
     // earlier read, and both belong to the same guarded Worker/Template surface.
-    const promise = photoProcessing.promise.catch(() => {}).then(() => processPhotoChange(files, token, draftState));
+    const promise = photoProcessing.promise.catch(() => {}).then(() => processPhotoChange(files, token, draftState, scope));
     photoProcessing = {
       key: draftState?.key || '',
       pending: true,
@@ -1194,9 +1321,10 @@ export function createWorkerFormModule({
     void promise
       .catch((error) => {
         if (photoProcessing.promise === promise) photoProcessing.error = error;
-        if (activeDraftState()?.key === draftState?.key) showDraftSaveError();
+        if (scope.generation === sessionGeneration && activeDraftState() === draftState) showDraftSaveError(error);
       })
       .finally(() => {
+        if (reportPhotos && scope.generation === sessionGeneration) photoStoragePending -= 1;
         if (photoProcessing.promise === promise) {
           photoProcessing.pending = false;
           updatePhotoRemovalControls();
@@ -1454,8 +1582,19 @@ export function createWorkerFormModule({
         return;
       }
       if (submissionReview) clearSubmissionReview({ focus: true });
+      const storageSubmissionError = isStorageQuotaError(error);
+      if (storageSubmissionError) {
+        const unsaved = submittedDraft.savedRevision < submittedDraft.revision;
+        if (unsaved) showDraftSaveError(error);
+        // A quota error can also occur after an upload or final response while
+        // checkpointing. Do not claim nothing reached the server or that an
+        // already-saved draft was lost; reconciliation precedes another try.
+        storageNotice = { message: 'Storage stopped this submission. Keep this page open and check My Reports before trying again.', saveFailed: unsaved };
+        renderStorageNotice();
+      }
       const invalidField = error.fieldId ? document.getElementById(error.fieldId) : null;
-      renderStatusBanner(error.message || 'Could not submit Report.', true, {
+      renderStatusBanner(storageSubmissionError
+        ? storageNotice.message : error.message || 'Could not submit Report.', true, {
         local: els.workFormFeedback,
         field: invalidField,
         tone: 'error'
@@ -1520,6 +1659,18 @@ export function createWorkerFormModule({
   }
 
   function bindEvents() {
+    storageRetry?.addEventListener('click', async () => {
+      if (storageRetry.disabled || reloadLocked || state.submittingWorkForm || photoProcessing.pending || conflictingDraft) return;
+      const draft = activeDraftState();
+      const generation = sessionGeneration;
+      storageRetry.disabled = true;
+      try { await flushActiveDraft(); }
+      catch (error) {
+        if (generation === sessionGeneration && activeDraftState() === draft) showDraftSaveError(error);
+      } finally {
+        if (generation === sessionGeneration && activeDraftState() === draft) updatePhotoRemovalControls();
+      }
+    });
     els.workFormSubmissionForm.addEventListener('submit', handleSubmit);
     els.confirmWorkFormSubmitButton?.addEventListener('click', (event) => { void handleSubmit(event, { confirmed: true }); });
     els.workFormReviewBackButton?.addEventListener('click', () => {
@@ -1555,7 +1706,11 @@ export function createWorkerFormModule({
   }
 
   function clearSessionState() {
+    cancelPendingPhotoCheck();
     sessionGeneration += 1;
+    photoStoragePending = 0;
+    storageNotice = null;
+    if (storageWarning) storageWarning.hidden = true;
     templateRequest += 1;
     draftListRequest += 1;
     draftContinueInFlight = false;

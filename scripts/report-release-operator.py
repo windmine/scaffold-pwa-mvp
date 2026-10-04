@@ -6,6 +6,12 @@ No URL/password/token is written, printed or passed in command-line arguments.
 Stage environment: REPORT_RELEASE_STAGE_DATABASE_URL and
 REPORT_RELEASE_STAGE_METADATA JSON {branch: {...}, endpoint: {...}} from Neon.
 This does not authorize a production migration, maintenance or Hosting promotion.
+
+The default required mode retains the September 29 0021-to-0022/backfill gate.
+Explicit --migration-mode none requires the full exact candidate ledger, creates
+a check-only job, and uses stage-resources -> stage-check -> stage-service with
+no stage-migrate phase. Its before/after checks compare all observed inventory
+fields except the read timestamp, without assuming untouched auth generations.
 """
 import argparse
 import copy
@@ -196,12 +202,13 @@ def staging_spec(baseline, resource_names, image):
     return result
 
 
-def job_document(baseline, resource_names, image):
+def job_document(baseline, resource_names, image, migration_mode="required"):
+    require(migration_mode in {"required", "none"}, "invalid_migration_mode")
     runtime = staging_spec(baseline, resource_names, image)
     container = runtime["containers"][0]
     for field in ("ports", "startupProbe", "livenessProbe"):
         container.pop(field, None)
-    container.update(command=["python"], args=["-m", "app.migrations"])
+    container.update(command=["python"], args=["-m", "app.migrations", *(["--check"] if migration_mode == "none" else [])])
     runtime.pop("containerConcurrency", None)
     runtime.update(maxRetries=0, timeoutSeconds="300")
     return {"apiVersion": "run.googleapis.com/v1", "kind": "Job", "metadata": {"name": resource_names["job"]},
@@ -299,6 +306,53 @@ def stage_identity(args, baseline):
 def verify_resources(proof, args, artifact, branch, resource_names):
     require(proof.get("runId") == args.run_id and proof.get("artifact") == artifact
             and proof.get("branch") == branch and proof.get("resources") == resource_names, "stage_proof_identity_mismatch")
+    require(proof_migration_mode(proof) == getattr(args, "migration_mode", "required"), "stage_proof_migration_mode_mismatch")
+
+
+def proof_migration_mode(proof):
+    # Existing September 29 proofs predate this field and remain required-mode
+    # proofs. Omission must never authorize the new check-only path.
+    mode = proof.get("migrationMode", "required")
+    require(mode in {"required", "none"}, "invalid_proof_migration_mode")
+    return mode
+
+
+def candidate_ledger():
+    return {path.stem: hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in sorted((ROOT / "backend/migrations/versions").glob("[0-9]*.py"))}
+
+
+def assert_full_candidate_inventory(value):
+    ledger = candidate_ledger()
+    require(bool(ledger) and value.get("schemaVersion") == 1 and value.get("status") == "passed"
+            and value.get("transactionReadOnly") is True and value.get("ledgerMatchesBundledPrefix") is True
+            and value.get("ledgerVersionPrefixMatches") is True and value.get("ledgerChecksumMismatches") == []
+            and value.get("migrationChecksums") == ledger and value.get("migrationCount") == len(ledger)
+            and value.get("migrationHead") == next(reversed(ledger)), "no_migration_requires_exact_full_candidate_ledger")
+    require(all(re.fullmatch(r"[0-9a-f]{64}", value.get(key, ""))
+                for key in ("immutableSubmissionsSha256", "accountCredentialsSha256"))
+            and all(type(value.get(key)) is int and value[key] >= 0
+                    for key in ("submissionCount", "templateCount", "auditCount"))
+            and isinstance(value.get("userCounts"), list) and isinstance(value.get("missingSnapshots"), list)
+            and bool(value.get("immutableSubmissionColumns")) and isinstance(value.get("recoverySchema"), dict),
+            "complete_no_migration_inventory_required")
+
+
+def assert_no_migration_preserved(before, after):
+    assert_full_candidate_inventory(before)
+    assert_full_candidate_inventory(after)
+    # Compare every observed field, including credentials, evidence, recovery
+    # generations/counts and audit counts. Only the read timestamp may differ.
+    stable = lambda value: {key: item for key, item in value.items() if key != "recordedAtUtc"}
+    require(stable(before) == stable(after), "stage_check_changed_existing_data")
+
+
+def assert_stage_preserved(before, after, migration_mode):
+    if migration_mode == "none":
+        assert_no_migration_preserved(before, after)
+    else:
+        require(migration_mode == "required", "invalid_migration_mode")
+        assert_preserved(before, after)
 
 
 def assert_preserved(before, after):
@@ -314,7 +368,7 @@ def assert_preserved(before, after):
             and after["migrationHead"] == "0022_worker_password_recovery", "unexpected_stage_migration_result")
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=("snapshot", "stage-plan", "stage-resources", "stage-migrate", "stage-check", "stage-service"))
     parser.add_argument("--evidence", type=Path, required=True)
@@ -328,13 +382,18 @@ def main():
     parser.add_argument("--source-commit")
     parser.add_argument("--image")
     parser.add_argument("--allow-stage-mutations", action="store_true")
-    args = parser.parse_args()
+    parser.add_argument("--migration-mode", choices=("required", "none"), default="required",
+                        help="required preserves the September 29 migration/backfill gate; none requires the exact full ledger and a check-only job")
+    args = parser.parse_args(argv)
+    require(not (args.migration_mode == "none" and args.phase == "stage-migrate"), "no_migration_mode_refuses_stage_migrate")
+    require(not (args.migration_mode == "none" and args.migration_proof), "no_migration_mode_refuses_migration_proof")
     require(not args.resume_service_proof or args.phase == "stage-service", "resume_only_for_stage_service")
     require(not args.evidence.exists(), "new_evidence_required")
     args.evidence.parent.mkdir(parents=True, exist_ok=True)
     # Reserve one new evidence file before any remote action; update only our own
     # file, preserving attempted resources even on uncertain command outcomes.
-    evidence = {"schemaVersion": 1, "phase": args.phase, "status": "started", "startedAtUtc": now(), "attempts": []}
+    evidence = {"schemaVersion": 1, "phase": args.phase, "migrationMode": args.migration_mode,
+                "status": "started", "startedAtUtc": now(), "attempts": []}
     with args.evidence.open("x", encoding="utf-8") as file:
         json.dump(evidence, file)
     def save():
@@ -347,23 +406,30 @@ def main():
             live = live_snapshot()
             url = read_secret("geo-backend-database-url", "2")
             evidence.update(live=live, databaseHostSha256=sha(validate_url(url)), inventory=inventory(url))
+            if args.migration_mode == "none":
+                assert_full_candidate_inventory(evidence["inventory"])
             same_live(evidence)
         else:
             require(args.snapshot, "snapshot_required")
             baseline = read_proof(args.snapshot, "snapshot")
+            if args.migration_mode == "none":
+                assert_full_candidate_inventory(baseline.get("inventory", {}))
             same_live(baseline)
             resource_names, artifact, url, branch = stage_identity(args, baseline)
             evidence.update(runId=args.run_id, resources=resource_names, artifact=artifact, branch=branch,
                             baselineSha256=sha(baseline))
             if args.phase == "stage-plan":
-                evidence.update(job=job_document(baseline, resource_names, artifact["image"]),
+                evidence.update(job=job_document(baseline, resource_names, artifact["image"], args.migration_mode),
                                 service=service_document(baseline, resource_names, artifact["image"]))
             else:
                 require(args.allow_stage_mutations, "explicit_staging_mutation_flag_required")
                 if args.phase == "stage-resources":
                     assert_new_resources(resource_names)
                     evidence["beforeInventory"] = inventory(url)
-                    require(evidence["beforeInventory"]["migrationHead"] == "0021_worker_invitations", "stage_not_at_production_baseline")
+                    if args.migration_mode == "none":
+                        assert_full_candidate_inventory(evidence["beforeInventory"])
+                    else:
+                        require(evidence["beforeInventory"]["migrationHead"] == "0021_worker_invitations", "stage_not_at_production_baseline")
                     for key, secret_value in (("databaseSecret", url), ("jwtSecret", secrets.token_urlsafe(48))):
                         secret_name = resource_names[key]
                         attempt(f"create_secret:{secret_name}")
@@ -376,33 +442,44 @@ def main():
                               "--role", "roles/secretmanager.secretAccessor")
                     attempt(f"create_job:{resource_names['job']}")
                     cloud("run", "jobs", "replace", "-", "--region", REGION,
-                          input_text=json.dumps(job_document(baseline, resource_names, artifact["image"])))
+                          input_text=json.dumps(job_document(baseline, resource_names, artifact["image"], args.migration_mode)))
                 else:
                     require(args.resources_proof, "resources_proof_required")
                     resources = read_proof(args.resources_proof, "stage-resources")
                     verify_resources(resources, args, artifact, branch, resource_names)
+                    require(resources.get("baselineSha256") == sha(baseline), "stage_resource_baseline_mismatch")
+                    evidence["resourcesProofSha256"] = sha(resources)
+                    if args.migration_mode == "none":
+                        assert_full_candidate_inventory(resources.get("beforeInventory", {}))
                     current_job = cloud("run", "jobs", "describe", resource_names["job"], "--region", REGION)
-                    expected_job = job_document(baseline, resource_names, artifact["image"])["spec"]["template"]["spec"]
+                    expected_job = job_document(baseline, resource_names, artifact["image"], args.migration_mode)["spec"]["template"]["spec"]
                     actual = current_job["spec"]["template"]["spec"]
                     require(actual == expected_job, "stage_job_configuration_drift")
                     if args.phase in {"stage-migrate", "stage-check"}:
-                        if args.phase == "stage-check":
+                        if args.phase == "stage-check" and args.migration_mode == "required":
                             require(args.migration_proof, "migration_proof_required")
                             migrated = read_proof(args.migration_proof, "stage-migrate")
                             verify_resources(migrated, args, artifact, branch, resource_names)
+                        if args.migration_mode == "none":
+                            assert_no_migration_preserved(resources["beforeInventory"], inventory(url))
                         attempt(f"execute_job:{args.phase}")
-                        extra = ["--args=-m,app.migrations,--check"] if args.phase == "stage-check" else []
+                        extra = ["--args=-m,app.migrations,--check"] if args.phase == "stage-check" and args.migration_mode == "required" else []
                         result = cloud("run", "jobs", "execute", resource_names["job"], "--region", REGION, "--wait", *extra)
                         require(any(item.get("type") == "Completed" and item.get("status") == "True"
                                     for item in result.get("status", {}).get("conditions", [])), "stage_execution_not_successful")
                         evidence["execution"] = result["metadata"]["name"]
                         evidence["afterInventory"] = inventory(url)
-                        assert_preserved(resources["beforeInventory"], evidence["afterInventory"])
+                        assert_stage_preserved(resources["beforeInventory"], evidence["afterInventory"], args.migration_mode)
                     else:
                         require(args.check_proof, "migration_check_proof_required")
                         checked = read_proof(args.check_proof, "stage-check")
                         verify_resources(checked, args, artifact, branch, resource_names)
-                        assert_preserved(resources["beforeInventory"], inventory(url))
+                        if args.migration_mode == "none":
+                            require(checked.get("resourcesProofSha256") == sha(resources)
+                                    and checked.get("baselineSha256") == sha(baseline), "stage_check_prerequisite_mismatch")
+                            assert_no_migration_preserved(resources["beforeInventory"], checked.get("afterInventory", {}))
+                        evidence["checkProofSha256"] = sha(checked)
+                        assert_stage_preserved(resources["beforeInventory"], inventory(url), args.migration_mode)
                         if args.resume_service_proof:
                             failed = json.loads(args.resume_service_proof.read_text(encoding="utf-8"))
                             stage = cloud("run", "services", "describe", resource_names["service"], "--region", REGION)

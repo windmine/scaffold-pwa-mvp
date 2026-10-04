@@ -43,7 +43,7 @@ function installBoundaries() {
   IDBObjectStore.prototype.get = function (key) {
     const request = nativeGet.call(this, key);
     if (window.holdRecoveryDraftRead && this.name === 'drafts' && String(key).startsWith('work-form-recovery:')
-      && this.transaction.mode === 'readonly' && this.transaction.db.name === 'scaffold-pwa-report-evidence-v1') {
+      && this.transaction.mode === 'readonly' && this.transaction.db.name === 'scaffold-pwa-report-recovery-v1') {
       window.recoveryDraftReadReached = true;
       const keepAlive = () => {
         const tick = nativeGet.call(this, key);
@@ -878,6 +878,99 @@ try {
         if (await disclosure.getAttribute('aria-expanded') !== 'true') await disclosure.click();
       }
       assert.ok((await f.page.locator('#historyList').innerText()).includes(edited), 'Retained newer answers must actually be available in My Reports');
+    } finally { await f.close(); }
+  });
+
+  await check('pre-release recovery copies remain visibly read-only across reload without replay or native evidence changes', async () => {
+    const f = await fixture(browser);
+    const readNativeCopies = async () => f.page.evaluate(async ({ sourceId, recoveryKey }) => {
+      const db = await new Promise((resolve, reject) => {
+        const request = indexedDB.open('scaffold-pwa-report-evidence-v1', 1);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      const read = (store, key) => new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readonly');
+        const request = tx.objectStore(store).get(key);
+        let result;
+        request.onsuccess = () => { result = request.result; };
+        tx.oncomplete = () => resolve(result);
+        tx.onabort = tx.onerror = () => reject(tx.error);
+      });
+      try {
+        const rows = { record: await read('records', sourceId), queue: await read('queue', sourceId),
+          draft: await read('drafts', recoveryKey) };
+        for (const entry of [rows.record?.value, rows.draft?.value?.value]) {
+          if (entry) entry.photoBlobs = await Promise.all((entry.photoBlobs || []).map(async (blob) => ({
+            type: blob.type, bytes: [...new Uint8Array(await blob.arrayBuffer())]
+          })));
+        }
+        return rows;
+      } finally { db.close(); }
+    }, { sourceId, recoveryKey });
+    try {
+      await f.page.evaluate(async ({ sourceId, recoveryKey, worker }) => {
+        const storage = await import('/assets/js/db.js');
+        const record = await storage.get('records', sourceId);
+        const recovery = { sourceRecordId: sourceId, clientSubmissionId: record.clientSubmissionId,
+          ownerWorkerId: worker.id, departmentId: worker.department_id, formId: record.formId,
+          recoveredAt: '2026-10-01T03:00:00Z', omittedPhotos: [] };
+        const draft = { key: recoveryKey, value: { kind: 'work-form', schemaVersion: 1,
+          ownerWorkerId: worker.id, departmentId: worker.department_id, templatePurpose: 'report',
+          formId: record.formId, formName: record.formName, definitionVersion: record.definitionVersion,
+          fields: record.fields, answers: record.capturedAnswers, workDate: record.workDate,
+          siteId: String(record.siteId), photoBlobs: [record.photoBlobs[0]], photoDataUrls: [],
+          photoMetadata: [record.photoMetadata[0]], savedAt: '2026-10-01T03:00:00Z', uploadRecovery: recovery
+        }, updatedAt: '2026-10-01T03:00:00Z' };
+        // Seed the actual old namespace, not current put(), which correctly
+        // routes all newly written recovery work into its isolated database.
+        const db = await new Promise((resolve, reject) => {
+          const request = indexedDB.open('scaffold-pwa-report-evidence-v1', 1);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        try {
+          await new Promise((resolve, reject) => {
+            const tx = db.transaction(['records', 'drafts'], 'readwrite');
+            tx.objectStore('records').put({ id: sourceId, reportStorageVersion: 1,
+              value: { ...record, uploadRecovery: recovery } });
+            tx.objectStore('drafts').put({ key: recoveryKey, reportStorageVersion: 1, value: draft });
+            tx.oncomplete = resolve;
+            tx.onabort = tx.onerror = () => reject(tx.error);
+          });
+        } finally { db.close(); }
+      }, { sourceId, recoveryKey, worker });
+      const before = await readNativeCopies();
+      const openReadOnly = async () => {
+        await f.page.goto(origin);
+        await f.page.locator('#workerView').waitFor({ state: 'visible' });
+        await f.page.locator('button.tab[data-tab-target="historyTab"]').click();
+        const draftCard = f.page.locator('#reportDraftsList .report-draft-card')
+          .filter({ hasText: 'This pre-release recovery copy is read-only.' });
+        await draftCard.waitFor({ state: 'visible' });
+        await f.page.locator('#historyList .record-disclosure-button').first().click();
+        assert.match(await f.page.locator('#historyList').innerText(), /pre-release recovery copy is read-only/);
+        assert.equal(await recoverButton(f.page).count(), 0);
+        assert.equal(await f.page.getByRole('button', { name: 'Retry sync', exact: true }).count(), 0);
+        await draftCard.getByRole('button', { name: 'Continue draft', exact: true }).click();
+        await f.page.waitForFunction(() => document.querySelector('#formTab')?.classList.contains('active')
+          && document.querySelector('#workFormAutosaveStatus')?.textContent.includes('pre-release recovery copy is read-only'));
+        assert.match(await f.page.locator('#workFormFields').innerText(), /Original answers must survive the failed upload\./);
+        assert.equal(await f.page.locator('#workFormField_notes').count(), 0);
+        assert.equal(await f.page.locator('#submitWorkFormButton').isDisabled(), true);
+        assert.equal(await f.page.locator('#workFormPhotos').isDisabled(), true);
+      };
+      await openReadOnly();
+      await openReadOnly();
+      assert.deepEqual(f.traffic.lookups, [], 'Quarantine cannot re-authorize an unsafe recovered attempt');
+      assert.deepEqual(f.traffic.uploads, [], 'Quarantined originals must never upload during startup or Continue');
+      assert.deepEqual(f.traffic.posts, [], 'Read-only copies must never reach submission');
+      assert.deepEqual(await readNativeCopies(), before, 'Raw old-namespace records, queue and draft remain byte-exact');
+      if (await f.page.evaluate(() => document.documentElement.dataset.theme) !== 'light') await f.page.locator('#themeToggleButton').click();
+      await f.page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
+      assert.equal(await f.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await mkdir(output, { recursive: true });
+      await f.page.screenshot({ path: path.join(output, 'pre-release-readonly-390-en-light.png'), fullPage: true });
     } finally { await f.close(); }
   });
 

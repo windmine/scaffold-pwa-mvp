@@ -29,6 +29,14 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
+## Local Early Storage Warnings - 2026-10-02 (not deployed)
+
+Report photo selection checks estimated browser storage before adding valid originals or making previews. Low headroom or a large batch opens **Check photo storage** with **Choose fewer photos** and **Add photos anyway**. The original files, order and metadata are unchanged; cancellation adds none of that batch. Unknown browser estimates do not become assurances of space. Retained Daywork and the 50-photo/5-MB limits are unchanged.
+
+New Report and My Reports now say explicitly that local drafts and queued Reports are **not backups** and can be evicted or cleared. Keep original photos, do not clear this app's site data, and keep the page open after save failures. Free other device space or remove selected photos, then use **Try saving again**. Submitting also needs local storage first; check My Reports to confirm submission, especially after an uncertain storage failure.
+
+Run `npm run check:report-storage` (included through `check:report-photos` in `check:mobile`). This feature is frontend-only, adds no migration and is not deployed. Browser quota estimates and automated tests do not certify actual phone capacity or prevent data eviction. Earlier committed upload-recovery/oldest-waiting backend changes must still precede any future combined Hosting release.
+
 ## Local Oldest-Waiting Review Order - 2026-10-02 (not deployed)
 
 Supervisor Report filters now offer **Newest first** (the unchanged default) and **Oldest waiting**. Oldest waiting places Submitted Reports first, then In review and Resolved, with oldest server submission time first within each workflow. The server orders the complete filtered queue before pagination; changing order clears old pages and keeps the existing Workflow, Template, Worker, Report Date and Find filters. Sort preference is remembered per Supervisor and Department; Clear resets it to Newest first.
@@ -41,9 +49,11 @@ Run `npm run check:report-review-order` (included in `check:mobile`). Deploy the
 
 Failed queued Reports now offer **Recover as draft** in My Reports. An online, Worker/Department-verified lookup first checks the original submission identity, including removed Reports. Unknown results, unavailable backends and offline recovery leave the saved submission unchanged. An already-submitted Report is reconciled instead of creating a new draft.
 
-Recovery preserves the Report Date, Site, answers, handwritten signatures and valid photo originals in a separate draft, without replacing another unfinished Report. Invalid/missing/rejected photos are listed for review; the original remains a read-only device copy. The draft and queue retirement save atomically. Changed or unknown Template Definitions stay read-only. Resubmission retains the original identity, so a delayed older attempt cannot create a duplicate; if it already won, recovered edits remain a read-only copy.
+Recovery preserves the Report Date, Site, answers, handwritten signatures and valid photo originals in a separate draft, without replacing another unfinished Report. Invalid/missing/rejected photos are listed for review; the original remains a read-only device copy. The draft and compatible-client queue retirement save atomically in the separate `scaffold-pwa-report-recovery-v1` database. An already-open September 29 app cannot read edited recovery copies but may still submit its untouched original; resubmission keeps that original identity, checks for the winner and preserves recovered edits read-only. Changed or unknown Template Definitions stay read-only. Pre-release recovery copies found in older storage stay read-only with guidance; no automatic migration rewrites their bytes.
 
 Run `npm run check:report-upload-recovery` (included in `check:mobile`). This change includes a compatible backend/API update but no migration: deploy the backend before any future Hosting promotion. Recovery requires Web Locks support and this device's retained browser storage; it is not cross-device backup. Purged-Report protection depends on retaining the existing trash audit snapshots. No deployment is included in this local change.
+
+October rollback boundary: September 29 cannot display new recovery drafts or Supervisor note drafts. Prefer a compatible forward fix while such work remains unfinished; do not clear storage. If an emergency shell rollback is necessary, retain the October-compatible backend so exact lookup, identity binding and purged-key protection remain available. A matching migration ledger alone does not prove backend or unfinished-work compatibility.
 
 ## Local Supervisor Note Protection - 2026-10-01 (not deployed)
 

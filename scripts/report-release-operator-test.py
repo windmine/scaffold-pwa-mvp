@@ -1,10 +1,13 @@
 """No-network guard/plan regressions for the staging-only release operator."""
 import copy
+import contextlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 from types import SimpleNamespace
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -33,6 +36,20 @@ def metadata():
                        "expires_at": "2099-01-01T00:00:00Z"},
             "endpoint": {"id": "ep-isolated", "host": "ep-isolated.example.neon.tech", "branch_id": "br-isolated",
                          "project_id": operator.NEON_PROJECT, "type": "read_write"}}
+
+
+def full_inventory():
+    ledger = operator.candidate_ledger()
+    return {"schemaVersion": 1, "status": "passed", "recordedAtUtc": "2026-10-05T00:00:00Z",
+            "transactionReadOnly": True, "migrationHead": next(reversed(ledger)), "migrationCount": len(ledger),
+            "migrationChecksums": ledger, "ledgerMatchesBundledPrefix": True,
+            "ledgerVersionPrefixMatches": True, "ledgerChecksumMismatches": [],
+            "immutableSubmissionsSha256": "a" * 64, "accountCredentialsSha256": "b" * 64,
+            "immutableSubmissionColumns": ["id", "answers_json"], "missingSnapshots": [],
+            "submissionCount": 17, "templateCount": 15, "userCounts": [{"role": "worker", "count": 3}],
+            "auditCount": 90, "recoverySchema": {"tablePresent": True, "recoveryRowCount": 2,
+                "accountCount": 3, "zeroAuthGenerationCount": 1, "zeroRecoveryGenerationCount": 1,
+                "legacyAllowedCount": 1, "nullSecurityStateCount": 0}}
 
 
 class OperatorTests(unittest.TestCase):
@@ -75,6 +92,202 @@ class OperatorTests(unittest.TestCase):
         self.assertEqual(runtime["containers"][0]["args"], ["-m", "app.migrations"])
         self.assertNotIn("startupProbe", runtime["containers"][0])
         self.assertNotIn("containerConcurrency", runtime)
+
+    def test_no_migration_job_is_read_only_by_default_without_argument_override(self):
+        doc = operator.job_document(baseline(), operator.names("20261005"), "image", "none")
+        runtime = doc["spec"]["template"]["spec"]["template"]["spec"]
+        self.assertEqual(runtime["containers"][0]["args"], ["-m", "app.migrations", "--check"])
+        self.assertEqual(runtime["maxRetries"], 0)
+        with self.assertRaisesRegex(RuntimeError, "invalid_migration_mode"):
+            operator.job_document(baseline(), operator.names("20261005"), "image", "optional")
+
+    def test_none_requires_exact_full_ledger_not_a_valid_prefix_or_forged_head(self):
+        value = full_inventory()
+        self.assertEqual((value["migrationCount"], value["migrationHead"]), (22, "0022_worker_password_recovery"))
+        operator.assert_full_candidate_inventory(value)
+        for mutate in (lambda d: d.update(migrationCount=21), lambda d: d.update(migrationHead="0021_worker_invitations"),
+                       lambda d: d["migrationChecksums"].pop(next(iter(d["migrationChecksums"]))),
+                       lambda d: d["migrationChecksums"].update(extra="c" * 64),
+                       lambda d: d["migrationChecksums"].update({next(iter(d["migrationChecksums"])): "d" * 64}),
+                       lambda d: d.update(transactionReadOnly=False), lambda d: d.update(status="failed"),
+                       lambda d: d.update(ledgerChecksumMismatches=["bad"]),
+                       lambda d: d.pop("accountCredentialsSha256"), lambda d: d.pop("recoverySchema")):
+            bad = copy.deepcopy(value)
+            mutate(bad)
+            with self.subTest(mutation=mutate), self.assertRaises(RuntimeError):
+                operator.assert_full_candidate_inventory(bad)
+
+    def test_none_preserves_all_observed_fields_and_accepts_existing_rotations(self):
+        before = full_inventory()
+        after = copy.deepcopy(before)
+        after["recordedAtUtc"] = "2026-10-05T00:01:00Z"
+        operator.assert_no_migration_preserved(before, after)
+        for mutate in (lambda d: d.update(accountCredentialsSha256="c" * 64),
+                       lambda d: d.update(immutableSubmissionsSha256="d" * 64), lambda d: d.update(auditCount=91),
+                       lambda d: d.update(templateCount=16), lambda d: d["userCounts"][0].update(count=4),
+                       lambda d: d["recoverySchema"].update(zeroAuthGenerationCount=2),
+                       lambda d: d.update(missingSnapshots=[{"submissionId": 1}]),
+                       lambda d: d.update(unexpectedField=True)):
+            bad = copy.deepcopy(after)
+            mutate(bad)
+            with self.subTest(mutation=mutate), self.assertRaisesRegex(RuntimeError, "stage_check_changed_existing_data"):
+                operator.assert_no_migration_preserved(before, bad)
+        # A required migration still uses the exact backfill rules, not the
+        # no-change path, even though these already-rotated accounts are valid.
+        with self.assertRaises(RuntimeError):
+            operator.assert_stage_preserved(before, after, "required")
+
+    def test_mode_binds_every_prerequisite_and_missing_means_legacy_required(self):
+        artifact, branch, names = {"image": "image"}, {"id": "branch"}, operator.names("20261005")
+        proof = {"runId": "20261005", "artifact": artifact, "branch": branch, "resources": names}
+        operator.verify_resources(proof, SimpleNamespace(run_id="20261005"), artifact, branch, names)
+        none = SimpleNamespace(run_id="20261005", migration_mode="none")
+        with self.assertRaisesRegex(RuntimeError, "stage_proof_migration_mode_mismatch"):
+            operator.verify_resources(proof, none, artifact, branch, names)
+        operator.verify_resources({**proof, "migrationMode": "none"}, none, artifact, branch, names)
+        with self.assertRaisesRegex(RuntimeError, "stage_proof_migration_mode_mismatch"):
+            operator.verify_resources({**proof, "migrationMode": "none"}, SimpleNamespace(run_id="20261005"), artifact, branch, names)
+        with self.assertRaisesRegex(RuntimeError, "invalid_proof_migration_mode"):
+            operator.proof_migration_mode({"migrationMode": None})
+
+    def test_none_refuses_migration_phase_and_proof_before_any_remote_or_file_action(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "proof.json"
+            for phase, extras, code in (("stage-migrate", [], "no_migration_mode_refuses_stage_migrate"),
+                    ("stage-check", ["--migration-proof", "old.json"], "no_migration_mode_refuses_migration_proof")):
+                with patch.object(operator, "cloud", side_effect=AssertionError("network_forbidden")), \
+                     patch.object(operator, "read_proof", side_effect=AssertionError("read_forbidden")), \
+                     self.assertRaisesRegex(RuntimeError, code):
+                    operator.main([phase, "--migration-mode", "none", "--evidence", str(path), *extras])
+                self.assertFalse(path.exists())
+
+    def test_none_stage_check_chain_without_migration_only_executes_check_job(self):
+        before = {**baseline(), "inventory": full_inventory()}
+        names = operator.names("20261005")
+        artifact, branch = {"sourceCommit": "a" * 40, "image": "image"}, {"id": "branch"}
+        resources = {"migrationMode": "none", "runId": "20261005", "resources": names,
+                     "artifact": artifact, "branch": branch, "baselineSha256": operator.sha(before),
+                     "beforeInventory": full_inventory()}
+        check_job = operator.job_document(before, names, "image", "none")
+        for failure in (None, "baseline", "stage", "mode", "job", "after"):
+            snapshot, prerequisite, described_job = copy.deepcopy(before), copy.deepcopy(resources), copy.deepcopy(check_job)
+            after = full_inventory()
+            if failure == "baseline": snapshot["inventory"]["migrationCount"] = 21
+            if failure == "stage": prerequisite["beforeInventory"]["migrationCount"] = 21
+            if failure == "mode": prerequisite["migrationMode"] = "required"
+            if failure == "job": described_job["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]["args"].pop()
+            if failure == "after": after["immutableSubmissionsSha256"] = "e" * 64
+            calls = []
+            def cloud(*args, **kwargs):
+                calls.append(args)
+                if args[:3] == ("run", "jobs", "describe"): return described_job
+                if args[:3] == ("run", "jobs", "execute"):
+                    return {"metadata": {"name": "check-execution"}, "status": {"conditions": [{"type": "Completed", "status": "True"}]}}
+                raise AssertionError("unexpected_remote_call")
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "proof.json"
+                with patch.object(operator, "read_proof", side_effect=[snapshot, prerequisite]), \
+                     patch.object(operator, "same_live"), patch.object(operator, "stage_identity", return_value=(names, artifact, "private-url", branch)), \
+                     patch.object(operator, "inventory", side_effect=[full_inventory(), after]), \
+                     patch.object(operator, "cloud", side_effect=cloud), contextlib.redirect_stdout(io.StringIO()):
+                    result = operator.main(["stage-check", "--migration-mode", "none", "--allow-stage-mutations",
+                        "--snapshot", "snapshot.json", "--resources-proof", "resources.json", "--run-id", "20261005", "--evidence", str(path)])
+                self.assertEqual(result, 0 if failure is None else 1)
+                executions = [args for args in calls if args[:3] == ("run", "jobs", "execute")]
+                self.assertEqual(len(executions), 1 if failure in (None, "after") else 0)
+                self.assertTrue(all(not any(str(arg).startswith("--args") for arg in args) for args in executions))
+                proof = json.loads(path.read_text())
+                self.assertEqual(proof["migrationMode"], "none")
+                if failure is None:
+                    self.assertEqual(proof["resourcesProofSha256"], operator.sha(resources))
+                    self.assertEqual(proof["status"], "passed")
+
+    def test_cli_default_required_plan_retains_migrating_job_and_legacy_baseline(self):
+        before, names = baseline(), operator.names("20260929")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "proof.json"
+            with patch.object(operator, "read_proof", return_value=before), patch.object(operator, "same_live"), \
+                 patch.object(operator, "stage_identity", return_value=(names, {"image": "image"}, "private-url", {})), \
+                 patch.object(operator, "cloud", side_effect=AssertionError("network_forbidden")), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(operator.main(["stage-plan", "--snapshot", "snapshot.json", "--evidence", str(path)]), 0)
+            proof = json.loads(path.read_text())
+            self.assertEqual(proof["migrationMode"], "required")
+            self.assertEqual(proof["job"]["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]["args"],
+                             ["-m", "app.migrations"])
+
+    def test_none_resources_create_only_isolated_check_job_after_stage_ledger_gate(self):
+        before = {**baseline(), "inventory": full_inventory()}
+        names, artifact, branch = operator.names("20261005"), {"image": "image"}, {"id": "branch"}
+        for invalid_stage in (False, True):
+            current = full_inventory()
+            if invalid_stage: current["migrationCount"] = 21
+            calls = []
+            def cloud(*args, **kwargs):
+                calls.append((args, kwargs))
+                if args[:3] == ("secrets", "versions", "add"):
+                    return {"name": "projects/fixture/secrets/" + args[3] + "/versions/1"}
+                return {}
+            with self.subTest(invalid_stage=invalid_stage), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "proof.json"
+                with patch.object(operator, "read_proof", return_value=before), patch.object(operator, "same_live"), \
+                     patch.object(operator, "stage_identity", return_value=(names, artifact, "private-url", branch)), \
+                     patch.object(operator, "assert_new_resources"), patch.object(operator, "inventory", return_value=current), \
+                     patch.object(operator, "cloud", side_effect=cloud), contextlib.redirect_stdout(io.StringIO()):
+                    result = operator.main(["stage-resources", "--migration-mode", "none", "--allow-stage-mutations",
+                        "--snapshot", "snapshot.json", "--run-id", "20261005", "--evidence", str(path)])
+                self.assertEqual(result, 1 if invalid_stage else 0)
+                if invalid_stage:
+                    self.assertEqual(calls, [])
+                else:
+                    self.assertEqual(len(calls), 7)
+                    self.assertFalse(any("execute" in args for args, _ in calls))
+                    jobs = [kwargs for args, kwargs in calls if args[:3] == ("run", "jobs", "replace")]
+                    self.assertEqual(len(jobs), 1)
+                    job = json.loads(jobs[0]["input_text"])
+                    self.assertEqual(job["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]["args"],
+                                     ["-m", "app.migrations", "--check"])
+
+    def test_none_stage_service_requires_matching_successful_check_and_unchanged_data(self):
+        before = {**baseline(), "inventory": full_inventory()}
+        names, artifact, branch = operator.names("20261005"), {"image": "image"}, {"id": "branch"}
+        resources = {"migrationMode": "none", "runId": "20261005", "resources": names, "artifact": artifact,
+                     "branch": branch, "baselineSha256": operator.sha(before), "beforeInventory": full_inventory()}
+        checked = {**resources, "resourcesProofSha256": operator.sha(resources), "afterInventory": full_inventory()}
+        job = operator.job_document(before, names, "image", "none")
+        stage = {"status": {"url": "https://stage.example", "latestReadyRevisionName": names["service"] + "-00001"}}
+        for failure in (None, "mode", "hash", "baseline", "check-data", "current-data"):
+            prerequisite, current = copy.deepcopy(checked), full_inventory()
+            if failure == "mode": prerequisite["migrationMode"] = "required"
+            if failure == "hash": prerequisite["resourcesProofSha256"] = "bad"
+            if failure == "baseline": prerequisite["baselineSha256"] = "bad"
+            if failure == "check-data": prerequisite["afterInventory"]["accountCredentialsSha256"] = "e" * 64
+            if failure == "current-data": current["auditCount"] += 1
+            calls = []
+            def cloud(*args, **kwargs):
+                calls.append(args)
+                if args[:3] == ("run", "jobs", "describe"): return job
+                if args[:3] == ("run", "services", "list"): return []
+                if args[:3] == ("run", "services", "replace"): return {}
+                if args[:3] == ("run", "services", "describe"): return stage
+                raise AssertionError("unexpected_remote_call")
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "proof.json"
+                with patch.object(operator, "read_proof", side_effect=[before, resources, prerequisite]), \
+                     patch.object(operator, "same_live"), patch.object(operator, "stage_identity", return_value=(names, artifact, "private-url", branch)), \
+                     patch.object(operator, "inventory", return_value=current), patch.object(operator, "cloud", side_effect=cloud), \
+                     patch.object(operator, "verify_stage_service"), patch.object(operator, "copy_stage_invoker_policy", return_value={}), \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    result = operator.main(["stage-service", "--migration-mode", "none", "--allow-stage-mutations",
+                        "--snapshot", "snapshot.json", "--resources-proof", "resources.json", "--check-proof", "checked.json",
+                        "--run-id", "20261005", "--evidence", str(path)])
+                self.assertEqual(result, 0 if failure is None else 1)
+                self.assertEqual(sum(args[:3] == ("run", "services", "replace") for args in calls), 1 if failure is None else 0)
+                self.assertFalse(any(args[:3] == ("run", "jobs", "execute") for args in calls))
+                if failure is None:
+                    proof = json.loads(path.read_text())
+                    self.assertEqual(proof["checkProofSha256"], operator.sha(checked))
+                    self.assertEqual(proof["hostingConfiguration"]["hosting"]["rewrites"][0]["run"]["serviceId"], names["service"])
 
     def test_target_matches_neon_endpoint_and_never_production(self):
         env = {"REPORT_RELEASE_STAGE_METADATA": json.dumps(metadata()),

@@ -4,6 +4,14 @@ Use this runbook for managed PostgreSQL migrations, Cloud Run releases, durable 
 
 ## Deployment Truth
 
+### October 5 candidate preparation (not yet deployed)
+
+The recovery/oldest-waiting backend changes require a backend-first release but no migration or maintenance window. Use explicit `--migration-mode none` for `report-release-operator.py`: snapshot, stage-plan, stage-resources, stage-check, stage-service. Both live baseline and isolated stage must match all 22 bundled migration checksums. The created check-only job runs `python -m app.migrations --check`; do not execute stage-migrate. Exact before/after staging inventories must preserve evidence, credentials and security generations. Teardown requires the exact `--run-id` and passed creation proofs and only deletes its four owned GCP stage resources; Neon and upload cleanup remain separate exact-ownership operations.
+
+Obtain actual PostgreSQL staging coverage for October exact-identity recovery and full-query oldest-waiting pagination: historical native 82-checkpoint rehearsals and generic 214-checkpoint smoke do not explicitly test these new endpoints. Preserve the existing physical-device limitations.
+
+Recovery drafts, edited retries and tombstones now use `scaffold-pwa-report-recovery-v1`, invisible to September 29 clients. Their untouched old originals can still complete, with stable-key reconciliation preserving edited copies. September 29 cannot display these new recovery copies or Supervisor note drafts: prefer a compatible forward fix while unfinished work remains. An emergency shell rollback must retain the October-compatible backend's exact lookup, identity binding and purged-key protections. Matching the unchanged ledger is not sufficient rollback approval. Never clear device storage.
+
 ### Current 2026-09-29 release - Report UX and private password recovery
 
 Committed/pushed source `3fc9708325d02fef5565ad684b69275c54543b41` is deployed as backend `geo-backend-recovery-20260929`, **100% traffic with no tags**. Build `c6d4b0c0-0850-40ee-9de4-2a7e6a9dbbbc` produced immutable image `australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:49518231873062d6f745890f1d9184400f1df229d648e13ef4da65d883b53599`. The compatible backend preceded exact Hosting `adb5a717d76f2644`, cloned from `release-20260929` at **2026-09-29T01:25:18.146Z**. Production cache: `leader-field-d8c377e7a8c9`; source cache: `leader-field-d5e6c62eeb82`. The [release record](evidence/report-release-20260929/release.json) binds source, infrastructure, test and cleanup evidence.

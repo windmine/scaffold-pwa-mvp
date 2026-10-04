@@ -1,4 +1,4 @@
-"""No-network guards for the exact September 29 stage teardown."""
+"""No-network guards for proof-bound stage teardown across release runs."""
 import contextlib
 import copy
 import importlib.util
@@ -24,63 +24,246 @@ PROJECT_NUMBER = "123456789012"
 CREATED = "2026-09-29T01:00:02Z"
 
 
-def proofs():
+def proofs(run_id=teardown.RUN_ID, migration_mode=None):
+    names = operator.names(run_id)
     baseline = {**fixtures.baseline(), "schemaVersion": 1, "phase": "snapshot", "status": "passed"}
-    common = {"schemaVersion": 1, "status": "passed", "runId": teardown.RUN_ID, "resources": teardown.NAMES,
+    common = {"schemaVersion": 1, "status": "passed", "runId": run_id, "resources": names,
               "artifact": {"sourceCommit": "1" * 40, "image": f"{operator.REGION}-docker.pkg.dev/{operator.PROJECT}/cloud-run-source-deploy/geo-backend@sha256:" + "a" * 64},
               "branch": {"projectId": operator.NEON_PROJECT, "parentId": operator.NEON_PARENT,
                          "id": "br-fixture-isolated", "hostSha256": "different"},
               "baselineSha256": operator.sha(baseline), "productionUnchanged": True,
               "startedAtUtc": "2026-09-29T01:00:00Z", "finishedAtUtc": "2026-09-29T01:00:04Z"}
-    actions = [f"create_job:{teardown.NAMES['job']}"]
+    if migration_mode is not None:
+        common["migrationMode"] = migration_mode
+    actions = [f"create_job:{names['job']}"]
     for key in ("databaseSecret", "jwtSecret"):
-        actions += [f"create_secret:{teardown.NAMES[key]}", f"add_secret_version:{teardown.NAMES[key]}"]
+        actions += [f"create_secret:{names[key]}", f"add_secret_version:{names[key]}"]
     resources = {**common, "phase": "stage-resources", "attempts": [{"action": action, "atUtc": "2026-09-29T01:00:01Z"} for action in actions]}
-    service = {**common, "phase": "stage-service", "stageRevision": "geo-report-stage-20260929-00001-abc",
-               "stageUrl": "https://stage-fixture.example", "attempts": [{"action": f"create_service:{teardown.NAMES['service']}", "atUtc": "2026-09-29T01:00:01Z"}]}
+    service = {**common, "phase": "stage-service", "stageRevision": f"{names['service']}-00001-abc",
+               "stageUrl": "https://stage-fixture.example", "attempts": [{"action": f"create_service:{names['service']}", "atUtc": "2026-09-29T01:00:01Z"}]}
+    if migration_mode == "none":
+        service["resourcesProofSha256"] = operator.sha(resources)
     return baseline, resources, service
 
 
-def objects():
-    baseline, resources, proof = proofs()
-    service = operator.service_document(baseline, teardown.NAMES, resources["artifact"]["image"])
+def objects(run_id=teardown.RUN_ID, migration_mode=None):
+    names = operator.names(run_id)
+    baseline, resources, proof = proofs(run_id, migration_mode)
+    service = operator.service_document(baseline, names, resources["artifact"]["image"])
     service["metadata"].update(namespace=PROJECT_NUMBER, uid="service-fixture", creationTimestamp=CREATED)
     service["spec"]["template"]["metadata"]["name"] = proof["stageRevision"]
     service["status"] = {"latestCreatedRevisionName": proof["stageRevision"], "latestReadyRevisionName": proof["stageRevision"],
                          "url": proof["stageUrl"], "traffic": [{"revisionName": proof["stageRevision"], "percent": 100}]}
-    job = operator.job_document(baseline, teardown.NAMES, resources["artifact"]["image"])
+    job = operator.job_document(baseline, names, resources["artifact"]["image"], migration_mode=migration_mode or "required")
     job["metadata"].update(namespace=PROJECT_NUMBER, uid="job-fixture", creationTimestamp=CREATED)
     result = {"service": service, "job": job}
     for key in ("databaseSecret", "jwtSecret"):
-        identity = f"projects/{PROJECT_NUMBER}/secrets/{teardown.NAMES[key]}"
-        result[key] = {"secret": {"name": identity, "labels": {"report-release": teardown.RUN_ID},
+        identity = f"projects/{PROJECT_NUMBER}/secrets/{names[key]}"
+        result[key] = {"secret": {"name": identity, "labels": {"report-release": run_id},
                                   "replication": {"automatic": {}}, "createTime": CREATED},
                        "versions": [{"name": identity + "/versions/1", "state": "ENABLED", "createTime": CREATED}],
                        "policy": {"bindings": [{"role": "roles/secretmanager.secretAccessor", "members": [f"serviceAccount:{operator.RUNTIME}"]}]}}
     return result
 
 
-def resumed_proofs():
-    baseline, resources, service = proofs()
+def resumed_proofs(run_id=teardown.RUN_ID, migration_mode=None):
+    names = operator.names(run_id)
+    baseline, resources, service = proofs(run_id, migration_mode)
     original = copy.deepcopy(service)
     original.update(status="failed", failureCode="external_command_failed")
-    original["attempts"].append({"action": f"copy_invoker_policy:{teardown.NAMES['service']}", "atUtc": "2026-09-29T01:00:03Z"})
+    original["attempts"].append({"action": f"copy_invoker_policy:{names['service']}", "atUtc": "2026-09-29T01:00:03Z"})
     original.pop("stageRevision")
     original.pop("stageUrl")
     service.update(startedAtUtc="2026-09-29T01:01:00Z", finishedAtUtc="2026-09-29T01:01:04Z",
                    resumedFailedProofSha256=operator.sha(original), exactInvokerPolicyVerified=True,
-                   attempts=[{"action": f"grant_invoker_policy:{teardown.NAMES['service']}", "atUtc": "2026-09-29T01:01:02Z"}])
+                   attempts=[{"action": f"grant_invoker_policy:{names['service']}", "atUtc": "2026-09-29T01:01:02Z"}])
     return baseline, resources, service, original
 
 
 def stage_plan(baseline, resources):
     result = copy.deepcopy(resources)
     result.update(phase="stage-plan", startedAtUtc="2026-09-29T00:59:00Z", finishedAtUtc="2026-09-29T00:59:02Z", attempts=[],
-                  service=operator.service_document(baseline, teardown.NAMES, resources["artifact"]["image"]))
+                  service=operator.service_document(baseline, resources["resources"], resources["artifact"]["image"]))
     return result
 
 
 class TeardownTests(unittest.TestCase):
+    def setUp(self):
+        # Every cloud path must receive an explicit local fixture. New test
+        # coverage must not accidentally turn a missing mock into a real call.
+        cloud = patch.object(operator, "cloud", side_effect=AssertionError("network_forbidden"))
+        self.addCleanup(cloud.stop)
+        cloud.start()
+
+    def test_new_run_requires_exact_run_resources_revision_and_secret_labels(self):
+        run_id = "20261005"
+        baseline, resources, service = proofs(run_id, "none")
+        owned = objects(run_id, "none")
+        teardown.validate_proofs(baseline, resources, service, run_id=run_id)
+        teardown.verify_service(owned["service"], baseline, resources, service, PROJECT_NUMBER, run_id=run_id)
+        teardown.verify_job(owned["job"], baseline, resources, PROJECT_NUMBER, run_id=run_id)
+        secret = owned["databaseSecret"]
+        teardown.verify_secret(secret["secret"], secret["versions"], secret["policy"],
+                               resources["resources"]["databaseSecret"], resources, PROJECT_NUMBER, run_id=run_id)
+        with self.assertRaisesRegex(RuntimeError, "stage_creation_identity_mismatch"):
+            teardown.validate_proofs(baseline, resources, service)
+        with self.assertRaisesRegex(RuntimeError, "stage_creation_identity_mismatch"):
+            teardown.preflight(baseline, resources, service, run_id="20261006")
+        operator.cloud.assert_not_called()
+        for key in ("service", "job", "databaseSecret", "jwtSecret", "uploadPrefix"):
+            foreign = copy.deepcopy(resources)
+            foreign["resources"][key] = operator.names("20261006")[key]
+            with self.subTest(resource=key), self.assertRaisesRegex(RuntimeError, "stage_creation_identity_mismatch"):
+                teardown.validate_proofs(baseline, foreign, service, run_id=run_id)
+        for foreign_revision in ("geo-backend-20261005-00001-abc", "geo-report-stage-20260929-00001-abc"):
+            with self.assertRaisesRegex(RuntimeError, "exact_owned_stage_revision_required"):
+                teardown.validate_proofs(baseline, resources, {**service, "stageRevision": foreign_revision}, run_id=run_id)
+        foreign_secret = copy.deepcopy(secret)
+        foreign_secret["secret"]["labels"]["report-release"] = "20260929"
+        with self.assertRaisesRegex(RuntimeError, "stage_secret_identity_mismatch"):
+            teardown.verify_secret(foreign_secret["secret"], foreign_secret["versions"], foreign_secret["policy"],
+                                   resources["resources"]["databaseSecret"], resources, PROJECT_NUMBER, run_id=run_id)
+
+    def test_none_job_is_check_only_and_cannot_match_required_or_legacy_proof(self):
+        run_id = "20261005"
+        for mode in (None, "required", "none"):
+            baseline, resources, _ = proofs(run_id, mode)
+            value = objects(run_id, mode)["job"]
+            args = value["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]["args"]
+            self.assertEqual(args, ["-m", "app.migrations"] + (["--check"] if mode == "none" else []))
+            teardown.verify_job(value, baseline, resources, PROJECT_NUMBER, run_id=run_id)
+            opposite = objects(run_id, "required" if mode == "none" else "none")["job"]
+            with self.subTest(mode=mode), self.assertRaisesRegex(RuntimeError, "stage_job_configuration_drift"):
+                teardown.verify_job(opposite, baseline, resources, PROJECT_NUMBER, run_id=run_id)
+
+    def test_migration_mode_is_consistent_across_resources_service_plan_and_resume(self):
+        run_id = "20261005"
+        baseline, resources, service, original = resumed_proofs(run_id, "none")
+        plan = stage_plan(baseline, resources)
+        value = objects(run_id, "none")["service"]
+        del value["spec"]["template"]["metadata"]["name"]
+        teardown.verify_service(value, baseline, resources, service, PROJECT_NUMBER, original, plan, run_id=run_id)
+        for mode in ("required", None):
+            for index in (0, 1, 2, 3):
+                changed = copy.deepcopy([resources, service, original, plan])
+                if mode is None:
+                    changed[index].pop("migrationMode")
+                else:
+                    changed[index]["migrationMode"] = mode
+                if index == 2:
+                    changed[1]["resumedFailedProofSha256"] = operator.sha(changed[2])
+                with self.subTest(mode=mode, proof=index), self.assertRaisesRegex(RuntimeError, "stage_creation_migration_mode_mismatch"):
+                    teardown.verify_service(value, baseline, changed[0], changed[1], PROJECT_NUMBER, changed[2], changed[3], run_id=run_id)
+        for invalid in (None, "", "skip", False, {}, []):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(RuntimeError, "invalid_creation_migration_mode"):
+                teardown.validate_proofs(baseline, {**resources, "migrationMode": invalid}, service, original, run_id=run_id)
+        # Missing historical fields and explicit required describe the same
+        # migration behavior, while neither may be used for a check-only run.
+        baseline, resources, service = proofs()
+        teardown.validate_proofs(baseline, resources, {**service, "migrationMode": "required"})
+
+    def test_cli_requires_valid_explicit_run_before_reading_proofs(self):
+        args = ["--snapshot", "snapshot.json", "--resources-proof", "resources.json",
+                "--service-proof", "service.json", "--evidence", "unused.json"]
+        with patch.object(operator, "read_proof") as read, contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as stopped:
+                teardown.main(args)
+            self.assertEqual(stopped.exception.code, 2)
+            for invalid in ("../prod", "UPPERCASE", "", "x"):
+                with self.subTest(invalid=invalid), self.assertRaisesRegex(RuntimeError, "invalid_run_id"):
+                    teardown.main(["--run-id", invalid, *args])
+            read.assert_not_called()
+        operator.cloud.assert_not_called()
+
+    def test_none_service_and_resumed_original_require_exact_resources_proof_hash(self):
+        run_id = "20261005"
+        baseline, resources, service, original = resumed_proofs(run_id, "none")
+        for target in ("service", "original"):
+            for missing in (False, True):
+                changed_service = copy.deepcopy(service)
+                changed_original = copy.deepcopy(original)
+                changed = changed_service if target == "service" else changed_original
+                if missing:
+                    changed.pop("resourcesProofSha256")
+                else:
+                    changed["resourcesProofSha256"] = "wrong"
+                if target == "original":
+                    changed_service["resumedFailedProofSha256"] = operator.sha(changed_original)
+                with self.subTest(target=target, missing=missing), \
+                     self.assertRaisesRegex(RuntimeError, "stage_creation_resources_proof_mismatch"):
+                    teardown.validate_proofs(baseline, resources, changed_service, changed_original, run_id=run_id)
+
+    def test_cli_wrong_run_is_refused_before_cloud_or_evidence(self):
+        args = ["--run-id", "20261006", "--snapshot", "snapshot.json", "--resources-proof", "resources.json",
+                "--service-proof", "service.json", "--evidence", "unused.json"]
+        with patch.object(operator, "read_proof", side_effect=proofs("20261005", "none")), \
+             self.assertRaisesRegex(RuntimeError, "stage_creation_identity_mismatch"):
+            teardown.main(args)
+        operator.cloud.assert_not_called()
+
+    def test_none_cli_binds_new_run_through_metadata_checks_four_deletes_and_absence(self):
+        run_id = "20261005"
+        names = operator.names(run_id)
+        owned = objects(run_id, "none")
+        responses = [{"projectId": operator.PROJECT, "projectNumber": PROJECT_NUMBER}, owned["service"], owned["job"], []]
+        for key in ("databaseSecret", "jwtSecret"):
+            responses.extend(owned[key][field] for field in ("secret", "versions", "policy"))
+        responses.extend([owned["service"], {}, owned["job"], [], {}])
+        for key in ("databaseSecret", "jwtSecret"):
+            responses.extend([*(owned[key][field] for field in ("secret", "versions", "policy")), {}])
+        # Foreign/historical resources must remain untouched and do not prevent
+        # confirming that this run's exact resources are absent.
+        responses.extend([[{"metadata": {"name": teardown.NAMES["service"]}}],
+                          [{"metadata": {"name": teardown.NAMES["job"]}}],
+                          [{"name": f"projects/{PROJECT_NUMBER}/secrets/{teardown.NAMES['databaseSecret']}"}]])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evidence = root / "docs/evidence/new-run.json"
+            args = ["--run-id", run_id, "--snapshot", "snapshot.json", "--resources-proof", "resources.json",
+                    "--service-proof", "service.json", "--evidence", str(evidence), "--allow-stage-deletion"]
+            with patch.object(operator, "ROOT", root), patch.object(operator, "read_proof", side_effect=proofs(run_id, "none")), \
+                 patch.object(operator, "live_snapshot", return_value={}), patch.object(operator, "same_live"), \
+                 patch.object(operator, "cloud", side_effect=responses) as cloud, contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(teardown.main(args), 0)
+            proof = json.loads(evidence.read_text(encoding="utf-8"))
+            self.assertEqual(proof["runId"], run_id)
+            self.assertEqual(proof["resources"], names)
+            self.assertEqual(proof["migrationMode"], "none")
+            self.assertEqual([entry["action"] for entry in proof["attempts"]],
+                             [f"delete:{names[key]}" for key in ("service", "job", "databaseSecret", "jwtSecret")])
+            self.assertTrue(proof["deletionComplete"] and proof["uploadsUntouched"] and proof["neonUntouched"])
+        self.assertEqual(cloud.call_count, len(responses))
+        self.assertEqual([call.args for call in cloud.call_args_list if "delete" in call.args], [
+            ("run", "services", "delete", names["service"], "--region", operator.REGION),
+            ("run", "jobs", "delete", names["job"], "--region", operator.REGION),
+            ("secrets", "delete", names["databaseSecret"]),
+            ("secrets", "delete", names["jwtSecret"]),
+        ])
+        self.assertFalse(any("access" in call.args or any("20260929" in str(arg) for arg in call.args)
+                             for call in cloud.call_args_list))
+
+    def test_changed_owned_resource_after_preflight_blocks_deletion_and_journals_failure(self):
+        run_id = "20261005"
+        owned = objects(run_id, "none")
+        changed = copy.deepcopy(owned["service"])
+        changed["metadata"]["uid"] = "replaced-resource"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evidence = root / "docs/evidence/changed.json"
+            args = ["--run-id", run_id, "--snapshot", "snapshot.json", "--resources-proof", "resources.json",
+                    "--service-proof", "service.json", "--evidence", str(evidence), "--allow-stage-deletion"]
+            with patch.object(operator, "ROOT", root), patch.object(operator, "read_proof", side_effect=proofs(run_id, "none")), \
+                 patch.object(operator, "live_snapshot", return_value={}), patch.object(operator, "same_live"), \
+                 patch.object(teardown, "preflight", return_value=owned), patch.object(teardown, "read_service", return_value=changed), \
+                 patch.object(teardown, "delete_exact") as delete, contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(teardown.main(args), 1)
+            delete.assert_not_called()
+            proof = json.loads(evidence.read_text(encoding="utf-8"))
+            self.assertEqual(proof["status"], "failed")
+            self.assertEqual(proof["failureCode"], "stage_resource_changed_after_preflight")
+            self.assertEqual(proof["attempts"], [])
+        operator.cloud.assert_not_called()
+
     def test_creation_proofs_are_passed_consistent_and_exact_owned(self):
         baseline, resources, service = proofs()
         teardown.validate_proofs(baseline, resources, service)
@@ -266,7 +449,7 @@ class TeardownTests(unittest.TestCase):
                 root = Path(directory)
                 evidence = root / "docs/evidence/teardown.json"
                 owned = objects()
-                args = ["--snapshot", "snapshot.json", "--resources-proof", "resources.json", "--service-proof", "service.json",
+                args = ["--run-id", teardown.RUN_ID, "--snapshot", "snapshot.json", "--resources-proof", "resources.json", "--service-proof", "service.json",
                         "--evidence", str(evidence)] + (["--allow-stage-deletion"] if execute else [])
                 with patch.object(operator, "ROOT", root), patch.object(operator, "read_proof", side_effect=proofs()), \
                      patch.object(operator, "live_snapshot", return_value={"revision": "current-post-cutover"}), \
@@ -292,7 +475,7 @@ class TeardownTests(unittest.TestCase):
             original_path = root / "original.json"
             original_path.write_text(json.dumps(original), encoding="utf-8")
             evidence = root / "docs/evidence/plan.json"
-            args = ["--snapshot", "snapshot.json", "--resources-proof", "resources.json", "--service-proof", "final.json",
+            args = ["--run-id", teardown.RUN_ID, "--snapshot", "snapshot.json", "--resources-proof", "resources.json", "--service-proof", "final.json",
                     "--original-service-creation-proof", str(original_path), "--stage-plan-proof", "plan.json", "--evidence", str(evidence)]
             with patch.object(operator, "ROOT", root), patch.object(operator, "read_proof", side_effect=(baseline, resources, service, plan)), \
                  patch.object(operator, "live_snapshot", return_value={}), patch.object(operator, "same_live"), \

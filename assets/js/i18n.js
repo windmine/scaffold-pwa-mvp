@@ -37,6 +37,24 @@ const LANGUAGE_META = {
 };
 
 const ZH_TEXT = {
+  'This pre-release recovery copy is read-only. Keep the original photos and contact your Supervisor.': '此预发布版本保存的恢复副本为只读。请保留原始照片，并联系主管。',
+  'Check photo storage': '检查照片存储空间',
+  'Checking photo storage...': '正在检查照片存储空间……',
+  'Add photos anyway': '仍然添加照片',
+  'Choose fewer photos': '减少照片数量',
+  'Browser storage may be low. This photo batch may not save.': '浏览器存储空间可能不足。这批照片可能无法保存。',
+  'Large photo batch. Saving may fail even when the browser reports storage space.': '这批照片较大。即使浏览器显示有存储空间，也可能保存失败。',
+  'Storage space could not be checked. This large photo batch may not save.': '无法检查存储空间。这批较大的照片可能无法保存。',
+  "Choose fewer photos or free space elsewhere on your device. Do not clear this app's site data. Keep original photos and keep this page open if saving fails.": '请选择更少的照片，或清理设备上的其他内容以腾出空间。不要清除此应用的网站数据。请保留原始照片；如果保存失败，请保持此页面打开。',
+  'Connect and submit when possible, then confirm Submitted in My Reports. Submission also needs local storage first.': '条件允许时请联网提交，并在“我的报告”中确认状态为“已提交”。提交前也需要先保存到本地存储。',
+  'Local drafts are not backups.': '本地草稿不是备份。',
+  'Local drafts and queued Reports are not backups. Browser storage can be cleared or evicted under pressure. Keep original photos until submission is confirmed in My Reports.': '本地草稿和待同步报告不是备份。浏览器存储可能被清除，或因空间不足而被自动删除。在“我的报告”中确认提交成功之前，请保留原始照片。',
+  'No photos from this batch were added. Choose a smaller batch when ready.': '未添加这批照片。准备好后，请选择更少的照片。',
+  'Browser storage limit reached. Your latest changes are not saved.': '已达到浏览器存储限制。最新更改尚未保存。',
+  'Your latest changes could not be saved on this device.': '无法在此设备上保存最新更改。',
+  'Not saved: browser storage limit reached. Keep this page open.': '尚未保存：已达到浏览器存储限制。请保持此页面打开。',
+  'Latest changes saved on this device. Storage may still be limited.': '最新更改已保存在此设备上。存储空间可能仍然有限。',
+  'Storage stopped this submission. Keep this page open and check My Reports before trying again.': '存储问题中断了本次提交。请保持此页面打开，并在再次尝试前检查“我的报告”。',
   'Sort order': '排序方式',
   'Unavailable': '不可用',
   'Newest first': '最新提交优先',
@@ -1312,6 +1330,7 @@ const ZH_TEXT = {
 };
 
 const ZH_PATTERNS = [
+  [/^(.+) (Choose fewer photos or free space elsewhere on your device\..+) Local drafts are not backups\.$/, (match) => `${translateText(match[1], 'zh')} ${translateText(match[2], 'zh')} 本地草稿不是备份。`],
   [/^Waiting (\d+) minutes?$/, (match) => `已等待 ${match[1]} 分钟`],
   [/^Waiting (\d+) hours?$/, (match) => `已等待 ${match[1]} 小时`],
   [/^Waiting (\d+) days?$/, (match) => `已等待 ${match[1]} 天`],

@@ -83,7 +83,7 @@ async function fixture(browser, options = {}) {
     }
     let body = await readFile(path.resolve(root, url.pathname.slice(1)), 'utf8');
     if (url.pathname === '/assets/js/worker-form.js') {
-      const boundary = 'async function processPhotoChange(selectedFiles, token, draftState) {';
+      const boundary = 'async function processPhotoChange(selectedFiles, token, draftState, scope) {';
       assert.ok(body.includes(boundary), 'Controlled photo-preparation boundary must remain exact');
       body = body.replace(boundary, `${boundary}
         if (window.photoGate) { window.photoGateEntered = true; await window.photoGate; }`);

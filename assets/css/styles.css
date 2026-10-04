@@ -6408,6 +6408,24 @@ body.report-only-mode .topbar-actions button,
   padding-inline-start: 20px;
 }
 
+.report-storage-warning {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--warning-text);
+  border-radius: var(--radius);
+  background: var(--surface-quiet);
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.report-storage-warning p { margin: 0 0 8px; }
+.report-storage-warning [data-storage-message] { font-weight: 700; }
+.report-storage-warning button { min-height: 44px; }
+.report-storage-guidance { font-size: 0.875rem; line-height: 1.5; }
+body:not(.report-only-mode) .report-only-storage-guidance { display: none; }
+
 .photo-thumb-placeholder {
   display: flex;
   align-items: center;

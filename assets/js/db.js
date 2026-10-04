@@ -4,8 +4,12 @@ const DB_VERSION = 1;
 // photos. Keep its original database/schema intact, but isolate new Report
 // work in a namespace that those clients do not know how to open.
 const REPORT_DB_NAME = 'scaffold-pwa-report-evidence-v1';
+// September 29 clients understand Blob Reports but not recovered retries. They
+// must never see edited recovery evidence or replay it without identity checks.
+const RECOVERY_DB_NAME = 'scaffold-pwa-report-recovery-v1';
 const REPORT_STORES = new Set(['records', 'queue', 'drafts']);
 const legacyDraftReads = new Map();
+const RECOVERY_STORAGE_READ_ONLY = 'This pre-release recovery copy is read-only. Keep the original photos and contact your Supervisor.';
 
 function isReport(record) {
   if (record?.type !== 'form') return false;
@@ -22,9 +26,9 @@ function entryKey(storeName, value) {
   return storeName === 'drafts' ? value.key : value.id;
 }
 
-async function openReportDb() {
+async function openEvidenceDb(name) {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(REPORT_DB_NAME, 1);
+    const request = indexedDB.open(name, 1);
     request.onupgradeneeded = () => {
       for (const name of REPORT_STORES) {
         request.result.createObjectStore(name, { keyPath: name === 'drafts' ? 'key' : 'id' });
@@ -33,6 +37,42 @@ async function openReportDb() {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
+}
+
+const openReportDb = () => openEvidenceDb(REPORT_DB_NAME);
+const openRecoveryDb = () => openEvidenceDb(RECOVERY_DB_NAME);
+
+function isRecoveryEntry(storeName, entry) {
+  if (!entry || typeof entry !== 'object') return false;
+  if (storeName === 'drafts' && String(entry.key || '').startsWith('work-form-recovery:')) return true;
+  const value = storeName === 'drafts' ? entry.value : entry;
+  return Boolean(value && typeof value === 'object'
+    && (Object.hasOwn(value, 'uploadRecovery') || Object.hasOwn(value, 'recoveredToDraft')
+      || value.recoveryStorageReadOnly));
+}
+
+function legacyRecoveryCopy(storeName, value) {
+  // Recovery was never released into v0/v1. Preserve local-development copies
+  // without upgrading them into replayable work or rewriting their source bytes.
+  if (!isRecoveryEntry(storeName, value)) return value;
+  if (storeName === 'drafts') return { ...value, value: { ...value.value, recoveryStorageReadOnly: true } };
+  if (storeName === 'records') return { ...value, recoveryStorageReadOnly: true,
+    isDraftRecovery: true, syncError: RECOVERY_STORAGE_READ_ONLY };
+  return value;
+}
+
+async function recoveryStorageOwns(storeName, key, value) {
+  return Boolean(isRecoveryEntry(storeName, value)
+    || (storeName === 'drafts' && String(key).startsWith('work-form-recovery:'))
+    || await readStore(openRecoveryDb, storeName, key)
+    || (storeName === 'queue' && await readStore(openRecoveryDb, 'records', key)));
+}
+
+async function hasLegacyRecoveryEntry(storeName, key) {
+  const recordStore = storeName === 'queue' ? 'records' : storeName;
+  const legacy = await readStore(openDb, recordStore, key);
+  const isolated = await readStore(openReportDb, recordStore, key);
+  return isRecoveryEntry(recordStore, await visibleIsolated(recordStore, isolated, legacy));
 }
 
 async function readStore(open, storeName, key, all = false) {
@@ -159,6 +199,17 @@ export async function runTransaction(storeNames, mode, callback) {
 export async function put(storeName, value) {
   if (!REPORT_STORES.has(storeName)) return writeStore(openDb, storeName, (store) => store.put(value));
   const key = entryKey(storeName, value);
+  if ((storeName === 'drafts' ? value.value : value)?.recoveryStorageReadOnly) {
+    throw new Error(RECOVERY_STORAGE_READ_ONLY);
+  }
+  if (!await readStore(openRecoveryDb, storeName, key) && await hasLegacyRecoveryEntry(storeName, key)) {
+    throw new Error(RECOVERY_STORAGE_READ_ONLY);
+  }
+  if (await recoveryStorageOwns(storeName, key, value)) {
+    return writeStore(openRecoveryDb, storeName, (store) => store.put({
+      [storeName === 'drafts' ? 'key' : 'id']: key, reportStorageVersion: 1, value
+    }));
+  }
   const existing = await readStore(openReportDb, storeName, key);
   let isolated = Boolean(existing);
   if (storeName === 'drafts') isolated ||= isReportDraft(value) || Boolean(value.value?.photoBlobs?.length);
@@ -191,7 +242,10 @@ export async function get(storeName, key) {
   if (storeName === 'drafts' && (!isolated || isolated.deleted)) {
     legacyDraftReads.set(key, await fingerprint(value));
   }
-  return value;
+  const recovery = await readStore(openRecoveryDb, storeName, key);
+  // Recovery slots are source-scoped and never reusable ordinary draft slots.
+  // Their tombstones always win, even if an old tab later writes another copy.
+  return recovery ? (recovery.deleted ? undefined : recovery.value) : legacyRecoveryCopy(storeName, value);
 }
 
 export async function getAll(storeName) {
@@ -207,11 +261,22 @@ export async function getAll(storeName) {
     }
     else entries.delete(key);
   }
+  for (const [key, value] of entries) entries.set(key, legacyRecoveryCopy(storeName, value));
+  for (const recovery of await readStore(openRecoveryDb, storeName, undefined, true)) {
+    const key = entryKey(storeName, recovery);
+    if (recovery.deleted) entries.delete(key);
+    else entries.set(key, recovery.value);
+  }
   return [...entries.values()];
 }
 
 export async function remove(storeName, key) {
   if (REPORT_STORES.has(storeName)) {
+    if (await recoveryStorageOwns(storeName, key) || await hasLegacyRecoveryEntry(storeName, key)) {
+      return writeStore(openRecoveryDb, storeName, (store) => store.put({
+        [storeName === 'drafts' ? 'key' : 'id']: key, reportStorageVersion: 1, deleted: true
+      }));
+    }
     const existing = await readStore(openReportDb, storeName, key);
     const isolatedRecord = storeName === 'queue' && await readStore(openReportDb, 'records', key);
     if (existing || isolatedRecord) {
@@ -242,10 +307,12 @@ function recoveryRecordVersion(record) {
   } : value);
 }
 
-// Recovery publishes a separate draft and retires its source in one Report-DB
-// transaction. A failed write to any store leaves all three stores unchanged.
-// Legacy copies remain untouched; the isolated envelopes shadow them for new
-// clients, and the unchanged server idempotency key protects an old open tab.
+// Recovery publishes a separate draft and retires its source in one recovery-DB
+// transaction. A failed write leaves all three stores unchanged. v0/v1 source
+// copies stay untouched: compatible clients coordinate through the Web Lock,
+// while an old tab can still finish its original. The unchanged server key and
+// recovered-replay lookup preserve edits if that original wins. This is not a
+// cross-database transaction or a lock on already-deployed clients.
 export async function commitReportRecovery(expectedRecord, nextRecord, draftEntry = null, isCurrent = () => true) {
   if (expectedRecord?.type !== 'form' || (expectedRecord.submissionPurpose || expectedRecord.submission_purpose) !== 'report'
     || !expectedRecord.id || nextRecord?.id !== expectedRecord.id
@@ -253,9 +320,12 @@ export async function commitReportRecovery(expectedRecord, nextRecord, draftEntr
     throw new Error('Invalid Report recovery transaction.');
   }
   const legacy = await readStore(openDb, 'records', expectedRecord.id);
+  const previous = await readStore(openReportDb, 'records', expectedRecord.id);
+  const source = await visibleIsolated('records', previous, legacy);
+  const previousDraft = draftEntry && await readStore(openReportDb, 'drafts', draftEntry.key);
   if (!isCurrent()) throw new Error('The Report recovery session changed. Your saved copy is unchanged.');
   const expectedVersion = recoveryRecordVersion(expectedRecord);
-  const db = await openReportDb();
+  const db = await openRecoveryDb();
   return new Promise((resolve, reject) => {
     let tx, caught;
     try { tx = db.transaction(['records', 'queue', 'drafts'], 'readwrite'); }
@@ -269,12 +339,12 @@ export async function commitReportRecovery(expectedRecord, nextRecord, draftEntr
       if (!recordReady || !draftReady) return;
       try {
         const envelope = request.result;
-        const current = envelope ? (envelope.deleted ? undefined : envelope.value) : legacy;
+        const current = envelope ? (envelope.deleted ? undefined : envelope.value) : source;
         if (!isCurrent()) throw new Error('The Report recovery session changed. Your saved copy is unchanged.');
         if (!current || recoveryRecordVersion(current) !== expectedVersion) {
           throw new Error('This saved Report changed in another tab. Refresh My Reports before recovering it.');
         }
-        if (draftEntry && draftRequest.result) {
+        if (draftEntry && (draftRequest.result || previousDraft)) {
           // Even a tombstone is not permission to overwrite another operation.
           throw new Error('A recovered draft already exists. Open it in My Reports instead of recovering again.');
         }

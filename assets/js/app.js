@@ -152,6 +152,7 @@ const workerLog = createWorkerLogModule({
   isBackendSessionError
 });
 
+let reportPhotoConfirmation = null;
 const workerForm = createWorkerFormModule({
   els,
   state,
@@ -166,6 +167,17 @@ const workerForm = createWorkerFormModule({
   renderHistory: historyModule.renderHistory,
   handleSessionExpired,
   isBackendSessionError,
+  confirmAction: (options) => {
+    if (confirmationDialog.isOpen()) return Promise.resolve(false);
+    const request = confirmationDialog.confirm(options);
+    reportPhotoConfirmation = request;
+    return request.finally(() => {
+      if (reportPhotoConfirmation === request) reportPhotoConfirmation = null;
+    });
+  },
+  cancelPhotoConfirmation: () => {
+    if (reportPhotoConfirmation) confirmationDialog.cancel({ restoreFocus: false });
+  },
   reportOnly: REPORT_ONLY_MODE,
   onContinueDraft: () => activateTab('formTab'),
   onReportTemplateSourceChanged: renderReportTemplateAvailability,
@@ -1286,7 +1298,7 @@ async function handleLogout() {
   if (workerForm.hasUnsavedInput()) {
     uiFeedback.setButtonBusy(els.logoutButton, true, 'Saving draft...');
     try {
-      await workerForm.flushPendingDrafts();
+      await workerForm.flushPendingDrafts({ cancelPhotoSelection: true });
     } catch {
       uiFeedback.setButtonBusy(els.logoutButton, false);
       if (state.user?.role === 'worker') {
@@ -1345,8 +1357,9 @@ function handleSessionExpired(message = 'Your backend session expired. Please si
   }
 
   if (workerForm.finishRecoveryOnSessionExpiry()) {
-    // Recovery already owns an immutable saved source. Do not keep private
-    // screens visible behind a pending lookup after an independent 401/403.
+    // Recovery owns an immutable source; unaccepted picker batches are not
+    // saved evidence. Neither may keep private UI behind a pending lookup or
+    // photo warning after an independent 401/403.
     finish();
     return;
   }

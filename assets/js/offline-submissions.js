@@ -887,6 +887,11 @@ async function flushQueuedSubmissions(worker, options = {}) {
           return;
         }
 
+        if (record.recoveryStorageReadOnly) {
+          skipped += 1;
+          return;
+        }
+
         if (record.backendRecordId || record.syncStatus === 'synced' || record.isDraftRecovery) {
           await remove('queue', item.id);
           return;

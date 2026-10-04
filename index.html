@@ -667,6 +667,12 @@
                   </div>
                 </section>
                 <p id="workFormPhotoStatus" class="muted" role="status" aria-live="polite" aria-atomic="true"></p>
+                <div id="workFormStorageWarning" class="report-storage-warning" role="status" aria-live="polite" aria-atomic="true" hidden>
+                  <p data-storage-message></p>
+                  <p data-storage-guidance></p>
+                  <p data-storage-submission></p>
+                  <button id="workFormStorageRetryButton" type="button" class="ghost" hidden>Try saving again</button>
+                </div>
                 <p
                   id="workFormAutosaveStatus"
                   class="autosave-status"
@@ -674,6 +680,7 @@
                   aria-live="polite"
                   aria-atomic="true"
                 >Changes save automatically on this device.</p>
+                <p id="reportLocalStorageGuidance" class="muted report-storage-guidance">Local drafts and queued Reports are not backups. Browser storage can be cleared or evicted under pressure. Keep original photos until submission is confirmed in My Reports.</p>
                 <div id="workFormFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
               </form>
             </article>
@@ -685,6 +692,7 @@
                 <h2 data-full-text="My history" data-report-only-text="My Reports">My Reports</h2>
                 <button id="refreshHistoryButton" type="button" class="ghost">Refresh</button>
               </div>
+              <p class="muted report-storage-guidance report-only-storage-guidance">Local drafts and queued Reports are not backups. Browser storage can be cleared or evicted under pressure. Keep original photos until submission is confirmed in My Reports.</p>
               <section id="reportDraftsPanel" class="report-drafts-panel" aria-labelledby="reportDraftsHeading" hidden>
                 <h3 id="reportDraftsHeading">Drafts on this device</h3>
                 <p class="muted">Not submitted. Only saved on this device.</p>

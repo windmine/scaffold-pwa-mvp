@@ -96,6 +96,7 @@ function definitionVersion(value) {
 
 function availability(value, template) {
   if (!template) return 'unavailable';
+  if (value.recoveryStorageReadOnly) return 'storage_incompatible';
   const savedVersion = value.uploadRecovery && value.definitionVersion == null
     ? null : definitionVersion(value.definitionVersion);
   const currentVersion = definitionVersion(template.definition_version ?? template.definitionVersion);
