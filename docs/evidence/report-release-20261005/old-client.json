@@ -1,0 +1,205 @@
+{
+  "status": "passed",
+  "startedAtUtc": "2026-10-04T22:09:52.263Z",
+  "liveFrontend": "https://geo-attendance-system-db9ca.web.app",
+  "backendCandidate": "https://candidate-20261005---geo-backend-eitdijn7cq-ts.a.run.app",
+  "candidateService": "geo-backend",
+  "expectedLiveCache": "leader-field-d8c377e7a8c9",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scope": "Read-only existing demo Reports; old live frontend with only API/uploads forwarded to the exact tagged candidate; auth-only writes; traffic share is verified separately",
+  "checks": [
+    {
+      "name": "old_live_shell_and_candidate_readiness",
+      "status": "passed",
+      "details": {
+        "readiness": {
+          "database": "ok",
+          "migrations": "ok",
+          "upload_storage": "ok"
+        },
+        "uploadBackend": "gcs",
+        "oldShell": {
+          "cache": "leader-field-d8c377e7a8c9",
+          "sha256": "5f67ba0d958511de043a4344f9ac0c5e3395bfe78ada712df21c33c029fa3e15"
+        }
+      }
+    },
+    {
+      "name": "old_ui_auth_and_exact_demo_supervisor_scope",
+      "status": "passed",
+      "details": {
+        "userId": 16,
+        "departmentId": 2,
+        "globalAdmin": false
+      }
+    },
+    {
+      "name": "old_ui_filters_exact_demo_collection_and_streams_report5_evidence",
+      "status": "passed",
+      "details": {
+        "reportIds": [
+          "form:10",
+          "form:11",
+          "form:12",
+          "form:13",
+          "form:5",
+          "form:6",
+          "form:7",
+          "form:8",
+          "form:9"
+        ],
+        "imageProof": [
+          {
+            "path": "/uploads/2c9474177c1344b895e1984ce0c78165.png",
+            "width": 960,
+            "height": 240
+          },
+          {
+            "path": "/uploads/2c9474177c1344b895e1984ce0c78165.png",
+            "width": 960,
+            "height": 240
+          },
+          {
+            "path": "/uploads/2c9474177c1344b895e1984ce0c78165.png",
+            "width": 960,
+            "height": 240
+          },
+          {
+            "path": "/uploads/59c2bd434a8341ef8d66ab4726da97bf.png",
+            "width": 960,
+            "height": 540
+          }
+        ],
+        "answersPresent": true
+      }
+    }
+  ],
+  "requests": [
+    {
+      "surface": "live-static",
+      "method": "GET",
+      "path": "/",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:53.204Z"
+    },
+    {
+      "surface": "live-static",
+      "method": "GET",
+      "path": "/assets/icons/reportflow-icon.svg",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:53.466Z"
+    },
+    {
+      "surface": "live-static",
+      "method": "GET",
+      "path": "/assets/main-Fas8xjhK.css",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:53.636Z"
+    },
+    {
+      "surface": "live-static",
+      "method": "GET",
+      "path": "/assets/main-BeyKwyUJ.js",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:53.866Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/health/ready",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:54.521Z"
+    },
+    {
+      "surface": "live-static",
+      "method": "GET",
+      "path": "/sw.js",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:54.845Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:55.576Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/departments",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:55.642Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/sites",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:55.709Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/work-forms",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:55.855Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/auth/me",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:55.990Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/supervisor/users",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:56.020Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/supervisor/review-queue",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:56.275Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/api/supervisor/review-queue",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:56.615Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/uploads/59c2bd434a8341ef8d66ab4726da97bf.png",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:57.032Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "GET",
+      "path": "/uploads/2c9474177c1344b895e1984ce0c78165.png",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:57.134Z"
+    },
+    {
+      "surface": "candidate",
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "status": 200,
+      "atUtc": "2026-10-04T22:09:57.389Z"
+    }
+  ],
+  "blockedRequests": [],
+  "pageErrors": 0,
+  "completedAtUtc": "2026-10-04T22:09:57.455Z",
+  "authOnlyWrites": true
+}

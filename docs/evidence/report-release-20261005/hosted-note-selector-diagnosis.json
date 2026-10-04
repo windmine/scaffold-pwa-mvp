@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "status": "diagnosed_and_verifier_repaired",
+  "applicationSourceCommit": "c024fa61f05880e13357eb253b67f00b571254d2",
+  "initialFailure": {
+    "evidence": "docs/evidence/report-release-20261005/hosted-photo50-stage/evidence.json",
+    "checkpoint": "supervisor_requires_note_and_resolves_report",
+    "code": "browser_or_api_operation_failed",
+    "priorPassedCheckpoints": 10,
+    "rawBrowserDiagnosticRetained": false,
+    "ownedReportId": 25,
+    "ownedTemplateId": 22,
+    "cleanup": {
+      "reportTrashed": true,
+      "templateArchived": true,
+      "submissionOutcomeUnknown": false,
+      "failures": []
+    }
+  },
+  "cause": {
+    "code": "hosted_verifier_targets_retained_edit_form",
+    "oldSelector": "#editPanelForm button[type=\"submit\"]",
+    "oldSelectorCount": 0,
+    "reportSelector": "#reportNoteForm #resolveReportNoteButton",
+    "reportSelectorCount": 1,
+    "retainedEditFormEmptyAndHidden": true,
+    "reportNoteVisibleAndEnabledDuringReproduction": true
+  },
+  "localReproduction": {
+    "scope": "Unchanged real application source, native IndexedDB, phone viewport and intercepted local API fixture; no hosted requests",
+    "viewport": { "width": 390, "height": 844 },
+    "initialCycles": 5,
+    "oldSelectorTimeouts": 5,
+    "emptyNoteRequiredInvalidAndFocusedPasses": 5,
+    "emptyNoteTransitionRequests": 0,
+    "filledNoteExactlyOneResolutionPasses": 5,
+    "newHostedReadinessHelperVerificationCycles": 5,
+    "newHostedReadinessHelperPasses": 5,
+    "externalOrUnexpectedRequests": 0
+  },
+  "permanentRegression": {
+    "test": "scripts/check-hosted-report-workflow-test.mjs",
+    "seam": "Actual hosted empty-note checkpoint source and actual index.html Report note markup",
+    "beforeRepair": "legacy_submit_selector_timeout",
+    "afterRepair": "passed",
+    "hostedHarnessGroupsPassed": 15,
+    "visibleLoadingNoteKeepsReadinessPending": true,
+    "emptyNoteNativeRequiredAndFocusPreserved": true,
+    "emptyNoteSubmitEvents": 0,
+    "filledNoteReportSubmitEvents": 1,
+    "legacyFormSubmitEvents": 0,
+    "authenticatedTransitionAndImmutableContentAssertionsUnchanged": true
+  },
+  "changeScope": {
+    "verifier": "scripts/check-hosted-report-workflow.mjs",
+    "applicationChanged": false,
+    "backendChanged": false,
+    "existingNoteSuiteChanged": false,
+    "hostedRequestsOrMutationsDuringDiagnosis": false
+  },
+  "limits": [
+    "The initial hosted proof retains a sanitized checkpoint code, not the original Playwright stack.",
+    "Local diagnosis and harness passes do not substitute for the separate repaired hosted rerun.",
+    "No physical-phone or camera-photo capacity certification is claimed."
+  ]
+}

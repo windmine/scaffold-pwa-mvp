@@ -7,6 +7,18 @@ import * as runner from './check-hosted-report-workflow.mjs';
 
 // This test never starts the hosted runner or accesses a real origin/account.
 const historySource = readFileSync(new URL('../assets/js/history.js', import.meta.url), 'utf8');
+const appMarkup = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const notePanelMarkup = appMarkup.match(/<section id="reportNotePanel"[\s\S]*?<\/section>/)?.[0];
+assert.ok(notePanelMarkup, 'Production Report note panel must be located rather than duplicated');
+const hostedSource = readFileSync(new URL('./check-hosted-report-workflow.mjs', import.meta.url), 'utf8');
+const resolutionStart = hostedSource.indexOf("await step('supervisor_requires_note_and_resolves_report'");
+const openNoteStart = hostedSource.indexOf("      await supervisorPage.locator('#reviewQueueActions')", resolutionStart);
+const emptyValidationStart = hostedSource.indexOf('\n', openNoteStart) + 1;
+const emptyValidationEnd = hostedSource.indexOf('      await note.fill(finalNote);', emptyValidationStart);
+assert.ok(resolutionStart > 0 && openNoteStart > resolutionStart && emptyValidationEnd > emptyValidationStart);
+const checkHostedEmptyNote = new Function('supervisorPage', 'readyReportResolutionNote', 'requireCondition', `return (async () => {
+  ${hostedSource.slice(emptyValidationStart, emptyValidationEnd)}
+})();`);
 const paragraph = historySource.match(/finalSupervisorNote \? `(<p class="report-supervisor-note">[^`]+<\/p>)`/);
 assert.ok(paragraph, 'Production resolution-note markup must be located rather than duplicated');
 const note = 'TEST ONLY resolution-note selector regression';
@@ -213,6 +225,43 @@ try {
   });
   const page = await context.newPage();
   await page.goto('https://hosted-runner-test.invalid/');
+  await page.setContent(`${notePanelMarkup}<section hidden><form id="editPanelForm"></form></section>`);
+  await page.evaluate(() => {
+    document.querySelector('#reportNotePanel').hidden = false;
+    document.querySelector('#reportResolutionNote').disabled = true;
+    document.querySelector('#resolveReportNoteButton').disabled = true;
+    window.noteSubmitCounts = { report: 0, legacy: 0 };
+    for (const [id, key] of [['reportNoteForm', 'report'], ['editPanelForm', 'legacy']]) {
+      document.getElementById(id).addEventListener('submit', (event) => {
+        event.preventDefault();
+        window.noteSubmitCounts[key] += 1;
+      });
+    }
+  });
+  assert.equal(await page.locator('#reportResolutionNote').isVisible(), true);
+  assert.equal(await page.locator('#editPanelForm button[type="submit"]').count(), 0,
+    'The retained edit form has no Report submit button');
+  page.setDefaultTimeout(1000);
+  let noteCheckSettled = false;
+  const emptyNoteCheck = checkHostedEmptyNote(page, runner.readyReportResolutionNote,
+    (condition, code) => assert.ok(condition, code)).finally(() => { noteCheckSettled = true; });
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    assert.equal(noteCheckSettled, false, 'Visible but loading notes must not satisfy hosted readiness');
+  } finally {
+    await page.evaluate(() => {
+      document.querySelector('#reportResolutionNote').disabled = false;
+      document.querySelector('#resolveReportNoteButton').disabled = false;
+    });
+  }
+  await emptyNoteCheck;
+  assert.deepEqual(await page.evaluate(() => window.noteSubmitCounts), { report: 0, legacy: 0 });
+  const readyNote = await runner.readyReportResolutionNote(page);
+  await readyNote.note.fill('Isolated hosted note regression');
+  await readyNote.submit.click();
+  assert.deepEqual(await page.evaluate(() => window.noteSubmitCounts), { report: 1, legacy: 0 });
+  page.setDefaultTimeout(30000);
+  console.log('ok - hosted resolution waits for the actual Report note form and preserves native required/focus validation');
   await page.setContent(`<section id="reviewQueueDetail">${markup}</section>`);
   const detail = page.locator('#reviewQueueDetail');
   assert.equal(await detail.getByText(note, { exact: true }).count(), 0,
@@ -330,7 +379,7 @@ try {
   } });
   assert.equal(requestCount, 1, 'Only the locally fulfilled fake document request is allowed');
   console.log('ok - bounded API wrapper preserves same-origin session, CSRF, and JSON payload');
-  console.log('14 hosted runner checks passed; no network requests reached a server');
+  console.log('15 hosted runner checks passed; no network requests reached a server');
 } finally {
   await browser.close();
 }

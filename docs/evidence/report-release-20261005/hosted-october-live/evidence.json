@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "runId": "oct5-live",
+  "nonce": "5bcf9802-7f98-4e46-9eb4-aa8d133d788c",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "startedAtUtc": "2026-10-04T22:40:33.829Z",
+  "status": "passed",
+  "checks": [
+    {
+      "name": "hosted_readiness_and_exact_demo_supervisor",
+      "status": "passed"
+    },
+    {
+      "name": "new_nonce_owned_worker_and_template",
+      "status": "passed"
+    },
+    {
+      "name": "injected_low_estimate_cancel_and_explicit_original_photo_acceptance",
+      "status": "passed",
+      "details": {
+        "injectedEstimateOnly": true,
+        "acceptedPhotos": 8,
+        "cancelledPhotos": 8
+      }
+    },
+    {
+      "name": "injected_first_upload_rejection_creates_real_local_failed_report",
+      "status": "passed",
+      "details": {
+        "injectedHttpStatus": 415,
+        "realUploads": 0,
+        "realReportPosts": 0,
+        "sourceOriginals": 8
+      }
+    },
+    {
+      "name": "real_backend_identity_lookup_and_atomic_recover_as_draft",
+      "status": "passed",
+      "details": {
+        "realLookup": "not_found",
+        "retainedOriginals": 7,
+        "omittedRejectedPhotos": 1,
+        "sourceRetainedReadOnly": true
+      }
+    },
+    {
+      "name": "recovered_report_real_uploads_and_original_submission_key",
+      "status": "passed",
+      "details": {
+        "realUploads": 7,
+        "realReportPosts": 1,
+        "preservedClientSubmissionId": true,
+        "realLookupCount": 2
+      }
+    },
+    {
+      "name": "worker_compact_gallery_seven_real_originals",
+      "status": "passed",
+      "details": {
+        "compactPreviews": 6,
+        "fullGalleryOriginals": 7
+      }
+    },
+    {
+      "name": "second_real_report_establishes_owned_ordering_pair",
+      "status": "passed"
+    },
+    {
+      "name": "real_same_key_immutable_winner_and_recovery_identity_rejection",
+      "status": "passed",
+      "details": {
+        "immutableWinnerReplayed": true,
+        "identityRejections": 2,
+        "exactSubmittedLookup": true,
+        "createdReportsUnchanged": 2
+      }
+    },
+    {
+      "name": "oldest_waiting_real_backend_order_preference_and_shortcuts",
+      "status": "passed",
+      "details": {
+        "sortOrder": "oldest_waiting",
+        "reportIdsInOrder": [
+          27,
+          28
+        ],
+        "reloadPreference": true,
+        "realPages": 2,
+        "pageSize": 1,
+        "filterCursorMismatchStatus": 400
+      }
+    },
+    {
+      "name": "supervisor_compact_gallery_and_real_start_review",
+      "status": "passed",
+      "details": {
+        "realWorkflow": "in_review",
+        "submittedBeforeInReview": true
+      }
+    },
+    {
+      "name": "private_supervisor_note_close_reload_and_explicit_real_resolution",
+      "status": "passed",
+      "details": {
+        "closeRestored": true,
+        "reloadRestored": true,
+        "draftTransitions": 0,
+        "explicitResolutions": 1,
+        "realTransitionBetweenPagesPreservedSnapshot": true,
+        "serializedWorkflowIsCurrent": true,
+        "limitation": "Does not induce a database transaction timestamped before the snapshot but committed later."
+      }
+    },
+    {
+      "name": "phone_layout_and_clean_browser_errors",
+      "status": "passed"
+    },
+    {
+      "name": "real_owned_soft_trash_invalidates_oldest_snapshot",
+      "status": "passed",
+      "details": {
+        "status": 409,
+        "code": "report_review_order_changed",
+        "limitation": "Real matching-set removal, not the locally controlled pre-snapshot late-commit transition race."
+      }
+    }
+  ],
+  "owned": {
+    "departmentId": 2,
+    "reportIds": [
+      27,
+      28
+    ],
+    "workerId": 26,
+    "templateId": 24,
+    "clientSubmissionIds": [
+      "33bf4fad-c59a-4ad3-9033-f87295aab302",
+      "4212c04f-0976-4860-a418-32b06e227165"
+    ]
+  },
+  "scope": "Real Firebase-proxy Chromium at 390px. Two new nonce-owned Reports. Not physical-phone or maximum-size-photo certification.",
+  "injectedFaults": [
+    "Browser storage estimate reports low headroom only during photo selection; native writes are unchanged.",
+    "Original first photo upload receives an intercepted HTTP 415 before reaching the host. Recovered uploads and all lookup/submission/review requests reach the real backend."
+  ],
+  "scriptSha256": "81b1a6c466e08e4d79c5a25f6973d8cdf470111e0dbd594b84a31826c6bd4713",
+  "cleanup": {
+    "reportsTrashed": [
+      28,
+      27
+    ],
+    "templateArchived": true,
+    "workerResigned": true,
+    "failures": []
+  },
+  "browserPageErrors": 0,
+  "requests": {
+    "rejectedUploads": 2,
+    "realUploads": 7,
+    "reports": 2,
+    "transitions": 2,
+    "endpointProbes": 3
+  },
+  "completedAtUtc": "2026-10-04T22:41:35.261Z"
+}

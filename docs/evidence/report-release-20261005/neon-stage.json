@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "phase": "neon-create",
+  "status": "passed",
+  "runId": "20261005",
+  "cliPackage": "neon@2.32.0",
+  "startedAtUtc": "2026-10-04T21:44:35.497315+00:00",
+  "ownershipNonce": "b836f629239b102bf9a94031e126e322",
+  "intent": {
+    "projectId": "plain-smoke-06194407",
+    "parentId": "br-snowy-tree-a7hfuph6",
+    "name": "release-stage-20261005",
+    "expiresAt": "2026-10-05T21:44:35Z",
+    "branchType": "normal",
+    "endpointType": "read_write",
+    "computeUnits": 0.25,
+    "suspendTimeoutSeconds": 300
+  },
+  "attempts": [
+    {
+      "action": "create_exact_stage_branch_once",
+      "atUtc": "2026-10-04T21:44:45.324853+00:00"
+    }
+  ],
+  "parentVerifiedAtUtc": "2026-10-04T21:44:45.324832+00:00",
+  "createAttemptedAtUtc": "2026-10-04T21:44:45.324853+00:00",
+  "returnedIdsForInspectionOnly": {
+    "branchIds": [
+      "br-green-mode-a7x9jzqz"
+    ],
+    "endpointIds": [
+      "ep-calm-dust-a76g3i8o"
+    ]
+  },
+  "branch": {
+    "id": "br-green-mode-a7x9jzqz",
+    "name": "release-stage-20261005",
+    "project_id": "plain-smoke-06194407",
+    "parent_id": "br-snowy-tree-a7hfuph6",
+    "default": false,
+    "primary": false,
+    "protected": false,
+    "created_at": "2026-10-04T21:44:47Z",
+    "expires_at": "2026-10-05T21:44:35Z",
+    "current_state": "ready"
+  },
+  "endpoint": {
+    "id": "ep-calm-dust-a76g3i8o",
+    "branch_id": "br-green-mode-a7x9jzqz",
+    "project_id": "plain-smoke-06194407",
+    "type": "read_write",
+    "created_at": "2026-10-04T21:44:47Z",
+    "autoscaling_limit_min_cu": 0.25,
+    "autoscaling_limit_max_cu": 0.25,
+    "suspend_timeout_seconds": 300,
+    "hostSha256": "7f8206277491db73b5bb2dd35e83fb0280908c011c0cafb0ec1dfaf91f59938c"
+  },
+  "createResponseReceivedAtUtc": "2026-10-04T21:44:51.357889+00:00",
+  "finishedAtUtc": "2026-10-04T21:45:01.777824+00:00"
+}

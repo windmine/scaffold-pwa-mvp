@@ -1,0 +1,3 @@
+# Release proofs bind exact file bytes, including provider/Python CRLF output.
+# Preserve those bytes across Git staging and cross-platform checkouts.
+* -text

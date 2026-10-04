@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "phase": "stage-creation-attestation",
+  "status": "passed",
+  "runId": "20261005",
+  "recordedAtUtc": "2026-10-04T22:44:55.046401+00:00",
+  "projectId": "geo-attendance-system-db9ca",
+  "projectNumber": "794826041820",
+  "resources": {
+    "service": "geo-report-stage-20261005",
+    "job": "geo-report-migrate-stage-20261005",
+    "databaseSecret": "report-stage-db-20261005",
+    "jwtSecret": "report-stage-jwt-20261005",
+    "uploadPrefix": "uploads/release-stage-20261005"
+  },
+  "sourceProofs": {
+    "snapshot": {
+      "file": "snapshot.json",
+      "fileSha256": "ee6f69c2a3d2e189552d7fc3a1d2b399618cc71d0a0634ae66e91a268c2492fa",
+      "sha256": "73908ccbfe0481e689dad1e38ac05c7c831d63610a0db5187b2e51b10ec818d7"
+    },
+    "resources": {
+      "file": "stage-resources.json",
+      "fileSha256": "0cb5dd3c96bab110b9d8e13638873613dd5ed5126fd8ccf95fb769a0ffa38237",
+      "sha256": "3a04cf9c3c9dbbb477cd34e35f3f779182d079d5eeb6f5c3642a05263a0b4101"
+    },
+    "service": {
+      "file": "stage-service.json",
+      "fileSha256": "d139c6fa7eeaabf0db98114fc1d03db788ba4e2f60e5c12865c2e86c3b99293b",
+      "sha256": "e78e0d63fcae26d73e73e4e56f1953a0d79c4965786813c018702c998d887c61"
+    },
+    "stagePlan": {
+      "file": "stage-plan.json",
+      "fileSha256": "6eec796f8110932a7314fdc344a74321d15e0aab7f50af67b335db3f31fe400b",
+      "sha256": "1b47d1d201b0239d0dc55b18211a38071487d67371b0711e9d5ad0b68af4b716"
+    }
+  },
+  "codeSha256": {
+    "wrapper": "3bd06e675d1c9690c67e6617e277e202b4a9f3fe921bd114389e2649f6a4af60",
+    "teardown": "a39838d41d55b7aa64e6f3f4fd8216e2b4c36005d9625c102fdec2e053d00876",
+    "operator": "a1e4b7c57ee3b355c269d4e6123264ca07dcd78d9da2eafe85d4a46b332d1c51"
+  },
+  "exceptions": {
+    "service": {
+      "action": "create_service:geo-report-stage-20261005",
+      "creationProofSha256": "e78e0d63fcae26d73e73e4e56f1953a0d79c4965786813c018702c998d887c61",
+      "resource": {
+        "name": "geo-report-stage-20261005",
+        "uid": "01eb321a-3bb9-4680-832e-905b64a5b80b",
+        "createdAtUtc": "2026-10-04T22:01:58.558097Z",
+        "resourceSha256": "a75942f7db5595cecaa863ef1bbf6b7c2146e3b308e5fe0bbd77542e4669d442",
+        "configurationSha256": "01847042add05b031ffb9f454b434a0b26f58350e2abaef2c82095ca01ab5648"
+      },
+      "audit": {
+        "insertId": "15cgu7hdc3og",
+        "timestamp": "2026-10-04T22:01:58.191456Z",
+        "receiveTimestamp": "2026-10-04T22:01:58.834494506Z",
+        "methodName": "google.cloud.run.v1.Services.CreateService",
+        "resourceName": "namespaces/geo-attendance-system-db9ca/services/geo-report-stage-20261005",
+        "callerSha256": "31ab631247bfe79050ce33abe0a6dc6a75ee28bd8117a05506dcb94f2db71498",
+        "statusCode": 0,
+        "eventSha256": "c4f6651f0db69504c9571c26230ef494ec37df767fe2ae02caa39fd4df7e23f4",
+        "uniqueCreateAndNoDeleteOrReplace": true,
+        "providerCreationWithinEvent": true,
+        "requestSha256": "c493e70b73872af7c342a5d94d5d38764f736e0bbfeda276285ff84ebeb6d478",
+        "availableConfigurationSha256": "ab0f7b9fec170334dff1c1a66a1cfdbb22ed89492f5791c051b12e65ef784ada",
+        "omittedCreationFields": [
+          "env",
+          "startupProbe",
+          "ports"
+        ],
+        "availableConfigurationMatchesPlan": true
+      }
+    },
+    "job": {
+      "action": "create_job:geo-report-migrate-stage-20261005",
+      "creationProofSha256": "3a04cf9c3c9dbbb477cd34e35f3f779182d079d5eeb6f5c3642a05263a0b4101",
+      "resource": {
+        "name": "geo-report-migrate-stage-20261005",
+        "uid": "2d234323-227b-4a00-8954-cf008ede5477",
+        "createdAtUtc": "2026-10-04T21:59:16.672374Z",
+        "resourceSha256": "47dabec4f44ee9d20a7a261c2da0d4de0fe8ee3cbb2142f774e5acfe445e8464",
+        "configurationSha256": "a55021b6a52bde00e1d6f786cf1c13fed12492fcb8fc69ffa90bd4ffe14e2b9d"
+      },
+      "audit": {
+        "insertId": "2st57ddc5w7",
+        "timestamp": "2026-10-04T21:59:16.253091Z",
+        "receiveTimestamp": "2026-10-04T21:59:17.437276711Z",
+        "methodName": "google.cloud.run.v1.Jobs.CreateJob",
+        "resourceName": "namespaces/geo-attendance-system-db9ca/jobs/geo-report-migrate-stage-20261005",
+        "callerSha256": "31ab631247bfe79050ce33abe0a6dc6a75ee28bd8117a05506dcb94f2db71498",
+        "statusCode": 0,
+        "eventSha256": "7b9dd72330ff53063ec2e3162a0be930ef322228efcff7e09557c32d2df972a3",
+        "uniqueCreateAndNoDeleteOrReplace": true,
+        "providerCreationWithinEvent": true,
+        "requestSha256": "756438461361020934e4eb4c1358d13d11d5c9ad9962f2004b17fd5d0fac6ca3",
+        "availableConfigurationSha256": "a17f2a6dbe0a43db6718b1d0c5deb7284f840bf5f0d0d940dfb5b6907a55f843",
+        "omittedCreationFields": [
+          "command",
+          "args",
+          "env"
+        ],
+        "availableConfigurationMatchesPlan": true
+      }
+    },
+    "databaseSecret": {
+      "action": "create_secret:report-stage-db-20261005",
+      "creationProofSha256": "3a04cf9c3c9dbbb477cd34e35f3f779182d079d5eeb6f5c3642a05263a0b4101",
+      "resource": {
+        "name": "projects/794826041820/secrets/report-stage-db-20261005",
+        "uid": null,
+        "createdAtUtc": "2026-10-04T21:58:47.391981Z",
+        "resourceSha256": "6c7483e8e4a750acfeb2b92069c6a7291625ade1e8ee959db86c53ea1680639b",
+        "configurationSha256": "7e59f0aeae4afe27edc2fd627521b7615f1ac636903eb691a2111c8078f1376e"
+      },
+      "audit": {
+        "insertId": "d1jk5re20loi",
+        "timestamp": "2026-10-04T21:58:47.364649488Z",
+        "receiveTimestamp": "2026-10-04T21:58:50.363289352Z",
+        "methodName": "google.cloud.secretmanager.v1.SecretManagerService.CreateSecret",
+        "resourceName": "projects/794826041820/secrets/report-stage-db-20261005",
+        "callerSha256": "31ab631247bfe79050ce33abe0a6dc6a75ee28bd8117a05506dcb94f2db71498",
+        "statusCode": 0,
+        "eventSha256": "60707785431d3691ecfdef9d42445f3c944722a284b0e22b827008837e59b6d2",
+        "uniqueCreateAndNoDeleteOrReplace": true,
+        "providerCreationWithinEvent": true,
+        "requestSha256": "54e435ac41ed75a85039e2327c9c62b202ac35a81ea0e8ae43118821afa7af9e",
+        "availableConfigurationSha256": "bb64bcd8381efcde86abca6586bc95ec9685646cd693333a041211e180accc8f",
+        "omittedCreationFields": [
+          "labels"
+        ],
+        "availableConfigurationMatchesPlan": true
+      }
+    },
+    "jwtSecret": {
+      "action": "create_secret:report-stage-jwt-20261005",
+      "creationProofSha256": "3a04cf9c3c9dbbb477cd34e35f3f779182d079d5eeb6f5c3642a05263a0b4101",
+      "resource": {
+        "name": "projects/794826041820/secrets/report-stage-jwt-20261005",
+        "uid": null,
+        "createdAtUtc": "2026-10-04T21:59:01.537146Z",
+        "resourceSha256": "2299ec1f315ba70cbed99640b23ccc48aca2867cc64979709c719810f88ec809",
+        "configurationSha256": "d184415ac9eb612228f3dc4047e46e689c1ab65d9ad6013fec4729842d1b07ff"
+      },
+      "audit": {
+        "insertId": "1kx6bihe2bk1g",
+        "timestamp": "2026-10-04T21:59:01.515984055Z",
+        "receiveTimestamp": "2026-10-04T21:59:04.459204296Z",
+        "methodName": "google.cloud.secretmanager.v1.SecretManagerService.CreateSecret",
+        "resourceName": "projects/794826041820/secrets/report-stage-jwt-20261005",
+        "callerSha256": "31ab631247bfe79050ce33abe0a6dc6a75ee28bd8117a05506dcb94f2db71498",
+        "statusCode": 0,
+        "eventSha256": "0bfa7d99bc7ba7be63c1acebfd6edc58775427a9e8ab0483f653bd526070f215",
+        "uniqueCreateAndNoDeleteOrReplace": true,
+        "providerCreationWithinEvent": true,
+        "requestSha256": "61299b9e2ee658f45e7ec02fc522ffb2f4dba159233e64c22c22f2fa79883bbb",
+        "availableConfigurationSha256": "bb64bcd8381efcde86abca6586bc95ec9685646cd693333a041211e180accc8f",
+        "omittedCreationFields": [
+          "labels"
+        ],
+        "availableConfigurationMatchesPlan": true
+      }
+    }
+  },
+  "lifecycleAuditThroughUtc": "2026-10-04T22:44:48.947246+00:00",
+  "secretPayloadReads": 0,
+  "mutationCalls": 0,
+  "scope": "Four exact create timestamps only; secret-version windows and all original identity/configuration/live guards remain strict.",
+  "limitations": [
+    "Cloud Run creation audit response has no UID; current exact UID and provider creation time within the unique event interval plus no intervening create/delete/replace bind the incarnation.",
+    "Audit requests omit the listed fields. Available fields match the original plan; complete current runtime, secret references, job arguments, policies and versions pass the original guards."
+  ]
+}

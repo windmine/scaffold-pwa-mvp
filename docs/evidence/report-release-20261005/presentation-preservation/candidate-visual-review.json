@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "phase": "candidate",
+  "sourceCommit": "c024fa61f05880e13357eb253b67f00b571254d2",
+  "candidateRevision": "geo-backend-october-20261005",
+  "renderer": "Poppler pdftoppm, PNG at 110 DPI",
+  "artifactsDirectory": "output/pdf/report-release-20261005-presentation-preservation-candidate.local",
+  "reviewed": [
+    { "pdf": "mutual-toolbox-talk.pdf", "pages": 2, "renderPrefix": "toolbox" },
+    { "pdf": "mutual-demo-collection.pdf", "pages": 16, "renderPrefix": "collection" }
+  ],
+  "totalPagesVisuallyReviewed": 18,
+  "logoAnswersPhotosSignaturesAndFootersInspected": true,
+  "clippedTextOrOverlappingFieldsObserved": false,
+  "rendererWarnings": "Poppler reported Symbol/ArialUnicode fallback font warnings; no corresponding missing glyph or clipping was observed in the reviewed fixtures.",
+  "liveParityPending": true,
+  "presentationFixturesMutated": false,
+  "scope": "Read-only retained synthetic presentation fixtures. Not physical-phone PDF-viewer certification."
+}

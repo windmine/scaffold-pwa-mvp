@@ -1,0 +1,445 @@
+"""Offline October 5 evidence aggregator; never deploys or contacts a service.
+
+Review before use. Default writes a NEW ignored release.draft.json with blockers.
+--check-only writes nothing. --final --mobile-exit-code 0 requires every gate and
+exclusively creates docs/evidence/report-release-20261005/release.json; no overwrite.
+--proof-path KEY=RELATIVE_PATH adapts proof filenames, not their required assertions.
+Paths are relative to the release evidence directory (or absolute within this repo).
+
+Future proof contracts: Hosting uses the September 29 channels layout (or flat
+version/url/rewrites/releasedAtUtc); hardening uses status/exitCode/servingRevision/
+trafficPercent/currentMigrationCount/currentMigrationHead/configurationChangedByCheck.
+production_before/production_after use the actual production-inventory-before/after
+proofs, bound to backend-promotion.json and captured BEFORE hosted fixtures.
+Lint uses status=passed, exitCode=0, command='npm run lint', sourceCommit=SOURCE.
+No generic status-only override, manual success flag, or cloud subprocess exists.
+"""
+import argparse
+from datetime import datetime, timezone, timedelta
+import hashlib
+import json
+from pathlib import Path
+import re
+
+ROOT = Path(__file__).resolve().parents[2]
+BASE = ROOT / "docs/evidence/report-release-20261005"
+SOURCE = "c024fa61f05880e13357eb253b67f00b571254d2"
+IMAGE = "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:7fcefe3787cf173fe998a420f76a3393ebb8a07577617d68cb88376e9dde8224"
+BUILD = "8e582ff0-b88a-49a8-a09e-6d53b694383e"
+REVISION, PREVIOUS = "geo-backend-october-20261005", "geo-backend-recovery-20260929"
+SOURCE_CACHE, BUILT_CACHE = "leader-field-cd739c204f2c", "leader-field-7a709da8321a"
+OLD_CACHE = "leader-field-d8c377e7a8c9"
+LIVE = "https://geo-attendance-system-db9ca.web.app"
+FILES = {
+    "build": "build.json", "snapshot": "snapshot.json", "plan": "stage-plan.json",
+    "resources": "stage-resources.json", "check": "stage-check.json", "service": "stage-service.json",
+    "candidate": "candidate.json", "infrastructure": "infrastructure-live.json",
+    "preflight": "preflight-hardening.json", "provider": "provider-smoke.json",
+    "pg17": "postgres17.json", "pg18": "postgres18.json", "old_client": "old-client.json",
+    "rollback": "hosting-rollback.json", "hosting_preview": "hosting-preview.json", "hosting_live": "hosting-live.json",
+    "recovery": "neon-current-final.json", "hardening": "hardening-final.json", "lint": "lint.json",
+    "production_before": "production-inventory-before.json", "production_after": "production-inventory-after.json",
+    "promotion": "backend-promotion.json",
+    "teardown": "stage-teardown.json", "neon_cleanup": "stage-neon-cleanup.json",
+    "pdf_baseline": "presentation-preservation/baseline.json", "pdf_candidate": "presentation-preservation/candidate.json",
+    "pdf_live": "presentation-preservation/live.json", "pdf_parity": "presentation-preservation/render-parity.json",
+    "pdf_visual": "presentation-preservation/visual-review.json", "note_diagnosis": "hosted-note-selector-diagnosis.json",
+    "waiting": "live-waiting-update.json", "ux_boundary_diagnosis": "hosted-ux-boundary-diagnosis.json",
+}
+for surface in ("stage", "preview", "live"):
+    for kind in ("shell", "installer"):
+        FILES[f"{surface}_{kind}"] = f"{surface}-{kind}.json"
+    for kind in ("october", "ux", "photo50"):
+        suffix = "stage-b" if surface == "stage" and kind == "photo50" else surface
+        FILES[f"{surface}_{kind}"] = f"hosted-{kind}-{suffix}/evidence.json"
+FILES["preview_ux"] = "hosted-ux-preview-b/evidence.json"
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def canonical(value):
+    return sha(json.dumps(value, sort_keys=True, separators=(",", ":")).encode())
+
+
+def stamp(value):
+    require(isinstance(value, str) and re.search(r"(?:Z|[+-]\d\d:\d\d)$", value), "UTC timestamp required")
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
+
+
+def inside(path):
+    path = path.resolve()
+    require(path.is_relative_to(ROOT) and not path.is_symlink(), "repository file required")
+    return path
+
+
+def checked_count(proof, count, strings=False):
+    checks = proof["checks"]
+    require(isinstance(checks, list) and len(checks) == count, f"exactly {count} checks required")
+    names = checks if strings else [item["name"] for item in checks]
+    require(len(set(names)) == count, "duplicate checks refused")
+    require(strings or all(item.get("status") == "passed" for item in checks), "every check must pass")
+
+
+def mobile_log(text):
+    text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text).replace("\r\n", "\n")
+    marker = "10 native browser startup/asynchronous/queue-wait contract groups passed."
+    require(" check:mobile\n" in text and text.count(marker) == 1, "complete check:mobile log boundary required")
+    require(not re.search(r"\bnot\s+ok\b", text, re.I), "not ok present in mobile log")
+    require(text.rstrip().endswith("browser workflow checks passed"), "terminal browser success line required")
+    names = re.findall(r"^ok - (.+)$", text.split(marker, 1)[1], re.M)
+    require(len(names) == len(set(names)) == 72, "exactly 72 distinct real-backend workflow passes required")
+    require("11 installer checks passed; no backend, cloud, or account mutations." in text, "installer11 marker missing")
+    require("mobile/browser workflow checks passed" in text, "static mobile shell marker missing")
+    return names
+
+
+def assets(proof, count):
+    rows = proof["assets"]
+    require(len(rows) == count and len({item["path"] for item in rows}) == count, "asset count mismatch")
+    files = {}
+    for item in rows:
+        file = inside(ROOT / "dist" / ("index.html" if item["path"] == "/" else item["path"].lstrip("/")))
+        require(file.is_relative_to(ROOT / "dist"), "asset outside dist")
+        data = file.read_bytes()
+        require(sha(data) == item["sha256"] and len(data) == item["bytes"], "frozen dist asset mismatch")
+        files[file] = sha(data)
+    return files
+
+
+def channel(proof, name):
+    return proof["channels"][name] if "channels" in proof else proof
+
+
+def production_rewrites(value):
+    rows = value["rewrites"]
+    require(len(rows) == 2, "exactly API and upload rewrites required")
+    require({item.get("glob", item.get("source")) for item in rows} == {"/api/**", "/uploads/**"}, "rewrite scope mismatch")
+    require(all(item["run"] == {"serviceId": "geo-backend", "region": "australia-southeast1"} for item in rows), "nonproduction rewrite refused")
+
+
+def acknowledged_historical_ux(proof, relative_path, digest, diagnosis):
+    """Recognize one hash-bound failed gate, never waive an unverified cleanup."""
+    try:
+        original = diagnosis["originalAttempt"]
+        require(relative_path == original["evidence"] == "hosted-ux-preview/evidence.json", "not the acknowledged UX attempt")
+        require(digest == original["fileSha256"] == "4315daea78c1fbed1cf9c388d9408b0aae14180fa4e7dade941de4f81cf138ef", "original UX proof changed")
+        require(proof["status"] == original["statusRemains"] == "failed" and not proof.get("failure"), "historical UX failure shape changed")
+        require(proof["runId"] == original["runId"] == "ux-oct5-preview" and proof["nonce"] == original["nonce"] == "18dd2f29-55a3-41ed-9ae8-d0e80bbb1c9d", "original UX identity mismatch")
+        require(proof["scriptSha256"] == original["scriptSha256"] == "284315adf7c5f4ccf1897415992ffd3d7efeb86ae8deedf3f6400ed1e2108c22", "original UX verifier mismatch")
+        checked_count(proof, 9)
+        require(proof["browserPageErrors"] == 0 and proof["owned"] == original["owned"] == {"departmentId": 2, "workerId": 24, "templateId": 22, "reportId": 25}, "original owned UX evidence mismatch")
+        require(proof["cleanup"] == {"reportTrashed": True, "templateArchived": True, "workerResigned": True, "failures": [{"name": "request_boundary", "code": "browser_or_api_operation_failed"}]}, "only exact generic transport failure with complete cleanup may be acknowledged")
+        require("submission_outcome_unknown" not in json.dumps(proof) and "submissionOutcomeUnknown" not in json.dumps(proof), "unknown submission outcome cannot be acknowledged")
+        return True
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return False
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--final", action="store_true")
+    parser.add_argument("--check-only", action="store_true")
+    parser.add_argument("--mobile-exit-code", type=int)
+    parser.add_argument("--local-log", type=Path, default=ROOT / "output/release-20261005-final-c.local.log")
+    parser.add_argument("--proof-path", action="append", default=[], metavar="KEY=PATH")
+    args = parser.parse_args(argv)
+    require(not (args.final and args.check_only), "choose final or check-only")
+    paths = {key: BASE / name for key, name in FILES.items()}
+    for override in args.proof_path:
+        key, separator, value = override.partition("=")
+        require(separator and key in paths and value, "unknown proof override")
+        paths[key] = Path(value) if Path(value).is_absolute() else BASE / value
+    paths = {key: inside(path) for key, path in paths.items()}
+    blockers, proofs, inputs, gates = [], {}, {}, []
+
+    def bind(path, digest):
+        require(path not in inputs or inputs[path] == digest, "input changed during validation")
+        inputs[path] = digest
+
+    def gate(label, action):
+        try:
+            action()
+            gates.append(label)
+        except (ValueError, KeyError, TypeError, OSError, AttributeError) as error:
+            blockers.append({"gate": label, "reason": str(error) if isinstance(error, ValueError) else type(error).__name__})
+
+    def load(key):
+        path = paths[key]
+        data = path.read_bytes()
+        proof = json.loads(data)
+        require(isinstance(proof, dict), "JSON object required")
+        bind(path, sha(data))
+        proofs[key] = proof
+        if key in ("pg17", "pg18"):
+            require(proof.get("passed") is True, "PostgreSQL gate not passed")
+        else:
+            expected = "SUCCESS" if key == "build" else "diagnosed_and_verifier_repaired" if key == "note_diagnosis" else "historical_verifier_failure_cause_unconfirmed" if key == "ux_boundary_diagnosis" else "passed"
+            require(proof.get("status") == expected, f"status must be {expected}")
+    for key in paths:
+        gate(f"proof:{key}", lambda key=key: load(key))
+
+    def bindings():
+        b, s, r = proofs["build"], proofs["snapshot"], proofs["resources"]
+        require(b["sourceCommit"] == SOURCE and b["sourcePushed"] is True and b["buildId"] == BUILD and b["image"] == IMAGE, "exact pushed build required")
+        for key in ("plan", "resources", "check", "service", "provider"):
+            p = proofs[key]
+            require(p["artifact"] == {"sourceCommit": SOURCE, "image": IMAGE} and p["baselineSha256"] == canonical(s), "artifact/baseline binding mismatch")
+            require(p["branch"] == r["branch"] and p["productionUnchanged"] is True, "isolated stage binding mismatch")
+            if key != "provider":
+                require(p["runId"] == "20261005" and p["migrationMode"] == "none" and p["resources"] == r["resources"], "no-migration stage binding mismatch")
+        require(proofs["check"]["resourcesProofSha256"] == canonical(r), "stage-check resources hash mismatch")
+        require(proofs["service"]["resourcesProofSha256"] == canonical(r) and proofs["service"]["checkProofSha256"] == canonical(proofs["check"]), "stage-service proof chain mismatch")
+        require(proofs["plan"]["job"]["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]["args"] == ["-m", "app.migrations", "--check"], "stage job must be check-only")
+        require(proofs["preflight"]["migrationRequired"] is False and proofs["preflight"]["maintenanceRequired"] is False, "no migration/maintenance requirement proof missing")
+    gate("source-build-stage-bindings", bindings)
+
+    ledger = {path.stem: sha(path.read_bytes()) for path in sorted((ROOT / "backend/migrations/versions").glob("[0-9]*.py"))}
+    def preservation():
+        require(len(ledger) == 22 and max(ledger) == "0022_worker_password_recovery", "exact 22 migration ledger required")
+        inventories = [proofs["snapshot"]["inventory"], proofs["resources"]["beforeInventory"], proofs["check"]["afterInventory"]]
+        before, after, promotion = proofs["production_before"], proofs["production_after"], proofs["promotion"]
+        inventories.extend([before["inventory"], after["inventory"]])
+        for p in (before, after):
+            require(p["sourceCommit"] == SOURCE and p["image"] == IMAGE and p["migrationMode"] == "none", "production inventory artifact mismatch")
+            require(p["snapshotSha256"] == canonical(proofs["snapshot"]) and p["candidateSha256"] == canonical(proofs["candidate"]), "production inventory proof binding mismatch")
+            require(p["snapshotFileSha256"] == inputs[paths["snapshot"]] and p["candidateFileSha256"] == inputs[paths["candidate"]], "production inventory file binding mismatch")
+            require(p["databaseWrites"] is False and p["cloudMutations"] is False, "inventory must be read-only")
+        require(after["beforeProofSha256"] == canonical(before) and after["beforeProofFileSha256"] == inputs[paths["production_before"]], "before/after inventory binding mismatch")
+        require(promotion["sourceCommit"] == SOURCE and promotion["revision"] == REVISION and promotion["previousRevision"] == PREVIOUS and promotion["trafficPercent"] == 100 and promotion["tags"] == [], "backend promotion identity mismatch")
+        require(promotion["migrationRequired"] is False and promotion["maintenanceRequired"] is False and promotion["observedInventoryUnchanged"] is True and promotion["all22MigrationChecksumsUnchanged"] is True and promotion["publicFrontendUnchangedDuringBackendPromotion"] is True, "backend promotion safety claims missing")
+        require(promotion["beforeInventoryEvidence"] == paths["production_before"].name and promotion["afterInventoryEvidence"] == paths["production_after"].name, "promotion inventory filenames mismatch")
+        require(stamp(before["finishedAtUtc"]) <= stamp(promotion["promotionAttemptAtUtc"]) <= stamp(after["startedAtUtc"]), "backend/inventory chronology mismatch")
+        normalized = [{k: v for k, v in item.items() if k != "recordedAtUtc"} for item in inventories]
+        require(all(item == normalized[0] for item in normalized), "production/stage pre-fixture inventories must match except timestamp")
+        for item in inventories:
+            require(item["transactionReadOnly"] is True and item["migrationChecksums"] == ledger and item["migrationCount"] == 22, "read-only exact-ledger inventory required")
+            require(item["accountCredentialsSha256"] and item["immutableSubmissionsSha256"], "credential and immutable Report hashes required")
+    gate("password-report-and-ledger-preservation-before-fixtures", preservation)
+
+    def local():
+        require(args.mobile_exit_code == 0, "supply observed --mobile-exit-code 0")
+        path = inside(args.local_log); data = path.read_bytes(); inputs[path] = sha(data)
+        mobile_log(data.decode("utf-8-sig"))
+        lint = proofs["lint"]
+        require(lint["exitCode"] == 0 and lint["command"] == "npm run lint" and lint["sourceCommit"] == SOURCE, "exact successful lint proof required")
+        for path, cache in ((ROOT / "sw.js", SOURCE_CACHE), (ROOT / "dist/sw.js", BUILT_CACHE)):
+            data = path.read_bytes(); inputs[path] = sha(data)
+            require(f'const CACHE_VERSION = "{cache}";' in data.decode(), "cache identity mismatch")
+        for key in ("pg17", "pg18"):
+            p = proofs[key]
+            require(len(p["checks"]) == 82 and p["failures"] == [] and p["cleanup_complete"] is True, "PostgreSQL82/cleanup required")
+            for name, digest in p["source_sha256"].items():
+                require(sha(inside(ROOT / name).read_bytes()) == digest, "earlier PostgreSQL source hash drift")
+        provider = proofs["provider"]
+        require(len(provider["checks"]) == 214 and provider["smokeExitCode"] == 0 and provider["cleanupComplete"] is True and provider["localFixtureCleanupComplete"] is True, "provider214/cleanup required")
+    gate("local-mobile72-lint-caches-postgres-provider", local)
+
+    def hosting():
+        preview, live = channel(proofs["hosting_preview"], "release-20261005"), channel(proofs["hosting_live"], "live")
+        require(re.fullmatch(r"[0-9a-f]{16}", preview["version"]) and live["version"] == preview["version"], "live must be exact verified preview version")
+        require(live["url"] == LIVE and "--release-20261005-" in preview["url"], "Hosting origins mismatch")
+        production_rewrites(preview); production_rewrites(live)
+        require(stamp(proofs["production_after"]["finishedAtUtc"]) <= stamp(preview.get("releasedAtUtc", preview.get("releaseTime"))), "production-backed preview must follow compatible backend")
+        rollback = proofs["rollback"]
+        require(rollback["channel"] == "rollback-20261005" and rollback["version"] == "adb5a717d76f2644" and rollback["exactLiveVersionReverified"] is True, "September 29 rollback snapshot required")
+        require(stamp(rollback["expiresAt"]) > datetime.now(timezone.utc), "rollback snapshot expired")
+    gate("exact-hosting-version-rewrites-rollback", hosting)
+
+    def hosted(surface):
+        expected_origin = LIVE if surface == "live" else channel(proofs["hosting_preview"], "release-20261005")["url"] if surface == "preview" else proofs["stage_shell"]["origin"]
+        require(expected_origin.startswith("https://"), "HTTPS origin required")
+        if surface == "stage": require("--stage-20261005-" in expected_origin, "isolated stage origin required")
+        for kind in ("shell", "installer", "october", "ux", "photo50"):
+            p = proofs[f"{surface}_{kind}"]
+            require(p["origin"] == expected_origin, "hosted origin mismatch")
+            if surface != "stage": require(stamp(proofs["production_after"]["finishedAtUtc"]) <= stamp(p["startedAtUtc"]), "production inventory must precede hosted fixture runs")
+            if kind == "shell":
+                for path, digest in assets(p, 75).items(): bind(path, digest)
+                require(len(p["readiness"]) == 5 and len(p["anonymous"]) == 3 and all(row["status"] == 401 for row in p["anonymous"]), "shell readiness/isolation counts mismatch")
+                require(p["pwa"]["coldOfflineAfterLastPageClosed"] is True and p["pwa"]["physicalPhoneTest"] is False, "shell offline scope missing")
+            elif kind == "installer":
+                for path, digest in assets(p, 7).items(): bind(path, digest)
+                checked_count(p, 3, strings=True)
+                require(p["pwa"]["offline"]["fromServiceWorker"] is True and p["pwa"]["physicalPhoneTest"] is False, "installer offline scope missing")
+            else:
+                checked_count(p, {"october": 14, "ux": 9, "photo50": 13}[kind])
+                require(p["browserPageErrors"] == 0 and p["cleanup"]["failures"] == [], "browser/cleanup errors present")
+                c = p["cleanup"]
+                require(c["templateArchived"] is True, "owned Template not archived")
+                if kind == "october":
+                    require(len(p["owned"]["reportIds"]) == 2 and set(c["reportsTrashed"]) == set(p["owned"]["reportIds"]) and c["workerResigned"] is True, "October owned cleanup incomplete")
+                else:
+                    require(c["reportTrashed"] is True, "owned Report not trashed")
+                    if kind == "ux": require(c["workerResigned"] is True, "owned Worker not resigned")
+                    else:
+                        require(c["submissionOutcomeUnknown"] is False and p["photoCount"] == 50 and p["assertNonblockingStartup"] is True and p["retainedWorkerBaselinesVerified"] is True, "photo50 scope/outcome/history gate missing")
+                        require(p["partialUploadCheckpoint"]["uploadedPhotos"] == 25 and p["partialUploadCheckpoint"]["originalPhotoHashesVerified"] == 50, "25+25 original evidence checkpoint missing")
+    for surface in ("stage", "preview", "live"):
+        gate(f"hosted:{surface}", lambda surface=surface: hosted(surface))
+
+    def waiting():
+        p = proofs["waiting"]; checked_count(p, 4, strings=True)
+        require(p["origin"] == LIVE and p["expected"]["cacheVersion"] == BUILT_CACHE and p["original"]["cacheVersion"] == OLD_CACHE, "waiting update cache/origin mismatch")
+        require(p["expected"]["swSha256"] == sha((ROOT / "dist/sw.js").read_bytes()) and p["expected"]["indexSha256"] == sha((ROOT / "dist/index.html").read_bytes()), "waiting update expected bytes mismatch")
+        require(p["pageErrors"] == 0 and p["blockedWriteAttempts"] == [], "waiting update errors/mutations")
+        live = channel(proofs["hosting_live"], "live")
+        promoted = stamp(live.get("releasedAtUtc", live.get("releaseTime")))
+        require(stamp(p["armedAtUtc"]) < promoted <= stamp(p["completedAtUtc"]), "waiting probe must straddle Hosting promotion")
+        require(p["coldOffline"]["responseFromServiceWorker"] is True and p["updated"]["sensitiveCacheEntries"] == 0, "waiting offline/private-cache gate missing")
+    gate("old-to-new-waiting-update", waiting)
+
+    def final_infrastructure():
+        p = proofs["infrastructure"]
+        require(p["phase"] == "live" and p["sourceCommit"] == SOURCE and p["image"] == IMAGE and p["buildId"] == BUILD and p["revision"] == REVISION and p["previousRevision"] == PREVIOUS, "final infrastructure identity mismatch")
+        require(p["runtimeConfigurationUnchanged"] is True and p["migrationRequired"] is False and p["localMigrationLedger"] == ledger, "runtime/migration drift")
+        require(p["traffic"] == [{"percent": 100, "revisionName": REVISION}], "single 100% untagged live revision required")
+        require(0 < p["revisionLogEntries"] < 10000 and p["errorOr5xxLogEntries"] == 0, "clean untruncated live logs required")
+        require(all(stamp(p["checkedAtUtc"]) >= stamp(proofs[f"live_{kind}"]["completedAtUtc"]) for kind in ("shell", "installer", "october", "ux", "photo50")), "final logs must follow all live checks")
+        recovered = proofs["recovery"]
+        require(recovered["projectId"] == "plain-smoke-06194407" and recovered["productionBranch"]["id"] == "br-snowy-tree-a7hfuph6" and recovered["releasePhase"] == "Current", "Current production recovery required")
+        require(recovered["verification"]["migrationChecksums"] == ledger and recovered["verification"]["transactionReadOnly"] is True and all(recovered["cleanup"][k] is True for k in ("ownershipVerified", "deleted", "absenceVerified")), "recovery ledger or cleanup mismatch")
+        require(stamp(proofs["production_after"]["finishedAtUtc"]) <= stamp(recovered["completedAtUtc"]) <= datetime.now(timezone.utc) and datetime.now(timezone.utc) - stamp(recovered["completedAtUtc"]) < timedelta(hours=6), "fresh post-backend Current recovery proof required")
+        h = proofs["hardening"]
+        require(h["exitCode"] == 0 and h["servingRevision"] == REVISION and h["trafficPercent"] == 100 and h["currentMigrationCount"] == 22 and h["currentMigrationHead"] == max(ledger) and h["configurationChangedByCheck"] is False, "final strict hardening fields missing")
+        require(paths["recovery"].name in h["command"] and stamp(h["recordedAtUtc"]) >= stamp(recovered["completedAtUtc"]), "hardening must bind fresh recovery proof")
+        require(all(stamp(h["recordedAtUtc"]) >= stamp(proofs[f"live_{kind}"]["completedAtUtc"]) for kind in ("shell", "installer", "october", "ux", "photo50")), "final hardening must follow all live checks")
+    gate("final-infrastructure-recovery-hardening", final_infrastructure)
+
+    def pdfs():
+        baseline = proofs["pdf_baseline"]
+        for role in ("pdf_candidate", "pdf_live"):
+            p = proofs[role]
+            require(p["existingDemoDataAndCsvHtmlUnchanged"] is True and all(p[k] == baseline[k] for k in ("reportDataSha256", "templateDataSha256", "nonPdfExportHashes", "uploadHashes", "exactOwnedIds")), "presentation preservation mismatch")
+            require(len(p["pdfs"]) == 2 and sum(item["pages"] for item in p["pdfs"]) == 18, "18 PDF pages required")
+            for item in p["pdfs"]:
+                file = inside(ROOT / item["path"]); data = file.read_bytes(); inputs[file] = sha(data)
+                require(inputs[file] == item["sha256"] and item["mutualLogoVerifiedEveryPage"] is True and item["eachPhotoAndSignaturePixelsVerified"] is True, "PDF artifact/evidence hash mismatch")
+        parity = proofs["pdf_parity"]
+        require(parity["pages"] == parity["pixelIdenticalPages"] == len(parity["checks"]) == 18 and all(item["identical"] is True for item in parity["checks"]), "18 identical candidate/live rendered pages required")
+        visual = proofs["pdf_visual"]
+        require(visual.get("reviewedPages", visual.get("totalPagesVisuallyReviewed")) == 18 and visual.get("physicalPhonePdfViewerVerified", False) is False, "18-page visual review required; no phone certification")
+    gate("presentation-pdf-preservation-and-pixel-parity", pdfs)
+
+    def cleanup():
+        p, n = proofs["teardown"], proofs["neon_cleanup"]
+        require(p["runId"] == "20261005" and p["deletionComplete"] is True and p["productionUnchanged"] is True and p["uploadsUntouched"] is True and p["neonUntouched"] is True, "exact GCP cleanup/upload-retention proof required")
+        for key, proof_key in (("snapshot", "snapshot"), ("resources", "resources"), ("service", "service"), ("stagePlan", "plan")):
+            require(p["creationProofSha256"][key] == canonical(proofs[proof_key]), "teardown creation proof binding mismatch")
+        require({item["action"] for item in p["attempts"]} == {f"delete:{name}" for name in ("geo-report-stage-20261005", "geo-report-migrate-stage-20261005", "report-stage-db-20261005", "report-stage-jwt-20261005")} and len(p["attempts"]) == 4, "exact four GCP deletes required")
+        require(n["branchId"] == "br-green-mode-a7x9jzqz" and n["projectId"] == "plain-smoke-06194407" and n["parentId"] == "br-snowy-tree-a7hfuph6" and all(n[k] is True for k in ("exactOwnershipVerified", "gcpStageResourcesAlreadyDeleted", "deleted", "absenceVerified", "productionAndBackupRetained")), "exact Neon cleanup and retention required")
+        require(n["productionBranchDeleted"] is False and n["retainedBackupBranchId"] == "br-young-sunset-a7x36uiu", "production/September29 backup must remain")
+    gate("owned-stage-cleanup-uploads-retained", cleanup)
+
+    old = proofs.get("old_client", {})
+    gate("old-client-compatible-auth-only", lambda: (checked_count(old, 3), require(old["authOnlyWrites"] is True and old["pageErrors"] == 0 and old["blockedRequests"] == [], "old client compatibility failed")))
+    diagnosis = proofs.get("note_diagnosis", {})
+    gate("narrow-note-verifier-diagnosis", lambda: require(diagnosis["applicationSourceCommit"] == SOURCE and diagnosis["changeScope"]["applicationChanged"] is False and diagnosis["changeScope"]["backendChanged"] is False and diagnosis["localReproduction"]["oldSelectorTimeouts"] == 5 and diagnosis["localReproduction"]["newHostedReadinessHelperPasses"] == 5 and diagnosis["permanentRegression"]["hostedHarnessGroupsPassed"] == 15, "hosted note diagnosis proof mismatch"))
+
+    ux_diagnosis = proofs.get("ux_boundary_diagnosis", {})
+    def verify_ux_boundary_diagnosis():
+        d = ux_diagnosis
+        require(d["status"] == "historical_verifier_failure_cause_unconfirmed" and d["originalCause"] == "UNCONFIRMED" and d["classification"] == "historical_verifier_failure_unconfirmed_transport" and d["applicationSourceCommit"] == SOURCE, "UX historical classification must preserve uncertainty")
+        require(all(d["changeScope"][key] is False for key in ("applicationChanged", "backendChanged", "hostedVerifierChanged", "mutationGuardsChanged", "hostedCallsMadeByDiagnosis")), "UX diagnosis changed application, verifier, guards or hosted state")
+        local = d["localReproduction"]
+        for key, outcome in (("heldGetContextClose", "genericFailures"), ("settledGetBeforeContextClose", "clean"), ("liveOpenSocketFailure", "genericFailures"), ("forbiddenReportPost", "blockedBeforeNetwork"), ("allowedPostContextClose", "genericFailures")):
+            require(local[key]["runs"] == local[key][outcome] == 3, "UX diagnostic control counts mismatch")
+        require(local["liveOpenSocketFailure"]["pageStillOpen"] is True and local["allowedPostContextClose"]["uncertainOutcomeNotSuppressed"] is True, "transport ambiguity or unknown-POST failure not retained")
+        harness = inside(ROOT / local["harness"]); data = harness.read_bytes()
+        require(sha(data) == local["harnessSha256"], "UX local diagnostic bytes changed"); bind(harness, sha(data))
+        original_path = BASE / d["originalAttempt"]["evidence"]; data = original_path.read_bytes()
+        original = json.loads(data); bind(original_path, sha(data))
+        require(acknowledged_historical_ux(original, original_path.relative_to(BASE).as_posix(), sha(data), d), "original UX failure not within narrow acknowledged boundary")
+        require(all(d["originalAttempt"]["fixtureCleanup"][key] is True for key in ("reportTrashed", "templateArchived", "workerResigned", "apiVerifiedByOriginalRunner")), "original owned cleanup not verified")
+        rerun = proofs["preview_ux"]
+        require(paths["preview_ux"] == BASE / d["requiredSeparateRerun"]["evidence"] == BASE / "hosted-ux-preview-b/evidence.json", "separate preview-b rerun required")
+        require(rerun["status"] == "passed" and rerun["cleanup"]["failures"] == [] and rerun["browserPageErrors"] == 0, "preview-b rerun must independently pass without cleanup errors")
+        checked_count(rerun, 9)
+        require(rerun["scriptSha256"] == d["requiredSeparateRerun"]["sameVerifierSha256"] == original["scriptSha256"] and rerun["nonce"] != original["nonce"], "rerun must use unchanged verifier and new fixtures")
+        require(stamp(rerun["startedAtUtc"]) > stamp(original["completedAtUtc"]), "rerun chronology invalid")
+    gate("narrow-historical-ux-transport-acknowledgment", verify_ux_boundary_diagnosis)
+
+    historical = []
+    for path in sorted(BASE.rglob("*.json")):
+        if path.name == "release.json": continue
+        try:
+            raw = path.read_bytes()
+            p = json.loads(raw)
+            if p.get("status") == "failed":
+                acknowledged = "narrow-historical-ux-transport-acknowledgment" in gates and acknowledged_historical_ux(p, path.relative_to(BASE).as_posix(), sha(raw), ux_diagnosis)
+                historical.append({"evidence": path.relative_to(BASE).as_posix(), "status": "failed", "failure": p.get("failure", p.get("failureCode")), "cleanup": p.get("cleanup"), **({"classification": "historical_verifier_failure_unconfirmed_transport", "originalCause": "UNCONFIRMED", "diagnosis": paths["ux_boundary_diagnosis"].relative_to(BASE).as_posix(), "fixtureCleanupApiVerified": True, "separatePassingGate": paths["preview_ux"].relative_to(BASE).as_posix()} if acknowledged else {})})
+                c = p.get("cleanup", {})
+                if c and (c.get("failures") or c.get("submissionOutcomeUnknown") is True) and not acknowledged:
+                    blockers.append({"gate": "historical-attempt-cleanup", "reason": f"unresolved cleanup: {path.relative_to(BASE).as_posix()}"})
+            if p.get("status") in ("started", "running", "in_progress"):
+                blockers.append({"gate": "unfinished-evidence", "reason": path.relative_to(BASE).as_posix()})
+        except (ValueError, OSError, AttributeError):
+            blockers.append({"gate": "evidence-manifest", "reason": f"unreadable JSON: {path.name}"})
+    historical_logs = []
+    for name in ("release-20261005-full.local.log", "release-20261005-final.local.log", "release-20261005-final-b.local.log"):
+        path = ROOT / "output" / name
+        if path.is_file():
+            data = path.read_bytes(); inputs[path] = sha(data)
+            historical_logs.append({"path": path.relative_to(ROOT).as_posix(), "failedCheckpoints": re.findall(r"^not ok[^\r\n]*", data.decode("utf-8-sig", errors="replace"), re.M)})
+    for path in sorted(BASE.rglob("*")):
+        if path.is_file() and path.name != "release.json":
+            gate(f"manifest:{path.relative_to(BASE).as_posix()}", lambda path=path: bind(inside(path), sha(path.read_bytes())))
+    inputs[Path(__file__).resolve()] = sha(Path(__file__).read_bytes())
+    record = {
+        "schemaVersion": 1, "status": "passed" if args.final and not blockers else "in_progress", "draft": not args.final,
+        "recordedAtUtc": datetime.now(timezone.utc).isoformat(), "releaseDate": "2026-10-05",
+        "sourceCommit": SOURCE, "buildId": BUILD, "image": IMAGE, "backendRevision": REVISION,
+        "sourceCache": SOURCE_CACHE, "productionCache": BUILT_CACHE,
+        "migrationRequired": False, "maintenanceRequired": False,
+        "passedGates": gates, "blockingGates": blockers,
+        "proofs": {key: path.relative_to(ROOT).as_posix() for key, path in paths.items()},
+        "localGate": {"status": "passed" if "local-mobile72-lint-caches-postgres-provider" in gates else "pending", "command": "npm run check:mobile", "observedExitCode": args.mobile_exit_code, "log": inside(args.local_log).relative_to(ROOT).as_posix(), "realBackendPasses": 72 if "local-mobile72-lint-caches-postgres-provider" in gates else None},
+        "hosting": {"preview": proofs.get("hosting_preview"), "live": proofs.get("hosting_live")},
+        "historicalFailedAttempts": historical, "historicalLocalAttemptLogs": historical_logs,
+        "diagnosedVerifierOnlyRepairs": [
+            "Await browser-evaluated async predicates explicitly; false Promises had been accepted before native IndexedDB completion. Application storage/authentication unchanged.",
+            "Wait for initial Template Name focus before automated typing; a held real Add-panel animation-frame callback reproduced name/description concatenation 3/3.",
+            "Wait for anonymous startup's existing nonchecking readiness boundary; holding native lastSyncAt completion reproduced the premature status assertion 5/5.",
+            "Hosted note checkpoint now targets the existing Report note form instead of the absent retained edit-form submit button; note diagnosis and separate hosted rerun are both required.",
+        ],
+        "retainedRisks": [
+            "The first October preview UX attempt remains failed: all nine functional checks and API-verified owned fixture cleanup passed, but a late generic guarded-request error occurred. Local close/read cancellation and genuine live transport faults both reproduce that code. Original cause is UNCONFIRMED; the separate unchanged-verifier preview-b pass does not establish it. Exact diagnosis is hash-bound; no unknown POST or missing cleanup is excused.",
+            "Prior invitation-dialog timeouts remain unexplained; passing full and isolated runs do not establish their cause. Earlier offline Template-change and retained-navigation intermittents remain regression risks.",
+            "No physical iOS/Android, low-disk, full-resolution camera gallery, 50 near-5-MB-photo, native share/recipient handoff, or physical-phone PDF-viewer certification.",
+            "Hosted synthetic images and injected browser quota/415 faults are not actual phone-capacity or production upload-failure certification. October hosted checks do not induce the pre-snapshot late-commit database race.",
+            "Neon recovery history remains six hours. Device drafts are neither encrypted storage nor cross-device backup; keep the app open until uploads finish.",
+            "Retain September29 backup br-young-sunset-a7x36uiu and rollback-20260929 until their recorded expiry; reverify before use. September29 shell cannot show October recovery/note drafts; retain October-compatible backend and never clear device storage for rollback.",
+        ],
+        "uploadDisposition": "Staging and synthetic hosted upload objects retained; no upload deletion by this release finalizer or release runners.",
+        "recoveryScope": "Fresh post-backend Current recovery proof; restoration chronology is bound to production-inventory-after, not the later frontend Hosting timestamp. Final hardening follows live checks.",
+        "fileSha256": {path.relative_to(ROOT).as_posix(): digest for path, digest in sorted(inputs.items())},
+        "manifestExcludes": ["docs/evidence/report-release-20261005/release.json"],
+        "verificationScope": "Offline consistency validation of recorded proof files, not a fresh cloud observation. No network/deployment operations.",
+    }
+    summary = {"status": record["status"], "draft": record["draft"], "passedGates": len(gates), "blockers": blockers}
+    if args.final and blockers:
+        print(json.dumps(summary, indent=2)); return 2
+    if not args.check_only:
+        target = BASE / "release.json" if args.final else Path(__file__).with_name("release.draft.json")
+        require(not target.exists(), "output exists; preserve it and review before choosing another invocation")
+        # Re-read every bound input immediately before exclusive output creation.
+        require(all(path.is_file() and sha(path.read_bytes()) == digest for path, digest in inputs.items()), "input changed during finalization; retry read-only validation")
+        with target.open("x", encoding="utf-8") as file:
+            json.dump(record, file, indent=2); file.write("\n")
+        summary["output"] = target.relative_to(ROOT).as_posix()
+    print(json.dumps(summary, indent=2))
+    return 2 if blockers else 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        print(json.dumps({"status": "refused", "code": str(error) if isinstance(error, ValueError) else type(error).__name__}))
+        raise SystemExit(2)

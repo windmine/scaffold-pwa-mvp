@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "project": "geo-attendance-system-db9ca",
+  "sourceChannel": "live",
+  "channel": "rollback-20261005",
+  "version": "adb5a717d76f2644",
+  "releaseTime": "2026-10-04T21:32:25.290Z",
+  "expiresAt": "2026-10-11T21:32:24.529551417Z",
+  "url": "https://geo-attendance-system-db9ca--rollback-20261005-zvpf3fcj.web.app",
+  "exactLiveVersionReverified": true,
+  "liveUnchangedAtVerification": true,
+  "rollbackLimit": "September 29 cannot show October recovery drafts or Supervisor note drafts. Prefer a compatible forward fix. Retain the October-compatible backend if an emergency shell rollback is used; never clear local storage. Reverify channel and backend compatibility before use."
+}

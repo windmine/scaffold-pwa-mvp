@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "phase": "neon-create",
+  "status": "failed",
+  "runId": "20261005",
+  "cliPackage": "neon@2.32.0",
+  "startedAtUtc": "2026-10-04T21:39:32.854034+00:00",
+  "ownershipNonce": "cbe3d2e79c1bc721d858d78860694f1b",
+  "intent": {
+    "projectId": "plain-smoke-06194407",
+    "parentId": "br-snowy-tree-a7hfuph6",
+    "name": "release-stage-20261005",
+    "expiresAt": "2026-10-05T21:39:32Z",
+    "branchType": "normal",
+    "endpointType": "read_write",
+    "computeUnits": 0.25,
+    "suspendTimeoutSeconds": 300
+  },
+  "attempts": [
+    {
+      "action": "create_exact_stage_branch_once",
+      "atUtc": "2026-10-04T21:39:44.465358+00:00"
+    }
+  ],
+  "parentVerifiedAtUtc": "2026-10-04T21:39:44.465316+00:00",
+  "createAttemptedAtUtc": "2026-10-04T21:39:44.465358+00:00",
+  "finishedAtUtc": "2026-10-04T21:39:48.748262+00:00",
+  "failureCode": "captured_command_failed_output_withheld"
+}

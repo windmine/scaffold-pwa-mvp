@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "sourceCommit": "c024fa61f05880e13357eb253b67f00b571254d2",
+  "candidateVisualEvidence": "candidate-visual-review.json",
+  "pixelParityEvidence": "render-parity.json",
+  "renderer": "Poppler pdftoppm, PNG at 110 DPI",
+  "totalPagesVisuallyReviewed": 18,
+  "candidateLivePixelIdenticalPages": 18,
+  "reviewMethod": "All 18 candidate pages were visually inspected. All 18 live pages are byte-identical in RGB pixels and dimensions to the corresponding candidate renders; the live single first page and collection final page were additionally inspected.",
+  "logoAnswersPhotosSignaturesAndFootersInspected": true,
+  "clippedTextOrOverlappingFieldsObserved": false,
+  "rendererWarnings": "Poppler reported display fallback font warnings. No corresponding missing glyph or clipping was observed in the reviewed fixtures.",
+  "presentationFixturesMutated": false,
+  "physicalPhonePdfViewerVerified": false
+}

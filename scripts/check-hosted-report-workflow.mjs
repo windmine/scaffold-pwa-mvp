@@ -306,6 +306,20 @@ export function resolutionNoteLocator(container, note) {
   return container.locator('.report-supervisor-note').filter({ hasText: note });
 }
 
+export async function readyReportResolutionNote(page) {
+  const panel = page.locator('#reportNotePanel');
+  const note = panel.locator('#reportResolutionNote');
+  const submit = panel.locator('#reportNoteForm #resolveReportNoteButton');
+  await note.waitFor({ state: 'visible' });
+  await page.waitForFunction(() => {
+    const field = document.querySelector('#reportNoteForm #reportResolutionNote');
+    const button = document.querySelector('#reportNoteForm #resolveReportNoteButton');
+    return field && !field.disabled && !field.readOnly && !field.closest('[inert]')
+      && button && !button.disabled;
+  }, null, { timeout: 45000 });
+  return { note, submit };
+}
+
 export async function expandWorkerReport(card) {
   const disclosure = card.locator(':scope > .record-actions .record-disclosure-button');
   if (await disclosure.count() && await disclosure.getAttribute('aria-expanded') !== 'true') {
@@ -853,15 +867,14 @@ async function main() {
       await card.waitFor({ state: 'visible' });
       await card.click();
       await supervisorPage.locator('#reviewQueueActions').getByRole('button', { name: 'Resolve report', exact: true }).click();
-      const note = supervisorPage.locator('#reportResolutionNote');
-      await note.waitFor({ state: 'visible' });
-      await supervisorPage.locator('#editPanelForm button[type="submit"]').click();
+      const { note, submit } = await readyReportResolutionNote(supervisorPage);
+      await submit.click();
       requireCondition(await note.evaluate((field) => field.required && field.matches(':invalid')
         && document.activeElement === field), 'resolution_note_not_required');
       await note.fill(finalNote);
       const responsePromise = supervisorPage.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname === `/api/supervisor/form-submissions/${submitted.id}/transition`);
-      await supervisorPage.locator('#editPanelForm button[type="submit"]').click();
+      await submit.click();
       const response = await responsePromise;
       const resolved = await response.json();
       requireCondition(response.ok() && resolved.workflow_status === 'resolved'

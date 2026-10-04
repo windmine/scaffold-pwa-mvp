@@ -1,0 +1,243 @@
+{
+  "schemaVersion": 1,
+  "phase": "stage-plan",
+  "migrationMode": "none",
+  "status": "passed",
+  "startedAtUtc": "2026-10-04T21:57:41.566682+00:00",
+  "attempts": [],
+  "runId": "20261005",
+  "resources": {
+    "service": "geo-report-stage-20261005",
+    "job": "geo-report-migrate-stage-20261005",
+    "databaseSecret": "report-stage-db-20261005",
+    "jwtSecret": "report-stage-jwt-20261005",
+    "uploadPrefix": "uploads/release-stage-20261005"
+  },
+  "artifact": {
+    "sourceCommit": "c024fa61f05880e13357eb253b67f00b571254d2",
+    "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:7fcefe3787cf173fe998a420f76a3393ebb8a07577617d68cb88376e9dde8224"
+  },
+  "branch": {
+    "id": "br-green-mode-a7x9jzqz",
+    "name": "release-stage-20261005",
+    "parentId": "br-snowy-tree-a7hfuph6",
+    "projectId": "plain-smoke-06194407",
+    "endpointId": "ep-calm-dust-a76g3i8o",
+    "hostSha256": "7f8206277491db73b5bb2dd35e83fb0280908c011c0cafb0ec1dfaf91f59938c",
+    "expiresAt": "2026-10-05T21:44:35Z"
+  },
+  "baselineSha256": "73908ccbfe0481e689dad1e38ac05c7c831d63610a0db5187b2e51b10ec818d7",
+  "job": {
+    "apiVersion": "run.googleapis.com/v1",
+    "kind": "Job",
+    "metadata": {
+      "name": "geo-report-migrate-stage-20261005"
+    },
+    "spec": {
+      "template": {
+        "spec": {
+          "parallelism": 1,
+          "taskCount": 1,
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "env": [
+                    {
+                      "name": "CORS_ORIGINS",
+                      "value": "https://geo-attendance-system-db9ca.web.app"
+                    },
+                    {
+                      "name": "AUTO_MIGRATE",
+                      "value": "false"
+                    },
+                    {
+                      "name": "SQL_ECHO",
+                      "value": "false"
+                    },
+                    {
+                      "name": "UPLOAD_STORAGE_BACKEND",
+                      "value": "gcs"
+                    },
+                    {
+                      "name": "UPLOAD_BUCKET",
+                      "value": "geo-attendance-system-db9ca-uploads"
+                    },
+                    {
+                      "name": "UPLOAD_OBJECT_PREFIX",
+                      "value": "uploads/release-stage-20261005"
+                    },
+                    {
+                      "name": "ACCESS_TOKEN_EXPIRE_MINUTES",
+                      "value": "10080"
+                    },
+                    {
+                      "name": "BUSINESS_TIMEZONE",
+                      "value": "Pacific/Auckland"
+                    },
+                    {
+                      "name": "MAX_UPLOAD_BYTES",
+                      "value": "5242880"
+                    },
+                    {
+                      "name": "DATABASE_URL",
+                      "valueFrom": {
+                        "secretKeyRef": {
+                          "name": "report-stage-db-20261005",
+                          "key": "1"
+                        }
+                      }
+                    },
+                    {
+                      "name": "GEO_SECRET_KEY",
+                      "valueFrom": {
+                        "secretKeyRef": {
+                          "name": "report-stage-jwt-20261005",
+                          "key": "1"
+                        }
+                      }
+                    }
+                  ],
+                  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:7fcefe3787cf173fe998a420f76a3393ebb8a07577617d68cb88376e9dde8224",
+                  "resources": {
+                    "limits": {
+                      "cpu": "1",
+                      "memory": "512Mi"
+                    }
+                  },
+                  "command": [
+                    "python"
+                  ],
+                  "args": [
+                    "-m",
+                    "app.migrations",
+                    "--check"
+                  ]
+                }
+              ],
+              "serviceAccountName": "geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com",
+              "timeoutSeconds": "300",
+              "maxRetries": 0
+            }
+          }
+        }
+      }
+    }
+  },
+  "service": {
+    "apiVersion": "serving.knative.dev/v1",
+    "kind": "Service",
+    "metadata": {
+      "name": "geo-report-stage-20261005",
+      "annotations": {
+        "run.googleapis.com/ingress": "all",
+        "run.googleapis.com/maxScale": "20"
+      }
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "autoscaling.knative.dev/maxScale": "20",
+            "run.googleapis.com/cloudsql-instances": "",
+            "run.googleapis.com/startup-cpu-boost": "true"
+          }
+        },
+        "spec": {
+          "containerConcurrency": 80,
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "CORS_ORIGINS",
+                  "value": "https://geo-attendance-system-db9ca.web.app"
+                },
+                {
+                  "name": "AUTO_MIGRATE",
+                  "value": "false"
+                },
+                {
+                  "name": "SQL_ECHO",
+                  "value": "false"
+                },
+                {
+                  "name": "UPLOAD_STORAGE_BACKEND",
+                  "value": "gcs"
+                },
+                {
+                  "name": "UPLOAD_BUCKET",
+                  "value": "geo-attendance-system-db9ca-uploads"
+                },
+                {
+                  "name": "UPLOAD_OBJECT_PREFIX",
+                  "value": "uploads/release-stage-20261005"
+                },
+                {
+                  "name": "ACCESS_TOKEN_EXPIRE_MINUTES",
+                  "value": "10080"
+                },
+                {
+                  "name": "BUSINESS_TIMEZONE",
+                  "value": "Pacific/Auckland"
+                },
+                {
+                  "name": "MAX_UPLOAD_BYTES",
+                  "value": "5242880"
+                },
+                {
+                  "name": "DATABASE_URL",
+                  "valueFrom": {
+                    "secretKeyRef": {
+                      "name": "report-stage-db-20261005",
+                      "key": "1"
+                    }
+                  }
+                },
+                {
+                  "name": "GEO_SECRET_KEY",
+                  "valueFrom": {
+                    "secretKeyRef": {
+                      "name": "report-stage-jwt-20261005",
+                      "key": "1"
+                    }
+                  }
+                }
+              ],
+              "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:7fcefe3787cf173fe998a420f76a3393ebb8a07577617d68cb88376e9dde8224",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http1"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "1",
+                  "memory": "512Mi"
+                }
+              },
+              "startupProbe": {
+                "failureThreshold": 1,
+                "periodSeconds": 240,
+                "tcpSocket": {
+                  "port": 8080
+                },
+                "timeoutSeconds": 240
+              }
+            }
+          ],
+          "serviceAccountName": "geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com",
+          "timeoutSeconds": 300
+        }
+      },
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100
+        }
+      ]
+    }
+  },
+  "productionUnchanged": true,
+  "finishedAtUtc": "2026-10-04T21:57:54.103069+00:00"
+}

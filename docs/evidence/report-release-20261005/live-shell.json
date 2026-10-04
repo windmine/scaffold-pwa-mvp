@@ -1,0 +1,551 @@
+{
+  "schemaVersion": 1,
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "startedAtUtc": "2026-10-04T22:40:07.479Z",
+  "status": "passed",
+  "scope": "Read-only hosted shell parity, readiness, anonymous isolation and Chromium cold-offline PWA",
+  "assets": [
+    {
+      "path": "/",
+      "sha256": "f651abcf7f552f75cda4be773b27d47d81b967902bd682486fd9e9e327c9171b",
+      "bytes": 92267,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/index.html",
+      "sha256": "f651abcf7f552f75cda4be773b27d47d81b967902bd682486fd9e9e327c9171b",
+      "bytes": 92267,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/install.html",
+      "sha256": "4067e3713271cb08111eafaef6a040afaac57d23afd907150c606c7639b06c65",
+      "bytes": 6343,
+      "cacheControl": "no-cache"
+    },
+    {
+      "path": "/setup-password.html",
+      "sha256": "dd4479ca34f56fc061dd944fadb67953e78a2d6ef9422e8183dc026b06113f09",
+      "bytes": 2636,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/recover-password.html",
+      "sha256": "43b75200e77f17bcdaea0756b7e7153e2523729087f0567cc48c43d08fcc3206",
+      "bytes": 2783,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/offline.html",
+      "sha256": "5fafba297754c73156b6c05d37fbeb15c632fbd08bf20a603893346fecbe66f0",
+      "bytes": 3762,
+      "cacheControl": "no-cache"
+    },
+    {
+      "path": "/manifest.webmanifest",
+      "sha256": "47085fc4c3ff8188bc78851c8ffb46a0195fe57cd65d0f6a322dc9265a04061a",
+      "bytes": 696,
+      "cacheControl": "public,max-age=3600"
+    },
+    {
+      "path": "/assets/css/styles.css",
+      "sha256": "93e7ef93f8ee6e2d716ac820b7d024d8332341386a3211da16eab9a62e04c7a6",
+      "bytes": 145476,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/css/install.css",
+      "sha256": "9d16fa4507b9e7b49801ae9f052c5e3d6084553dfa683e28292c9d9967832a36",
+      "bytes": 5732,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/install.js",
+      "sha256": "4b293f9e1af53f5aa22653c7c815bf815371b006f03844d6ac0ed6ae8da08b0a",
+      "bytes": 10792,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/setup-password.js",
+      "sha256": "74b409804978fd502f79dcc79cd082ac75c873e0cdfe8a3c1946db4862563716",
+      "bytes": 9671,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/recover-password.js",
+      "sha256": "b2753e1f2e012cdba8daad45d80de6df4432d92330360c68d726eea4cd28e8c9",
+      "bytes": 8481,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/app-shell-state.js",
+      "sha256": "b48465eeb14e5cdf66e36373618caf68ba61692a2b5ac586b821a1ecef4b6396",
+      "bytes": 24857,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/app.js",
+      "sha256": "5d891df303799c09db63e34cabbd83bc7fc84c8b0d6296425d0a095e3ab41b18",
+      "bytes": 74554,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/api-client.js",
+      "sha256": "81a620ccf01b720492473369a5d84384de209e9882d620b6b9d3bcfef53f35ff",
+      "bytes": 23026,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/confirmation-dialog.js",
+      "sha256": "1802ed4d977027b36fdc0a0576c54f38c870da826a649ea74d65c0457fae32fe",
+      "bytes": 3068,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/date-inputs.js",
+      "sha256": "00eab23342a10df6092f2d33d626ee39ccfe61bc26bab5a1a5b6c5414c310aca",
+      "bytes": 2435,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/db.js",
+      "sha256": "fea6c978904fcc751dca3b720a763fb2beb26f9f409c003d46d97602f376bbb2",
+      "bytes": 17581,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/history.js",
+      "sha256": "49631678ab177a6dead322e098f9b647836c5760d9afe17d77c6f7a661804c00",
+      "bytes": 60183,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/i18n.js",
+      "sha256": "146e98c2016794bf752553934e64ff8fb302b613dd69f39e44030372c0de81e2",
+      "bytes": 129371,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/mock-api.js",
+      "sha256": "fbfccf242441f2e6dd94fe0eaadea298bca47a90cfe352f25d67a883b1892f09",
+      "bytes": 8178,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/offline-attendance-snapshot.js",
+      "sha256": "e4d9f0726695f76d043cdbcd456be7e4a9e6bda7ff0d3a0307fa139ceae033ae",
+      "bytes": 2842,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/offline-report-template-snapshot.js",
+      "sha256": "6ddaf2a589a76adfc0cde74d7a24f4e4ea0194bb31ef9d0ddca3ca8bfb3786e2",
+      "bytes": 5670,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/offline-site-snapshot.js",
+      "sha256": "4918261b4560330460a7c7b19783ab38146f45809f23ec6e42e63a83bb2c5ace",
+      "bytes": 2920,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/offline-submissions.js",
+      "sha256": "c49c6a026881e566d79ca609517f50c39a36254b44640bb397c55ce69bc1c555",
+      "bytes": 41549,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/photo-viewer.js",
+      "sha256": "2535e13f7bc73051c3754e4300b63ff53cecd95fbb3f68cbc1b3c4938cf54810",
+      "bytes": 15813,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/review-export-adapters.js",
+      "sha256": "61ec72ab16557ab7a110cf58237da05d36ddb61c84eea79403cd7134c66a8c6b",
+      "bytes": 6134,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-review-preferences.js",
+      "sha256": "3d698a0c328e0e4c01b0eabe20f9cdbc95954008ad662fb9b0690a9bbc51170e",
+      "bytes": 3803,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-review-age.js",
+      "sha256": "ad496e2270399e917c27f30a7cf96863b0808c4f1f33cd141f405973dac11539",
+      "bytes": 1646,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-note-drafts.js",
+      "sha256": "f80fd2b3dd134251ecb4cdd04df0079bb40f57285324244bc5e02d672ce34711",
+      "bytes": 8329,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-note-editor.js",
+      "sha256": "02972187308c366f9fbfcd2461e39bb73a0e26cb25b12f7403d49a6ea7bda88d",
+      "bytes": 25561,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/site-map-picker.js",
+      "sha256": "6f98222d804ccdf345a31adf98aa165f9d5326af2b5254243c2dbb65d3d8bff2",
+      "bytes": 8512,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/staff-sites.js",
+      "sha256": "ecd79490aa56b811fd1367b3b8d6711190f7971641bbde29d114ecea2763cf67",
+      "bytes": 83090,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/worker-invitation-dialog.js",
+      "sha256": "db1bcc8934754f26619daa4f26475346f125aeea9396665c4ffac4ec0c98d743",
+      "bytes": 7466,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/supervisor-analytics.js",
+      "sha256": "75976cffd8ff20dd18db246a26cd6b43e22cfd8d5b187d990bc201193f520357",
+      "bytes": 28340,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/supervisor-map.js",
+      "sha256": "32b6973baf0dc64e2371f89624213a38c2d9bbca089d605b7d886441bc0cf6eb",
+      "bytes": 23355,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/supervisor-review.js",
+      "sha256": "2642f39f35dd771aaa06002aaeeba6e033d3f095172e54e7b2c9e67254b459c1",
+      "bytes": 101287,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/supervisor-review-utils.js",
+      "sha256": "020382ac99cd7a8c0b628acf2a40da9d08d43084474438ce2c807b9f00b19778",
+      "bytes": 7588,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/team-member-picker.js",
+      "sha256": "06dae167fe27dc49d8854ae62311705111074fac8890c750f8741a8d65368a52",
+      "bytes": 8304,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/team-work-log.js",
+      "sha256": "0319af91959114ab4f29ee34c5cbdc30a01c03ef4002931e1858ce917c301b7b",
+      "bytes": 18577,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/ui-feedback.js",
+      "sha256": "9c5164cf84380c2cf18368d1121d38578aa413a8b4c6bd7a78f6eb084b72aad9",
+      "bytes": 10838,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/utils.js",
+      "sha256": "c098732a72ae20d0759a8d9ae192910b482248e8f55b12f79d6486229050bb5b",
+      "bytes": 4273,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/worker-attendance.js",
+      "sha256": "69e464ad49de35679756e31a4378a8d2bdc07debcb3bff1f0423432c341c0757",
+      "bytes": 25039,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/worker-form.js",
+      "sha256": "abcb8c252bb8ace87157ef2a68807798d665d6460a372d93851b68cc1a92391c",
+      "bytes": 76126,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-drafts.js",
+      "sha256": "5c71bfd0d642c6a78d626c80f0e3c342d47737cccc70b22166107469c84099d3",
+      "bytes": 5756,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-storage-budget.js",
+      "sha256": "b7ebf4e16a4ebeaa7364c9be41e5588b95e3d4fa1a3e1e3cdd7f1fac680124b7",
+      "bytes": 4754,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-upload-recovery.js",
+      "sha256": "1da7e35d017514489784dbf3c66735f0104066a85e7a7b19f1fdf60948627a5e",
+      "bytes": 15716,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-photo-evidence.js",
+      "sha256": "cae3b42aa0efb3e965ca6ba8e2eef82653785bfc0c3964976690c0bf23cc8277",
+      "bytes": 1913,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-photo-gallery.js",
+      "sha256": "826ec2fa2d84e8227dcd5582a48cfb1c7625cb0205176fb479003844d40c33bd",
+      "bytes": 2958,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-photo-thumbnails.js",
+      "sha256": "a1018043cb30f00bb3c22ec23b397027d96e765725b10dfaefd705baa966b15c",
+      "bytes": 4930,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-submit-review.js",
+      "sha256": "ae745658f071401a052629a85b35000efc1fd7f09b51b0d6fc0628da85c87733",
+      "bytes": 4476,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-template-drafts.js",
+      "sha256": "71732a472c20da4e2211749a50b02b53c39903db377c64953729822d4407c3de",
+      "bytes": 7845,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/worker-log.js",
+      "sha256": "9221de0de4e0d37003eebff974acf975020d3e0c53df21bb8b416a2dc748130c",
+      "bytes": 11884,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/worker-sites.js",
+      "sha256": "4125475a302f4ae50025590b876d4eb197f458983bcd56ec63d560a567989a93",
+      "bytes": 5142,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/work-form-builder.js",
+      "sha256": "c246cb158b40d714084a4d4bae08ad295ea0d426f494d7279630d3957e569b7e",
+      "bytes": 41270,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/work-form-fields.js",
+      "sha256": "ae75e7d4494ff005b9a83453bd2e93f0562856668344d7356b4474b6727c264f",
+      "bytes": 47705,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/reportflow-icon.svg",
+      "sha256": "701fa758282e87038af6769b36cf42e540dde60c2caa4e3a384d1f5b741a0ac5",
+      "bytes": 786,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/reportflow-install-qr.svg",
+      "sha256": "300188ad752dd1aa5fec734584f43f2b77b36627f4894d477556874370557397",
+      "bytes": 5678,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/reportflow-192.png",
+      "sha256": "961b7eb26034d8c71e4f50f89ec0cefce0268a5281c9a06c8891cb532c93c356",
+      "bytes": 4397,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/reportflow-512.png",
+      "sha256": "4090a88306e084a874a5d0c6fe74b8d7ee580a42ae9820bf84ec032ed02692c2",
+      "bytes": 11224,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/reportflow-maskable-512.png",
+      "sha256": "2cc14eda704cd203040cd75c4bdea70c58a7557292c6759445a2373a68fdf357",
+      "bytes": 6354,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/reportflow-apple-touch-180.png",
+      "sha256": "19490723922a88652f3635596a19b4e8c31de9781b699bdd65577d9210792449",
+      "bytes": 2569,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/leader-logo-export.png",
+      "sha256": "cd6ef60ecc607ee1f1730f63e74241ff93c67d29d2c1fceab53491a9fa7fdecc",
+      "bytes": 20598,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/mutual-logo.svg",
+      "sha256": "a9e809079b6aa74913126c55cac23823a3b87471ae1732b089c71eb1209cd274",
+      "bytes": 574,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/mc-logo.svg",
+      "sha256": "c13567d8505cf175922a3afb494a095c02da25a630070dbbfd74fb8fc958b31a",
+      "bytes": 650,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/stech-logo.svg",
+      "sha256": "be704e3c5be46feffd1a6ed1beb9e7fbef530da8c684bd3023172728c242d36f",
+      "bytes": 648,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/bop-logo.svg",
+      "sha256": "5ed79a4842b4840194e7536a819ed4ff0f9d866ec940ae443f95e6f8bbfe12ac",
+      "bytes": 587,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/leader-icon.svg",
+      "sha256": "f049144b250bda7be9ddd2d2502df5cc92ab86b4f75dbec01df2c35b005b94cc",
+      "bytes": 1533,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/icon-192.png",
+      "sha256": "b20a8f9b1e530157673656ff1abb99a584ad155e848d7fa8450b3a2412bddf04",
+      "bytes": 15125,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/icon-512.png",
+      "sha256": "7fd38eb7ec00a447009273f157d5cb46858ac5edccf908a56750100469404bdf",
+      "bytes": 38017,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/maskable-512.png",
+      "sha256": "7fd38eb7ec00a447009273f157d5cb46858ac5edccf908a56750100469404bdf",
+      "bytes": 38017,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/apple-touch-icon.png",
+      "sha256": "feb566a167b5ec4c6feb23b5ae6b7109e36cc5ac32c5c625d9d8a12627ea123d",
+      "bytes": 13993,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/main-BsDPzw64.js",
+      "sha256": "09a71cb6ea4638f72f742541b1f5061920bb696d3bbf40343f623dbe151c13f1",
+      "bytes": 724861,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/main-DYQJTw5E.css",
+      "sha256": "6d0a75e8f8a535acf91d12d2f7005a48ad3d44cd18c040faae048af3371bdcfb",
+      "bytes": 127307,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/sw.js",
+      "sha256": "75901df510bc7de99eb23aca0f43a0ed9d8c82a1f5cd2c388075eebd0dcacdfe",
+      "bytes": 7978,
+      "cacheControl": "no-cache"
+    }
+  ],
+  "readiness": [
+    {
+      "checkedAtUtc": "2026-10-04T22:40:09.444Z",
+      "status": "ok",
+      "checks": {
+        "database": "ok",
+        "migrations": "ok",
+        "upload_storage": "ok"
+      },
+      "details": {
+        "upload_storage": {
+          "backend": "gcs"
+        }
+      }
+    },
+    {
+      "checkedAtUtc": "2026-10-04T22:40:10.105Z",
+      "status": "ok",
+      "checks": {
+        "database": "ok",
+        "migrations": "ok",
+        "upload_storage": "ok"
+      },
+      "details": {
+        "upload_storage": {
+          "backend": "gcs"
+        }
+      }
+    },
+    {
+      "checkedAtUtc": "2026-10-04T22:40:10.652Z",
+      "status": "ok",
+      "checks": {
+        "database": "ok",
+        "migrations": "ok",
+        "upload_storage": "ok"
+      },
+      "details": {
+        "upload_storage": {
+          "backend": "gcs"
+        }
+      }
+    },
+    {
+      "checkedAtUtc": "2026-10-04T22:40:11.193Z",
+      "status": "ok",
+      "checks": {
+        "database": "ok",
+        "migrations": "ok",
+        "upload_storage": "ok"
+      },
+      "details": {
+        "upload_storage": {
+          "backend": "gcs"
+        }
+      }
+    },
+    {
+      "checkedAtUtc": "2026-10-04T22:40:11.990Z",
+      "status": "ok",
+      "checks": {
+        "database": "ok",
+        "migrations": "ok",
+        "upload_storage": "ok"
+      },
+      "details": {
+        "upload_storage": {
+          "backend": "gcs"
+        }
+      }
+    }
+  ],
+  "anonymous": [
+    {
+      "path": "/api/sites",
+      "status": 401
+    },
+    {
+      "path": "/api/my-form-submissions?purpose=report",
+      "status": 401
+    },
+    {
+      "path": "/api/supervisor/form-submissions?purpose=report",
+      "status": 401
+    }
+  ],
+  "pwa": {
+    "controller": "https://geo-attendance-system-db9ca.web.app/sw.js",
+    "coldOfflineAfterLastPageClosed": true,
+    "physicalPhoneTest": false
+  },
+  "completedAtUtc": "2026-10-04T22:40:15.511Z"
+}

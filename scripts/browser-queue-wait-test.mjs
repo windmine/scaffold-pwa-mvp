@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 // Exercise the exact real-backend workflow helper without starting its backend.
@@ -14,13 +15,105 @@ const asyncEnd = source.indexOf('\nasync function pageWaitForRecordCount(', asyn
 assert.ok(asyncStart > 0 && asyncEnd > asyncStart);
 const waitForAsyncCondition = new Function('delay', `return (${source.slice(asyncStart, asyncEnd).trim()});`)(delay);
 const waitForQueueCount = new Function('waitForAsyncCondition', `return (${source.slice(start, end).trim()});`)(waitForAsyncCondition);
+const accessibleStart = source.indexOf('async function checkAccessibleActionFeedback(');
+const accessibleEnd = source.indexOf('\nasync function checkRestoredSessionLoadsSitesAfterRefresh(', accessibleStart);
+assert.ok(accessibleStart > 0 && accessibleEnd > accessibleStart);
+const accessible = source.slice(accessibleStart, accessibleEnd);
+const readinessStart = accessible.indexOf("    await page.locator('#syncIndicator').waitFor(");
+const assertionStart = accessible.indexOf("    const syncState = await page.locator('#syncIndicator').evaluate(", readinessStart);
+const assertionEnd = accessible.indexOf("    await page.route('**/api/auth/login'", assertionStart);
+assert.ok(readinessStart > 0 && assertionStart > readinessStart && assertionEnd > assertionStart);
+const accessibleStartupReadiness = new Function('page', `return (async () => {
+  ${accessible.slice(readinessStart, assertionStart)}
+})();`);
+const assertAccessibleOnline = new Function('page', `return (async () => {
+  ${accessible.slice(assertionStart, assertionEnd)}
+})();`);
 const server = createServer((_request, response) => response.end('<!doctype html><title>Queue wait contract</title>'));
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 let browser;
 const names = ['scaffold-pwa-local', 'scaffold-pwa-report-evidence-v1', 'scaffold-pwa-report-recovery-v1'];
 let failures = 0;
+function holdNativeStartupStatusRead() {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  window.startupStatusReadHeld = false;
+  window.releaseStartupStatusRead = release;
+  const nativeGet = IDBObjectStore.prototype.get;
+  const completion = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'oncomplete');
+  IDBObjectStore.prototype.get = function (...args) {
+    const request = Reflect.apply(nativeGet, this, args);
+    if (this.name !== 'settings' || args[0] !== 'lastSyncAt'
+      || this.transaction.db.name !== 'scaffold-pwa-local') return request;
+    Object.defineProperty(this.transaction, 'oncomplete', {
+      configurable: true,
+      get() { return completion.get.call(this); },
+      set(handler) {
+        completion.set.call(this, async function (event) {
+          // Preserve the real request result and committed native transaction;
+          // delay only its completion callback to expose the startup race.
+          window.startupStatusReadHeld = true;
+          await gate;
+          handler.call(this, event);
+        });
+      }
+    });
+    return request;
+  };
+}
+
+async function checkNativeStartupReadiness(page) {
+  const requests = [];
+  await page.addInitScript(() => { window.__REPORT_ONLY_MODE_OVERRIDE__ = false; });
+  await page.addInitScript(holdNativeStartupStatusRead);
+  await page.route('**/*', async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname.startsWith('/api/') || pathname.startsWith('/health')) requests.push(pathname);
+    // Serve the real source app without a backend. Its fresh anonymous startup
+    // does no protected API work; Leaflet needs the same bare-import resolution
+    // as browser-workflow-source-server.mjs, with application logic unchanged.
+    const relative = pathname === '/' ? 'index.html' : pathname.slice(1);
+    if (!/^(?:index\.html|assets\/[\w./-]+|node_modules\/leaflet\/dist\/leaflet-src\.esm\.js)$/.test(relative)
+      || relative.split('/').includes('..')) {
+      await route.abort();
+      return;
+    }
+    const file = new URL(`../${relative}`, import.meta.url);
+    if (relative.endsWith('.js')) {
+      const module = readFileSync(file, 'utf8')
+        .replaceAll("import L from 'leaflet';", "import * as L from '/node_modules/leaflet/dist/leaflet-src.esm.js';")
+        .replace(/^import 'leaflet\/dist\/leaflet\.css';?\r?\n/gm, '');
+      await route.fulfill({ contentType: 'text/javascript', body: module });
+    } else {
+      await route.fulfill({ path: fileURLToPath(file) });
+    }
+  });
+  await page.goto(`http://127.0.0.1:${server.address().port}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => window.startupStatusReadHeld === true, null, { timeout: 10000 });
+  assert.deepEqual(await page.locator('#syncIndicator').evaluate((element) => ({
+    view: document.body.dataset.activeView,
+    state: element.dataset.state,
+    role: element.getAttribute('role'),
+    live: element.getAttribute('aria-live'),
+    text: element.textContent.trim()
+  })), { view: 'login', state: 'checking', role: 'status', live: 'polite', text: 'Checking connection...' });
+  await assert.rejects(assertAccessibleOnline(page), /sync indicator is not an accessible persistent status:.*Checking connection/);
+  let settled = false;
+  const readiness = accessibleStartupReadiness(page).finally(() => { settled = true; });
+  try {
+    await delay(150);
+    assert.equal(settled, false, 'accessibility readiness completed before the held native startup read');
+  } finally {
+    await page.evaluate(() => window.releaseStartupStatusRead());
+    await readiness;
+  }
+  await assertAccessibleOnline(page);
+  assert.equal(await page.locator('#syncIndicator').getAttribute('data-state'), 'online');
+  assert.deepEqual(requests, [], 'fresh anonymous startup unexpectedly requested health or authentication');
+}
+
 async function withPage(name, check) {
-  const context = await browser.newContext();
+  const context = await browser.newContext({ serviceWorkers: 'block' });
   const page = await context.newPage();
   try {
     await page.goto(`http://127.0.0.1:${server.address().port}`);
@@ -51,6 +144,7 @@ async function withPage(name, check) {
 }
 try {
   browser = await chromium.launch({ headless: true });
+  await withPage('accessible Online status waits for native lastSyncAt completion after login becomes visible', checkNativeStartupReadiness);
   await withPage('an asynchronous false condition times out instead of accepting its Promise', async (page) => {
     await assert.rejects(waitForAsyncCondition(page, async () => false, null, { timeout: 100 }), /Timeout/);
   });
@@ -94,4 +188,4 @@ try {
   await new Promise((resolve) => server.close(resolve));
 }
 assert.equal(failures, 0, `${failures} browser queue-wait contract groups failed`);
-console.log('9 native browser asynchronous/queue-wait contract groups passed.');
+console.log('10 native browser startup/asynchronous/queue-wait contract groups passed.');

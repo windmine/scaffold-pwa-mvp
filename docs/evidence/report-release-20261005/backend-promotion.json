@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "sourceCommit": "c024fa61f05880e13357eb253b67f00b571254d2",
+  "promotionAttemptAtUtc": "2026-10-04T22:27:39Z",
+  "revision": "geo-backend-october-20261005",
+  "previousRevision": "geo-backend-recovery-20260929",
+  "trafficPercent": 100,
+  "tags": [],
+  "migrationRequired": false,
+  "maintenanceRequired": false,
+  "beforeInventoryEvidence": "production-inventory-before.json",
+  "afterInventoryEvidence": "production-inventory-after.json",
+  "observedInventoryUnchanged": true,
+  "all22MigrationChecksumsUnchanged": true,
+  "publicFrontendUnchangedDuringBackendPromotion": true,
+  "scope": "Backend promoted before production-backed preview and before public Hosting promotion. Inventory proofs compare every observed field except the read timestamp."
+}

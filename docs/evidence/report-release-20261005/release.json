@@ -1,0 +1,714 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "draft": false,
+  "recordedAtUtc": "2026-10-04T22:55:06.452733+00:00",
+  "releaseDate": "2026-10-05",
+  "sourceCommit": "c024fa61f05880e13357eb253b67f00b571254d2",
+  "buildId": "8e582ff0-b88a-49a8-a09e-6d53b694383e",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:7fcefe3787cf173fe998a420f76a3393ebb8a07577617d68cb88376e9dde8224",
+  "backendRevision": "geo-backend-october-20261005",
+  "sourceCache": "leader-field-cd739c204f2c",
+  "productionCache": "leader-field-7a709da8321a",
+  "migrationRequired": false,
+  "maintenanceRequired": false,
+  "passedGates": [
+    "proof:build",
+    "proof:snapshot",
+    "proof:plan",
+    "proof:resources",
+    "proof:check",
+    "proof:service",
+    "proof:candidate",
+    "proof:infrastructure",
+    "proof:preflight",
+    "proof:provider",
+    "proof:pg17",
+    "proof:pg18",
+    "proof:old_client",
+    "proof:rollback",
+    "proof:hosting_preview",
+    "proof:hosting_live",
+    "proof:recovery",
+    "proof:hardening",
+    "proof:lint",
+    "proof:production_before",
+    "proof:production_after",
+    "proof:promotion",
+    "proof:teardown",
+    "proof:neon_cleanup",
+    "proof:pdf_baseline",
+    "proof:pdf_candidate",
+    "proof:pdf_live",
+    "proof:pdf_parity",
+    "proof:pdf_visual",
+    "proof:note_diagnosis",
+    "proof:waiting",
+    "proof:ux_boundary_diagnosis",
+    "proof:stage_shell",
+    "proof:stage_installer",
+    "proof:stage_october",
+    "proof:stage_ux",
+    "proof:stage_photo50",
+    "proof:preview_shell",
+    "proof:preview_installer",
+    "proof:preview_october",
+    "proof:preview_ux",
+    "proof:preview_photo50",
+    "proof:live_shell",
+    "proof:live_installer",
+    "proof:live_october",
+    "proof:live_ux",
+    "proof:live_photo50",
+    "source-build-stage-bindings",
+    "password-report-and-ledger-preservation-before-fixtures",
+    "local-mobile72-lint-caches-postgres-provider",
+    "exact-hosting-version-rewrites-rollback",
+    "hosted:stage",
+    "hosted:preview",
+    "hosted:live",
+    "old-to-new-waiting-update",
+    "final-infrastructure-recovery-hardening",
+    "presentation-pdf-preservation-and-pixel-parity",
+    "owned-stage-cleanup-uploads-retained",
+    "old-client-compatible-auth-only",
+    "narrow-note-verifier-diagnosis",
+    "narrow-historical-ux-transport-acknowledgment",
+    "manifest:.gitattributes",
+    "manifest:backend-promotion.json",
+    "manifest:build.json",
+    "manifest:candidate-initial.json",
+    "manifest:candidate.json",
+    "manifest:hardening-final.json",
+    "manifest:hosted-note-selector-diagnosis.json",
+    "manifest:hosted-october-live/evidence.json",
+    "manifest:hosted-october-live/evidence.txt",
+    "manifest:hosted-october-preview/evidence.json",
+    "manifest:hosted-october-preview/evidence.txt",
+    "manifest:hosted-october-stage/evidence.json",
+    "manifest:hosted-october-stage/evidence.txt",
+    "manifest:hosted-photo50-live/evidence.json",
+    "manifest:hosted-photo50-live/owned-collection.pdf",
+    "manifest:hosted-photo50-live/owned-single.pdf",
+    "manifest:hosted-photo50-live/supervisor-resolved.png",
+    "manifest:hosted-photo50-live/worker-queued.png",
+    "manifest:hosted-photo50-live/worker-resolved.png",
+    "manifest:hosted-photo50-preview/evidence.json",
+    "manifest:hosted-photo50-preview/owned-collection.pdf",
+    "manifest:hosted-photo50-preview/owned-single.pdf",
+    "manifest:hosted-photo50-preview/supervisor-resolved.png",
+    "manifest:hosted-photo50-preview/worker-queued.png",
+    "manifest:hosted-photo50-preview/worker-resolved.png",
+    "manifest:hosted-photo50-stage/evidence.json",
+    "manifest:hosted-photo50-stage/worker-queued.png",
+    "manifest:hosted-photo50-stage-b/evidence.json",
+    "manifest:hosted-photo50-stage-b/owned-collection.pdf",
+    "manifest:hosted-photo50-stage-b/owned-single.pdf",
+    "manifest:hosted-photo50-stage-b/supervisor-resolved.png",
+    "manifest:hosted-photo50-stage-b/worker-queued.png",
+    "manifest:hosted-photo50-stage-b/worker-resolved.png",
+    "manifest:hosted-ux-boundary-diagnosis.json",
+    "manifest:hosted-ux-live/evidence.json",
+    "manifest:hosted-ux-preview/evidence.json",
+    "manifest:hosted-ux-preview-b/evidence.json",
+    "manifest:hosted-ux-stage/evidence.json",
+    "manifest:hosting-live.json",
+    "manifest:hosting-preview.json",
+    "manifest:hosting-rollback.json",
+    "manifest:infrastructure-live.json",
+    "manifest:lint.json",
+    "manifest:live-installer-chinese.png",
+    "manifest:live-installer-english.png",
+    "manifest:live-installer-offline.png",
+    "manifest:live-installer.json",
+    "manifest:live-shell.json",
+    "manifest:live-waiting-update-offline.png",
+    "manifest:live-waiting-update-updated.png",
+    "manifest:live-waiting-update-waiting.png",
+    "manifest:live-waiting-update.json",
+    "manifest:neon-current-final.json",
+    "manifest:neon-current.json",
+    "manifest:neon-stage-failed-cli-argument.json",
+    "manifest:neon-stage.json",
+    "manifest:old-client.json",
+    "manifest:postgres17.json",
+    "manifest:postgres18.json",
+    "manifest:preflight-hardening.json",
+    "manifest:presentation-preservation/baseline.json",
+    "manifest:presentation-preservation/candidate-visual-review.json",
+    "manifest:presentation-preservation/candidate.json",
+    "manifest:presentation-preservation/live.json",
+    "manifest:presentation-preservation/render-parity.json",
+    "manifest:presentation-preservation/visual-review.json",
+    "manifest:preview-installer-chinese.png",
+    "manifest:preview-installer-english.png",
+    "manifest:preview-installer-offline.png",
+    "manifest:preview-installer.json",
+    "manifest:preview-shell.json",
+    "manifest:production-inventory-after.json",
+    "manifest:production-inventory-before.json",
+    "manifest:provider-smoke.json",
+    "manifest:snapshot.json",
+    "manifest:stage-check.json",
+    "manifest:stage-creation-attestation.json",
+    "manifest:stage-installer-chinese.png",
+    "manifest:stage-installer-english.png",
+    "manifest:stage-installer-offline.png",
+    "manifest:stage-installer.json",
+    "manifest:stage-neon-cleanup.json",
+    "manifest:stage-plan.json",
+    "manifest:stage-resources.json",
+    "manifest:stage-service.json",
+    "manifest:stage-shell.json",
+    "manifest:stage-teardown-plan-attested.json",
+    "manifest:stage-teardown-plan.json",
+    "manifest:stage-teardown.json",
+    "manifest:support/.gitattributes",
+    "manifest:support/check-mobile-final.redacted.log.txt",
+    "manifest:support/cleanup-stage-neon.py.txt",
+    "manifest:support/finalize-evidence.py.txt",
+    "manifest:support/manifest.json",
+    "manifest:support/production-inventory.py.txt",
+    "manifest:support/stage-neon.py.txt",
+    "manifest:support/teardown-attested.py.txt",
+    "manifest:support/ux-route-close-diagnostic.mjs.txt"
+  ],
+  "blockingGates": [],
+  "proofs": {
+    "build": "docs/evidence/report-release-20261005/build.json",
+    "snapshot": "docs/evidence/report-release-20261005/snapshot.json",
+    "plan": "docs/evidence/report-release-20261005/stage-plan.json",
+    "resources": "docs/evidence/report-release-20261005/stage-resources.json",
+    "check": "docs/evidence/report-release-20261005/stage-check.json",
+    "service": "docs/evidence/report-release-20261005/stage-service.json",
+    "candidate": "docs/evidence/report-release-20261005/candidate.json",
+    "infrastructure": "docs/evidence/report-release-20261005/infrastructure-live.json",
+    "preflight": "docs/evidence/report-release-20261005/preflight-hardening.json",
+    "provider": "docs/evidence/report-release-20261005/provider-smoke.json",
+    "pg17": "docs/evidence/report-release-20261005/postgres17.json",
+    "pg18": "docs/evidence/report-release-20261005/postgres18.json",
+    "old_client": "docs/evidence/report-release-20261005/old-client.json",
+    "rollback": "docs/evidence/report-release-20261005/hosting-rollback.json",
+    "hosting_preview": "docs/evidence/report-release-20261005/hosting-preview.json",
+    "hosting_live": "docs/evidence/report-release-20261005/hosting-live.json",
+    "recovery": "docs/evidence/report-release-20261005/neon-current-final.json",
+    "hardening": "docs/evidence/report-release-20261005/hardening-final.json",
+    "lint": "docs/evidence/report-release-20261005/lint.json",
+    "production_before": "docs/evidence/report-release-20261005/production-inventory-before.json",
+    "production_after": "docs/evidence/report-release-20261005/production-inventory-after.json",
+    "promotion": "docs/evidence/report-release-20261005/backend-promotion.json",
+    "teardown": "docs/evidence/report-release-20261005/stage-teardown.json",
+    "neon_cleanup": "docs/evidence/report-release-20261005/stage-neon-cleanup.json",
+    "pdf_baseline": "docs/evidence/report-release-20261005/presentation-preservation/baseline.json",
+    "pdf_candidate": "docs/evidence/report-release-20261005/presentation-preservation/candidate.json",
+    "pdf_live": "docs/evidence/report-release-20261005/presentation-preservation/live.json",
+    "pdf_parity": "docs/evidence/report-release-20261005/presentation-preservation/render-parity.json",
+    "pdf_visual": "docs/evidence/report-release-20261005/presentation-preservation/visual-review.json",
+    "note_diagnosis": "docs/evidence/report-release-20261005/hosted-note-selector-diagnosis.json",
+    "waiting": "docs/evidence/report-release-20261005/live-waiting-update.json",
+    "ux_boundary_diagnosis": "docs/evidence/report-release-20261005/hosted-ux-boundary-diagnosis.json",
+    "stage_shell": "docs/evidence/report-release-20261005/stage-shell.json",
+    "stage_installer": "docs/evidence/report-release-20261005/stage-installer.json",
+    "stage_october": "docs/evidence/report-release-20261005/hosted-october-stage/evidence.json",
+    "stage_ux": "docs/evidence/report-release-20261005/hosted-ux-stage/evidence.json",
+    "stage_photo50": "docs/evidence/report-release-20261005/hosted-photo50-stage-b/evidence.json",
+    "preview_shell": "docs/evidence/report-release-20261005/preview-shell.json",
+    "preview_installer": "docs/evidence/report-release-20261005/preview-installer.json",
+    "preview_october": "docs/evidence/report-release-20261005/hosted-october-preview/evidence.json",
+    "preview_ux": "docs/evidence/report-release-20261005/hosted-ux-preview-b/evidence.json",
+    "preview_photo50": "docs/evidence/report-release-20261005/hosted-photo50-preview/evidence.json",
+    "live_shell": "docs/evidence/report-release-20261005/live-shell.json",
+    "live_installer": "docs/evidence/report-release-20261005/live-installer.json",
+    "live_october": "docs/evidence/report-release-20261005/hosted-october-live/evidence.json",
+    "live_ux": "docs/evidence/report-release-20261005/hosted-ux-live/evidence.json",
+    "live_photo50": "docs/evidence/report-release-20261005/hosted-photo50-live/evidence.json"
+  },
+  "localGate": {
+    "status": "passed",
+    "command": "npm run check:mobile",
+    "observedExitCode": 0,
+    "log": "docs/evidence/report-release-20261005/support/check-mobile-final.redacted.log.txt",
+    "realBackendPasses": 72
+  },
+  "hosting": {
+    "preview": {
+      "schemaVersion": 1,
+      "status": "passed",
+      "phase": "preview",
+      "verifiedAtUtc": "2026-10-04T22:28:58.925680+00:00",
+      "channels": {
+        "release-20261005": {
+          "version": "ba2962f66af41dcb",
+          "url": "https://geo-attendance-system-db9ca--release-20261005-klz105lm.web.app",
+          "expiresAt": "2026-10-05T22:28:22.319364046Z",
+          "releasedAtUtc": "2026-10-04T22:28:29.125Z",
+          "rewrites": [
+            {
+              "glob": "/api/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            },
+            {
+              "glob": "/uploads/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            }
+          ],
+          "fileCount": null
+        },
+        "stage-20261005": {
+          "version": "41eca0b3114eca80",
+          "url": "https://geo-attendance-system-db9ca--stage-20261005-htfagt2k.web.app",
+          "expiresAt": "2026-10-05T22:04:32.494116324Z",
+          "releasedAtUtc": "2026-10-04T22:04:39.484Z",
+          "rewrites": [
+            {
+              "glob": "/api/**",
+              "run": {
+                "serviceId": "geo-report-stage-20261005",
+                "region": "australia-southeast1"
+              }
+            },
+            {
+              "glob": "/uploads/**",
+              "run": {
+                "serviceId": "geo-report-stage-20261005",
+                "region": "australia-southeast1"
+              }
+            }
+          ],
+          "fileCount": "87"
+        },
+        "rollback-20261005": {
+          "version": "adb5a717d76f2644",
+          "url": "https://geo-attendance-system-db9ca--rollback-20261005-zvpf3fcj.web.app",
+          "expiresAt": "2026-10-11T21:32:24.529551417Z",
+          "releasedAtUtc": "2026-10-04T21:32:25.290Z",
+          "rewrites": [
+            {
+              "glob": "/api/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            },
+            {
+              "glob": "/uploads/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            }
+          ],
+          "fileCount": "81"
+        },
+        "live": {
+          "version": "adb5a717d76f2644",
+          "url": "https://geo-attendance-system-db9ca.web.app",
+          "expiresAt": null,
+          "releasedAtUtc": "2026-09-29T01:25:18.146Z",
+          "rewrites": [
+            {
+              "glob": "/api/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            },
+            {
+              "glob": "/uploads/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            }
+          ],
+          "fileCount": "81"
+        }
+      },
+      "productionRewritesVerified": true,
+      "exactVerifiedPreviewClonedLive": false
+    },
+    "live": {
+      "schemaVersion": 1,
+      "status": "passed",
+      "phase": "live",
+      "verifiedAtUtc": "2026-10-04T22:40:16.176383+00:00",
+      "channels": {
+        "live": {
+          "version": "ba2962f66af41dcb",
+          "url": "https://geo-attendance-system-db9ca.web.app",
+          "expiresAt": null,
+          "releasedAtUtc": "2026-10-04T22:39:52.855Z",
+          "rewrites": [
+            {
+              "glob": "/api/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            },
+            {
+              "glob": "/uploads/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            }
+          ],
+          "fileCount": "87"
+        },
+        "release-20261005": {
+          "version": "ba2962f66af41dcb",
+          "url": "https://geo-attendance-system-db9ca--release-20261005-klz105lm.web.app",
+          "expiresAt": "2026-10-05T22:28:22.319364046Z",
+          "releasedAtUtc": "2026-10-04T22:28:29.125Z",
+          "rewrites": [
+            {
+              "glob": "/api/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            },
+            {
+              "glob": "/uploads/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            }
+          ],
+          "fileCount": "87"
+        },
+        "stage-20261005": {
+          "version": "41eca0b3114eca80",
+          "url": "https://geo-attendance-system-db9ca--stage-20261005-htfagt2k.web.app",
+          "expiresAt": "2026-10-05T22:04:32.494116324Z",
+          "releasedAtUtc": "2026-10-04T22:04:39.484Z",
+          "rewrites": [
+            {
+              "glob": "/api/**",
+              "run": {
+                "serviceId": "geo-report-stage-20261005",
+                "region": "australia-southeast1"
+              }
+            },
+            {
+              "glob": "/uploads/**",
+              "run": {
+                "serviceId": "geo-report-stage-20261005",
+                "region": "australia-southeast1"
+              }
+            }
+          ],
+          "fileCount": "87"
+        },
+        "rollback-20261005": {
+          "version": "adb5a717d76f2644",
+          "url": "https://geo-attendance-system-db9ca--rollback-20261005-zvpf3fcj.web.app",
+          "expiresAt": "2026-10-11T21:32:24.529551417Z",
+          "releasedAtUtc": "2026-10-04T21:32:25.290Z",
+          "rewrites": [
+            {
+              "glob": "/api/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            },
+            {
+              "glob": "/uploads/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            }
+          ],
+          "fileCount": "81"
+        }
+      },
+      "productionRewritesVerified": true,
+      "exactVerifiedPreviewClonedLive": true
+    }
+  },
+  "historicalFailedAttempts": [
+    {
+      "evidence": "hosted-photo50-stage/evidence.json",
+      "status": "failed",
+      "failure": {
+        "checkpoint": "supervisor_requires_note_and_resolves_report",
+        "code": "browser_or_api_operation_failed"
+      },
+      "cleanup": {
+        "reportTrashed": true,
+        "templateArchived": true,
+        "submissionOutcomeUnknown": false,
+        "failures": []
+      }
+    },
+    {
+      "evidence": "hosted-ux-preview/evidence.json",
+      "status": "failed",
+      "failure": null,
+      "cleanup": {
+        "reportTrashed": true,
+        "templateArchived": true,
+        "workerResigned": true,
+        "failures": [
+          {
+            "name": "request_boundary",
+            "code": "browser_or_api_operation_failed"
+          }
+        ]
+      },
+      "classification": "historical_verifier_failure_unconfirmed_transport",
+      "originalCause": "UNCONFIRMED",
+      "diagnosis": "hosted-ux-boundary-diagnosis.json",
+      "fixtureCleanupApiVerified": true,
+      "separatePassingGate": "hosted-ux-preview-b/evidence.json"
+    },
+    {
+      "evidence": "neon-stage-failed-cli-argument.json",
+      "status": "failed",
+      "failure": "captured_command_failed_output_withheld",
+      "cleanup": null
+    },
+    {
+      "evidence": "stage-teardown-plan.json",
+      "status": "failed",
+      "failure": "resource_not_created_during_owned_attempt",
+      "cleanup": null
+    }
+  ],
+  "historicalLocalAttemptLogs": [
+    {
+      "path": "output/release-20261005-full.local.log",
+      "failedCheckpoints": [
+        "not ok - Worker invitation replaces Supervisor-chosen passwords with a private setup link",
+        "not ok - Offline Submission ownership, occurrence time, and idempotent replay"
+      ]
+    },
+    {
+      "path": "output/release-20261005-final.local.log",
+      "failedCheckpoints": []
+    },
+    {
+      "path": "output/release-20261005-final-b.local.log",
+      "failedCheckpoints": [
+        "not ok - action feedback is local, busy, announced, and separate from sync state"
+      ]
+    }
+  ],
+  "diagnosedVerifierOnlyRepairs": [
+    "Await browser-evaluated async predicates explicitly; false Promises had been accepted before native IndexedDB completion. Application storage/authentication unchanged.",
+    "Wait for initial Template Name focus before automated typing; a held real Add-panel animation-frame callback reproduced name/description concatenation 3/3.",
+    "Wait for anonymous startup's existing nonchecking readiness boundary; holding native lastSyncAt completion reproduced the premature status assertion 5/5.",
+    "Hosted note checkpoint now targets the existing Report note form instead of the absent retained edit-form submit button; note diagnosis and separate hosted rerun are both required."
+  ],
+  "retainedRisks": [
+    "The first October preview UX attempt remains failed: all nine functional checks and API-verified owned fixture cleanup passed, but a late generic guarded-request error occurred. Local close/read cancellation and genuine live transport faults both reproduce that code. Original cause is UNCONFIRMED; the separate unchanged-verifier preview-b pass does not establish it. Exact diagnosis is hash-bound; no unknown POST or missing cleanup is excused.",
+    "Prior invitation-dialog timeouts remain unexplained; passing full and isolated runs do not establish their cause. Earlier offline Template-change and retained-navigation intermittents remain regression risks.",
+    "No physical iOS/Android, low-disk, full-resolution camera gallery, 50 near-5-MB-photo, native share/recipient handoff, or physical-phone PDF-viewer certification.",
+    "Hosted synthetic images and injected browser quota/415 faults are not actual phone-capacity or production upload-failure certification. October hosted checks do not induce the pre-snapshot late-commit database race.",
+    "Neon recovery history remains six hours. Device drafts are neither encrypted storage nor cross-device backup; keep the app open until uploads finish.",
+    "Retain September29 backup br-young-sunset-a7x36uiu and rollback-20260929 until their recorded expiry; reverify before use. September29 shell cannot show October recovery/note drafts; retain October-compatible backend and never clear device storage for rollback."
+  ],
+  "uploadDisposition": "Staging and synthetic hosted upload objects retained; no upload deletion by this release finalizer or release runners.",
+  "recoveryScope": "Fresh post-backend Current recovery proof; restoration chronology is bound to production-inventory-after, not the later frontend Hosting timestamp. Final hardening follows live checks.",
+  "fileSha256": {
+    "dist/assets/css/install.css": "9d16fa4507b9e7b49801ae9f052c5e3d6084553dfa683e28292c9d9967832a36",
+    "dist/assets/css/styles.css": "93e7ef93f8ee6e2d716ac820b7d024d8332341386a3211da16eab9a62e04c7a6",
+    "dist/assets/icons/apple-touch-icon.png": "feb566a167b5ec4c6feb23b5ae6b7109e36cc5ac32c5c625d9d8a12627ea123d",
+    "dist/assets/icons/bop-logo.svg": "5ed79a4842b4840194e7536a819ed4ff0f9d866ec940ae443f95e6f8bbfe12ac",
+    "dist/assets/icons/icon-192.png": "b20a8f9b1e530157673656ff1abb99a584ad155e848d7fa8450b3a2412bddf04",
+    "dist/assets/icons/icon-512.png": "7fd38eb7ec00a447009273f157d5cb46858ac5edccf908a56750100469404bdf",
+    "dist/assets/icons/leader-icon.svg": "f049144b250bda7be9ddd2d2502df5cc92ab86b4f75dbec01df2c35b005b94cc",
+    "dist/assets/icons/leader-logo-export.png": "cd6ef60ecc607ee1f1730f63e74241ff93c67d29d2c1fceab53491a9fa7fdecc",
+    "dist/assets/icons/maskable-512.png": "7fd38eb7ec00a447009273f157d5cb46858ac5edccf908a56750100469404bdf",
+    "dist/assets/icons/mc-logo.svg": "c13567d8505cf175922a3afb494a095c02da25a630070dbbfd74fb8fc958b31a",
+    "dist/assets/icons/mutual-logo.svg": "a9e809079b6aa74913126c55cac23823a3b87471ae1732b089c71eb1209cd274",
+    "dist/assets/icons/reportflow-192.png": "961b7eb26034d8c71e4f50f89ec0cefce0268a5281c9a06c8891cb532c93c356",
+    "dist/assets/icons/reportflow-512.png": "4090a88306e084a874a5d0c6fe74b8d7ee580a42ae9820bf84ec032ed02692c2",
+    "dist/assets/icons/reportflow-apple-touch-180.png": "19490723922a88652f3635596a19b4e8c31de9781b699bdd65577d9210792449",
+    "dist/assets/icons/reportflow-icon.svg": "701fa758282e87038af6769b36cf42e540dde60c2caa4e3a384d1f5b741a0ac5",
+    "dist/assets/icons/reportflow-install-qr.svg": "300188ad752dd1aa5fec734584f43f2b77b36627f4894d477556874370557397",
+    "dist/assets/icons/reportflow-maskable-512.png": "2cc14eda704cd203040cd75c4bdea70c58a7557292c6759445a2373a68fdf357",
+    "dist/assets/icons/stech-logo.svg": "be704e3c5be46feffd1a6ed1beb9e7fbef530da8c684bd3023172728c242d36f",
+    "dist/assets/js/api-client.js": "81a620ccf01b720492473369a5d84384de209e9882d620b6b9d3bcfef53f35ff",
+    "dist/assets/js/app-shell-state.js": "b48465eeb14e5cdf66e36373618caf68ba61692a2b5ac586b821a1ecef4b6396",
+    "dist/assets/js/app.js": "5d891df303799c09db63e34cabbd83bc7fc84c8b0d6296425d0a095e3ab41b18",
+    "dist/assets/js/confirmation-dialog.js": "1802ed4d977027b36fdc0a0576c54f38c870da826a649ea74d65c0457fae32fe",
+    "dist/assets/js/date-inputs.js": "00eab23342a10df6092f2d33d626ee39ccfe61bc26bab5a1a5b6c5414c310aca",
+    "dist/assets/js/db.js": "fea6c978904fcc751dca3b720a763fb2beb26f9f409c003d46d97602f376bbb2",
+    "dist/assets/js/history.js": "49631678ab177a6dead322e098f9b647836c5760d9afe17d77c6f7a661804c00",
+    "dist/assets/js/i18n.js": "146e98c2016794bf752553934e64ff8fb302b613dd69f39e44030372c0de81e2",
+    "dist/assets/js/install.js": "4b293f9e1af53f5aa22653c7c815bf815371b006f03844d6ac0ed6ae8da08b0a",
+    "dist/assets/js/mock-api.js": "fbfccf242441f2e6dd94fe0eaadea298bca47a90cfe352f25d67a883b1892f09",
+    "dist/assets/js/offline-attendance-snapshot.js": "e4d9f0726695f76d043cdbcd456be7e4a9e6bda7ff0d3a0307fa139ceae033ae",
+    "dist/assets/js/offline-report-template-snapshot.js": "6ddaf2a589a76adfc0cde74d7a24f4e4ea0194bb31ef9d0ddca3ca8bfb3786e2",
+    "dist/assets/js/offline-site-snapshot.js": "4918261b4560330460a7c7b19783ab38146f45809f23ec6e42e63a83bb2c5ace",
+    "dist/assets/js/offline-submissions.js": "c49c6a026881e566d79ca609517f50c39a36254b44640bb397c55ce69bc1c555",
+    "dist/assets/js/photo-viewer.js": "2535e13f7bc73051c3754e4300b63ff53cecd95fbb3f68cbc1b3c4938cf54810",
+    "dist/assets/js/recover-password.js": "b2753e1f2e012cdba8daad45d80de6df4432d92330360c68d726eea4cd28e8c9",
+    "dist/assets/js/report-drafts.js": "5c71bfd0d642c6a78d626c80f0e3c342d47737cccc70b22166107469c84099d3",
+    "dist/assets/js/report-note-drafts.js": "f80fd2b3dd134251ecb4cdd04df0079bb40f57285324244bc5e02d672ce34711",
+    "dist/assets/js/report-note-editor.js": "02972187308c366f9fbfcd2461e39bb73a0e26cb25b12f7403d49a6ea7bda88d",
+    "dist/assets/js/report-photo-evidence.js": "cae3b42aa0efb3e965ca6ba8e2eef82653785bfc0c3964976690c0bf23cc8277",
+    "dist/assets/js/report-photo-gallery.js": "826ec2fa2d84e8227dcd5582a48cfb1c7625cb0205176fb479003844d40c33bd",
+    "dist/assets/js/report-photo-thumbnails.js": "a1018043cb30f00bb3c22ec23b397027d96e765725b10dfaefd705baa966b15c",
+    "dist/assets/js/report-review-age.js": "ad496e2270399e917c27f30a7cf96863b0808c4f1f33cd141f405973dac11539",
+    "dist/assets/js/report-review-preferences.js": "3d698a0c328e0e4c01b0eabe20f9cdbc95954008ad662fb9b0690a9bbc51170e",
+    "dist/assets/js/report-storage-budget.js": "b7ebf4e16a4ebeaa7364c9be41e5588b95e3d4fa1a3e1e3cdd7f1fac680124b7",
+    "dist/assets/js/report-submit-review.js": "ae745658f071401a052629a85b35000efc1fd7f09b51b0d6fc0628da85c87733",
+    "dist/assets/js/report-template-drafts.js": "71732a472c20da4e2211749a50b02b53c39903db377c64953729822d4407c3de",
+    "dist/assets/js/report-upload-recovery.js": "1da7e35d017514489784dbf3c66735f0104066a85e7a7b19f1fdf60948627a5e",
+    "dist/assets/js/review-export-adapters.js": "61ec72ab16557ab7a110cf58237da05d36ddb61c84eea79403cd7134c66a8c6b",
+    "dist/assets/js/setup-password.js": "74b409804978fd502f79dcc79cd082ac75c873e0cdfe8a3c1946db4862563716",
+    "dist/assets/js/site-map-picker.js": "6f98222d804ccdf345a31adf98aa165f9d5326af2b5254243c2dbb65d3d8bff2",
+    "dist/assets/js/staff-sites.js": "ecd79490aa56b811fd1367b3b8d6711190f7971641bbde29d114ecea2763cf67",
+    "dist/assets/js/supervisor-analytics.js": "75976cffd8ff20dd18db246a26cd6b43e22cfd8d5b187d990bc201193f520357",
+    "dist/assets/js/supervisor-map.js": "32b6973baf0dc64e2371f89624213a38c2d9bbca089d605b7d886441bc0cf6eb",
+    "dist/assets/js/supervisor-review-utils.js": "020382ac99cd7a8c0b628acf2a40da9d08d43084474438ce2c807b9f00b19778",
+    "dist/assets/js/supervisor-review.js": "2642f39f35dd771aaa06002aaeeba6e033d3f095172e54e7b2c9e67254b459c1",
+    "dist/assets/js/team-member-picker.js": "06dae167fe27dc49d8854ae62311705111074fac8890c750f8741a8d65368a52",
+    "dist/assets/js/team-work-log.js": "0319af91959114ab4f29ee34c5cbdc30a01c03ef4002931e1858ce917c301b7b",
+    "dist/assets/js/ui-feedback.js": "9c5164cf84380c2cf18368d1121d38578aa413a8b4c6bd7a78f6eb084b72aad9",
+    "dist/assets/js/utils.js": "c098732a72ae20d0759a8d9ae192910b482248e8f55b12f79d6486229050bb5b",
+    "dist/assets/js/work-form-builder.js": "c246cb158b40d714084a4d4bae08ad295ea0d426f494d7279630d3957e569b7e",
+    "dist/assets/js/work-form-fields.js": "ae75e7d4494ff005b9a83453bd2e93f0562856668344d7356b4474b6727c264f",
+    "dist/assets/js/worker-attendance.js": "69e464ad49de35679756e31a4378a8d2bdc07debcb3bff1f0423432c341c0757",
+    "dist/assets/js/worker-form.js": "abcb8c252bb8ace87157ef2a68807798d665d6460a372d93851b68cc1a92391c",
+    "dist/assets/js/worker-invitation-dialog.js": "db1bcc8934754f26619daa4f26475346f125aeea9396665c4ffac4ec0c98d743",
+    "dist/assets/js/worker-log.js": "9221de0de4e0d37003eebff974acf975020d3e0c53df21bb8b416a2dc748130c",
+    "dist/assets/js/worker-sites.js": "4125475a302f4ae50025590b876d4eb197f458983bcd56ec63d560a567989a93",
+    "dist/assets/main-BsDPzw64.js": "09a71cb6ea4638f72f742541b1f5061920bb696d3bbf40343f623dbe151c13f1",
+    "dist/assets/main-DYQJTw5E.css": "6d0a75e8f8a535acf91d12d2f7005a48ad3d44cd18c040faae048af3371bdcfb",
+    "dist/downloads/reportflow-install-a4.pdf": "278d5679ecf0bbd988e91ac47290e742e886de7b4fcb5a3e02317eaf373064c8",
+    "dist/downloads/reportflow-install-qr.png": "b7dbc5ed4a8b85656f6a86e130f47a5d2099387631d754fe31504c8253bbba08",
+    "dist/downloads/reportflow-install-qr.svg": "300188ad752dd1aa5fec734584f43f2b77b36627f4894d477556874370557397",
+    "dist/index.html": "f651abcf7f552f75cda4be773b27d47d81b967902bd682486fd9e9e327c9171b",
+    "dist/install.html": "4067e3713271cb08111eafaef6a040afaac57d23afd907150c606c7639b06c65",
+    "dist/manifest.webmanifest": "47085fc4c3ff8188bc78851c8ffb46a0195fe57cd65d0f6a322dc9265a04061a",
+    "dist/offline.html": "5fafba297754c73156b6c05d37fbeb15c632fbd08bf20a603893346fecbe66f0",
+    "dist/recover-password.html": "43b75200e77f17bcdaea0756b7e7153e2523729087f0567cc48c43d08fcc3206",
+    "dist/setup-password.html": "dd4479ca34f56fc061dd944fadb67953e78a2d6ef9422e8183dc026b06113f09",
+    "dist/sw.js": "75901df510bc7de99eb23aca0f43a0ed9d8c82a1f5cd2c388075eebd0dcacdfe",
+    "docs/evidence/report-release-20261005/.gitattributes": "f3b059d78349857a189d2556738e0258578bb6f684288254505052493132335b",
+    "docs/evidence/report-release-20261005/backend-promotion.json": "229a8b17b3dbcbb4526cec69f992e41edf690d6dbf133705fea828c1c757d9c9",
+    "docs/evidence/report-release-20261005/build.json": "1ce7f1105055cd4ba72e60fec2fd6cb87ef3890df2b1aa3dd8593c813b3f0f29",
+    "docs/evidence/report-release-20261005/candidate-initial.json": "f797afa2de5fd300b5fa903430f98416f14205fc9a70a5abb311dc49ea636cde",
+    "docs/evidence/report-release-20261005/candidate.json": "ac1375dc52e2255ede7b01bc62cbb2f3384c19b24105286b3ca6746105500bce",
+    "docs/evidence/report-release-20261005/hardening-final.json": "4c484a9f479bcd9ce329e6ba89b952555c70ac410ae519537c6fe305028265f6",
+    "docs/evidence/report-release-20261005/hosted-note-selector-diagnosis.json": "54c6b4a6e7987b5a0a820ab82411b46662409782755100704c62e5494d66a62d",
+    "docs/evidence/report-release-20261005/hosted-october-live/evidence.json": "a2c0f6b44a3a723338b6bcd148a1cc82e7cf61ddb854cf2bded93a78e45c4650",
+    "docs/evidence/report-release-20261005/hosted-october-live/evidence.txt": "c9de04e78f3ef7b938a857d3dca5c82f21a0fc4c70afccd5d512fb15286f574f",
+    "docs/evidence/report-release-20261005/hosted-october-preview/evidence.json": "b1a916c4e2e981a4a2a4f4876e504bfd7505574c8d15468b04afe6b7b0d0712e",
+    "docs/evidence/report-release-20261005/hosted-october-preview/evidence.txt": "4baa4e18af3e289b12d5b7337e369c0daf88a3e0cd7dba1429d0dd8e50af7642",
+    "docs/evidence/report-release-20261005/hosted-october-stage/evidence.json": "0f39d740d1c684235c17ad3a3678b7954c337ff1fe0c6e03f4109cba6c8640ec",
+    "docs/evidence/report-release-20261005/hosted-october-stage/evidence.txt": "5b3f580150090d389af4286c33e3d9db14e4c29e2ccdbcd01447cd24c838aad9",
+    "docs/evidence/report-release-20261005/hosted-photo50-live/evidence.json": "1d987af64c68c6f70a223889ba2dfdd2ead7e8219e7dd6945c066039480141fc",
+    "docs/evidence/report-release-20261005/hosted-photo50-live/owned-collection.pdf": "402c9172c9c77dd6372ea18f9e88c53d986077d024deda00398e76910af34017",
+    "docs/evidence/report-release-20261005/hosted-photo50-live/owned-single.pdf": "f70aae7c2d5c29adb2adadb136a05694c8d48f3e303c6f7a86daa07476c85fbf",
+    "docs/evidence/report-release-20261005/hosted-photo50-live/supervisor-resolved.png": "990af1f97c190d452cc870e83348001bc91d85e408fb36996eee822a008caa0c",
+    "docs/evidence/report-release-20261005/hosted-photo50-live/worker-queued.png": "34998ef8eafef41751bbd0cfb0c9df9ce42fb9ae1d6b61de240fa3b4eb8204fb",
+    "docs/evidence/report-release-20261005/hosted-photo50-live/worker-resolved.png": "18813b9f6568cf353a673c4cdaaf418f95e617c22b79199544d969da4c8674ef",
+    "docs/evidence/report-release-20261005/hosted-photo50-preview/evidence.json": "9c48c3280bfd18efe7c932596d5ddad63eb3fa27c507c9ac20bf6a16472f9eef",
+    "docs/evidence/report-release-20261005/hosted-photo50-preview/owned-collection.pdf": "e9fd7dedfd637926ad07f8346ede98f1cc2cc6c5116d3ecba6ccf43575d80c6d",
+    "docs/evidence/report-release-20261005/hosted-photo50-preview/owned-single.pdf": "91d3706f025b58efda24c5c378f9688085fb8d4816284fe6dbe37fa14b634d84",
+    "docs/evidence/report-release-20261005/hosted-photo50-preview/supervisor-resolved.png": "0fbd505a6d7bca1a9f5c45bae888780324c9bba87cdaa4a0c8dc627519e2ea1c",
+    "docs/evidence/report-release-20261005/hosted-photo50-preview/worker-queued.png": "baf70785eb3380c914ef0320d53753f20eebbdbe4985a7276e86e3e9730d93fc",
+    "docs/evidence/report-release-20261005/hosted-photo50-preview/worker-resolved.png": "cb1bf150962bd9bc2f2c471e6b4635f5e14b6f231f210c5de1eba0d94b014f67",
+    "docs/evidence/report-release-20261005/hosted-photo50-stage/evidence.json": "1c3a212193f828d240cf6210b7c0456ff22a02719412613faae0342a0f88c142",
+    "docs/evidence/report-release-20261005/hosted-photo50-stage/worker-queued.png": "82b43af70f316f781ad496da1f4cf05694af27c663b391ce686053b8647b5063",
+    "docs/evidence/report-release-20261005/hosted-photo50-stage-b/evidence.json": "387d8c6c2dc49542aa45107e367c6f8fb4636e996506a35af0b8502da8a31a64",
+    "docs/evidence/report-release-20261005/hosted-photo50-stage-b/owned-collection.pdf": "34b94e10874c6a76474f22cef93b8e1a43fc7bfb2f82316fc129f618e25498a2",
+    "docs/evidence/report-release-20261005/hosted-photo50-stage-b/owned-single.pdf": "027a43f846df6adcee5ab5473bc916274d23f69b1e4286636abe5c93655a514b",
+    "docs/evidence/report-release-20261005/hosted-photo50-stage-b/supervisor-resolved.png": "08e7ba96f6ba9ad61f1e0c6098e9ccfc45f5290b354f6ad47ca7ae938b6a9ea7",
+    "docs/evidence/report-release-20261005/hosted-photo50-stage-b/worker-queued.png": "18ba986901d1cddf24da08cf1a95a8c8053d1ee02e901508021b2a17490a17ba",
+    "docs/evidence/report-release-20261005/hosted-photo50-stage-b/worker-resolved.png": "d4c88342ffb1c5c54615159f4513f73be3c26caa5c2e4b578be77043e6a6c7b3",
+    "docs/evidence/report-release-20261005/hosted-ux-boundary-diagnosis.json": "0acb507ea794b880e3142cfc050ab9a4b04a7d661856fa4aa62d4939eef8b1ef",
+    "docs/evidence/report-release-20261005/hosted-ux-live/evidence.json": "318676d8fd92d7461fd7d48eedc7dbbd5499062e6e95e20b52254dec181b23b2",
+    "docs/evidence/report-release-20261005/hosted-ux-preview/evidence.json": "4315daea78c1fbed1cf9c388d9408b0aae14180fa4e7dade941de4f81cf138ef",
+    "docs/evidence/report-release-20261005/hosted-ux-preview-b/evidence.json": "ccf97108d091ca859a611469c10bdba1bc103ddb8e3c677feb221de2651359d0",
+    "docs/evidence/report-release-20261005/hosted-ux-stage/evidence.json": "7c46d47b6473a2ffd6bec716ff0fc75def27ed6359b74df116aea9f1bd7d50ba",
+    "docs/evidence/report-release-20261005/hosting-live.json": "8226e038881733b96348a49ae7751f3c24e5ff66acb5bffd75aa071c96a5ef1b",
+    "docs/evidence/report-release-20261005/hosting-preview.json": "da913d88823c8a83ec27cb4c22a7138b1e89138d6d5dad903a6c93f0ee7701eb",
+    "docs/evidence/report-release-20261005/hosting-rollback.json": "56a42c96051a8f420fe604aee4c8874f31617719ef7093b1500063b32255820a",
+    "docs/evidence/report-release-20261005/infrastructure-live.json": "da902e455c50663862e9300da539a7759130d1270c6d2faaba8d9d49235831ba",
+    "docs/evidence/report-release-20261005/lint.json": "bd061fa529b137a567e0c8f86a2585e2df6a7676e7a477cbc0bccc68805d28bb",
+    "docs/evidence/report-release-20261005/live-installer-chinese.png": "ae2a4382c73028c28abad7be9a58e7a25471f0ac0da0c197111385e7c3b5e53e",
+    "docs/evidence/report-release-20261005/live-installer-english.png": "fe918fc0332323390798b432cf19753a8a43b2734591f7006a66e45976f126c6",
+    "docs/evidence/report-release-20261005/live-installer-offline.png": "fe918fc0332323390798b432cf19753a8a43b2734591f7006a66e45976f126c6",
+    "docs/evidence/report-release-20261005/live-installer.json": "931061e3b9f17c84a3652893062a7f90f3d98481ac89ba7a64b25c800f6218fb",
+    "docs/evidence/report-release-20261005/live-shell.json": "6aad9614934b0c7562460ebbded38bebeef9734461dfbf7eef39056c97fb736a",
+    "docs/evidence/report-release-20261005/live-waiting-update-offline.png": "7977aa18481973011ed35f643b4eb06492daed02a449c906357a2b5ff610f97a",
+    "docs/evidence/report-release-20261005/live-waiting-update-updated.png": "489534251cbf640e0be24c2d2d0b864c7bc930965292c324d2d7a3932b28de09",
+    "docs/evidence/report-release-20261005/live-waiting-update-waiting.png": "a13119b84d6e86fb79803330621b593fca31660f6ecfbf945fb3694987e37784",
+    "docs/evidence/report-release-20261005/live-waiting-update.json": "4baa7a2beaee7bdf13caf443207d3a7a06e76bd52c107e17c550d90a3c984054",
+    "docs/evidence/report-release-20261005/neon-current-final.json": "bc50bbf77f7696422a8394c0d4c24d81b1f5b209d7e3e0ec41407f7c954fe0a6",
+    "docs/evidence/report-release-20261005/neon-current.json": "ea40ba48063ff5cbda6e4d0da347b3bb6055d01b622b35ffd5530144232b578c",
+    "docs/evidence/report-release-20261005/neon-stage-failed-cli-argument.json": "fadbd97efc96cb392b599ada579a10d0c03cd6bdf07c96049f5ab788aeb8eeca",
+    "docs/evidence/report-release-20261005/neon-stage.json": "55c8ad30cf14e2b52e298d3aed471cd4da49068e7070dbf0e8e5f81520e37292",
+    "docs/evidence/report-release-20261005/old-client.json": "0bf892e959d9d00dd200fbc293972ca813f2cd30d85f939ae20e6ea37bac9c61",
+    "docs/evidence/report-release-20261005/postgres17.json": "3747cfeb8c757badf3e028b39cc8890b8a4402f30290aa0eddcc35b9d2a0d211",
+    "docs/evidence/report-release-20261005/postgres18.json": "d3df4df8a3cf74d3b5661a5fa6b4d29761b570deb5903feab07c7073580d6fd8",
+    "docs/evidence/report-release-20261005/preflight-hardening.json": "b481e87a020542a9b23c7e7cc1e9640dc61b27c7f36ecee340d98eb84f0fff7c",
+    "docs/evidence/report-release-20261005/presentation-preservation/baseline.json": "fa504968727a6185629db598c110bc6ad393ba8db487c197c8f9f2b28adee710",
+    "docs/evidence/report-release-20261005/presentation-preservation/candidate-visual-review.json": "24d386975438774d2eac67b04655d521e9c8ee82be0ae47026d694f712b26816",
+    "docs/evidence/report-release-20261005/presentation-preservation/candidate.json": "5b8e0960bee21dcd98786ed1a3e94261a7142c859d1d98550bdb4d0dcd4b8d1b",
+    "docs/evidence/report-release-20261005/presentation-preservation/live.json": "2424d51c102166ef4b76e12f1db5c32394de687349f618f3cb09ddcf0513701c",
+    "docs/evidence/report-release-20261005/presentation-preservation/render-parity.json": "c1887bc9d069be8d6ead2d6405e71621f04a992d9c6bf84895152c2e1319c2f7",
+    "docs/evidence/report-release-20261005/presentation-preservation/visual-review.json": "9c92283cf8bad88b0ad283e6f2434951b8034649dc94e2c83b5e79d079c873a0",
+    "docs/evidence/report-release-20261005/preview-installer-chinese.png": "ae2a4382c73028c28abad7be9a58e7a25471f0ac0da0c197111385e7c3b5e53e",
+    "docs/evidence/report-release-20261005/preview-installer-english.png": "fe918fc0332323390798b432cf19753a8a43b2734591f7006a66e45976f126c6",
+    "docs/evidence/report-release-20261005/preview-installer-offline.png": "fe918fc0332323390798b432cf19753a8a43b2734591f7006a66e45976f126c6",
+    "docs/evidence/report-release-20261005/preview-installer.json": "9ea411384b628ea70400ad03c3b51f18117703acd3225f9a0ab00e399d2e8e29",
+    "docs/evidence/report-release-20261005/preview-shell.json": "ff40a58ca1d5d3aeee8ef781f203d11318f656d2e06096f3c5f7fadab3aee544",
+    "docs/evidence/report-release-20261005/production-inventory-after.json": "e01e10fb1b1ec211babbbe12cc102653bf8f49c8d4221cb3f5c521284d03ecdc",
+    "docs/evidence/report-release-20261005/production-inventory-before.json": "174405b2ef19e8c06f8a0ad7c1d64a439b5d0b7c73db65fca365a5d41d5248d6",
+    "docs/evidence/report-release-20261005/provider-smoke.json": "aa4b365eadeedf3b4746f058416f7a77e894976dfa9eb08b8cefaceb13dbeb6c",
+    "docs/evidence/report-release-20261005/snapshot.json": "ee6f69c2a3d2e189552d7fc3a1d2b399618cc71d0a0634ae66e91a268c2492fa",
+    "docs/evidence/report-release-20261005/stage-check.json": "50fc922356cb3fe01483e85607955c957ca3202dc39dd3cf71b440eb65ad9594",
+    "docs/evidence/report-release-20261005/stage-creation-attestation.json": "e02f49c19e2edfe408304d2e972dce2d315a4374f9a84605c574c582f9431e32",
+    "docs/evidence/report-release-20261005/stage-installer-chinese.png": "ae2a4382c73028c28abad7be9a58e7a25471f0ac0da0c197111385e7c3b5e53e",
+    "docs/evidence/report-release-20261005/stage-installer-english.png": "fe918fc0332323390798b432cf19753a8a43b2734591f7006a66e45976f126c6",
+    "docs/evidence/report-release-20261005/stage-installer-offline.png": "fe918fc0332323390798b432cf19753a8a43b2734591f7006a66e45976f126c6",
+    "docs/evidence/report-release-20261005/stage-installer.json": "7b0f628767c100df3deb9a640ee12e3968351255a7c44d4518fb09ef5741c541",
+    "docs/evidence/report-release-20261005/stage-neon-cleanup.json": "2add383717ad36f8fd76236246db79f7e96faa593e31ec2258519fbfe363e56f",
+    "docs/evidence/report-release-20261005/stage-plan.json": "6eec796f8110932a7314fdc344a74321d15e0aab7f50af67b335db3f31fe400b",
+    "docs/evidence/report-release-20261005/stage-resources.json": "0cb5dd3c96bab110b9d8e13638873613dd5ed5126fd8ccf95fb769a0ffa38237",
+    "docs/evidence/report-release-20261005/stage-service.json": "d139c6fa7eeaabf0db98114fc1d03db788ba4e2f60e5c12865c2e86c3b99293b",
+    "docs/evidence/report-release-20261005/stage-shell.json": "455e8b687cbdcd0a7eaa81fade9945ac032d326a7b26fe2d381b36ccfe4dd185",
+    "docs/evidence/report-release-20261005/stage-teardown-plan-attested.json": "d9f6053472e3c8331b82de2426623dddbab64afd7a15ddbd57c731b5659539c5",
+    "docs/evidence/report-release-20261005/stage-teardown-plan.json": "de8e2e20bb3c9d197176ff7ee91c2ee97be88a5bb8a058c47edd548a8965e134",
+    "docs/evidence/report-release-20261005/stage-teardown.json": "6c788012a729505078d6369117eb940efe55e99a68d70bc29045f8a691ba4b2f",
+    "docs/evidence/report-release-20261005/support/.gitattributes": "50df4b5e20ad8e20a92c1c449837f61372c00d818bee5caf2caecae1783128eb",
+    "docs/evidence/report-release-20261005/support/check-mobile-final.redacted.log.txt": "de6c563a3ba99d323663cc7a9501acfc6ec0789ffa00f7feb7ae154feae1e5e7",
+    "docs/evidence/report-release-20261005/support/cleanup-stage-neon.py.txt": "7b0ffc50f174bd6b5a5a956075fbafad293c30bb10fc3578e58b73cf1202343c",
+    "docs/evidence/report-release-20261005/support/finalize-evidence.py.txt": "a053ad5fea1fcca2cc752fc16ac6d873943b2125e12ae08cdbf3a6ca9461129a",
+    "docs/evidence/report-release-20261005/support/manifest.json": "f516151a8b7ffef0f53db3156d7c162b11d492927566b1bd24d34168590e3858",
+    "docs/evidence/report-release-20261005/support/production-inventory.py.txt": "65fa071120147c488968deb273d8bf7e2c9c5dd678f19f851f0eb9a2f25401d7",
+    "docs/evidence/report-release-20261005/support/stage-neon.py.txt": "c62e836236127ddb5275a12ca7d0f34e6c893e41cbe18ef1a2e4b1d4fd3798dd",
+    "docs/evidence/report-release-20261005/support/teardown-attested.py.txt": "3bd06e675d1c9690c67e6617e277e202b4a9f3fe921bd114389e2649f6a4af60",
+    "docs/evidence/report-release-20261005/support/ux-route-close-diagnostic.mjs.txt": "a27637d51550bed517b15f63502687c81a4387747027e243aa9974b1374814c2",
+    "output/pdf/report-release-20261005-presentation-preservation-candidate.local/mutual-demo-collection.pdf": "e4812d36902332bdc4adb4fe1a2a163469d0946e712128253aa818c3800f2e05",
+    "output/pdf/report-release-20261005-presentation-preservation-candidate.local/mutual-toolbox-talk.pdf": "bbef4d8c5b6d7483ea9c71b5c2d723ba8939d12723b743590bc248ab4becda3b",
+    "output/pdf/report-release-20261005-presentation-preservation-live.local/mutual-demo-collection.pdf": "06a622a86753b1e35235fc0175a95ee28f2c9b5fff1e432d0104c977fac2cddf",
+    "output/pdf/report-release-20261005-presentation-preservation-live.local/mutual-toolbox-talk.pdf": "49c2f5a17941a4e419d4332bee2274883ab98a9463c1333bbe9cd045492116cb",
+    "output/release-20261005-final-b.local.log": "d79fbbd5c782a13a14858669c7f5099e1585f4fc6334e09166b22b41b05f90b6",
+    "output/release-20261005-final.local.log": "dce83104b0841fce8790004030fb9a71e0673ab4994782da17751596d8be6040",
+    "output/release-20261005-full.local.log": "73808557e01d58dd9f09be8f87169f974a36f05ef816f7ceb12fad465d8364ee",
+    "output/release-20261005.local/finalize-evidence.py": "a053ad5fea1fcca2cc752fc16ac6d873943b2125e12ae08cdbf3a6ca9461129a",
+    "output/release-20261005.local/ux-route-close-diagnostic.mjs": "a27637d51550bed517b15f63502687c81a4387747027e243aa9974b1374814c2",
+    "sw.js": "f549415be7a64ced4487aa5101218b783ab8be3dd0d3f8396e23926d9b48580d"
+  },
+  "manifestExcludes": [
+    "docs/evidence/report-release-20261005/release.json"
+  ],
+  "verificationScope": "Offline consistency validation of recorded proof files, not a fresh cloud observation. No network/deployment operations."
+}

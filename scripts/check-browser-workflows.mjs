@@ -591,6 +591,10 @@ async function checkAccessibleActionFeedback(browser) {
   try {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.locator('#syncIndicator').waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction(() => {
+      const syncState = document.querySelector('#syncIndicator')?.dataset.state || '';
+      return document.body.dataset.activeView === 'login' && syncState !== 'checking';
+    }, null, { timeout: 10000 });
 
     const syncState = await page.locator('#syncIndicator').evaluate((element) => ({
       role: element.getAttribute('role'),

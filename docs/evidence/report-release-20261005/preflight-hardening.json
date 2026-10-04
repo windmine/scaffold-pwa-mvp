@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "phase": "preflight",
+  "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-production-hardening.ps1 -NeonRecoveryEvidence docs/evidence/report-release-20261005/neon-current.json -BillingAccount 0123B1-051D70-935F73",
+  "exitCode": 0,
+  "recoveryEvidence": "neon-current.json",
+  "warnings": ["Existing Neon history retention is six hours; a longer paid window or external logical backups remain recommended."],
+  "migrationRequired": false,
+  "maintenanceRequired": false,
+  "notes": "Read-only production checks passed before candidate deployment. This is not final post-release infrastructure verification."
+}

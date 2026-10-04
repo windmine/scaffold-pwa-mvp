@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "phase": "durable-support-archive",
+  "runId": "20261005",
+  "recordedAtUtc": "2026-10-04T22:52:42Z",
+  "scope": "Six reviewed one-off helper source snapshots and the final complete mobile test log. Original files are unchanged. No cloud operations, PDF copies, private exports or unrelated diagnostics.",
+  "sourceSnapshots": [
+    {
+      "originalPath": "output/release-20261005.local/finalize-evidence.py",
+      "archivePath": "docs/evidence/report-release-20261005/support/finalize-evidence.py.txt",
+      "originalSha256": "a053ad5fea1fcca2cc752fc16ac6d873943b2125e12ae08cdbf3a6ca9461129a",
+      "archiveSha256": "a053ad5fea1fcca2cc752fc16ac6d873943b2125e12ae08cdbf3a6ca9461129a",
+      "bytes": 38447,
+      "method": "byte_identical_copy",
+      "redactions": 0
+    },
+    {
+      "originalPath": "output/release-20261005.local/teardown-attested.py",
+      "archivePath": "docs/evidence/report-release-20261005/support/teardown-attested.py.txt",
+      "originalSha256": "3bd06e675d1c9690c67e6617e277e202b4a9f3fe921bd114389e2649f6a4af60",
+      "archiveSha256": "3bd06e675d1c9690c67e6617e277e202b4a9f3fe921bd114389e2649f6a4af60",
+      "bytes": 26774,
+      "method": "byte_identical_copy",
+      "redactions": 0
+    },
+    {
+      "originalPath": "output/release-20261005.local/cleanup-stage-neon.py",
+      "archivePath": "docs/evidence/report-release-20261005/support/cleanup-stage-neon.py.txt",
+      "originalSha256": "7b0ffc50f174bd6b5a5a956075fbafad293c30bb10fc3578e58b73cf1202343c",
+      "archiveSha256": "7b0ffc50f174bd6b5a5a956075fbafad293c30bb10fc3578e58b73cf1202343c",
+      "bytes": 5447,
+      "method": "byte_identical_copy",
+      "redactions": 0
+    },
+    {
+      "originalPath": "output/release-20261005.local/stage-neon.py",
+      "archivePath": "docs/evidence/report-release-20261005/support/stage-neon.py.txt",
+      "originalSha256": "c62e836236127ddb5275a12ca7d0f34e6c893e41cbe18ef1a2e4b1d4fd3798dd",
+      "archiveSha256": "c62e836236127ddb5275a12ca7d0f34e6c893e41cbe18ef1a2e4b1d4fd3798dd",
+      "bytes": 28004,
+      "method": "byte_identical_copy",
+      "redactions": 0
+    },
+    {
+      "originalPath": "output/release-20261005.local/production-inventory.py",
+      "archivePath": "docs/evidence/report-release-20261005/support/production-inventory.py.txt",
+      "originalSha256": "65fa071120147c488968deb273d8bf7e2c9c5dd678f19f851f0eb9a2f25401d7",
+      "archiveSha256": "65fa071120147c488968deb273d8bf7e2c9c5dd678f19f851f0eb9a2f25401d7",
+      "bytes": 19023,
+      "method": "byte_identical_copy",
+      "redactions": 0
+    },
+    {
+      "originalPath": "output/release-20261005.local/ux-route-close-diagnostic.mjs",
+      "archivePath": "docs/evidence/report-release-20261005/support/ux-route-close-diagnostic.mjs.txt",
+      "originalSha256": "a27637d51550bed517b15f63502687c81a4387747027e243aa9974b1374814c2",
+      "archiveSha256": "a27637d51550bed517b15f63502687c81a4387747027e243aa9974b1374814c2",
+      "bytes": 5601,
+      "method": "byte_identical_copy",
+      "redactions": 0
+    }
+  ],
+  "finalMobileLog": {
+    "originalPath": "output/release-20261005-final-c.local.log",
+    "archivePath": "docs/evidence/report-release-20261005/support/check-mobile-final.redacted.log.txt",
+    "originalSha256": "84d3d1354e90746b3cc34bb8c6d6ec413af223d55f6a1ef93655457f62c8b267",
+    "archiveSha256": "de6c563a3ba99d323663cc7a9501acfc6ec0789ffa00f7feb7ae154feae1e5e7",
+    "originalBytes": 68701,
+    "archiveBytes": 68659,
+    "method": "Replace the single literal absolute repository-root prefix in the Gallery screenshots path on line 81 with <workspace>; preserve every other byte, UTF-8 encoding without BOM and CRLF line endings.",
+    "replacementCount": 1,
+    "redactedLine": 81,
+    "encoding": "UTF-8 without BOM",
+    "lineEndings": "CRLF",
+    "exactRedactionOnlyVerified": true
+  },
+  "review": {
+    "credentialsOrPrivateLinksDetected": false,
+    "actualCredentialPayloadsCopied": false,
+    "personalEmailAddressesDetected": false,
+    "intentionalSyntheticLiterals": [
+      "production-inventory.py self-test uses fixture:synthetic at ep-synthetic.neon.tech.",
+      "stage-neon.py self-test constructs a FIXTURE_SECRET URI for its synthetic ep-test-owned endpoint.",
+      "teardown-attested.py self-test uses example.invalid identities."
+    ],
+    "retainedPublicOperationalMetadata": "Resource names, service-account identifiers, immutable artifact IDs and proof hashes remain as audit evidence."
+  },
+  "use": "Read these .txt files as source snapshots, not executable entrypoints. Relative runtime paths still refer to the original ignored helper locations. The archived finalizer is the exact source available at this archival checkpoint; any later edit requires a new verified snapshot or an explicit subsequent version.",
+  "artifactPolicy": "Presentation and hosted PDF bytes remain outside this support archive. Existing evidence hashes bind those deliberately retained private/local artifacts. The scoped .gitattributes disables text normalization for these hash-bound .txt snapshots so Git preserves the recorded bytes on all platforms.",
+  "originalsModified": false,
+  "cloudCalls": 0
+}

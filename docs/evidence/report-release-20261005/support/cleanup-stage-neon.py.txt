@@ -1,0 +1,100 @@
+"""Delete only the exact October stage clone after verified GCP teardown."""
+import argparse
+import importlib.util
+import json
+from pathlib import Path
+import shutil
+
+ROOT = Path(__file__).resolve().parents[2]
+BASE = ROOT / "docs/evidence/report-release-20261005"
+TARGET = BASE / "stage-neon-cleanup.json"
+BRANCH = "br-green-mode-a7x9jzqz"
+ENDPOINT = "ep-calm-dust-a76g3i8o"
+BACKUP = "br-young-sunset-a7x36uiu"
+spec = importlib.util.spec_from_file_location("october_stage", Path(__file__).with_name("stage-neon.py"))
+stage = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(stage)
+
+def branches():
+    result, cursor, seen = [], None, set()
+    for _ in range(20):
+        query = {"limit": 100}
+        if cursor:
+            query["cursor"] = cursor
+        data = stage.api(f"/projects/{stage.PROJECT}/branches", query=query)
+        stage.require(isinstance(data.get("branches"), list), "branch_inventory_missing")
+        result.extend(data["branches"])
+        cursor = data.get("pagination", {}).get("next")
+        if not cursor:
+            stage.require(len({item["id"] for item in result}) == len(result), "duplicate_branch_inventory")
+            return result
+        stage.require(cursor not in seen, "branch_pagination_repeated")
+        seen.add(cursor)
+    raise RuntimeError("branch_pagination_limit")
+
+def retained(rows):
+    parent = [item for item in rows if item["id"] == stage.PARENT]
+    backup = [item for item in rows if item["id"] == BACKUP]
+    stage.require(len(parent) == 1 and parent[0]["name"] == "production"
+                  and parent[0]["default"] is True and parent[0]["primary"] is True,
+                  "production_identity_changed")
+    stage.require(len(backup) == 1 and backup[0]["name"] == "release-backup-20260929"
+                  and backup[0]["parent_id"] == stage.PARENT
+                  and stage.timestamp(backup[0]["expires_at"]) == stage.timestamp("2026-10-06T01:13:32Z"),
+                  "retained_backup_identity_changed")
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--allow-stage-deletion", action="store_true", required=True)
+    parser.parse_args()
+    stage.require(not TARGET.exists(), "new_cleanup_evidence_required")
+    creation = json.loads((BASE / "neon-stage.json").read_text())
+    teardown = json.loads((BASE / "stage-teardown.json").read_text())
+    stage.require(teardown["status"] == "passed" and teardown["runId"] == "20261005"
+                  and teardown["deletionComplete"] is True and teardown["productionUnchanged"] is True
+                  and len(teardown["attempts"]) == 4, "gcp_teardown_must_complete_first")
+    stage.require(creation["branch"]["id"] == BRANCH and creation["endpoint"]["id"] == ENDPOINT,
+                  "exact_creation_ids_required")
+    branch, endpoint = stage.verify_creation(creation)
+    rows = branches()
+    retained(rows)
+    stage.require(not any(item.get("parent_id") == BRANCH for item in rows), "stage_has_child_branch")
+    stage.require(len([item for item in rows if item["id"] == BRANCH]) == 1, "exact_stage_branch_missing")
+    # Fresh metadata validation is repeated immediately before the single delete.
+    stage.verify_creation(creation)
+    proof = {"schemaVersion": 1, "status": "started", "startedAtUtc": stage.now().isoformat(),
+             "branchId": BRANCH, "endpointId": ENDPOINT, "branchName": branch["name"],
+             "projectId": stage.PROJECT, "parentId": stage.PARENT,
+             "creationProofSha256": stage.sha(creation), "teardownProofSha256": stage.sha(teardown),
+             "exactOwnershipVerified": True, "gcpStageResourcesAlreadyDeleted": True,
+             "productionBranchDeleted": False, "retainedBackupBranchId": BACKUP,
+             "noChildBranches": True, "deleteAttempted": True, "uploadsUntouched": True}
+    with TARGET.open("x", encoding="utf-8") as stream:
+        json.dump(proof, stream, indent=2)
+        stream.write("\n")
+    try:
+        stage.captured([shutil.which("npx"), "-y", "neon@2.32.0", "branches", "delete", BRANCH,
+                        "--project-id", stage.PROJECT, "--output", "json", "--no-analytics", "--no-color"])
+        rows = branches()
+        retained(rows)
+        stage.require(not any(item["id"] == BRANCH for item in rows), "stage_absence_not_verified")
+        endpoints = stage.api(f"/projects/{stage.PROJECT}/endpoints").get("endpoints")
+        stage.require(isinstance(endpoints, list) and not any(item["id"] == ENDPOINT or item["branch_id"] == BRANCH for item in endpoints),
+                      "stage_endpoint_absence_not_verified")
+        proof.update(status="passed", deleted=True, absenceVerified=True,
+                     endpointAbsenceVerified=True, productionAndBackupRetained=True)
+    except Exception as error:
+        proof.update(status="failed", failureCode=stage.failure_code(error),
+                     nextAction="Inspect exact ownership and state; do not blindly retry deletion.")
+        raise
+    finally:
+        proof["finishedAtUtc"] = stage.now().isoformat()
+        TARGET.write_text(json.dumps(proof, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps({"status": "passed", "deletedBranch": BRANCH, "productionAndBackupRetained": True}))
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as error:
+        print(json.dumps({"status": "failed", "code": stage.failure_code(error)}))
+        raise SystemExit(1)

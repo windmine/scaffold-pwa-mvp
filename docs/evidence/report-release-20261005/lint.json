@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "exitCode": 0,
+  "command": "npm run lint",
+  "sourceCommit": "c024fa61f05880e13357eb253b67f00b571254d2",
+  "applicationAndBackendUnchangedFromCommit": true,
+  "scope": "Workspace after test-only startup readiness and hosted Report-note selector repairs; ESLint completed without errors."
+}

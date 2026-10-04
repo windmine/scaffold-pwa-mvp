@@ -1,0 +1,478 @@
+"""One-off October 5 staging bridge. No credentials or CLI output reach disk.
+
+Use create once, then stage-plan / provider-smoke / stage-resources /
+stage-check / stage-service. Every remote-mutating phase needs the explicit
+--allow-stage-mutations flag. Unknown create outcomes are NEVER retried or
+adopted by name. Deletion is deliberately left to an explicit later teardown.
+The self-test phase is entirely local and does not reserve release evidence.
+"""
+import argparse
+import copy
+from datetime import datetime, timedelta, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import secrets
+import shutil
+import subprocess
+import sys
+import time
+from urllib.parse import parse_qs, unquote, urlsplit
+
+ROOT = Path(__file__).resolve().parents[2]
+PROJECT = "plain-smoke-06194407"
+PARENT = "br-snowy-tree-a7hfuph6"
+NAME = "release-stage-20261005"
+RUN_ID = "20261005"
+EVIDENCE = ROOT / "docs/evidence/report-release-20261005"
+PROOF = EVIDENCE / "neon-stage.json"
+PACKAGE = "neon@2.32.0"
+BRANCH_FIELDS = ("id", "name", "project_id", "parent_id", "default", "primary",
+                 "protected", "created_at", "expires_at", "current_state")
+ENDPOINT_FIELDS = ("id", "branch_id", "project_id", "type", "created_at",
+                   "autoscaling_limit_min_cu", "autoscaling_limit_max_cu",
+                   "suspend_timeout_seconds")
+
+
+class CapturedCommandFailure(RuntimeError):
+    def __init__(self, result):
+        super().__init__("captured_command_failed_output_withheld")
+        # Never retain or echo the raw body. These allowlisted diagnostics
+        # distinguish a local argument rejection from a provider HTTP failure.
+        raw = result.stderr + "\n" + result.stdout
+        self.safe_diagnostics = {
+            "exitCode": result.returncode,
+            "dashArgumentRejected": bool(re.search(r"Unknown command:\s*-\s*(?:\n|$)", raw)),
+            "httpStatusCodes": sorted({int(code) for code in re.findall(
+                r"(?:HTTP|status(?: code)?)[ :=]+([45][0-9]{2})\b", raw, re.IGNORECASE)}),
+            "rawDiagnosticsWithheld": True}
+
+
+def require(condition, code):
+    if not condition:
+        raise RuntimeError(code)
+
+
+def now():
+    return datetime.now(timezone.utc)
+
+
+def timestamp(value):
+    require(isinstance(value, str), "timestamp_missing")
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    require(parsed.tzinfo is not None, "timestamp_without_zone")
+    return parsed
+
+
+def sha(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def failure_code(error):
+    # Raw subprocess/JSON/driver exceptions can contain secrets. Only our fixed
+    # snake-case RuntimeError codes are safe to disclose.
+    if isinstance(error, RuntimeError) and re.fullmatch(r"[a-z][a-z0-9_]{1,100}", str(error)):
+        return str(error)
+    return type(error).__name__
+
+
+def environment():
+    return {**{k: v for k, v in os.environ.items()
+               if not k.upper().startswith(("PG", "REPORT_RELEASE_STAGE_", "NEON_API_HOST", "NEON_API_SPEC_URL"))},
+            "CI": "1", "DEBUG": "", "CLOUDSDK_CORE_LOG_HTTP": "false"}
+
+
+def captured(command, *, input_text=None, env=None, timeout=120):
+    try:
+        result = subprocess.run(command, input=input_text, capture_output=True,
+                                encoding="utf-8", errors="replace", cwd=ROOT,
+                                env=env or environment(), timeout=timeout,
+                                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("captured_command_timed_out_outcome_unknown") from None
+    if result.returncode != 0:
+        raise CapturedCommandFailure(result)
+    return result.stdout
+
+
+def api(path, *, method="GET", body=None, query=None):
+    require(path.startswith(f"/projects/{PROJECT}/"), "api_project_path_not_fixed")
+    require(method == "GET" or (method == "POST" and path == f"/projects/{PROJECT}/branches"),
+            "unsupported_api_mutation")
+    binary = shutil.which("npx")
+    require(binary, "npx_unavailable")
+    args = [binary, "-y", PACKAGE, "api", path, "--method", method,
+            "--output", "json", "--no-color", "--no-analytics"]
+    for key, value in (query or {}).items():
+        args.extend(["--query", f"{key}={value}"])
+    if body is not None:
+        # Separate '--data', '-' is misparsed as Unknown command: - by this
+        # pinned CLI. The equals form is verified against a loopback fake API.
+        args.append("--data=-")
+    # Pinned CLI raw API passthrough does not retry failed requests. Never
+    # substitute link/checkout/set-context/env commands: they write local env.
+    raw = captured(args, input_text=json.dumps(body) if body is not None else None)
+    value = json.loads(raw)
+    require(isinstance(value, dict), "api_object_required")
+    return value
+
+
+def branches_named_exactly():
+    cursor, seen, result = None, set(), []
+    for _ in range(50):
+        query = {"search": NAME, "limit": 100}
+        if cursor:
+            query["cursor"] = cursor
+        response = api(f"/projects/{PROJECT}/branches", query=query)
+        require(isinstance(response.get("branches"), list), "branch_list_missing")
+        result.extend(branch for branch in response["branches"] if branch.get("name") == NAME)
+        cursor = response.get("pagination", {}).get("next")
+        if not cursor:
+            return result
+        require(isinstance(cursor, str) and cursor not in seen, "branch_pagination_invalid")
+        seen.add(cursor)
+    raise RuntimeError("branch_pagination_limit")
+
+
+def validate_metadata(branch, endpoint, requested_expiry, *, ready=True, reserved_at=None):
+    require(isinstance(branch, dict) and isinstance(endpoint, dict), "metadata_objects_required")
+    require(re.fullmatch(r"br-[a-z0-9-]+", branch.get("id", "")) and branch["id"] != PARENT
+            and branch.get("name") == NAME and branch.get("project_id") == PROJECT
+            and branch.get("parent_id") == PARENT and branch.get("default") is False
+            and branch.get("primary") is False and branch.get("protected") is not True,
+            "stage_branch_identity_not_safe")
+    require(not ready or branch.get("current_state") == "ready", "stage_branch_not_ready")
+    expiry, requested = timestamp(branch.get("expires_at")), timestamp(requested_expiry)
+    require(expiry == requested and expiry > now() and expiry <= now() + timedelta(days=1, minutes=2),
+            "stage_expiry_not_exact_or_valid")
+    created = timestamp(branch.get("created_at"))
+    require(created <= now() + timedelta(minutes=2) and expiry - created <= timedelta(days=1, minutes=2),
+            "stage_lifetime_not_bounded")
+    if reserved_at:
+        require(timestamp(reserved_at) - timedelta(seconds=5) <= created,
+                "stage_created_before_ownership_reservation")
+    require(re.fullmatch(r"ep-[a-z0-9-]+", endpoint.get("id", ""))
+            and endpoint.get("project_id") == PROJECT and endpoint.get("branch_id") == branch["id"]
+            and endpoint.get("type") == "read_write", "stage_endpoint_identity_not_safe")
+    host = endpoint.get("host", "")
+    require(isinstance(host, str) and re.fullmatch(r"[a-z0-9.-]+\.neon\.tech", host)
+            and host.split(".")[0] == endpoint["id"], "stage_endpoint_host_not_safe")
+    require(endpoint.get("autoscaling_limit_min_cu") == 0.25
+            and endpoint.get("autoscaling_limit_max_cu") == 0.25
+            and endpoint.get("suspend_timeout_seconds") == 300, "stage_compute_settings_drift")
+    timestamp(endpoint.get("created_at"))
+
+
+def sanitized_metadata(branch, endpoint):
+    # Explicit allowlists, never generic redaction of secret-bearing responses.
+    return {"branch": {key: branch[key] for key in BRANCH_FIELDS if key in branch},
+            "endpoint": {**{key: endpoint[key] for key in ENDPOINT_FIELDS if key in endpoint},
+                         "hostSha256": sha(endpoint["host"])}}
+
+
+def read_metadata(branch_id, endpoint_id):
+    require(re.fullmatch(r"br-[a-z0-9-]+", branch_id) and branch_id != PARENT
+            and re.fullmatch(r"ep-[a-z0-9-]+", endpoint_id), "proof_ids_invalid")
+    branch = api(f"/projects/{PROJECT}/branches/{branch_id}").get("branch")
+    endpoints = api(f"/projects/{PROJECT}/branches/{branch_id}/endpoints").get("endpoints")
+    require(isinstance(endpoints, list) and len(endpoints) == 1
+            and endpoints[0].get("id") == endpoint_id, "stage_endpoint_set_changed")
+    return branch, endpoints[0]
+
+
+def save_creation(proof):
+    PROOF.write_text(json.dumps(proof, indent=2) + "\n", encoding="utf-8")
+
+
+def create(args):
+    require(args.allow_stage_mutations, "explicit_staging_mutation_flag_required")
+    require(not PROOF.exists(), "new_creation_proof_required_no_retry")
+    EVIDENCE.mkdir(parents=True, exist_ok=True)
+    expiry = (now() + timedelta(days=1)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    proof = {"schemaVersion": 1, "phase": "neon-create", "status": "started", "runId": RUN_ID,
+             "cliPackage": PACKAGE, "startedAtUtc": now().isoformat(), "ownershipNonce": secrets.token_hex(16),
+             "intent": {"projectId": PROJECT, "parentId": PARENT, "name": NAME, "expiresAt": expiry,
+                        "branchType": "normal", "endpointType": "read_write", "computeUnits": 0.25,
+                        "suspendTimeoutSeconds": 300}, "attempts": []}
+    with PROOF.open("x", encoding="utf-8") as file:
+        json.dump(proof, file)
+    try:
+        require(not branches_named_exactly(), "stage_name_already_exists_no_adoption")
+        parent = api(f"/projects/{PROJECT}/branches/{PARENT}").get("branch", {})
+        require(parent.get("id") == PARENT and parent.get("project_id") == PROJECT
+                and parent.get("current_state") == "ready", "parent_not_verified")
+        proof["parentVerifiedAtUtc"] = now().isoformat()
+        proof["createAttemptedAtUtc"] = now().isoformat()
+        proof["attempts"].append({"action": "create_exact_stage_branch_once", "atUtc": proof["createAttemptedAtUtc"]})
+        save_creation(proof)
+        response = api(f"/projects/{PROJECT}/branches", method="POST", body={
+            "branch": {"name": NAME, "parent_id": PARENT, "expires_at": expiry},
+            "endpoints": [{"type": "read_write", "autoscaling_limit_min_cu": 0.25,
+                           "autoscaling_limit_max_cu": 0.25, "suspend_timeout_seconds": 300}]})
+        branch, endpoints = response.get("branch", {}), response.get("endpoints", [])
+        # Preserve safe returned identifiers even if stricter metadata checks
+        # fail below. This is an inspection aid, NEVER adoption authority.
+        returned_branch_id = branch.get("id") if isinstance(branch, dict) else None
+        proof["returnedIdsForInspectionOnly"] = {
+            "branchIds": [returned_branch_id] if isinstance(returned_branch_id, str)
+                and re.fullmatch(r"br-[a-z0-9-]+", returned_branch_id) else [],
+            "endpointIds": [item["id"] for item in endpoints if isinstance(item, dict)
+                and isinstance(item.get("id"), str) and re.fullmatch(r"ep-[a-z0-9-]+", item["id"])]
+                if isinstance(endpoints, list) else []}
+        save_creation(proof)
+        require(isinstance(endpoints, list) and len(endpoints) == 1, "create_endpoint_not_exact")
+        endpoint = endpoints[0]
+        validate_metadata(branch, endpoint, expiry, ready=False, reserved_at=proof["createAttemptedAtUtc"])
+        proof.update(sanitized_metadata(branch, endpoint))
+        proof["createResponseReceivedAtUtc"] = now().isoformat()
+        save_creation(proof)
+        for _ in range(24):
+            branch, endpoint = read_metadata(proof["branch"]["id"], proof["endpoint"]["id"])
+            validate_metadata(branch, endpoint, expiry, ready=False, reserved_at=proof["createAttemptedAtUtc"])
+            if branch.get("current_state") == "ready":
+                break
+            time.sleep(2)
+        validate_metadata(branch, endpoint, expiry, reserved_at=proof["createAttemptedAtUtc"])
+        proof.update(sanitized_metadata(branch, endpoint))
+        proof.update(status="passed", finishedAtUtc=now().isoformat())
+        save_creation(proof)
+        return {"status": "passed", "phase": "create", "branchId": branch["id"],
+                "endpointId": endpoint["id"], "expiresAt": expiry, "evidence": str(PROOF)}
+    except Exception as error:
+        proof.update(status="failed", finishedAtUtc=now().isoformat(), failureCode=failure_code(error))
+        if isinstance(error, CapturedCommandFailure):
+            proof["commandDiagnostics"] = error.safe_diagnostics
+        save_creation(proof)
+        raise
+
+
+def verify_creation(proof):
+    require(proof.get("schemaVersion") == 1 and proof.get("phase") == "neon-create"
+            and proof.get("status") == "passed" and proof.get("runId") == RUN_ID
+            and proof.get("cliPackage") == PACKAGE and proof.get("createResponseReceivedAtUtc")
+            and re.fullmatch(r"[0-9a-f]{32}", proof.get("ownershipNonce", "")), "creation_proof_not_complete")
+    intent = proof.get("intent", {})
+    require(intent.get("projectId") == PROJECT and intent.get("parentId") == PARENT
+            and intent.get("name") == NAME and intent.get("branchType") == "normal"
+            and intent.get("endpointType") == "read_write" and intent.get("computeUnits") == 0.25
+            and intent.get("suspendTimeoutSeconds") == 300, "creation_intent_mismatch")
+    branch, endpoint = read_metadata(proof["branch"]["id"], proof["endpoint"]["id"])
+    validate_metadata(branch, endpoint, intent.get("expiresAt"), reserved_at=proof.get("createAttemptedAtUtc"))
+    require(sanitized_metadata(branch, endpoint) == {"branch": proof["branch"], "endpoint": proof["endpoint"]},
+            "fresh_metadata_does_not_match_creation_proof")
+    return branch, endpoint
+
+
+def connection_url(branch, endpoint):
+    databases = api(f"/projects/{PROJECT}/branches/{branch['id']}/databases").get("databases")
+    require(isinstance(databases, list), "database_list_missing")
+    selected = [item for item in databases if item.get("name") == "neondb"]
+    require(len(selected) == 1 and selected[0].get("branch_id") == branch["id"]
+            and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", selected[0].get("owner_name", "")), "stage_database_not_verified")
+    owner = selected[0]["owner_name"]
+    response = api(f"/projects/{PROJECT}/connection_uri", query={"branch_id": branch["id"],
+                   "endpoint_id": endpoint["id"], "database_name": "neondb", "role_name": owner, "pooled": "false"})
+    url = response.get("uri", "")
+    parsed = urlsplit(url)
+    require(parsed.scheme == "postgresql" and parsed.hostname == endpoint["host"]
+            and unquote(parsed.username or "") == owner and parsed.password
+            and parsed.port in (None, 5432) and unquote(parsed.path) == "/neondb" and not parsed.fragment
+            and set(parse_qs(parsed.query)) <= {"sslmode", "channel_binding"}
+            and parse_qs(parsed.query).get("sslmode", [""])[0] in {"require", "verify-full"},
+            "connection_url_not_exact_stage_endpoint")
+    return url
+
+
+def evidence_path(value, fallback):
+    path = (Path(value) if value else EVIDENCE / fallback).resolve()
+    require(path.parent == EVIDENCE.resolve() and path.suffix == ".json" and path != PROOF.resolve(),
+            "evidence_must_be_release_json_not_creation_proof")
+    return path
+
+
+def bridge(args):
+    require(re.fullmatch(r"[0-9a-f]{40}", args.source_commit or ""), "full_source_commit_required")
+    require(re.fullmatch(r"australia-southeast1-docker\.pkg\.dev/geo-attendance-system-db9ca/"
+                         r"cloud-run-source-deploy/[a-z0-9-]+@sha256:[0-9a-f]{64}", args.image or ""),
+            "immutable_candidate_image_required")
+    require(args.phase == "stage-plan" or args.allow_stage_mutations, "explicit_staging_mutation_flag_required")
+    evidence = evidence_path(args.evidence, args.phase + ".json")
+    require(not evidence.exists(), "new_phase_evidence_required")
+    proof = json.loads(PROOF.read_text(encoding="utf-8"))
+    branch, endpoint = verify_creation(proof)
+    url = connection_url(branch, endpoint)
+    child_env = {**environment(), "REPORT_RELEASE_STAGE_DATABASE_URL": url,
+                 "REPORT_RELEASE_STAGE_METADATA": json.dumps({"branch": branch, "endpoint": endpoint})}
+    script = "report-provider-smoke.py" if args.phase == "provider-smoke" else "report-release-operator.py"
+    command = [sys.executable, str(ROOT / "scripts" / script)]
+    if args.phase != "provider-smoke":
+        command.extend([args.phase, "--migration-mode", "none"])
+    command.extend(["--snapshot", str(evidence_path(args.snapshot, "snapshot.json")), "--evidence", str(evidence),
+                    "--run-id", RUN_ID, "--source-commit", args.source_commit, "--image", args.image])
+    if args.allow_stage_mutations:
+        command.append("--allow-stage-mutations")
+    if args.phase in {"stage-check", "stage-service"}:
+        command.extend(["--resources-proof", str(evidence_path(args.resources_proof, "stage-resources.json"))])
+    if args.phase == "stage-service":
+        command.extend(["--check-proof", str(evidence_path(args.check_proof, "stage-check.json"))])
+        if args.resume_service_proof:
+            command.extend(["--resume-service-proof", str(evidence_path(args.resume_service_proof, "unused.json"))])
+    # Suppress all child output, including failures. Operator/provider scripts
+    # write their own sanitized evidence; emit only this fixed summary.
+    captured(command, env=child_env, timeout=1200)
+    result = json.loads(evidence.read_text(encoding="utf-8"))
+    require(result.get("status") == "passed" and result.get("runId") == RUN_ID
+            and result.get("branch", {}).get("id") == branch["id"]
+            and result.get("branch", {}).get("endpointId") == endpoint["id"], "phase_proof_not_passed_for_owned_stage")
+    return {"status": "passed", "phase": args.phase, "evidence": str(evidence)}
+
+
+def self_test():
+    from unittest.mock import MagicMock, patch
+    expiry = (now() + timedelta(hours=23)).isoformat()
+    branch = {"id": "br-test-owned", "name": NAME, "project_id": PROJECT, "parent_id": PARENT,
+              "default": False, "primary": False, "protected": False, "current_state": "ready",
+              "created_at": now().isoformat(), "expires_at": expiry}
+    endpoint = {"id": "ep-test-owned", "branch_id": branch["id"], "project_id": PROJECT,
+                "type": "read_write", "host": "ep-test-owned.australia-southeast1.aws.neon.tech",
+                "created_at": now().isoformat(), "autoscaling_limit_min_cu": 0.25,
+                "autoscaling_limit_max_cu": 0.25, "suspend_timeout_seconds": 300}
+    checks = 0
+    def rejected(action):
+        nonlocal checks
+        try:
+            action()
+        except (RuntimeError, ValueError):
+            checks += 1
+            return
+        raise AssertionError("unsafe_fixture_accepted")
+    validate_metadata(branch, endpoint, expiry)
+    checks += 1
+    for key, value in (("id", PARENT), ("parent_id", "br-other"), ("project_id", "other"),
+                       ("name", "production"), ("default", True), ("primary", True), ("protected", True),
+                       ("current_state", "creating"), ("expires_at", (now() - timedelta(seconds=1)).isoformat())):
+        rejected(lambda key=key, value=value: validate_metadata({**branch, key: value}, endpoint, expiry))
+    for key, value in (("branch_id", PARENT), ("project_id", "other"), ("type", "read_only"),
+                       ("host", "ep-production.aws.neon.tech"), ("autoscaling_limit_max_cu", 1),
+                       ("suspend_timeout_seconds", -1)):
+        rejected(lambda key=key, value=value: validate_metadata(branch, {**endpoint, key: value}, expiry))
+    safe = sanitized_metadata({**branch, "connection_uri": "SECRET"}, {**endpoint, "password": "SECRET"})
+    require("SECRET" not in json.dumps(safe) and endpoint["host"] not in json.dumps(safe), "sanitizer_test_failed")
+    checks += 1
+    require(failure_code(ValueError("postgresql://secret")) == "ValueError"
+            and failure_code(RuntimeError("postgresql://secret")) == "RuntimeError", "error_sanitizer_test_failed")
+    checks += 1
+    rejected(lambda: evidence_path(str(PROOF), "unused.json"))
+    rejected(lambda: evidence_path(str(ROOT / "outside.json"), "unused.json"))
+    for status in ("started", "failed"):
+        rejected(lambda status=status: verify_creation({"status": status}))
+    with patch(__name__ + ".api", side_effect=[{"branches": [], "pagination": {"next": "second"}},
+                                               {"branches": [{"name": NAME, "id": "br-found"}]}]):
+        require(len(branches_named_exactly()) == 1, "pagination_test_failed")
+        checks += 1
+    with patch(__name__ + ".api", side_effect=[{"branch": branch}, {"endpoints": [endpoint, endpoint]}]):
+        rejected(lambda: read_metadata(branch["id"], endpoint["id"]))
+    with patch(__name__ + ".captured", return_value='{"branch": {}}') as invoked, \
+         patch.object(shutil, "which", return_value="fixture-npx"):
+        api(f"/projects/{PROJECT}/branches", method="POST", body={"branch": {"name": NAME}})
+        require("--data=-" in invoked.call_args.args[0] and "-" not in invoked.call_args.args[0],
+                "stdin_dash_argument_regression")
+        checks += 1
+    diagnostic = CapturedCommandFailure(argparse.Namespace(returncode=1, stdout="",
+                stderr="ERROR: Unknown command: -\npostgresql://PRIVATE_DO_NOT_ECHO"))
+    require(diagnostic.safe_diagnostics["dashArgumentRejected"] is True
+            and "PRIVATE" not in json.dumps(diagnostic.safe_diagnostics), "safe_failure_diagnostic_regression")
+    checks += 1
+    proof = {"schemaVersion": 1, "phase": "neon-create", "status": "passed", "runId": RUN_ID,
+             "cliPackage": PACKAGE, "ownershipNonce": "a" * 32, "createResponseReceivedAtUtc": now().isoformat(),
+             "createAttemptedAtUtc": now().isoformat(),
+             "intent": {"projectId": PROJECT, "parentId": PARENT, "name": NAME, "expiresAt": expiry,
+                        "branchType": "normal", "endpointType": "read_write", "computeUnits": 0.25,
+                        "suspendTimeoutSeconds": 300}, **sanitized_metadata(branch, endpoint)}
+    with patch(__name__ + ".read_metadata", return_value=(branch, endpoint)):
+        require(verify_creation(proof) == (branch, endpoint), "valid_creation_proof_test_failed")
+        checks += 1
+        altered = copy.deepcopy(proof)
+        altered["endpoint"]["hostSha256"] = "b" * 64
+        rejected(lambda: verify_creation(altered))
+    database_response = {"databases": [{"name": "neondb", "branch_id": branch["id"], "owner_name": "neondb_owner"}]}
+    fixture_url = "postgresql://neondb_owner:FIXTURE_SECRET@" + endpoint["host"] + "/neondb?sslmode=require"
+    with patch(__name__ + ".api", side_effect=[database_response, {"uri": fixture_url}]):
+        require(connection_url(branch, endpoint) == fixture_url, "exact_connection_test_failed")
+        checks += 1
+    with patch(__name__ + ".api", side_effect=[database_response, {"uri": fixture_url.replace(endpoint["id"], "ep-wrong")} ]):
+        rejected(lambda: connection_url(branch, endpoint))
+    # Failures reserve an ownership record and preserve the attempted create;
+    # there is exactly one mutation attempt and no hidden adoption/retry.
+    fake_proof = MagicMock()
+    fake_proof.exists.return_value = False
+    saved = []
+    with patch(__name__ + ".PROOF", fake_proof), patch(__name__ + ".EVIDENCE", MagicMock()), \
+         patch(__name__ + ".save_creation", side_effect=lambda item: saved.append(copy.deepcopy(item))), \
+         patch(__name__ + ".branches_named_exactly", return_value=[]), \
+         patch(__name__ + ".api", side_effect=[{"branch": {"id": PARENT, "project_id": PROJECT, "current_state": "ready"}},
+                                               RuntimeError("captured_command_timed_out_outcome_unknown")]) as remote:
+        rejected(lambda: create(argparse.Namespace(allow_stage_mutations=True)))
+        require(remote.call_count == 2 and saved[-1]["status"] == "failed"
+                and len(saved[-1]["attempts"]) == 1, "unknown_create_retried_test_failed")
+        checks += 1
+    fake_proof.exists.return_value = True
+    with patch(__name__ + ".PROOF", fake_proof), patch(__name__ + ".api") as remote:
+        rejected(lambda: create(argparse.Namespace(allow_stage_mutations=True)))
+        require(remote.call_count == 0, "existing_proof_contacted_remote_test_failed")
+        checks += 1
+    # No URI or password is ever passed in process arguments. Only known child
+    # programs and the explicit no-migration flag can be launched.
+    for phase in ("stage-plan", "provider-smoke", "stage-resources", "stage-check", "stage-service"):
+        phase_result = {"status": "passed", "runId": RUN_ID,
+                        "branch": {"id": branch["id"], "endpointId": endpoint["id"]}}
+        args = argparse.Namespace(phase=phase, source_commit="a" * 40,
+                 image="australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:" + "a" * 64,
+                 allow_stage_mutations=phase != "stage-plan", evidence=None, snapshot=None,
+                 resources_proof=None, check_proof=None, resume_service_proof=None)
+        with patch.object(Path, "exists", return_value=False), \
+             patch.object(Path, "read_text", side_effect=[json.dumps(proof), json.dumps(phase_result)]), \
+             patch(__name__ + ".verify_creation", return_value=(branch, endpoint)), \
+             patch(__name__ + ".connection_url", return_value=fixture_url), \
+             patch(__name__ + ".captured", return_value="") as child:
+            require(bridge(args)["status"] == "passed", "child_bridge_failed")
+            argv = child.call_args.args[0]
+            require("FIXTURE_SECRET" not in json.dumps(argv)
+                    and child.call_args.kwargs["env"]["REPORT_RELEASE_STAGE_DATABASE_URL"] == fixture_url,
+                    "child_secret_channel_failed")
+            require(("--migration-mode" in argv and argv[argv.index("--migration-mode") + 1] == "none")
+                    if phase != "provider-smoke" else "--migration-mode" not in argv,
+                    "child_migration_mode_failed")
+            checks += 1
+    return {"status": "passed", "phase": "self-test", "checks": checks, "cloudCalls": 0}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("phase", choices=("self-test", "create", "stage-plan", "provider-smoke",
+                                          "stage-resources", "stage-check", "stage-service"))
+    parser.add_argument("--allow-stage-mutations", action="store_true")
+    parser.add_argument("--source-commit")
+    parser.add_argument("--image")
+    parser.add_argument("--evidence")
+    parser.add_argument("--snapshot")
+    parser.add_argument("--resources-proof")
+    parser.add_argument("--check-proof")
+    parser.add_argument("--resume-service-proof")
+    args = parser.parse_args()
+    require(not args.resume_service_proof or args.phase == "stage-service", "resume_only_for_stage_service")
+    result = self_test() if args.phase == "self-test" else create(args) if args.phase == "create" else bridge(args)
+    print(json.dumps(result))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as error:
+        print(json.dumps({"status": "refused_or_failed", "code": failure_code(error),
+                          "rawDiagnosticsWithheld": True, "creationProof": str(PROOF),
+                          **({"commandDiagnostics": error.safe_diagnostics}
+                             if isinstance(error, CapturedCommandFailure) else {})}))
+        raise SystemExit(1)

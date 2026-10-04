@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "status": "historical_verifier_failure_cause_unconfirmed",
+  "recordedAtUtc": "2026-10-04T22:38:19Z",
+  "applicationSourceCommit": "c024fa61f05880e13357eb253b67f00b571254d2",
+  "originalCause": "UNCONFIRMED",
+  "classification": "historical_verifier_failure_unconfirmed_transport",
+  "originalAttempt": {
+    "evidence": "hosted-ux-preview/evidence.json",
+    "fileSha256": "4315daea78c1fbed1cf9c388d9408b0aae14180fa4e7dade941de4f81cf138ef",
+    "runId": "ux-oct5-preview",
+    "nonce": "18dd2f29-55a3-41ed-9ae8-d0e80bbb1c9d",
+    "scriptSha256": "284315adf7c5f4ccf1897415992ffd3d7efeb86ae8deedf3f6400ed1e2108c22",
+    "statusRemains": "failed",
+    "functionalChecksPassed": 9,
+    "browserPageErrors": 0,
+    "soleCleanupFailure": {
+      "name": "request_boundary",
+      "code": "browser_or_api_operation_failed"
+    },
+    "owned": { "departmentId": 2, "workerId": 24, "templateId": 22, "reportId": 25 },
+    "fixtureCleanup": {
+      "reportTrashed": true,
+      "templateArchived": true,
+      "workerResigned": true,
+      "apiVerifiedByOriginalRunner": true,
+      "verificationBasis": "Original runner checked exact fixture ownership and successful cleanup API results; Report absence was reread. This diagnosis made no additional hosted calls."
+    }
+  },
+  "localReproduction": {
+    "harness": "output/release-20261005.local/ux-route-close-diagnostic.mjs",
+    "harnessSha256": "a27637d51550bed517b15f63502687c81a4387747027e243aa9974b1374814c2",
+    "environment": "Native headless Chromium; loopback HTTP server only; no hosted URLs, accounts, credentials or mutations",
+    "seam": "Exact current hosted UX newContext closure with unchanged mutation guard, forwardWithoutRedirects and safeFailure; forwarding wrapper captures local terminal outcomes without changing control flow",
+    "heldGetContextClose": { "runs": 3, "genericFailures": 3, "localCause": "request_context_disposed" },
+    "settledGetBeforeContextClose": { "runs": 3, "clean": 3 },
+    "liveOpenSocketFailure": { "runs": 3, "genericFailures": 3, "localCause": "socket_hang_up", "pageStillOpen": true },
+    "forbiddenReportPost": { "runs": 3, "blockedBeforeNetwork": 3, "code": "mutation_outside_owned_fixture_boundary" },
+    "allowedPostContextClose": { "runs": 3, "genericFailures": 3, "localEndpoint": "/api/auth/logout", "uncertainOutcomeNotSuppressed": true }
+  },
+  "timingEvidence": {
+    "failureWindow": "After final functional step asserted an empty boundaryFailures set and before cleanup copied that set",
+    "workerContextCloseInsideWindow": true,
+    "finalSupervisorContextCloseAfterFailureCollection": true,
+    "originalRequestMethodPathAndForwardingPhase": "not_recorded"
+  },
+  "rankedExplanations": [
+    "An in-flight Worker read canceled by context close is locally reproducible, but cannot be assigned as the original cause.",
+    "A genuine late transport failure during Supervisor background work or cleanup produces the same generic code. All awaited fixture cleanup operations nevertheless passed.",
+    "A deliberate mutation or redirect guard rejection normally retains a specific safe code; an unrelated parsing or forwarding runtime exception remains possible."
+  ],
+  "changeScope": {
+    "applicationChanged": false,
+    "backendChanged": false,
+    "hostedVerifierChanged": false,
+    "mutationGuardsChanged": false,
+    "hostedCallsMadeByDiagnosis": false,
+    "onlyLocalDiagnosticAndEvidenceClassificationAdded": true
+  },
+  "requiredSeparateRerun": {
+    "evidence": "hosted-ux-preview-b/evidence.json",
+    "requiredStatus": "passed",
+    "requiredFunctionalChecksPassed": 9,
+    "requiredCleanupFailures": [],
+    "sameVerifierSha256": "284315adf7c5f4ccf1897415992ffd3d7efeb86ae8deedf3f6400ed1e2108c22",
+    "interpretation": "A passing unchanged-source rerun establishes a separate clean gate, not the original cause."
+  },
+  "releaseTreatment": "Retain the original failed proof and this hash-bound explanation. Classify its sole late generic request failure as an unresolved historical verifier/transport risk, not unperformed fixture cleanup. Never excuse unknown POST outcomes, additional cleanup failures, guard violations, or missing cleanup verification.",
+  "futureVerifierRefinement": "Track bounded in-flight guarded-route settlement before closing a context; retain every mutation guard and timeout/uncertain-POST failure. Add only sanitized method, allowlisted route category, guard/fetch/fulfill phase and context-closing state. Do not remove routes or suppress closed-context exceptions.",
+  "limitation": "The focused reproduction demonstrates two distinct causes of the same saved symptom. It does not prove the original hosted request, route, method or cause."
+}

@@ -1,0 +1,338 @@
+"""One-off read-only production inventory before/after the October promotion.
+
+No migration, maintenance, DB writes, traffic changes, or other cloud mutations.
+Only exact resource descriptions and secret version 2 are read; the connection
+stays in memory and the existing inventory child uses a read-only transaction.
+Every external command is bounded to 90 seconds. No retry or overwrite.
+"""
+import argparse
+import contextlib
+import copy
+import hashlib
+import importlib.util
+import io
+import json
+from pathlib import Path
+import re
+
+ROOT = Path(__file__).resolve().parents[2]
+EVIDENCE = ROOT / "docs/evidence/report-release-20261005"
+SNAPSHOT = EVIDENCE / "snapshot.json"
+CANDIDATE = EVIDENCE / "candidate.json"
+OLD_REVISION = "geo-backend-recovery-20260929"
+NEW_REVISION = "geo-backend-october-20261005"
+TAG = "candidate-20261005"
+SOURCE = "c024fa61f05880e13357eb253b67f00b571254d2"
+IMAGE = ("australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/"
+         "cloud-run-source-deploy/geo-backend@sha256:"
+         "7fcefe3787cf173fe998a420f76a3393ebb8a07577617d68cb88376e9dde8224")
+INVENTORY_KEYS = {"accountCredentialsSha256", "auditCount", "immutableSubmissionColumns",
+                  "immutableSubmissionsSha256", "ledgerChecksumMismatches", "ledgerMatchesBundledPrefix",
+                  "ledgerVersionPrefixMatches", "migrationChecksums", "migrationCount", "migrationHead",
+                  "missingSnapshots", "recordedAtUtc", "recoverySchema", "schemaVersion", "status",
+                  "submissionCount", "templateCount", "transactionReadOnly", "userCounts"}
+
+
+def require(value, code):
+    if not value:
+        raise RuntimeError(code)
+
+
+def load_operator():
+    spec = importlib.util.spec_from_file_location("production_inventory_operator", ROOT / "scripts/report-release-operator.py")
+    operator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(operator)
+    original_command = operator.command
+
+    def bounded_command(*args, **kwargs):
+        kwargs["timeout"] = min(kwargs.get("timeout", 90), 90)
+        return original_command(*args, **kwargs)
+
+    operator.command = bounded_command
+    return operator
+
+
+def read_json(path):
+    contents = path.read_bytes()
+    return json.loads(contents), hashlib.sha256(contents).hexdigest()
+
+
+def stable_inventory(operator, value):
+    require(isinstance(value, dict) and set(value) == INVENTORY_KEYS, "inventory_field_set_changed")
+    operator.assert_full_candidate_inventory(value)
+    require(value["migrationCount"] == 22 and value["migrationHead"] == "0022_worker_password_recovery",
+            "exact_twenty_two_migrations_required")
+    return {key: item for key, item in value.items() if key != "recordedAtUtc"}
+
+
+def prerequisites(operator):
+    snapshot, snapshot_file_hash = read_json(SNAPSHOT)
+    candidate, candidate_file_hash = read_json(CANDIDATE)
+    require(snapshot.get("schemaVersion") == 1 and snapshot.get("status") == "passed"
+            and snapshot.get("phase") == "snapshot" and snapshot.get("migrationMode") == "none"
+            and snapshot.get("live", {}).get("revision") == OLD_REVISION
+            and re.fullmatch(r"[a-f0-9]{64}", snapshot.get("databaseHostSha256", "")), "exact_snapshot_required")
+    stable_inventory(operator, snapshot.get("inventory"))
+    require(candidate.get("status") == "passed" and candidate.get("phase") == "candidate"
+            and candidate.get("sourceCommit") == SOURCE and candidate.get("revision") == NEW_REVISION
+            and candidate.get("previousRevision") == OLD_REVISION and candidate.get("image") == IMAGE
+            and candidate.get("runtimeConfigurationUnchanged") is True and candidate.get("migrationRequired") is False
+            and candidate.get("localMigrationLedger") == snapshot["inventory"]["migrationChecksums"],
+            "exact_candidate_proof_required")
+    operator.safe_spec(snapshot["live"]["runtimeSpec"])
+    require(operator.sha(snapshot["live"]["runtimeSpec"]) == snapshot["live"]["runtimeSha256"],
+            "snapshot_runtime_hash_mismatch")
+    return snapshot, {"snapshotSha256": operator.sha(snapshot), "snapshotFileSha256": snapshot_file_hash,
+                      "candidateSha256": operator.sha(candidate), "candidateFileSha256": candidate_file_hash}
+
+
+def expected_traffic(mode):
+    if mode == "before":
+        return [{"revisionName": NEW_REVISION, "percent": 0, "tag": TAG},
+                {"revisionName": OLD_REVISION, "percent": 100, "tag": ""}]
+    require(mode == "after", "invalid_inventory_mode")
+    return [{"revisionName": NEW_REVISION, "percent": 100, "tag": ""}]
+
+
+def validate_traffic(traffic, mode):
+    require(isinstance(traffic, list), "traffic_list_required")
+    result = []
+    for item in traffic:
+        require(isinstance(item, dict) and not item.get("latestRevision")
+                and set(item) <= {"revisionName", "percent", "tag", "url", "latestRevision"}
+                and type(item.get("percent", 0)) is int, "unpinned_or_unknown_traffic")
+        result.append({"revisionName": item.get("revisionName"), "percent": item.get("percent", 0),
+                       "tag": item.get("tag", "")})
+    result.sort(key=lambda row: (str(row["revisionName"]), str(row["tag"])))
+    wanted = sorted(expected_traffic(mode), key=lambda row: (row["revisionName"], row["tag"]))
+    require(result == wanted, "production_traffic_not_exact")
+    return result
+
+
+def runtime_without_image_and_name(operator, spec):
+    result = operator.safe_spec(spec)
+    container = result["containers"][0]
+    container.pop("image", None)
+    container.pop("name", None)
+    return result
+
+
+def service_state(operator, snapshot, mode):
+    service = operator.cloud("run", "services", "describe", operator.PRODUCTION, "--region", operator.REGION)
+    require(service.get("metadata", {}).get("name") == "geo-backend", "production_service_identity_changed")
+    requested = validate_traffic(service.get("spec", {}).get("traffic"), mode)
+    effective = validate_traffic(service.get("status", {}).get("traffic"), mode)
+    require(requested == effective, "traffic_update_still_pending")
+    status = service["status"]
+    require(any(row.get("type") == "Ready" and row.get("status") == "True" for row in status.get("conditions", []))
+            and status.get("latestCreatedRevisionName") == NEW_REVISION
+            and status.get("latestReadyRevisionName") == NEW_REVISION, "production_service_not_ready")
+    template = service["spec"]["template"]
+    require(template.get("metadata", {}).get("name") == NEW_REVISION
+            and template["spec"]["containers"][0].get("image") == IMAGE, "production_template_not_exact_candidate")
+    expected_runtime = runtime_without_image_and_name(operator, snapshot["live"]["runtimeSpec"])
+    require(runtime_without_image_and_name(operator, template["spec"]) == expected_runtime,
+            "production_runtime_configuration_changed")
+    require(operator.annotations(service["metadata"].get("annotations", {})) == snapshot["live"]["serviceAnnotations"]
+            and operator.annotations(template["metadata"].get("annotations", {})) == snapshot["live"]["templateAnnotations"],
+            "production_runtime_annotations_changed")
+    return {"service": "geo-backend", "templateRevision": NEW_REVISION, "image": IMAGE,
+            "traffic": effective, "ready": True, "runtimeConfigurationSha256": operator.sha(expected_runtime),
+            "serviceAnnotationsSha256": operator.sha(snapshot["live"]["serviceAnnotations"]),
+            "templateAnnotationsSha256": operator.sha(snapshot["live"]["templateAnnotations"])}
+
+
+def check_revision(operator, snapshot, name):
+    revision = operator.cloud("run", "revisions", "describe", name, "--region", operator.REGION)
+    image = IMAGE if name == NEW_REVISION else snapshot["live"]["image"]
+    require(revision.get("metadata", {}).get("name") == name
+            and revision.get("status", {}).get("imageDigest") == image
+            and revision.get("spec", {}).get("containers", [{}])[0].get("image") == image,
+            "production_revision_image_changed")
+    require(any(row.get("type") == "Ready" and row.get("status") == "True"
+                for row in revision["status"].get("conditions", [])), "production_revision_not_ready")
+    require(runtime_without_image_and_name(operator, revision["spec"])
+            == runtime_without_image_and_name(operator, snapshot["live"]["runtimeSpec"]),
+            "production_revision_runtime_changed")
+
+
+def read_before(operator, snapshot, bindings):
+    path = EVIDENCE / "production-inventory-before.json"
+    before, file_hash = read_json(path)
+    require(before.get("schemaVersion") == 1 and before.get("phase") == "production-inventory-before"
+            and before.get("status") == "passed" and before.get("migrationMode") == "none"
+            and before.get("sourceCommit") == SOURCE and before.get("image") == IMAGE
+            and all(before.get(key) == value for key, value in bindings.items())
+            and before.get("databaseHostSha256") == snapshot["databaseHostSha256"], "matching_before_proof_required")
+    validate_traffic(before.get("serviceState", {}).get("traffic"), "before")
+    operator.assert_no_migration_preserved(snapshot["inventory"], before.get("inventory", {}))
+    return before, {"beforeProofSha256": operator.sha(before), "beforeProofFileSha256": file_hash}
+
+
+def collect(operator, snapshot, bindings, mode, before=None):
+    starting = service_state(operator, snapshot, mode)
+    for name in ([OLD_REVISION, NEW_REVISION] if mode == "before" else [NEW_REVISION]):
+        check_revision(operator, snapshot, name)
+    reference = operator.SECRET_REFS["DATABASE_URL"]
+    require(reference == {"name": "geo-backend-database-url", "key": "2"}, "production_secret_reference_changed")
+    url = operator.read_secret(reference["name"], reference["key"])
+    try:
+        host_hash = operator.sha(operator.validate_url(url))
+        require(host_hash == snapshot["databaseHostSha256"], "production_database_host_changed")
+        inventory = operator.inventory(url)
+    finally:
+        url = None
+    stable = stable_inventory(operator, inventory)
+    operator.assert_no_migration_preserved(snapshot["inventory"], inventory)
+    if mode == "after":
+        require(before is not None, "matching_before_proof_required")
+        operator.assert_no_migration_preserved(before["inventory"], inventory)
+    ending = service_state(operator, snapshot, mode)
+    require(starting == ending, "production_service_changed_during_inventory")
+    return {"schemaVersion": 1, "phase": f"production-inventory-{mode}", "status": "passed",
+            "migrationMode": "none", "sourceCommit": SOURCE, "image": IMAGE, **bindings,
+            "databaseSecretReference": reference, "databaseHostSha256": host_hash,
+            "serviceState": ending, "serviceUnchangedAcrossRead": True,
+            "inventory": inventory, "stableInventorySha256": operator.sha(stable),
+            "snapshotInventoryPreserved": True, "beforeInventoryPreserved": mode == "after",
+            "ignoredInventoryFields": ["recordedAtUtc"], "databaseWrites": False,
+            "cloudMutations": False, "finishedAtUtc": operator.now()}
+
+
+def safe_failure(error):
+    code = str(error)
+    allowed = {"command_unavailable", "external_command_failed", "invalid_database_target", "inventory_not_verified",
+               "unexpected_runtime", "unexpected_production_secret_binding", "unrecognized_environment_value",
+               "unsafe_production_configuration", "duplicate_environment_names", "no_migration_requires_exact_full_candidate_ledger",
+               "complete_no_migration_inventory_required", "stage_check_changed_existing_data"}
+    own_codes = set(re.findall(r'"([a-z][a-z0-9_]+)"\)', Path(__file__).read_text(encoding="utf-8")))
+    if isinstance(error, RuntimeError) and code in allowed | own_codes:
+        return "production_inventory_changed" if code == "stage_check_changed_existing_data" else code
+    return "external_or_validation_failure_details_withheld"
+
+
+def execute(mode, operator):
+    proof_path = EVIDENCE / f"production-inventory-{mode}.json"
+    require(not proof_path.exists(), "exclusive_inventory_proof_already_exists")
+    snapshot, bindings = prerequisites(operator)
+    before = None
+    if mode == "after":
+        before, before_bindings = read_before(operator, snapshot, bindings)
+        bindings.update(before_bindings)
+    prepared = {"schemaVersion": 1, "phase": f"production-inventory-{mode}", "status": "reading",
+                "migrationMode": "none", "sourceCommit": SOURCE, "image": IMAGE,
+                "startedAtUtc": operator.now(), **bindings}
+    # Exclusive reservation is retained even if a read/guard fails. Never replace
+    # a prior before/after proof and never silently resnapshot changed production.
+    with proof_path.open("x", encoding="utf-8") as stream:
+        json.dump(prepared, stream, indent=2)
+        stream.write("\n")
+    try:
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            result = collect(operator, snapshot, bindings, mode, before)
+        result["startedAtUtc"] = prepared["startedAtUtc"]
+    except Exception as error:
+        result = {**prepared, "status": "failed", "failureCode": safe_failure(error), "finishedAtUtc": operator.now()}
+        proof_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+        raise RuntimeError(result["failureCode"]) from None
+    proof_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    return {"status": result["status"], "phase": result["phase"], "migrationCount": 22,
+            "inventoryPreserved": True, "evidence": proof_path.relative_to(ROOT).as_posix()}
+
+
+def self_test(operator):
+    from unittest.mock import patch
+    snapshot, bindings = prerequisites(operator)
+    current = copy.deepcopy(snapshot["inventory"])
+    current["recordedAtUtc"] = "2026-10-05T00:00:00+00:00"
+    fake_url = "postgresql://fixture:synthetic@ep-synthetic.neon.tech/neondb?sslmode=require"
+    snapshot = copy.deepcopy(snapshot)
+    snapshot["databaseHostSha256"] = operator.sha(operator.validate_url(fake_url))
+    runtime = copy.deepcopy(snapshot["live"]["runtimeSpec"])
+    runtime["containers"][0]["image"] = IMAGE
+    checks = 0
+
+    def service(mode):
+        return {"metadata": {"name": "geo-backend", "annotations": snapshot["live"]["serviceAnnotations"]},
+                "spec": {"template": {"metadata": {"name": NEW_REVISION, "annotations": snapshot["live"]["templateAnnotations"]},
+                                      "spec": copy.deepcopy(runtime)}, "traffic": copy.deepcopy(expected_traffic(mode))},
+                "status": {"conditions": [{"type": "Ready", "status": "True"}], "latestCreatedRevisionName": NEW_REVISION,
+                           "latestReadyRevisionName": NEW_REVISION, "traffic": copy.deepcopy(expected_traffic(mode))}}
+
+    for mode in ("before", "after"):
+        remote = service(mode)
+        calls = []
+
+        def cloud(*args):
+            calls.append(args)
+            if args == ("run", "services", "describe", "geo-backend", "--region", operator.REGION):
+                return copy.deepcopy(remote)
+            require(args[:3] == ("run", "revisions", "describe") and args[3] in {OLD_REVISION, NEW_REVISION},
+                    "self_test_unexpected_cloud_operation")
+            image = IMAGE if args[3] == NEW_REVISION else snapshot["live"]["image"]
+            spec = copy.deepcopy(runtime)
+            spec["containers"][0]["image"] = image
+            return {"metadata": {"name": args[3]}, "spec": spec,
+                    "status": {"imageDigest": image, "conditions": [{"type": "Ready", "status": "True"}]}}
+
+        with patch.object(operator, "cloud", side_effect=cloud), \
+                patch.object(operator, "read_secret", return_value=fake_url) as secret, \
+                patch.object(operator, "inventory", return_value=current) as read:
+            result = collect(operator, snapshot, bindings, mode, {"inventory": current} if mode == "after" else None)
+            require(result["status"] == "passed" and result["inventory"]["recordedAtUtc"] == current["recordedAtUtc"],
+                    "self_test_read_only_success_failed")
+            secret.assert_called_once_with("geo-backend-database-url", "2")
+            read.assert_called_once_with(fake_url)
+            require(fake_url not in json.dumps(result) and "synthetic@" not in json.dumps(result), "self_test_secret_leaked")
+            checks += 1
+            for mutation in (lambda value: value["status"]["traffic"].append({"revisionName": "foreign", "percent": 0}),
+                             lambda value: value["spec"]["traffic"][0].update(latestRevision=True),
+                             lambda value: value["status"]["traffic"][0].update(percent=1),
+                             lambda value: value["spec"]["template"]["spec"]["containers"][0]["env"][1].update(value="true")):
+                saved = copy.deepcopy(remote)
+                mutation(remote)
+                try:
+                    collect(operator, snapshot, bindings, mode, {"inventory": current})
+                except RuntimeError:
+                    checks += 1
+                else:
+                    raise RuntimeError("self_test_unsafe_service_accepted")
+                remote = saved
+            for field in ("auditCount", "submissionCount", "templateCount"):
+                changed = copy.deepcopy(current)
+                changed[field] += 1
+                read.return_value = changed
+                try:
+                    collect(operator, snapshot, bindings, mode, {"inventory": current})
+                except RuntimeError:
+                    checks += 1
+                else:
+                    raise RuntimeError("self_test_changed_inventory_accepted")
+            read.return_value = current
+            wrong_host = {**snapshot, "databaseHostSha256": "a" * 64}
+            try:
+                collect(operator, wrong_host, bindings, mode, {"inventory": current})
+            except RuntimeError:
+                checks += 1
+            else:
+                raise RuntimeError("self_test_wrong_host_accepted")
+    require(safe_failure(RuntimeError(fake_url)) == "external_or_validation_failure_details_withheld",
+            "self_test_raw_error_leaked")
+    checks += 1
+    return {"status": "passed", "offlineGuardChecks": checks, "externalCalls": 0, "proofsWritten": 0}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("mode", choices=("self-test", "before", "after"))
+    args = parser.parse_args()
+    operator = load_operator()
+    return self_test(operator) if args.mode == "self-test" else execute(args.mode, operator)
+
+
+if __name__ == "__main__":
+    try:
+        print(json.dumps(main()))
+    except Exception as error:
+        print(json.dumps({"status": "refused_or_failed", "code": safe_failure(error)}))
+        raise SystemExit(1)

@@ -1,0 +1,881 @@
+
+> scaffold-pwa-mvp@0.0.0 check:mobile
+> npm run build && npm run check:departments && npm run check:report-drafts && npm run check:report-photos && npm run check:report-submit-review && npm run check:offline-report-templates && npm run check:startup-sync && npm run check:report-upload-recovery && npm run check:presentation && npm run check:onboarding && npm run check:password-recovery && npm run check:report-template-drafts && npm run check:report-review-filters && npm run check:report-review-order && npm run check:report-notes && node scripts/check-mobile-browser-workflows.mjs && node scripts/check-install-page.mjs && node scripts/browser-queue-wait-test.mjs && node scripts/check-browser-workflows.mjs
+
+
+> scaffold-pwa-mvp@0.0.0 build
+> npm run generate:pwa && vite build
+
+
+> scaffold-pwa-mvp@0.0.0 generate:pwa
+> node scripts/generate-pwa-service-worker.mjs
+
+generated sw.js (leader-field-cd739c204f2c)
+vite v8.1.4 building client environment for production...
+[2K
+transforming...✓ 53 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/assets/manifest-7iJLFcKU.webmanifest              0.69 kB
+dist/assets/reportflow-icon-JUMdDTPL.svg               0.78 kB │ gzip:   0.40 kB
+dist/assets/reportflow-apple-touch-180-4XY2rcXm.png    2.56 kB
+dist/assets/reportflow-192-O9QSIbGD.png                4.39 kB
+dist/premium-preview.html                             29.92 kB │ gzip:   6.15 kB
+dist/index.html                                       93.23 kB │ gzip:  16.93 kB
+dist/assets/main-DYQJTw5E.css                        127.30 kB │ gzip:  26.96 kB
+dist/assets/main-BsDPzw64.js                         724.86 kB │ gzip: 207.01 kB
+
+✓ built in 263ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+> scaffold-pwa-mvp@0.0.0 check:departments
+> node scripts/department-defaults-test.mjs
+
+ok - default branding is ReportFlow while explicit company logos remain separate
+ok - Mutual resolves by available name, with no seeded-ID or registration fallback
+ok - new Staff defaults respect explicit focus, Mutual, then available fallback without changing All
+ok - non-global staff creation stays in the existing user department
+
+> scaffold-pwa-mvp@0.0.0 check:report-drafts
+> node scripts/report-drafts-test.mjs && node scripts/compact-report-cards-test.mjs && npm run check:report-gallery
+
+ok - current Worker sees only draft metadata, not answers or evidence
+ok - ordinary drafts remain isolated by exact key, Worker and Department
+ok - malformed rows, unknown schemas, Daywork, recovery and tombstones stay out
+ok - unclassified legacy drafts require the current active scoped Report Template
+ok - explicitly scoped drafts remain visible but unavailable without an active Template
+ok - explicit purpose and Department aliases cannot contradict a draft’s scope
+ok - draft metadata is scalar, newest-first, timestamp-safe and non-mutating
+ok - incomplete legacy evidence survives, while invalid versions never claim editability
+ok - legacy classification requires Template purpose, not a submission-shaped substitute
+ok - separate recovered and ordinary drafts remain independently continuable
+ok - recovered attempts reject malformed ownership, metadata and slot aliases without reinterpreting version drift
+ok - unknown recovered Definitions stay read-only while ordinary legacy version-one drafts remain editable
+ok - compact 50-photo Report has summary/status/date/site/note and no eager evidence or unsafe HTML
+ok - accessible disclosure opens on first click after search blur, builds detail on demand and releases DOM on collapse
+ok - collapsed Reports retain full-answer/final-note search and workflow filtering
+ok - queued partial-upload Blob photos allocate only on expand, preserve captured evidence and revoke/close on collapse
+ok - re-render/reset releases every owned Blob URL and detached controls cannot restore private evidence
+ok - exact Worker/Department ownership, switched sessions and empty history do not reveal private detail
+ok - zero-photo recovery cards keep recovery cue/discard, omit optional Site and do not retry drafts
+ok - Supervisor Report detail uses six photo previews while retained Daywork stays unchanged
+ok - Report downloads default to PDF, keep HTML/CSV and translation, and leave Daywork defaults unchanged
+ok - mobile review arrows move selection without opening detail; Enter still activates
+ok - compact system-error cues translate independently and Supervisor-written final notes remain literal
+ok - preview cleanup closes only its own viewer sources and releases the displayed image
+
+> scaffold-pwa-mvp@0.0.0 check:report-gallery
+> node scripts/report-photo-gallery-test.mjs && node scripts/photo-viewer-gallery-test.mjs
+
+ok - collapsed Worker allocates no evidence; six numbered previews preserve full ordered 50-photo viewer and capture times
+ok - zero/one/six/seven/fifty Supervisor photos use correct counts, capped thumbnails, numbered names and unchanged signatures
+ok - unavailable thumbnail keeps a numbered translated fallback and access to the unchanged full original list
+ok - retained Daywork and non-form evidence remain unchanged with all photo buttons
+ok - queued original Blobs retain identity and all ordered viewer sources; collapse/reset release 100 URLs and disable detached controls
+ok - old Worker and Supervisor gallery controls do not open private evidence after an identity/scope change
+ok - changing focused Department also invalidates existing gallery controls
+ok - 32 real-CSS Worker/Supervisor layouts at 320/390/768/1440px, EN/ZH and light/dark stay compact with reachable actions
+Gallery screenshots: <workspace>\output\report-photo-gallery.local
+ok - Report-only one-original loading, arrows, fit swipe, native gesture isolation and modal focus
+ok - accessible 2× zoom/fit, scroll pan, per-photo reset, Escape and exact background/focus restoration
+ok - source-owner cleanup, accessible failed-image feedback, recovery and unmutated wraparound
+ok - responsive controls, non-Report gesture isolation and backwards-compatible optional markup
+ok - real six-preview gallery, separate signature, hosted evidence verifier and all 50 ordered originals
+ok - 16 fit/zoom phone screenshots saved for EN/ZH and light/dark visual review
+
+> scaffold-pwa-mvp@0.0.0 check:report-photos
+> python backend/report_photo_limit_test.py && node scripts/report-photo-upload-test.mjs && node scripts/report-storage-compatibility-test.mjs && node scripts/report-photo-thumbnails-test.mjs && node scripts/report-photo-selection-test.mjs && npm run check:report-storage
+
+test_daywork_submit_and_supervisor_edit_remain_eight_photos (__main__.ReportPhotoLimitTests.test_daywork_submit_and_supervisor_edit_remain_eight_photos) ... ok
+test_fiftieth_photo_ownership_is_checked (__main__.ReportPhotoLimitTests.test_fiftieth_photo_ownership_is_checked) ... ok
+test_fifty_first_photo_rejected_without_insert (__main__.ReportPhotoLimitTests.test_fifty_first_photo_rejected_without_insert) ... ok
+test_fifty_photos_preserve_order_metadata_signature_snapshot_and_replay (__main__.ReportPhotoLimitTests.test_fifty_photos_preserve_order_metadata_signature_snapshot_and_replay) ... ok
+test_signature_ownership_still_checked_after_fifty_photos (__main__.ReportPhotoLimitTests.test_signature_ownership_still_checked_after_fifty_photos) ... ok
+test_task_logs_remain_eight_photos (__main__.ReportPhotoLimitTests.test_task_logs_remain_eight_photos) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 1.628s
+
+OK
+ok - Blob originals persist byte-exactly and cold replay resumes only missing photos without base64 copies
+ok - legacy draft Blob restore preserves identity/evidence, persists only on save, and preview URLs clean up safely
+ok - 50 photos plus repeated signatures checkpoint sequentially, retry 429, and ignore broken progress callbacks
+ok - cold reload preserves fifty offline originals and resumes fifteen remaining photos after partial failure
+ok - bounded retry count/wait budget, malformed or long cooldowns, network uncertainty, logout and account changes safely retain the queue
+ok - clock-advanced >2-minute uploads cannot be replayed by queue sweeps or duplicate submits, including after account switch/logout
+ok - durable evidence checkpoints and bounded rate-limit waits renew the cross-reload syncing lease
+ok - upload-only Retry-After parsing accepts bounded seconds/date and rejects invalid values
+ok - deployed old tab cannot see new photo/zero-photo drafts or replay Blob Reports; new replay retains ownership and partial evidence
+ok - exact legacy draft migration preserves bytes and concurrent old edits, without stale draft resurrection
+ok - explicit discard after get removes a later legacy draft behind an isolated tombstone
+ok - explicit discard after getAll removes a later legacy draft behind an isolated tombstone
+ok - failed legacy cleanup retains old evidence but tombstone prevents stale-copy resurrection
+ok - existing deployed base64 queues remain readable and replay in their original database without duplicate migration
+ok - isolated storage failure preserves existing draft and never falls back to old-client-visible Blob writes
+ok - bounded lightweight previews, byte-exact originals, original viewer and retained-preview caching
+ok - a failed preview does not block later thumbnails or remove original evidence
+ok - editor reset cancels stale callbacks and releases stale decoded images
+ok - browser decoder fallback and unchanged legacy/signature previews
+ok - fifty 2400×1600 synthetic originals use one decoded raster at a time
+ok - mixed selection keeps valid originals and lists unsupported/oversized filenames safely
+ok - all-rejected/cancel selections preserve evidence, controls and translated rejection details
+ok - full-size viewing, removal, cold draft restoration and later additions preserve original bytes and metadata
+ok - validation precedes capacity, exactly 5 MB is accepted, and every over-limit selection is explained
+ok - concurrent picker events serialize valid selections and share the 50-photo limit
+ok - session reset invalidates queued photo work, previews, feedback and draft writes
+
+> scaffold-pwa-mvp@0.0.0 check:report-storage
+> node scripts/report-storage-budget-test.mjs && node scripts/report-storage-warning-test.mjs
+
+PASS Blob originals and legacy data URLs are measured without reading bytes
+PASS Malformed legacy strings count storage; remote and temporary URLs do not
+PASS Small known batches return exact advisory copy and write headroom
+PASS Large batch and total thresholds are inclusive and independent
+PASS Low-space threshold, usage ratio and required headroom warn independently
+PASS Absent and malformed estimates never claim known available storage
+PASS Invalid byte values are not coerced and oversized arithmetic stays finite
+PASS Estimator binds the browser method and never requests persistence or cleanup
+PASS Unsupported, denied, throwing and rejected estimators degrade to unknown
+PASS A hung estimate times out and late rejections are handled
+PASS Quota recognition uses exact names, cautious legacy codes and bounded causes
+Report storage budget: 11 groups passed.
+ok - local-only guidance is always visible and never promises a backup, including Review
+ok - ample storage saves a small batch without interrupting and keeps exact originals/metadata
+ok - little available storage warns before adding any originals or previews
+ok - high origin usage despite ample absolute bytes warns before adding any originals or previews
+ok - insufficient conservative transaction headroom warns before adding any originals or previews
+ok - large batches warn even with ample estimates; explicit approval saves original bytes not thumbnails
+ok - missing estimates degrade safely and a large batch still needs confirmation
+ok - throw estimates degrade safely and a large batch still needs confirmation
+ok - reject estimates degrade safely and a large batch still needs confirmation
+ok - hold estimates degrade safely and a large batch still needs confirmation
+ok - malformed estimates degrade safely and a large batch still needs confirmation
+ok - unknown estimates do not block small batches or claim storage is safe
+ok - cancellation and Escape preserve existing photo, answers, saved draft and safe keyboard focus
+ok - invalid and over-capacity files do not consume storage estimates or trigger false large-batch warnings
+ok - accumulated Report size warns before crossing 50 MiB even when each batch is small
+ok - queued picker changes serialize confirmations and freshly check each batch
+ok - template invalidates unaccepted photos during a pending estimate
+ok - clear invalidates unaccepted photos during a pending estimate
+ok - logout invalidates unaccepted photos during a pending estimate
+ok - update invalidates unaccepted photos during a pending estimate
+ok - expiry invalidates unaccepted photos during a pending estimate
+ok - template invalidates unaccepted photos during a pending dialog
+ok - clear invalidates unaccepted photos during a pending dialog
+ok - logout invalidates unaccepted photos during a pending dialog
+ok - update invalidates unaccepted photos during a pending dialog
+ok - expiry invalidates unaccepted photos during a pending dialog
+ok - a changed authenticated worker rejects a late estimate
+ok - a changed authenticated department rejects a late estimate
+ok - a changed authenticated worker rejects a late dialog
+ok - a changed authenticated department rejects a late dialog
+ok - Review requested during an estimate can still use the outside-editor photo confirmation
+ok - an expired pending autosave cannot overwrite a newer same-account draft after sign-in
+ok - a records quota failure during final submission keeps the clean draft and gives truthful recovery guidance
+ok - a queue quota failure during final submission keeps the clean draft and gives truthful recovery guidance
+ok - an optimistic estimate cannot hide a real quota error; retry preserves saved and in-memory originals
+ok - retained Daywork quota failures preserve legacy autosave guidance without Report storage notices
+ok - retained Daywork keeps its legacy selection behavior without Report storage prompts
+ok - EN 320px light and ZH 390px dark warning dialogs/notices are accessible and unclipped
+Passed 38 isolated real-app Report storage warning browser groups.
+
+> scaffold-pwa-mvp@0.0.0 check:report-submit-review
+> node scripts/report-submit-review-summary-test.mjs && node scripts/report-submit-review-test.mjs
+
+Report submission summary checks passed: scalar/hostile text, conditional/time/formula, repeated answers/signatures, unsafe signature rejection, and empty/photo-only Reports.
+ok - Report Date, required answers and required signatures are validated before entering review
+ok - compact review shows safe answers/context/evidence, Back preserves originals, and one confirmation submits the corrected snapshot once
+ok - review waits for selected photos and the protected draft before rendering its snapshot
+ok - offline review stays a draft and only explicit confirmation creates one intact queued Report
+ok - Site changes during photo preparation are reflected consistently in review and submitted context
+ok - a failed durable save retains answers/photos/signature and the user can retry successfully
+ok - silent editor changes require a fresh review and app-update preparation protects the current draft
+ok - context changed during final confirmation awaits requires a fresh review, without an upload or queued record
+ok - resetting a session cancels an in-flight review preparation and its unfinished photos
+ok - session changes invalidate stale confirmation without submitting or queuing
+ok - template changes invalidate stale confirmation without submitting or queuing
+ok - reconnect changes invalidate stale confirmation without submitting or queuing
+
+> scaffold-pwa-mvp@0.0.0 check:offline-report-templates
+> node scripts/offline-report-template-snapshot-test.mjs && node scripts/offline-report-template-worker-test.mjs && node scripts/worker-form-submit-render-test.mjs
+
+ok - a returning Worker can load the exact saved Report Template Definition
+ok - saved Templates never cross Worker, Department, active-status or role boundaries
+ok - only active explicit Department Report Templates are saved; an empty live list replaces old Templates
+ok - corrupt or mismatched saved envelopes fail closed and every loaded Template is revalidated
+ok - logout clearing wins an in-flight save and obsolete sessions cannot repopulate Templates
+ok - editing live objects cannot rewrite stored Definitions; clearing an invalidated scope leaves other Workers untouched
+ok - a failed clear cannot restore revoked Templates in this session; a new authenticated save may replace them
+ok - explicit module reset ignores previous Worker upload 200 completion without changing replacement draft
+ok - explicit module reset ignores previous Worker upload 401 completion without changing replacement draft
+ok - a new Worker page restores previously authenticated Templates when the API is unavailable
+ok - reconnect saves and restores current edits before replacing the downloaded Template
+ok - an already-open page marks its authenticated Templates downloaded for reconnect revalidation
+ok - a failed draft save pauses reconnect refresh without replacing the original fields or answers
+ok - a newer online Definition preserves the original draft in the existing read-only recovery path
+ok - explicit 403 invalidates downloaded Templates even when the browser reports offline
+ok - a late older HTTP response cannot replace the latest visible or downloaded Definition
+ok - a response from a cleared Worker session cannot restore its private Template list or snapshot
+ok - offline app startup fails closed for explicit 401 and refresh 403 followed by unreachable /me
+ok - validated /me recovery and network-only offline startup retain the exact Worker Template snapshot
+ok - pending external Template render cannot replace a submitting Report; successful submit still resets normally
+ok - new external Template render cannot replace a submitting Report; successful submit still resets normally
+
+> scaffold-pwa-mvp@0.0.0 check:startup-sync
+> node scripts/startup-sync-test.mjs && node scripts/offline-discard-lock-test.mjs
+
+ok - startup opens during upload, progress follows durable checkpoints, and completion preserves active edits/focus
+ok - explicit sign-in opens the Worker screen before queued evidence uploads finish
+ok - logout/account switch clears progress and stops outgoing replay without dropping evidence or leaking answers
+ok - background upload authorization failure returns to sign-in and saves concurrent editing without losing queued evidence
+ok - server cooldown is visible while the Worker screen remains usable and original evidence stays saved
+ok - no-photo Report also opens immediately and shows final-submission progress until saved
+ok - queue storage failure gives recoverable attention without blocking startup or dropping saved work
+ok - same-account re-login ignores stale authorization failure and retries under the fresh session exactly once
+ok - discard owns pending reads/deletes while unrelated queued Reports still sync
+ok - a sweep reserves ownership before reading and rejects concurrent discard
+ok - an old queue snapshot rechecks storage after completed discard and cannot revive it
+ok - missing/foreign/leased/storage-error discard exits release the lock without changing lease rules
+
+> scaffold-pwa-mvp@0.0.0 check:report-upload-recovery
+> python backend/report_upload_recovery_test.py && node scripts/report-upload-recovery-api-test.mjs && node scripts/report-upload-recovery-evidence-test.mjs && node scripts/report-upload-recovery-test.mjs && node scripts/report-recovery-compatibility-test.mjs
+
+ok - explicit uncached absence check is read-only
+ok - exact Worker key lookup finds durable and trashed Reports without exposing another Worker's Report
+ok - exact lookup validates Report purpose and stable key; auth, role and validation errors cannot cache
+ok - an exact Daywork key collision cannot authorize Report recovery or expose Daywork content
+ok - retained trash evidence blocks purged Report recovery and same-key recreation without blocking other Workers
+ok - POST identifies the existing immutable winner without persisting replay metadata or requiring an active Template
+ok - concurrent old/recovered payloads with the same key create one Report and identify the winning snapshot
+ok - retained Daywork keeps its existing replay and post-purge policy while Report recovery rejects its key
+ok - retained before snapshots prevent recreation; ambiguous historical purpose cannot authorize Report recovery
+ok - recovered POST binds actual cookie Worker and Department before creating or returning an idempotent Report
+ok - recovered photo/signature upload binds actual cookie identity before storage; unscoped uploads remain compatible
+ok - recovery lookup is authenticated, Report-scoped, read-only and never cached
+ok - exact stable keys are encoded without normalization and invalid keys never make a request
+ok - missing old-backend route, authorization, server and network failures are never converted to absence
+ok - recovered Report submission preserves stable key and transient replay metadata
+ok - recovered photos/signatures and Report POST bind Worker/Department headers without changing ordinary calls
+ok - invalid recovery scope never sends evidence and identity-mismatch errors retain their structured code
+ok - actual file format is checked instead of trusting a decodable image MIME label
+ok - JPEG, PNG and WebP originals remain byte-identical and decode serially with released bitmaps
+ok - real animated PNG and WebP are rejected before first-frame decoding can disguise them
+ok - selected answer snapshots, field descriptors and source/client identifiers are validated before recovery
+ok - local signature bytes and values are validated before the editor can consider them signed
+ok - confirmed server-rejected photo index is omitted without losing later valid photos
+ok - corrupt, empty, oversized, truncated and unsupported-MIME photos are individually omitted with ordered metadata
+ok - original and repeated signatures survive, downloaded signatures restore locally, ordinary URL answers never fetch
+ok - invalid or unavailable signatures fail closed; cross-origin, non-upload, query and fragment URLs never fetch
+ok - valid uploaded copies rescue rejected originals; only definite missing photos may be omitted on download failure
+ok - every authoritative lookup outcome proves the active Worker and Department scope
+ok - verified recovery preserves answers and valid evidence without overwriting an ordinary draft
+ok - legacy base64 recovery keeps valid original bytes and excludes only the damaged image
+ok - a definite server photo rejection survives earlier transient retry failures and recovery excludes the rejected original
+ok - recovered unknown or invalid Definition version null stays read-only
+ok - recovered unknown or invalid Definition version unknown stays read-only
+ok - recovered unknown or invalid Definition version 0 stays read-only
+ok - server-confirmed existing Report suppresses recovery and cannot create a duplicate
+ok - unavailable lookup fails closed without modifying queue, originals or drafts
+ok - generic404 lookup fails closed without modifying queue, originals or drafts
+ok - malformed200 lookup fails closed without modifying queue, originals or drafts
+ok - unbound-not-found lookup fails closed without modifying queue, originals or drafts
+ok - wrong-client-id lookup fails closed without modifying queue, originals or drafts
+ok - contradictory-absence lookup fails closed without modifying queue, originals or drafts
+ok - different-authenticated-worker lookup fails closed without modifying queue, originals or drafts
+ok - different-authenticated-department lookup fails closed without modifying queue, originals or drafts
+ok - foreign-result lookup fails closed without modifying queue, originals or drafts
+ok - offline recovery waits for server verification and preserves the failed original
+ok - browser without cross-tab locks fails closed before lookup or recovery storage writes
+ok - deleted server Report cannot become an editable replacement
+ok - draft write failure aborts the entire recovery transaction and retry succeeds once
+ok - record write failure aborts the entire recovery transaction and retry succeeds once
+ok - queue write failure aborts the entire recovery transaction and retry succeeds once
+ok - pending recovery owns its queue record against replay and duplicate recovery clicks
+ok - active replay rejects a previously rendered recovery action before any lookup or storage changes
+ok - recovery first saves newly typed ordinary work and an old button cannot recover twice
+ok - ordinary draft save failure blocks recovery before lookup and retry preserves the exact new text
+ok - explicit logout waits for an active recovery to finish safely
+ok - expired authorization clears private UI and a detached recovery control cannot restart it
+ok - unrelated history authorization failure clears private UI during a held recovery lookup
+ok - changed worker during lookup prevents recovery under another session
+ok - changed department during lookup prevents recovery under another session
+ok - recovery survives reload and resubmission keeps its original idempotency key
+ok - Continue draft cannot replace text entered in the mounted recovered editor during a pending storage read
+ok - lost final response is found before recovery instead of generating a second Report
+ok - late idempotent server replay preserves recovered edits read-only instead of pretending they were submitted
+ok - second recovery finding the original submission preserves later edited answers and photos in a visible read-only copy
+ok - pre-release recovery copies remain visibly read-only across reload without replay or native evidence changes
+ok - phone recovery and omitted-photo guidance fit English-light and Chinese-dark layouts
+38 Report upload recovery browser groups passed.
+ok - exact September 29 clients cannot read recovery drafts by key or enumeration
+ok - old live replay cannot consume a new recovered attempt or bypass its identity protocol
+ok - an original durable winner cannot make an old tab hide newer recovered edits
+ok - current clients still read ordinary September 29 drafts and replay their queued originals
+ok - an old already-read original may finish but new recovery keeps the same key and edited saved copy
+ok - failed drafts write rolls back all three recovery stores without changing old originals
+ok - failed records write rolls back all three recovery stores without changing old originals
+ok - failed queue write rolls back all three recovery stores without changing old originals
+ok - unavailable recovery database rejects reads, writes and removal without old-visible fallback
+ok - recovery deletions are absolute tombstones and later writes stay out of the old database
+ok - cold reopened clients restore and replay only the compatible recovery namespace
+ok - unreleased recovery copies in the old namespace stay read-only without writes or replay
+ok - discarding an unsafe old recovery copy hides it without changing the old native record or queue
+ok - removing a read-only flag from an old recovery copy cannot silently upgrade its storage
+ok - even malformed recovery markers route new records and drafts away from incompatible clients
+15 exact-live Report recovery compatibility groups passed.
+
+> scaffold-pwa-mvp@0.0.0 check:presentation
+> node scripts/presentation-density-test.mjs
+
+ok - login: 16 responsive/language/theme combinations preserve targets and non-overflow
+ok - concise sign-in retains keyboard-accessible help, QR access, translated guidance, preferences and visible errors
+ok - worker: 16 responsive/language/theme combinations preserve targets and non-overflow
+ok - Worker draft Continue/save and offline/update protections remain visible and intact
+ok - supervisor: 16 responsive/language/theme combinations preserve targets and non-overflow
+ok - healthy Supervisor review retains concise export scope; offline failure remains explicit and disables exports
+
+> scaffold-pwa-mvp@0.0.0 check:onboarding
+> node scripts/worker-invitation-sharing-test.mjs && node scripts/setup-continuation-test.mjs
+
+ok - Share is user-triggered, carries the intended identity, and does not claim delivery
+ok - cancelling Share is not success and Copy remains available
+ok - rejected/throwing Share points to the working private Copy fallback
+ok - unsupported browsers keep Share hidden and still support Copy
+ok - duplicate Share clicks are single-flight
+ok - late Share success/failure cannot restore secrets or update a replacement invitation
+ok - pagehide clears the secret and ignores a late native Share result
+ok - clipboard fallback selects the private link; Done clears it and restores focus
+ok - clean setup continues directly to Worker with a guarded cookie login and fixed app destination
+ok - cached account: activation is allowed without replacing browser identity
+ok - malformed cached account: activation is allowed without replacing browser identity
+ok - empty cached account: activation is allowed without replacing browser identity
+ok - observable CSRF cookie: activation is allowed without replacing browser identity
+ok - unreadable device storage: activation is allowed without replacing browser identity
+ok - continuation 409: password success stays clear and normal sign-in remains available
+ok - continuation network: password success stays clear and normal sign-in remains available
+ok - continuation 503: password success stays clear and normal sign-in remains available
+ok - continuation 404: password success stays clear and normal sign-in remains available
+ok - unaccepted invitation retains editable password and capability for a deliberate retry
+ok - revoked/expired acceptance clears secrets and cannot trigger continuation
+ok - late accept after pagehide cannot restore identity, password, or navigation
+ok - late login after pagehide cannot restore identity, password, or navigation
+ok - replacement invitation is not overwritten by a stale continuation response
+ok - an account appearing during continuation is not overwritten in local storage
+ok - visible supervisor-assisted recovery and setup layouts work at 320/390px in English/Chinese
+Setup continuation checks passed (isolated Chromium; mocked transport, no live email/account changes).
+
+> scaffold-pwa-mvp@0.0.0 check:password-recovery
+> python backend/password_recovery_test.py && node scripts/password-recovery-page-test.mjs && node scripts/worker-password-recovery-staff-test.mjs
+
+ok - cookie-free reset revokes legacy, bearer, cookie and refreshed sessions; new password signs in
+ok - only scoped Supervisors recover active established Workers; pending, resigned and Supervisor targets rejected
+ok - reissue/revoke/expiry invalidate links without changing passwords; invitation and recovery credentials isolated
+ok - Staff edits and resign/reactivate invalidate recovery; direct password edits revoke prior sessions
+ok - recovery responses/errors are no-store/no-referrer/cookie-free; 422 redacts secrets, CSRF enforced, audit/storage hide tokens
+ok - simultaneous recovery has one successful reset, one audit, one session-generation increment
+ok - recycled email addresses never inherit a previous identity's legacy or uid-bound session
+ok - recovery inspect, acceptance, issue and revoke paths share the strict authentication rate bucket
+Private password recovery checks passed; disposable backend removed.
+ok - clean, malformed and shared-account recovery is single-use, private and leaves identities/cookies/device drafts unchanged
+ok - mismatch, Unicode character minimum and UTF-8 byte maximum are checked before requests
+ok - malformed, expired, used and revoked links clear secrets and cannot be submitted or silently retried
+ok - offline/rate-limit/server failures allow deliberate retries; uncertain reset outcomes explain sign-in first
+ok - hash replacement, pagehide and a concurrent account switch cannot be overwritten by stale responses
+ok - 320/390px English/Chinese light/dark recovery layouts stay readable with accessible targets
+Password recovery page checks passed (six groups, isolated Chromium, mocked transport, no live resets).
+ok - recovery is offered only to active established in-scope Workers; report-only edit no longer sets their password
+ok - recovery link uses private fragment, safe identity, manual gesture Share/Copy, CSRF, and never persists token or touches drafts
+ok - replacing invalidates prior link explicitly, revoking changes metadata without changing password
+ok - cancelled recovery confirmation issues no request
+ok - confirmation and transport are single-flight across both recovery controls
+ok - logout, scope/workspace switch and changed Worker identity/status suppress late recovery secrets
+ok - leaving during confirmation suppresses the mutation itself
+ok - request failure remains retryable; successful link and accurate actions survive list-refresh failure
+ok - clearing private links suppresses a pending native-share completion
+ok - unsupported sharing/clipboard keeps manual selection fallback and Escape clears recovery secrets
+
+> scaffold-pwa-mvp@0.0.0 check:report-template-drafts
+> node scripts/report-template-drafts-test.mjs && node scripts/work-form-builder-test.mjs && python backend/template_edit_test.py && npm run check:template-library
+
+ok - unfinished Report Template input round-trips without validation or mutation
+ok - exact Supervisor/home Department scope and explicit global-admin authority isolate drafts
+ok - concurrent saves/removes reject stale revisions and permanent tombstones prevent resurrection
+ok - malformed rows, schema/purpose conflicts and invalid revisions are rejected without hiding valid drafts
+ok - conflicts retain publication uncertainty and an existing draft cannot silently change its baseline
+ok - save/remove/read failures remain explicit and leave retryable input or stored drafts intact
+ok - asynchronous saves snapshot caller ownership/content and returned drafts never alias storage
+ok - production IndexedDB adapter waits for commit and preserves read/write failure details
+ok - accepting an old group-removal confirmation cannot change a reset/replaced draft
+ok - an old type-change confirmation cannot delete restored children, raw input or focus
+ok - canceling a destructive type change preserves unapplied raw text and does not autosave a false change
+ok - accept/cancel continuations are inert after destroy, reset, setFields and draft restoration
+ok - invalid unapplied Unicode/raw whitespace round-trips exactly and discard notifies autosave
+ok - current confirmed type/removal changes and ordinary required-field editing still work
+ok - deferred announcements cannot reintroduce old field labels after reset
+ok - stale Template edits conflict without changing newer content or audit
+ok - current, no-op, legacy and status-only edits preserve Definition version semantics
+ok - concurrent version-checked Template edits produce one winner and one audit update
+ok - legacy and checked edits serialize without losing successful Definition changes
+template edit tests passed
+
+> scaffold-pwa-mvp@0.0.0 check:template-library
+> node scripts/template-library-test.mjs
+
+ok - library defaults to Active, reports scoped matching/total counts, and replaces field dumps with compact structural summaries
+ok - trimmed case-insensitive name/description search combines with Active/Archived/All, handles no results, and Clear restores defaults
+ok - user labels/descriptions remain literal, bilingual controls translate, and full definitions stay available through Preview
+ok - archive/reactivate immediately respect the current status filter and preserve the search, with existing CSRF transport
+ok - pending status changes remain single-flight after search/Clear rebuild the library cards
+ok - status completion and filter redraw retain the editor/navigation lock, then restore usable replacement controls on unlock
+ok - held publication refresh plus filter redraw locks every card action and restores all controls once publication completes
+ok - failed status changes release redrawn locks, preserve current filters and allow an explicit retry
+ok - Department/account changes suppress late status completion in the replacement library
+ok - held initial Template focus blocks readiness, then Name and Description receive only their own text
+ok - filtering touches published cards only; create/edit drafts, exact unapplied syntax and mounted editor/draft nodes remain intact
+ok - Department focus, identity changes and session reset discard stale library filters
+ok - publishing a new Template restores the Active library so its new card is immediately discoverable
+ok - 8 phone-width/language/theme combinations keep two-line summaries, 44px controls, literal names and no horizontal overflow
+
+> scaffold-pwa-mvp@0.0.0 check:report-review-filters
+> node scripts/report-review-preferences-test.mjs && node scripts/report-review-filters-test.mjs
+
+PASS canonical identity and effective Department scope
+PASS invalid identities and scopes cannot access storage
+PASS structured preferences round-trip without search or Report content
+PASS accounts, home Departments, global capability and focused Departments remain isolated
+PASS only Report workflow values and canonical safe identifiers survive
+PASS v1 records without sort retain filters and invalid sorts fall back to newest
+PASS Report Dates require real calendar days including Gregorian leap rules
+PASS missing, corrupt, oversized or incompatible records safely use defaults
+PASS blocked and quota-limited storage never interrupts filtering
+PASS default browser storage access is resolved lazily inside the error boundary
+PASS clear overwrites only the active scope and returned defaults are not shared
+Report review preferences passed 11 groups.
+ok - authorized catalogs precede the first Report queue request, and options include archived/resigned history but exclude foreign/legacy records
+ok - workflow shortcuts preserve other filters; reload restores structured filters before querying and never saves Find text or private labels
+ok - individual Departments and global All departments retain separate preferences and never carry Find text between scopes
+ok - logout/reset preserves the same identity preferences, account/home-Department/privilege changes isolate them, and Clear affects only the current scope
+ok - deleted or no-longer-authorized Template/Worker IDs are discarded only after a successful fresh catalog validation
+ok - temporary catalog failures disable unavailable pickers without overwriting saved IDs; Refresh restores them after recovery
+ok - malformed storage falls back safely, and storage write failures keep live filtering usable with a visible notice
+ok - blocked preference reads fall back to usable empty filters without blocking the Report inbox
+ok - Newest first is the default; Oldest waiting is sent only with Reports, summarized, restored before querying and preserved by shortcuts within its exact scope
+ok - first-page rendering and Load more preserve the server workflow/oldest submission order without a client-side newest-first re-sort
+ok - changing sort invalidates cursor pages immediately, clears old cards and disables exports until the new sorted query completes
+ok - failed unchanged-sort Refresh retains durable ordering read-only, while offline sort changes never relabel or reuse the old-sort results
+ok - unsupported Oldest waiting fails closed with actionable guidance, default newest remains compatible, and Clear persists Newest first
+ok - changed-order 409s preserve same-query rows read-only, remove stale pagination and show persistent Refresh guidance until a new inbox snapshot succeeds
+ok - a first-page changed-order conflict never reuses prior-filter rows and retains the selected order and workflow for explicit retry
+ok - a delayed previous-Department cursor page cannot append to a new Department inbox
+ok - changing a filter invalidates an in-flight response before debounce, and Department changes cancel obsolete scheduled searches
+ok - same-scope profile replacement during catalog or final queue loading preserves filters, finishes loading, and unlocks controls
+ok - a delayed old-scope catalog completion cannot restore foreign options or leave the new scope locked
+ok - failed same-scope Refresh keeps last durable results read-only and disables exports until reconnection
+ok - PDF export uses the current structured filters and session-only Find query across all pages, never a stale cursor
+ok - refreshed catalog removals and failures clear old cards/details and disable exports until the changed queue query completes
+ok - a saved-default response updates the same account after a focus switch without changing the current Department or its separate review filters
+ok - delayed default-Department responses cannot replace a new login or overwrite its saved browser identity
+ok - shortcuts remain visible, translated, keyboard-operable and >=44px with no phone overflow at 320/390px in both themes
+ok - retained full-interface status filtering remains approve/reject based and does not save Report preferences
+PASS - Report review filter browser regressions
+
+> scaffold-pwa-mvp@0.0.0 check:report-review-order
+> python backend/report_review_order_test.py && node scripts/report-review-age-test.mjs && node scripts/report-review-order-test.mjs
+
+ok - oldest waiting ranks workflows, uses durable submission time, and pages exact ties by ascending ID
+ok - first-page creation snapshot excludes a later Report until refresh
+ok - forward transitions preserve snapshot rank and workflow membership without stale serialized state
+ok - held pre-snapshot transition commit invalidates all workflows traversal with explicit Refresh guidance
+ok - held pre-snapshot transition commit invalidates submitted traversal with explicit Refresh guidance
+ok - first-page pre-snapshot commits between page/load/count reads fail closed for All and Submitted
+ok - workflow, Template, Worker, Date, Find and kind filters execute before paging with unchanged counts
+ok - cursors bind ordering, filters and exact digest; malformed/missing ranks or digests fail closed
+ok - constant-size cursor binds every matching key across multiple 256-row streaming batches
+ok - ordering validation, Report-only purpose, authentication and Supervisor role boundaries hold
+ok - local Supervisor scope, Global admin focus and Department-bound cursors remain enforced
+ok - newest/default/retained Daywork behavior and historical cursors remain unchanged; deleted Reports stay excluded
+ok - both actual page-query paths compile with PostgreSQL cursor, snapshot, filter and ordering predicates (no runtime claim)
+report review order test passed (11 HTTP groups + six in-request race cases + PostgreSQL compilation)
+PASS Waiting age has exact minute, hour and elapsed-day boundaries
+PASS Report Date never affects submission age; future clock skew clamps to zero
+PASS UTC, offset, offsetless and microsecond backend timestamps agree
+PASS Absent or malformed timestamps do not invent an age
+PASS Only durable Submitted Reports receive waiting labels
+PASS English and Chinese age labels round-trip without translating Report content
+PASS Paginated Reports keep server order and deduplicate; retained merge still sorts newest
+Report review age: 7 groups passed.
+ok - newest remains the default and real Supervisor list/detail ages use submission time, not Report Date
+ok - oldest-waiting preserves server workflow ranks and timestamp ties across all 137 records and three pages
+ok - sort and structured filters compose; workflow shortcuts retain sort and Clear restores newest
+ok - fresh reload restores sort before querying while leaving Find text private and session-only
+ok - sort changes clear old rows and reject late first-page responses without reusing a cursor
+ok - late Load more replies cannot append or replace the new sort or its pagination
+ok - failed same-sort refresh keeps durable read-only order; a failed sort change cannot show another query snapshot
+ok - missing or wrong backend sort acknowledgements fail closed instead of presenting newest results as oldest waiting
+ok - a workflow-change cursor conflict keeps loaded results read-only until explicit Refresh starts a new snapshot
+ok - Department, account, home Department, and global capability isolate saved sort preferences
+ok - a late old-account queue reply cannot restore private rows or sort after logout
+ok - sort and workflow changes retain an unfinished resolution note without submitting it
+ok - minute refresh updates waiting age without replacing list focus or an active resolution note
+ok - Worker Reports and retained Daywork never show Supervisor waiting ages or sorting controls
+ok - phone and desktop ordering controls and waiting labels are translated, accessible, and unclipped
+Passed 15 isolated real-app Report ordering browser groups.
+
+> scaffold-pwa-mvp@0.0.0 check:report-notes
+> node scripts/report-note-drafts-test.mjs && node scripts/report-note-editor-test.mjs
+
+PASS strict durable Report and Supervisor scope only
+PASS literal text, timestamps, empty edits and backend length bound round-trip
+PASS keyed reads isolate Supervisor, home, capability, target Department and Report
+PASS concurrent writers and stale deletes use compare-and-swap
+PASS discard tombstones prevent resurrection while allowing explicit fresh edits
+PASS finalized tombstones permanently block stale and newly-loaded editors
+PASS malformed private rows fail closed without overwrite or silent loss
+PASS failed storage propagates and in-flight writes retain their captured exact scope
+PASS native IndexedDB persists across reload and serializes independent browser tabs
+Passed 9 Report note draft groups.
+ok - raw resolution notes survive close, reopen, reload and Report switching without submission
+ok - failed device saves preserve input and block close, logout and Update App
+ok - private notes survive logout only for their own Supervisor and never render for a Worker
+ok - opening another Report cannot replace an unsaved note when device storage fails
+ok - an app update waits for the latest note text to commit before activating
+ok - closing waits for a held native transaction and saves text entered during the pending write
+ok - changed home Department and revoked global capability cannot restore a prior private note
+ok - failed resolution preserves the note and requires explicit refreshed state before retry
+ok - a Report resolved elsewhere leaves the private draft read-only without overwriting the official note
+ok - successful resolution stays final when local cleanup fails
+ok - a failed queue refresh after successful resolution cannot revive or resubmit the note
+ok - offline read-only refresh keeps unfinished text and prevents resolution
+ok - auth expiry clears private UI and a late transition cannot repaint another account
+ok - two tabs cannot overwrite a newer private note revision
+ok - an unchanged but stale tab must pass revision validation before resolving
+ok - successful resolution cleanup cannot delete a newer note saved by another tab
+ok - failed draft reads keep editing disabled until an explicit successful reload
+ok - discard requires confirmation and clears only the private draft
+ok - note editor remains readable on small phones in both languages and themes
+Passed 19 isolated real-app Report note browser groups.
+ok - Chinese catalogue is valid Unicode without mojibake or replacement artifacts
+ok - Chinese catalogue fully translates high-value UI labels instead of mixed English
+ok - Chinese catalogue covers report-only shell, history, and workflow terminology
+ok - Chinese catalogue translates Analytics exception navigation
+ok - Chinese catalogue fully translates app confirmation dialog copy
+ok - Chinese catalogue translates keyboard signature instructions and live status
+ok - work form field ids survive label edits
+ok - advanced work form syntax round-trips visual field data
+ok - production build exists
+ok - dist/assets/js/date-inputs.js exists
+ok - dist/assets/js/confirmation-dialog.js exists
+ok - dist/assets/js/site-map-picker.js exists
+ok - dist/assets/js/team-member-picker.js exists
+ok - dist/assets/js/team-work-log.js exists
+ok - dist/assets/js/ui-feedback.js exists
+ok - dist/assets/js/worker-sites.js exists
+ok - dist/assets/js/work-form-builder.js exists
+ok - dist/assets/js/offline-report-template-snapshot.js exists
+ok - dist/assets/js/report-template-drafts.js exists
+ok - dist/assets/js/report-note-drafts.js exists
+ok - dist/assets/js/report-note-editor.js exists
+ok - dist/assets/icons/leader-logo-export.png exists
+ok - dist/assets/icons/mutual-logo.svg exists
+ok - dist/assets/icons/mc-logo.svg exists
+ok - dist/assets/icons/stech-logo.svg exists
+ok - dist/assets/icons/bop-logo.svg exists
+ok - dist/assets/icons/reportflow-icon.svg exists
+ok - dist/assets/icons/reportflow-apple-touch-180.png exists
+ok - dist/assets/icons/reportflow-192.png exists
+ok - dist/assets/icons/reportflow-512.png exists
+ok - dist/assets/icons/reportflow-maskable-512.png exists
+ok - production HTML keeps stable PWA links
+ok - public registration is hidden for invited accounts
+ok - login form precedes the install promotion
+ok - Staff and Work Form creation stay behind accessible Add actions
+ok - #statusBanner exists in the app shell
+ok - #syncIndicator exists in the app shell
+ok - #syncIndicatorText exists in the app shell
+ok - #toastViewport exists in the app shell
+ok - #themeToggleButton exists in the app shell
+ok - #brandLogo exists in the app shell
+ok - #installButton exists in the app shell
+ok - #downloadAppButton exists in the app shell
+ok - #updateButton exists in the app shell
+ok - #loginForm exists in the app shell
+ok - #loginSubmitButton exists in the app shell
+ok - #loginFeedback exists in the app shell
+ok - #registerForm exists in the app shell
+ok - #sendRegistrationCodeButton exists in the app shell
+ok - #registrationCodeFields exists in the app shell
+ok - #registrationCodeInput exists in the app shell
+ok - #verifyRegistrationCodeButton exists in the app shell
+ok - #registrationCompletionFields exists in the app shell
+ok - #registerDepartmentSelect exists in the app shell
+ok - #workerView exists in the app shell
+ok - #workerSiteMap exists in the app shell
+ok - #workerSiteMapStatus exists in the app shell
+ok - #teamLogTab exists in the app shell
+ok - #teamWorkLogForm exists in the app shell
+ok - #teamWorkLogWeekStart exists in the app shell
+ok - #teamWorkLogEntries exists in the app shell
+ok - #addTeamWorkLogEntryButton exists in the app shell
+ok - #submitTeamWorkLogButton exists in the app shell
+ok - #teamWorkLogAutosaveStatus exists in the app shell
+ok - #teamWorkLogFeedback exists in the app shell
+ok - #teamWorkLogHistory exists in the app shell
+ok - #supervisorView exists in the app shell
+ok - #adminMobileWorkspaceLabel exists in the app shell
+ok - #adminMobileMenuButton exists in the app shell
+ok - #adminWorkspaceDrawer exists in the app shell
+ok - #adminWorkspaceDrawerCloseButton exists in the app shell
+ok - #adminOverview exists in the app shell
+ok - #adminReviewWorkspace exists in the app shell
+ok - #adminReportsWorkspace exists in the app shell
+ok - #adminPeopleWorkspace exists in the app shell
+ok - #adminFormsWorkspace exists in the app shell
+ok - #adminAuditWorkspace exists in the app shell
+ok - #adminOverview exists in the app shell
+ok - #reviewQueueDetails exists in the app shell
+ok - #reviewQueueNotice exists in the app shell
+ok - #reviewQueueFeedback exists in the app shell
+ok - #reviewQueuePagination exists in the app shell
+ok - #reviewQueueDetail exists in the app shell
+ok - #reviewQueueDetailTitle exists in the app shell
+ok - #reviewQueueModeBadge exists in the app shell
+ok - #reviewQueueSelectionPosition exists in the app shell
+ok - #previousReviewRecordButton exists in the app shell
+ok - #nextReviewRecordButton exists in the app shell
+ok - #auditHistoryDetails exists in the app shell
+ok - #workFormsDetails exists in the app shell
+ok - #addWorkFormButton exists in the app shell
+ok - #workFormCreatePanel exists in the app shell
+ok - #cancelWorkFormCreateButton exists in the app shell
+ok - #sitesDetails exists in the app shell
+ok - #siteUseLocationButton exists in the app shell
+ok - #siteMap exists in the app shell
+ok - #siteMapStatus exists in the app shell
+ok - #staffUsersDetails exists in the app shell
+ok - #addStaffUserButton exists in the app shell
+ok - #staffUserCreatePanel exists in the app shell
+ok - #staffUserSubmitButton exists in the app shell
+ok - #cancelStaffUserCreateButton exists in the app shell
+ok - #staffWorkerClassSelect exists in the app shell
+ok - #attendanceSite exists in the app shell
+ok - #captureLocationButton exists in the app shell
+ok - #attendancePrimaryButton exists in the app shell
+ok - #attendanceCorrectionDetails exists in the app shell
+ok - #attendanceCorrectionSummary exists in the app shell
+ok - #attendanceCorrectionButton exists in the app shell
+ok - #attendanceFeedback exists in the app shell
+ok - #taskForm exists in the app shell
+ok - #taskFeedback exists in the app shell
+ok - #workFormSubmissionForm exists in the app shell
+ok - #workFormFeedback exists in the app shell
+ok - #reviewQueueList exists in the app shell
+ok - #manualAttendanceDetails exists in the app shell
+ok - #manualAttendanceForm exists in the app shell
+ok - #manualAttendanceWorker exists in the app shell
+ok - #manualAttendanceSite exists in the app shell
+ok - #manualAttendanceType exists in the app shell
+ok - #manualAttendanceTime exists in the app shell
+ok - #manualAttendanceNote exists in the app shell
+ok - #manualAttendanceSubmitButton exists in the app shell
+ok - #manualAttendanceFeedback exists in the app shell
+ok - #adminTaskLogDetails exists in the app shell
+ok - #adminTaskLogForm exists in the app shell
+ok - #adminTaskLogUser exists in the app shell
+ok - #adminTaskLogSite exists in the app shell
+ok - #adminTaskLogDate exists in the app shell
+ok - #adminTaskLogDescription exists in the app shell
+ok - #adminTaskLogSubmitButton exists in the app shell
+ok - #adminTaskLogFeedback exists in the app shell
+ok - #rubbishBinDetails exists in the app shell
+ok - #rubbishBinCount exists in the app shell
+ok - #rubbishBinList exists in the app shell
+ok - #refreshRubbishBinButton exists in the app shell
+ok - #supervisorDepartmentFilter exists in the app shell
+ok - #saveDefaultDepartmentButton exists in the app shell
+ok - #auditEventsList exists in the app shell
+ok - #refreshAuditButton exists in the app shell
+ok - #managementAnalyticsDetails exists in the app shell
+ok - #analyticsTrendChart exists in the app shell
+ok - #analyticsExceptionSummary exists in the app shell
+ok - #analyticsExceptionList exists in the app shell
+ok - #analyticsSiteSummary exists in the app shell
+ok - #analyticsFormCharts exists in the app shell
+ok - #locationMapDetails exists in the app shell
+ok - #locationReviewMap exists in the app shell
+ok - #locationMapHistory exists in the app shell
+ok - mobile viewport and camera/photo controls exist
+ok - Worker photo preflight matches the backend raster limits
+ok - attendance GPS is Worker-owned, fresh, and invalidated between sessions
+ok - action feedback separates sync, system, toast, local, field, and busy states
+ok - authenticated Site loading never falls back to seeded demo Sites
+ok - reconnect preserves active Daywork and Work Form DOM state
+ok - Work Form drafts autosave per Worker and form before app updates
+ok - consequential actions use one accessible app confirmation dialog
+ok - queued upload failures are visible and recoverable by the owning Worker
+ok - the retained full interface keeps six responsive supervisor workspaces
+ok - Reports allow a visible 50-photo batch without expanding retained limits
+ok - report-only mode exposes only report, template, and staff navigation
+ok - report-only data requests and exports exclude Daywork
+ok - report product language replaces Work Form copy without renaming internals
+ok - worker Reports retain the submission engine and expose the report workflow
+ok - Supervisor Reports use report transitions, durable filters, and Report exports
+ok - Report details and downloads use lifecycle and Report language
+ok - supervisor Review Desk uses an accessible master-detail layout
+ok - localized date inputs stay inside mobile form boundaries
+ok - verified registration gates department selection
+ok - theme toggle is persistent and available before paint
+ok - same-origin phone proxy is configured
+ok - service worker update prompt is wired
+ok - PWA assets and cache name are generated from one manifest
+ok - installed, browser, and offline product copy is report-only
+ok - initial signed-out brand is company-neutral ReportFlow
+ok - ReportFlow install icons use fresh URLs and preserve the installed app identity
+ok - ReportFlow source and production PNGs have their declared pixel dimensions
+ok - ReportFlow brand and install icons are copied and precached for offline launches
+ok - visible app download button is wired
+ok - production service worker uses the current app shell rules
+ok - cold offline launch restores only Worker-scoped cached Site and attendance context
+ok - service worker does not auto-activate updates on install
+ok - offline queue covers worker forms, signatures, and photos
+ok - offline retry is single-flight and auth-aware
+ok - browser auth uses HttpOnly cookie session with CSRF header
+ok - offline sync uses client submission idempotency
+ok - partial uploads persist progress before retry
+ok - required handwritten signatures are enforced and keyboard operable
+ok - photo viewer traps focus and restores its opener
+ok - primary action gradient stops use the AA palette
+ok - advanced work form fields and photo timestamps are wired
+ok - worker Log tab uses the Daywork work form path
+ok - workers can add missing sites
+ok - normal workers can submit Reports while Daywork and weekly team logs remain leader-only
+ok - normal worker UI is focused and step based
+ok - attendance defaults checkout to the open Site and prioritises recent or nearest Sites
+ok - attendance exposes one contextual primary action and a correction path
+ok - worker and supervisor workflow modules are active
+ok - supervisors can preview work forms
+ok - PDF exports are available for Daywork and submitted forms
+ok - supervisors build work forms with accessible draggable field cards
+ok - New Form field checkboxes use the accessible app control
+ok - Review Queue durability and policy seams are explicit
+ok - supervisor audit history is wired
+ok - supervisor location map review is wired
+ok - site coordinates are rounded and map points stay compact
+ok - dark-mode location toggles are clear and consistently sized
+ok - static checkboxes use the Daywork checkbox treatment
+ok - management analytics and reports are wired
+ok - supervisors can add audit-logged manual attendance without GPS
+ok - supervisors can submit approved logs for themselves or others
+ok - rapid duplicate submissions and the 30-day rubbish bin are wired
+ok - missing check-outs use a 12-hour grace and pair overnight shifts
+ok - department focus and persisted default department are wired
+ok - department supervisors cannot view or edit global admins
+ok - global admin access requires the Supervisor role
+ok - private password recovery shell is copied without caching credentials or protected responses
+ok - private password recovery has translated entry points and safety copy
+ok - private Supervisor notes have offline shell modules and translated recovery controls
+ok - failed Report recovery has offline shell coverage and translated safety controls
+ok - Report oldest-waiting order has offline shell coverage and translated labels
+ok - Report storage warnings have offline shell coverage and translated recovery guidance
+
+mobile/browser workflow checks passed
+ok - manual, Safari/iPad, embedded, standalone, and unavailable-SW fallbacks remain usable
+ok - native prompt is click-only, single-flight, and consumed after dismissal
+ok - accepted prompt waits for appinstalled confirmation
+ok - failed prompt is recoverable without reusing the event
+ok - rejected prompt is recoverable without reusing the event
+ok - rejected install choice is recoverable without reusing the event
+ok - waiting updates are informational and never forced
+ok - language and clipboard fallback work without persisting or touching app data
+ok - installer shares ReportFlow identity and exposes real permanent-link downloads
+ok - installer controls fit 320, 390, and 1280px in both languages
+ok - real service worker cold-launches the exact offline installer after all pages close
+
+11 installer checks passed; no backend, cloud, or account mutations.
+ok - accessible Online status waits for native lastSyncAt completion after login becomes visible
+ok - an asynchronous false condition times out instead of accepting its Promise
+ok - a hung asynchronous predicate retains the original bounded timeout
+ok - predicate errors propagate instead of being mistaken for readiness
+ok - an empty native queue never satisfies an asynchronous at-least-one predicate
+ok - a nonempty native queue cannot falsely satisfy zero
+ok - delayed native writes in namespace 0 finish before the wait returns
+ok - delayed native writes in namespace 1 finish before the wait returns
+ok - delayed native writes in namespace 2 finish before the wait returns
+ok - recovery tombstones shadow identical queue IDs in both older namespaces
+10 native browser startup/asynchronous/queue-wait contract groups passed.
+ok - action feedback is local, busy, announced, and separate from sync state
+ok - Chinese translation covers validation, forms, signatures, and photos
+ok - required signatures are fully keyboard accessible
+ok - photo viewer traps and restores focus
+ok - primary action gradients meet WCAG AA contrast
+ok - anonymous login startup does not request or expose sites
+ok - restored session loads sites only after auth refresh
+ok - authenticated Site failure does not expose demo Sites
+ok - browser login uses cookie session without localStorage bearer token
+ok - browser geolocation grant enables attendance capture
+ok - attendance presents one contextual action with a secondary correction path
+ok - normal Worker guide compacts and Site priority follows attendance context
+ok - normal Workers submit active Work Forms and see their own history
+ok - Report photo selection appends without replacing earlier photos
+ok - Report photo selection rejects invalid files without clearing earlier photos
+ok - Report photo removal keeps other photos and persists in the draft
+ok - My Reports shows ordinary device drafts and continues their saved answers and photos
+ok - Report photo drafts append new selections and submit both original images
+ok - Report photo overlapping selections retain both images in selection order
+ok - My Reports ordinary drafts stay private across shared-device account switches
+ok - My Reports blocks Continue for submitted drafts when local cleanup fails
+ok - Report photo capacity and empty picker preserve existing selections without blank drafts
+ok - Report photo 50-file batch restores and uploads once across rate limiting
+ok - shared-device Worker Reports clear on logout, pending login, and late responses
+ok - shared-device late authorization errors cannot sign out the replacement Worker
+ok - shared-device same-account relogin ignores the previous session authorization failure
+ok - shared-device active session expiry clears open Report photos and history
+ok - shared-device Supervisor Reports clear across Departments and failed queue loads
+ok - browser geolocation denial shows recoverable error
+ok - Daywork team rows use searchable member picker
+ok - Daywork history and review hide helper fields
+ok - report-only New Report, My Reports, queue, and exports exclude Daywork
+ok - offline My Reports fallback shows only queued Report submissions
+ok - explicit Report purpose overrides Daywork words in a template name
+ok - report-only automatic and manual replay skip hidden record queues
+ok - reconnect preserves in-progress Daywork and Work Form answers
+ok - ReportFlow branding and Mutual defaults preserve explicit Departments and global focus
+ok - report-only responsive layout keeps controls and final actions usable in light and dark themes
+ok - unfinished Report Template creation survives reload with pending raw syntax
+ok - unfinished Report Template close pauses on storage failure and keeps the draft
+ok - unfinished Report Template edits survive workspace navigation and reload
+ok - unfinished Report Template lifecycle protects logout, update, and account privacy
+ok - unfinished Report Template publication retires drafts and isolates uncertain saves
+ok - unfinished Report Template actions wait for post-publication refresh before editing
+ok - unfinished Report Template stale versions stay read-only without overwriting newer work
+ok - unfinished Report Template cross-tab protection preserves newer edits and removed-draft recovery
+ok - Worker invitation replaces Supervisor-chosen passwords with a private setup link
+ok - Worker invitation password setup confirms ownership without changing another signed-in session
+ok - Worker invitation clean browser continues directly into Reports
+ok - Worker invitation replacement and revocation clear invalid setup secrets
+ok - Worker invitation late responses never expose a prior Supervisor private link
+ok - Private Worker password recovery replaces and revokes links, preserves shared accounts and drafts, and invalidates old sessions
+ok - Report Find exports download CSV and PDF matching the searched inbox
+ok - Supervisor Report filters remember structured selections per account and Department without saving Find
+ok - staff users scope global admin controls by role
+ok - Template library searches names and descriptions, filters lifecycle states, and protects unfinished edits
+ok - supervisors create and edit conditional Work Forms with field cards
+ok - Offline Submission ownership, occurrence time, and idempotent replay
+ok - Report Dates reject impossible calendar values and preserve invalid queued evidence
+ok - offline Report template changes preserve queued answers, photos, and signatures
+ok - stale Report drafts preserve original answers until explicit new-report recovery
+ok - stale Report drafts without captured fields or version preserve original evidence
+ok - Report photos and repeat signatures resume once after partial upload failure
+ok - supervisor review shows pending outside-site worker record
+ok - department switching replaces map points and clears stale selection
+ok - supervisor workspaces remain navigable on desktop and mobile
+ok - supervisor Review Desk is responsive
+ok - offline Review Queue is explicit and read-only
+ok - Report offline return resumes a downloaded Template draft after every page closes
+ok - retained attendance app cold-launches offline and queues attendance
+ok - retained Work Form drafts protect production-mode app updates
+ok - report-only service worker update prompt posts SKIP_WAITING
+
+browser workflow checks passed

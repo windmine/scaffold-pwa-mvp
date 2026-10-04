@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "phase": "stage-service",
+  "migrationMode": "none",
+  "status": "passed",
+  "startedAtUtc": "2026-10-04T22:01:44.772821+00:00",
+  "attempts": [
+    {
+      "action": "create_service:geo-report-stage-20261005",
+      "atUtc": "2026-10-04T22:01:58.803179+00:00"
+    },
+    {
+      "action": "grant_invoker_policy:geo-report-stage-20261005",
+      "atUtc": "2026-10-04T22:02:28.514931+00:00"
+    }
+  ],
+  "runId": "20261005",
+  "resources": {
+    "service": "geo-report-stage-20261005",
+    "job": "geo-report-migrate-stage-20261005",
+    "databaseSecret": "report-stage-db-20261005",
+    "jwtSecret": "report-stage-jwt-20261005",
+    "uploadPrefix": "uploads/release-stage-20261005"
+  },
+  "artifact": {
+    "sourceCommit": "c024fa61f05880e13357eb253b67f00b571254d2",
+    "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:7fcefe3787cf173fe998a420f76a3393ebb8a07577617d68cb88376e9dde8224"
+  },
+  "branch": {
+    "id": "br-green-mode-a7x9jzqz",
+    "name": "release-stage-20261005",
+    "parentId": "br-snowy-tree-a7hfuph6",
+    "projectId": "plain-smoke-06194407",
+    "endpointId": "ep-calm-dust-a76g3i8o",
+    "hostSha256": "7f8206277491db73b5bb2dd35e83fb0280908c011c0cafb0ec1dfaf91f59938c",
+    "expiresAt": "2026-10-05T21:44:35Z"
+  },
+  "baselineSha256": "73908ccbfe0481e689dad1e38ac05c7c831d63610a0db5187b2e51b10ec818d7",
+  "resourcesProofSha256": "3a04cf9c3c9dbbb477cd34e35f3f779182d079d5eeb6f5c3642a05263a0b4101",
+  "checkProofSha256": "d63258139a895c544f0c10350fd5160f637222255add3fe3e686c257ee0877c2",
+  "exactInvokerPolicyVerified": true,
+  "invokerMemberCount": 1,
+  "invokerMembersSha256": "36b65884538b53117cf84e870d9669ab08ba8357dabc33f4eff48812dabb15fe",
+  "stageUrl": "https://geo-report-stage-20261005-eitdijn7cq-ts.a.run.app",
+  "stageRevision": "geo-report-stage-20261005-00001-d86",
+  "hostingConfiguration": {
+    "hosting": {
+      "public": "dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "headers": [
+        {
+          "source": "/sw.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        },
+        {
+          "source": "/offline.html",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        },
+        {
+          "source": "/install.html",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        },
+        {
+          "source": "/manifest.webmanifest",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public,max-age=3600"
+            }
+          ]
+        }
+      ],
+      "rewrites": [
+        {
+          "source": "/api/**",
+          "run": {
+            "serviceId": "geo-report-stage-20261005",
+            "region": "australia-southeast1"
+          }
+        },
+        {
+          "source": "/uploads/**",
+          "run": {
+            "serviceId": "geo-report-stage-20261005",
+            "region": "australia-southeast1"
+          }
+        }
+      ]
+    }
+  },
+  "productionUnchanged": true,
+  "finishedAtUtc": "2026-10-04T22:02:47.540216+00:00"
+}

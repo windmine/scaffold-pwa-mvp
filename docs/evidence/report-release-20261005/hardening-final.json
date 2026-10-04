@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "phase": "post-release-current",
+  "recordedAtUtc": "2026-10-04T22:50:22Z",
+  "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-production-hardening.ps1 -NeonRecoveryEvidence docs/evidence/report-release-20261005/neon-current-final.json -BillingAccount 0123B1-051D70-935F73",
+  "exitCode": 0,
+  "servingRevision": "geo-backend-october-20261005",
+  "trafficPercent": 100,
+  "currentMigrationCount": 22,
+  "currentMigrationHead": "0022_worker_password_recovery",
+  "configurationChangedByCheck": false,
+  "recoveryEvidence": "neon-current-final.json",
+  "recoveryCompletedAtUtc": "2026-10-04T22:31:37Z",
+  "strictMonitoring": true,
+  "billingBudgetChecked": true,
+  "uploadSoftDeleteDays": 30,
+  "warnings": [
+    "Neon history retention is only 6 hours; choose a longer paid window or external logical backups before relying on it for production recovery."
+  ],
+  "notes": "The unchanged read-only strict hardening command completed after all live hosted checks. Runtime IAM, exact Current recovery ledger and owned proof-branch absence, GCS recovery generations, six-region readiness, recipient-confirmed alert delivery and billing budgets passed. No migration, maintenance or runtime configuration change was performed."
+}

@@ -1,0 +1,2 @@
+# These audit snapshots are hash-bound copies, including original line endings.
+*.txt -text
