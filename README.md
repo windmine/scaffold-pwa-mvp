@@ -29,6 +29,14 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
+## Local Report Detail Improvements - 2026-10-07 (not deployed)
+
+Failed queued Reports now show **Retry sync** and **Recover as draft** beside their full warning in **My Reports**, before **Show details**. Recovery still checks online submission identity before allowing edits; retry keeps its existing queue-sync behavior. Healthy queued Reports keep Retry inside details. **Discard local copy** remains inside the expanded detail and uses the existing confirmation. Saved recovery copies and submitted Reports do not acquire retry/recovery actions.
+
+Expanded Worker Reports and Supervisor details remove repeated headings, Template labels, sync labels and nested boxes. Answers, signatures, photos and final notes remain accessible; expanding a Worker Report reveals its complete final note. **More details** holds submission time, reviewer and review timestamps; local copies label their capture time **Saved on this device** instead of Submitted. English/Chinese controls and phone touch targets are covered by `npm run check:report-detail-ux`, also included through `check:report-drafts` in `check:mobile`.
+
+This is a local frontend change only: no backend, migration, submitted content, export, storage/replay protocol or retained Daywork change. The October 5 release below remains live. Physical-phone checks remain separate.
+
 ## Current Live Release - Report Recovery and Review Improvements, 2026-10-05
 
 Committed/pushed application source `c024fa61f05880e13357eb253b67f00b571254d2` is deployed. Promotion of backend `geo-backend-october-20261005` was requested at **2026-10-04T22:27:39Z**, then verified serving 100% without tags: build `8e582ff0-b88a-49a8-a09e-6d53b694383e`, image `sha256:7fcefe3787cf173fe998a420f76a3393ebb8a07577617d68cb88376e9dde8224`. Exact Hosting `ba2962f66af41dcb` was cloned from `release-20261005` at **2026-10-04T22:39:52.855Z**; production cache `leader-field-7a709da8321a`, source cache `leader-field-cd739c204f2c`. The five features below are now live, including recovery storage isolated from September 29 clients. The compatible backend preceded Hosting without migration, maintenance or runtime configuration change. All 22 migration checksums and every observed before/after inventory field except the read timestamp were preserved.

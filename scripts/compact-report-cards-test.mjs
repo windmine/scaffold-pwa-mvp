@@ -134,11 +134,14 @@ try {
   });
   assert.equal(await page.locator('#historyList .badge').textContent(), 'Queued');
   assert.match(await page.locator('.record-report-cue').textContent(), /Sync needs attention.*Template changed <img/);
+  assert.match(await page.locator('.record-report-cue').textContent(), /Your original answers and evidence are kept below/);
+  assert.equal(await page.getByRole('button', { name: 'Retry sync', exact: true }).count(), 1);
+  assert.equal(await page.getByRole('button', { name: 'Discard local copy', exact: true }).count(), 0);
   assert.equal(await page.evaluate(() => window.fixture.created.length), 0);
   await page.locator('.record-disclosure-button').click();
   assert.equal(await page.evaluate(() => window.fixture.created.length), 50);
   assert.match(await page.locator('.record-report-details').textContent(), /Original captured answer/);
-  assert.match(await page.locator('.record-report-details').textContent(), /Your original answers and evidence are kept below/);
+  assert.doesNotMatch(await page.locator('.record-report-details').textContent(), /Your original answers and evidence are kept below/);
   assert.equal(await page.getByRole('button', { name: 'Retry sync', exact: true }).count(), 1);
   assert.equal(await page.getByRole('button', { name: 'Discard local copy', exact: true }).count(), 1);
   await page.getByRole('button', { name: 'Retry sync', exact: true }).click();

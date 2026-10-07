@@ -6753,6 +6753,70 @@ body:not(.report-only-mode) .report-only-storage-guidance { display: none; }
 
 .report-only-mode .record-report-cue.is-warning {
   border-left-color: var(--warning, #b7791f);
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+
+.report-only-mode .record-report-compact.is-expanded > .record-report-cue {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+
+.report-only-mode .record-report-recovery-hint {
+  margin: 8px 0 0;
+}
+
+.report-only-mode .record-report-recovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.report-only-mode .record-report-recovery-actions button {
+  flex: 1 1 140px;
+  min-height: 44px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.report-only-mode .record-report-detail > .record-extra {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.report-only-mode .record-report-date {
+  white-space: nowrap;
+}
+
+.report-only-mode .record-report-more-details {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.report-only-mode .record-report-more-details > summary {
+  min-height: 44px;
+  padding: 12px 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.report-only-mode .record-report-more-details > summary:focus-visible {
+  outline: 2px solid var(--brand-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.report-only-mode .record-report-metadata {
+  padding: 0 0 8px;
 }
 
 .report-only-mode .record-disclosure-button {

@@ -262,10 +262,14 @@ try {
   assert.deepEqual(await page.evaluate(() => window.noteSubmitCounts), { report: 1, legacy: 0 });
   page.setDefaultTimeout(30000);
   console.log('ok - hosted resolution waits for the actual Report note form and preserves native required/focus validation');
-  await page.setContent(`<section id="reviewQueueDetail">${markup}</section>`);
+  // Keep the historical selector failure reproducible even though current UI
+  // wraps literal Supervisor text separately so language changes cannot alter it.
+  const historicalMarkup = `<p class="report-supervisor-note"><strong>Final supervisor note:</strong> ${note}</p>`;
+  await page.setContent(`<section id="reviewQueueDetail">${historicalMarkup}</section>`);
   const detail = page.locator('#reviewQueueDetail');
   assert.equal(await detail.getByText(note, { exact: true }).count(), 0,
-    'Old exact-note selector must reproduce its mismatch against actual production markup');
+    'Old exact-note selector must reproduce its mismatch against historical labelled markup');
+  await page.setContent(`<section id="reviewQueueDetail">${markup}</section>`);
   const scopedNote = resolutionNoteLocator(detail, note);
   assert.equal(await scopedNote.count(), 1);
   assert.equal(await scopedNote.innerText(), `Final supervisor note: ${note}`);

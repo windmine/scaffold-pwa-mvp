@@ -215,7 +215,7 @@ async function snapshot(page) {
   }, { sourceId, recoveryKey, ordinaryKey });
 }
 
-async function openFailedReport(f) {
+async function openFailedReport(f, { expand = true } = {}) {
   await f.page.goto(origin);
   await f.page.locator('#workerView').waitFor({ state: 'visible' });
   await waitUntil(() => f.traffic.uploads.length > 0, 'Startup must first attempt the queued upload');
@@ -224,7 +224,7 @@ async function openFailedReport(f) {
     return record?.syncStatus === 'queued' && document.querySelector('#syncIndicator')?.dataset.state !== 'syncing';
   }, sourceId);
   await f.page.locator('button.tab[data-tab-target="historyTab"]').click();
-  await f.page.locator('#historyList .record-disclosure-button').first().click();
+  if (expand) await f.page.locator('#historyList .record-disclosure-button').first().click();
 }
 
 function recoverButton(page) { return page.getByRole('button', { name: 'Recover as draft', exact: true }); }
@@ -299,7 +299,9 @@ try {
   await check('verified recovery preserves answers and valid evidence without overwriting an ordinary draft', async () => {
   const f = await fixture(browser, { existingDraft: true });
   try {
-    await openFailedReport(f);
+    await openFailedReport(f, { expand: false });
+    assert.equal(await f.page.locator('#historyList .record-disclosure-button').getAttribute('aria-expanded'), 'false');
+    assert.equal(await f.page.locator('#historyList img').count(), 0, 'Recovery is available before any evidence is mounted');
     assert.equal(await recoverButton(f.page).count(), 1, 'A failed own Report offers Recover as draft without deleting the original');
     const before = await snapshot(f.page);
     await recoverButton(f.page).click();

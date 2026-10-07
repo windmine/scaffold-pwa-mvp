@@ -2405,6 +2405,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     await page.locator('#historyList > .record-report-compact .record-disclosure-button').first().click();
     const historyRecord = page.locator('#historyList .record-form').filter({ hasText: reportMarker }).first();
     await historyRecord.waitFor({ state: 'visible', timeout: 20000 });
+    await historyRecord.locator('.record-report-more-details summary').click();
     const historyText = await historyRecord.innerText();
     if (
       !historyText.includes('Inspection form')
@@ -2604,6 +2605,12 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     const resolvedSupervisorReport = page.locator('#reviewQueueList .record-form').filter({ hasText: reportMarker }).first();
     await resolvedSupervisorReport.waitFor({ state: 'visible', timeout: 20000 });
     await resolvedSupervisorReport.click();
+    await page.locator('#reviewQueueDetail .report-supervisor-note').waitFor({ state: 'visible' });
+    if (!(await page.locator('#reviewQueueDetailTitle').innerText()).includes('Inspection form')
+      || await page.locator('#reviewQueueDetail .record-title').count()) {
+      throw new Error('Supervisor Report title must remain in its surrounding heading without a repeated inner title');
+    }
+    await page.locator('#reviewQueueDetail .record-report-more-details summary').click();
     const resolvedSupervisorText = await page.locator('#reviewQueueDetail').innerText();
     if (
       !resolvedSupervisorText.includes('Resolved')
@@ -2650,6 +2657,10 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     await page.locator('#historyList > .record-report-compact .record-disclosure-button').first().click();
     const resolvedHistoryRecord = page.locator('#historyList .record-form').filter({ hasText: reportMarker }).first();
     await resolvedHistoryRecord.waitFor({ state: 'visible', timeout: 20000 });
+    if (!(await resolvedHistoryRecord.innerText()).includes('Replacement safety glasses issued.')) {
+      throw new Error('Final Supervisor note must be visible before opening secondary Report details');
+    }
+    await resolvedHistoryRecord.locator('.record-report-more-details summary').click();
     const resolvedHistoryText = await resolvedHistoryRecord.innerText();
     if (
       !resolvedHistoryText.includes('Resolved')

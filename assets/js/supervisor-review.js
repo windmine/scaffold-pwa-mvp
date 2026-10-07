@@ -594,6 +594,10 @@ export function createSupervisorReviewModule({
     });
     const detailCard = els.reviewQueueDetail.querySelector('.record-card');
     detailCard?.classList.add('review-detail-record-card');
+    // The surrounding detail heading already names this Report and optional Site.
+    if (detailCard?.classList.contains('record-report-detail')) {
+      detailCard.querySelector('.record-title')?.remove();
+    }
     const actions = detailCard?.querySelector('.record-actions');
     if (actions) actions.id = 'reviewQueueActions';
     renderReportTransitionActions(record, actions, readOnly);

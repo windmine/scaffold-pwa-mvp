@@ -813,6 +813,80 @@ export function createHistoryModule({
     return reportPhotoSources(record).length;
   }
 
+  function reportQueueGuidance(record) {
+    if (record.syncBlockedReason === 'template_changed') {
+      return 'Your original answers and evidence are kept below. Open New Report and complete the current template. Keep this saved copy until the new report is submitted.';
+    }
+    return record.isDraftRecovery ? ''
+      : 'Retry when online, or use Recover as draft to keep your answers and replace invalid photos. We first check whether this Report was already submitted.';
+  }
+
+  function queuedReportNeedsAttention(record) {
+    return record.syncStatus === 'queued' && !record.backendRecordId && !record.isDraftRecovery
+      && (Boolean(record.syncError) || Number(record.retryCount) > 0);
+  }
+
+  function workerRecordScope(node, record) {
+    const session = sessionGeneration;
+    const workerId = String(state.user?.id || '');
+    const departmentId = String(state.user?.departmentId || '');
+    return () => session === sessionGeneration && node.isConnected
+      && state.user?.role === 'worker' && String(state.user.id) === workerId
+      && String(state.user.departmentId || '') === departmentId
+      && String(record.userId || '') === workerId
+      && (record.departmentId == null || String(record.departmentId) === departmentId);
+  }
+
+  function createReportRecoveryActions(record, isCurrent) {
+    const group = document.createElement('div');
+    group.className = 'record-report-recovery-actions';
+    group.setAttribute('role', 'group');
+    group.setAttribute('aria-label', 'Report upload actions');
+    let pending = false;
+    const addButton = (label, className, action) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = className;
+      setTranslatableText(button, label);
+      button.addEventListener('click', async () => {
+        if (!isCurrent() || !button.isConnected || pending || button.disabled) return;
+        pending = true;
+        const buttons = [...group.querySelectorAll('button')];
+        const disabled = buttons.map((item) => item.disabled);
+        buttons.forEach((item) => { item.disabled = true; });
+        group.setAttribute('aria-busy', 'true');
+        try {
+          await action(button);
+        } finally {
+          pending = false;
+          if (isCurrent() && group.isConnected) {
+            group.removeAttribute('aria-busy');
+            buttons.forEach((item, index) => { item.disabled = disabled[index]; });
+          }
+        }
+      });
+      group.append(button);
+    };
+    addButton('Retry sync', '', () => handleRetryQueuedRecord(record));
+    if (queuedReportNeedsAttention(record) && typeof handleRecoverQueuedReport === 'function') {
+      addButton('Recover as draft', 'ghost', (button) => handleRecoverQueuedReport(record, button));
+    }
+    return group;
+  }
+
+  function reportMoreDetailsMarkup(record) {
+    const submitted = !record.isDraftRecovery && !['queued', 'syncing'].includes(record.syncStatus);
+    return `<details class="record-report-more-details">
+      <summary>More details</summary>
+      <div class="record-report-metadata">
+        <p><strong>${submitted ? 'Submitted:' : 'Saved on this device:'}</strong> ${escapeHtml(formatReportSubmissionTime(record.createdAt))}</p>
+        ${record.reviewingSupervisorName ? `<p><strong>Reviewing supervisor:</strong> <span data-no-i18n>${escapeHtml(record.reviewingSupervisorName)}</span></p>` : ''}
+        ${record.reviewStartedAt ? `<p><strong>Review started:</strong> ${escapeHtml(formatDateTime(record.reviewStartedAt))}</p>` : ''}
+        ${record.resolvedAt ? `<p><strong>Resolved:</strong> ${escapeHtml(formatDateTime(record.resolvedAt))}</p>` : ''}
+      </div>
+    </details>`;
+  }
+
   function renderCompactReportCard(container, record, options) {
     const session = sessionGeneration;
     const workerId = String(state.user?.id || '');
@@ -842,9 +916,10 @@ export function createHistoryModule({
           : record.syncStatus === 'syncing'
             ? 'Uploading your report.'
             : '';
-    const hasFinalNote = reportWorkflowStatus(record) === 'resolved' && !['queued', 'syncing'].includes(record.syncStatus);
+    const hasFinalNote = reportWorkflowStatus(record) === 'resolved' && !record.isDraftRecovery
+      && !['queued', 'syncing'].includes(record.syncStatus);
     if (record.syncError || cueText || hasFinalNote) {
-      const cue = document.createElement('p');
+      const cue = document.createElement('div');
       cue.className = `record-report-cue${record.syncError && !record.isDraftRecovery ? ' is-warning' : ''}`;
       if (record.syncError || hasFinalNote) {
         const label = document.createElement('span');
@@ -855,6 +930,15 @@ export function createHistoryModule({
         cue.append(label, document.createTextNode(' '), value);
       } else {
         setTranslatableText(cue, cueText);
+      }
+      if (record.syncError && record.syncStatus === 'queued') {
+        const guidance = reportQueueGuidance(record);
+        if (guidance) {
+          const hint = document.createElement('p');
+          hint.className = 'record-report-recovery-hint';
+          setTranslatableText(hint, guidance);
+          cue.append(hint);
+        }
       }
       summary.insertAdjacentElement('afterend', cue);
     }
@@ -881,6 +965,10 @@ export function createHistoryModule({
       && String(state.user.departmentId || '') === departmentId
       && node.isConnected
     );
+    const recoveryActionsVisible = options.showWorkerActions && queuedReportNeedsAttention(record);
+    if (recoveryActionsVisible) {
+      actions.insertAdjacentElement('beforebegin', createReportRecoveryActions(record, currentScope));
+    }
     disclosure.addEventListener('click', () => {
       if (!currentScope()) return;
       const expanded = disclosure.getAttribute('aria-expanded') === 'true';
@@ -888,14 +976,15 @@ export function createHistoryModule({
         clearRecordsList(details);
         details.hidden = true;
       } else {
-        renderRecordsList(details, [record], { ...options, compactReports: false });
+        renderRecordsList(details, [record], {
+          ...options, compactReports: false, reportSummaryVisible: true, recoveryActionsVisible
+        });
         const expandedCard = details.querySelector('.record-card');
         expandedCard.classList.add('record-report-expanded');
-        const submittedMeta = expandedCard.querySelector('.record-meta');
         expandedCard.querySelector('.record-header').remove();
-        expandedCard.prepend(submittedMeta);
         details.hidden = false;
       }
+      node.classList.toggle('is-expanded', !expanded);
       disclosure.setAttribute('aria-expanded', String(!expanded));
       setTranslatableText(disclosure, expanded ? 'Show details' : 'Hide details');
     });
@@ -1054,6 +1143,11 @@ export function createHistoryModule({
         return;
       }
 
+      const simplifyReport = reportOnly && record.type === 'form' && recordSubmissionPurpose(record) === 'report';
+      if (simplifyReport) {
+        node.classList.add('record-report-detail');
+        node.querySelector('.record-meta').innerHTML = `${record.userName ? `<span data-no-i18n>${escapeHtml(record.userName)}</span>` : 'Worker'}  |  <span>Report Date:</span> <span class="record-report-date">${escapeHtml(record.workDate || 'Not set')}</span>`;
+      }
       const extra = node.querySelector('.record-extra');
       const compactPhotoGallery = record.type === 'form' && recordSubmissionPurpose(record) === 'report';
       const photoPreviews = createPhotoPreviewSources(reportPhotoSources(record));
@@ -1066,19 +1160,20 @@ export function createHistoryModule({
       });
       const hasSiteDistance = record.type === 'attendance' && record.distanceFromSiteM != null;
       const finalSupervisorNote = record.type === 'form' && reportWorkflowStatus(record) === 'resolved'
+        && (!simplifyReport || (!options.reportSummaryVisible && !record.isDraftRecovery && !['queued', 'syncing'].includes(record.syncStatus)))
         ? record.supervisorNote || 'No supervisor note was recorded.'
         : '';
       extra.innerHTML = `
-        <p><strong>Type:</strong> ${record.type === 'attendance' ? escapeHtml(record.action === 'check_in' ? 'Check in' : 'Check out') : record.type === 'form' ? 'Report' : record.type === 'team_log' ? 'Weekly team log' : 'Task log'}</p>
+        ${!simplifyReport ? `<p><strong>Type:</strong> ${record.type === 'attendance' ? escapeHtml(record.action === 'check_in' ? 'Check in' : 'Check out') : record.type === 'form' ? 'Report' : record.type === 'team_log' ? 'Weekly team log' : 'Task log'}</p>` : ''}
         ${record.entrySource === 'supervisor_manual' ? `<p><strong>Entry source:</strong> ${record.type === 'attendance' ? 'Manual supervisor attendance' : 'Admin-entered approved log'}${record.createdBySupervisorName ? ` by ${escapeHtml(record.createdBySupervisorName)}` : ''}${record.type === 'attendance' ? '; no GPS was captured.' : '; no approval is required.'}</p>` : ''}
         ${record.type === 'attendance' && record.location ? `<p><strong>Location:</strong> ${record.location.latitude}, ${record.location.longitude} (${record.location.accuracy}m)</p>` : ''}
         ${hasSiteDistance ? `<p><strong>Site radius:</strong> <span class="${record.withinSiteRadius ? 'site-inside' : 'site-outside'}">${record.withinSiteRadius ? 'Inside' : 'Outside'} - ${escapeHtml(record.distanceFromSiteM)}m from site</span></p>` : ''}
         ${record.hoursWorked ? `<p><strong>Hours:</strong> ${escapeHtml(record.hoursWorked)}</p>` : ''}
-        ${record.type === 'form' ? `<p><strong>Report Template:</strong> ${escapeHtml(record.formName)}</p>` : ''}
-        ${record.type === 'form' && record.reviewingSupervisorName ? `<p><strong>Reviewing supervisor:</strong> ${escapeHtml(record.reviewingSupervisorName)}</p>` : ''}
-        ${record.type === 'form' && record.reviewStartedAt ? `<p><strong>Review started:</strong> ${escapeHtml(formatDateTime(record.reviewStartedAt))}</p>` : ''}
-        ${record.type === 'form' && record.resolvedAt ? `<p><strong>Resolved:</strong> ${escapeHtml(formatDateTime(record.resolvedAt))}</p>` : ''}
-        ${finalSupervisorNote ? `<p class="report-supervisor-note"><strong>Final supervisor note:</strong> ${escapeHtml(finalSupervisorNote)}</p>` : ''}
+        ${record.type === 'form' && !simplifyReport ? `<p><strong>Report Template:</strong> ${escapeHtml(record.formName)}</p>` : ''}
+        ${record.type === 'form' && !simplifyReport && record.reviewingSupervisorName ? `<p><strong>Reviewing supervisor:</strong> ${escapeHtml(record.reviewingSupervisorName)}</p>` : ''}
+        ${record.type === 'form' && !simplifyReport && record.reviewStartedAt ? `<p><strong>Review started:</strong> ${escapeHtml(formatDateTime(record.reviewStartedAt))}</p>` : ''}
+        ${record.type === 'form' && !simplifyReport && record.resolvedAt ? `<p><strong>Resolved:</strong> ${escapeHtml(formatDateTime(record.resolvedAt))}</p>` : ''}
+        ${finalSupervisorNote ? `<p class="report-supervisor-note"><strong>Final supervisor note:</strong> <span data-report-final-note>${escapeHtml(finalSupervisorNote)}</span></p>` : ''}
         ${record.type === 'team_log' ? `<div class="team-log-entry-summary">${record.entries.map((entry) => `
           <div>
             <strong>${escapeHtml(entry.worker_name)}</strong>
@@ -1086,8 +1181,8 @@ export function createHistoryModule({
             <p>${escapeHtml(entry.work_description)}</p>
           </div>
         `).join('')}</div>` : ''}
-        ${record.syncStatus ? `<p><strong>Sync:</strong> ${escapeHtml(record.syncStatus)}</p>` : ''}
-        ${record.syncStatus === 'queued' && record.syncError ? `
+        ${record.syncStatus && !simplifyReport ? `<p><strong>Sync:</strong> ${escapeHtml(record.syncStatus)}</p>` : ''}
+        ${record.syncStatus === 'queued' && record.syncError && !(simplifyReport && options.reportSummaryVisible) ? `
           <div class="edit-warning" role="alert">
             <strong>${record.isDraftRecovery ? 'Saved copy.' : 'Sync needs attention.'}</strong>
             ${escapeHtml(record.syncError)}
@@ -1110,7 +1205,11 @@ export function createHistoryModule({
             ${photoMetadata[index]?.taken_at || photoMetadata[index]?.last_modified_iso ? `<span class="photo-time">${escapeHtml(formatDateTime(photoMetadata[index].taken_at || photoMetadata[index].last_modified_iso))}</span>` : ''}
           </button>
         `).join('')}</div>` : ''}
+        ${simplifyReport ? reportMoreDetailsMarkup(record) : ''}
       `;
+      if (record.supervisorNote) {
+        extra.querySelector('[data-report-final-note]')?.setAttribute('data-no-i18n', '');
+      }
       if (photoSources.length && compactPhotoGallery) {
         const gallerySession = sessionGeneration;
         const scope = () => JSON.stringify([state.user?.id, state.user?.role,
@@ -1153,40 +1252,34 @@ export function createHistoryModule({
       }
 
       if (canShowQueuedActions) {
-        const retryButton = document.createElement('button');
-        retryButton.type = 'button';
-        retryButton.className = 'ghost';
-        retryButton.textContent = 'Retry sync';
-        retryButton.addEventListener('click', async () => {
-          await handleRetryQueuedRecord(record);
-        });
-
+        const currentScope = simplifyReport ? workerRecordScope(node, record) : () => true;
         const discardButton = document.createElement('button');
         discardButton.type = 'button';
         discardButton.className = 'secondary danger-action';
         discardButton.textContent = 'Discard local copy';
         discardButton.addEventListener('click', async () => {
+          if (!currentScope()) return;
           await handleDiscardQueuedRecord(record, discardButton);
         });
 
-        if (!record.isDraftRecovery) actions.append(retryButton);
-        if (reportOnly && record.type === 'form' && recordSubmissionPurpose(record) === 'report'
-          && !record.isDraftRecovery && (record.syncError || Number(record.retryCount) > 0)
-          && typeof handleRecoverQueuedReport === 'function') {
-          const recoverySession = sessionGeneration;
-          const workerId = String(state.user?.id || '');
-          const departmentId = String(state.user?.departmentId || '');
-          const recoverButton = document.createElement('button');
-          recoverButton.type = 'button';
-          recoverButton.className = 'secondary';
-          setTranslatableText(recoverButton, 'Recover as draft');
-          recoverButton.addEventListener('click', () => {
-            if (!recoverButton.isConnected || recoverySession !== sessionGeneration || state.user?.role !== 'worker'
-              || String(state.user.id) !== workerId || String(state.user.departmentId || '') !== departmentId) return;
-            void handleRecoverQueuedReport(record, recoverButton);
+        if (simplifyReport) {
+          if (!record.isDraftRecovery && !options.recoveryActionsVisible) {
+            const recoveryActions = createReportRecoveryActions(record, currentScope);
+            const warning = extra.querySelector('.edit-warning');
+            if (warning) warning.insertAdjacentElement('afterend', recoveryActions);
+            else extra.prepend(recoveryActions);
+          }
+        } else if (!record.isDraftRecovery) {
+          const retryButton = document.createElement('button');
+          retryButton.type = 'button';
+          retryButton.className = 'ghost';
+          retryButton.textContent = 'Retry sync';
+          retryButton.addEventListener('click', async () => {
+            await handleRetryQueuedRecord(record);
           });
-          actions.append(recoverButton);
+          actions.append(retryButton);
         }
+        // Discard stays secondary and requires the existing confirmation/queue lock.
         actions.append(discardButton);
       }
 
