@@ -27,6 +27,11 @@ export const WORK_FORM_FIELD_TYPES = Object.freeze([
 ]);
 
 const VALID_FIELD_TYPES = new Set(WORK_FORM_FIELD_TYPES.map(({ value }) => value));
+const ADVANCED_FIELD_TYPES = new Set(['formula', 'repeat']);
+
+function hasAdvancedFields(fields) {
+  return fields.some((field) => ADVANCED_FIELD_TYPES.has(field.type) || Boolean(field.show_if));
+}
 
 function cloneFields(fields = []) {
   return fields.map((field) => ({
@@ -227,6 +232,11 @@ export function workFormBuilderMarkup({ rawInputId = '' } = {}) {
         </div>
         <button type="button" class="secondary" data-add-work-form-field>Add field</button>
       </div>
+      <label class="checkbox-field form-checkbox-field work-form-advanced-options" data-work-form-advanced-options-control hidden>
+        <input type="checkbox" data-work-form-advanced-options />
+        <span class="form-checkbox-control" aria-hidden="true"></span>
+        <span class="form-checkbox-label">Show advanced field options</span>
+      </label>
       <div class="local-feedback hidden" data-work-form-builder-feedback role="alert" aria-live="assertive" aria-atomic="true"></div>
       <p class="work-form-builder-empty" data-work-form-builder-empty>No fields yet. Add the first field to begin.</p>
       <ol class="work-form-field-list" data-work-form-field-list aria-label="Report Template fields"></ol>
@@ -309,9 +319,10 @@ function conditionValueControl(field, source) {
   `;
 }
 
-function renderTypeOptions(field) {
+function renderTypeOptions(field, advancedOptions) {
   return WORK_FORM_FIELD_TYPES
     .filter(({ value }) => !field.repeat || value !== 'repeat')
+    .filter(({ value }) => advancedOptions || !ADVANCED_FIELD_TYPES.has(value) || value === field.type)
     .map(({ value, label }) => `<option value="${value}"${field.type === value ? ' selected' : ''}>${label}</option>`)
     .join('');
 }
@@ -393,7 +404,7 @@ function renderTypeSpecificControls(field) {
   return '';
 }
 
-function renderCard(field, fields, position, count, children = []) {
+function renderCard(field, fields, position, count, children = [], advancedOptions = true) {
   const label = field.label || 'Untitled field';
   const requiredAllowed = !['section', 'formula', 'repeat'].includes(field.type);
   const repeatRequired = field.type === 'repeat' && (field.min_rows ?? (field.required ? 1 : 0)) > 0;
@@ -422,7 +433,7 @@ function renderCard(field, fields, position, count, children = []) {
         <div class="work-form-field-main-controls">
           <label>
             Field type
-            <select data-field-property="type">${renderTypeOptions(field)}</select>
+            <select data-field-property="type">${renderTypeOptions(field, advancedOptions)}</select>
           </label>
           <label>
             Label
@@ -437,8 +448,8 @@ function renderCard(field, fields, position, count, children = []) {
           </label>
         ` : ''}
         ${renderTypeSpecificControls(field)}
-        ${renderConditionControls(field, fields)}
-        <p class="work-form-field-key">Field key: <code>${escapeHtml(field.id)}</code></p>
+        ${advancedOptions || field.show_if ? renderConditionControls(field, fields) : ''}
+        ${advancedOptions ? `<p class="work-form-field-key">Field key: <code>${escapeHtml(field.id)}</code></p>` : ''}
         <div class="field-error hidden" data-work-form-field-error role="alert"></div>
         ${field.type === 'repeat' ? `
           <section class="work-form-repeat-builder" aria-label="Fields inside ${escapeHtml(label)}">
@@ -451,7 +462,7 @@ function renderCard(field, fields, position, count, children = []) {
             </div>
             ${children.length ? '' : '<p class="work-form-builder-empty">No group fields yet.</p>'}
             <ol class="work-form-field-list nested" data-repeat-field-list="${escapeHtml(field.id)}" aria-label="Fields inside ${escapeHtml(label)}">
-              ${children.map((child, childIndex) => renderCard(child, fields, childIndex, children.length)).join('')}
+              ${children.map((child, childIndex) => renderCard(child, fields, childIndex, children.length, [], advancedOptions)).join('')}
             </ol>
           </section>
         ` : ''}
@@ -478,6 +489,7 @@ function rawLineErrors(value) {
 
 export function createWorkFormBuilder(root, {
   fields: initialFields = [],
+  reportOnly = false,
   onChange,
   confirmAction = async () => false
 } = {}) {
@@ -493,10 +505,13 @@ export function createWorkFormBuilder(root, {
   const rawInput = root.querySelector('[data-work-form-raw]');
   const rawFeedback = root.querySelector('[data-work-form-raw-feedback]');
   const advanced = root.querySelector('[data-work-form-advanced]');
+  const advancedOptionsControl = root.querySelector('[data-work-form-advanced-options-control]');
+  const advancedOptionsInput = root.querySelector('[data-work-form-advanced-options]');
   const announcement = root.querySelector('[data-work-form-builder-announcement]');
   const controller = new AbortController();
   const { signal } = controller;
   let fields = canonicalFields(initialFields);
+  let advancedOptions = !reportOnly || hasAdvancedFields(fields);
   let rawDirty = false;
   let editorGeneration = 0;
   let draggedId = '';
@@ -544,9 +559,11 @@ export function createWorkFormBuilder(root, {
   }
 
   function render() {
+    if (advancedOptionsControl) advancedOptionsControl.hidden = !reportOnly;
+    if (advancedOptionsInput) advancedOptionsInput.checked = advancedOptions;
     const groups = repeatGroups(fields);
     list.innerHTML = groups
-      .map(({ field, children }, index) => renderCard(field, fields, index, groups.length, children))
+      .map(({ field, children }, index) => renderCard(field, fields, index, groups.length, children, advancedOptions))
       .join('');
     empty.classList.toggle('hidden', groups.length > 0);
     syncRaw();
@@ -803,7 +820,9 @@ export function createWorkFormBuilder(root, {
       }
       render();
       emitChange();
-      root.querySelector(`[data-field-id="${CSS.escape(field.id)}"] [data-field-property="condition-enabled"]`)?.focus();
+      const fieldCard = root.querySelector(`[data-field-id="${CSS.escape(field.id)}"]`);
+      (fieldCard?.querySelector(':scope > .work-form-field-card-body > .work-form-condition [data-field-property="condition-enabled"]')
+        || fieldCard?.querySelector(':scope > .work-form-field-card-body > .work-form-field-main-controls [data-field-property="label"]'))?.focus();
       return;
     }
     if (property === 'condition-field') {
@@ -869,6 +888,7 @@ export function createWorkFormBuilder(root, {
       return false;
     }
     fields = canonicalFields(parsed);
+    if (hasAdvancedFields(fields)) advancedOptions = true;
     rawDirty = false;
     rawInput.removeAttribute('aria-invalid');
     render();
@@ -920,6 +940,16 @@ export function createWorkFormBuilder(root, {
   }, { signal });
 
   root.addEventListener('change', (event) => {
+    if (event.target === advancedOptionsInput) {
+      if (!reportOnly || advancedOptionsInput.disabled) return;
+      // This is only a view preference: never retire unapplied syntax, change
+      // Definition data or schedule a draft write when revealing more controls.
+      const hadValidationErrors = Boolean(list.querySelector('.has-error'));
+      advancedOptions = advancedOptionsInput.checked;
+      render();
+      if (hadValidationErrors) renderValidation(validateWorkFormBuilderFields(fields));
+      return;
+    }
     if (event.target.matches('[data-work-form-raw]')) return;
     void handleFieldChange(event.target);
   }, { signal });
@@ -984,6 +1014,7 @@ export function createWorkFormBuilder(root, {
     restoreDraftState(draft) {
       editorGeneration += 1;
       fields = canonicalFields(draft.fields || []);
+      advancedOptions = !reportOnly || hasAdvancedFields(fields);
       rawDirty = Boolean(draft.rawDirty);
       rawInput.value = String(draft.rawText || '');
       rawInput.removeAttribute('aria-invalid');
@@ -999,6 +1030,7 @@ export function createWorkFormBuilder(root, {
     reset() {
       editorGeneration += 1;
       fields = [];
+      advancedOptions = !reportOnly;
       rawDirty = false;
       rawInput.removeAttribute('aria-invalid');
       setFeedback();
@@ -1009,6 +1041,7 @@ export function createWorkFormBuilder(root, {
     setFields(nextFields = []) {
       editorGeneration += 1;
       fields = canonicalFields(nextFields);
+      advancedOptions = !reportOnly || hasAdvancedFields(fields);
       rawDirty = false;
       rawInput.removeAttribute('aria-invalid');
       setFeedback();

@@ -98,6 +98,7 @@ export function createStaffSitesModule({
     });
   }
   const workFormBuilder = createWorkFormBuilder(els.workFormFieldBuilder, {
+    reportOnly,
     onChange: () => {
       refreshOpenDraftWorkFormPreview();
       scheduleTemplateDraft();
@@ -403,7 +404,8 @@ export function createStaffSitesModule({
     const canAssignGlobalAdmin = Boolean(state.user?.isGlobalAdmin && !isWorker);
     const globalAdminLabel = els.staffGlobalAdminInput.closest('label');
 
-    els.staffWorkerClassSelect.disabled = !isWorker;
+    els.staffWorkerClassSelect.closest('label').classList.toggle('hidden', reportOnly);
+    els.staffWorkerClassSelect.disabled = reportOnly || !isWorker;
     globalAdminLabel?.classList.toggle('hidden', !state.user?.isGlobalAdmin);
     if (!canAssignGlobalAdmin) els.staffGlobalAdminInput.checked = false;
     els.staffGlobalAdminInput.disabled = !canAssignGlobalAdmin;
@@ -752,6 +754,7 @@ export function createStaffSitesModule({
       const status = user.status || 'active';
       const isGlobalAdmin = Boolean(user.is_global_admin || user.isGlobalAdmin);
       const workerClass = user.worker_class || user.workerClass || 'normal';
+      const workerRoleLabel = reportOnly ? 'Worker' : workerClass;
       const needsSetup = user.role === 'worker' && user.password_setup_required === true;
       const invitationStatus = {
         pending: 'Awaiting password setup', expired: 'Invitation expired', revoked: 'Invitation revoked'
@@ -766,7 +769,7 @@ export function createStaffSitesModule({
             <h3 class="record-title">${escapeHtml(user.name)}</h3>
             <p class="record-meta">ID ${escapeHtml(user.id)} | ${escapeHtml(user.email)} | ${escapeHtml(user.department_name || user.departmentName || 'No department')}</p>
           </div>
-          <span class="badge ${status === 'active' ? 'synced' : 'rejected'}">${escapeHtml(status === 'active' ? needsSetup ? 'Password setup required' : `${user.role === 'worker' ? workerClass : user.role}${isGlobalAdmin ? ' global' : ''}` : 'resigned worker')}</span>
+          <span class="badge ${status === 'active' ? 'synced' : 'rejected'}">${escapeHtml(status === 'active' ? needsSetup ? 'Password setup required' : `${user.role === 'worker' ? workerRoleLabel : user.role}${isGlobalAdmin ? ' global' : ''}` : 'resigned worker')}</span>
         </div>
         ${needsSetup ? `<p class="record-meta"><span>${invitationStatus}</span>${user.invitation_status === 'pending' && user.invitation_expires_at ? ` · <span>Expires</span>: <span data-no-i18n>${escapeHtml(formatDateTime(user.invitation_expires_at))}</span>` : ''}</p>` : ''}
         ${!needsSetup && user.role === 'worker' && recoveryStatus ? `<p class="record-meta"><span>${recoveryStatus}</span>${user.password_recovery_status === 'pending' && user.password_recovery_expires_at ? ` · <span>Expires</span>: <span data-no-i18n>${escapeHtml(formatDateTime(user.password_recovery_expires_at))}</span>` : ''}</p>` : ''}
@@ -1103,7 +1106,7 @@ export function createStaffSitesModule({
       document.getElementById('editWorkFormName').value = restored?.name ?? form?.name ?? '';
       document.getElementById('editWorkFormDescription').value = restored?.description ?? form?.description ?? '';
       templateEditBuilder = createWorkFormBuilder(els.templateEditForm.querySelector('[data-work-form-builder]'), {
-        fields: form?.fields || [], confirmAction, onChange: scheduleTemplateDraft
+        fields: form?.fields || [], confirmAction, onChange: scheduleTemplateDraft, reportOnly
       });
       restoringTemplateDraft = true;
       if (restored) templateEditBuilder.restoreDraftState(restored.builder);
@@ -1221,7 +1224,7 @@ export function createStaffSitesModule({
     );
     editBuilder = createWorkFormBuilder(
       els.editPanelForm.querySelector('[data-work-form-builder]'),
-      { fields: form.fields || [], confirmAction }
+      { fields: form.fields || [], confirmAction, reportOnly }
     );
   }
 
@@ -1476,7 +1479,7 @@ export function createStaffSitesModule({
           { value: 'supervisor', label: 'Supervisor' }
         ]
       },
-      {
+      ...(!reportOnly ? [{
         id: 'editUserWorkerClass',
         label: 'Worker class',
         type: 'select',
@@ -1485,7 +1488,7 @@ export function createStaffSitesModule({
           { value: 'normal', label: 'Normal worker' },
           { value: 'leader', label: 'Leader' }
         ]
-      },
+      }] : []),
       ...(state.user?.isGlobalAdmin ? [{
         id: 'editUserDepartmentId',
         label: 'Department',
@@ -1532,7 +1535,10 @@ export function createStaffSitesModule({
           name: editValue('editUserName'),
           email: editValue('editUserEmail'),
           role: editValue('editUserRole'),
-          worker_class: editValue('editUserRole') === 'worker' ? editValue('editUserWorkerClass') : null,
+          // Report-only edits do not own retained Worker privileges. Omission
+          // preserves the backend's current class, including concurrent changes;
+          // its existing role transition policy supplies/clears a class as needed.
+          ...(!reportOnly ? { worker_class: editValue('editUserRole') === 'worker' ? editValue('editUserWorkerClass') : null } : {}),
           status: editValue('editUserStatus')
         };
 
@@ -1577,7 +1583,7 @@ export function createStaffSitesModule({
     const editGlobalAdminSelect = document.getElementById('editUserGlobalAdmin');
     const syncStaffEditRoleControls = () => {
       const isWorker = editRoleSelect.value === 'worker';
-      editWorkerClassSelect.disabled = !isWorker;
+      if (editWorkerClassSelect) editWorkerClassSelect.disabled = !isWorker;
       editRoleSelect.disabled = isSelf || user.password_setup_required === true;
       if (!editGlobalAdminSelect) return;
       if (isWorker) editGlobalAdminSelect.value = 'false';
@@ -1739,14 +1745,14 @@ export function createStaffSitesModule({
       const worker = {
         name: els.staffNameInput.value.trim(),
         email: els.staffEmailInput.value.trim(),
-        worker_class: els.staffWorkerClassSelect.value,
+        worker_class: reportOnly ? 'normal' : els.staffWorkerClassSelect.value,
         department_id: staffCreateDepartmentId()
       };
       const result = usesInvitation ? await createWorkerInvitation(worker) : await createBackendUser({
         ...worker,
         password: els.staffPasswordInput.value,
         role,
-        worker_class: role === 'worker' ? els.staffWorkerClassSelect.value : 'normal',
+        worker_class: role === 'worker' ? worker.worker_class : 'normal',
         department_id: staffCreateDepartmentId(),
         is_global_admin: Boolean(
           state.user?.isGlobalAdmin
@@ -1822,7 +1828,11 @@ export function createStaffSitesModule({
     els.workFormDescriptionInput?.addEventListener('input', refreshOpenDraftWorkFormPreview);
     els.workFormNameInput.addEventListener('input', scheduleTemplateDraft);
     els.workFormDescriptionInput.addEventListener('input', scheduleTemplateDraft);
-    els.templateEditForm.addEventListener('input', scheduleTemplateDraft);
+    els.templateEditForm.addEventListener('input', (event) => {
+      // This checkbox changes presentation only, not the private editing draft.
+      if (event.target.matches('[data-work-form-advanced-options]')) return;
+      scheduleTemplateDraft();
+    });
     els.closeTemplateEditButton.addEventListener('click', closeTemplateEdit);
     els.workFormSearchInput?.addEventListener('input', () => renderWorkFormsList({ refreshDrafts: false }));
     els.workFormStatusFilter?.addEventListener('change', () => renderWorkFormsList({ refreshDrafts: false }));

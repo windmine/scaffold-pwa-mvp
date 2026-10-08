@@ -29,6 +29,14 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
+## Local Simpler Staff and Template Choices - 2026-10-08 (not deployed)
+
+Report-only Staff no longer asks Supervisors to choose **Normal worker / Leader**. Both appear as **Worker**; existing classes and retained permissions are preserved. New invitations use the existing Normal default. Editing a Worker does not send or reset their class. Role, Department and global-admin controls keep their existing safeguards, and the retained full interface still exposes class management. The Worker header no longer shows a redundant Leader-class badge; the Leader Department name and Super admin badge remain.
+
+New Report Templates start with common field types, labels, required settings and choice options. **Show advanced field options** reveals field keys, conditions, calculated values and repeating groups. Existing configured advanced fields automatically enable that view when loaded/restored, and remain editable if it is switched off. The switch does not change field IDs, Definitions, unapplied raw syntax or saved drafts. Advanced raw syntax remains a separate explicit option. Run `npm run check:report-simplicity`, included in `check:mobile`.
+
+This is a local frontend-only refinement. No backend, migration, permissions rewrite, hosted fixtures or deployment is included; October 5 remains live.
+
 ## Local Report Detail Improvements - 2026-10-07 (not deployed)
 
 Failed queued Reports now show **Retry sync** and **Recover as draft** beside their full warning in **My Reports**, before **Show details**. Recovery still checks online submission identity before allowing edits; retry keeps its existing queue-sync behavior. Healthy queued Reports keep Retry inside details. **Discard local copy** remains inside the expanded detail and uses the existing confirmation. Saved recovery copies and submitted Reports do not acquire retry/recovery actions.
@@ -967,8 +975,8 @@ Each weekly log accepts up to 150 work rows. The week must start on Monday and e
 1. Sign in as supervisor.
 2. Open **Report Templates**.
 3. Review the saved-template list, choose **Add Report Template**, then enter the Template name and optional description.
-4. Choose **Add field**, then set the card's field type, worker-facing label, and required state. Choice fields expose their options; repeating groups expose row limits and nested field cards.
-5. Turn on **Only show in some cases** to select an earlier field, comparison, and value. Conditions and formulas can reference only earlier fields in the same form or repeating group.
+4. Choose **Add field**, then set the card's field type, worker-facing label, and required state. Choice fields expose their options. In the local report-only refinement, **Show advanced field options** reveals calculated values, repeating groups, field keys and conditions; configured advanced Templates reveal these automatically.
+5. With advanced options visible, turn on **Only show in some cases** to select an earlier field, comparison, and value. Conditions and formulas can reference only earlier fields in the same form or repeating group. Repeating groups expose row limits and nested field cards; turning off advanced options never removes existing configured behavior.
 6. Drag a card by its handle, or use its Move up/down buttons. Preview the Report, then choose **Create Report Template**. Editing an existing Report Template opens the same card builder and preserves its stable field keys.
 
 Create/edit name, description, cards and exact unapplied raw syntax autosave in a private Supervisor/Department-scoped device draft. **Close and keep draft** does not discard it; return through **Continue Template draft**, or explicitly choose **Discard Template draft**. Workspace navigation keeps the live editor; failed storage pauses Close, logout and **Update App**. Existing-edit restoration rechecks the published Definition; a changed/archived/unavailable Template or uncertain publish result is kept read-only for recovery, not automatically retried. Drafts are not published Templates, Worker drafts, Reports or export records.

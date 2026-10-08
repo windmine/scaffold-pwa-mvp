@@ -1048,7 +1048,7 @@ function updateTopbar() {
     els.userContextGroup.textContent = departmentName;
     const contextBadge = state.user.isGlobalAdmin
       ? 'Super admin'
-      : state.user.role === 'worker' && state.user.workerClass === 'leader'
+      : !REPORT_ONLY_MODE && state.user.role === 'worker' && state.user.workerClass === 'leader'
         ? 'Leader'
         : '';
     els.userContextAdminBadge.textContent = contextBadge;

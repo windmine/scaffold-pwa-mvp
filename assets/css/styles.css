@@ -3280,6 +3280,19 @@ body.viewer-open {
   min-width: 0;
 }
 
+.work-form-advanced-options[hidden] {
+  display: none;
+}
+
+.work-form-advanced-options,
+.work-form-advanced-options:has(input:checked) {
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  box-shadow: none;
+}
+
 .work-form-builder-empty {
   margin: 0;
   padding: 16px;

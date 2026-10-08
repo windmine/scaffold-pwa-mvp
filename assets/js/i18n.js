@@ -37,6 +37,7 @@ const LANGUAGE_META = {
 };
 
 const ZH_TEXT = {
+  'Show advanced field options': '显示高级字段选项',
   'This pre-release recovery copy is read-only. Keep the original photos and contact your Supervisor.': '此预发布版本保存的恢复副本为只读。请保留原始照片，并联系主管。',
   'Check photo storage': '检查照片存储空间',
   'Checking photo storage...': '正在检查照片存储空间……',

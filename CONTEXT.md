@@ -16,6 +16,8 @@ _Avoid_: Basic user
 A retained Worker class with broader legacy field-operation privileges. In the report-only product a Leader sees the same New Report and My Reports surface as every other Worker. Leader is not the Supervisor role.
 _Avoid_: Treating Leader as a Report approval role
 
+Local 2026-10-08 presentation refinement (not deployed): report-only Staff displays both classes as Worker and omits the class choice. New invited Workers use the existing Normal default; updates omit `worker_class` so the backend retains the current class, including a concurrent authorized class change. Explicit Worker/Supervisor role changes still use the existing backend default/clear policy. No identity or retained permission is rewritten; the full-interface override still manages classes. The Worker header hides the redundant Leader-class badge, not the Leader Department name or global-admin capability.
+
 **Supervisor**:
 An admin user who reviews Department Reports, manages Report Templates, and manages Staff. A Department Supervisor may not read or transition another Department's Reports.
 _Avoid_: Approver when describing the Report workflow
@@ -70,6 +72,9 @@ A reusable, versioned, Supervisor-managed definition with `template_purpose=repo
 _Avoid_: Work Form in user-facing language
 
 The Template library released September 29 defaults to Active and filters published Templates by lifecycle state and name/description search. Its compact field/signature/group counts describe the Definition, not completed answers or submitted Reports. Private unfinished Template drafts remain separate and are never hidden or discarded by library filtering. Full Definitions remain available through Preview and Edit; filtering does not change Worker availability, versions or Report snapshots. A known minor first-load limitation can clear a query entered before identity-scoped initialization finishes.
+
+**Advanced field options** (local refinement 2026-10-08; not deployed):
+A view-only Report Template builder switch. Simple new Templates offer common field types and omit field keys and unused condition controls. Advanced view additionally offers calculated values and repeating groups and reveals keys/conditions. Existing formulas, groups and conditions automatically enable advanced view when loaded, restored or applied through raw syntax; their configured controls remain visible even if the switch is off. Switching views does not change Definition data, generated/stable keys, raw syntax, draft contents or publish state and must not schedule a draft write. Retained full-interface builders keep their original controls. The switch is editor-local, not an authorization rule or a saved Template property.
 
 **Review & submit** (released 2026-09-29):
 The Worker's final read-only summary of Template, Report Date, optional Site, answers, photo count and signatures. Opening review saves the draft when possible but does not upload or queue evidence. Back to edit preserves the originals; only explicit final confirmation submits or queues the reviewed snapshot. Submitted Reports remain immutable.
