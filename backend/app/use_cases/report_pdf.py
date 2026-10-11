@@ -18,6 +18,7 @@ from reportlab.platypus import (
 )
 
 from app.use_cases.report_pdf_branding import report_department_branding
+from app.use_cases.report_pdf_fonts import chinese_pdf_font
 from app.use_cases.supervisor_review_exports import (
     h, image_bytes_from_value, label_from_id, photo_caption, text_value,
 )
@@ -64,7 +65,15 @@ def _styles():
 
 
 def _paragraph(value, style):
-    return Paragraph(h(value).replace("\n", "<br />") or "&#160;", style)
+    text = text_value(value)
+    font = chinese_pdf_font(text, bold=style.fontName == "Helvetica-Bold")
+    if font:
+        # CJK wrapping permits ordinary Chinese text without spaces to continue
+        # across cells/pages. English-only paragraphs retain their exact style.
+        style = ParagraphStyle(
+            f"{style.name}-chinese", parent=style, fontName=font, wordWrap="CJK",
+        )
+    return Paragraph(h(text).replace("\n", "<br />") or "&#160;", style)
 
 
 def _row(label, value, styles, *, minimum_height=None):

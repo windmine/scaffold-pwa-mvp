@@ -13,16 +13,21 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from app import upload_storage
 from app.main import apply_upload_cache_policy, get_upload
-from app.models import AttendanceRecord, TaskLog, User, WorkForm, WorkFormSubmission
+from app.models import AttendanceRecord, Department, TaskLog, User, WorkForm, WorkFormSubmission
 from app.schemas import (
     AttendanceCreate,
+    SupervisorWorkFormSubmissionCreate,
+    SupervisorWorkFormSubmissionUpdate,
     TaskLogCreate,
+    UserUpdateRequest,
     WorkFormSubmissionCreate,
 )
 from app.use_cases.common import upload_url
 from app.use_cases.attendance import create_attendance
 from app.use_cases.record_trash import purge_expired_deleted_records
 from app.use_cases.task_logs import create_task_log
+from app.use_cases.staff_site_admin import update_user
+from app.use_cases.supervisor_review import create_supervisor_work_form_submission, update_supervisor_form_submission
 from app.use_cases.work_forms import create_work_form_submission
 
 
@@ -447,6 +452,18 @@ def test_authorization_streaming_and_cleanup(tmp_dir):
             )
         else:
             raise AssertionError("denied upload route must reject an unrelated Worker")
+        nested_submission = WorkFormSubmission(
+            department_id=1,
+            form_id=1,
+            worker_id=referenced_worker.id,
+            answers_json=json.dumps({"rows": [{"signature": shared_url}]}),
+            definition_snapshot_json=json.dumps({"fields": [
+                {"id": "rows", "type": "repeat"},
+                {"id": "signature", "type": "signature", "repeat": "rows"},
+            ]}),
+        )
+        session.add(nested_submission)
+        session.commit()
         supervisor_response = get_upload(shared.filename, supervisor, session)
         assert_equal(
             "same-department supervisor receives the private upload stream",
@@ -473,14 +490,6 @@ def test_authorization_streaming_and_cleanup(tmp_dir):
             not upload_storage.can_access_upload(shared.filename, shared, malformed_global_worker, session),
         )
 
-        nested_submission = WorkFormSubmission(
-            department_id=1,
-            form_id=1,
-            worker_id=referenced_worker.id,
-            answers_json=json.dumps({"rows": [{"signature": shared_url}]}),
-        )
-        session.add(nested_submission)
-        session.commit()
         assert_true(
             "nested signature reference authorizes its Worker",
             upload_storage.open_authorized_upload(shared.filename, referenced_worker, session) is not None,
@@ -520,6 +529,199 @@ def test_authorization_streaming_and_cleanup(tmp_dir):
         engine.dispose()
 
 
+def test_department_scoped_evidence_authorization(tmp_dir):
+    original_configuration = (
+        upload_storage.PRODUCTION_LIKE, upload_storage.UPLOAD_STORAGE_BACKEND,
+        upload_storage.UPLOAD_BUCKET, upload_storage.UPLOAD_DIR,
+    )
+    upload_storage.PRODUCTION_LIKE = False
+    upload_storage.UPLOAD_STORAGE_BACKEND = "local"
+    upload_storage.UPLOAD_BUCKET = ""
+    upload_storage.UPLOAD_DIR = Path(tmp_dir)
+    engine, session = make_session()
+
+    def allowed(label, info, user):
+        opened = upload_storage.open_authorized_upload(info.filename, user, session)
+        assert_true(label, opened is not None and bool(b"".join(opened.chunks)))
+
+    def denied(label, info, user):
+        assert_equal(label, upload_storage.open_authorized_upload(info.filename, user, session), None)
+        try:
+            get_upload(info.filename, user, session)
+        except HTTPException as error:
+            assert_equal(f"{label}: route conceals evidence", error.status_code, 404)
+            assert_equal(f"{label}: denial is never shared", error.headers, {"Cache-Control": "private, no-store"})
+        else:
+            raise AssertionError(f"{label}: upload route must deny access")
+
+    try:
+        session.add_all([Department(id=1, name="Leader"), Department(id=2, name="Mutual")])
+        owner = User(department_id=1, email="transfer-owner@example.invalid", name="Owner", password_hash="unused")
+        other_worker = User(department_id=2, email="other-worker@example.invalid", name="Other", password_hash="unused", worker_class="leader")
+        old_supervisor = User(department_id=1, email="old-supervisor@example.invalid", name="Old", password_hash="unused", role="supervisor")
+        new_supervisor = User(department_id=2, email="new-supervisor@example.invalid", name="New", password_hash="unused", role="supervisor")
+        global_supervisor = User(department_id=2, email="global-supervisor@example.invalid", name="Global", password_hash="unused", role="supervisor", is_global_admin=True)
+        session.add_all([owner, other_worker, old_supervisor, new_supervisor, global_supervisor])
+        fields = [
+            {"id": "note", "type": "text", "label": "Note"},
+            {"id": "signature", "type": "signature", "label": "Signature"},
+            {"id": "crews", "type": "repeat", "label": "Crews"},
+            {"id": "crew_signature", "repeat": "crews", "type": "signature", "label": "Crew signature"},
+            {"id": "crew_note", "repeat": "crews", "type": "text", "label": "Crew note"},
+        ]
+        old_form = WorkForm(department_id=1, name="Old Department Report", fields_json=json.dumps(fields))
+        new_form = WorkForm(department_id=2, name="New Department Report", fields_json=json.dumps(fields))
+        session.add_all([old_form, new_form])
+        session.commit()
+        photo, signature, nested_signature, orphan = [
+            upload_storage.store_verified_raster(raster_bytes("PNG"), owner.id) for _ in range(4)
+        ]
+        report = create_work_form_submission(WorkFormSubmissionCreate(
+            form_id=old_form.id, work_date="2026-10-12", photo_urls=[upload_url(photo.filename)],
+            answers={"signature": upload_url(signature.filename), "crews": [{"crew_signature": upload_url(nested_signature.filename)}]},
+        ), owner, session)
+        record = session.get(WorkFormSubmission, report["id"])
+        captured = (record.department_id, record.photo_urls, record.answers_json, record.definition_snapshot_json)
+        for name, info in (("photo", photo), ("signature", signature), ("repeating signature", nested_signature)):
+            allowed(f"original Department reads submitted {name}", info, old_supervisor)
+            denied(f"other Department cannot read submitted {name}", info, new_supervisor)
+
+        update_user(owner.id, UserUpdateRequest(department_id=2, confirmed=True), global_supervisor, session)
+        for name, info in (("photo", photo), ("signature", signature), ("repeating signature", nested_signature)):
+            denied(f"Worker transfer never grants new Department old {name}", info, new_supervisor)
+            allowed(f"original Department keeps old {name} after transfer", info, old_supervisor)
+            allowed(f"transferred owner keeps their {name}", info, owner)
+            allowed(f"global Supervisor keeps access to {name}", info, global_supervisor)
+        assert_equal("transfer leaves Report evidence and owning Department unchanged", (
+            record.department_id, record.photo_urls, record.answers_json, record.definition_snapshot_json,
+        ), captured)
+
+        # Editing the published Template cannot reinterpret the frozen signature fields.
+        old_form.fields_json = "[]"
+        session.add(old_form)
+        record.deleted_at = datetime.now(timezone.utc)
+        session.add(record)
+        session.commit()
+        allowed("trash keeps original Department signature access from frozen Definition", nested_signature, old_supervisor)
+        denied("trash does not grant new Department signature access", nested_signature, new_supervisor)
+
+        # URL text is valid ordinary content, never authority to read someone else's evidence.
+        create_work_form_submission(WorkFormSubmissionCreate(
+            form_id=new_form.id, work_date="2026-10-12",
+            answers={"note": upload_url(photo.filename), "crews": [{"crew_note": upload_url(signature.filename)}]},
+        ), other_worker, session)
+        for name, info in (("text answer", photo), ("nested text answer", signature)):
+            denied(f"foreign URL in {name} cannot authorize Worker", info, other_worker)
+            denied(f"foreign URL in {name} cannot authorize Department Supervisor", info, new_supervisor)
+
+        daywork_form = WorkForm(department_id=2, name="Retained evidence edit", template_purpose="daywork", fields_json=json.dumps(fields))
+        session.add(daywork_form)
+        session.commit()
+        plain_answers = {"note": upload_url(photo.filename), "crews": [{"crew_note": upload_url(signature.filename)}]}
+        text_only = create_supervisor_work_form_submission(SupervisorWorkFormSubmissionCreate(
+            user_id=other_worker.id, form_id=daywork_form.id, answers=plain_answers, confirmed=True,
+        ), new_supervisor, session)
+        for name, edit in (
+            ("photo", {"photo_urls": [upload_url(photo.filename)]}),
+            ("direct signature", {"answers": {**plain_answers, "signature": upload_url(photo.filename)}}),
+            ("repeating signature", {"answers": {"crews": [{"crew_signature": upload_url(signature.filename)}]}}),
+        ):
+            try:
+                update_supervisor_form_submission(text_only["id"], SupervisorWorkFormSubmissionUpdate(
+                    confirmed=True, **edit,
+                ), new_supervisor, session)
+            except HTTPException as error:
+                assert_equal(f"retained edit cannot launder ordinary URL text into {name}", error.status_code, 400)
+                session.rollback()
+            else:
+                raise AssertionError(f"retained edit laundered ordinary URL text into {name}")
+            unchanged = session.get(WorkFormSubmission, text_only["id"])
+            assert_equal(f"rejected {name} edit preserves answers", json.loads(unchanged.answers_json), text_only["answers"])
+            assert_equal(f"rejected {name} edit attaches no photos", unchanged.photo_urls, None)
+        denied("rejected retained edits never grant foreign photo access", photo, new_supervisor)
+        denied("rejected retained edits never grant foreign signature access", signature, new_supervisor)
+
+        genuine = upload_storage.store_verified_raster(raster_bytes("PNG"), other_worker.id)
+        genuine_url = upload_url(genuine.filename)
+        attached = create_work_form_submission(WorkFormSubmissionCreate(
+            form_id=daywork_form.id, photo_urls=[genuine_url], answers={"signature": genuine_url},
+        ), other_worker, session)
+        revised = update_supervisor_form_submission(attached["id"], SupervisorWorkFormSubmissionUpdate(
+            confirmed=True, photo_urls=[genuine_url], answers={"note": "Retained correction", "signature": genuine_url},
+        ), new_supervisor, session)
+        assert_equal("retained Supervisor correction keeps true Worker-owned photo", revised["photo_urls"], [genuine_url])
+        assert_equal("retained Supervisor correction keeps true frozen signature", revised["answers"]["signature"], genuine_url)
+
+        denied("unsubmitted Worker upload is private from current Department Supervisor", orphan, new_supervisor)
+        denied("unsubmitted Worker upload is private from former Department Supervisor", orphan, old_supervisor)
+        allowed("unsubmitted upload remains available to owner", orphan, owner)
+        allowed("global Supervisor retains explicit orphan access", orphan, global_supervisor)
+        supervisor_draft = upload_storage.store_verified_raster(raster_bytes("PNG"), new_supervisor.id)
+        allowed("Supervisor can read their own unsubmitted upload", supervisor_draft, new_supervisor)
+
+        # An intentionally shared original can belong to real records in both Departments.
+        create_work_form_submission(WorkFormSubmissionCreate(
+            form_id=new_form.id, work_date="2026-10-12", photo_urls=[upload_url(photo.filename)],
+            answers={"signature": upload_url(signature.filename)},
+        ), owner, session)
+        for info in (photo, signature):
+            allowed("new Department gains access only after its own real attachment", info, new_supervisor)
+            allowed("shared evidence remains available to original Department", info, old_supervisor)
+
+        legacy = upload_storage.UploadInfo(filename="legacy-signature.png", content_type="image/png", size=len(raster_bytes("PNG")))
+        upload_storage.upload_adapter().put(legacy, raster_bytes("PNG"))
+        legacy_form = WorkForm(department_id=1, name="Legacy Daywork", template_purpose="daywork", fields_json=json.dumps(fields))
+        session.add(legacy_form)
+        session.commit()
+        legacy_record = WorkFormSubmission(
+            department_id=1, form_id=legacy_form.id, worker_id=owner.id, submission_purpose="daywork",
+            answers_json=json.dumps({"signature": upload_url(legacy.filename)}),
+        )
+        session.add(legacy_record)
+        session.commit()
+        denied("missing frozen Definition cannot authorize a signature from mutable Template", legacy, old_supervisor)
+        for malformed in ("{", "[]", '{"fields":[null]}', '{"fields":[{"id":"signature"}]}'):
+            legacy_record.definition_snapshot_json = malformed
+            session.add(legacy_record)
+            session.commit()
+            denied("malformed or untyped frozen Definition cannot authorize signature", legacy, old_supervisor)
+        legacy_record.definition_snapshot_json = json.dumps({"schema_version": 1, "version": 1, "fields": fields})
+        session.add(legacy_record)
+        session.commit()
+        allowed("legacy typed signature with no owner metadata remains Department accessible", legacy, old_supervisor)
+        allowed("legacy typed signature remains accessible to its record Worker", legacy, owner)
+        denied("legacy signature remains hidden across Departments", legacy, new_supervisor)
+        unknown_department = SimpleNamespace(id=999, role="supervisor", department_id=None, is_global_admin=False)
+        denied("Supervisor without Department cannot obtain unscoped evidence", legacy, unknown_department)
+        legacy_record.answers_json = json.dumps({"crews": 12})
+        session.add(legacy_record)
+        session.commit()
+        denied("malformed repeating answers fail closed without an upload error", legacy, old_supervisor)
+        legacy_record.answers_json = json.dumps({"signature": upload_url(legacy.filename), "crews": 12})
+        session.add(legacy_record)
+        session.commit()
+        allowed("malformed repeat does not hide valid frozen direct signature", legacy, old_supervisor)
+
+        for model, values in ((AttendanceRecord, {"record_type": "check_in"}), (TaskLog, {"description": "Retained task"})):
+            retained = upload_storage.store_verified_raster(raster_bytes("PNG"), owner.id)
+            session.add(model(department_id=1, worker_id=owner.id, photo_url=upload_url(retained.filename), **values))
+            session.commit()
+            allowed(f"retained {model.__name__} follows record Department", retained, old_supervisor)
+            denied(f"retained {model.__name__} ignores uploader's new Department", retained, new_supervisor)
+
+        # Cleanup remains conservative even where an ambiguous old signature grants no read access.
+        legacy_record.definition_snapshot_json = None
+        session.add(legacy_record)
+        session.commit()
+        cleanup = upload_storage.cleanup_unreferenced_uploads([upload_url(legacy.filename)], session)
+        assert_equal("ambiguous old signature is retained by cleanup", cleanup.retained, (legacy.filename,))
+    finally:
+        session.close()
+        engine.dispose()
+        (upload_storage.PRODUCTION_LIKE, upload_storage.UPLOAD_STORAGE_BACKEND,
+         upload_storage.UPLOAD_BUCKET, upload_storage.UPLOAD_DIR) = original_configuration
+
+
 def main():
     original_backend = upload_storage.UPLOAD_STORAGE_BACKEND
     original_bucket = upload_storage.UPLOAD_BUCKET
@@ -528,7 +730,8 @@ def main():
     original_production_like = upload_storage.PRODUCTION_LIKE
 
     try:
-        with TemporaryDirectory() as local_dir, TemporaryDirectory() as lifecycle_dir:
+        with TemporaryDirectory() as local_dir, TemporaryDirectory() as lifecycle_dir, TemporaryDirectory() as authorization_dir:
+            test_department_scoped_evidence_authorization(authorization_dir)
             test_verified_local_adapter(local_dir)
             test_configuration_and_gcs_contract()
             test_authorization_streaming_and_cleanup(lifecycle_dir)

@@ -19,7 +19,7 @@ from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, 
 from sqlmodel import Session, select
 
 from app.models import AttendanceRecord, TaskLog, TeamWorkLog, TeamWorkLogEntry, User, WorkForm, WorkFormSubmission
-from app.upload_storage import cleanup_detached_record_uploads, record_upload_urls
+from app.upload_storage import cleanup_detached_record_uploads, record_evidence_upload_urls, record_upload_urls
 from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
     attendance_record_response,
@@ -1541,6 +1541,87 @@ def export_pdf_document(title: str, subtitle: str, body_flowables: list, filenam
     )
 
 
+def _form_export_image_values(item, *, daywork_layout=False):
+    """Mirror image-bearing fields only; ordinary answer URLs remain text."""
+    fields = item.get("fields") or []
+    answers = item.get("answers") or {}
+    photos = item.get("photo_urls") or []
+    if not isinstance(fields, list) or not isinstance(answers, dict) or not isinstance(photos, list):
+        raise ValueError("Invalid saved evidence structure")
+    if any(not isinstance(field, dict) or not isinstance(field.get("id"), str)
+           or (field.get("repeat") is not None and not isinstance(field["repeat"], str))
+           for field in fields):
+        raise ValueError("Invalid saved evidence fields")
+    image_answers = dict(answers)
+    for field in fields:
+        repeat_id = field.get("repeat")
+        if field.get("type") == "signature" and repeat_id and not isinstance(answers.get(repeat_id), list):
+            image_answers.pop(repeat_id, None)
+    values = work_form_upload_references({"fields": fields}, image_answers, photos)
+    if daywork_layout:
+        # Retained Daywork has a fieldless signature-name fallback. It must not
+        # bypass the same evidence provenance check as explicitly typed fields.
+        _, signatures = daywork_answer_entries(item)
+        values.extend(signature.get("src") for signature in signatures)
+    return [value for value in values if value]
+
+
+def _stored_inline_form_images(record):
+    """Retain exact historical inline raster evidence without inventing fields."""
+    def stored_json(value, fallback):
+        try:
+            return json.loads(value) if value else fallback
+        except (ValueError, TypeError):
+            return fallback
+
+    photos = stored_json(record.photo_urls, [])
+    photos = photos if isinstance(photos, list) else []
+    values = list(photos)
+    snapshot = stored_json(record.definition_snapshot_json, {})
+    if isinstance(snapshot, dict):
+        try:
+            values.extend(_form_export_image_values({
+                "fields": snapshot.get("fields"),
+                "answers": stored_json(record.answers_json, {}),
+            }))
+        except (ValueError, TypeError, AttributeError):
+            pass  # Ambiguous historical signature values grant no authority.
+    return {value for value in values if isinstance(value, str)
+            and re.match(r"^data:image/(?:png|jpeg|webp);base64,", value)}
+
+
+def _validate_form_export_evidence(items, session, supervisor, *, daywork_layout=False):
+    """Refuse unverified image embedding before any bytes are loaded/rendered.
+
+    Record scope plus exact stored photo/frozen-signature attachment is the same
+    authority used by private media reads. Owner/global direct-read privileges
+    do not let an export reinterpret ordinary text as this record's evidence.
+    Missing objects keep the renderer's existing unavailable-image behavior.
+    """
+    from app.upload_storage import upload_filename_from_url
+
+    for item in items:
+        record = session.get(WorkFormSubmission, item["id"])
+        if not record or record.deleted_at is not None or not can_access_department(supervisor, record.department_id):
+            raise HTTPException(status_code=404, detail="Report not found", headers={"Cache-Control": "private, no-store"})
+        try:
+            values = _form_export_image_values(item, daywork_layout=daywork_layout)
+            trusted_uploads = record_evidence_upload_urls(record)
+            inline_images = _stored_inline_form_images(record)
+            for value in values:
+                if isinstance(value, str) and value in inline_images:
+                    continue
+                filename = upload_filename_from_url(value)
+                if not filename or value != f"/uploads/{filename}" or value not in trusted_uploads:
+                    raise ValueError("Unverified saved evidence")
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(
+                status_code=409,
+                detail="Export unavailable: saved image evidence could not be verified from this record's frozen Definition. Original answers and files are unchanged.",
+                headers={"Cache-Control": "private, no-store"},
+            ) from None
+
+
 def form_submission_export_items(
     session: Session,
     supervisor: User,
@@ -1595,7 +1676,8 @@ def form_submission_pdf_items(
         department_id, workflow_status, worker_id, purpose, search,
     )
     if template == "daywork":
-        return [item for item in items if is_daywork_submission(item)]
+        items = [item for item in items if is_daywork_submission(item)]
+    _validate_form_export_evidence(items, session, supervisor, daywork_layout=template == "daywork")
     return items
 
 
@@ -1617,6 +1699,7 @@ def export_form_submissions_html(
         session, supervisor, status, date_from, date_to, form_id,
         department_id, workflow_status, worker_id, normalized_purpose, search,
     )
+    _validate_form_export_evidence(items, session, supervisor)
     pages = [render_form_submission_page(item) for item in items]
 
     is_daywork_export = normalized_purpose == "daywork"
@@ -1715,6 +1798,7 @@ def export_form_submission_html(submission_id: int, session: Session, supervisor
         raise HTTPException(status_code=404, detail="Report not found")
 
     item = review_record_response("form", record, session)
+    _validate_form_export_evidence([item], session, supervisor)
     is_daywork = is_daywork_submission(item)
     filename_prefix = "daywork-submission" if is_daywork else "report"
     subtitle_prefix = "Daywork submission" if is_daywork else "Report"
@@ -1747,6 +1831,8 @@ def export_form_submission_pdf(
         raise HTTPException(status_code=400, detail="Submission is not a Daywork form")
     if is_daywork:
         template = "daywork"
+
+    _validate_form_export_evidence([item], session, supervisor, daywork_layout=template == "daywork")
 
     filename_prefix = "daywork-submission" if is_daywork else "report"
     if template == "daywork":
@@ -2348,6 +2434,7 @@ def update_supervisor_form_submission(submission_id: int, data, supervisor: User
 
     definition = work_form_submission_definition(submission, session)
     previous_upload_urls = record_upload_urls(submission)
+    previously_attached_evidence = record_evidence_upload_urls(submission)
     enforce_review_status_unchanged(submission, data.status, fields)
     before = model_snapshot(submission)
     if "site_id" in fields:
@@ -2366,7 +2453,7 @@ def update_supervisor_form_submission(submission_id: int, data, supervisor: User
             work_form_upload_references(definition, answers),
             supervisor,
             session,
-            already_attached=previous_upload_urls,
+            already_attached=previously_attached_evidence,
         )
         submission.answers_json = json.dumps(answers)
     if "photo_urls" in fields and data.photo_urls is not None:
@@ -2375,7 +2462,7 @@ def update_supervisor_form_submission(submission_id: int, data, supervisor: User
             photo_urls,
             supervisor,
             session,
-            already_attached=previous_upload_urls,
+            already_attached=previously_attached_evidence,
         )
         submission.photo_urls = json.dumps(photo_urls) if photo_urls else None
     session.add(submission)

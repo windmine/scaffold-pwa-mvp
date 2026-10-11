@@ -1,0 +1,49 @@
+{
+  "family": "ReportFlow Chinese",
+  "license": "SIL Open Font License 1.1",
+  "licenseFile": "LICENSE.txt",
+  "licenseSha256": "70d45ca6e59e052c4d4ddc7efe094493e13d1baf1a3b93e88bf03e683e1d1c80",
+  "copyright": "Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.",
+  "upstream": {
+    "family": "Noto Sans CJK SC",
+    "version": "2.004",
+    "repository": "https://github.com/notofonts/noto-cjk",
+    "release": "Sans2.004",
+    "commit": "523d033d6cb47f4a80c58a35753646f5c3608a78",
+    "sourceUrl": "https://raw.githubusercontent.com/notofonts/noto-cjk/523d033d6cb47f4a80c58a35753646f5c3608a78/Sans/Variable/TTF/NotoSansCJKsc-VF.ttf",
+    "sourceBytes": 36144788,
+    "sourceSha256": "990c807e79c25662a5a9ecf7f971baeb2bf2eab9a559e5ecf15cdfdb8561d21f",
+    "sourceGitBlob": "e67840913223f5c5db60570ce5bf001b0e079d42",
+    "licenseUrl": "https://raw.githubusercontent.com/notofonts/noto-cjk/523d033d6cb47f4a80c58a35753646f5c3608a78/LICENSE"
+  },
+  "derivation": {
+    "tool": "fonttools==4.60.1",
+    "script": "rebuild.py",
+    "command": "python backend/app/assets/report-fonts/rebuild.py --source /path/to/NotoSansCJKsc-VF.ttf",
+    "steps": [
+      "Verify the complete source SHA-256 before reading the font.",
+      "Keep upstream Unicode mappings in the ranges declared in rebuild.py; remove unneeded Korean syllables and unencoded layout alternates.",
+      "Instantiate weight 400 and weight 700 as static TrueType outlines; no variable-font runtime support is needed.",
+      "Rename both derivative fonts to ReportFlow Chinese; preserve copyright and license metadata.",
+      "Preserve source timestamps for reproducible output."
+    ],
+    "supportedUnicodeMappings": 32482,
+    "supplementaryHanMappings": 2365,
+    "coverageNote": "Simplified and Traditional Chinese characters available in the upstream 2.004 font, with SC glyph styling, Latin, punctuation and symbols. Not a promise to cover every Unicode character, every rare Han extension, or arbitrary emoji.",
+    "runtimeNote": "ReportLab embeds per-document subsets. No runtime font download, host-installed font, or fonttools dependency."
+  },
+  "files": [
+    {
+      "name": "ReportFlowChinese-Regular.ttf",
+      "weight": 400,
+      "bytes": 11035716,
+      "sha256": "8156ec3a284def41e7fa01d376ebae45c781ed435fd329c89e1a14ec43234133"
+    },
+    {
+      "name": "ReportFlowChinese-Bold.ttf",
+      "weight": 700,
+      "bytes": 11020800,
+      "sha256": "87e0941bbd917ed1a3a93f21cd4869e07224fd53052923f581b0d20e55825dc4"
+    }
+  ]
+}

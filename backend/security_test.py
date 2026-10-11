@@ -528,6 +528,12 @@ def test_guarded_login_rejects_credentials_before_authentication():
 
 
 def main():
+    # Exercise actual Report creation, Staff transfers and the media route in
+    # the security gate as well as the storage adapter suite.
+    from upload_storage_test import test_department_scoped_evidence_authorization
+
+    with TemporaryDirectory(prefix="security-evidence-scope-") as evidence_directory:
+        test_department_scoped_evidence_authorization(evidence_directory)
     test_guarded_login_rejects_credentials_before_authentication()
     test_cookie_confirmation_distinguishes_csrf_from_invalid_authentication()
     test_invitation_rate_limits_and_private_error_responses()

@@ -242,6 +242,112 @@ def check_worker_invitation_onboarding(supervisor_token):
     ), 200)
 
 
+def check_department_evidence_scope(
+    admin_token, source_supervisor_token, destination_supervisor_token,
+    source_department_id, destination_department_id,
+):
+    """Exercise authenticated media reads after a real Staff Department move."""
+    stamp = str(datetime.now(timezone.utc).timestamp()).replace(".", "-")
+    worker = assert_status("create owned evidence-transfer Worker", request(
+        "POST", "/supervisor/users",
+        {"name": "Evidence transfer Worker", "email": f"evidence-transfer-{stamp}@example.com",
+         "password": "TransferSmokePass!", "role": "worker", "department_id": source_department_id},
+        admin_token,
+    ), 200)
+    worker_token = assert_status("evidence-transfer Worker signs in", request(
+        "POST", "/auth/login", {"email": worker["email"], "password": "TransferSmokePass!"},
+    ), 200)["access_token"]
+    template = assert_status("create owned evidence-transfer Report Template", request(
+        "POST", "/supervisor/work-forms",
+        {"name": f"Evidence transfer {stamp}", "template_purpose": "report", "fields": [
+            {"id": "note", "label": "Note", "type": "text"},
+            {"id": "signature", "label": "Worker signature", "type": "signature", "required": True},
+        ]}, source_supervisor_token,
+    ), 200)
+    photo_url = upload_test_image("upload transfer Report photo", worker_token, "transfer-photo.png")
+    signature_url = upload_test_image("upload transfer Report signature", worker_token, "transfer-signature.png")
+
+    def read_evidence(label, url, token, expected_status, expected_content=None):
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        try:
+            response = urlopen(Request(f"{app_origin()}{url}", headers=headers), timeout=10)
+        except HTTPError as error:
+            response = error
+        with response:
+            status, content = response.code, response.read()
+            cache_control = response.headers.get("Cache-Control", "").lower()
+            if status != expected_status:
+                raise AssertionError(f"{label}: expected {expected_status}, got {status}")
+            if "private" not in cache_control or (status != 200 and "no-store" not in cache_control):
+                raise AssertionError(f"{label}: missing private media cache policy")
+            if status == 200 and "image/png" not in response.headers.get("Content-Type", ""):
+                raise AssertionError(f"{label}: expected an image response")
+            if expected_content is not None and content != expected_content:
+                raise AssertionError(f"{label}: original evidence bytes changed")
+        print(f"ok - {label}")
+        return content
+
+    originals = {}
+    for kind, url in (("photo", photo_url), ("signature", signature_url)):
+        originals[kind] = read_evidence(f"owner reads unsubmitted {kind}", url, worker_token, 200)
+        read_evidence(f"Department Supervisor cannot read unsubmitted {kind}", url, source_supervisor_token, 404)
+        read_evidence(f"global admin reads unsubmitted {kind}", url, admin_token, 200, originals[kind])
+
+    report = assert_status("submit owned evidence-transfer Report", request(
+        "POST", "/form-submissions",
+        {"form_id": template["id"], "work_date": datetime.now(timezone.utc).date().isoformat(),
+         "answers": {"note": "Original Department", "signature": signature_url},
+         "photo_urls": [photo_url], "client_submission_id": f"transfer-{stamp}"}, worker_token,
+    ), 200)
+    for kind, url in (("photo", photo_url), ("signature", signature_url)):
+        read_evidence(f"original Department reads submitted {kind}", url, source_supervisor_token, 200, originals[kind])
+        read_evidence(f"other Department cannot read submitted {kind}", url, destination_supervisor_token, 404)
+
+    assert_status("global admin moves evidence owner to another Department", request(
+        "PATCH", f"/supervisor/users/{worker['id']}",
+        {"department_id": destination_department_id, "confirmed": True}, admin_token,
+    ), 200)
+    for kind, url in (("photo", photo_url), ("signature", signature_url)):
+        read_evidence(f"new Department cannot read historical {kind}", url, destination_supervisor_token, 404)
+        read_evidence(f"original Department retains historical {kind}", url, source_supervisor_token, 200, originals[kind])
+        read_evidence(f"transferred owner retains historical {kind}", url, worker_token, 200, originals[kind])
+        read_evidence(f"global admin retains historical {kind}", url, admin_token, 200, originals[kind])
+        read_evidence(f"anonymous historical {kind} stays denied", url, None, 401)
+
+    source_reports = assert_status("original Department retains transferred Worker's Report", request(
+        "GET", "/supervisor/form-submissions?purpose=report", token=source_supervisor_token,
+    ), 200)
+    original = next(item for item in source_reports if item["id"] == report["id"])
+    for key in ("department_id", "worker_id", "form_id", "work_date", "answers", "photo_urls",
+                "fields", "form_name", "definition_version", "definition_schema_version",
+                "submission_purpose", "workflow_status"):
+        if original[key] != report[key]:
+            raise AssertionError(f"Department transfer changed immutable Report {key}")
+    destination_reports = assert_status("new Department lists its own Reports only", request(
+        "GET", "/supervisor/form-submissions?purpose=report", token=destination_supervisor_token,
+    ), 200)
+    if any(item["id"] == report["id"] for item in destination_reports):
+        raise AssertionError("Department transfer exposed the original Report")
+    print("ok - Department transfer preserves Report scope, content and workflow")
+
+    text_template = assert_status("create ordinary-text Report in new Department", request(
+        "POST", "/supervisor/work-forms",
+        {"name": f"Text-only references {stamp}", "template_purpose": "report", "fields": [
+            {"id": "photo_link", "label": "Photo link text", "type": "text"},
+            {"id": "signature_link", "label": "Signature link text", "type": "text"},
+        ]}, destination_supervisor_token,
+    ), 200)
+    assert_status("ordinary answer text can contain historical image links", request(
+        "POST", "/form-submissions",
+        {"form_id": text_template["id"], "work_date": datetime.now(timezone.utc).date().isoformat(),
+         "answers": {"photo_link": photo_url, "signature_link": signature_url},
+         "client_submission_id": f"text-only-{stamp}"}, worker_token,
+    ), 200)
+    for kind, url in (("photo", photo_url), ("signature", signature_url)):
+        read_evidence(f"ordinary text never grants new Department historical {kind}",
+                      url, destination_supervisor_token, 404)
+
+
 def main():
     try:
         assert_status("health", request("GET", "/health"), 200)
@@ -2882,6 +2988,11 @@ def main():
             raise AssertionError("filter supervisor audit events by work form: expected events")
         if any(event["entity_type"] != "work_form" for event in work_form_audit_events):
             raise AssertionError("filter supervisor audit events by work form: expected only work_form events")
+
+        check_department_evidence_scope(
+            admin_token, supervisor_token, mutual_supervisor_token,
+            leader_department["id"], mutual_department["id"],
+        )
 
     except URLError as error:
         print(f"Could not reach {BASE_URL}: {error}", file=sys.stderr)

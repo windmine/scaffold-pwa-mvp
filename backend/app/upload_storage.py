@@ -513,7 +513,49 @@ def validate_submission_upload_references(
     return tuple(validated)
 
 
-def _upload_is_referenced(filename: str, session: Session, worker_id: Optional[int] = None, department_id: Optional[int] = None):
+def _authorized_record_upload_filenames(record):
+    if not isinstance(record, WorkFormSubmission):
+        return _upload_filenames_in(record_upload_urls(record))
+
+    filenames = _upload_filenames_in(_json_value(record.photo_urls, []))
+    snapshot = _json_value(record.definition_snapshot_json, {})
+    answers = _json_value(record.answers_json, {})
+    # Only frozen, explicitly typed signature fields establish read authority.
+    # Missing/malformed legacy snapshots cannot use a mutable Template to turn
+    # ordinary answer text into evidence; owner/global access still applies.
+    fields = snapshot.get("fields") if isinstance(snapshot, dict) else None
+    if not isinstance(answers, dict) or not isinstance(fields, list) or any(
+        not isinstance(field, dict)
+        or not isinstance(field.get("id"), str)
+        or (field.get("repeat") is not None and not isinstance(field["repeat"], str))
+        for field in fields
+    ):
+        return filenames
+    # Local import avoids the shared submission validator's storage import cycle.
+    from app.use_cases.common import work_form_upload_references
+
+    signature_answers = dict(answers)
+    for field in fields:
+        repeat_id = field.get("repeat")
+        if field.get("type") == "signature" and repeat_id and not isinstance(answers.get(repeat_id), list):
+            signature_answers.pop(repeat_id, None)
+    for value in work_form_upload_references(snapshot, signature_answers):
+        if isinstance(value, str):
+            filenames.update(_upload_filenames_in(value))
+    return filenames
+
+
+def record_evidence_upload_urls(record):
+    """References that grant access or permit retaining already attached evidence.
+
+    Unlike record_upload_urls, this excludes ordinary answer text and ambiguous
+    legacy signatures. Cleanup must keep using the conservative URL collector.
+    """
+    return {f"/uploads/{filename}" for filename in _authorized_record_upload_filenames(record)}
+
+
+def _upload_is_referenced(filename: str, session: Session, worker_id: Optional[int] = None,
+                          department_id: Optional[int] = None, *, evidence_only: bool = False):
     attendance_statement = select(AttendanceRecord)
     task_statement = select(TaskLog)
     form_statement = select(WorkFormSubmission)
@@ -526,36 +568,35 @@ def _upload_is_referenced(filename: str, session: Session, worker_id: Optional[i
         task_statement = task_statement.where(TaskLog.department_id == department_id)
         form_statement = form_statement.where(WorkFormSubmission.department_id == department_id)
 
-    for record in session.exec(attendance_statement).all():
-        if filename in _upload_filenames_in(record.photo_url):
-            return True
-    for record in session.exec(task_statement).all():
-        if filename in {
-            *tuple(_upload_filenames_in(record.photo_url)),
-            *tuple(_upload_filenames_in(_json_value(record.photo_urls, []))),
-        }:
-            return True
-    for record in session.exec(form_statement).all():
-        if filename in {
-            *tuple(_upload_filenames_in(_json_value(record.photo_urls, []))),
-            *tuple(_upload_filenames_in(_json_value(record.answers_json, {}))),
-        }:
-            return True
+    for statement in (attendance_statement, task_statement, form_statement):
+        rows = session.exec(statement.execution_options(yield_per=100))
+        try:
+            for record in rows:
+                # Cleanup deliberately retains all stored references, including
+                # ambiguous legacy answers that cannot grant read permission.
+                filenames = (_authorized_record_upload_filenames(record) if evidence_only
+                             else _upload_filenames_in(record_upload_urls(record)))
+                if filename in filenames:
+                    return True
+        finally:
+            rows.close()
     return False
 
 
 def can_access_upload(filename: str, info: UploadInfo, user: User, session: Session):
     if user_is_global_admin(user):
         return True
-    if user.role == "supervisor":
-        if info.uploaded_by:
-            uploader = session.get(User, info.uploaded_by)
-            if uploader and uploader.department_id == user.department_id:
-                return True
-        return _upload_is_referenced(filename, session, department_id=user.department_id)
-    if info.uploaded_by == user.id:
+    if info.uploaded_by is not None and info.uploaded_by == user.id:
         return True
-    return _upload_is_referenced(filename, session, worker_id=user.id)
+    if user.role == "supervisor":
+        # A staff transfer changes the uploader's current Department, never the
+        # owning record's scope. Unattached uploads stay owner/global-only.
+        return user.department_id is not None and _upload_is_referenced(
+            filename, session, department_id=user.department_id, evidence_only=True,
+        )
+    return user.id is not None and _upload_is_referenced(
+        filename, session, worker_id=user.id, evidence_only=True,
+    )
 
 
 def open_authorized_upload(filename: str, user: User, session: Session):

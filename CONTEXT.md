@@ -190,6 +190,7 @@ _Avoid_: Looking up the mutable current form to interpret history
 
 **Upload Storage**:
 The module boundary shared by local disk and Cloud Storage adapters. It owns raster verification and re-encoding, adapter readiness, authorized streaming, and cleanup after references are detached or permanently deleted.
+Local 2026-10-12 authorization fix (not deployed): upload creators and global admins may read their uploads; other Supervisors require a real evidence attachment in their Department. The record's Department is authoritative after a Worker transfer. A Work Form answer grants evidence access only when its frozen Definition declares a signature field (including repeating signatures); ordinary text URLs and mutable Template changes cannot grant access. Missing/malformed historical signature snapshots fail closed for non-owners while conservative cleanup retains their files. Retained edits use this same evidence set for existing attachments, and HTML/PDF exports refuse unverified image interpretations with 409 instead of embedding a foreign original. Ordinary answers, CSV and stored content remain unchanged. Unsubmitted uploads are owner/global-admin-only. Record purpose and workflow remain unchanged.
 _Avoid_: Treating `/uploads/...` as a public static directory
 
 **Read-only Review state**:

@@ -29,6 +29,16 @@ Documentation map:
 - [Payroll admin portal plan](docs/payroll-admin-portal-plan.md): planned Payroll scope; it is separate from implemented Management Analytics.
 - [AGENTS.md](AGENTS.md): repository direction and working rules for coding agents.
 
+## Local Evidence Access and Chinese PDF Fixes - 2026-10-12 (not deployed)
+
+Submitted photos and handwritten signatures authorize Department Supervisors through the owning record's Department, not the uploader's current Department. Moving a Worker cannot expose historical evidence to the new Department. Upload creators and global admins retain access; unsubmitted uploads are otherwise private. A URL pasted into an ordinary answer does not grant image access. Signature references must be declared in the submitted, frozen Definition, including repeating fields; a missing or malformed historical snapshot cannot grant non-owner signature access through the current Template. Cleanup still conservatively preserves those historical files.
+
+The same evidence distinction applies to retained Daywork edits and single/collection HTML/PDF exports. Edits cannot turn an ordinary pasted URL into an existing attachment. Exports refuse with a clear 409 when a mutable Template or legacy signature-name heuristic would embed an image that is not verified evidence of that record. Ordinary answer text and CSV content remain available, and no stored answers or evidence are rewritten.
+
+Report PDFs bundle licensed Chinese fonts for Simplified/Traditional Chinese and mixed English content. Names, Template titles, field labels, answers and final notes remain readable without server-installed fonts or runtime downloads. English-only content keeps its existing typography. Font provenance and redistribution terms ship with the backend assets.
+
+Regression commands: `python backend/upload_storage_test.py`, `python backend/security_test.py`, and `npm run check:review-queue` (including export evidence and all PDF checks). The disposable-server `backend/smoke_test.py` also verifies authenticated photo/signature access before and after a Staff Department transfer, immutable Report content, and the ordinary-text-link denial. PDF verification includes text preservation, embedded fonts, long mixed-language content and rendered-page inspection. These backend changes require a separately verified release; no migration, submitted-content rewrite or deployment is included. October 5 remains live.
+
 ## Local Simpler Staff and Template Choices - 2026-10-08 (not deployed)
 
 Report-only Staff no longer asks Supervisors to choose **Normal worker / Leader**. Both appear as **Worker**; existing classes and retained permissions are preserved. New invitations use the existing Normal default. Editing a Worker does not send or reset their class. Role, Department and global-admin controls keep their existing safeguards, and the retained full interface still exposes class management. The Worker header no longer shows a redundant Leader-class badge; the Leader Department name and Super admin badge remain.

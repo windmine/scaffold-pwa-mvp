@@ -1,0 +1,4 @@
+*.ttf binary
+LICENSE.txt text eol=lf
+provenance.json text eol=lf
+rebuild.py text eol=lf

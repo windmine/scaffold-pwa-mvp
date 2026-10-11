@@ -4,6 +4,16 @@ Use this runbook for managed PostgreSQL migrations, Cloud Run releases, durable 
 
 ## Deployment Truth
 
+### Local 2026-10-12 evidence authorization and Chinese PDF fixes (not deployed)
+
+The local backend ties Department media access to actual record evidence and the record's Department, preventing a Staff transfer from exposing historical photos/signatures. Upload creators/global admins retain access; other Supervisors cannot inspect unsubmitted uploads. Ordinary answer text cannot grant image access, and signature permissions use the frozen Definition rather than the current Template. Legacy signatures without a trustworthy snapshot remain owner/global-only; conservative cleanup preserves their bytes. No database migration or content backfill is included.
+
+Retained Daywork edits cannot promote an ordinary answer URL to an existing attachment. Single/collection HTML/PDF exports preflight the images they would embed against each record's saved photos and frozen typed signatures. Unverified interpretations return a generic 409, including for global admins, without rewriting immutable records; ordinary text and CSV remain unchanged. A historical record with a missing/malformed Definition can therefore need investigation before an image-bearing export is available. Do not repair this by guessing historical field types or changing submitted content.
+
+The local Report PDF renderer includes redistributable embedded Chinese font assets and their license/provenance. Include the complete backend assets directory in the deployment artifact; no runtime font download or host-font installation is required. Verify single/collection exports with Simplified/Traditional Chinese names, answers, final notes, mixed text, long wrapped fields, signatures and photos. Keep the existing English layout/branding/volume gates.
+
+Before promoting this backend, run upload/security and disposable-server smoke checks, Report purpose/workflow/export/PDF suites, and the ordinary candidate/readiness/compatibility release checks. The October 5 serving identity below remains current; passing local tests is not a production deployment. No live fixtures were created by this fix.
+
 ### Current 2026-10-05 release - Report recovery and review improvements
 
 Committed/pushed application source `c024fa61f05880e13357eb253b67f00b571254d2` is deployed as backend `geo-backend-october-20261005`. Promotion was requested at **2026-10-04T22:27:39Z**, then verified at **100% traffic with no tags**. Build `8e582ff0-b88a-49a8-a09e-6d53b694383e` produced immutable image `australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:7fcefe3787cf173fe998a420f76a3393ebb8a07577617d68cb88376e9dde8224`. The compatible backend preceded exact Hosting `ba2962f66af41dcb`, cloned from `release-20261005` at **2026-10-04T22:39:52.855Z**. Production cache: `leader-field-7a709da8321a`; source cache: `leader-field-cd739c204f2c`. Compact galleries, Supervisor note protection, failed-upload recovery, Oldest waiting and early storage warnings are live.
