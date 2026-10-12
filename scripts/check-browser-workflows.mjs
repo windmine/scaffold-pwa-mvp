@@ -5147,6 +5147,80 @@ async function checkTemplateDraftSurvivesReload(browser) {
   }
 }
 
+async function checkStaffCreationFocusOwnership(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const page = await context.newPage();
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    await openAdminWorkspace(page, 'people');
+    await page.waitForFunction(() => document.querySelector('#staffUsersCount').textContent !== '-'
+      && document.querySelector('#staffDepartmentSelect').options.length > 0);
+    await page.evaluate(() => {
+      const request = window.requestAnimationFrame.bind(window);
+      const cancel = window.cancelAnimationFrame.bind(window);
+      const pending = new Map();
+      let sequence = -1;
+      window.__holdCreateFocusFrames = false;
+      window.requestAnimationFrame = (callback) => {
+        if (!window.__holdCreateFocusFrames) return request(callback);
+        const id = sequence--;
+        pending.set(id, callback);
+        return id;
+      };
+      window.cancelAnimationFrame = (id) => pending.has(id) ? pending.delete(id) : cancel(id);
+      window.__flushCreateFocusFrames = () => {
+        window.__holdCreateFocusFrames = false;
+        const callbacks = [...pending.values()];
+        pending.clear();
+        callbacks.forEach((callback) => callback(performance.now()));
+        return callbacks.length;
+      };
+    });
+    const flush = () => page.evaluate(() => window.__flushCreateFocusFrames());
+    const hold = () => page.evaluate(() => { window.__holdCreateFocusFrames = true; });
+    const focusId = () => page.evaluate(() => document.activeElement?.id);
+    await hold();
+    await page.locator('#addStaffUserButton').click();
+    await page.locator('#staffNameInput').fill('Focus ownership Worker');
+    await page.locator('#staffEmailInput').focus();
+    await flush();
+    if (await focusId() !== 'staffEmailInput') throw new Error('Deferred Staff open focus stole the newer Email focus');
+    const email = `focus-ownership-${Date.now()}@example.com`;
+    await page.keyboard.insertText(email);
+    if (await page.locator('#staffNameInput').inputValue() !== 'Focus ownership Worker'
+      || await page.locator('#staffEmailInput').inputValue() !== email) {
+      throw new Error('Staff open focus redirected typed input to the wrong field');
+    }
+    await hold();
+    await page.locator('#cancelStaffUserCreateButton').click();
+    await page.locator('#staffSearchInput').focus();
+    await flush();
+    if (await focusId() !== 'staffSearchInput') throw new Error('Deferred Staff close focus stole the newer Search focus');
+    await hold();
+    await page.locator('#addStaffUserButton').click();
+    if (await focusId() !== 'staffNameInput') throw new Error('Opening Staff did not focus Name during the opening action');
+    await page.locator('#staffNameInput').fill('Focus validated Worker');
+    await page.locator('#staffEmailInput').fill(email);
+    await flush();
+    await page.locator('#staffUserSubmitButton').click();
+    await page.locator('#workerInvitationDialog[open]').waitFor();
+    if (!(await page.locator('#workerInvitationIdentity').textContent()).includes(email)) {
+      throw new Error('Focus-safe Staff submission did not create the intended invitation');
+    }
+    await page.locator('#closeWorkerInvitationButton').click();
+    await page.locator('#addStaffUserButton').waitFor({ state: 'visible' });
+    await hold();
+    await page.locator('#addStaffUserButton').click();
+    await page.locator('#cancelStaffUserCreateButton').click();
+    await page.locator('#addStaffUserButton').click();
+    await page.locator('#staffEmailInput').focus();
+    await flush();
+    if (await focusId() !== 'staffEmailInput') throw new Error('Closed Staff panel focus callbacks affected a reopened form');
+  } finally {
+    await context.close();
+  }
+}
+
 async function checkWorkerInvitationCreate(browser) {
   const context = await newContext(browser, { reportOnly: true });
   const page = await context.newPage();
@@ -8806,6 +8880,7 @@ async function main() {
     await runCheck('unfinished Report Template actions wait for post-publication refresh before editing', () => checkTemplateActionsWaitForPublicationRefresh(browser));
     await runCheck('unfinished Report Template stale versions stay read-only without overwriting newer work', () => checkStaleTemplateDraft(browser));
     await runCheck('unfinished Report Template cross-tab protection preserves newer edits and removed-draft recovery', () => checkTemplateDraftCrossTab(browser));
+    await runCheck('Staff creation focus preserves newer editing and closed panel choices', () => checkStaffCreationFocusOwnership(browser));
     await runCheck('Worker invitation replaces Supervisor-chosen passwords with a private setup link', () => checkWorkerInvitationCreate(browser));
     await runCheck('Worker invitation password setup confirms ownership without changing another signed-in session', () => checkWorkerInvitationPasswordSetup(browser));
     await runCheck('Worker invitation clean browser continues directly into Reports', () => checkWorkerInvitationCleanBrowserContinuation(browser));

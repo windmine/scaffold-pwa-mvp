@@ -321,10 +321,11 @@ export function createStaffSitesModule({
     button.setAttribute('aria-expanded', String(isOpen));
     button.disabled = isOpen;
 
+    // A deferred focus can redirect typing after the user chooses another field.
     if (isOpen) {
-      window.requestAnimationFrame(() => focusTarget?.focus());
+      focusTarget?.focus();
     } else if (restoreFocus && focusWasInside) {
-      window.requestAnimationFrame(() => button.focus());
+      button.focus();
     }
   }
 
@@ -893,7 +894,7 @@ export function createStaffSitesModule({
         && els.workFormCreatePanel.hidden
         && shouldRestoreCreateFocus(els.workFormCreatePanel)
       ) {
-        window.requestAnimationFrame(() => els.addWorkFormButton.focus());
+        els.addWorkFormButton.focus();
       }
     }
   }
@@ -1803,7 +1804,7 @@ export function createStaffSitesModule({
           && els.staffUserCreatePanel.hidden
           && shouldRestoreCreateFocus(els.staffUserCreatePanel)
         ) {
-          window.requestAnimationFrame(() => els.addStaffUserButton.focus());
+          els.addStaffUserButton.focus();
         }
       }
     }
