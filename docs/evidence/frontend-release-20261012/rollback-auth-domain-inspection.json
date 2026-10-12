@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "status": "inconclusive",
+  "checkedAtUtc": "2026-10-12T00:27:36.412118+00:00",
+  "projectId": "geo-attendance-system-db9ca",
+  "ownedDomain": "geo-attendance-system-db9ca--rollback-ui-20261012-6qgao7g2.web.app",
+  "scope": "Read-only inspection of the CLI rollback-channel Auth side effect and current provider accessibility. No Firebase Auth configuration, API enablement, accounts, or other remote resources were changed by this reviewer.",
+  "cliVersion": "15.33.0",
+  "cliBehavior": {
+    "cloneNewTargetCreatesChannelThenCallsAddAuthDomains": true,
+    "addAuthDomainsReadsConfigBeforePatchingAuthorizedDomains": true,
+    "failedConfigReadPreventsThatHelperFromPatching": true,
+    "cloneCatchesAuthDomainFailureAndCanStillCompleteHostingRelease": true,
+    "previewOperationUsesNoAuthorizedDomainsFlag": true,
+    "existingLiveTargetPromotionDoesNotTakeNewChannelAuthDomainBranch": true
+  },
+  "readOnlyChecks": {
+    "authConfigGet": {
+      "method": "GET",
+      "path": "/admin/v2/projects/geo-attendance-system-db9ca/config",
+      "httpStatus": 403,
+      "providerReason": "SERVICE_DISABLED",
+      "attempts": 3
+    },
+    "enabledServicesListing": {
+      "status": "passed",
+      "filter": "config.name=identitytoolkit.googleapis.com",
+      "matchingEnabledServices": 0
+    }
+  },
+  "ownedDomainCurrentlyPresent": null,
+  "preRollbackAuthBaselineAvailable": false,
+  "priorAuthStateUnchangedClaim": false,
+  "conclusion": "The current Identity Toolkit API is disabled. The owned hostname cannot be verified present or absent through the provider config GET. This is not proof of prior Auth configuration or of an unchanged historical domain list. The disabled service blocks the same read-before-patch helper inspected in the CLI; there is no basis to enable the API or attempt removal solely for this check.",
+  "remoteMutationPerformedByReviewer": false,
+  "conditionalRemovalRecipeIfAReadableCurrentConfigShowsOwnedDomain": [
+    "Use installed firebase-tools lib/gcp/auth.getAuthDomains(project), retain the complete current domain array in memory, and require exactly one occurrence of the exact owned rollback hostname.",
+    "Read current domains again and require exact array equality before mutation; if the list changed, stop and reread rather than overwrite concurrent changes.",
+    "Invoke lib/gcp/auth.updateAuthDomains(project, before.filter(domain => domain !== exactOwnedHostname)). Its PATCH sends only authorizedDomains with update_mask=authorizedDomains; do not use broad cleanAuthState or clean-domains commands.",
+    "Read config again and require the exact owned hostname absent and every other domain/order equal to the retained before array with only that hostname removed.",
+    "The provider helper replaces the array rather than offering atomic per-domain removal; a concurrent configuration change between the final read and PATCH remains a limitation. Do not run this recipe while the API is disabled or while presence is unknown."
+  ],
+  "sourceHashes": {
+    "lib/commands/hosting-clone.js": "1eea50d0ffac1440b41d62f3cf1a9486811349b960cadd39482ce02f3d519837",
+    "lib/hosting/api.js": "8e395fd9a53b7ce4d9304e705daadd98cbcb08f1e6dd1aa54eb494412ba078e0",
+    "lib/gcp/auth.js": "999e74fa0d38efd76c1d2a0ae228722d20bc678595e50508fab488bb1ec7ea35"
+  }
+}

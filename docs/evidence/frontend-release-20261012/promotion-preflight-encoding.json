@@ -1,0 +1,11 @@
+{
+  "status": "failed",
+  "phase": "promotion_preflight",
+  "recordedAtUtc": "2026-10-12T00:58:31.514019+00:00",
+  "failure": "UnicodeDecodeError in default-locale GBK decoding of UTF-8 verification JSON",
+  "location": "hosting-operation.py gate status read before promotion proof creation or cloud mutation",
+  "hostingPromotionRequested": false,
+  "applicationSourceChanged": false,
+  "correction": "Read verification JSON and text explicitly as UTF-8 with optional BOM; retain every existing promotion guard",
+  "readerCallsCorrected": 14
+}

@@ -1,0 +1,317 @@
+{
+  "status": "passed",
+  "checkedAt": "2026-10-12T00:45:07.883054+00:00",
+  "scope": "Read-only product/source review of October 7 Report recovery/details, October 8 Staff/Template simplification, and the October 12 Staff focus fix, plus exact current-run phone screenshots. This is not the full release gate.",
+  "baselineCommit": "c024fa61f05880e13357eb253b67f00b571254d2",
+  "featureCommits": [
+    "bb2cff43a6be2329b6495aa34c774fef75dfd221",
+    "c1964df75d3eb81b851c5c7ef5a3173fb59a55a7"
+  ],
+  "headAtReview": "e6b38f95834b66577a519bed3226f1cc1f314f73",
+  "mobileRunStartedAt": "2026-10-12T00:36:09.939552Z",
+  "sourceReview": {
+    "findings": [],
+    "checks": [
+      "Failed queued Report Retry/Recover actions appear before details and delegate the unchanged original record identity/captured answers/evidence to existing recovery and replay handlers; session, Worker, Department and connected-node guards remain.",
+      "The promoted action pair shares an in-flight guard. Expansion retains a single action set. Discard stays secondary in expanded details and delegates the existing confirmation and queue-lock path.",
+      "Report-only details keep answers, signatures, gallery access and final notes. A native details/summary disclosure carries capture/submission/reviewer/review timestamps; saved copies are labelled as device saves and cannot acquire a stale resolved note.",
+      "New Report-only Worker invitations explicitly keep normal as the retained class default. Existing-user edits omit worker_class; backend update_user reads model_fields_set and preserves the current class on omission, including a class changed after the editor opened.",
+      "Role, Department, self-account, pending-invitation and global-admin controls keep their existing policy. The full-interface override still exposes retained class management.",
+      "Template simple view hides field keys, unused conditions and new formula/repeat choices. Existing formulas, groups and conditions remain editable; load, draft restore and raw apply expose configured advanced behavior.",
+      "The advanced-options switch changes view state without Definition mutation or draft scheduling; the actual edit-form input listener explicitly excludes this checkbox, while ordinary field/name/description edits continue saving.",
+      "The only product asset changed after the October 8 feature commit is the reviewed synchronous focus fix in staff-sites.js; the source service-worker cache marker and regression checker also changed. Backend release commits introduced no frontend feature change.",
+      "The four delayed focus calls now run synchronously after panel visibility and button enabled state have changed. Existing focus eligibility, current-session and modal guards remain; no callback can steal a later Email/Search focus or affect a reopened panel.",
+      "Template draft continuation enables/reset its inputs before opening. Closing for session reset uses restoreFocus:false. Post-create focus remains conditional on successful creation, panel closure and focus still belonging to that panel/body, so a visible private invitation dialog retains its own focus.",
+      "The integrated actual-app regression holds animation-frame callbacks in one isolated browser context and checks newer Email/Search focus, correct typed field ownership, the intended created invitation identity, immediate opening focus and close/reopen safety.",
+      "The natural failure trace and deterministic old-module red/updated-module green evidence support the delayed-focus mechanism. The original first-dialog timeout and older historical invitation timeouts are not individually attributed.",
+      "Independently reviewed the test-only Template-library update: it checks visible/enabled initial Name focus with animation frames held, retains a later Description focus and correct field values when frames release, and still asserts no Template publication. It removes only the obsolete implementation-text match and requirement that focus be deferred; shared readiness checks remain."
+    ],
+    "files": [
+      {
+        "path": "assets/css/styles.css",
+        "sha256": "833d76ca2c2c5a0254501878549b7cde2db6f77af5eb790161856d5a544efb3d"
+      },
+      {
+        "path": "assets/js/app.js",
+        "sha256": "133042e2023455c70a2a3950963e919740ac357f3686e5a82fcbc606411a355f"
+      },
+      {
+        "path": "assets/js/history.js",
+        "sha256": "7b4daef59990db258d041c8efbe703c60c13b685c8263a72c0760f098286d9f8"
+      },
+      {
+        "path": "assets/js/i18n.js",
+        "sha256": "6c962b9cb2b37bd6872bcbb36d9b9bbc44064cdf1936fc3163e454c6e5337859"
+      },
+      {
+        "path": "assets/js/staff-sites.js",
+        "sha256": "2e3af606b9ca857924ce68449fd9f5061654295fac59f25e3ef5cb247c399e1b"
+      },
+      {
+        "path": "assets/js/supervisor-review.js",
+        "sha256": "3fdbe2df0415ace9a1692d03643e70589ef6d1560ababecc2d45b314edd8319a"
+      },
+      {
+        "path": "assets/js/work-form-builder.js",
+        "sha256": "d6da6dacac97239b12e5f2176a004cb0613e7a26e166178281b62e8f957a9d7a"
+      },
+      {
+        "path": "index.html",
+        "sha256": "8d92b9521b364ae4d7f3164179f510e1adb55b28dc9dbd6cd71c90b231ecaf73"
+      },
+      {
+        "path": "scripts/check-browser-workflows.mjs",
+        "sha256": "3eeb54029ab5ecb796b5658ad87393e96236069ed592009530327d08fce898bb"
+      },
+      {
+        "path": "sw.js",
+        "sha256": "2da863b86b3a483fbbde6e12772bab6fe3b0f2c65111195ca1294a2e08fca8b9"
+      },
+      {
+        "path": "scripts/template-library-test.mjs",
+        "sha256": "7f8b4db7687fbf06454a5211fe2dc172a901939957360569456b6f2009312022"
+      }
+    ],
+    "focusDiagnosis": {
+      "path": "docs/evidence/frontend-release-20261012/invitation-focus-diagnosis.json",
+      "sha256": "afe21d43f1c56b617f545c15fb4ae24e12fb935921e3dc5f8bb44da31bc46011",
+      "sourceAfter": "1e0be2ad06c35c0d9e8158d649559d9469368ddc",
+      "review": "Reviewed the retained failure discriminator, controlled red/green, exact module/checker hashes and attribution limitations."
+    },
+    "testOnlyFollowup": {
+      "commit": "e6b38f95834b66577a519bed3226f1cc1f314f73",
+      "parent": "1e0be2ad06c35c0d9e8158d649559d9469368ddc",
+      "changedFiles": [
+        "scripts/template-library-test.mjs"
+      ],
+      "unchangedApplicationFilesVerified": true,
+      "review": "passed",
+      "firstAttemptFailure": "The 1e0be2a full gate stopped at an obsolete Template-library test that expected the removed delayed focus callback; exact failed proof and log are retained as local-focus-fix-first-attempt.json/.txt.",
+      "correctedTestSha256": "7f8b4db7687fbf06454a5211fe2dc172a901939957360569456b6f2009312022"
+    }
+  },
+  "visualReview": {
+    "findings": [],
+    "screenshotsInspected": 14,
+    "freshness": "All 14 archived screenshots were generated after the 1e0be2a mobile-run start and reviewed after its focused Report-detail/Staff/Template suites passed. The only later change in e6b38f9 is the reviewed Template-library test; all application source hashes and archived screenshot bytes remain identical, so this review binds them to e6b38f9 without regenerating images.",
+    "reportDetails": "Six 320px English/light and 390px Chinese/dark fixtures show readable full failure warnings, primary recovery actions before disclosure, full final-note access, signatures, six-photo previews with complete-gallery controls, More details and Supervisor PDF controls without clipping.",
+    "templates": "Four simple/configured-advanced 320px English/light and 390px Chinese/dark builder images show translated view controls, visible labels/inputs, preserved formulas and conditions, and no horizontal overflow.",
+    "staff": "Four actual-app viewport images at 320/390px English/light and Chinese/dark show Worker role, Department and private-invitation guidance without Worker-class controls. At 320px English the lower action area is below the screenshot fold; other captures show Create invitation and Cancel clearly.",
+    "screenshots": [
+      {
+        "path": "output/report-detail-ux.local/supervisor-resolved-320-en-light.png",
+        "bytes": 59583,
+        "sha256": "7b8f4dc668cb8c41840dcfe07e0aa2a98c283d39798f565823b11d12970e42a9",
+        "updatedAt": "2026-10-12T00:36:17.451282+00:00",
+        "dimensions": [
+          296,
+          837
+        ],
+        "visualReview": "passed",
+        "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/supervisor-resolved-320-en-light.png",
+        "byteIdenticalToBeforeFocusFix": true,
+        "reviewMethod": "Matched exact SHA-256 of the previously visually inspected image"
+      },
+      {
+        "path": "output/report-detail-ux.local/supervisor-resolved-390-zh-dark.png",
+        "bytes": 52181,
+        "sha256": "159805bd85c79338dc14073e497bf2af6df3206ef5f387a00fb499200b888ab4",
+        "updatedAt": "2026-10-12T00:36:18.017768+00:00",
+        "dimensions": [
+          366,
+          803
+        ],
+        "visualReview": "passed",
+        "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/supervisor-resolved-390-zh-dark.png",
+        "byteIdenticalToBeforeFocusFix": true,
+        "reviewMethod": "Matched exact SHA-256 of the previously visually inspected image"
+      },
+      {
+        "path": "output/report-detail-ux.local/worker-failed-320-en-light.png",
+        "bytes": 29225,
+        "sha256": "d4838cbc9ea13e74e85a190541cee9236f840a6e8ba864e06b32d48ea15d895f",
+        "updatedAt": "2026-10-12T00:36:17.214239+00:00",
+        "dimensions": [
+          296,
+          471
+        ],
+        "visualReview": "passed",
+        "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/worker-failed-320-en-light.png",
+        "byteIdenticalToBeforeFocusFix": false,
+        "reviewMethod": "Fresh image visually reinspected after the focus fix"
+      },
+      {
+        "path": "output/report-detail-ux.local/worker-failed-390-zh-dark.png",
+        "bytes": 22989,
+        "sha256": "dd7043da2c8a09d28c5fe0bd176376d0103253f3db69b2458fcd819036effe8d",
+        "updatedAt": "2026-10-12T00:36:17.544365+00:00",
+        "dimensions": [
+          366,
+          353
+        ],
+        "visualReview": "passed",
+        "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/worker-failed-390-zh-dark.png",
+        "byteIdenticalToBeforeFocusFix": true,
+        "reviewMethod": "Matched exact SHA-256 of the previously visually inspected image"
+      },
+      {
+        "path": "output/report-detail-ux.local/worker-resolved-320-en-light.png",
+        "bytes": 57190,
+        "sha256": "da1ce281438272b7b34a1f7ce71dab8f26f8af04d59662a78b80fd4c741c21b7",
+        "updatedAt": "2026-10-12T00:36:17.337994+00:00",
+        "dimensions": [
+          296,
+          716
+        ],
+        "visualReview": "passed",
+        "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/worker-resolved-320-en-light.png",
+        "byteIdenticalToBeforeFocusFix": false,
+        "reviewMethod": "Fresh image visually reinspected after the focus fix"
+      },
+      {
+        "path": "output/report-detail-ux.local/worker-resolved-390-zh-dark.png",
+        "bytes": 49653,
+        "sha256": "1c8c29fca5d5d9367815eef68e4f14ba6e282eab6566e4fd00fc9e14683dda77",
+        "updatedAt": "2026-10-12T00:36:17.902741+00:00",
+        "dimensions": [
+          366,
+          730
+        ],
+        "visualReview": "passed",
+        "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/worker-resolved-390-zh-dark.png",
+        "byteIdenticalToBeforeFocusFix": true,
+        "reviewMethod": "Matched exact SHA-256 of the previously visually inspected image"
+      },
+      {
+        "path": "output/report-template-simplicity.local/advanced-320-en-light.png",
+        "bytes": 90011,
+        "sha256": "c235c80a1b36e8661e18a1737f85f3ae5cd2af2e52767e1a5859655c314d5b62",
+        "updatedAt": "2026-10-12T00:40:42.278450+00:00",
+        "dimensions": [
+          296,
+          2274
+        ],
+        "visualReview": "passed",
+        "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-template-simplicity/advanced-320-en-light.png",
+        "byteIdenticalToBeforeFocusFix": true,
+        "reviewMethod": "Matched exact SHA-256 of the previously visually inspected image"
+      },
+      {
+        "path": "output/report-template-simplicity.local/advanced-390-zh-dark.png",
+        "bytes": 103022,
+        "sha256": "c149339729e193bef8a8497c7595ec3e61e1c27e81d5067aaf0d16a03001fe24",
+        "updatedAt": "2026-10-12T00:40:42.583775+00:00",
+        "dimensions": [
+          366,
+          2201
+        ],
+        "visualReview": "passed",
+        "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-template-simplicity/advanced-390-zh-dark.png",
+        "byteIdenticalToBeforeFocusFix": false,
+        "reviewMethod": "Fresh image visually reinspected after the focus fix"
+      },
+      {
+        "path": "output/report-template-simplicity.local/simple-320-en-light.png",
+        "bytes": 48073,
+        "sha256": "97c9e4d11f520901c9f5187111373540b46db8ec652f7da2470676a4540a706f",
+        "updatedAt": "2026-10-12T00:40:42.141403+00:00",
+        "dimensions": [
+          296,
+          1118
+        ],
+        "visualReview": "passed",
+        "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-template-simplicity/simple-320-en-light.png",
+        "byteIdenticalToBeforeFocusFix": true,
+        "reviewMethod": "Matched exact SHA-256 of the previously visually inspected image"
+      },
+      {
+        "path": "output/report-template-simplicity.local/simple-390-zh-dark.png",
+        "bytes": 50586,
+        "sha256": "85ef81882a097733c4f31d583d7e5d409a8935a3294c32f06c9fe055f95f37ce",
+        "updatedAt": "2026-10-12T00:40:42.421474+00:00",
+        "dimensions": [
+          366,
+          1089
+        ],
+        "visualReview": "passed",
+        "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-template-simplicity/simple-390-zh-dark.png",
+        "byteIdenticalToBeforeFocusFix": true,
+        "reviewMethod": "Matched exact SHA-256 of the previously visually inspected image"
+      },
+      {
+        "path": "output/report-staff-simplicity.local/staff-create-320-en-light.png",
+        "bytes": 30820,
+        "sha256": "71939fa4f7f4de52b66e7fd9fec326985710ca4e18571d7030dbaf02b04aef8d",
+        "updatedAt": "2026-10-12T00:40:53.557275+00:00",
+        "dimensions": [
+          320,
+          844
+        ],
+        "visualReview": "passed",
+        "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-staff-simplicity/staff-create-320-en-light.png",
+        "byteIdenticalToBeforeFocusFix": true,
+        "reviewMethod": "Matched exact SHA-256 of the previously visually inspected image"
+      },
+      {
+        "path": "output/report-staff-simplicity.local/staff-create-320-zh-dark.png",
+        "bytes": 31761,
+        "sha256": "ac6de77d4368180cc886d0c9837737699d0e81223dc05e293478b3b07e1a2c8e",
+        "updatedAt": "2026-10-12T00:40:54.904755+00:00",
+        "dimensions": [
+          320,
+          844
+        ],
+        "visualReview": "passed",
+        "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-staff-simplicity/staff-create-320-zh-dark.png",
+        "byteIdenticalToBeforeFocusFix": false,
+        "reviewMethod": "Fresh image visually reinspected after the focus fix"
+      },
+      {
+        "path": "output/report-staff-simplicity.local/staff-create-390-en-light.png",
+        "bytes": 32758,
+        "sha256": "19feefd42655ea4c597825a04f9eb3348ac5ad447515b72fd01d2769fd440cdb",
+        "updatedAt": "2026-10-12T00:40:56.241137+00:00",
+        "dimensions": [
+          390,
+          844
+        ],
+        "visualReview": "passed",
+        "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-staff-simplicity/staff-create-390-en-light.png",
+        "byteIdenticalToBeforeFocusFix": false,
+        "reviewMethod": "Fresh image visually reinspected after the focus fix"
+      },
+      {
+        "path": "output/report-staff-simplicity.local/staff-create-390-zh-dark.png",
+        "bytes": 33946,
+        "sha256": "be7e3f2c62404a9b3723ca0d4b9d6687b5da65ab1b568607828cc0faa5a3768f",
+        "updatedAt": "2026-10-12T00:40:57.537086+00:00",
+        "dimensions": [
+          390,
+          844
+        ],
+        "visualReview": "passed",
+        "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-staff-simplicity/staff-create-390-zh-dark.png",
+        "byteIdenticalToBeforeFocusFix": false,
+        "reviewMethod": "Fresh image visually reinspected after the focus fix"
+      }
+    ],
+    "reviewMethod": {
+      "freshImagesVisuallyReinspected": 6,
+      "freshImagesByteIdenticalToPreviouslyReviewed": 8,
+      "allArchivedImagesMatchedBySha256": true
+    },
+    "screenshotSourceCommit": "1e0be2ad06c35c0d9e8158d649559d9469368ddc",
+    "boundCandidateCommit": "e6b38f95834b66577a519bed3226f1cc1f314f73"
+  },
+  "validationOwnership": "Operations agent owns the complete check:mobile run and its results. The final e6b38f9 full gate remains separate and pending at this product review. This reviewer ran no competing tests or builds and made no application-source or hosted changes.",
+  "limitations": [
+    "Report detail and Template screenshots use the real module/CSS with isolated synthetic callbacks or transport; Staff screenshots use the actual app with intercepted transport.",
+    "No authenticated hosted application fixtures were created by this review, and physical iPhone/Android interaction remains unverified.",
+    "The initial 70/72 full-gate failure and the subsequent obsolete Template-library test failure remain preserved separately. The independently demonstrated focus bug is fixed; the original first-dialog failure and older historical invitation timeouts remain individually unconfirmed. This product review is not the complete release gate."
+  ],
+  "priorReview": {
+    "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix.json",
+    "sha256": "43b90262d77e27a5f8d2b75093fe23abda1e81f9c4ab08f0299ad96b5cbd281c",
+    "screenshotsManifest": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix-screenshots.json"
+  }
+}

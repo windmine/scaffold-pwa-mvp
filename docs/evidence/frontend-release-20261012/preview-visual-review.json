@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "checkedAtUtc": "2026-10-12T00:57:34.270785+00:00",
+  "scope": "Independent visual inspection of all three exact anonymous Hosting preview installer screenshots; no hosted interactions or source edits by this reviewer.",
+  "sourceCommit": "e6b38f95834b66577a519bed3226f1cc1f314f73",
+  "hostingVersion": "7d52593100c9f3a2",
+  "origin": "https://geo-attendance-system-db9ca--release-ui-20261012-wcij2qzb.web.app",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "findings": [],
+  "screenshotsReviewed": 3,
+  "screenshots": [
+    {
+      "label": "english",
+      "path": "docs/evidence/frontend-release-20261012/preview-installer-english.png",
+      "sha256": "7d1256436055831db19e9aa787b8497cf8c941d2c9fd0f5bcf2b5d117e8836f8",
+      "bytes": 79554,
+      "imageDimensions": [
+        390,
+        1976
+      ],
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "capture": "full page",
+      "visualReview": "passed",
+      "notes": "All English text is readable; the brand and language selector, Open in browser control, expanded iPhone/Android steps, account guidance, full QR, copy/PDF/image controls and preservation guidance are present without overlap or horizontal page overflow."
+    },
+    {
+      "label": "chinese",
+      "path": "docs/evidence/frontend-release-20261012/preview-installer-chinese.png",
+      "sha256": "c762b7ac4899b2a6b9132e4ed4117f61755d4a22acb1aff3b98933590a820b12",
+      "bytes": 88333,
+      "imageDimensions": [
+        390,
+        1908
+      ],
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "capture": "full page",
+      "visualReview": "passed",
+      "notes": "Chinese headings, instructions and controls render clearly with complete glyphs and suitable line wrapping. The phone instructions, account guidance, full QR, copy/download actions and existing-app preservation guidance remain visible without overlap."
+    },
+    {
+      "label": "offline",
+      "path": "docs/evidence/frontend-release-20261012/preview-installer-offline.png",
+      "sha256": "7d1256436055831db19e9aa787b8497cf8c941d2c9fd0f5bcf2b5d117e8836f8",
+      "bytes": 79554,
+      "imageDimensions": [
+        390,
+        1976
+      ],
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "capture": "full page",
+      "visualReview": "passed",
+      "notes": "Cold-offline English capture is visually complete and byte-identical to the online English image. Brand and QR render, instructions and all displayed controls remain present."
+    }
+  ],
+  "sourceProofs": [
+    {
+      "path": "docs/evidence/frontend-release-20261012/hosting-preview.json",
+      "sha256": "9588bb1255aabf34dd67fbd0df5e553eb7461277e297482a52716f1a7d200623"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/preview-installer.json",
+      "sha256": "ec4f20b1f96e7187017ec39adfad2f13fac87d55f6b118de3e3f75d9ca364f8e"
+    }
+  ],
+  "limitations": [
+    "The screenshots are full-page captures from a 390 by 844 browser viewport; they do not certify physical iPhone or Android installation, native menus, camera QR scanning, or phone capacity.",
+    "The long canonical URL is contained in its text field; copy/QR/PDF actions are visible. Functional installer, asset parity and cold-offline checks belong to the installer proof and were not rerun by this visual review.",
+    "This preview review is a release check, not a record of production promotion."
+  ]
+}

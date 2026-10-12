@@ -1,0 +1,102 @@
+{
+  "status": "passed",
+  "sourceCommit": "e6b38f95834b66577a519bed3226f1cc1f314f73",
+  "recordedAtUtc": "2026-10-12T00:54:53.400190+00:00",
+  "realBackendBrowserWorkflows": 73,
+  "sourceCache": "leader-field-5578491b5f12",
+  "builtCache": "leader-field-f8081912f2bd",
+  "distFileCount": 85,
+  "buildManifest": "docs/evidence/frontend-release-20261012/final-build-manifest.json",
+  "buildManifestSha256": "69dd11ca137eccf63549c0ddf2a4f35fdb43ff359c6d776c4edb147c755138ff",
+  "distRecheckedUnchanged": true,
+  "mobile": {
+    "task": "check:mobile",
+    "status": "passed",
+    "sourceCommit": "e6b38f95834b66577a519bed3226f1cc1f314f73",
+    "startedAtUtc": "2026-10-12T00:44:34.987473Z",
+    "command": [
+      "cmd.exe",
+      "/d",
+      "/c",
+      "npm.cmd",
+      "run",
+      "check:mobile"
+    ],
+    "log": "docs/evidence/frontend-release-20261012/local-final.txt",
+    "logLimitBytes": 8388608,
+    "logTruncated": false,
+    "exitCode": 0,
+    "completedAtUtc": "2026-10-12T00:54:48.314796Z",
+    "logBytes": 72408,
+    "logSha256": "ac65437cc7b02f33af6cef07931ea3ea724f2630a7f1cb6f8d72499dd140be5d",
+    "failures": [],
+    "lastLines": [
+      "ok - unfinished Report Template stale versions stay read-only without overwriting newer work",
+      "ok - unfinished Report Template cross-tab protection preserves newer edits and removed-draft recovery",
+      "ok - Staff creation focus preserves newer editing and closed panel choices",
+      "ok - Worker invitation replaces Supervisor-chosen passwords with a private setup link",
+      "ok - Worker invitation password setup confirms ownership without changing another signed-in session",
+      "ok - Worker invitation clean browser continues directly into Reports",
+      "ok - Worker invitation replacement and revocation clear invalid setup secrets",
+      "ok - Worker invitation late responses never expose a prior Supervisor private link",
+      "ok - Private Worker password recovery replaces and revokes links, preserves shared accounts and drafts, and invalidates old sessions",
+      "ok - Report Find exports download CSV and PDF matching the searched inbox",
+      "ok - Supervisor Report filters remember structured selections per account and Department without saving Find",
+      "ok - staff users scope global admin controls by role",
+      "ok - Template library searches names and descriptions, filters lifecycle states, and protects unfinished edits",
+      "ok - supervisors create and edit conditional Work Forms with field cards",
+      "ok - Offline Submission ownership, occurrence time, and idempotent replay",
+      "ok - Report Dates reject impossible calendar values and preserve invalid queued evidence",
+      "ok - offline Report template changes preserve queued answers, photos, and signatures",
+      "ok - stale Report drafts preserve original answers until explicit new-report recovery",
+      "ok - stale Report drafts without captured fields or version preserve original evidence",
+      "ok - Report photos and repeat signatures resume once after partial upload failure",
+      "ok - supervisor review shows pending outside-site worker record",
+      "ok - department switching replaces map points and clears stale selection",
+      "ok - supervisor workspaces remain navigable on desktop and mobile",
+      "ok - supervisor Review Desk is responsive",
+      "ok - offline Review Queue is explicit and read-only",
+      "ok - Report offline return resumes a downloaded Template draft after every page closes",
+      "ok - retained attendance app cold-launches offline and queues attendance",
+      "ok - retained Work Form drafts protect production-mode app updates",
+      "ok - report-only service worker update prompt posts SKIP_WAITING",
+      "browser workflow checks passed"
+    ]
+  },
+  "lint": {
+    "task": "lint",
+    "status": "passed",
+    "sourceCommit": "e6b38f95834b66577a519bed3226f1cc1f314f73",
+    "startedAtUtc": "2026-10-12T00:44:35.280196Z",
+    "command": [
+      "cmd.exe",
+      "/d",
+      "/c",
+      "npm.cmd",
+      "run",
+      "lint"
+    ],
+    "log": "docs/evidence/frontend-release-20261012/lint-final.txt",
+    "logLimitBytes": 8388608,
+    "logTruncated": false,
+    "exitCode": 0,
+    "completedAtUtc": "2026-10-12T00:44:39.594507Z",
+    "logBytes": 43,
+    "logSha256": "bc3898f0cdd54520a439a61c527c12c0004c6b43b257caa70ad991cc5fe2da78",
+    "failures": [],
+    "lastLines": [
+      "> scaffold-pwa-mvp@0.0.0 lint",
+      "> eslint ."
+    ]
+  },
+  "initialFailurePreserved": "docs/evidence/frontend-release-20261012/local-initial-failed.json",
+  "diagnosis": "docs/evidence/frontend-release-20261012/invitation-focus-diagnosis.json",
+  "limitations": [
+    "Automated local browser checks do not establish physical iOS/Android, low-disk, full-resolution gallery, 50 near-5-MB camera photo, native recipient handoff or phone PDF-viewer certification.",
+    "Historical uninstrumented intermittent failures retain their documented unconfirmed status."
+  ],
+  "intermediateFailedAttemptPreserved": "docs/evidence/frontend-release-20261012/local-focus-fix-first-attempt.json",
+  "nonApplicationTrackedChangesAtVerification": [
+    "AGENTS.md"
+  ]
+}

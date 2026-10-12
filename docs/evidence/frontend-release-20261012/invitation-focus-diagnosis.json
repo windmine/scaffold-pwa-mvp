@@ -1,0 +1,387 @@
+{
+  "recordedAtUtc": "2026-10-12T00:38:40.994877+00:00",
+  "sourceBefore": "8820eda2320804eb5d843749871a653267b150d6",
+  "sourceAfter": "1e0be2ad06c35c0d9e8158d649559d9469368ddc",
+  "initialFullGate": {
+    "status": "failed",
+    "passedBrowserWorkflows": 70,
+    "totalBrowserWorkflows": 72,
+    "proof": "local-initial-failed.json",
+    "log": "local-initial-failed.txt",
+    "localLogSha256": "7633a55b84be53fd9bff61074a5ccc60c6008d2f3cc962349a18b2a67c161c6b",
+    "failures": [
+      "not ok - Worker invitation replaces Supervisor-chosen passwords with a private setup link",
+      "not ok - Worker invitation password setup confirms ownership without changing another signed-in session"
+    ],
+    "instrumentationPresent": false
+  },
+  "confirmedFinding": "An unconditional animation-frame focus in setCreatePanelOpen can focus Name after the Supervisor has already moved to Email, redirecting subsequent text entry. The empty required Email blocks native form submission, so no invitation request is sent and no invitation dialog opens.",
+  "naturalInstrumentedReproduction": {
+    "status": "failed",
+    "scenario": "Second invitation in the existing creation workflow",
+    "nameLengthBeforeEmailFill": 25,
+    "nameLengthAfterEmailFill": 69,
+    "emailLengthAfterEmailFill": 0,
+    "nativeInvalidField": "staffEmailInput",
+    "secondInvitationPostSent": false,
+    "departmentValue": "1",
+    "submitDisabled": false,
+    "submitBusy": null,
+    "traceSha256": "0e509e1f9f6778397b453ea17966e8e8304a49798dce2fa350ca45c5c53f8580",
+    "compactTrace": [
+      {
+        "sequence": 46,
+        "atUtc": "2026-10-12T00:30:31.755Z",
+        "event": "click",
+        "target": "addStaffUserButton",
+        "inputs": [
+          {
+            "id": "staffNameInput",
+            "length": 0,
+            "disabled": false,
+            "required": true,
+            "valid": false
+          },
+          {
+            "id": "staffEmailInput",
+            "length": 0,
+            "disabled": false,
+            "required": true,
+            "valid": false
+          },
+          {
+            "id": "staffRoleSelect",
+            "length": 6,
+            "value": "worker",
+            "disabled": false,
+            "required": false,
+            "valid": true,
+            "options": [
+              "worker",
+              "supervisor"
+            ]
+          },
+          {
+            "id": "staffDepartmentSelect",
+            "length": 1,
+            "value": "1",
+            "disabled": true,
+            "required": false,
+            "valid": true,
+            "options": [
+              "1"
+            ]
+          },
+          {
+            "id": "staffPasswordInput",
+            "length": 0,
+            "disabled": true,
+            "required": false,
+            "valid": true
+          }
+        ],
+        "submitDisabled": false,
+        "submitBusy": null,
+        "dialogOpen": false
+      },
+      {
+        "sequence": 48,
+        "atUtc": "2026-10-12T00:30:31.763Z",
+        "event": "input",
+        "target": "staffNameInput",
+        "inputs": [
+          {
+            "id": "staffNameInput",
+            "length": 25,
+            "disabled": false,
+            "required": true,
+            "valid": true
+          },
+          {
+            "id": "staffEmailInput",
+            "length": 0,
+            "disabled": false,
+            "required": true,
+            "valid": false
+          },
+          {
+            "id": "staffRoleSelect",
+            "length": 6,
+            "value": "worker",
+            "disabled": false,
+            "required": false,
+            "valid": true,
+            "options": [
+              "worker",
+              "supervisor"
+            ]
+          },
+          {
+            "id": "staffDepartmentSelect",
+            "length": 1,
+            "value": "1",
+            "disabled": true,
+            "required": false,
+            "valid": true,
+            "options": [
+              "1"
+            ]
+          },
+          {
+            "id": "staffPasswordInput",
+            "length": 0,
+            "disabled": true,
+            "required": false,
+            "valid": true
+          }
+        ],
+        "submitDisabled": false,
+        "submitBusy": null,
+        "dialogOpen": false
+      },
+      {
+        "sequence": 50,
+        "atUtc": "2026-10-12T00:30:31.770Z",
+        "event": "input",
+        "target": "staffNameInput",
+        "inputs": [
+          {
+            "id": "staffNameInput",
+            "length": 69,
+            "disabled": false,
+            "required": true,
+            "valid": true
+          },
+          {
+            "id": "staffEmailInput",
+            "length": 0,
+            "disabled": false,
+            "required": true,
+            "valid": false
+          },
+          {
+            "id": "staffRoleSelect",
+            "length": 6,
+            "value": "worker",
+            "disabled": false,
+            "required": false,
+            "valid": true,
+            "options": [
+              "worker",
+              "supervisor"
+            ]
+          },
+          {
+            "id": "staffDepartmentSelect",
+            "length": 1,
+            "value": "1",
+            "disabled": true,
+            "required": false,
+            "valid": true,
+            "options": [
+              "1"
+            ]
+          },
+          {
+            "id": "staffPasswordInput",
+            "length": 0,
+            "disabled": true,
+            "required": false,
+            "valid": true
+          }
+        ],
+        "submitDisabled": false,
+        "submitBusy": null,
+        "dialogOpen": false
+      },
+      {
+        "sequence": 52,
+        "atUtc": "2026-10-12T00:30:31.806Z",
+        "event": "click",
+        "target": "staffUserSubmitButton",
+        "inputs": [
+          {
+            "id": "staffNameInput",
+            "length": 69,
+            "disabled": false,
+            "required": true,
+            "valid": true
+          },
+          {
+            "id": "staffEmailInput",
+            "length": 0,
+            "disabled": false,
+            "required": true,
+            "valid": false
+          },
+          {
+            "id": "staffRoleSelect",
+            "length": 6,
+            "value": "worker",
+            "disabled": false,
+            "required": false,
+            "valid": true,
+            "options": [
+              "worker",
+              "supervisor"
+            ]
+          },
+          {
+            "id": "staffDepartmentSelect",
+            "length": 1,
+            "value": "1",
+            "disabled": true,
+            "required": false,
+            "valid": true,
+            "options": [
+              "1"
+            ]
+          },
+          {
+            "id": "staffPasswordInput",
+            "length": 0,
+            "disabled": true,
+            "required": false,
+            "valid": true
+          }
+        ],
+        "submitDisabled": false,
+        "submitBusy": null,
+        "dialogOpen": false
+      },
+      {
+        "sequence": 53,
+        "atUtc": "2026-10-12T00:30:31.806Z",
+        "event": "invalid",
+        "target": "staffEmailInput",
+        "inputs": [
+          {
+            "id": "staffNameInput",
+            "length": 69,
+            "disabled": false,
+            "required": true,
+            "valid": true
+          },
+          {
+            "id": "staffEmailInput",
+            "length": 0,
+            "disabled": false,
+            "required": true,
+            "valid": false
+          },
+          {
+            "id": "staffRoleSelect",
+            "length": 6,
+            "value": "worker",
+            "disabled": false,
+            "required": false,
+            "valid": true,
+            "options": [
+              "worker",
+              "supervisor"
+            ]
+          },
+          {
+            "id": "staffDepartmentSelect",
+            "length": 1,
+            "value": "1",
+            "disabled": true,
+            "required": false,
+            "valid": true,
+            "options": [
+              "1"
+            ]
+          },
+          {
+            "id": "staffPasswordInput",
+            "length": 0,
+            "disabled": true,
+            "required": false,
+            "valid": true
+          }
+        ],
+        "submitDisabled": false,
+        "submitBusy": null,
+        "dialogOpen": false
+      }
+    ]
+  },
+  "deterministicRegressionBefore": {
+    "status": "failed",
+    "error": "Deferred Staff open focus stole the newer Email focus",
+    "sourceTransport": "Exact committed old Staff module supplied to the browser through a local Playwright route; all other app source unchanged at the time of this experiment",
+    "moduleSha256": "41af2ffddebe523c6f59f41c104c0766f4246d06a737093d099d05380b6ec35b",
+    "traceSha256": "4493b77ee8b298f38d3019755de1d4587af1ba67df5c1792dc65bcc85a8b6d7c",
+    "focus": {
+      "atUtc": "2026-10-12T00:33:46.106Z",
+      "target": "staffNameInput",
+      "previous": "staffEmailInput",
+      "stack": "Error\n    at HTMLElement.focus ([workspace]\\output\\frontend-release-20261012.local\\invitation-probe.js:22:116)\n    at [app]/assets/js/staff-sites.js:325:55\n    at eval (eval at evaluate (:303:30), <anonymous>:18:41)\n    at Array.forEach (<anonymous>)\n    at window.__flushCreateFocusFrames (eval at evaluate (:303:30), <anonymous>:18:19)\n    at eval (eval at evaluate (:303:30), <anonymous>:1:14)\n    at UtilityScript.evaluate (<anonymous>:305:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+    }
+  },
+  "fix": "Run opening and eligible closing/post-create focus synchronously after visibility and disabled state changes, preserving every existing eligibility and current-session guard. No delayed focus callback remains in this module.",
+  "regressionAfter": {
+    "status": "passed",
+    "command": "BROWSER_WORKFLOW_ONLY=\"Staff creation focus\" node scripts/check-browser-workflows.mjs",
+    "coverage": [
+      "A held opening frame cannot take newer Email focus or redirect typed input.",
+      "A held closing frame cannot take newer Search focus.",
+      "Opening focuses Name during the action and creates the invitation with the intended identity.",
+      "Close and reopen cannot leave stale focus callbacks affecting the new form."
+    ],
+    "independentReview": "Product reviewer reviewed the four substitutions and shared-helper callers, and approved the regression before integration."
+  },
+  "focusedExistingInvitations": {
+    "task": "browser-invitations",
+    "status": "passed",
+    "sourceCommit": "8820eda2320804eb5d843749871a653267b150d6",
+    "startedAtUtc": "2026-10-12T00:35:06.137196Z",
+    "command": [
+      "node",
+      "scripts/check-browser-workflows.mjs"
+    ],
+    "log": "output/frontend-release-20261012.local/browser-invitations-focus-fix.log",
+    "logLimitBytes": 8388608,
+    "logTruncated": false,
+    "exitCode": 0,
+    "completedAtUtc": "2026-10-12T00:35:21.980744Z",
+    "logBytes": 448,
+    "logSha256": "93305703066baa252f220dcab0c7f5beac048216022e2814a8a9c8334c3f233d",
+    "failures": [],
+    "lastLines": [
+      "ok - Worker invitation replaces Supervisor-chosen passwords with a private setup link",
+      "ok - Worker invitation password setup confirms ownership without changing another signed-in session",
+      "ok - Worker invitation clean browser continues directly into Reports",
+      "ok - Worker invitation replacement and revocation clear invalid setup secrets",
+      "ok - Worker invitation late responses never expose a prior Supervisor private link",
+      "browser workflow checks passed"
+    ],
+    "sourceCommitMeaning": "Base HEAD at the time; the focus fix and regression were active as uncommitted changes. The subsequent full gate uses committed sourceAfter.",
+    "workingTreePatchPresent": true,
+    "testedModuleSha256": "2e3af606b9ca857924ce68449fd9f5061654295fac59f25e3ef5cb247c399e1b"
+  },
+  "moduleAfterSha256": "2e3af606b9ca857924ce68449fd9f5061654295fac59f25e3ef5cb247c399e1b",
+  "browserCheckerAfterSha256": "3eeb54029ab5ecb796b5658ad87393e96236069ed592009530327d08fce898bb",
+  "limitations": [
+    "The original full-run failures had no focus instrumentation. The isolated creation workflow reproduced the same second-dialog symptom with a direct invalid-input/no-POST discriminator, and the held-frame experiment independently proved its mechanism.",
+    "The first-dialog failure in the original full run and older historical invitation timeouts are not individually attributed by this evidence; their causes remain unconfirmed.",
+    "Only disposable local backend/browser fixtures were used; no hosted fixture or live data was created."
+  ],
+  "privacy": "No request or response bodies, private links, authentication headers, cookies or credentials are retained. Trace values record only field lengths, controlled role/Department values, booleans and sanitized local stack locations.",
+  "templateTestCorrection": {
+    "classification": "Obsolete test expectation after the intentional synchronous-focus change; not an application failure.",
+    "failedGateSourceCommit": "1e0be2ad06c35c0d9e8158d649559d9469368ddc",
+    "failedGateCompletedAtUtc": "2026-10-12T00:41:42.249391Z",
+    "preservedProof": "docs/evidence/frontend-release-20261012/local-focus-fix-first-attempt.json",
+    "preservedLog": "docs/evidence/frontend-release-20261012/local-focus-fix-first-attempt.txt",
+    "preservedLogSha256": "190a2f4a0a56331d064f25967f69cafbb5391d40018d03bc4356913c63129415",
+    "failedAssertion": "scripts/template-library-test.mjs:402 waited for one queued animation-frame callback whose source contained focusTarget?.focus. The corrected application intentionally has no such delayed callback.",
+    "correction": "Hold pending frames without inspecting callback source. Assert the Template editor opens with Name focused, later Description focus and typed text survive releasing frames, and typing never publishes a Template. Preserve the existing visible/enabled editor readiness helper.",
+    "correctionCommit": "e6b38f95834b66577a519bed3226f1cc1f314f73",
+    "applicationChangedByCorrection": false,
+    "targetedValidation": "All 14 Template library groups and lint passed before the test-only commit; the subsequent full gate is bound to the correction commit.",
+    "relatedTestSearch": "Searched remaining scripts for focusTarget, setCreatePanelOpen, scheduled/delayed/held focus and frame-focus assumptions; no other obsolete callback expectation remained.",
+    "independentReview": "Product reviewer approved the behavioral correction and helper comment.",
+    "testSha256": "7f8b4db7687fbf06454a5211fe2dc172a901939957360569456b6f2009312022"
+  }
+}

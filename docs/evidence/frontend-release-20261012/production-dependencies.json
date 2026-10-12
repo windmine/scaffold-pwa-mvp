@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "checkedAtUtc": "2026-10-12T00:24:13.706559+00:00",
+  "command": "npm audit --omit=dev --json",
+  "exitCode": 0,
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "dependencies": {
+      "prod": 2,
+      "dev": 121,
+      "optional": 34,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 122
+    }
+  },
+  "vulnerabilities": {},
+  "developmentDependenciesIncluded": false
+}

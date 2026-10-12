@@ -1,0 +1,419 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "recordedAtUtc": "2026-10-12T01:04:01.926194+00:00",
+  "scope": "User-authorized October 7/8 frontend improvements, plus the diagnosed create-form focus correction, deployed through an exact verified Firebase Hosting preview. No backend deployment, migration, maintenance or application fixture writes.",
+  "sourceCommit": "e6b38f95834b66577a519bed3226f1cc1f314f73",
+  "featureCommits": [
+    "bb2cff43a6be2329b6495aa34c774fef75dfd221",
+    "c1964df75d3eb81b851c5c7ef5a3173fb59a55a7"
+  ],
+  "focusFixCommit": "1e0be2ad06c35c0d9e8158d649559d9469368ddc",
+  "projectId": "geo-attendance-system-db9ca",
+  "hostingVersion": "7d52593100c9f3a2",
+  "sourceCache": "leader-field-5578491b5f12",
+  "builtCache": "leader-field-f8081912f2bd",
+  "promotionRequestedAtUtc": "2026-10-12T00:58:49.713101+00:00",
+  "promotionVerifiedAtUtc": "2026-10-12T00:59:02.413878+00:00",
+  "backendRevision": "geo-backend-fixes-20261012",
+  "backendSourceCommit": "c5b7ab56a54cb786042b592fb06288a5e7c18990",
+  "backendImage": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4",
+  "frontendOnly": true,
+  "applicationFixturesCreated": false,
+  "migrationPerformed": false,
+  "rollback": {
+    "versionId": "ba2962f66af41dcb",
+    "channel": "rollback-ui-20261012",
+    "url": "https://geo-attendance-system-db9ca--rollback-ui-20261012-6qgao7g2.web.app",
+    "expireTime": "2026-10-19T00:19:51.388350569Z"
+  },
+  "checks": {
+    "completeMobileGate": true,
+    "realBackendBrowserWorkflows": 73,
+    "lint": true,
+    "productPhoneScreenshots": 14,
+    "previewAndLiveShellAssets": {
+      "preview": 75,
+      "live": 75
+    },
+    "previewAndLiveInstallerArtifacts": {
+      "preview": 7,
+      "live": 7
+    },
+    "waitingUpdateChecks": 4,
+    "anonymousBackendHttpChecks": 14,
+    "strictHardening": true,
+    "backendRuntimeTrafficAndIamUnchanged": true,
+    "observedDatabaseInventoryUnchanged": true,
+    "migrationChecksumsUnchanged": 22
+  },
+  "preservedFailures": [
+    "Initial complete mobile command passed 70/72 browser workflows. An isolated invitation run reproduced redirected Email input and no POST; a held-frame regression proved the delayed focus mechanism. Original first-dialog and older historical instances remain individually unconfirmed.",
+    "The first full run after the application focus fix stopped at an obsolete Template test which required the removed deferred callback. Its behavioral replacement and subsequent final complete run are recorded separately.",
+    "A promotion preflight stopped before requesting any Hosting mutation because the local default GBK decoder could not read UTF-8 verification JSON. The release helper was corrected to explicit UTF-8 reads; the unchanged guarded promotion then passed.",
+    "Firebase CLI rollback cloning can attempt authorized-domain synchronization; the subsequent read-only inspection returned SERVICE_DISABLED. Present/absent domain state and historical Auth configuration remain unconfirmed; no API enablement or domain removal was performed."
+  ],
+  "limitations": [
+    "Hosted checks used anonymous read-only access. No production accounts or new hosted application fixtures were used.",
+    "Physical iOS/Android, real recipient sharing, low-disk and near-limit camera-photo validation remain separate outstanding checks.",
+    "Strict hardening retains the previously documented six-hour Neon recovery-history warning.",
+    "Rollback requires rechecking exact retained Hosting identity and availability, keeping the compatible October 12 backend and preserving device storage."
+  ],
+  "proofs": [
+    {
+      "path": "docs/evidence/frontend-release-20261012/.gitattributes",
+      "bytes": 183,
+      "sha256": "9f8640c6a840f3da79c0418d8b32314c8c816f7e7d289cc26851a2b8e4cb4daa"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/backend-baseline.json",
+      "bytes": 8949,
+      "sha256": "82405b167e605accdf0cdb94b5b58217e9abaec8052f77325267245b58effbda"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/backend-postcheck.json",
+      "bytes": 13980,
+      "sha256": "c8581366643d284c6ead5f3a5ccd1515a88b3bf4200088db8256e2a9933266b7"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/build-manifest.json",
+      "bytes": 9155,
+      "sha256": "69dd11ca137eccf63549c0ddf2a4f35fdb43ff359c6d776c4edb147c755138ff"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/documentation-update.json",
+      "bytes": 3656,
+      "sha256": "354ab0aae3e3bafd0cc3b38b4eac1a4908952f0b2b18c52201ee28ec84ef53c9"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/final-build-manifest.json",
+      "bytes": 9155,
+      "sha256": "69dd11ca137eccf63549c0ddf2a4f35fdb43ff359c6d776c4edb147c755138ff"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/hardening-before-preview.json",
+      "bytes": 4075,
+      "sha256": "5832f84df4366048ba00049ec818537590e94416a7ce70c3483c3b80dbddbc6c"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/hosted-visual-review.json",
+      "bytes": 11550,
+      "sha256": "edcec118199136c85703304fd388766b88e458e7b53bd075e8fe3ebd862dd31b"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/hosting-channels-before.json",
+      "bytes": 4990,
+      "sha256": "04e9b14c1bf67d13a3f3892576265c0a23ed3ab89cc821d5042beb0456e9506d"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/hosting-preview.json",
+      "bytes": 3327,
+      "sha256": "9588bb1255aabf34dd67fbd0df5e553eb7461277e297482a52716f1a7d200623"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/hosting-promotion.json",
+      "bytes": 3044,
+      "sha256": "ebd9312774fabebe65e5aae60f82ef3816e6c8a4e9d03b8fd9b48f7da90548d6"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/hosting-rollback.json",
+      "bytes": 2860,
+      "sha256": "755a8dd47bbf1c7220b225e4c613153fa0402b50cd8ad9d54dfd33c8f23c86ed"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/invitation-focus-diagnosis.json",
+      "bytes": 15046,
+      "sha256": "afe21d43f1c56b617f545c15fb4ae24e12fb935921e3dc5f8bb44da31bc46011"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/lint-final.txt",
+      "bytes": 43,
+      "sha256": "bc3898f0cdd54520a439a61c527c12c0004c6b43b257caa70ad991cc5fe2da78"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/live-installer-chinese.png",
+      "bytes": 88333,
+      "sha256": "c762b7ac4899b2a6b9132e4ed4117f61755d4a22acb1aff3b98933590a820b12"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/live-installer-english.png",
+      "bytes": 79554,
+      "sha256": "7d1256436055831db19e9aa787b8497cf8c941d2c9fd0f5bcf2b5d117e8836f8"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/live-installer-offline.png",
+      "bytes": 79554,
+      "sha256": "7d1256436055831db19e9aa787b8497cf8c941d2c9fd0f5bcf2b5d117e8836f8"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/live-installer.json",
+      "bytes": 7635,
+      "sha256": "00c576700909d9545aec1122feb80f4b06c459f0b31fbb6f28cba58d13a5ddd7"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/live-shell.json",
+      "bytes": 17336,
+      "sha256": "ca4b258f6954356d9fca435a8e21da03fec21a27ea72af3c64599c0d36a29a1c"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/live-waiting-update-offline.png",
+      "bytes": 29553,
+      "sha256": "6a2874441f39d9bd9f94cff711bbcae51292318ee88bcd8067cadf7874319cb0"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/live-waiting-update-updated.png",
+      "bytes": 28701,
+      "sha256": "910855bea56343f8c03403aa7d01627ca5efae5a71cd599fee25807b859ebc55"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/live-waiting-update-waiting.png",
+      "bytes": 33694,
+      "sha256": "a3566b984d6842c234f90ab7e2a2f5f7a448ccd5d12214e23852dcf60eb51feb"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/live-waiting-update.json",
+      "bytes": 3310,
+      "sha256": "2af29a07be9f56eb218a8a826bf0d14ba9cae75af82a7b290464c4faaf62d572"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/local-final.txt",
+      "bytes": 72408,
+      "sha256": "ac65437cc7b02f33af6cef07931ea3ea724f2630a7f1cb6f8d72499dd140be5d"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/local-focus-fix-first-attempt.json",
+      "bytes": 3110,
+      "sha256": "16191e15aef50df22b9302e71c28789b72411d4ed9b90284b8e9d0560a422fd5"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/local-focus-fix-first-attempt.txt",
+      "bytes": 41718,
+      "sha256": "190a2f4a0a56331d064f25967f69cafbb5391d40018d03bc4356913c63129415"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/local-gates.json",
+      "bytes": 5283,
+      "sha256": "d4bba5ca902ec78fc921ac6afadac88e5977af20e75ab139b4bcc9558fcb35ba"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/local-initial-failed.json",
+      "bytes": 3516,
+      "sha256": "51cc7add9f44dc452940232f186d2cb1b9bffe708b67e78e742ca23731de8ade"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/local-initial-failed.txt",
+      "bytes": 73590,
+      "sha256": "7633a55b84be53fd9bff61074a5ccc60c6008d2f3cc962349a18b2a67c161c6b"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/preview-installer-chinese.png",
+      "bytes": 88333,
+      "sha256": "c762b7ac4899b2a6b9132e4ed4117f61755d4a22acb1aff3b98933590a820b12"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/preview-installer-english.png",
+      "bytes": 79554,
+      "sha256": "7d1256436055831db19e9aa787b8497cf8c941d2c9fd0f5bcf2b5d117e8836f8"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/preview-installer-offline.png",
+      "bytes": 79554,
+      "sha256": "7d1256436055831db19e9aa787b8497cf8c941d2c9fd0f5bcf2b5d117e8836f8"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/preview-installer.json",
+      "bytes": 7944,
+      "sha256": "ec4f20b1f96e7187017ec39adfad2f13fac87d55f6b118de3e3f75d9ca364f8e"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/preview-shell.json",
+      "bytes": 17396,
+      "sha256": "f3b5e5b821c12e18d20d79df57fa265a672d336dd57494eeb896ff1cae5d7e04"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/preview-visual-review.json",
+      "bytes": 3592,
+      "sha256": "f39c1a4172c1155b18330908d8eee96b84ba8bbce94f72f22cc7ffdb1ad61c45"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-detail-ux/supervisor-resolved-320-en-light.png",
+      "bytes": 59583,
+      "sha256": "7b8f4dc668cb8c41840dcfe07e0aa2a98c283d39798f565823b11d12970e42a9"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-detail-ux/supervisor-resolved-390-zh-dark.png",
+      "bytes": 52181,
+      "sha256": "159805bd85c79338dc14073e497bf2af6df3206ef5f387a00fb499200b888ab4"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-detail-ux/worker-failed-320-en-light.png",
+      "bytes": 29155,
+      "sha256": "f961eebe40937ff991c0fa6508416d2a67e65e692fbcd966c27fb2e18f9b0875"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-detail-ux/worker-failed-390-zh-dark.png",
+      "bytes": 22989,
+      "sha256": "dd7043da2c8a09d28c5fe0bd176376d0103253f3db69b2458fcd819036effe8d"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-detail-ux/worker-resolved-320-en-light.png",
+      "bytes": 57065,
+      "sha256": "d4cd7dc232fa89d8e108c0b56c6c4217346e3c6ce1943e5959e7afba706e4789"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-detail-ux/worker-resolved-390-zh-dark.png",
+      "bytes": 49653,
+      "sha256": "1c8c29fca5d5d9367815eef68e4f14ba6e282eab6566e4fd00fc9e14683dda77"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-staff-simplicity/staff-create-320-en-light.png",
+      "bytes": 30820,
+      "sha256": "71939fa4f7f4de52b66e7fd9fec326985710ca4e18571d7030dbaf02b04aef8d"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-staff-simplicity/staff-create-320-zh-dark.png",
+      "bytes": 31776,
+      "sha256": "1e9ce4f5ac55c454d567a2cd316a760fe63ebd082b1b4b3ec76f23bd96f780ed"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-staff-simplicity/staff-create-390-en-light.png",
+      "bytes": 32758,
+      "sha256": "029fbcc8e418fc9653d409bff10ac3f6fa2d34447f2202f307a7585617202ef4"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-staff-simplicity/staff-create-390-zh-dark.png",
+      "bytes": 33944,
+      "sha256": "83f287ad9e2863781e736ee9f5bd5e147e93f0fbc4adb7004543f91b096392c0"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-template-simplicity/advanced-320-en-light.png",
+      "bytes": 90011,
+      "sha256": "c235c80a1b36e8661e18a1737f85f3ae5cd2af2e52767e1a5859655c314d5b62"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-template-simplicity/advanced-390-zh-dark.png",
+      "bytes": 103022,
+      "sha256": "f48afea797eafc238c60c2e2af186249057902a01df7cf3ccbe6d2dca1b54cb1"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-template-simplicity/simple-320-en-light.png",
+      "bytes": 48073,
+      "sha256": "97c9e4d11f520901c9f5187111373540b46db8ec652f7da2470676a4540a706f"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-template-simplicity/simple-390-zh-dark.png",
+      "bytes": 50586,
+      "sha256": "85ef81882a097733c4f31d583d7e5d409a8935a3294c32f06c9fe055f95f37ce"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix-screenshots.json",
+      "bytes": 5465,
+      "sha256": "8ac60a3aaabf9ab1fc990dd125b5cb17094db548f817c0a7ba29e71f97f4bbe7"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix.json",
+      "bytes": 10743,
+      "sha256": "43b90262d77e27a5f8d2b75093fe23abda1e81f9c4ab08f0299ad96b5cbd281c"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-review.json",
+      "bytes": 18920,
+      "sha256": "d4e0bde5203a424638a41c743168be78faf33bac3c9452e0a0b83469dc563e92"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/supervisor-resolved-320-en-light.png",
+      "bytes": 59583,
+      "sha256": "7b8f4dc668cb8c41840dcfe07e0aa2a98c283d39798f565823b11d12970e42a9"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/supervisor-resolved-390-zh-dark.png",
+      "bytes": 52181,
+      "sha256": "159805bd85c79338dc14073e497bf2af6df3206ef5f387a00fb499200b888ab4"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/worker-failed-320-en-light.png",
+      "bytes": 29225,
+      "sha256": "d4838cbc9ea13e74e85a190541cee9236f840a6e8ba864e06b32d48ea15d895f"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/worker-failed-390-zh-dark.png",
+      "bytes": 22989,
+      "sha256": "dd7043da2c8a09d28c5fe0bd176376d0103253f3db69b2458fcd819036effe8d"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/worker-resolved-320-en-light.png",
+      "bytes": 57190,
+      "sha256": "da1ce281438272b7b34a1f7ce71dab8f26f8af04d59662a78b80fd4c741c21b7"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/worker-resolved-390-zh-dark.png",
+      "bytes": 49653,
+      "sha256": "1c8c29fca5d5d9367815eef68e4f14ba6e282eab6566e4fd00fc9e14683dda77"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots/report-staff-simplicity/staff-create-320-en-light.png",
+      "bytes": 30820,
+      "sha256": "71939fa4f7f4de52b66e7fd9fec326985710ca4e18571d7030dbaf02b04aef8d"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots/report-staff-simplicity/staff-create-320-zh-dark.png",
+      "bytes": 31761,
+      "sha256": "ac6de77d4368180cc886d0c9837737699d0e81223dc05e293478b3b07e1a2c8e"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots/report-staff-simplicity/staff-create-390-en-light.png",
+      "bytes": 32758,
+      "sha256": "19feefd42655ea4c597825a04f9eb3348ac5ad447515b72fd01d2769fd440cdb"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots/report-staff-simplicity/staff-create-390-zh-dark.png",
+      "bytes": 33946,
+      "sha256": "be7e3f2c62404a9b3723ca0d4b9d6687b5da65ab1b568607828cc0faa5a3768f"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots/report-template-simplicity/advanced-320-en-light.png",
+      "bytes": 90011,
+      "sha256": "c235c80a1b36e8661e18a1737f85f3ae5cd2af2e52767e1a5859655c314d5b62"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots/report-template-simplicity/advanced-390-zh-dark.png",
+      "bytes": 103022,
+      "sha256": "c149339729e193bef8a8497c7595ec3e61e1c27e81d5067aaf0d16a03001fe24"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots/report-template-simplicity/simple-320-en-light.png",
+      "bytes": 48073,
+      "sha256": "97c9e4d11f520901c9f5187111373540b46db8ec652f7da2470676a4540a706f"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots/report-template-simplicity/simple-390-zh-dark.png",
+      "bytes": 50586,
+      "sha256": "85ef81882a097733c4f31d583d7e5d409a8935a3294c32f06c9fe055f95f37ce"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/product-screenshots.json",
+      "bytes": 7302,
+      "sha256": "5311780bdacca334e9d4f6eb39b4b1c9ca7583c64f1b47b421559f9ea29f0ac0"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/production-dependencies.json",
+      "bytes": 566,
+      "sha256": "9299eb9332156efd5ff84a72be7b9fc4f618f4ffb6da8ee15461ecad6b6db674"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/promotion-preflight-encoding.json",
+      "bytes": 556,
+      "sha256": "fd09aa7e56e825dc96ff4b8afc46fed86f64150961e24257f68b68255da3ff10"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/rollback-auth-domain-inspection.json",
+      "bytes": 3377,
+      "sha256": "365484d8c84d67cb2b9ad2b15e16fe73b66fbf8044e4eda6624ded7c4707bfa8"
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/rollback-shell.json",
+      "bytes": 16297,
+      "sha256": "a2b58e677f77eeec15ba79a3077950e4b9f1a9543574dd80939fc0cf7daef041"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+# Preserve hash-bound release evidence and screenshot bytes across platforms.
+* -text
+# Raw validation logs intentionally preserve command whitespace byte-for-byte.
+*.txt -whitespace

@@ -1,0 +1,96 @@
+{
+  "status": "passed",
+  "appliedAtUtc": "2026-10-12T01:01:09.004000+00:00",
+  "scope": "Five release documentation files only; no staging, commits, application edits or remote actions.",
+  "agentsPreexistingCleanupParagraphPreserved": true,
+  "agentsPreexistingCleanupParagraphSha256": "159210aa7dd7e71b8e43781b678cb51ed90eed71299cfe1325b9d811f0fc4b05",
+  "files": [
+    {
+      "path": "README.md",
+      "beforeSha256": "6d7558a952a100c74694c41a6fd20943ca39e9f2a76d52f5d307e94136fca8c4",
+      "afterSha256": "4499855b8ccdde6e0d09c15259b9134b828598a3e05736f9056ff4ec45a6617b"
+    },
+    {
+      "path": "CONTEXT.md",
+      "beforeSha256": "17f3fc5d3a6f70200d7903ba47e0d0039d53d2efd669380efdf4380d1ce0bd7c",
+      "afterSha256": "4c2c886df4866b863b0b18175df5baa2628bdadb88547426c1e6ae04822a7cd5"
+    },
+    {
+      "path": "docs/production-db-runbook.md",
+      "beforeSha256": "1b4647772647bcd1be2b46ed8cc695cf2c49bc1bfef7f346732d22a5ef316ad4",
+      "afterSha256": "9c260ed944e72e86b21b2855cbb2895df09ba29b5ceb051dc6311f18edfb2ba7"
+    },
+    {
+      "path": "docs/mobile-browser-workflow-checks.md",
+      "beforeSha256": "1b1a10cecbb9f15b9e66e186330ae49665d0fd7a9da4d76e5ffe4a497af77227",
+      "afterSha256": "194bb35c2b87754d5dd6529891ac0ac1a13273d11566ec49e60d622a3876b0d1"
+    },
+    {
+      "path": "AGENTS.md",
+      "beforeSha256": "80ae8a4c2c1ed9daeb863d92af67f060a9774ea260b4c9e077b1c85d845871e5",
+      "afterSha256": "db489ef92095c595b3aa4207542709ed4b7a8a0cbba3c790ab707098b0ba6977"
+    }
+  ],
+  "proofs": [
+    {
+      "name": "backend-baseline.json",
+      "sha256": "82405b167e605accdf0cdb94b5b58217e9abaec8052f77325267245b58effbda"
+    },
+    {
+      "name": "backend-postcheck.json",
+      "sha256": "c8581366643d284c6ead5f3a5ccd1515a88b3bf4200088db8256e2a9933266b7"
+    },
+    {
+      "name": "build-manifest.json",
+      "sha256": "69dd11ca137eccf63549c0ddf2a4f35fdb43ff359c6d776c4edb147c755138ff"
+    },
+    {
+      "name": "hardening-before-preview.json",
+      "sha256": "5832f84df4366048ba00049ec818537590e94416a7ce70c3483c3b80dbddbc6c"
+    },
+    {
+      "name": "hosting-preview.json",
+      "sha256": "9588bb1255aabf34dd67fbd0df5e553eb7461277e297482a52716f1a7d200623"
+    },
+    {
+      "name": "hosting-promotion.json",
+      "sha256": "ebd9312774fabebe65e5aae60f82ef3816e6c8a4e9d03b8fd9b48f7da90548d6"
+    },
+    {
+      "name": "hosting-rollback.json",
+      "sha256": "755a8dd47bbf1c7220b225e4c613153fa0402b50cd8ad9d54dfd33c8f23c86ed"
+    },
+    {
+      "name": "invitation-focus-diagnosis.json",
+      "sha256": "afe21d43f1c56b617f545c15fb4ae24e12fb935921e3dc5f8bb44da31bc46011"
+    },
+    {
+      "name": "live-installer.json",
+      "sha256": "00c576700909d9545aec1122feb80f4b06c459f0b31fbb6f28cba58d13a5ddd7"
+    },
+    {
+      "name": "live-shell.json",
+      "sha256": "ca4b258f6954356d9fca435a8e21da03fec21a27ea72af3c64599c0d36a29a1c"
+    },
+    {
+      "name": "live-waiting-update.json",
+      "sha256": "2af29a07be9f56eb218a8a826bf0d14ba9cae75af82a7b290464c4faaf62d572"
+    },
+    {
+      "name": "local-gates.json",
+      "sha256": "d4bba5ca902ec78fc921ac6afadac88e5977af20e75ab139b4bcc9558fcb35ba"
+    },
+    {
+      "name": "preview-installer.json",
+      "sha256": "ec4f20b1f96e7187017ec39adfad2f13fac87d55f6b118de3e3f75d9ca364f8e"
+    },
+    {
+      "name": "preview-shell.json",
+      "sha256": "f3b5e5b821c12e18d20d79df57fa265a672d336dd57494eeb896ff1cae5d7e04"
+    },
+    {
+      "name": "product-review.json",
+      "sha256": "d4e0bde5203a424638a41c743168be78faf33bac3c9452e0a0b83469dc563e92"
+    }
+  ]
+}

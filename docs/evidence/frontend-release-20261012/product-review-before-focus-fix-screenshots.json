@@ -1,0 +1,90 @@
+{
+  "sourceProof": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix.json",
+  "proofSha256": "43b90262d77e27a5f8d2b75093fe23abda1e81f9c4ab08f0299ad96b5cbd281c",
+  "screenshots": [
+    {
+      "reviewedPath": "output/report-detail-ux.local/supervisor-resolved-320-en-light.png",
+      "preservedPath": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-detail-ux/supervisor-resolved-320-en-light.png",
+      "bytes": 59583,
+      "sha256": "7b8f4dc668cb8c41840dcfe07e0aa2a98c283d39798f565823b11d12970e42a9"
+    },
+    {
+      "reviewedPath": "output/report-detail-ux.local/supervisor-resolved-390-zh-dark.png",
+      "preservedPath": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-detail-ux/supervisor-resolved-390-zh-dark.png",
+      "bytes": 52181,
+      "sha256": "159805bd85c79338dc14073e497bf2af6df3206ef5f387a00fb499200b888ab4"
+    },
+    {
+      "reviewedPath": "output/report-detail-ux.local/worker-failed-320-en-light.png",
+      "preservedPath": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-detail-ux/worker-failed-320-en-light.png",
+      "bytes": 29155,
+      "sha256": "f961eebe40937ff991c0fa6508416d2a67e65e692fbcd966c27fb2e18f9b0875"
+    },
+    {
+      "reviewedPath": "output/report-detail-ux.local/worker-failed-390-zh-dark.png",
+      "preservedPath": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-detail-ux/worker-failed-390-zh-dark.png",
+      "bytes": 22989,
+      "sha256": "dd7043da2c8a09d28c5fe0bd176376d0103253f3db69b2458fcd819036effe8d"
+    },
+    {
+      "reviewedPath": "output/report-detail-ux.local/worker-resolved-320-en-light.png",
+      "preservedPath": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-detail-ux/worker-resolved-320-en-light.png",
+      "bytes": 57065,
+      "sha256": "d4cd7dc232fa89d8e108c0b56c6c4217346e3c6ce1943e5959e7afba706e4789"
+    },
+    {
+      "reviewedPath": "output/report-detail-ux.local/worker-resolved-390-zh-dark.png",
+      "preservedPath": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-detail-ux/worker-resolved-390-zh-dark.png",
+      "bytes": 49653,
+      "sha256": "1c8c29fca5d5d9367815eef68e4f14ba6e282eab6566e4fd00fc9e14683dda77"
+    },
+    {
+      "reviewedPath": "output/report-template-simplicity.local/advanced-320-en-light.png",
+      "preservedPath": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-template-simplicity/advanced-320-en-light.png",
+      "bytes": 90011,
+      "sha256": "c235c80a1b36e8661e18a1737f85f3ae5cd2af2e52767e1a5859655c314d5b62"
+    },
+    {
+      "reviewedPath": "output/report-template-simplicity.local/advanced-390-zh-dark.png",
+      "preservedPath": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-template-simplicity/advanced-390-zh-dark.png",
+      "bytes": 103022,
+      "sha256": "f48afea797eafc238c60c2e2af186249057902a01df7cf3ccbe6d2dca1b54cb1"
+    },
+    {
+      "reviewedPath": "output/report-template-simplicity.local/simple-320-en-light.png",
+      "preservedPath": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-template-simplicity/simple-320-en-light.png",
+      "bytes": 48073,
+      "sha256": "97c9e4d11f520901c9f5187111373540b46db8ec652f7da2470676a4540a706f"
+    },
+    {
+      "reviewedPath": "output/report-template-simplicity.local/simple-390-zh-dark.png",
+      "preservedPath": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-template-simplicity/simple-390-zh-dark.png",
+      "bytes": 50586,
+      "sha256": "85ef81882a097733c4f31d583d7e5d409a8935a3294c32f06c9fe055f95f37ce"
+    },
+    {
+      "reviewedPath": "output/report-staff-simplicity.local/staff-create-320-en-light.png",
+      "preservedPath": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-staff-simplicity/staff-create-320-en-light.png",
+      "bytes": 30820,
+      "sha256": "71939fa4f7f4de52b66e7fd9fec326985710ca4e18571d7030dbaf02b04aef8d"
+    },
+    {
+      "reviewedPath": "output/report-staff-simplicity.local/staff-create-320-zh-dark.png",
+      "preservedPath": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-staff-simplicity/staff-create-320-zh-dark.png",
+      "bytes": 31776,
+      "sha256": "1e9ce4f5ac55c454d567a2cd316a760fe63ebd082b1b4b3ec76f23bd96f780ed"
+    },
+    {
+      "reviewedPath": "output/report-staff-simplicity.local/staff-create-390-en-light.png",
+      "preservedPath": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-staff-simplicity/staff-create-390-en-light.png",
+      "bytes": 32758,
+      "sha256": "029fbcc8e418fc9653d409bff10ac3f6fa2d34447f2202f307a7585617202ef4"
+    },
+    {
+      "reviewedPath": "output/report-staff-simplicity.local/staff-create-390-zh-dark.png",
+      "preservedPath": "docs/evidence/frontend-release-20261012/product-review-before-focus-fix/screenshots/report-staff-simplicity/staff-create-390-zh-dark.png",
+      "bytes": 33944,
+      "sha256": "83f287ad9e2863781e736ee9f5bd5e147e93f0fbc4adb7004543f91b096392c0"
+    }
+  ]
+}

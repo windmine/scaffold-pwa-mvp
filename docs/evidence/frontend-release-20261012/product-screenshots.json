@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "checkedAt": "2026-10-12T00:45:07.883054+00:00",
+  "sourceCommit": "e6b38f95834b66577a519bed3226f1cc1f314f73",
+  "scope": "Exact copies of the final committed candidate synthetic local phone screenshots covered by product-review.json; no hosted user data.",
+  "sourceProof": "docs/evidence/frontend-release-20261012/product-review.json",
+  "sourceProofSha256": "d4e0bde5203a424638a41c743168be78faf33bac3c9452e0a0b83469dc563e92",
+  "screenshots": [
+    {
+      "originalPath": "output/report-detail-ux.local/supervisor-resolved-320-en-light.png",
+      "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/supervisor-resolved-320-en-light.png",
+      "sha256": "7b8f4dc668cb8c41840dcfe07e0aa2a98c283d39798f565823b11d12970e42a9",
+      "bytes": 59583,
+      "dimensions": [
+        296,
+        837
+      ],
+      "updatedAt": "2026-10-12T00:36:17.451282+00:00"
+    },
+    {
+      "originalPath": "output/report-detail-ux.local/supervisor-resolved-390-zh-dark.png",
+      "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/supervisor-resolved-390-zh-dark.png",
+      "sha256": "159805bd85c79338dc14073e497bf2af6df3206ef5f387a00fb499200b888ab4",
+      "bytes": 52181,
+      "dimensions": [
+        366,
+        803
+      ],
+      "updatedAt": "2026-10-12T00:36:18.017768+00:00"
+    },
+    {
+      "originalPath": "output/report-detail-ux.local/worker-failed-320-en-light.png",
+      "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/worker-failed-320-en-light.png",
+      "sha256": "d4838cbc9ea13e74e85a190541cee9236f840a6e8ba864e06b32d48ea15d895f",
+      "bytes": 29225,
+      "dimensions": [
+        296,
+        471
+      ],
+      "updatedAt": "2026-10-12T00:36:17.214239+00:00"
+    },
+    {
+      "originalPath": "output/report-detail-ux.local/worker-failed-390-zh-dark.png",
+      "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/worker-failed-390-zh-dark.png",
+      "sha256": "dd7043da2c8a09d28c5fe0bd176376d0103253f3db69b2458fcd819036effe8d",
+      "bytes": 22989,
+      "dimensions": [
+        366,
+        353
+      ],
+      "updatedAt": "2026-10-12T00:36:17.544365+00:00"
+    },
+    {
+      "originalPath": "output/report-detail-ux.local/worker-resolved-320-en-light.png",
+      "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/worker-resolved-320-en-light.png",
+      "sha256": "da1ce281438272b7b34a1f7ce71dab8f26f8af04d59662a78b80fd4c741c21b7",
+      "bytes": 57190,
+      "dimensions": [
+        296,
+        716
+      ],
+      "updatedAt": "2026-10-12T00:36:17.337994+00:00"
+    },
+    {
+      "originalPath": "output/report-detail-ux.local/worker-resolved-390-zh-dark.png",
+      "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-detail-ux/worker-resolved-390-zh-dark.png",
+      "sha256": "1c8c29fca5d5d9367815eef68e4f14ba6e282eab6566e4fd00fc9e14683dda77",
+      "bytes": 49653,
+      "dimensions": [
+        366,
+        730
+      ],
+      "updatedAt": "2026-10-12T00:36:17.902741+00:00"
+    },
+    {
+      "originalPath": "output/report-template-simplicity.local/advanced-320-en-light.png",
+      "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-template-simplicity/advanced-320-en-light.png",
+      "sha256": "c235c80a1b36e8661e18a1737f85f3ae5cd2af2e52767e1a5859655c314d5b62",
+      "bytes": 90011,
+      "dimensions": [
+        296,
+        2274
+      ],
+      "updatedAt": "2026-10-12T00:40:42.278450+00:00"
+    },
+    {
+      "originalPath": "output/report-template-simplicity.local/advanced-390-zh-dark.png",
+      "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-template-simplicity/advanced-390-zh-dark.png",
+      "sha256": "c149339729e193bef8a8497c7595ec3e61e1c27e81d5067aaf0d16a03001fe24",
+      "bytes": 103022,
+      "dimensions": [
+        366,
+        2201
+      ],
+      "updatedAt": "2026-10-12T00:40:42.583775+00:00"
+    },
+    {
+      "originalPath": "output/report-template-simplicity.local/simple-320-en-light.png",
+      "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-template-simplicity/simple-320-en-light.png",
+      "sha256": "97c9e4d11f520901c9f5187111373540b46db8ec652f7da2470676a4540a706f",
+      "bytes": 48073,
+      "dimensions": [
+        296,
+        1118
+      ],
+      "updatedAt": "2026-10-12T00:40:42.141403+00:00"
+    },
+    {
+      "originalPath": "output/report-template-simplicity.local/simple-390-zh-dark.png",
+      "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-template-simplicity/simple-390-zh-dark.png",
+      "sha256": "85ef81882a097733c4f31d583d7e5d409a8935a3294c32f06c9fe055f95f37ce",
+      "bytes": 50586,
+      "dimensions": [
+        366,
+        1089
+      ],
+      "updatedAt": "2026-10-12T00:40:42.421474+00:00"
+    },
+    {
+      "originalPath": "output/report-staff-simplicity.local/staff-create-320-en-light.png",
+      "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-staff-simplicity/staff-create-320-en-light.png",
+      "sha256": "71939fa4f7f4de52b66e7fd9fec326985710ca4e18571d7030dbaf02b04aef8d",
+      "bytes": 30820,
+      "dimensions": [
+        320,
+        844
+      ],
+      "updatedAt": "2026-10-12T00:40:53.557275+00:00"
+    },
+    {
+      "originalPath": "output/report-staff-simplicity.local/staff-create-320-zh-dark.png",
+      "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-staff-simplicity/staff-create-320-zh-dark.png",
+      "sha256": "ac6de77d4368180cc886d0c9837737699d0e81223dc05e293478b3b07e1a2c8e",
+      "bytes": 31761,
+      "dimensions": [
+        320,
+        844
+      ],
+      "updatedAt": "2026-10-12T00:40:54.904755+00:00"
+    },
+    {
+      "originalPath": "output/report-staff-simplicity.local/staff-create-390-en-light.png",
+      "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-staff-simplicity/staff-create-390-en-light.png",
+      "sha256": "19feefd42655ea4c597825a04f9eb3348ac5ad447515b72fd01d2769fd440cdb",
+      "bytes": 32758,
+      "dimensions": [
+        390,
+        844
+      ],
+      "updatedAt": "2026-10-12T00:40:56.241137+00:00"
+    },
+    {
+      "originalPath": "output/report-staff-simplicity.local/staff-create-390-zh-dark.png",
+      "archivedPath": "docs/evidence/frontend-release-20261012/product-screenshots/report-staff-simplicity/staff-create-390-zh-dark.png",
+      "sha256": "be7e3f2c62404a9b3723ca0d4b9d6687b5da65ab1b568607828cc0faa5a3768f",
+      "bytes": 33946,
+      "dimensions": [
+        390,
+        844
+      ],
+      "updatedAt": "2026-10-12T00:40:57.537086+00:00"
+    }
+  ],
+  "screenshotSourceCommit": "1e0be2ad06c35c0d9e8158d649559d9469368ddc",
+  "candidateRebinding": "Only scripts/template-library-test.mjs changed after screenshot generation; reviewed application file hashes and all 14 archived image hashes remain unchanged."
+}

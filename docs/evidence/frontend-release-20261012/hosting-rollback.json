@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "action": "rollback",
+  "startedAtUtc": "2026-10-12T00:19:46.070791+00:00",
+  "projectId": "geo-attendance-system-db9ca",
+  "beforeLiveVersion": "ba2962f66af41dcb",
+  "frontendOnly": true,
+  "cloudRunChangeRequested": false,
+  "applicationDataMutationRequested": false,
+  "sourceChannel": "live",
+  "targetChannel": "rollback-ui-20261012",
+  "requestAtUtc": "2026-10-12T00:19:46.071565+00:00",
+  "completedAtUtc": "2026-10-12T00:20:01.527565+00:00",
+  "versionId": "ba2962f66af41dcb",
+  "channel": {
+    "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/rollback-ui-20261012",
+    "url": "https://geo-attendance-system-db9ca--rollback-ui-20261012-6qgao7g2.web.app",
+    "release": {
+      "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/rollback-ui-20261012/releases/1791764392193000",
+      "version": {
+        "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/versions/ba2962f66af41dcb",
+        "status": "FINALIZED",
+        "config": {
+          "headers": [
+            {
+              "headers": {
+                "Cache-Control": "no-cache"
+              },
+              "glob": "/sw.js"
+            },
+            {
+              "headers": {
+                "Cache-Control": "no-cache"
+              },
+              "glob": "/offline.html"
+            },
+            {
+              "headers": {
+                "Cache-Control": "no-cache"
+              },
+              "glob": "/install.html"
+            },
+            {
+              "headers": {
+                "Cache-Control": "public,max-age=3600"
+              },
+              "glob": "/manifest.webmanifest"
+            }
+          ],
+          "rewrites": [
+            {
+              "glob": "/api/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            },
+            {
+              "glob": "/uploads/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            }
+          ]
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase"
+        },
+        "createTime": "2026-10-04T22:28:23.819810Z",
+        "finalizeTime": "2026-10-04T22:28:28.948320Z",
+        "fileCount": "87",
+        "versionBytes": "720268"
+      },
+      "type": "DEPLOY",
+      "releaseTime": "2026-10-12T00:19:52.193Z"
+    },
+    "createTime": "2026-10-12T00:19:51.388350569Z",
+    "updateTime": "2026-10-12T00:19:52.193Z",
+    "retainedReleaseCount": 10,
+    "expireTime": "2026-10-19T00:19:51.388350569Z"
+  },
+  "commandResult": {
+    "status": "success"
+  }
+}

@@ -1,0 +1,229 @@
+{
+  "status": "passed",
+  "checkedAt": "2026-10-12T00:23:55.956092+00:00",
+  "scope": "Read-only product/source review of October 7 Report recovery/details and October 8 Staff/Template simplification, plus current-run phone screenshots. This is not the full release gate.",
+  "baselineCommit": "c024fa61f05880e13357eb253b67f00b571254d2",
+  "featureCommits": [
+    "bb2cff43a6be2329b6495aa34c774fef75dfd221",
+    "c1964df75d3eb81b851c5c7ef5a3173fb59a55a7"
+  ],
+  "headAtReview": "8820eda2320804eb5d843749871a653267b150d6",
+  "mobileRunStartedAt": "2026-10-12T00:17:31.989280+00:00",
+  "sourceReview": {
+    "findings": [],
+    "checks": [
+      "Failed queued Report Retry/Recover actions appear before details and delegate the unchanged original record identity/captured answers/evidence to existing recovery and replay handlers; session, Worker, Department and connected-node guards remain.",
+      "The promoted action pair shares an in-flight guard. Expansion retains a single action set. Discard stays secondary in expanded details and delegates the existing confirmation and queue-lock path.",
+      "Report-only details keep answers, signatures, gallery access and final notes. A native details/summary disclosure carries capture/submission/reviewer/review timestamps; saved copies are labelled as device saves and cannot acquire a stale resolved note.",
+      "New Report-only Worker invitations explicitly keep normal as the retained class default. Existing-user edits omit worker_class; backend update_user reads model_fields_set and preserves the current class on omission, including a class changed after the editor opened.",
+      "Role, Department, self-account, pending-invitation and global-admin controls keep their existing policy. The full-interface override still exposes retained class management.",
+      "Template simple view hides field keys, unused conditions and new formula/repeat choices. Existing formulas, groups and conditions remain editable; load, draft restore and raw apply expose configured advanced behavior.",
+      "The advanced-options switch changes view state without Definition mutation or draft scheduling; the actual edit-form input listener explicitly excludes this checkbox, while ordinary field/name/description edits continue saving.",
+      "No asset or index.html source changes exist between the October 8 feature commit and the reviewed HEAD."
+    ],
+    "files": [
+      {
+        "path": "assets/css/styles.css",
+        "sha256": "833d76ca2c2c5a0254501878549b7cde2db6f77af5eb790161856d5a544efb3d"
+      },
+      {
+        "path": "assets/js/app.js",
+        "sha256": "133042e2023455c70a2a3950963e919740ac357f3686e5a82fcbc606411a355f"
+      },
+      {
+        "path": "assets/js/history.js",
+        "sha256": "7b4daef59990db258d041c8efbe703c60c13b685c8263a72c0760f098286d9f8"
+      },
+      {
+        "path": "assets/js/i18n.js",
+        "sha256": "6c962b9cb2b37bd6872bcbb36d9b9bbc44064cdf1936fc3163e454c6e5337859"
+      },
+      {
+        "path": "assets/js/staff-sites.js",
+        "sha256": "41af2ffddebe523c6f59f41c104c0766f4246d06a737093d099d05380b6ec35b"
+      },
+      {
+        "path": "assets/js/supervisor-review.js",
+        "sha256": "3fdbe2df0415ace9a1692d03643e70589ef6d1560ababecc2d45b314edd8319a"
+      },
+      {
+        "path": "assets/js/work-form-builder.js",
+        "sha256": "d6da6dacac97239b12e5f2176a004cb0613e7a26e166178281b62e8f957a9d7a"
+      },
+      {
+        "path": "index.html",
+        "sha256": "8d92b9521b364ae4d7f3164179f510e1adb55b28dc9dbd6cd71c90b231ecaf73"
+      }
+    ]
+  },
+  "visualReview": {
+    "findings": [],
+    "screenshotsInspected": 14,
+    "freshness": "Every reviewed image modification time is after the current mobile-run start; focused-suite completion was confirmed by the gate owner before inspection.",
+    "reportDetails": "Six 320px English/light and 390px Chinese/dark fixtures show readable full failure warnings, primary recovery actions before disclosure, full final-note access, signatures, six-photo previews with complete-gallery controls, More details and Supervisor PDF controls without clipping.",
+    "templates": "Four simple/configured-advanced 320px English/light and 390px Chinese/dark builder images show translated view controls, visible labels/inputs, preserved formulas and conditions, and no horizontal overflow.",
+    "staff": "Four actual-app viewport images at 320/390px English/light and Chinese/dark show Worker role, Department and private-invitation guidance without Worker-class controls. At 320px English the lower action area is below the screenshot fold; other captures show Create invitation and Cancel clearly.",
+    "screenshots": [
+      {
+        "path": "output/report-detail-ux.local/supervisor-resolved-320-en-light.png",
+        "bytes": 59583,
+        "sha256": "7b8f4dc668cb8c41840dcfe07e0aa2a98c283d39798f565823b11d12970e42a9",
+        "updatedAt": "2026-10-12T00:17:46.469494+00:00",
+        "dimensions": [
+          296,
+          837
+        ],
+        "visualReview": "passed"
+      },
+      {
+        "path": "output/report-detail-ux.local/supervisor-resolved-390-zh-dark.png",
+        "bytes": 52181,
+        "sha256": "159805bd85c79338dc14073e497bf2af6df3206ef5f387a00fb499200b888ab4",
+        "updatedAt": "2026-10-12T00:17:47.085442+00:00",
+        "dimensions": [
+          366,
+          803
+        ],
+        "visualReview": "passed"
+      },
+      {
+        "path": "output/report-detail-ux.local/worker-failed-320-en-light.png",
+        "bytes": 29155,
+        "sha256": "f961eebe40937ff991c0fa6508416d2a67e65e692fbcd966c27fb2e18f9b0875",
+        "updatedAt": "2026-10-12T00:17:46.111290+00:00",
+        "dimensions": [
+          296,
+          471
+        ],
+        "visualReview": "passed"
+      },
+      {
+        "path": "output/report-detail-ux.local/worker-failed-390-zh-dark.png",
+        "bytes": 22989,
+        "sha256": "dd7043da2c8a09d28c5fe0bd176376d0103253f3db69b2458fcd819036effe8d",
+        "updatedAt": "2026-10-12T00:17:46.590536+00:00",
+        "dimensions": [
+          366,
+          353
+        ],
+        "visualReview": "passed"
+      },
+      {
+        "path": "output/report-detail-ux.local/worker-resolved-320-en-light.png",
+        "bytes": 57065,
+        "sha256": "d4cd7dc232fa89d8e108c0b56c6c4217346e3c6ce1943e5959e7afba706e4789",
+        "updatedAt": "2026-10-12T00:17:46.309335+00:00",
+        "dimensions": [
+          296,
+          716
+        ],
+        "visualReview": "passed"
+      },
+      {
+        "path": "output/report-detail-ux.local/worker-resolved-390-zh-dark.png",
+        "bytes": 49653,
+        "sha256": "1c8c29fca5d5d9367815eef68e4f14ba6e282eab6566e4fd00fc9e14683dda77",
+        "updatedAt": "2026-10-12T00:17:46.965228+00:00",
+        "dimensions": [
+          366,
+          730
+        ],
+        "visualReview": "passed"
+      },
+      {
+        "path": "output/report-template-simplicity.local/advanced-320-en-light.png",
+        "bytes": 90011,
+        "sha256": "c235c80a1b36e8661e18a1737f85f3ae5cd2af2e52767e1a5859655c314d5b62",
+        "updatedAt": "2026-10-12T00:22:00.126620+00:00",
+        "dimensions": [
+          296,
+          2274
+        ],
+        "visualReview": "passed"
+      },
+      {
+        "path": "output/report-template-simplicity.local/advanced-390-zh-dark.png",
+        "bytes": 103022,
+        "sha256": "f48afea797eafc238c60c2e2af186249057902a01df7cf3ccbe6d2dca1b54cb1",
+        "updatedAt": "2026-10-12T00:22:00.629336+00:00",
+        "dimensions": [
+          366,
+          2201
+        ],
+        "visualReview": "passed"
+      },
+      {
+        "path": "output/report-template-simplicity.local/simple-320-en-light.png",
+        "bytes": 48073,
+        "sha256": "97c9e4d11f520901c9f5187111373540b46db8ec652f7da2470676a4540a706f",
+        "updatedAt": "2026-10-12T00:21:59.938391+00:00",
+        "dimensions": [
+          296,
+          1118
+        ],
+        "visualReview": "passed"
+      },
+      {
+        "path": "output/report-template-simplicity.local/simple-390-zh-dark.png",
+        "bytes": 50586,
+        "sha256": "85ef81882a097733c4f31d583d7e5d409a8935a3294c32f06c9fe055f95f37ce",
+        "updatedAt": "2026-10-12T00:22:00.347665+00:00",
+        "dimensions": [
+          366,
+          1089
+        ],
+        "visualReview": "passed"
+      },
+      {
+        "path": "output/report-staff-simplicity.local/staff-create-320-en-light.png",
+        "bytes": 30820,
+        "sha256": "71939fa4f7f4de52b66e7fd9fec326985710ca4e18571d7030dbaf02b04aef8d",
+        "updatedAt": "2026-10-12T00:22:11.723318+00:00",
+        "dimensions": [
+          320,
+          844
+        ],
+        "visualReview": "passed"
+      },
+      {
+        "path": "output/report-staff-simplicity.local/staff-create-320-zh-dark.png",
+        "bytes": 31776,
+        "sha256": "1e9ce4f5ac55c454d567a2cd316a760fe63ebd082b1b4b3ec76f23bd96f780ed",
+        "updatedAt": "2026-10-12T00:22:13.036416+00:00",
+        "dimensions": [
+          320,
+          844
+        ],
+        "visualReview": "passed"
+      },
+      {
+        "path": "output/report-staff-simplicity.local/staff-create-390-en-light.png",
+        "bytes": 32758,
+        "sha256": "029fbcc8e418fc9653d409bff10ac3f6fa2d34447f2202f307a7585617202ef4",
+        "updatedAt": "2026-10-12T00:22:14.321516+00:00",
+        "dimensions": [
+          390,
+          844
+        ],
+        "visualReview": "passed"
+      },
+      {
+        "path": "output/report-staff-simplicity.local/staff-create-390-zh-dark.png",
+        "bytes": 33944,
+        "sha256": "83f287ad9e2863781e736ee9f5bd5e147e93f0fbc4adb7004543f91b096392c0",
+        "updatedAt": "2026-10-12T00:22:15.631019+00:00",
+        "dimensions": [
+          390,
+          844
+        ],
+        "visualReview": "passed"
+      }
+    ]
+  },
+  "validationOwnership": "Operations agent owns the complete check:mobile run and its results. This review ran no competing tests or builds and made no application-source or hosted changes.",
+  "limitations": [
+    "Report detail and Template screenshots use the real module/CSS with isolated synthetic callbacks or transport; Staff screenshots use the actual app with intercepted transport.",
+    "No authenticated hosted application fixtures were created by this review, and physical iPhone/Android interaction remains unverified.",
+    "Historical Staff/invitation timeout causes remain unconfirmed; this source and visual review does not establish their causes or substitute for the full mobile gate."
+  ]
+}
