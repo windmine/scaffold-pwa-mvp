@@ -184,8 +184,7 @@ async function assertCards(page, expected) {
 async function resetFilters(page) { await page.locator('#clearWorkFormFiltersButton').click(); }
 async function openWorkFormCreate(page) {
   await page.locator('#addWorkFormButton').click();
-  // Opening schedules initial focus on the next animation frame. Wait before
-  // typing so that callback cannot steal focus during a later field's fill.
+  // Confirm the visible, enabled editor and its initial keyboard focus before typing.
   await page.waitForFunction(() => {
     const name = document.getElementById('workFormNameInput');
     return !document.getElementById('workFormCreatePanel').hidden
@@ -379,15 +378,13 @@ try {
   console.log('ok - Department/account changes suppress late status completion in the replacement library');
 
   const initialFocus = await fixture(browser);
-  let opening;
   try {
     const { page } = initialFocus;
     await page.evaluate(() => {
       const nativeRequestFrame = window.requestAnimationFrame.bind(window);
       window.templateInitialFocus = { held: [] };
-      // Hold the real Add handler's scheduled frame, not a replacement focus.
+      // A pending frame must not delay initial focus or override a newer choice.
       window.requestAnimationFrame = (callback) => {
-        if (!callback.toString().includes('focusTarget?.focus')) return nativeRequestFrame(callback);
         window.templateInitialFocus.held.push(callback);
         return 2147480000;
       };
@@ -396,27 +393,22 @@ try {
         window.templateInitialFocus.held.splice(0).forEach((callback) => callback(performance.now()));
       };
     });
-    let ready = false;
-    opening = openWorkFormCreate(page).then(() => { ready = true; });
-    opening.catch(() => {}); // Cleanup still owns a pending opening after failure.
-    await page.waitForFunction(() => window.templateInitialFocus.held.length === 1);
+    await openWorkFormCreate(page);
     assert.equal(await page.locator('#workFormCreatePanel').isVisible(), true);
     assert.equal(await page.locator('#workFormNameInput').isEnabled(), true);
-    assert.notEqual(await page.evaluate(() => document.activeElement?.id), 'workFormNameInput');
-    await new Promise((resolve) => setTimeout(resolve, 80));
-    assert.equal(ready, false, 'Visible/enabled fields cannot bypass the held initial focus');
-    await page.evaluate(() => window.templateInitialFocus.release());
-    await opening;
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'workFormNameInput');
     await page.locator('#workFormNameInput').fill('Private new Template');
-    await page.locator('#workFormDescriptionInput').fill('Unsaved work is not a search result');
+    await page.locator('#workFormDescriptionInput').focus();
+    await page.evaluate(() => window.templateInitialFocus.release());
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'workFormDescriptionInput',
+      'An opening frame must not override the newer Description focus');
+    await page.keyboard.insertText('Unsaved work is not a search result');
     assert.equal(await page.locator('#workFormNameInput').inputValue(), 'Private new Template');
     assert.equal(await page.locator('#workFormDescriptionInput').inputValue(), 'Unsaved work is not a search result');
     assert.equal(initialFocus.mutations.length, 0, 'Opening and typing never publish a Template');
-    console.log('ok - held initial Template focus blocks readiness, then Name and Description receive only their own text');
+    console.log('ok - Template opens with Name focused and pending frames preserve newer Description focus and input');
   } finally {
     await initialFocus.close();
-    await opening?.catch(() => {});
   }
 
   const drafts = await fixture(browser);
