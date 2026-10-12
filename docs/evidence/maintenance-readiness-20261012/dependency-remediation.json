@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "status": "remediated",
+  "recordedAtUtc": "2026-10-12T01:55:06.741423+00:00",
+  "sourceBaseCommit": "2fdff7e0269d4de74bd4fe6647c8aa1cbf470ac1",
+  "lockfileSha256": "a80e2a886f78a77adcf5d8d1e551fe1b70e7143d6bc203bf0700130fc1b8a825",
+  "method": "Compatible transitive dependency updates only; no force, overrides, advisory suppressions or direct dependency range changes.",
+  "changes": [
+    {
+      "package": "brace-expansion",
+      "before": "5.0.7",
+      "after": "5.0.12",
+      "developmentOnly": true
+    },
+    {
+      "package": "nanoid",
+      "before": "3.3.16",
+      "after": "3.3.20",
+      "developmentOnly": true
+    },
+    {
+      "package": "postcss",
+      "before": "8.5.19",
+      "after": "8.5.29",
+      "developmentOnly": true
+    },
+    {
+      "package": "source-map-js",
+      "before": "1.2.1",
+      "after": "1.2.2",
+      "developmentOnly": true
+    }
+  ],
+  "before": {
+    "high": 3,
+    "moderate": 1,
+    "total": 4
+  },
+  "after": {
+    "total": 0
+  },
+  "productionAfter": {
+    "total": 0
+  },
+  "auditScope": "Installed dependencies and complete lockfile including all platform-optional dependencies.",
+  "auditEvidence": [
+    "dependency-audit-before.json",
+    "dependency-audit-after.json",
+    "production-dependency-audit.json",
+    "dependency-lock-audit.json"
+  ],
+  "primaryAdvisories": [
+    "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr",
+    "https://github.com/advisories/GHSA-2v37-7h3g-55p8",
+    "https://github.com/advisories/GHSA-fxqj-rqcc-2cmp",
+    "https://github.com/advisories/GHSA-68fv-2mgg-jv7q"
+  ],
+  "limitations": [
+    "Audit results describe the registry advisory database at the recorded time; they are not a guarantee against undiscovered vulnerabilities.",
+    "Application checks are recorded separately in the local CI evidence. No deployment was performed for this maintenance work."
+  ]
+}

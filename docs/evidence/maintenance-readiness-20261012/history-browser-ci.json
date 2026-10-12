@@ -1,0 +1,69 @@
+{
+  "generatedAt": "2026-10-12T02:18:00.706Z",
+  "profile": "ci",
+  "scope": "Actual history.js renderer, filters and app CSS in a minimal page; synthetic mapped records; intercepted assets/images; no backend/network/phone capacity claim.",
+  "environment": {
+    "node": "v24.15.0",
+    "chromium": "149.0.7827.55",
+    "platform": "win32",
+    "arch": "x64",
+    "cpu": "AMD Ryzen AI 9 H 465 w/ Radeon 880M "
+  },
+  "testSha256": "63b0897150b5ff530572b2d0acc523de7fa24e458f0d4c88197a60ece1308bf1",
+  "sourceSha256": "7b4daef59990db258d041c8efbe703c60c13b685c8263a72c0760f098286d9f8",
+  "styleSha256": "833d76ca2c2c5a0254501878549b7cde2db6f77af5eb790161856d5a544efb3d",
+  "policy": "Correctness, no eager images, cleanup and a 30-second runaway ceiling are gates. Observed timings/heap are diagnostic, not service-level limits.",
+  "scenarios": [
+    {
+      "reports": 100,
+      "mappedPayloadBytes": 453717,
+      "firstRender": {
+        "milliseconds": 12.5,
+        "height": 23188,
+        "cards": 100,
+        "elements": 1102,
+        "images": 0
+      },
+      "repeatRender": {
+        "milliseconds": 6.299999952316284,
+        "height": 23188,
+        "cards": 100,
+        "elements": 1102,
+        "images": 0
+      },
+      "searchMilliseconds": 3.800000011920929,
+      "heapBeforeSearchBytes": 2302760,
+      "imageRequestsAfterOneExpansion": 4,
+      "correctness": "passed",
+      "noEagerImages": true,
+      "finalRecordSearch": true,
+      "exactWorkerAndDepartmentScopeAndReset": true
+    },
+    {
+      "reports": 1000,
+      "mappedPayloadBytes": 4553535,
+      "firstRender": {
+        "milliseconds": 65.60000002384186,
+        "height": 231608,
+        "cards": 1000,
+        "elements": 11002,
+        "images": 0
+      },
+      "repeatRender": {
+        "milliseconds": 66,
+        "height": 231608,
+        "cards": 1000,
+        "elements": 11002,
+        "images": 0
+      },
+      "searchMilliseconds": 24.399999976158142,
+      "heapBeforeSearchBytes": 8687408,
+      "imageRequestsAfterOneExpansion": 4,
+      "correctness": "passed",
+      "noEagerImages": true,
+      "finalRecordSearch": true,
+      "exactWorkerAndDepartmentScopeAndReset": true
+    }
+  ],
+  "status": "passed"
+}

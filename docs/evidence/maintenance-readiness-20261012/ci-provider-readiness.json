@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-12T02:03:40.698564+00:00",
+  "repository": "windmine/scaffold-pwa-mvp",
+  "actionsEnabled": true,
+  "allowedActions": "all",
+  "defaultBranch": "main",
+  "operation": "read-only settings inspection",
+  "workflowExecutionObserved": false,
+  "remoteSettingsChanged": false
+}

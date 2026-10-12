@@ -1,0 +1,70 @@
+{
+  "status": "confirmed-test-harness-cleanup-defect",
+  "initialFullGate": {
+    "status": "failed",
+    "startedAtUtc": "2026-10-12T01:54:28.309766Z",
+    "completedAtUtc": "2026-10-12T01:57:15.816517Z",
+    "logSha256": "ac88cf34e743d73dda7cfef7e8a54d4fd1699aab619c01ec5693a3820a87eee5",
+    "observation": "All 11 Report upload-recovery HTTP checks passed; strict temporary SQLite cleanup then failed WinError32.",
+    "originalLocalLogSha256": "838c4b538f527b60565cac93a4ac34658035e1d5c6450bb1e6f4f4e493bb9328",
+    "durableLogSha256": "ac88cf34e743d73dda7cfef7e8a54d4fd1699aab619c01ec5693a3820a87eee5",
+    "durableLog": "docs/evidence/maintenance-readiness-20261012/ci-local-mobile-initial-failed.txt",
+    "logNormalization": "Absolute local workspace prefixes were replaced with <workspace>/ and the local temporary-directory prefix with <temp>/. In the three captured ci-local-mobile failure logs, one trailing ASCII space was also removed from the Vite reporter line at line 30. Test meaning, failure classification and relative file locations remain unchanged. Original local log bytes and hashes remain in ignored output.",
+    "trailingAsciiSpacesRemoved": 1
+  },
+  "hypotheses": [
+    "Windows venv launcher exits before actual Python child releases SQLite",
+    "Parent test retains a SQLite connection",
+    "External scanner temporarily holds owned SQLite file"
+  ],
+  "confirmation": {
+    "minimalFixtureReproduced": true,
+    "focusedReportRecoveryReproduced": true,
+    "ownedChildHandleWaitAfterLauncherExited": 258,
+    "meaning": "WAIT_TIMEOUT: actual Python child still exiting after launcher wait completed",
+    "allParentSQLiteConnectionsUseContextlibClosing": true
+  },
+  "fix": {
+    "file": "backend/test_server_process.py",
+    "windows": "taskkill /pid exact-owned-Popen-PID /t /f with 15-second command timeout; then wait launcher and verify loopback listener stopped",
+    "posix": "Terminate the directly owned process; wait and verify listener stopped",
+    "temporaryCleanup": "Strict; errors are not ignored",
+    "callers": [
+      "backend/invitation_test.py",
+      "backend/security_test.py"
+    ]
+  },
+  "regression": {
+    "file": ".github/scripts/check_test_server_cleanup.py",
+    "oldSource": "Exact HEAD backend/invitation_test.py loaded in memory; first real lifecycle fails WinError32",
+    "fixedSource": "Three real disposable fixture lifecycles passed with no temporary directory or listener remaining",
+    "includedIn": "python .github/scripts/run_local_checks.py backend",
+    "finalBackendGate": "All 21 backend suites and three real server lifecycles passed in a fresh isolated environment",
+    "finalMobileGate": "All unchanged focused mobile components passed in mobile-final2; all 73 browser workflows subsequently passed standalone on final harness source. No later single full check:mobile command passed."
+  },
+  "limits": [
+    "This is a Windows local virtual-environment test teardown change, not an application behavior fix.",
+    "Configured Ubuntu / Python 3.11 GitHub execution remains unobserved."
+  ],
+  "sourceHashes": {
+    "oldInvitationServer": "4b9965663b7e21b14073d1d70262eca1ff73a2df20114632e662de8262a79135",
+    "backend/test_server_process.py": "386661c256f810c8c0ba261628091f2b33a8ee1b1675e92638952407e2fd95c3",
+    "backend/invitation_test.py": "69b804f6abccbda4eebe49aab98ddaf660444957e9ea85ef1c8d345afd8d33c4",
+    "backend/security_test.py": "d627491345d5c16980038d4a3ea854b227f83867fafbe4cdfbe31bce2f419996",
+    ".github/scripts/check_test_server_cleanup.py": "60571464e93979376fe283e89c83ff40db035759c3c43076962f365a706e0a0a"
+  },
+  "secondaryFixtureReproduction": {
+    "task": "backend",
+    "status": "failed",
+    "exitCode": 1,
+    "startedAtUtc": "2026-10-12T02:06:15.508870Z",
+    "completedAtUtc": "2026-10-12T02:06:44.253749Z",
+    "logSha256": "8a03562641e905142f6a92af137ffda77702b2da1aac1345eb21c4538a610684",
+    "log": "docs/evidence/maintenance-readiness-20261012/ci-local-backend-initial-failed.txt",
+    "classification": "Confirmed Windows virtual-environment test server cleanup race; strict fixture cleanup retained; see ci-cleanup-diagnosis.json",
+    "originalLocalLogSha256": "5e5ebe3639687f8f5d6c089aea19761e1e57e39db829a8724d93be3ce357c25a",
+    "durableLogSha256": "8a03562641e905142f6a92af137ffda77702b2da1aac1345eb21c4538a610684",
+    "durableLog": "docs/evidence/maintenance-readiness-20261012/ci-local-backend-initial-failed.txt",
+    "logNormalization": "Absolute local workspace prefixes were replaced with <workspace>/ and the local temporary-directory prefix with <temp>/. In the three captured ci-local-mobile failure logs, one trailing ASCII space was also removed from the Vite reporter line at line 30. Test meaning, failure classification and relative file locations remain unchanged. Original local log bytes and hashes remain in ignored output."
+  }
+}

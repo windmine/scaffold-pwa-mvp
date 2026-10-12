@@ -1,0 +1,291 @@
+Running check_test_server_cleanup.py
+Three real disposable backend lifecycles passed with strict cleanup
+Running database_test.py
+ok - stale pooled connection is recycled before the route query
+database test passed
+Running maintenance_test.py
+ok - database-free maintenance liveness and nine fail-closed route checks
+Running migration_test.py
+ok - postgres statement adaptation
+ok - outdated production startup fails before storage readiness or purge
+ok - current production startup verifies safely and rejects automatic migration
+ok - real FastAPI lifespan refuses invalid history and cancels/clears its periodic purge task
+ok - lifespan regressions detect removed hooks, missing verification, early side effects, and leaked tasks
+ok - read-only migration verification rejects missing, changed, future, and absent migration manifests
+ok - migration --check CLI succeeds only for current history without writing
+ok - migration CLI process missing history: correct exit and unchanged database/uploads
+ok - migration CLI process pending history: correct exit and unchanged database/uploads
+ok - migration CLI process checksum history: correct exit and unchanged database/uploads
+ok - migration CLI process future history: correct exit and unchanged database/uploads
+ok - migration CLI process malformed history: correct exit and unchanged database/uploads
+ok - migration CLI process current history: correct exit and unchanged database/uploads
+ok - migration runner rejects unknown and changed history before pending upgrades
+ok - fresh database migration
+ok - legacy database migration
+ok - invitation migration preserves existing passwords/access and creates no invitations
+ok - recovery migration preserves passwords, sessions and invitation rows; issues no recovery links
+ok - report review workflow status backfill
+ok - Report and Daywork purpose backfill preserves evidence
+ok - global admin access requires the Supervisor role
+ok - client submission unique indexes
+ok - client submission duplicate precheck
+ok - rubbish bin 30-day purge
+ok - 0017 upgrade corrects proven historical Daywork without changing submitted evidence
+ok - 0019 upgrade corrects proven historical Daywork without changing submitted evidence
+ok - Correction refuses unknown_answers with full migration-batch rollback
+ok - Correction refuses changed_parent with full migration-batch rollback
+ok - Correction refuses changed_version with full migration-batch rollback
+ok - Correction refuses orphan with full migration-batch rollback
+ok - Correction refuses bad_date with full migration-batch rollback
+ok - Correction refuses report_transition and preserves existing-0019 guards/evidence
+ok - Correction refuses resolution_note and preserves existing-0019 guards/evidence
+ok - Correction refuses review_state and preserves existing-0019 guards/evidence
+ok - Correction refuses parent_edit and preserves existing-0019 guards/evidence
+ok - Correction refuses historical_parent_report and preserves existing-0019 guards/evidence
+ok - Correction refuses conflicting_definition and preserves existing-0019 guards/evidence
+ok - Legacy approvals/rejections/reviewer timestamps remain intact; explicit empty and positively evidenced Reports remain immutable Reports
+ok - 0017 correction provenance failure rolls back data, provenance and guards; retry succeeds
+ok - 0017 correction ledger failure rolls back data, provenance and guards; retry succeeds
+ok - 0019 correction provenance failure rolls back data, provenance and guards; retry succeeds
+ok - 0019 correction ledger failure rolls back data, provenance and guards; retry succeeds
+ok - Fresh schema receives0020 and remains exact-ledger/idempotence compatible
+migration test passed
+Running security_test.py
+ok - original Department reads submitted photo
+ok - other Department cannot read submitted photo
+ok - other Department cannot read submitted photo: route conceals evidence
+ok - other Department cannot read submitted photo: denial is never shared
+ok - original Department reads submitted signature
+ok - other Department cannot read submitted signature
+ok - other Department cannot read submitted signature: route conceals evidence
+ok - other Department cannot read submitted signature: denial is never shared
+ok - original Department reads submitted repeating signature
+ok - other Department cannot read submitted repeating signature
+ok - other Department cannot read submitted repeating signature: route conceals evidence
+ok - other Department cannot read submitted repeating signature: denial is never shared
+ok - Worker transfer never grants new Department old photo
+ok - Worker transfer never grants new Department old photo: route conceals evidence
+ok - Worker transfer never grants new Department old photo: denial is never shared
+ok - original Department keeps old photo after transfer
+ok - transferred owner keeps their photo
+ok - global Supervisor keeps access to photo
+ok - Worker transfer never grants new Department old signature
+ok - Worker transfer never grants new Department old signature: route conceals evidence
+ok - Worker transfer never grants new Department old signature: denial is never shared
+ok - original Department keeps old signature after transfer
+ok - transferred owner keeps their signature
+ok - global Supervisor keeps access to signature
+ok - Worker transfer never grants new Department old repeating signature
+ok - Worker transfer never grants new Department old repeating signature: route conceals evidence
+ok - Worker transfer never grants new Department old repeating signature: denial is never shared
+ok - original Department keeps old repeating signature after transfer
+ok - transferred owner keeps their repeating signature
+ok - global Supervisor keeps access to repeating signature
+ok - transfer leaves Report evidence and owning Department unchanged
+ok - trash keeps original Department signature access from frozen Definition
+ok - trash does not grant new Department signature access
+ok - trash does not grant new Department signature access: route conceals evidence
+ok - trash does not grant new Department signature access: denial is never shared
+ok - foreign URL in text answer cannot authorize Worker
+ok - foreign URL in text answer cannot authorize Worker: route conceals evidence
+ok - foreign URL in text answer cannot authorize Worker: denial is never shared
+ok - foreign URL in text answer cannot authorize Department Supervisor
+ok - foreign URL in text answer cannot authorize Department Supervisor: route conceals evidence
+ok - foreign URL in text answer cannot authorize Department Supervisor: denial is never shared
+ok - foreign URL in nested text answer cannot authorize Worker
+ok - foreign URL in nested text answer cannot authorize Worker: route conceals evidence
+ok - foreign URL in nested text answer cannot authorize Worker: denial is never shared
+ok - foreign URL in nested text answer cannot authorize Department Supervisor
+ok - foreign URL in nested text answer cannot authorize Department Supervisor: route conceals evidence
+ok - foreign URL in nested text answer cannot authorize Department Supervisor: denial is never shared
+ok - retained edit cannot launder ordinary URL text into photo
+ok - rejected photo edit preserves answers
+ok - rejected photo edit attaches no photos
+ok - retained edit cannot launder ordinary URL text into direct signature
+ok - rejected direct signature edit preserves answers
+ok - rejected direct signature edit attaches no photos
+ok - retained edit cannot launder ordinary URL text into repeating signature
+ok - rejected repeating signature edit preserves answers
+ok - rejected repeating signature edit attaches no photos
+ok - rejected retained edits never grant foreign photo access
+ok - rejected retained edits never grant foreign photo access: route conceals evidence
+ok - rejected retained edits never grant foreign photo access: denial is never shared
+ok - rejected retained edits never grant foreign signature access
+ok - rejected retained edits never grant foreign signature access: route conceals evidence
+ok - rejected retained edits never grant foreign signature access: denial is never shared
+ok - retained Supervisor correction keeps true Worker-owned photo
+ok - retained Supervisor correction keeps true frozen signature
+ok - unsubmitted Worker upload is private from current Department Supervisor
+ok - unsubmitted Worker upload is private from current Department Supervisor: route conceals evidence
+ok - unsubmitted Worker upload is private from current Department Supervisor: denial is never shared
+ok - unsubmitted Worker upload is private from former Department Supervisor
+ok - unsubmitted Worker upload is private from former Department Supervisor: route conceals evidence
+ok - unsubmitted Worker upload is private from former Department Supervisor: denial is never shared
+ok - unsubmitted upload remains available to owner
+ok - global Supervisor retains explicit orphan access
+ok - Supervisor can read their own unsubmitted upload
+ok - new Department gains access only after its own real attachment
+ok - shared evidence remains available to original Department
+ok - new Department gains access only after its own real attachment
+ok - shared evidence remains available to original Department
+ok - missing frozen Definition cannot authorize a signature from mutable Template
+ok - missing frozen Definition cannot authorize a signature from mutable Template: route conceals evidence
+ok - missing frozen Definition cannot authorize a signature from mutable Template: denial is never shared
+ok - malformed or untyped frozen Definition cannot authorize signature
+ok - malformed or untyped frozen Definition cannot authorize signature: route conceals evidence
+ok - malformed or untyped frozen Definition cannot authorize signature: denial is never shared
+ok - malformed or untyped frozen Definition cannot authorize signature
+ok - malformed or untyped frozen Definition cannot authorize signature: route conceals evidence
+ok - malformed or untyped frozen Definition cannot authorize signature: denial is never shared
+ok - malformed or untyped frozen Definition cannot authorize signature
+ok - malformed or untyped frozen Definition cannot authorize signature: route conceals evidence
+ok - malformed or untyped frozen Definition cannot authorize signature: denial is never shared
+ok - malformed or untyped frozen Definition cannot authorize signature
+ok - malformed or untyped frozen Definition cannot authorize signature: route conceals evidence
+ok - malformed or untyped frozen Definition cannot authorize signature: denial is never shared
+ok - legacy typed signature with no owner metadata remains Department accessible
+ok - legacy typed signature remains accessible to its record Worker
+ok - legacy signature remains hidden across Departments
+ok - legacy signature remains hidden across Departments: route conceals evidence
+ok - legacy signature remains hidden across Departments: denial is never shared
+ok - Supervisor without Department cannot obtain unscoped evidence
+ok - Supervisor without Department cannot obtain unscoped evidence: route conceals evidence
+ok - Supervisor without Department cannot obtain unscoped evidence: denial is never shared
+ok - malformed repeating answers fail closed without an upload error
+ok - malformed repeating answers fail closed without an upload error: route conceals evidence
+ok - malformed repeating answers fail closed without an upload error: denial is never shared
+ok - malformed repeat does not hide valid frozen direct signature
+ok - retained AttendanceRecord follows record Department
+ok - retained AttendanceRecord ignores uploader's new Department
+ok - retained AttendanceRecord ignores uploader's new Department: route conceals evidence
+ok - retained AttendanceRecord ignores uploader's new Department: denial is never shared
+ok - retained TaskLog follows record Department
+ok - retained TaskLog ignores uploader's new Department
+ok - retained TaskLog ignores uploader's new Department: route conceals evidence
+ok - retained TaskLog ignores uploader's new Department: denial is never shared
+ok - ambiguous old signature is retained by cleanup
+ok - guarded login rejects existing credentials without switching browser identity
+ok - guarded login rejects existing credentials without switching browser identity
+ok - guarded login rejects existing credentials without switching browser identity
+ok - guarded login rejects existing credentials without switching browser identity
+ok - guarded login rejects existing credentials without switching browser identity
+ok - guarded login rejects existing credentials without switching browser identity
+ok - guarded login is opt-in and rejects coercible non-boolean options
+ok - missing CSRF fails write validation without invalidating the authentication cookie
+ok - expired cookie cannot confirm a saved session
+ok - malformed cookie cannot confirm a saved session
+ok - resigned account cookie cannot confirm a saved session
+ok - invitation auth bucket allows its first request
+ok - invitation endpoint shares the strict auth bucket
+ok - invitation auth bucket allows its first request
+ok - invitation endpoint shares the strict auth bucket
+ok - invitation auth bucket allows its first request
+ok - invitation endpoint shares the strict auth bucket
+ok - invitation auth bucket allows its first request
+ok - invitation endpoint shares the strict auth bucket
+ok - invitation success, validation, authorization and rate-limit errors remain private
+ok - development default retains automatic migrations: configuration loads
+ok - development default retains automatic migrations
+ok - production default disables automatic migrations: configuration loads
+ok - production default disables automatic migrations
+ok - prod alias disables automatic migrations: configuration loads
+ok - prod alias disables automatic migrations
+ok - Cloud Run detection disables automatic migrations: configuration loads
+ok - Cloud Run detection disables automatic migrations
+ok - ENVIRONMENT fallback disables production automatic migrations: configuration loads
+ok - ENVIRONMENT fallback disables production automatic migrations
+ok - explicit development false disables automatic migrations: configuration loads
+ok - explicit development false disables automatic migrations
+ok - explicit production false remains disabled: configuration loads
+ok - explicit production false remains disabled
+ok - explicit production true remains detectable for startup rejection: configuration loads
+ok - explicit production true remains detectable for startup rejection
+ok - production startup explains the forbidden automatic migration setting
+ok - production startup rejects automatic migrations before migration, storage, or purge
+ok - rejected production startup does not create database tables
+ok - readiness leaves schema and row contents unchanged
+ok - current migration ledger is ready
+ok - readiness leaves schema and row contents unchanged
+ok - tampered migration ledger fails readiness even while SELECT 1 works
+ok - migration readiness failures do not expose ledger or SQL diagnostics
+ok - readiness leaves schema and row contents unchanged
+ok - readiness observes a repaired migration ledger without restart
+ok - readiness leaves schema and row contents unchanged
+ok - missing migration ledger fails readiness without recreating it
+ok - migration readiness failures do not expose ledger or SQL diagnostics
+ok - Worker global-admin flags do not grant effective global access
+ok - Supervisor global-admin flags grant cross-department access
+ok - global admin access requires the Supervisor role
+ok - PyJWT access tokens preserve the CSRF claim
+ok - tampered PyJWT access tokens are rejected
+ok - health is rate-limit exempt
+ok - api prefix is normalized for auth limits
+ok - auth limit returns 429
+ok - general request 1 is allowed
+ok - general request 2 is allowed
+ok - general limit returns 429
+ok - x-forwarded-for client ip is used
+ok - isolated HTTP readiness verifies the migrated database
+ok - HTTP readiness rejects pending migration history with sanitized 503 while the database remains reachable
+ok - pending migration readiness failure preserves liveness and never repairs the ledger
+ok - HTTP readiness recovers from pending history after restoring the exact original ledger without restart
+ok - HTTP readiness rejects unknown migration history with sanitized 503 while the database remains reachable
+ok - unknown migration readiness failure preserves liveness and never repairs the ledger
+ok - HTTP readiness recovers from unknown history after restoring the exact original ledger without restart
+ok - HTTP readiness rejects malformed migration history with sanitized 503 while the database remains reachable
+ok - malformed migration readiness failure preserves liveness and never repairs the ledger
+ok - HTTP readiness recovers from malformed history after restoring the exact original ledger without restart
+ok - anonymous upload request is denied
+ok - anonymous upload denial bypasses shared edge caches
+ok - upload request is rate limited
+ok - rate-limited upload denial bypasses shared edge caches
+ok - anonymous photo upload is denied
+ok - photo upload uses its dedicated rate limit
+ok - photo upload Retry-After matches its response delay
+ok - disallowed upload preflight is rejected
+ok - CORS upload denial bypasses shared edge caches
+Traceback (most recent call last):
+  File "C:\Python314\Lib\shutil.py", line 701, in _rmtree_unsafe
+    os.unlink(fullname)
+    ~~~~~~~~~^^^^^^^^^^
+PermissionError: [WinError 32] 另一个程序正在使用此文件，进程无法访问。: '<temp>/tmpvllgy8b1\\security.db'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<workspace>/backend\security_test.py", line 700, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "<workspace>/backend\security_test.py", line 613, in main
+    test_upload_error_cache_middleware()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "<workspace>/backend\security_test.py", line 432, in test_upload_error_cache_middleware
+    server_temp.cleanup()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Python314\Lib\tempfile.py", line 975, in cleanup
+    self._rmtree(self.name, ignore_errors=self._ignore_cleanup_errors)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\tempfile.py", line 955, in _rmtree
+    _shutil.rmtree(name, onexc=onexc)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\shutil.py", line 852, in rmtree
+    _rmtree_impl(path, dir_fd, onexc)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\shutil.py", line 705, in _rmtree_unsafe
+    onexc(os.unlink, fullname, err)
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\tempfile.py", line 930, in onexc
+    _os.unlink(path)
+    ~~~~~~~~~~^^^^^^
+PermissionError: [WinError 32] 另一个程序正在使用此文件，进程无法访问。: '<temp>/tmpvllgy8b1\\security.db'
+Traceback (most recent call last):
+  File "<workspace>/.github\scripts\run_local_checks.py", line 90, in <module>
+    main()
+    ~~~~^^
+  File "<workspace>/.github\scripts\run_local_checks.py", line 85, in main
+    subprocess.run(command, cwd=ROOT, env=environment, check=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\subprocess.py", line 578, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['<workspace>/output\\maintenance-readiness-20261012.local\\venv\\Scripts\\python.exe', '<workspace>/backend\\security_test.py']' returned non-zero exit status 1.

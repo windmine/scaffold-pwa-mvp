@@ -37,6 +37,7 @@ from app.use_cases.supervisor_review_exports import (  # noqa: E402
     write_spreadsheet_safe_csv_row,
 )
 from smoke_test import assert_upload_retry_after  # noqa: E402
+from test_server_process import stop_owned_test_server  # noqa: E402
 
 
 class FakeHeaders(dict):
@@ -422,13 +423,7 @@ def test_upload_error_cache_middleware():
             cors_headers,
         )
     finally:
-        if process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=5)
+        stop_owned_test_server(process, port)
         server_temp.cleanup()
 
 

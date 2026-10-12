@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "status": "diagnosed",
+  "recordedAtUtc": "2026-10-12T02:00:50.196242+00:00",
+  "scope": "Two preserved harness-only failures; all databases/uploads belonged to disposable native local PostgreSQL lifecycles. No production fixture or application-source change.",
+  "attempts": [
+    {
+      "artifact": "output/report-volume-20261012.local/ci-first.json",
+      "artifactSha256": "3776dbd46a8746d78aaf32ff623f59d8f4549b9ff2a5e267e458961a2e6aa280",
+      "bytes": 5765,
+      "passed": false,
+      "cleanupComplete": true,
+      "applicationChanged": false,
+      "classification": "Harness fixture setup tried inserting an already In-review Report. Native migration boundary correctly rejected it before any request probes.",
+      "correction": "Seed Reports as Submitted, then progress their workflow fields forward while preserving content."
+    },
+    {
+      "artifact": "output/report-volume-20261012.local/ci-strengthened.json",
+      "artifactSha256": "7aaae5ba350fb86e66f2314015d828aeaf83e8251d30124884c0ccda0d4c6a0e",
+      "bytes": 3208,
+      "passed": false,
+      "cleanupComplete": true,
+      "applicationChanged": false,
+      "classification": "Harness compared pypdf convenience-extracted JPEG pixels, which are recompressed during extraction. The PDF itself retained the exact original JPEG DCT stream.",
+      "correction": "For JPEGs decode the original PDF DCT stream; compare all four original photo/direct/repeating signature pixel hashes and exclude every out-of-scope fixture image."
+    }
+  ],
+  "jpegExtractionIsolation": {
+    "method": "One synthetic 64x48 JPEG rendered by unchanged build_report_pdf, compared against original raw PDF DCT data and pypdf convenience image extraction.",
+    "rawDctStreamEqualsOriginalBytes": true,
+    "originalJpegSha256": "847ee5f5c738ac47b2f80e40dad51a502aebdc38af8fb350d374ebf72461201f",
+    "originalAndRawDctPixelSha256": "dfcaeeb709bafafa8a31b6537f73d8a0017b0a8beb0a18d7218960e6069be9f3",
+    "convenienceExtractionPixelSha256": "2acd224bea82237ca8f24639278277f9ecdc079f4be6d275de6eb5b8381de835",
+    "applicationRendererChanged": false
+  },
+  "finalVerification": "backend-volume-ci.json",
+  "limitations": [
+    "The failed full attempt artifacts remain in ignored local output and are linked by exact SHA-256; only aggregate diagnosis is committed.",
+    "The existing HTML renderer embeds photos and direct signatures but leaves repeating-signature URLs as answer text. The volume gate records this explicitly; no renderer fix is included."
+  ]
+}

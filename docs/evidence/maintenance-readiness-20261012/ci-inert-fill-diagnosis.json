@@ -1,0 +1,572 @@
+{
+  "status": "confirmed-harness-failure-mode",
+  "recordedAtUtc": "2026-10-12T02:43:14.325907Z",
+  "trigger": "Final recovery step selects the current Report Template immediately after reconnect and fills its replacement text input while native draft restoration is still pending.",
+  "originalFailure": {
+    "source": "mobile-final2",
+    "status": "failed",
+    "startedAtUtc": "2026-10-12T02:24:57.457768Z",
+    "completedAtUtc": "2026-10-12T02:35:05.613872Z",
+    "logSha256": "f9e8ba5e4ce3e81d60aeafd58b9c799b469a8948428bee1a7e4e761c965919a6",
+    "browserPassed": 72,
+    "browserTotal": 73,
+    "symptom": "A distinct new client ID was submitted with answers.replacement=''",
+    "individualCause": "UNCONFIRMED: the uninstrumented run did not capture form inertness or input events.",
+    "originalLocalLogSha256": "54fc5d157ea6ce0b9e1c75d81a516a95ba819d3a8c850aacdf159dc93794aca1",
+    "durableLogSha256": "f9e8ba5e4ce3e81d60aeafd58b9c799b469a8948428bee1a7e4e761c965919a6",
+    "durableLog": "docs/evidence/maintenance-readiness-20261012/ci-local-mobile-template-failed.txt",
+    "logNormalization": "Absolute local workspace prefixes were replaced with <workspace>/ and the local temporary-directory prefix with <temp>/. In the three captured ci-local-mobile failure logs, one trailing ASCII space was also removed from the Vite reporter line at line 30. Test meaning, failure classification and relative file locations remain unchanged. Original local log bytes and hashes remain in ignored output.",
+    "trailingAsciiSpacesRemoved": 1
+  },
+  "hypothesesDistinguished": [
+    {
+      "hypothesis": "Playwright fill returns while native draft restoration keeps the form inert",
+      "observation": "Deterministically reproduced: fill returned with no focus, no input event and length 0; exact symptom reached Review and POST."
+    },
+    {
+      "hypothesis": "Reconnect rebuilds the field after an entered value",
+      "observation": "The red probe changed replacement node serial 1 to 2, but neither received an input event; the answer was never entered. A post-input overwrite was not observed."
+    },
+    {
+      "hypothesis": "API discards an answer present in Review",
+      "observation": "The red Review already lacked the marker; green Review and POST both retained it. No API-loss behavior was observed."
+    }
+  ],
+  "nativeStorageControl": {
+    "scope": "Only readonly work-form-draft transactions in scaffold-pwa-local for the final selected Template, while its replacement field exists and the real form is inert.",
+    "method": "Call the native IDBObjectStore.get and retain its native request success/result unchanged. Defer only the application transaction.oncomplete callback after the native complete event. Release the original callback with its original transaction and event.",
+    "observedResult": "Two real request-success events returned no existing legacy draft in both cases. Completion delivery alone was held; no request result, application answer or storage value was invented or rewritten.",
+    "harnessGeneratorSha256": "034cc929e6b560d983491c565d50519a652ac0b9e469f9e559f1475aa3ae7126",
+    "instrumentedHarnessSha256": "6c6ddf572ed83c00a43af5c7c224c88b2051acda4620fe1d1ddab14fcc76e2b3"
+  },
+  "red": {
+    "status": "failed",
+    "startedAtUtc": "2026-10-12T02:39:29.090368Z",
+    "completedAtUtc": "2026-10-12T02:39:49.148894Z",
+    "exitCode": 1,
+    "logSha256": "ebf95378ceac47d4dbca401509b509502bd8fd99bd7e08a483020cc0527affa0",
+    "log": "ci-inert-old.txt",
+    "observations": [
+      {
+        "stage": "selected-native-read-held",
+        "node": 1,
+        "connected": true,
+        "length": 0,
+        "inert": true,
+        "active": "",
+        "inputEvents": 0,
+        "events": [
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          }
+        ]
+      },
+      {
+        "stage": "fill-completed",
+        "node": 2,
+        "connected": true,
+        "length": 0,
+        "inert": true,
+        "active": "",
+        "inputEvents": 0,
+        "events": [
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 2,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          }
+        ]
+      },
+      {
+        "stage": "date-filled",
+        "node": 2,
+        "connected": true,
+        "length": 0,
+        "inert": true,
+        "active": "",
+        "inputEvents": 0,
+        "events": [
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 2,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          }
+        ]
+      },
+      {
+        "stage": "read-completion-delivered",
+        "node": 2,
+        "connected": true,
+        "length": 0,
+        "inert": false,
+        "active": "",
+        "inputEvents": 0,
+        "events": [
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 2,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "delivered-transaction-complete"
+          },
+          {
+            "kind": "delivered-transaction-complete"
+          }
+        ]
+      },
+      {
+        "stage": "before-review",
+        "node": 2,
+        "connected": true,
+        "length": 0,
+        "inert": false,
+        "active": "",
+        "inputEvents": 0,
+        "events": [
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 2,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "delivered-transaction-complete"
+          },
+          {
+            "kind": "delivered-transaction-complete"
+          }
+        ]
+      },
+      {
+        "stage": "review-visible",
+        "containsMarker": false,
+        "node": 2,
+        "connected": true,
+        "length": 0,
+        "inert": false,
+        "active": "workFormReviewHeading",
+        "inputEvents": 0
+      }
+    ],
+    "testedHarnessSha256": "957a6f08afaee34e07a77d5fb6284f8dc53424f605808bc79d419edf37c11664",
+    "originalLocalLogSha256": "aefa7b098e49c43951dbb757bc68b0c7c52153b83762b4beb736970e0967e421",
+    "durableLogSha256": "ebf95378ceac47d4dbca401509b509502bd8fd99bd7e08a483020cc0527affa0",
+    "durableLog": "docs/evidence/maintenance-readiness-20261012/ci-inert-old.txt",
+    "logNormalization": "Absolute local workspace prefixes were replaced with <workspace>/ and the local temporary-directory prefix with <temp>/. In the three captured ci-local-mobile failure logs, one trailing ASCII space was also removed from the Vite reporter line at line 30. Test meaning, failure classification and relative file locations remain unchanged. Original local log bytes and hashes remain in ignored output."
+  },
+  "green": {
+    "status": "passed",
+    "startedAtUtc": "2026-10-12T02:40:00.761626Z",
+    "completedAtUtc": "2026-10-12T02:40:20.953908Z",
+    "exitCode": 0,
+    "logSha256": "6108f53a11bf78837605a624af3f48fcfe00402b48680e01da1a7250df3e1363",
+    "log": "ci-inert-ready.txt",
+    "observations": [
+      {
+        "stage": "selected-native-read-held",
+        "node": 1,
+        "connected": true,
+        "length": 0,
+        "inert": true,
+        "active": "",
+        "inputEvents": 0,
+        "events": [
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          }
+        ]
+      },
+      {
+        "stage": "fill-completed",
+        "node": 1,
+        "connected": true,
+        "length": 34,
+        "inert": false,
+        "active": "workFormField_replacement",
+        "inputEvents": 1,
+        "events": [
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "delivered-transaction-complete"
+          },
+          {
+            "kind": "delivered-transaction-complete"
+          },
+          {
+            "kind": "input",
+            "stage": "input",
+            "node": 1,
+            "connected": true,
+            "length": 34,
+            "inert": false,
+            "active": "workFormField_replacement",
+            "inputEvents": 0
+          }
+        ]
+      },
+      {
+        "stage": "date-filled",
+        "node": 1,
+        "connected": true,
+        "length": 34,
+        "inert": false,
+        "active": "workFormDate",
+        "inputEvents": 1,
+        "events": [
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "delivered-transaction-complete"
+          },
+          {
+            "kind": "delivered-transaction-complete"
+          },
+          {
+            "kind": "input",
+            "stage": "input",
+            "node": 1,
+            "connected": true,
+            "length": 34,
+            "inert": false,
+            "active": "workFormField_replacement",
+            "inputEvents": 0
+          }
+        ]
+      },
+      {
+        "stage": "read-completion-delivered",
+        "node": 1,
+        "connected": true,
+        "length": 34,
+        "inert": false,
+        "active": "workFormDate",
+        "inputEvents": 1,
+        "events": [
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "delivered-transaction-complete"
+          },
+          {
+            "kind": "delivered-transaction-complete"
+          },
+          {
+            "kind": "input",
+            "stage": "input",
+            "node": 1,
+            "connected": true,
+            "length": 34,
+            "inert": false,
+            "active": "workFormField_replacement",
+            "inputEvents": 0
+          }
+        ]
+      },
+      {
+        "stage": "before-review",
+        "node": 1,
+        "connected": true,
+        "length": 34,
+        "inert": false,
+        "active": "workFormDate",
+        "inputEvents": 1,
+        "events": [
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-request-success",
+            "hasValue": false
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "native-transaction-complete",
+            "stage": "native-complete",
+            "node": 1,
+            "connected": true,
+            "length": 0,
+            "inert": true,
+            "active": "",
+            "inputEvents": 0
+          },
+          {
+            "kind": "delivered-transaction-complete"
+          },
+          {
+            "kind": "delivered-transaction-complete"
+          },
+          {
+            "kind": "input",
+            "stage": "input",
+            "node": 1,
+            "connected": true,
+            "length": 34,
+            "inert": false,
+            "active": "workFormField_replacement",
+            "inputEvents": 0
+          }
+        ]
+      },
+      {
+        "stage": "review-visible",
+        "containsMarker": true,
+        "node": 1,
+        "connected": true,
+        "length": 34,
+        "inert": false,
+        "active": "workFormReviewHeading",
+        "inputEvents": 1
+      }
+    ],
+    "testedHarnessSha256": "957a6f08afaee34e07a77d5fb6284f8dc53424f605808bc79d419edf37c11664",
+    "originalLocalLogSha256": "6108f53a11bf78837605a624af3f48fcfe00402b48680e01da1a7250df3e1363",
+    "durableLogSha256": "6108f53a11bf78837605a624af3f48fcfe00402b48680e01da1a7250df3e1363",
+    "durableLog": "docs/evidence/maintenance-readiness-20261012/ci-inert-ready.txt",
+    "logNormalization": "Absolute local workspace prefixes were replaced with <workspace>/ and the local temporary-directory prefix with <temp>/. In the three captured ci-local-mobile failure logs, one trailing ASCII space was also removed from the Vite reporter line at line 30. Test meaning, failure classification and relative file locations remain unchanged. Original local log bytes and hashes remain in ignored output."
+  },
+  "greenAssertions": [
+    "Readiness did not complete while native completion delivery was held",
+    "After release, replacement input value was the exact 34-character answer and emitted one input event",
+    "Review included the exact answer",
+    "POST returned the exact answer under a distinct client ID",
+    "Original queued answers, photo and two handwritten signatures remained unchanged and queued"
+  ],
+  "fix": {
+    "file": "scripts/check-browser-workflows.mjs",
+    "change": "Wait for a mounted replacement field and a non-inert form; assert the input value and Review marker; join the required response and confirm action with Promise.all.",
+    "applicationCodeChanged": false,
+    "assertionsRemoved": false,
+    "timeoutsChanged": false,
+    "independentReview": "Root reviewed the final diff and found no blockers.",
+    "currentHarnessSha256": "59746f35863852af39262f1c716537c77c1ccff75c6a35ea922951285a9f3ed8"
+  },
+  "finalStandaloneBrowserGate": {
+    "status": "passed",
+    "workflows": 73,
+    "evidence": "local-ci-validation.json",
+    "sourceSha256": "59746f35863852af39262f1c716537c77c1ccff75c6a35ea922951285a9f3ed8",
+    "originalUninstrumentedFailureCause": "UNCONFIRMED"
+  },
+  "limitations": [
+    "The held-native-read experiment confirms this harness failure mode reproduces the symptom. It does not individually establish the cause of the original uninstrumented run or historical offline-Template failures.",
+    "No application data-loss fix was made or claimed.",
+    "Final validation combines already-passing unchanged focused components and a final standalone browser suite; it will not claim a later single full check:mobile command passed."
+  ]
+}

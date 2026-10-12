@@ -1,0 +1,454 @@
+{
+  "status": "passed-local-equivalent",
+  "recordedAtUtc": "2026-10-12T02:44:14.012840Z",
+  "sourceCommit": "2fdff7e0269d4de74bd4fe6647c8aa1cbf470ac1",
+  "workingTreePatchPresent": true,
+  "sourceFileSha256": {
+    ".github/dependabot.yml": "c069833ed40b1443db28fd131a5386e052821be1e4f579ee2d46740c4287712e",
+    ".github/requirements-test.txt": "77c6c1aca78498f6ae721b7e9038ddba00382cdfe086441faee588ba22a1fcd4",
+    ".github/scripts/check_test_server_cleanup.py": "60571464e93979376fe283e89c83ff40db035759c3c43076962f365a706e0a0a",
+    ".github/scripts/check_workflows.py": "f5355107e34c35470948de4814a6ee799eede674df2c92d8b01d81786671e492",
+    ".github/scripts/run_local_checks.py": "5a52f1a73aba7241c122f7104b83e011b13d35e6e64d5d22a1a562b251c21295",
+    ".github/workflows/ci.yml": "ef2240ab43cd7633c120c0a7e32959d7e749561975b9f42e26a165ea02959554",
+    "package.json": "0ef53cdf9c69e546cb0dffcc9310dfd6ae0c50937d570c5394cc6a41a6dd21fd",
+    "package-lock.json": "a80e2a886f78a77adcf5d8d1e551fe1b70e7143d6bc203bf0700130fc1b8a825",
+    "requirements.txt": "4512987378ef9eafd76f0d52a4e37d7f91850732557988d096f1c88a5971b599",
+    "backend/invitation_test.py": "69b804f6abccbda4eebe49aab98ddaf660444957e9ea85ef1c8d345afd8d33c4",
+    "backend/security_test.py": "d627491345d5c16980038d4a3ea854b227f83867fafbe4cdfbe31bce2f419996",
+    "backend/test_server_process.py": "386661c256f810c8c0ba261628091f2b33a8ee1b1675e92638952407e2fd95c3",
+    "backend/report_volume_test.py": "e3302b9b414969d25a1c7a1bed61f434bf9e4d0d8404822ed98714483e4ae0e7",
+    "scripts/report-history-volume-test.mjs": "63b0897150b5ff530572b2d0acc523de7fa24e458f0d4c88197a60ece1308bf1",
+    "scripts/check-browser-workflows.mjs": "59746f35863852af39262f1c716537c77c1ccff75c6a35ea922951285a9f3ed8"
+  },
+  "testedApplicationAndHelperSourceUnchanged": true,
+  "independentSourceChanges": "Backend and focused mobile inputs were unchanged after their passing components. The browser harness subsequently gained immediate response-promise ownership and explicit draft-restore readiness/value/Review assertions; its final source is covered by the complete standalone 73-workflow browser suite. The separate history-volume benchmark is covered by its final independent evidence bound below.",
+  "validationComposition": "All components passed on their final applicable source. No later single full check:mobile command passed; preserve the failed full attempts and combine unchanged passing focused components with the final standalone browser suite.",
+  "singleFullMobileCommandPassed": false,
+  "environment": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.14.5",
+    "isolatedPythonEnvironment": true,
+    "node": "v24.15.0",
+    "npm": "11.12.1",
+    "testDependencies": {
+      "pypdf": "6.20.0",
+      "httpx": "0.28.1",
+      "fastapi": "0.136.1",
+      "sqlmodel": "0.0.38"
+    },
+    "configuredCi": {
+      "os": "ubuntu-24.04",
+      "python": "3.11",
+      "node": "24"
+    },
+    "remoteExecutionObserved": false
+  },
+  "checks": {
+    "npm-ci": {
+      "task": "npm-ci",
+      "status": "passed",
+      "sourceCommit": "2fdff7e0269d4de74bd4fe6647c8aa1cbf470ac1",
+      "workingTreePatchPresent": true,
+      "startedAtUtc": "2026-10-12T01:53:26.641953Z",
+      "log": "output/maintenance-readiness-20261012.local/npm-ci.log",
+      "logLimitBytes": 8388608,
+      "logTruncated": false,
+      "exitCode": 0,
+      "completedAtUtc": "2026-10-12T01:53:30.262245Z",
+      "logBytes": 141,
+      "logSha256": "dc2541e44189f7c334e1c4bbefbe65c2704903f6ebb39537091271a2141ca43f",
+      "failures": [],
+      "sourceChangedDuringCheck": [],
+      "command": [
+        "cmd.exe",
+        "/d",
+        "/c",
+        "npm.cmd",
+        "ci"
+      ]
+    },
+    "audit": {
+      "task": "audit",
+      "status": "passed",
+      "sourceCommit": "2fdff7e0269d4de74bd4fe6647c8aa1cbf470ac1",
+      "workingTreePatchPresent": true,
+      "startedAtUtc": "2026-10-12T01:53:45.719462Z",
+      "log": "output/maintenance-readiness-20261012.local/audit.log",
+      "logLimitBytes": 8388608,
+      "logTruncated": false,
+      "exitCode": 0,
+      "completedAtUtc": "2026-10-12T01:53:47.415914Z",
+      "logBytes": 363,
+      "logSha256": "3bfab3499188d2ede9f5d1383ddb58ba2b7c85469f518d1152f94e5e44aec0b8",
+      "failures": [],
+      "sourceChangedDuringCheck": [],
+      "command": [
+        "cmd.exe",
+        "/d",
+        "/c",
+        "npm.cmd",
+        "audit",
+        "--audit-level=low",
+        "--json"
+      ]
+    },
+    "lint-ready": {
+      "task": "lint",
+      "status": "passed",
+      "sourceCommit": "2fdff7e0269d4de74bd4fe6647c8aa1cbf470ac1",
+      "workingTreePatchPresent": true,
+      "startedAtUtc": "2026-10-12T02:40:57.811154Z",
+      "log": "output/maintenance-readiness-20261012.local/lint-ready.log",
+      "logLimitBytes": 8388608,
+      "logTruncated": false,
+      "exitCode": 0,
+      "completedAtUtc": "2026-10-12T02:41:02.627723Z",
+      "logBytes": 43,
+      "logSha256": "bc3898f0cdd54520a439a61c527c12c0004c6b43b257caa70ad991cc5fe2da78",
+      "failures": [],
+      "sourceChangedDuringCheck": [],
+      "command": [
+        "cmd.exe",
+        "/d",
+        "/c",
+        "npm.cmd",
+        "run",
+        "lint"
+      ]
+    },
+    "python-install": {
+      "task": "python-install",
+      "status": "passed",
+      "sourceCommit": "2fdff7e0269d4de74bd4fe6647c8aa1cbf470ac1",
+      "workingTreePatchPresent": true,
+      "startedAtUtc": "2026-10-12T01:53:26.352886Z",
+      "log": "output/maintenance-readiness-20261012.local/python-install.log",
+      "logLimitBytes": 8388608,
+      "logTruncated": false,
+      "exitCode": 0,
+      "completedAtUtc": "2026-10-12T01:54:20.617592Z",
+      "logBytes": 14182,
+      "logSha256": "3be2afab8b1d6b985245242f921a04f52c1447bda728ac026d17edb60f4c5e8a",
+      "failures": [],
+      "sourceChangedDuringCheck": [
+        "backend/report_volume_test.py"
+      ],
+      "command": [
+        "output/maintenance-readiness-20261012.local/venv/Scripts/python.exe",
+        "-m",
+        "pip",
+        "install",
+        "-r",
+        "requirements.txt",
+        "-r",
+        ".github/requirements-test.txt"
+      ]
+    },
+    "pip-check": {
+      "task": "pip-check",
+      "status": "passed",
+      "sourceCommit": "2fdff7e0269d4de74bd4fe6647c8aa1cbf470ac1",
+      "workingTreePatchPresent": true,
+      "startedAtUtc": "2026-10-12T01:57:16.200674Z",
+      "log": "output/maintenance-readiness-20261012.local/pip-check.log",
+      "logLimitBytes": 8388608,
+      "logTruncated": false,
+      "exitCode": 0,
+      "completedAtUtc": "2026-10-12T01:57:16.727466Z",
+      "logBytes": 30,
+      "logSha256": "9261363b733079a641c2e4cc9bc46ffa1d8336945a87f807b6cf68847dbc9b09",
+      "failures": [],
+      "sourceChangedDuringCheck": [],
+      "command": [
+        "output/maintenance-readiness-20261012.local/venv/Scripts/python.exe",
+        "-m",
+        "pip",
+        "check"
+      ]
+    },
+    "workflow-final": {
+      "task": "workflow",
+      "status": "passed",
+      "sourceCommit": "2fdff7e0269d4de74bd4fe6647c8aa1cbf470ac1",
+      "workingTreePatchPresent": true,
+      "startedAtUtc": "2026-10-12T01:57:16.460077Z",
+      "log": "output/maintenance-readiness-20261012.local/workflow-final.log",
+      "logLimitBytes": 8388608,
+      "logTruncated": false,
+      "exitCode": 0,
+      "completedAtUtc": "2026-10-12T01:57:17.417597Z",
+      "logBytes": 43,
+      "logSha256": "c4156613b307c0dd711df19828a876ac92dbeb38dae00691fecc67ff4e489bb0",
+      "failures": [],
+      "sourceChangedDuringCheck": [],
+      "command": [
+        "output/maintenance-readiness-20261012.local/venv/Scripts/python.exe",
+        ".github/scripts/check_workflows.py"
+      ]
+    },
+    "backend-final": {
+      "task": "backend",
+      "status": "passed",
+      "sourceCommit": "2fdff7e0269d4de74bd4fe6647c8aa1cbf470ac1",
+      "workingTreePatchPresent": true,
+      "startedAtUtc": "2026-10-12T02:07:29.156125Z",
+      "log": "docs/evidence/maintenance-readiness-20261012/ci-local-backend-final.txt",
+      "logLimitBytes": 8388608,
+      "logTruncated": false,
+      "exitCode": 0,
+      "completedAtUtc": "2026-10-12T02:09:25.708694Z",
+      "logBytes": 40088,
+      "logSha256": "bd2b10bd03b7ccb9b00dd95cbdabffe4e48eb23d687225ac2dbcde7fd8657b2d",
+      "failures": [],
+      "sourceChangedDuringCheck": [],
+      "command": [
+        "output/maintenance-readiness-20261012.local/venv/Scripts/python.exe",
+        ".github/scripts/run_local_checks.py",
+        "backend"
+      ],
+      "originalLocalLogSha256": "bd2b10bd03b7ccb9b00dd95cbdabffe4e48eb23d687225ac2dbcde7fd8657b2d",
+      "durableLogSha256": "bd2b10bd03b7ccb9b00dd95cbdabffe4e48eb23d687225ac2dbcde7fd8657b2d",
+      "durableLog": "docs/evidence/maintenance-readiness-20261012/ci-local-backend-final.txt",
+      "logNormalization": "Absolute local workspace prefixes were replaced with <workspace>/ and the local temporary-directory prefix with <temp>/. In the three captured ci-local-mobile failure logs, one trailing ASCII space was also removed from the Vite reporter line at line 30. Test meaning, failure classification and relative file locations remain unchanged. Original local log bytes and hashes remain in ignored output.",
+      "originalLogBytes": 40088
+    },
+    "browser-final": {
+      "task": "browser",
+      "status": "passed",
+      "sourceCommit": "2fdff7e0269d4de74bd4fe6647c8aa1cbf470ac1",
+      "workingTreePatchPresent": true,
+      "startedAtUtc": "2026-10-12T02:41:03.478732Z",
+      "log": "docs/evidence/maintenance-readiness-20261012/ci-local-browser-final.txt",
+      "logLimitBytes": 8388608,
+      "logTruncated": false,
+      "exitCode": 0,
+      "completedAtUtc": "2026-10-12T02:44:12.927819Z",
+      "logBytes": 5652,
+      "logSha256": "022f95130c5f4b34c9fc792fd7ec495173819e0760b324bb3149366b2d39b977",
+      "failures": [],
+      "sourceChangedDuringCheck": [],
+      "command": [
+        "output/maintenance-readiness-20261012.local/venv/Scripts/python.exe",
+        "output/maintenance-readiness-20261012.local/run-browser.py"
+      ],
+      "originalLocalLogSha256": "022f95130c5f4b34c9fc792fd7ec495173819e0760b324bb3149366b2d39b977",
+      "durableLogSha256": "022f95130c5f4b34c9fc792fd7ec495173819e0760b324bb3149366b2d39b977",
+      "durableLog": "docs/evidence/maintenance-readiness-20261012/ci-local-browser-final.txt",
+      "logNormalization": "Absolute local workspace prefixes were replaced with <workspace>/ and the local temporary-directory prefix with <temp>/. In the three captured ci-local-mobile failure logs, one trailing ASCII space was also removed from the Vite reporter line at line 30. Test meaning, failure classification and relative file locations remain unchanged. Original local log bytes and hashes remain in ignored output.",
+      "originalLogBytes": 5652
+    },
+    "focused-mobile-components": {
+      "status": "passed",
+      "containingCommandStatus": "failed",
+      "source": "mobile-final2",
+      "startedAtUtc": "2026-10-12T02:24:57.457768Z",
+      "containingLog": "docs/evidence/maintenance-readiness-20261012/ci-local-mobile-template-failed.txt",
+      "containingLogSha256": "f9e8ba5e4ce3e81d60aeafd58b9c799b469a8948428bee1a7e4e761c965919a6",
+      "prefixBoundary": "ok - action feedback is local, busy, announced, and separate from sync state",
+      "prefixSha256": "a4692879ca099c4e327b8ceac86395537bd9b76612db9c32ab8c21fa107b7627",
+      "coverage": "Build and every check:mobile component before the final real-backend browser suite passed. The unchanged application, dependency, helper and focused-test inputs match final source; the browser harness is validated separately below.",
+      "originalLocalContainingLogSha256": "54fc5d157ea6ce0b9e1c75d81a516a95ba819d3a8c850aacdf159dc93794aca1",
+      "logNormalization": "Absolute local workspace prefixes were replaced with <workspace>/ and the local temporary-directory prefix with <temp>/. In the three captured ci-local-mobile failure logs, one trailing ASCII space was also removed from the Vite reporter line at line 30. Test meaning, failure classification and relative file locations remain unchanged. Original local log bytes and hashes remain in ignored output.",
+      "originalLocalPrefixSha256": "90a2b651d50b3e73a0e6bc777002b42256350cf8df532e91382e9ea8112ac369",
+      "trailingAsciiSpacesRemoved": 1
+    }
+  },
+  "cleanLockfileReproduced": true,
+  "auditVulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "realBackendBrowserWorkflows": 73,
+  "backendSuiteCount": 21,
+  "backendLifecycleRegressionCount": 3,
+  "backendCommands": [
+    "check_test_server_cleanup.py",
+    "database_test.py",
+    "maintenance_test.py",
+    "migration_test.py",
+    "security_test.py",
+    "upload_storage_test.py",
+    "work_form_definition_test.py",
+    "review_queue_test.py",
+    "report_workflow_test.py",
+    "report_purpose_test.py",
+    "report_export_test.py",
+    "report_export_evidence_test.py",
+    "report_photo_limit_test.py",
+    "report_pdf_branding_test.py",
+    "report_pdf_layout_test.py",
+    "report_pdf_unicode_test.py",
+    "report_pdf_volume_test.py",
+    "template_edit_test.py",
+    "invitation_test.py",
+    "password_recovery_test.py",
+    "report_upload_recovery_test.py",
+    "report_review_order_test.py"
+  ],
+  "initialFailuresPreserved": [
+    {
+      "task": "mobile",
+      "status": "failed",
+      "exitCode": 1,
+      "startedAtUtc": "2026-10-12T01:54:28.309766Z",
+      "completedAtUtc": "2026-10-12T01:57:15.816517Z",
+      "logSha256": "ac88cf34e743d73dda7cfef7e8a54d4fd1699aab619c01ec5693a3820a87eee5",
+      "log": "docs/evidence/maintenance-readiness-20261012/ci-local-mobile-initial-failed.txt",
+      "classification": "Confirmed Windows virtual-environment test server cleanup race; strict fixture cleanup retained; see ci-cleanup-diagnosis.json",
+      "originalLocalLogSha256": "838c4b538f527b60565cac93a4ac34658035e1d5c6450bb1e6f4f4e493bb9328",
+      "durableLogSha256": "ac88cf34e743d73dda7cfef7e8a54d4fd1699aab619c01ec5693a3820a87eee5",
+      "durableLog": "docs/evidence/maintenance-readiness-20261012/ci-local-mobile-initial-failed.txt",
+      "logNormalization": "Absolute local workspace prefixes were replaced with <workspace>/ and the local temporary-directory prefix with <temp>/. In the three captured ci-local-mobile failure logs, one trailing ASCII space was also removed from the Vite reporter line at line 30. Test meaning, failure classification and relative file locations remain unchanged. Original local log bytes and hashes remain in ignored output.",
+      "trailingAsciiSpacesRemoved": 1
+    },
+    {
+      "task": "backend",
+      "status": "failed",
+      "exitCode": 1,
+      "startedAtUtc": "2026-10-12T02:06:15.508870Z",
+      "completedAtUtc": "2026-10-12T02:06:44.253749Z",
+      "logSha256": "8a03562641e905142f6a92af137ffda77702b2da1aac1345eb21c4538a610684",
+      "log": "docs/evidence/maintenance-readiness-20261012/ci-local-backend-initial-failed.txt",
+      "classification": "Confirmed Windows virtual-environment test server cleanup race; strict fixture cleanup retained; see ci-cleanup-diagnosis.json",
+      "originalLocalLogSha256": "5e5ebe3639687f8f5d6c089aea19761e1e57e39db829a8724d93be3ce357c25a",
+      "durableLogSha256": "8a03562641e905142f6a92af137ffda77702b2da1aac1345eb21c4538a610684",
+      "durableLog": "docs/evidence/maintenance-readiness-20261012/ci-local-backend-initial-failed.txt",
+      "logNormalization": "Absolute local workspace prefixes were replaced with <workspace>/ and the local temporary-directory prefix with <temp>/. In the three captured ci-local-mobile failure logs, one trailing ASCII space was also removed from the Vite reporter line at line 30. Test meaning, failure classification and relative file locations remain unchanged. Original local log bytes and hashes remain in ignored output."
+    },
+    {
+      "task": "mobile-final",
+      "status": "failed",
+      "startedAtUtc": "2026-10-12T02:09:39.899026Z",
+      "completedAtUtc": "2026-10-12T02:17:10.539544Z",
+      "logSha256": "0a276a59f8bcd6b03d0631f40b8e06664f6fbb338507b266de374e0360847be2",
+      "log": "docs/evidence/maintenance-readiness-20261012/ci-local-mobile-browser-failed.txt",
+      "classification": "Confirmed unowned response-wait rejection aborted Node; cause of the original submission-response timeout remains UNCONFIRMED. See ci-response-wait-diagnosis.json.",
+      "originalLocalLogSha256": "f18bcc2098c7ef2fb86401ae3a7bfb1d8f47c3c8db6fdf4b7349f382058b6469",
+      "durableLogSha256": "0a276a59f8bcd6b03d0631f40b8e06664f6fbb338507b266de374e0360847be2",
+      "durableLog": "docs/evidence/maintenance-readiness-20261012/ci-local-mobile-browser-failed.txt",
+      "logNormalization": "Absolute local workspace prefixes were replaced with <workspace>/ and the local temporary-directory prefix with <temp>/. In the three captured ci-local-mobile failure logs, one trailing ASCII space was also removed from the Vite reporter line at line 30. Test meaning, failure classification and relative file locations remain unchanged. Original local log bytes and hashes remain in ignored output.",
+      "trailingAsciiSpacesRemoved": 1
+    },
+    {
+      "task": "mobile-final2",
+      "status": "failed",
+      "startedAtUtc": "2026-10-12T02:24:57.457768Z",
+      "completedAtUtc": "2026-10-12T02:35:05.613872Z",
+      "logSha256": "f9e8ba5e4ce3e81d60aeafd58b9c799b469a8948428bee1a7e4e761c965919a6",
+      "log": "docs/evidence/maintenance-readiness-20261012/ci-local-mobile-template-failed.txt",
+      "browserPassed": 72,
+      "browserTotal": 73,
+      "classification": "Blank replacement answer in uninstrumented offline-Template workflow. Held native draft-completion reproduction confirms an inert-fill harness failure mode; the original uninstrumented failure is not individually causally established. See ci-inert-fill-diagnosis.json.",
+      "originalLocalLogSha256": "54fc5d157ea6ce0b9e1c75d81a516a95ba819d3a8c850aacdf159dc93794aca1",
+      "durableLogSha256": "f9e8ba5e4ce3e81d60aeafd58b9c799b469a8948428bee1a7e4e761c965919a6",
+      "durableLog": "docs/evidence/maintenance-readiness-20261012/ci-local-mobile-template-failed.txt",
+      "logNormalization": "Absolute local workspace prefixes were replaced with <workspace>/ and the local temporary-directory prefix with <temp>/. In the three captured ci-local-mobile failure logs, one trailing ASCII space was also removed from the Vite reporter line at line 30. Test meaning, failure classification and relative file locations remain unchanged. Original local log bytes and hashes remain in ignored output.",
+      "trailingAsciiSpacesRemoved": 1
+    }
+  ],
+  "ownedFailedFixtureCleanup": {
+    "recordedAtUtc": "2026-10-12T02:12:04.6331115Z",
+    "status": "passed",
+    "scope": "Five exact Temp directories named in the failed owned fixture traces; all absolute resolved paths verified inside local Temp with no reparse point",
+    "directories": [
+      {
+        "ownedFixtureName": "worker-invitation-test-fwdhw85f",
+        "removed": true,
+        "absentAfterCleanup": true
+      },
+      {
+        "ownedFixtureName": "worker-invitation-test-gda9ai3r",
+        "removed": true,
+        "absentAfterCleanup": true
+      },
+      {
+        "ownedFixtureName": "worker-invitation-test-rk_e18k9",
+        "removed": true,
+        "absentAfterCleanup": true
+      },
+      {
+        "ownedFixtureName": "worker-invitation-test-zs4psjt_",
+        "removed": true,
+        "absentAfterCleanup": true
+      },
+      {
+        "ownedFixtureName": "tmpvllgy8b1",
+        "removed": true,
+        "absentAfterCleanup": true
+      }
+    ],
+    "previouslyObservedProcessIds": [
+      58824,
+      28700,
+      25132,
+      58996,
+      34076,
+      63964,
+      47924
+    ],
+    "remainingObservedProcesses": [],
+    "processesTerminatedByThisCleanup": 0,
+    "ignoredDiagnosticOutput": "output/maintenance-readiness-20261012.local retained for diagnosis; no user or hosted data touched",
+    "additionalReadOnlyProcessCheck": {
+      "creationWindowUtc": [
+        "2026-10-12T01:53:26Z",
+        "2026-10-12T02:07:29Z"
+      ],
+      "survivingPythonUvicornProcesses": 0,
+      "processesTerminated": 0
+    }
+  },
+  "ownedFailedBrowserFixtureCleanup": {
+    "status": "passed",
+    "recordedAtUtc": "2026-10-12T02:28:28.0108300Z",
+    "ownedFixtureName": "scaffold-pwa-browser-workflows-bgxMeY",
+    "createdAtUtc": "2026-10-12T02:16:02.2878864Z",
+    "ownership": "Exact failed-run fixture identified by creation time and expected browser-harness prefix; absolute path resolved and verified inside Temp without reparse point",
+    "absentAfterCleanup": true,
+    "processInspection": "Before focused reproduction, no matching uvicorn :8765, source-server or Vite preview :4175 process remained; no process was killed",
+    "processesTerminated": 0
+  },
+  "growthEvidence": [
+    {
+      "path": "docs/evidence/maintenance-readiness-20261012/history-browser-ci.json",
+      "sha256": "5d59b609f679df013e9b4e59261535d85ffa3d32634b17b11db88d5a985ba7ea"
+    },
+    {
+      "path": "docs/evidence/maintenance-readiness-20261012/history-browser-representative.json",
+      "sha256": "5be01b1c20309d57d69a28acc7d8e2b69e8cd5b9d90d5b466ab8e9c65e0ac500"
+    },
+    {
+      "path": "docs/evidence/maintenance-readiness-20261012/backend-volume-ci.json",
+      "sha256": "d99d10fdfd5ccc921df32723ea6bd0ba65e22f48a48ae006311f27cfab572036"
+    },
+    {
+      "path": "docs/evidence/maintenance-readiness-20261012/backend-volume-representative.json",
+      "sha256": "932029ff6ec2191e9bb58dd4489b1a21d39aa7acf4d5383d925f69ffbdb9e8ff"
+    }
+  ],
+  "testInputs": "Only local disposable synthetic identities, databases, uploads and browser storage; no hosted fixtures or service writes",
+  "workflow": {
+    "permissions": "contents: read",
+    "savedCheckoutCredentials": false,
+    "shaPinnedActions": true,
+    "frontendFullGitHistory": true,
+    "artifactPaths": "output/ci/*.json",
+    "artifactRetentionDays": 7,
+    "artifactUploadCondition": "always()",
+    "noFilesPolicy": "ignore",
+    "cloudSecretsOrDeploySteps": false
+  },
+  "limitations": [
+    "The configured GitHub Ubuntu 24.04 / Python 3.11 workflow has not been executed remotely; local validation used Windows / Python 3.14.5 in a fresh isolated environment.",
+    "Local actionlint validates workflow syntax and expressions; ShellCheck runs in CI and was unavailable on the Windows validation host.",
+    "Mobile automation is not physical-phone, low-disk, camera-volume, native-share or phone-PDF-viewer certification."
+  ],
+  "durableLogNormalization": {
+    "note": "Absolute local workspace prefixes were replaced with <workspace>/ and the local temporary-directory prefix with <temp>/. In the three captured ci-local-mobile failure logs, one trailing ASCII space was also removed from the Vite reporter line at line 30. Test meaning, failure classification and relative file locations remain unchanged. Original local log bytes and hashes remain in ignored output.",
+    "manifest": "docs/evidence/maintenance-readiness-20261012/log-normalization.json"
+  }
+}

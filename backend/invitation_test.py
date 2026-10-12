@@ -16,6 +16,7 @@ from threading import Barrier
 from contextlib import closing
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from test_server_process import stop_owned_test_server
 
 
 class InvitationServer:
@@ -63,8 +64,7 @@ class InvitationServer:
             raise
 
     def __exit__(self, *_):
-        self.process.terminate()
-        self.process.wait(timeout=15)
+        stop_owned_test_server(self.process, int(self.base_url.rsplit(":", 1)[1]))
         self.directory.cleanup()
 
     def request(self, method, path, payload=None, token=None, headers=None):

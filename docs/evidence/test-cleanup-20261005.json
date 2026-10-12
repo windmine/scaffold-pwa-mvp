@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "purpose": "User-approved permanent live starter/demo/test account, Template and Report history cleanup",
+  "verifiedAtUtc": "2026-10-05T04:00:01.021252+00:00",
+  "authorization": {
+    "permanentDeletion": true,
+    "starterDemoAccountsAndRecentReport31Included": true,
+    "briefProductionMaintenanceApproved": true,
+    "preserveRealAdminCompanySetupSecurityAuditsAndBackups": true
+  },
+  "maintenance": {
+    "revision": "geo-backend-maintenance-20260929",
+    "confirmedAtUtc": "2026-10-05T03:51:14.549824+00:00",
+    "drainSeconds": 300,
+    "otherDatabaseTransactionsAtDeletion": 0,
+    "resumedAtUtc": "2026-10-05T03:59:05.246303+00:00",
+    "durationSeconds": 470.696479,
+    "restoredRevision": "geo-backend-october-20261005",
+    "trafficPercent": 100,
+    "tags": [],
+    "directReadinessConsecutivePasses": 5,
+    "hostingReadinessConsecutivePasses": 5,
+    "runtimeAndIamUnchanged": true,
+    "hostingDeploymentChanged": false
+  },
+  "deletedIds": {
+    "user": [1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27],
+    "workform": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26],
+    "workformsubmission": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
+    "attendancerecord": [6, 7],
+    "site": [5, 6],
+    "workerinvitation": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+    "workerpasswordrecovery": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  },
+  "database": {
+    "exactInventoryHashesCheckedBeforeTransaction": true,
+    "commitConfirmed": true,
+    "commitConfirmedAtUtc": "2026-10-05T03:57:52.410554+00:00",
+    "allRetainedRowsComparedExactly": true,
+    "postCommitAndPostResumeExactStateVerified": true,
+    "preservedUserId": 5,
+    "preservedUserEntireRowSha256": "3268cd98128b98c69bc4b6a2b396ca801a7d0280a252c7b2b56ebd9dd411e76b",
+    "preservedDepartmentIds": [1, 2, 3, 4, 5],
+    "preservedSiteIds": [1, 2, 3, 4],
+    "preservedOriginalAuditCount": 207,
+    "newMinimalReplayTombstoneIds": [208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218],
+    "finalUserCount": 1,
+    "finalTemplateCount": 0,
+    "finalReportCount": 0,
+    "finalAttendanceCount": 0,
+    "migrationCountUnchanged": 22,
+    "identitySequencesNotReset": true,
+    "unrelatedPlayingWithNeonRowsPreserved": 10
+  },
+  "uploads": {
+    "bucket": "geo-attendance-system-db9ca-uploads",
+    "prefix": "uploads/",
+    "deletedActiveObjectCount": 494,
+    "deletedActiveObjectBytes": 340669,
+    "exactGenerationAndMetagenerationPreconditions": true,
+    "activeAbsenceVerified": true,
+    "failures": [],
+    "unrelatedObjectsPreservedCount": 190,
+    "unrelatedObjectMetadataUnchanged": true,
+    "stageSubdirectoriesAndReadinessProbesExcluded": true,
+    "existingSoftDeleteRetentionSecondsUnchanged": 2592000
+  },
+  "proofs": {
+    "hashFormat": "SHA-256 of sorted compact JSON",
+    "cleanupPlanSha256": "e158778d54405ddf816bdfad8969df662caf5609fc044f49bd6284f4e18ecf83",
+    "cleanupResultSha256": "c870970ef2b0938f1cc719543a58b3faa8b8b0261277cbf06162143dd1367926",
+    "maintenanceProofSha256": "b38ea2f7acf3f30fcda4fe8d4b32f558c07e0dcbab1f88ad5a903331844c23fc",
+    "localDetailDirectory": "output/test-cleanup-20261005.local"
+  },
+  "limits": [
+    "Deleted rows are absent from the live app and its Rubbish Bin, not merely resigned or archived.",
+    "Existing security audit snapshots and replay tombstones remain; some older snapshots contain historical answers and upload references.",
+    "Existing database backups/recovery retention and Cloud Storage 30-day soft-delete retention were not erased or extended.",
+    "Previously saved browser drafts, downloads and other-device copies were not remotely erased.",
+    "Historical release/presentation evidence is retained, but its former live demo identities and records no longer exist. Future hosted tests require separately approved fixtures."
+  ]
+}

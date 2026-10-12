@@ -2100,8 +2100,7 @@ async function checkSubmittedReportDraftCleanupFailure(browser) {
     const submission = page.waitForResponse((response) => (
       response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/form-submissions'
     ));
-    await reviewAndSubmitReport(page);
-    const response = await submission;
+    const [response] = await Promise.all([submission, reviewAndSubmitReport(page)]);
     if (!response.ok()) throw new Error(`draft-cleanup fixture Report did not submit: ${response.status()}`);
     const submitted = response.request().postDataJSON();
     await page.locator('#workFormFeedback').getByText(/The submitted draft could not be cleared from this device/).waitFor({ state: 'visible' });
@@ -3160,15 +3159,27 @@ async function checkOfflineReportTemplateChange(browser) {
     await context.setOffline(false);
     await page.locator('.tab[data-tab-target="formTab"]').click();
     await page.locator('#workFormSelect').selectOption(String(form.id));
+    // Playwright fill can return without input while draft restoration makes the form inert.
+    await page.waitForFunction(() => document.querySelector('#workFormField_replacement')
+      && !document.querySelector('#workFormSubmissionForm')?.inert);
     await page.locator('#workFormField_replacement').fill(`Reviewed replacement ${stamp}`);
+    if (await page.locator('#workFormField_replacement').inputValue() !== `Reviewed replacement ${stamp}`) {
+      throw new Error('current-template replacement answer was not entered after draft restoration');
+    }
     await page.locator('#workFormDate').fill('2026-09-07');
+    await page.locator('#submitWorkFormButton').click();
+    await page.locator('#workFormReviewPanel').waitFor({ state: 'visible' });
+    if (!(await page.locator('#workFormReviewPanel').innerText()).includes(`Reviewed replacement ${stamp}`)) {
+      throw new Error('current-template review did not retain the replacement answer');
+    }
     const recoveryResponsePromise = page.waitForResponse((response) => (
       response.request().method() === 'POST'
       && new URL(response.url()).pathname === '/api/form-submissions'
       && response.request().postDataJSON().expected_definition_version === form.definition_version + 1
     ), { timeout: 20000 });
-    await reviewAndSubmitReport(page);
-    const recoveryResponse = await recoveryResponsePromise;
+    const [recoveryResponse] = await Promise.all([
+      recoveryResponsePromise, page.locator('#confirmWorkFormSubmitButton').click()
+    ]);
     if (!recoveryResponse.ok()) {
       throw new Error(`current-template recovery Report failed: ${recoveryResponse.status()} ${await recoveryResponse.text()}`);
     }

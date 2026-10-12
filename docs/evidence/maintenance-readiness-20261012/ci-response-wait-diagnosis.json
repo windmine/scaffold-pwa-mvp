@@ -1,0 +1,89 @@
+{
+  "status": "confirmed-response-promise-ownership-defect; original-submission-response-timeout-cause-unconfirmed",
+  "originalFailure": {
+    "startedAtUtc": "2026-10-12T02:09:39.899026Z",
+    "completedAtUtc": "2026-10-12T02:17:10.539544Z",
+    "logSha256": "0a276a59f8bcd6b03d0631f40b8e06664f6fbb338507b266de374e0360847be2",
+    "browserChecksCompleted": 20,
+    "message": "Unhandled page.waitForResponse timeout at checkSubmittedReportDraftCleanupFailure aborted Node while the UI submission helper was still being awaited.",
+    "originalResponseTimeoutCause": "UNCONFIRMED: the original run captured no failing-stage, native-validity or request-start trace; a sent request with a missing response remains possible.",
+    "originalLocalLogSha256": "f18bcc2098c7ef2fb86401ae3a7bfb1d8f47c3c8db6fdf4b7349f382058b6469",
+    "durableLogSha256": "0a276a59f8bcd6b03d0631f40b8e06664f6fbb338507b266de374e0360847be2",
+    "durableLog": "docs/evidence/maintenance-readiness-20261012/ci-local-mobile-browser-failed.txt",
+    "logNormalization": "Absolute local workspace prefixes were replaced with <workspace>/ and the local temporary-directory prefix with <temp>/. In the three captured ci-local-mobile failure logs, one trailing ASCII space was also removed from the Vite reporter line at line 30. Test meaning, failure classification and relative file locations remain unchanged. Original local log bytes and hashes remain in ignored output.",
+    "trailingAsciiSpacesRemoved": 1
+  },
+  "hypotheses": [
+    "Template/draft restoration changes required fields or readiness before Review",
+    "Intentional IndexedDB cleanup fault fires before the POST",
+    "POST is sent but response is absent/rejected"
+  ],
+  "instrumentedRuns": [
+    {
+      "kind": "isolated target",
+      "status": "passed",
+      "logSha256": "9a7ef8f5c0652d93ec2b59a1de3a6991f76242706b5302e2cb2d7c4bd2531878",
+      "observed": "Valid required inputs, Review opens, Confirm sends one POST/200; cleanup faults occur after POST; no native invalid events."
+    },
+    {
+      "kind": "original browser prefix through target",
+      "status": "passed",
+      "checks": 21,
+      "logSha256": "7825ab6de06111ed48e38abeb755f66c3b2e10ff41c68fcccec8dd5b5a5a8bf2",
+      "observed": "All 20 preceding workflows plus target pass, one POST/200; no native invalid events. This does not establish the original failure cause."
+    }
+  ],
+  "boundedRegression": {
+    "scope": "Exact original and updated workflow function under deterministic promise scheduling; no application behavior is mocked into a passing result",
+    "before": {
+      "scenario": "Exact workflow function: response wait rejects while its UI action is still pending, then UI fails later",
+      "sourceSha256": "3eeb54029ab5ecb796b5658ad87393e96236069ed592009530327d08fce898bb",
+      "observedError": "fixture_ui_stage_timeout",
+      "unhandledRejections": [
+        "fixture_response_timeout"
+      ],
+      "contextClosed": true,
+      "timersMs": {
+        "response": 5,
+        "ui": 30,
+        "observationAfterExit": 60
+      },
+      "assertion": "No unhandled rejection; required response error is surfaced and owned context closes",
+      "passed": false
+    },
+    "after": {
+      "scenario": "Exact workflow function: response wait rejects while its UI action is still pending, then UI fails later",
+      "sourceSha256": "957a6f08afaee34e07a77d5fb6284f8dc53424f605808bc79d419edf37c11664",
+      "observedError": "fixture_response_timeout",
+      "unhandledRejections": [],
+      "contextClosed": true,
+      "timersMs": {
+        "response": 5,
+        "ui": 30,
+        "observationAfterExit": 60
+      },
+      "assertion": "No unhandled rejection; required response error is surfaced and owned context closes",
+      "passed": true
+    },
+    "interpretation": "A response timeout while UI work is pending must be observed immediately. The old workflow emits an unhandled rejection; the fixed workflow surfaces the required response failure, owns the later UI rejection, and closes its context."
+  },
+  "fix": {
+    "file": "scripts/check-browser-workflows.mjs",
+    "change": "Await the required response and review/confirm action together with Promise.all",
+    "applicationCodeChanged": false,
+    "assertionsRemoved": false,
+    "timeoutsChanged": false,
+    "independentReview": "Root approved preserving required POST/UI assertions and documenting the separate unknown trigger."
+  },
+  "finalFullMobileGate": {
+    "status": "not-rerun-as-single-command",
+    "componentsPassed": true,
+    "finalStandaloneBrowserWorkflows": 73,
+    "evidence": "local-ci-validation.json",
+    "originalResponseTimeoutCause": "UNCONFIRMED; passing rerun is not a causal explanation"
+  },
+  "limitations": [
+    "The cause of the original submission-response timeout remains UNCONFIRMED even if a final rerun passes.",
+    "This fixture-harness change prevents an unhandled-promise process abort; it is not an application submission fix."
+  ]
+}
