@@ -1,0 +1,83 @@
+{
+  "status": "passed",
+  "checkedAtUtc": "2026-10-11T23:48:15.667335+00:00",
+  "revision": "geo-backend-fixes-20261012",
+  "origin": "https://fixes-20261012---geo-backend-eitdijn7cq-ts.a.run.app",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4",
+  "checks": [
+    {
+      "path": "/health",
+      "status": 200,
+      "cacheControl": null,
+      "readiness": null
+    },
+    {
+      "path": "/health/ready",
+      "status": 200,
+      "cacheControl": null,
+      "readiness": {
+        "status": "ok",
+        "checks": {
+          "database": "ok",
+          "migrations": "ok",
+          "upload_storage": "ok"
+        },
+        "details": {
+          "upload_storage": {
+            "backend": "gcs"
+          }
+        }
+      }
+    },
+    {
+      "path": "/api/health/ready",
+      "status": 200,
+      "cacheControl": null,
+      "readiness": {
+        "status": "ok",
+        "checks": {
+          "database": "ok",
+          "migrations": "ok",
+          "upload_storage": "ok"
+        },
+        "details": {
+          "upload_storage": {
+            "backend": "gcs"
+          }
+        }
+      }
+    },
+    {
+      "path": "/sites",
+      "status": 401,
+      "cacheControl": null,
+      "readiness": null
+    },
+    {
+      "path": "/my-form-submissions?purpose=report",
+      "status": 401,
+      "cacheControl": null,
+      "readiness": null
+    },
+    {
+      "path": "/supervisor/form-submissions?purpose=report",
+      "status": 401,
+      "cacheControl": null,
+      "readiness": null
+    },
+    {
+      "path": "/supervisor/form-submissions/export.pdf?purpose=report",
+      "status": 401,
+      "cacheControl": null,
+      "readiness": null
+    },
+    {
+      "path": "/uploads/release-20261012-absent.png",
+      "status": 401,
+      "cacheControl": "private, no-store",
+      "readiness": null
+    }
+  ],
+  "fixturesCreated": false,
+  "authenticatedExistingUserRequests": false
+}

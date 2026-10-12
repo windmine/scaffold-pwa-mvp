@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "checkedAtUtc": "2026-10-11T23:58:01.829589+00:00",
+  "scope": "Independent read-only review of candidate source, recorded build/deployment evidence, Hosting baseline, and concrete promotion runner. This record is not promotion approval or post-promotion verification.",
+  "sourceCommit": "c5b7ab56a54cb786042b592fb06288a5e7c18990",
+  "archiveSha256": "4f9666e0faa24b092c3cbb07f9411df5e1dfc85f0dd82b07a35acb997e16ecd9",
+  "buildId": "41751c09-1397-45f2-acff-c8080f148793",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4",
+  "revision": "geo-backend-fixes-20261012",
+  "sourceVerification": {
+    "freshInMemoryGitArchiveMatchesRecordedArchiveSha256": true,
+    "archivedFileCount": 104,
+    "allArchivedFileHashesMatchSourceManifest": true,
+    "freshArchiveAllFileHashesMatchSourceManifest": true,
+    "gitBlobComparison": {
+      "byteIdenticalFiles": 35,
+      "expectedCrLfOnlyFiles": 69,
+      "otherDifferences": 0,
+      "explanation": "The repository uses core.autocrlf=true and text=auto attributes. A fresh git archive of the exact commit reproduces the recorded archive byte-for-byte, including its CRLF text conversion. Binary fonts and all other content match."
+    },
+    "buildConfigurationHashMatches": true,
+    "candidateSelfTestHashMatches": true,
+    "successfulBuildImageMatchesCandidateDeploymentAndImageValidation": true,
+    "candidateBaselineHashMatchesRecordedBaseline": true,
+    "candidateImageExtractedPdfAndJsonArtifactHashesMatch": true,
+    "migrationChangeInSourceCommit": false,
+    "applicationFrontendChangeInSourceCommit": false
+  },
+  "hostingVerification": {
+    "baselineEvidence": "hosting-baseline.json",
+    "comparisonEvidence": "../report-release-20261005/live-shell.json",
+    "assetCount": 75,
+    "everyAssetRecordExactlyEqual": true,
+    "october7And8FrontendChangesPromoted": false
+  },
+  "promotionRunnerReview": {
+    "file": "output/report-release-20261012.local/promote-verified.py",
+    "sha256": "bf2cb3111e59e9f01734b5214c4f286a04fb615930fae26c2160b3657252dcae",
+    "blockingDefectsFound": [],
+    "verifiedChecks": [
+      "Requires passed strict hardening with exit code zero and no failures, plus candidate HTTP, infrastructure, image, and PDF review gates.",
+      "Rejects an existing promotion proof, changed checked-out source, dirty backend packaging source, changed candidate traffic/template/image, runtime specification, selected operational annotations, or IAM.",
+      "Requests exactly the recorded candidate at 100 percent and removes the owned candidate tag.",
+      "Post-command live_snapshot requires exactly one 100-percent traffic target without a tag; subsequent assertions bind its revision/image/runtime/selected operational annotations/IAM.",
+      "Persists promotion_requested before mutation and verification_required on command or verification failure; it does not silently retry."
+    ],
+    "runnerExecutedByReviewer": false,
+    "reviewScopeNote": "Review covers this concrete recorded candidate; it does not authorize execution, certify unrecorded annotation fields, or replace post-promotion HTTP, inventory, Hosting, infrastructure, and log checks."
+  },
+  "pendingAtReview": [
+    "Strict hardening before promotion",
+    "Human alert-email receipt confirmation",
+    "Authorized promotion and final post-promotion verification"
+  ],
+  "historicalLimitationsPreserved": [
+    "Initial Cloud Build artifact-publication failure remains recorded separately from the successful second build.",
+    "Candidate HTTP checks are anonymous/readiness checks; no authenticated hosted fixtures were created.",
+    "Native cursor-inspection initial harness failure and corrected unchanged-application reruns remain recorded.",
+    "Physical phone PDF viewers and complete frontend mobile gate were not certified by this backend-only candidate review."
+  ],
+  "productionPromotionApproved": false,
+  "hostedWritesPerformedByReviewer": false
+}

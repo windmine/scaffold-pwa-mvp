@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "recordedAtUtc": "2026-10-11T23:57:03.643877+00:00",
+  "sourceCommit": "c5b7ab56a54cb786042b592fb06288a5e7c18990",
+  "scope": "Completed local final-source validation before commit; this record summarizes observed command results, not a new rerun.",
+  "checks": [
+    {
+      "suite": "backend/upload_storage_test.py",
+      "checkpoints": 182,
+      "status": "passed"
+    },
+    {
+      "suite": "backend/security_test.py",
+      "status": "passed"
+    },
+    {
+      "suite": "backend/smoke_test.py against fresh local disposable SQLite/HTTP server",
+      "checkpoints": 248,
+      "status": "passed",
+      "logSha256": "c02e44030e679fad4e32f4e0becd9efc356d67fb7ff31d5512fed0dfc68650de",
+      "ownedServerStoppedAndTemporaryFilesRemoved": true
+    },
+    {
+      "suite": "npm run check:review-queue",
+      "status": "passed",
+      "includes": [
+        "module boundaries",
+        "Report workflow and purpose",
+        "review and export APIs",
+        "six export evidence groups",
+        "PDF branding",
+        "ten PDF layout groups",
+        "five Unicode PDF groups",
+        "50-photo volume"
+      ]
+    },
+    {
+      "suite": "npm run lint",
+      "status": "passed"
+    },
+    {
+      "suite": "git diff --check",
+      "status": "passed"
+    }
+  ],
+  "localPdfVisualReview": {
+    "syntheticChineseAndMixedPages": 9,
+    "englishPagesPixelIdenticalToPriorRenderer": 2,
+    "dpi": 110
+  },
+  "physicalDeviceChecks": false,
+  "completeFrontendMobileGateRerun": false,
+  "hostedFixturesCreated": false
+}

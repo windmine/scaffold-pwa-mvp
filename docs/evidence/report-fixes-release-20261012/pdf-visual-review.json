@@ -1,0 +1,144 @@
+{
+  "status": "passed",
+  "checkedAt": "2026-10-11T23:52:02.478338+00:00",
+  "sourceCommit": "c5b7ab56a54cb786042b592fb06288a5e7c18990",
+  "buildId": "41751c09-1397-45f2-acff-c8080f148793",
+  "imageDigest": "sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4",
+  "artifactBinding": "Every inspected PDF byte count and SHA-256 matched the exact Cloud-image manifest and independently extracted Cloud Build records in image-validation.json.",
+  "runtimeUnderTest": {
+    "python": "3.11.17",
+    "reportlab": "4.5.1"
+  },
+  "inspection": {
+    "parser": "pypdf 6.16.2",
+    "renderer": "Poppler pdftoppm",
+    "dpi": 110,
+    "pagesVisuallyInspected": 10,
+    "syntheticDataOnly": true
+  },
+  "checks": [
+    "Simplified and Traditional Chinese plus mixed English extracted intact in title, description, Site, Worker, field labels, answers, reviewer and final note.",
+    "Supplementary Han name character U+20BB7 extracted intact; all embedded ToUnicode maps avoided invalid five/six-digit destinations.",
+    "Regular and bold TrueType font streams and Unicode maps were embedded in both Chinese PDFs.",
+    "All 50 numbered long-answer entries and 30 long-note lines were retained with both final tail markers.",
+    "Original synthetic signature and photo rasters were embedded at their expected 181x61 and 224x140 dimensions and visible.",
+    "The foreign-upload answer remained visible as literal /uploads/<32 hex characters>.png text; its 37x23 raster was absent.",
+    "All ten pages were visually inspected; repeated headers were confirmed pixel-identical in raw rendered files."
+  ],
+  "artifacts": [
+    {
+      "name": "image-chinese-collection.pdf",
+      "sha256": "eb4d19849e68fffda3b3a6a111d649e932ef32f6cf3cc08c02b40a047571e4e5",
+      "pages": 7,
+      "fontStyles": [
+        "Bold",
+        "Regular"
+      ],
+      "imageDimensions": [
+        [
+          181,
+          61
+        ],
+        [
+          224,
+          140
+        ],
+        [
+          318,
+          318
+        ]
+      ],
+      "unicodeAndEvidenceChecks": "passed",
+      "renderedPages": [
+        {
+          "name": "image-chinese-collection-1.png",
+          "sha256": "898ee75eb37b889cede447d58afc8a8b98b69892773f185d1fff2bbfdf0f8c6e"
+        },
+        {
+          "name": "image-chinese-collection-2.png",
+          "sha256": "2fc5f6d85694069fc295e4169ecbe936f8d22a8812ce845968b78936f13ba728"
+        },
+        {
+          "name": "image-chinese-collection-3.png",
+          "sha256": "49295e01d473b4b4014996ea54f186b089b390a419902f274568e17adb78e12c"
+        },
+        {
+          "name": "image-chinese-collection-4.png",
+          "sha256": "f7590ffa6a2484c3ade7e90ea794a2d38ebad56ef23500d59e002b5d10ca37d6"
+        },
+        {
+          "name": "image-chinese-collection-5.png",
+          "sha256": "9a7cb9c0ca7209c10baeb3d3bab809ac86260b430df6c63c2168e8c62e2ee04b"
+        },
+        {
+          "name": "image-chinese-collection-6.png",
+          "sha256": "00cdb37a5dd6b1258f98bcfea1e7d33021ebe4e4a9a25bf0b38187b5f91ab923"
+        },
+        {
+          "name": "image-chinese-collection-7.png",
+          "sha256": "3644d902100d3702e614ea72ba463fbe345e251cdcf110f65b5bc351f1eafe2e"
+        }
+      ],
+      "visualReview": "passed: all pages inspected at 110 dpi; readable Chinese/English, preserved evidence and complete content within margins"
+    },
+    {
+      "name": "image-chinese-single.pdf",
+      "sha256": "f3554f461fbb4a6f9634046ec16b9bb9bb83c72a8ee27f513511ee647429e798",
+      "pages": 2,
+      "fontStyles": [
+        "Bold",
+        "Regular"
+      ],
+      "imageDimensions": [
+        [
+          181,
+          61
+        ],
+        [
+          224,
+          140
+        ],
+        [
+          318,
+          318
+        ]
+      ],
+      "unicodeAndEvidenceChecks": "passed",
+      "renderedPages": [
+        {
+          "name": "image-chinese-single-1.png",
+          "sha256": "5d1b2aa0e3a0468a6c3a0d582be17638c2a96ca4498e81d8c08af03f404e8da3"
+        },
+        {
+          "name": "image-chinese-single-2.png",
+          "sha256": "77f3b9429580eb11208d134dfa142e4a46b759d84cd116befca503d2f5531406"
+        }
+      ],
+      "visualReview": "passed: all pages inspected at 110 dpi; readable Chinese/English, preserved evidence and complete content within margins"
+    },
+    {
+      "name": "image-literal-foreign-url.pdf",
+      "sha256": "27da9e2912d8f0a20b8cc88dc7ba504abe82e581dfb1dfe59e7502286ec07d09",
+      "pages": 1,
+      "fontStyles": [],
+      "imageDimensions": [
+        [
+          1024,
+          1024
+        ]
+      ],
+      "unicodeAndEvidenceChecks": "passed",
+      "renderedPages": [
+        {
+          "name": "image-literal-foreign-url-1.png",
+          "sha256": "7eaec7bd3420e77eb7a274c168d03912ed710b82a88024ad9cbdf2ffd5995cd5"
+        }
+      ],
+      "visualReview": "passed: all pages inspected at 110 dpi; readable Chinese/English, preserved evidence and complete content within margins"
+    }
+  ],
+  "inspectionHarnessNote": "Initial local inspection expected an additional random-URL text helper not included in the emitted bundle; the local checker was adjusted to require a visible generated upload URL and absence of the known foreign raster. No PDF or application source was changed.",
+  "limitations": [
+    "Synthetic exact-image validation does not certify physical phone PDF viewers."
+  ]
+}

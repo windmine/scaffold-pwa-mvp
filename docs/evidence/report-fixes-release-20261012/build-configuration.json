@@ -1,0 +1,71 @@
+{
+  "steps": [
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "build",
+        "-t",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5-r2",
+        "."
+      ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "id": "isolated-exact-image-validation",
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-v",
+        "/workspace/.release-check/candidate-image-selftest.py:/selftest.py:ro",
+        "-v",
+        "/workspace/validation:/validation",
+        "-e",
+        "PYTHONPATH=/app/backend",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "SELFTEST_OUTPUT=/validation",
+        "-e",
+        "SELFTEST_IMAGE_DIGEST=australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5-r2",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5-r2",
+        "/selftest.py"
+      ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "id": "collect-synthetic-validation",
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "-v",
+        "/workspace/validation:/validation:ro",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5-r2",
+        "-c",
+        "import base64,hashlib,json,pathlib\nfor p in sorted(pathlib.Path('/validation').iterdir()):\n if p.is_file() and p.suffix in ('.pdf','.json'):\n  b=p.read_bytes(); encoded=base64.b64encode(b).decode(); chunks=[encoded[i:i+32000] for i in range(0,len(encoded),32000)]\n  print('RELEASE_FILE '+json.dumps({'name':p.name,'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest(),'chunks':len(chunks)}),flush=True)\n  for i,part in enumerate(chunks): print('RELEASE_CHUNK '+json.dumps({'name':p.name,'index':i,'data':part}),flush=True)\n"
+      ]
+    }
+  ],
+  "images": [
+    "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5-r2"
+  ],
+  "options": {
+    "logging": "CLOUD_LOGGING_ONLY"
+  },
+  "timeout": "1200s"
+}

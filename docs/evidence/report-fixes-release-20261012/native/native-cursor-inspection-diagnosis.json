@@ -1,0 +1,67 @@
+{
+  "started_at": "2026-10-11T23:40:03.877469+00:00",
+  "isolation": "new local cluster, loopback only, synthetic data, non-superuser database owner",
+  "checks": [
+    {
+      "label": "Cursor count false-positive reproduced from inspection query itself after automatic statement preparation",
+      "details": {
+        "counts": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "inventories": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          [
+            {
+              "name": "",
+              "statement": "SELECT name, statement FROM pg_cursors"
+            }
+          ],
+          [
+            {
+              "name": "",
+              "statement": "SELECT name, statement FROM pg_cursors"
+            }
+          ],
+          [
+            {
+              "name": "",
+              "statement": "SELECT name, statement FROM pg_cursors"
+            }
+          ],
+          [
+            {
+              "name": "",
+              "statement": "SELECT name, statement FROM pg_cursors"
+            }
+          ],
+          [
+            {
+              "name": "",
+              "statement": "SELECT name, statement FROM pg_cursors"
+            }
+          ]
+        ]
+      }
+    }
+  ],
+  "failures": [],
+  "scope": "cursor_inspection_harness_diagnosis",
+  "passed": true,
+  "cleanup_complete": true,
+  "binary_version": "postgres (PostgreSQL) 17.6",
+  "server_version": "PostgreSQL 17.6 on x86_64-windows, compiled by msvc-19.44.35217, 64-bit",
+  "finished_at": "2026-10-11T23:40:11.378243+00:00"
+}

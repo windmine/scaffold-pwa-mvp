@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "sourceCommit": "c5b7ab56a54cb786042b592fb06288a5e7c18990",
+  "revision": "geo-backend-fixes-20261012",
+  "previousRevision": "geo-backend-october-20261005",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4",
+  "buildId": "41751c09-1397-45f2-acff-c8080f148793",
+  "promotionAttemptAtUtc": "2026-10-12T00:00:52.248902+00:00",
+  "migrationRequired": false,
+  "maintenanceRequired": false,
+  "strictGate": "hardening-before-promotion.json",
+  "hostingPromotionPerformed": false,
+  "verifiedAtUtc": "2026-10-12T00:01:06.464920+00:00",
+  "traffic": [
+    {
+      "percent": 100,
+      "revisionName": "geo-backend-fixes-20261012"
+    }
+  ],
+  "runtimeConfigurationUnchanged": true,
+  "iamUnchanged": true,
+  "observedInventoryUnchanged": true,
+  "all22MigrationChecksumsUnchanged": true,
+  "beforeInventoryEvidence": "production-inventory-before.json",
+  "afterInventoryEvidence": "production-inventory-after.json",
+  "publicFrontendUnchanged": true
+}

@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "syntheticOnly": true,
+  "python": "3.11.17",
+  "reportlab": "4.5.1",
+  "imageDigest": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5-r2",
+  "checks": [
+    "synthetic_single_and_collection_pdf_generation",
+    "packaged_font_license_hashes_and_real_glyphs",
+    "missing_malformed_snapshot_foreign_evidence_32_export_denials",
+    "ordinary_foreign_url_remains_exportable_literal_text",
+    "historical_record_department_and_unsubmitted_upload_privacy"
+  ],
+  "deniedExports": 32,
+  "fontFiles": [
+    {
+      "name": "ReportFlowChinese-Regular.ttf",
+      "weight": 400,
+      "bytes": 11035716,
+      "sha256": "8156ec3a284def41e7fa01d376ebae45c781ed435fd329c89e1a14ec43234133"
+    },
+    {
+      "name": "ReportFlowChinese-Bold.ttf",
+      "weight": 700,
+      "bytes": 11020800,
+      "sha256": "87e0941bbd917ed1a3a93f21cd4869e07224fd53052923f581b0d20e55825dc4"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "image-chinese-collection.pdf",
+      "bytes": 143425,
+      "sha256": "eb4d19849e68fffda3b3a6a111d649e932ef32f6cf3cc08c02b40a047571e4e5",
+      "pages": 7,
+      "embeddedFontStreams": 2
+    },
+    {
+      "name": "image-chinese-single.pdf",
+      "bytes": 130478,
+      "sha256": "f3554f461fbb4a6f9634046ec16b9bb9bb83c72a8ee27f513511ee647429e798",
+      "pages": 2,
+      "embeddedFontStreams": 2
+    },
+    {
+      "name": "image-literal-foreign-url.pdf",
+      "bytes": 35502,
+      "sha256": "27da9e2912d8f0a20b8cc88dc7ba504abe82e581dfb1dfe59e7502286ec07d09",
+      "pages": 1,
+      "embeddedFontStreams": 0
+    }
+  ]
+}

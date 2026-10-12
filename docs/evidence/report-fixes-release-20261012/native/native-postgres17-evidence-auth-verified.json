@@ -1,0 +1,48 @@
+{
+  "started_at": "2026-10-11T23:39:10.412249+00:00",
+  "isolation": "new local cluster, loopback only, synthetic data, non-superuser database owner",
+  "checks": [
+    {
+      "label": "Native evidence fixture uses exact 22 migrations and non-superuser owned database"
+    },
+    {
+      "label": "PostgreSQL streamed scans cross 205 records and preserve photo/direct/repeating signature access"
+    },
+    {
+      "label": "Actual Staff transfer preserves immutable record scope; new Department denied, old/owner/global allowed"
+    },
+    {
+      "label": "Foreign ordinary and repeating text URLs cannot authorize Worker or Supervisor on PostgreSQL"
+    },
+    {
+      "label": "Native retained Daywork edits reject text-to-evidence laundering without granting access"
+    },
+    {
+      "label": "Native original Department PDF/HTML evidence exports pass; new Department exports denied"
+    },
+    {
+      "label": "Native owner/global orphan policy and conservative cleanup preserve all referenced evidence"
+    },
+    {
+      "label": "Psycopg uses named PostgreSQL server cursors and closes every early-match/no-match/cleanup scan",
+      "details": {
+        "streamed_statements": 66,
+        "background_reports": 205
+      }
+    }
+  ],
+  "failures": [],
+  "scope": "focused_native_upload_authorization_and_exports",
+  "passed": true,
+  "cleanup_complete": true,
+  "binary_version": "postgres (PostgreSQL) 17.6",
+  "server_version": "PostgreSQL 17.6 on x86_64-windows, compiled by msvc-19.44.35217, 64-bit",
+  "finished_at": "2026-10-11T23:39:21.424027+00:00",
+  "source_sha256": {
+    "backend/app/upload_storage.py": "be27f3d65fafc0edd98490215e743ad9c1e8f0350456cad57ab17cefd363291d",
+    "backend/app/use_cases/supervisor_review.py": "acb05b8b042e6913332a7f369ecd72ba38b8d1374d7739358efa681b7abeb4a5",
+    "backend/app/use_cases/common.py": "c352d3324c9d77533250cb669ab3eabe1356448d947cde2a77179cfccf976ce7",
+    "backend/app/use_cases/work_forms.py": "b0ca3c23f5abaa68427c4ab5f577186ccb122b31c3261063e619680a07e210b0",
+    "backend/app/use_cases/staff_site_admin.py": "754831dc998201661542cead67baa64dc3d0277c1a273b8bb6a197358c2e76d6"
+  }
+}

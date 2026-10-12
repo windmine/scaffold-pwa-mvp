@@ -1,0 +1,36 @@
+{
+  "status": "passed",
+  "buildId": "41751c09-1397-45f2-acff-c8080f148793",
+  "sourceCommit": "c5b7ab56a54cb786042b592fb06288a5e7c18990",
+  "imageDigest": "sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4",
+  "files": [
+    {
+      "name": "image-chinese-collection.pdf",
+      "bytes": 143425,
+      "sha256": "eb4d19849e68fffda3b3a6a111d649e932ef32f6cf3cc08c02b40a047571e4e5",
+      "chunks": 6
+    },
+    {
+      "name": "image-chinese-single.pdf",
+      "bytes": 130478,
+      "sha256": "f3554f461fbb4a6f9634046ec16b9bb9bb83c72a8ee27f513511ee647429e798",
+      "chunks": 6
+    },
+    {
+      "name": "image-literal-foreign-url.pdf",
+      "bytes": 35502,
+      "sha256": "27da9e2912d8f0a20b8cc88dc7ba504abe82e581dfb1dfe59e7502286ec07d09",
+      "chunks": 2
+    },
+    {
+      "name": "image-selftest.json",
+      "bytes": 1644,
+      "sha256": "f9a83fa94db56ed0919569cd84fd719789f819b5e3aabb33d0fc783e58465238",
+      "chunks": 1
+    }
+  ],
+  "networkDisabled": true,
+  "productionCredentialsPassed": false,
+  "extraction": "synthetic records from successful build logs via bounded timestamp-filtered Logging API; exact byte counts and hashes verified",
+  "logEntries": 19
+}

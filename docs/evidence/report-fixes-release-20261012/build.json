@@ -1,0 +1,136 @@
+{
+  "id": "41751c09-1397-45f2-acff-c8080f148793",
+  "status": "SUCCESS",
+  "createTime": "2026-10-11T23:44:11.166555007Z",
+  "finishTime": "2026-10-11T23:45:23.356116Z",
+  "serviceAccount": "projects/geo-attendance-system-db9ca/serviceAccounts/794826041820-compute@developer.gserviceaccount.com",
+  "source": {
+    "storageSource": {
+      "bucket": "geo-attendance-system-db9ca_cloudbuild",
+      "generation": "1791762249738047",
+      "object": "source/1791762233.095693-8a9f3e1089fd4f65b3a51cf56979126c.tgz"
+    }
+  },
+  "options": {
+    "logging": "CLOUD_LOGGING_ONLY",
+    "pool": {},
+    "workerRelease": "legacy"
+  },
+  "steps": [
+    {
+      "args": [
+        "build",
+        "-t",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5-r2",
+        "."
+      ],
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-10-11T23:44:23.511290213Z",
+        "startTime": "2026-10-11T23:44:23.502776309Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-10-11T23:45:01.256954675Z",
+        "startTime": "2026-10-11T23:44:23.502776309Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-v",
+        "/workspace/.release-check/candidate-image-selftest.py:/selftest.py:ro",
+        "-v",
+        "/workspace/validation:/validation",
+        "-e",
+        "PYTHONPATH=/app/backend",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "SELFTEST_OUTPUT=/validation",
+        "-e",
+        "SELFTEST_IMAGE_DIGEST=australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5-r2",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5-r2",
+        "/selftest.py"
+      ],
+      "id": "isolated-exact-image-validation",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-10-11T23:45:01.259597165Z",
+        "startTime": "2026-10-11T23:45:01.257209738Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-10-11T23:45:06.910892075Z",
+        "startTime": "2026-10-11T23:45:01.257209738Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "-v",
+        "/workspace/validation:/validation:ro",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5-r2",
+        "-c",
+        "import base64,hashlib,json,pathlib\nfor p in sorted(pathlib.Path('/validation').iterdir()):\n if p.is_file() and p.suffix in ('.pdf','.json'):\n  b=p.read_bytes(); encoded=base64.b64encode(b).decode(); chunks=[encoded[i:i+32000] for i in range(0,len(encoded),32000)]\n  print('RELEASE_FILE '+json.dumps({'name':p.name,'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest(),'chunks':len(chunks)}),flush=True)\n  for i,part in enumerate(chunks): print('RELEASE_CHUNK '+json.dumps({'name':p.name,'index':i,'data':part}),flush=True)\n"
+      ],
+      "id": "collect-synthetic-validation",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-10-11T23:45:06.913675130Z",
+        "startTime": "2026-10-11T23:45:06.911318301Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-10-11T23:45:08.729846972Z",
+        "startTime": "2026-10-11T23:45:06.911318301Z"
+      }
+    }
+  ],
+  "results": {
+    "buildStepImages": [
+      "sha256:40c2fb4fcd0ad51376eef166c2e7b2b40a3508d5776e2bf33db3783ab39d0f2e",
+      "sha256:40c2fb4fcd0ad51376eef166c2e7b2b40a3508d5776e2bf33db3783ab39d0f2e",
+      "sha256:40c2fb4fcd0ad51376eef166c2e7b2b40a3508d5776e2bf33db3783ab39d0f2e"
+    ],
+    "buildStepOutputs": [
+      "",
+      "",
+      ""
+    ],
+    "buildStepResults": {
+      "collect-synthetic-validation": {},
+      "isolated-exact-image-validation": {}
+    },
+    "images": [
+      {
+        "artifactRegistryPackage": "projects/geo-attendance-system-db9ca/locations/australia-southeast1/repositories/cloud-run-source-deploy/packages/geo-backend/versions/sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4",
+        "digest": "sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4",
+        "name": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5-r2",
+        "pushTiming": {
+          "endTime": "2026-10-11T23:45:23.065299187Z",
+          "startTime": "2026-10-11T23:45:08.757531315Z"
+        }
+      }
+    ]
+  },
+  "sourceCommit": "c5b7ab56a54cb786042b592fb06288a5e7c18990"
+}

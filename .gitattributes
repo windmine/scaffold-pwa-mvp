@@ -6,3 +6,6 @@
 
 # Migration checksums are durable: Windows and Linux must ship identical bytes.
 backend/migrations/versions/*.py text eol=lf
+
+# Preserve this hash-bound recipient-confirmed release proof exactly.
+docs/evidence/alert-delivery-diagnosis-2026-10-12.json -text

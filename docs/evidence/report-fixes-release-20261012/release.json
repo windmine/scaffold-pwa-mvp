@@ -1,0 +1,267 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "recordedAtUtc": "2026-10-12T00:03:44.404783+00:00",
+  "releaseDateLocal": "2026-10-12",
+  "timezone": "Pacific/Auckland",
+  "sourceCommit": "c5b7ab56a54cb786042b592fb06288a5e7c18990",
+  "buildId": "41751c09-1397-45f2-acff-c8080f148793",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4",
+  "revision": "geo-backend-fixes-20261012",
+  "previousRevision": "geo-backend-october-20261005",
+  "promotionAttemptAtUtc": "2026-10-12T00:00:52.248902+00:00",
+  "promotionVerifiedAtUtc": "2026-10-12T00:01:06.464920+00:00",
+  "traffic": [
+    {
+      "percent": 100,
+      "revisionName": "geo-backend-fixes-20261012"
+    }
+  ],
+  "scope": {
+    "changes": [
+      "Department photo/signature authorization through real record evidence, including retained edits and HTML/PDF exports",
+      "Embedded licensed Chinese PDF fonts and safe Unicode mapping"
+    ],
+    "backendOnly": true,
+    "hostingPromoted": false,
+    "frontendRelease": "2026-10-05",
+    "hostingVersion": "ba2962f66af41dcb",
+    "productionCache": "leader-field-7a709da8321a",
+    "october7And8InterfaceChangesDeployed": false,
+    "migrationRequired": false,
+    "maintenanceRequired": false,
+    "runtimeConfigurationUnchanged": true,
+    "iamUnchanged": true,
+    "hostedApplicationFixturesCreated": false,
+    "existingUserLoginsUsed": false
+  },
+  "validation": {
+    "localEvidence": "local-gates.json",
+    "uploadCheckpoints": 182,
+    "disposableHttpCheckpoints": 248,
+    "nativePostgres": {
+      "17.6": {
+        "fullCheckpoints": 82,
+        "focusedEvidenceGroups": 8
+      },
+      "18.4": {
+        "fullCheckpoints": 82,
+        "focusedEvidenceGroups": 8
+      }
+    },
+    "exactProductionImageEvidence": "image-validation.json",
+    "exactProductionImageSelfTest": "image-selftest.json",
+    "productionImagePdfPagesVisuallyReviewed": 10,
+    "strictHardening": "hardening-before-promotion.json",
+    "strictPassingChecks": 40,
+    "directAndHostingHttpChecks": 22,
+    "unchangedHostingAssets": 75,
+    "observedDatabaseInventoryUnchanged": true,
+    "all22MigrationChecksumsUnchanged": true,
+    "finalInfrastructureEvidence": "infrastructure-final.json",
+    "finalRevisionLogEntries": 80,
+    "errorOr5xxLogEntries": 0
+  },
+  "cleanup": {
+    "ownedCandidateTagRemoved": true,
+    "ownedMonitoringTestPolicyDeletedAnd404Verified": true,
+    "realMonitoringPoliciesAndChannelUnchanged": true,
+    "ownedUploadRecoveryProbeHasNoLiveObject": true,
+    "softDeletedRecoveryProofRetainedUnderExisting30DayPolicy": true,
+    "nativeOwnedClustersRemoved": true,
+    "applicationFixturesCreated": false
+  },
+  "preservedAttempts": [
+    {
+      "evidence": "build-initial.json",
+      "outcome": "Application build and image checks passed; artifact-publication phase failed. Unchanged app source rebuilt with log-bound synthetic evidence extraction; no IAM workaround."
+    },
+    {
+      "evidence": "hardening-initial.json",
+      "outcome": "Failed expired/missing monitoring-receipt and upload-recovery evidence. Fresh approved/confirmed email test and exact-owned recovery proof passed unchanged strict gate."
+    },
+    {
+      "evidence": "native/native-postgres17-evidence-auth.json",
+      "diagnosis": "native/native-cursor-inspection-diagnosis.json",
+      "outcome": "Cursor inspection counted its own unnamed portal. Corrected inspection passed both versions; original failure retained."
+    }
+  ],
+  "limits": [
+    "Physical iPhone/Android and phone PDF viewers remain unverified.",
+    "No new authenticated hosted workflow/fixture run; production-image isolated tests, native PostgreSQL and read-only deployed checks are recorded separately.",
+    "Complete frontend check:mobile was not rerun; Hosting was not promoted.",
+    "Existing six-hour Neon recovery-history warning remains."
+  ],
+  "evidence": [
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/alert-test.json",
+      "sha256": "03204edece50d373c1dc69f2ed572139afbcc225f92a53ee94f9a5c79d9c92b1",
+      "bytes": 6988
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/backend-promotion.json",
+      "sha256": "859df250cc99637e7c33e0fc0c562a7d20b3f447020832cac0a6eafc0b31c329",
+      "bytes": 1135
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/baseline.json",
+      "sha256": "460f81e7d0c2188bdeddffdd50569863cff2d2ceac2b3485ac9bb704300b0c0b",
+      "bytes": 7657
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/build-configuration.json",
+      "sha256": "9b7bbf6a010b1c8655fe69bd16d733febffe63657055cea79b08d2d951ccc244",
+      "bytes": 2640
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/build-initial.json",
+      "sha256": "13568c4fa187522a73d104b74bfe6c321f626cb59760b9bd789f20f22a0c7189",
+      "bytes": 4088
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/build-submission-r2.json",
+      "sha256": "81f9ca5b4590316d69364bc4d860c9c0b0867a0fa407e5517197950f797fc52d",
+      "bytes": 574
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/build-submission.json",
+      "sha256": "658a0d21bb28b4e63d56e3e541eb8a5bac8f15fb0654635f4c0a35cc5ce2111e",
+      "bytes": 571
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/build.json",
+      "sha256": "0553b0de51b456390e4bf332d48741b5abb36bf9f465804b6050019f928d1a08",
+      "bytes": 5200
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/candidate-deployment.json",
+      "sha256": "83db806aa0bb32da0c2a15318cd91c6aae0850c73448864afc1edccca02bbf21",
+      "bytes": 1130
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/candidate-http.json",
+      "sha256": "6ec9e3c01d7c0f7661dff00269624d61e36a1d437074e1197154d7ab37793f87",
+      "bytes": 2124
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/hardening-before-promotion.json",
+      "sha256": "db3bc5a0adf263ace3aa197fb2c34be693e23e24e3b375ac58aa345dda9e4ca0",
+      "bytes": 4077
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/hardening-initial.json",
+      "sha256": "caf77a74afcc3dc08a9010f9a6966ad6ddd76ddd908b681351bc9f9dd99070b4",
+      "bytes": 4157
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/hosting-baseline.json",
+      "sha256": "aec786a4e135cf047ffbd875816b75b46874585f062ba9c77525777dea8d4eb2",
+      "bytes": 16600
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/image-selftest.json",
+      "sha256": "f9a83fa94db56ed0919569cd84fd719789f819b5e3aabb33d0fc783e58465238",
+      "bytes": 1644
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/image-validation.json",
+      "sha256": "5ca5274ecc8934256b0806695c5ba272b084868498758f4dbefd5a26ca948c09",
+      "bytes": 1239
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/infrastructure-candidate.json",
+      "sha256": "94228d74ba5a443128c6fa713ed503baf85d79add4c553f67a3432befaf02f81",
+      "bytes": 3554
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/infrastructure-final.json",
+      "sha256": "e75e4216371b823d0e2dd8f8851378789b129061074fa3c3b72e818d62715dba",
+      "bytes": 3370
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/infrastructure-live.json",
+      "sha256": "9377f00aff127a7b20050ac7f2913af4c51f4b322a38480b1deafff4a1d62f8c",
+      "bytes": 3370
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/live-readonly-verification.json",
+      "sha256": "31d59969df9878b9c4396ebbeaca51a167959afffdcf1ba8a723a75cd373e78b",
+      "bytes": 23320
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/local-gates.json",
+      "sha256": "157ddc44781a2ee32ee5561703501901df8dfa4f39f40c7460f67a823c4c9f8f",
+      "bytes": 1628
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/native/native-cursor-inspection-diagnosis.json",
+      "sha256": "2c78d4e9bf2dd47517d7d54c398e33e5b79ae4261283c1f311b1cbf46e1e87bc",
+      "bytes": 1710
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/native/native-postgres17-evidence-auth-verified.json",
+      "sha256": "795beea040f1f8537a9f601d390399cb2a5d32290c6b0b3152558d76475c1454",
+      "bytes": 2202
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/native/native-postgres17-evidence-auth.json",
+      "sha256": "a55924487538eaec2e27057d22e304ec21f660011614b84755d7a9b050a5cf7b",
+      "bytes": 1319
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/native/native-postgres17-review.json",
+      "sha256": "870ddbd400da5bb204b3b1a2ddd860d00d1e5aeac9979669624b59530a4d818f",
+      "bytes": 40715
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/native/native-postgres18-evidence-auth-verified.json",
+      "sha256": "b6637191974d534f50f2b53edc440fbf2c106c1fa587316d70922eb4bd8afacf",
+      "bytes": 2202
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/native/native-postgres18-review.json",
+      "sha256": "356f4dde1478b445b07717385ee4d2adc443e8d7d526950be791dc9aadb57e76",
+      "bytes": 40720
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/pdf-visual-review.json",
+      "sha256": "023e3140c6f54f5f62910a0bee0768531bedffb4289b64c671bfdc61545c1f2a",
+      "bytes": 5529
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/production-inventory-after.json",
+      "sha256": "276db621a9b5c716183ca435a51d1609077e690b3c155a7ff09fb3250dac282d",
+      "bytes": 3811
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/production-inventory-before.json",
+      "sha256": "e514d61ef89bd4701cf442a82fd59bab89e42f26c46c18cb0f98300e620552e2",
+      "bytes": 3811
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/source-independent-review.json",
+      "sha256": "67535be733f4241695d85230e7ff21aee59f28f041258fec3b6919560b504053",
+      "bytes": 4172
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/source-package.json",
+      "sha256": "8619254e95995ec0ba390240a5de53f6df4d2d7170163ab0bd2d5caced1dc07e",
+      "bytes": 13518
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/upload-recovery.json",
+      "sha256": "ffea976b582a7d2561c35e02c9ea4346adf58e540661c4a78a47a682c40bb4b6",
+      "bytes": 1407
+    },
+    {
+      "path": "docs/evidence/alert-delivery-diagnosis-2026-10-12.json",
+      "sha256": "cea216100df344c9870006b07a6bc6dbc829a90c6c29f0babc3b7f254762eb28",
+      "bytes": 6120
+    },
+    {
+      "path": "docs/evidence/report-release-20261005/neon-current-final.json",
+      "sha256": "bc50bbf77f7696422a8394c0d4c24d81b1f5b209d7e3e0ec41407f7c954fe0a6",
+      "bytes": 22527
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+{
+  "id": "63e1bf62-45e2-4ed7-a0cc-75c8fda47873",
+  "status": "FAILURE",
+  "createTime": "2026-10-11T23:40:46.614105482Z",
+  "finishTime": "2026-10-11T23:42:01.210209Z",
+  "serviceAccount": "projects/geo-attendance-system-db9ca/serviceAccounts/794826041820-compute@developer.gserviceaccount.com",
+  "source": {
+    "storageSource": {
+      "bucket": "geo-attendance-system-db9ca_cloudbuild",
+      "generation": "1791762045019756",
+      "object": "source/1791762033.947502-920d3dc0358f4648a9c4aea250383efe.tgz"
+    }
+  },
+  "options": {
+    "logging": "CLOUD_LOGGING_ONLY",
+    "pool": {},
+    "workerRelease": "legacy"
+  },
+  "steps": [
+    {
+      "args": [
+        "build",
+        "-t",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5",
+        "."
+      ],
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-10-11T23:40:54.951317324Z",
+        "startTime": "2026-10-11T23:40:54.945854959Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-10-11T23:41:29.393770641Z",
+        "startTime": "2026-10-11T23:40:54.945854959Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-v",
+        "/workspace/.release-check/candidate-image-selftest.py:/selftest.py:ro",
+        "-v",
+        "/workspace/validation:/validation",
+        "-e",
+        "PYTHONPATH=/app/backend",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "SELFTEST_OUTPUT=/validation",
+        "-e",
+        "SELFTEST_IMAGE_DIGEST=australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5",
+        "/selftest.py"
+      ],
+      "id": "isolated-exact-image-validation",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-10-11T23:41:29.395833586Z",
+        "startTime": "2026-10-11T23:41:29.394137643Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-10-11T23:41:33.398133218Z",
+        "startTime": "2026-10-11T23:41:29.394137643Z"
+      }
+    }
+  ],
+  "results": {
+    "buildStepImages": [
+      "sha256:40c2fb4fcd0ad51376eef166c2e7b2b40a3508d5776e2bf33db3783ab39d0f2e",
+      "sha256:40c2fb4fcd0ad51376eef166c2e7b2b40a3508d5776e2bf33db3783ab39d0f2e"
+    ],
+    "buildStepOutputs": [
+      "",
+      ""
+    ],
+    "buildStepResults": {
+      "isolated-exact-image-validation": {}
+    },
+    "images": [
+      {
+        "artifactRegistryPackage": "projects/geo-attendance-system-db9ca/locations/australia-southeast1/repositories/cloud-run-source-deploy/packages/geo-backend/versions/sha256:944a51c0099bacebdaca22e84af54a4fbc1570d6e2eb37802ea2756375c9fd6f",
+        "digest": "sha256:944a51c0099bacebdaca22e84af54a4fbc1570d6e2eb37802ea2756375c9fd6f",
+        "name": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5",
+        "pushTiming": {
+          "endTime": "2026-10-11T23:41:49.102873323Z",
+          "startTime": "2026-10-11T23:41:33.431750352Z"
+        }
+      }
+    ]
+  },
+  "artifacts": {
+    "images": [
+      "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:fixes-20261012-c5b7ab5"
+    ],
+    "objects": {
+      "location": "gs://geo-attendance-system-db9ca_cloudbuild/release-verification/report-fixes-20261012-c5b7ab5/",
+      "paths": [
+        "validation/*"
+      ]
+    }
+  },
+  "sourceCommit": "c5b7ab56a54cb786042b592fb06288a5e7c18990"
+}

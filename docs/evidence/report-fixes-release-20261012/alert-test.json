@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "projectId": "geo-attendance-system-db9ca",
+  "projectNumber": "794826041820",
+  "runId": "report-email-metric-16f984dd787946238e8534b0f8b40181",
+  "title": "TEST ONLY - Report MVP email metric delivery - f8b40181",
+  "status": "incident_observed_cleaned_up_receipt_unconfirmed",
+  "startedAtUtc": "2026-10-11T23:48:43.054068Z",
+  "authorization": "Human explicitly approved Send the test alert in root chat",
+  "scope": "One exact-owned temporary healthy-metric policy; existing email channel; OPENED-only; no real-policy/channel/app-data changes",
+  "preparedPolicy": {
+    "displayName": "TEST ONLY - Report MVP email metric delivery - f8b40181",
+    "documentation": {
+      "subject": "TEST ONLY - Report MVP email metric delivery - f8b40181",
+      "mimeType": "text/markdown",
+      "content": "Harmless notification-delivery test. Healthy existing readiness telemetry intentionally meets this condition. No outage is being reported."
+    },
+    "userLabels": {
+      "purpose": "delivery-test",
+      "codex_run_id": "report-email-metric-16f984dd787946238e8534b0f8b40181"
+    },
+    "enabled": true,
+    "combiner": "OR",
+    "notificationChannels": [
+      "projects/geo-attendance-system-db9ca/notificationChannels/68405221878559872"
+    ],
+    "conditions": [
+      {
+        "displayName": "TEST ONLY - existing healthy readiness count above zero",
+        "conditionThreshold": {
+          "filter": "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND metric.label.check_id=\"geo-attendance-hosted-readiness-PLiPFZtq2oQ\" AND resource.type=\"uptime_url\"",
+          "comparison": "COMPARISON_GT",
+          "thresholdValue": 0,
+          "duration": "0s",
+          "trigger": {
+            "count": 1
+          },
+          "aggregations": [
+            {
+              "alignmentPeriod": "300s",
+              "perSeriesAligner": "ALIGN_NEXT_OLDER",
+              "crossSeriesReducer": "REDUCE_COUNT_TRUE"
+            }
+          ]
+        }
+      }
+    ],
+    "alertStrategy": {
+      "autoClose": "1800s",
+      "notificationPrompts": [
+        "OPENED"
+      ]
+    }
+  },
+  "metricTest": {
+    "runId": "report-email-metric-16f984dd787946238e8534b0f8b40181",
+    "displayName": "TEST ONLY - Report MVP email metric delivery - f8b40181",
+    "channel": "projects/geo-attendance-system-db9ca/notificationChannels/68405221878559872",
+    "recipientConfirmedReceipt": false,
+    "incidentObserved": true,
+    "recipientSha256": "31ab631247bfe79050ce33abe0a6dc6a75ee28bd8117a05506dcb94f2db71498",
+    "aggregatedSuccessfulCheckerCount": 6,
+    "aggregatedValueObservedAtUtc": "2026-10-11T23:48:48.674093Z",
+    "aggregationPointAtUtc": "2026-10-11T23:48:47.923989Z",
+    "policy": "projects/geo-attendance-system-db9ca/alertPolicies/4932603131077643353",
+    "createdAtUtc": "2026-10-11T23:48:49.563407465Z",
+    "readBackAtUtc": "2026-10-11T23:48:51.553388Z",
+    "policyReadBackSha256": "95e6c0140f9251ebd19e210a015c0875f1164e207ece577ab7803ff14009098e",
+    "incidentName": "projects/geo-attendance-system-db9ca/alerts/0.odpkitjfbcpv",
+    "incidentOpenedAtUtc": "2026-10-11T23:53:51Z",
+    "incidentReadBackAtUtc": "2026-10-11T23:54:25.151393Z",
+    "incidentState": "OPEN",
+    "cleanup": {
+      "exactPolicyOwnershipVerified": true,
+      "temporaryPolicyDeleted": true,
+      "absenceVerified": true,
+      "absenceHttpStatus": 404,
+      "completedAtUtc": "2026-10-11T23:54:44.353760Z",
+      "productionPoliciesEnabledAndChannelRetained": true,
+      "productionPolicyMutationTimesUnchanged": true,
+      "productionPoliciesEntireObjectsUnchanged": true,
+      "channelEntireObjectUnchanged": true
+    }
+  },
+  "attempts": [
+    {
+      "action": "create_exact_test_policy_once",
+      "atUtc": "2026-10-11T23:48:48.674117Z"
+    },
+    {
+      "action": "delete_exact_owned_test_policy",
+      "policy": "projects/geo-attendance-system-db9ca/alertPolicies/4932603131077643353",
+      "atUtc": "2026-10-11T23:54:40.372539Z"
+    }
+  ],
+  "channelBefore": {
+    "name": "projects/geo-attendance-system-db9ca/notificationChannels/68405221878559872",
+    "enabled": true,
+    "type": "email",
+    "verificationStatus": null,
+    "recipientSha256": "31ab631247bfe79050ce33abe0a6dc6a75ee28bd8117a05506dcb94f2db71498",
+    "fullChannelSha256": "58811f6d116fa9928313ef96d3176b2a6872f868e185f9266bc5a55bdf4aa735"
+  },
+  "productionPoliciesBefore": [
+    {
+      "name": "projects/geo-attendance-system-db9ca/alertPolicies/241559781638440690",
+      "displayName": "Geo Attendance: Cloud Run 5xx",
+      "enabled": true,
+      "notificationChannels": [
+        "projects/geo-attendance-system-db9ca/notificationChannels/68405221878559872"
+      ],
+      "mutationTime": "2026-09-07T03:06:24.025574487Z",
+      "fullPolicySha256": "254720a0fb9eb1a295ed5fc5af185702b22a2e48becf76abeabbb4b134623650",
+      "conditionsSha256": "2e220de189b91c4571070d4a5bb52fd798ea18ad611f1b67e46c68ad4395ec7c"
+    },
+    {
+      "name": "projects/geo-attendance-system-db9ca/alertPolicies/241559781638441261",
+      "displayName": "Geo Attendance: hosted readiness",
+      "enabled": true,
+      "notificationChannels": [
+        "projects/geo-attendance-system-db9ca/notificationChannels/68405221878559872"
+      ],
+      "mutationTime": "2026-09-07T03:06:27.851952680Z",
+      "fullPolicySha256": "0cf761ddef224b6b3b7e7cbf57bcb5f6ca10407bdead0574b8c76ede8d81aacb",
+      "conditionsSha256": "a5fc9d26a8817def0a2266d6e6825f2886b3ab80c738407974ede2b6c05ac09c"
+    }
+  ],
+  "lastIncidentCheckAtUtc": "2026-10-11T23:54:25.151363Z",
+  "incidentListPaginationComplete": true,
+  "productionPoliciesAfter": [
+    {
+      "name": "projects/geo-attendance-system-db9ca/alertPolicies/241559781638440690",
+      "displayName": "Geo Attendance: Cloud Run 5xx",
+      "enabled": true,
+      "notificationChannels": [
+        "projects/geo-attendance-system-db9ca/notificationChannels/68405221878559872"
+      ],
+      "mutationTime": "2026-09-07T03:06:24.025574487Z",
+      "fullPolicySha256": "254720a0fb9eb1a295ed5fc5af185702b22a2e48becf76abeabbb4b134623650",
+      "conditionsSha256": "2e220de189b91c4571070d4a5bb52fd798ea18ad611f1b67e46c68ad4395ec7c"
+    },
+    {
+      "name": "projects/geo-attendance-system-db9ca/alertPolicies/241559781638441261",
+      "displayName": "Geo Attendance: hosted readiness",
+      "enabled": true,
+      "notificationChannels": [
+        "projects/geo-attendance-system-db9ca/notificationChannels/68405221878559872"
+      ],
+      "mutationTime": "2026-09-07T03:06:27.851952680Z",
+      "fullPolicySha256": "0cf761ddef224b6b3b7e7cbf57bcb5f6ca10407bdead0574b8c76ede8d81aacb",
+      "conditionsSha256": "a5fc9d26a8817def0a2266d6e6825f2886b3ab80c738407974ede2b6c05ac09c"
+    }
+  ],
+  "completedAtUtc": "2026-10-11T23:54:44.353783Z",
+  "recipientReceiptPending": true
+}
