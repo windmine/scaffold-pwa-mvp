@@ -29,6 +29,7 @@
   },
   "status": "focused_validation_complete",
   "record_scope": "This pre-push record captures the original failure, controlled reproductions, fixes and local validation. GitHub Actions records the remote result for each subsequent commit.",
+  "follow_up_record": "async-wait-followup.json",
   "fixes": {
     "frontend": {
       "file": "scripts/offline-report-template-worker-test.mjs",

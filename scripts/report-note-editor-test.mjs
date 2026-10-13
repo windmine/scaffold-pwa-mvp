@@ -3,6 +3,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { waitForAsyncCondition } from './browser-async-wait.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const origin = 'http://127.0.0.1:59966'; // Entire real app is intercepted; no server or cloud writes.
@@ -202,7 +203,7 @@ async function rows(page) {
     .filter((row) => String(row.key).startsWith(keyPrefix)), prefix);
 }
 async function saved(page, text) {
-  await page.waitForFunction(async ({ keyPrefix, expected }) => {
+  await waitForAsyncCondition(page, async ({ keyPrefix, expected }) => {
     const entries = await (await import('/assets/js/db.js')).getAll('drafts');
     return entries.some((row) => String(row.key).startsWith(keyPrefix) && !row.deleted
       && (row.value?.text === expected || row.text === expected));
@@ -412,7 +413,7 @@ try {
     await f.page.locator('#resolveReportNoteButton').click();
     await waitTransitions(f, 2);
     assert.equal(f.transitions[1].supervisor_note, text.trim());
-    await f.page.waitForFunction(async (keyPrefix) => !(await (await import('/assets/js/db.js')).getAll('drafts'))
+    await waitForAsyncCondition(f.page, async (keyPrefix) => !(await (await import('/assets/js/db.js')).getAll('drafts'))
       .some((row) => String(row.key).startsWith(keyPrefix) && !row.deleted && !row.finalized && (row.value?.text || row.text)), prefix);
     assert.equal(f.reports[0].workflow_status, 'resolved');
   });
@@ -464,7 +465,7 @@ try {
     f.failRefreshAfterResolution();
     await f.page.locator('#resolveReportNoteButton').click();
     await waitTransitions(f, 1);
-    await f.page.waitForFunction(async (keyPrefix) => (await (await import('/assets/js/db.js')).getAll('drafts'))
+    await waitForAsyncCondition(f.page, async (keyPrefix) => (await (await import('/assets/js/db.js')).getAll('drafts'))
       .some((row) => String(row.key).startsWith(keyPrefix) && row.finalized), prefix);
     assert.equal(f.reports[0].workflow_status, 'resolved');
     if (await f.page.locator('#reportNotePanel').isVisible()) {

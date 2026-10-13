@@ -1,0 +1,491 @@
+{
+  "status": "focused_validation_complete",
+  "recordScope": "Dated local validation before the follow-up commit and push. Subsequent full remote results are authoritative in GitHub Actions.",
+  "recordedAtUtc": "2026-10-13T21:16:03.057969Z",
+  "sourceCommitBeforeFix": "9bc180b1b462f343cc538201d7d884490b70a550",
+  "originalRemoteFailure": {
+    "runId": 38467057230,
+    "runUrl": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38467057230",
+    "commit": "9bc180b",
+    "passedBeforeFailure": "All 22 offline-Template groups and the first two startup scenarios",
+    "assertion": "Only an already successful in-flight upload is checkpointed",
+    "actual": [],
+    "expected": [
+      "/uploads/startup-1.png"
+    ],
+    "sourceLocation": "scripts/startup-sync-test.mjs:277",
+    "originalFullLog": {
+      "path": "output/ci-failure-20261014.local/first-fix-failed.log",
+      "sha256": "29a5ecb25d92085a343ae585c388cc725d80c53d26a3138242fe605938336c01",
+      "bytes": 148737
+    },
+    "limit": "The original Linux run did not capture response or transaction timing; the exact early scheduling point in that run is unobserved."
+  },
+  "rankedHypothesesBeforeExperiments": [
+    {
+      "rank": 1,
+      "prediction": "If the wait reads before replay settles, holding response or native checkpoint completion exposes an early empty read; waiting for the resolved boolean prevents it."
+    },
+    {
+      "rank": 2,
+      "prediction": "If transport/session cancellation prevents response consumption, trace shows failed/aborted fetch or missing successful body parse."
+    },
+    {
+      "rank": 3,
+      "prediction": "If another writer loses the checkpoint, trace shows URL1 committed followed by an empty queued write that persists after replay."
+    }
+  ],
+  "confirmedCause": {
+    "scope": "Startup test wait semantics",
+    "mechanism": "Installed Playwright treats the Promise returned by an async waitForFunction predicate as truthy before resolving its boolean. A false result returns a false handle after one evaluation instead of polling.",
+    "existingRepositoryKnowledge": "The real-backend workflow already used a bounded awaited-evaluation helper with 10 native queue/startup contract regressions for this exact behavior.",
+    "controlledResponseDelay": "The actual intercepted first upload is released into its response handler, but delivery of its unchanged 200 JSON is held behind a second gate. The original wait returns false, then the unchanged assertion reads syncing with no URL and fails exactly as CI did.",
+    "trace": [
+      {
+        "stage": "before-upload-release",
+        "saved": {
+          "ownerWorkerId": 73,
+          "syncStatus": "syncing",
+          "syncBlockedReason": "",
+          "lastSyncWorkerId": null,
+          "photoUrls": [],
+          "originalPhotoCount": 2,
+          "queueCount": 1
+        },
+        "trace": [
+          {
+            "sequence": 1,
+            "kind": "record-put",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "syncing",
+            "reason": "",
+            "urls": []
+          },
+          {
+            "sequence": 2,
+            "kind": "record-put-success",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "syncing",
+            "reason": "",
+            "urls": []
+          },
+          {
+            "sequence": 3,
+            "kind": "record-transaction-complete",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "syncing",
+            "reason": "",
+            "urls": []
+          },
+          {
+            "sequence": 4,
+            "kind": "upload-fetch-start"
+          }
+        ]
+      },
+      {
+        "stage": "returned-predicate-value",
+        "predicateResult": false
+      },
+      {
+        "stage": "old-wait-returned",
+        "saved": {
+          "ownerWorkerId": 73,
+          "syncStatus": "syncing",
+          "syncBlockedReason": "",
+          "lastSyncWorkerId": null,
+          "photoUrls": [],
+          "originalPhotoCount": 2,
+          "queueCount": 1
+        },
+        "trace": [
+          {
+            "sequence": 1,
+            "kind": "record-put",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "syncing",
+            "reason": "",
+            "urls": []
+          },
+          {
+            "sequence": 2,
+            "kind": "record-put-success",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "syncing",
+            "reason": "",
+            "urls": []
+          },
+          {
+            "sequence": 3,
+            "kind": "record-transaction-complete",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "syncing",
+            "reason": "",
+            "urls": []
+          },
+          {
+            "sequence": 4,
+            "kind": "upload-fetch-start"
+          }
+        ]
+      },
+      {
+        "stage": "before-close",
+        "saved": {
+          "ownerWorkerId": 73,
+          "syncStatus": "queued",
+          "syncBlockedReason": "owner_mismatch",
+          "lastSyncWorkerId": 74,
+          "photoUrls": [
+            "/uploads/startup-1.png"
+          ],
+          "originalPhotoCount": 2,
+          "queueCount": 1
+        },
+        "trace": [
+          {
+            "sequence": 1,
+            "kind": "record-put",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "syncing",
+            "reason": "",
+            "urls": []
+          },
+          {
+            "sequence": 2,
+            "kind": "record-put-success",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "syncing",
+            "reason": "",
+            "urls": []
+          },
+          {
+            "sequence": 3,
+            "kind": "record-transaction-complete",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "syncing",
+            "reason": "",
+            "urls": []
+          },
+          {
+            "sequence": 4,
+            "kind": "upload-fetch-start"
+          },
+          {
+            "sequence": 5,
+            "kind": "upload-response",
+            "status": 200
+          },
+          {
+            "sequence": 6,
+            "kind": "upload-body-read",
+            "url": "/uploads/startup-1.png"
+          },
+          {
+            "sequence": 7,
+            "kind": "record-put",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "syncing",
+            "reason": "",
+            "urls": [
+              "/uploads/startup-1.png"
+            ]
+          },
+          {
+            "sequence": 8,
+            "kind": "record-put-success",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "syncing",
+            "reason": "",
+            "urls": [
+              "/uploads/startup-1.png"
+            ]
+          },
+          {
+            "sequence": 9,
+            "kind": "record-transaction-complete",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "syncing",
+            "reason": "",
+            "urls": [
+              "/uploads/startup-1.png"
+            ]
+          },
+          {
+            "sequence": 10,
+            "kind": "record-put",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "queued",
+            "reason": "owner_mismatch",
+            "urls": [
+              "/uploads/startup-1.png"
+            ]
+          },
+          {
+            "sequence": 11,
+            "kind": "record-put-success",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "queued",
+            "reason": "owner_mismatch",
+            "urls": [
+              "/uploads/startup-1.png"
+            ]
+          },
+          {
+            "sequence": 12,
+            "kind": "record-transaction-complete",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "queued",
+            "reason": "owner_mismatch",
+            "urls": [
+              "/uploads/startup-1.png"
+            ]
+          },
+          {
+            "sequence": 13,
+            "kind": "record-put",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "queued",
+            "reason": "owner_mismatch",
+            "urls": [
+              "/uploads/startup-1.png"
+            ]
+          },
+          {
+            "sequence": 14,
+            "kind": "record-put-success",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "queued",
+            "reason": "owner_mismatch",
+            "urls": [
+              "/uploads/startup-1.png"
+            ]
+          },
+          {
+            "sequence": 15,
+            "kind": "record-transaction-complete",
+            "db": "scaffold-pwa-report-evidence-v1",
+            "status": "queued",
+            "reason": "owner_mismatch",
+            "urls": [
+              "/uploads/startup-1.png"
+            ]
+          }
+        ]
+      }
+    ],
+    "log": {
+      "path": "output/ci-failure-20261014.local/startup-held-response-red.log",
+      "sha256": "a4d492e959064050a751da9cac7ad390b0d93fd2d1fa1a4d280acd5854aa30a4",
+      "bytes": 7937
+    },
+    "afterRelease": "Real 200 response and JSON consumption precede a native one-URL checkpoint; queued owner_mismatch writes retain that URL. No failed fetch or later empty overwrite was observed."
+  },
+  "initialInstrumentedProbe": {
+    "log": {
+      "path": "output/ci-failure-20261014.local/startup-switch-trace.log",
+      "sha256": "94d2f7a2dcddb9dc464b9bef1345de3f3a33a5c64bcac688f2e0812a48c15a4d",
+      "bytes": 8414
+    },
+    "observation": "The original queued wait returned while the record was still syncing with URL1. The application subsequently committed queued owner_mismatch retaining URL1.",
+    "laterFailure": "The bare syncIndicator assertion at generated line242 failed: syncing was true after the preceding non-sync predicate had returned. Exact reconstruction places the privacy-message assertion on line243; it was not reached. The original log did not capture observedQueueMessages and establishes no private-progress leak.",
+    "lineMapping": {
+      "source": {
+        "path": "output/ci-failure-20261014.local/startup-initial-probe-reconstructed.mjs.txt",
+        "sha256": "7ca32a8017bf1c13d61e126c9bdc84e1374d8d2f4a11708e6671e6375ced67f1",
+        "bytes": 15332
+      },
+      "method": "Reconstruct the original recorded trace transform against unchanged source9bc180b; the later response-gate additions account for six inserted lines before this assertion.",
+      "failedLine": 242,
+      "failedExpression": "assert.equal(await switched.page.locator('#syncIndicator').getAttribute('data-state') === 'syncing', false)",
+      "unreachedPrivacyAssertionLine": 243
+    },
+    "interpretation": "The generic non-sync predicate can accept initial online before the next account begins its own queued scan. A controlled follow-up below proves that transition. The exact intervening callback in the original ungated log was not directly traced."
+  },
+  "permanentNativeRegression": {
+    "control": "On the exact first one-URL record checkpoint, perform the native IndexedDB put and let its transaction commit. Defer only delivery of the original transaction.oncomplete callback, preserving request result and stored bytes.",
+    "heldStateAssertions": {
+      "syncStatus": "syncing",
+      "photoUrls": [
+        "/uploads/startup-1.png"
+      ]
+    },
+    "readinessAssertion": "The async queued-status predicate must remain pending while its actual resolved value is false.",
+    "negativeObservationWindowMilliseconds": 100,
+    "redBeforeMigration": {
+      "status": "failed",
+      "assertion": "A false native record predicate must remain pending",
+      "sourceSha256": "bc2acf7f57a42e2cd44d84d3d9b5e1d63ff1c23e2db16c79ed8d96427bcc59d8",
+      "log": {
+        "path": "output/ci-failure-20261014.local/startup-regression-red.log",
+        "sha256": "d49ef0b577d46f929d3d18dbe2a4d33363eb214ceabb1b47069a50cfd7721237",
+        "bytes": 652
+      }
+    },
+    "greenAfterMigration": {
+      "status": "passed",
+      "startupScenarios": 8,
+      "sourceStage": "First async-storage-wait correction, before the next-account UI completion regression",
+      "sourceSha256": "c674f14390b663e18935796fc10a53966310287fd1414b749fb2571587d29092",
+      "log": {
+        "path": "output/ci-failure-20261014.local/startup-regression-green.log",
+        "sha256": "38eba159c09d58cda00aafa2bcc487bb575a1e00ef42887898db0769eeb5b4a2",
+        "bytes": 858
+      }
+    },
+    "afterReleaseAssertions": [
+      "Original owner73 and two original photos retained",
+      "Exact one uploaded URL retained",
+      "syncBlockedReason is owner_mismatch and lastSyncWorkerId is next Worker74",
+      "One queue entry remains recoverable",
+      "No second upload and no submission under the next account",
+      "Next Worker identity, private history and progress boundaries unchanged"
+    ],
+    "limit": "An unusually slow eager old wait could outlast the 100ms negative observation window. The captured old-source run failed this assertion; the shared helper also has bounded async-false/hung/error native regressions."
+  },
+  "fix": {
+    "file": "scripts/startup-sync-test.mjs",
+    "change": "Import the shared proven waitForAsyncCondition and migrate all four async startup storage predicates without changing their conditions or default timeout. Strengthen the account-switch fixture with a held real checkpoint, a held next-account native queue read, explicit ownership outcome assertions and the actual attention completion state. Preserve the non-sync and full progress/history privacy assertions.",
+    "applicationCodeChanged": false,
+    "timeoutsIncreased": false,
+    "assertionsRemoved": false,
+    "sourceSha256": "3d3319fe31aef99628db9c93da01893fb50cbadf3b41f2ea82194d9cd0988711",
+    "sharedHelperSha256": "66b50f274a6fb57f0f69e582d39aa6b795d562bb8da4ab88d9e621b67d0a2c3e",
+    "applicationSourceSha256": {
+      "assets/js/app.js": "133042e2023455c70a2a3950963e919740ac357f3686e5a82fcbc606411a355f",
+      "assets/js/offline-submissions.js": "c49c6a026881e566d79ca609517f50c39a36254b44640bb397c55ce69bc1c555",
+      "assets/js/api-client.js": "81a620ccf01b720492473369a5d84384de209e9882d620b6b9d3bcfef53f35ff",
+      "assets/js/db.js": "fea6c978904fcc751dca3b720a763fb2beb26f9f409c003d46d97602f376bbb2"
+    }
+  },
+  "validation": {
+    "command": "npm run check:startup-sync",
+    "status": "passed",
+    "groups": 12,
+    "breakdown": {
+      "startup": 8,
+      "discardLock": 4
+    },
+    "log": {
+      "path": "output/ci-failure-20261014.local/startup-final-focused-group.log",
+      "sha256": "785d8e97fdae3ef5762f5c881fd60ae34d90b76e7270ed77fff8382f67b4616c",
+      "bytes": 1346
+    },
+    "sourceSha256": "3d3319fe31aef99628db9c93da01893fb50cbadf3b41f2ea82194d9cd0988711",
+    "environment": "Local Windows, Node24.15.0, locked Playwright1.61.1; intercepted transport and native IndexedDB only",
+    "remoteAuthority": "https://github.com/windmine/scaffold-pwa-mvp/actions/workflows/ci.yml",
+    "lint": {
+      "status": "passed",
+      "log": {
+        "path": "output/ci-failure-20261014.local/startup-final-lint.log",
+        "sha256": "b871853392637b6055cb1bb29c9caa0697b0c4e1afb69dbcfc9a944323f2c9fa",
+        "bytes": 47
+      }
+    }
+  },
+  "limits": [
+    "The controlled reproduction proves the wait defect and matches the CI assertion. The exact original Linux timing is not directly traced.",
+    "No application checkpoint-loss fix was made or claimed.",
+    "No full local mobile rerun was performed; actual remote full CI remains the next gate."
+  ],
+  "nextAccountCompletionRegression": {
+    "control": "After the outgoing one-URL checkpoint commits, start the actual completion wait while its callback is held. Arm a one-shot getAll queue transaction completion delay for the next account while the UI is syncing; preserve the native request result and committed bytes.",
+    "oldCriterion": "syncIndicator state !== syncing",
+    "newCriterion": "syncIndicator state === attention; this fixture has a retained foreign-owner queue entry",
+    "oldRed": {
+      "status": "failed",
+      "assertion": "Next Worker queue completion must wait beyond the initial online state",
+      "source": {
+        "path": "output/ci-failure-20261014.local/startup-next-queue-old.mjs.txt",
+        "sha256": "0a5688b93131f2abaf80e9f425afeecaf4a7d6c26ac0ca7d9a0c95ad841f33f2",
+        "bytes": 18838
+      },
+      "log": {
+        "path": "output/ci-failure-20261014.local/startup-next-queue-old.log",
+        "sha256": "c28d9cbbae5a33852db87a4501d04423d87dd6fbf0ee83a33a4b3a30b4069c7c",
+        "bytes": 2485
+      },
+      "trace": [
+        {
+          "stage": "before-old-checkpoint-release",
+          "nextQueueSettled": true,
+          "indicator": "online",
+          "observedQueueMessages": [
+            "\n          \n          \n          \n        "
+          ]
+        },
+        {
+          "stage": "after-release",
+          "nextQueueSettled": true,
+          "saved": {
+            "ownerWorkerId": 73,
+            "syncStatus": "queued",
+            "syncBlockedReason": "owner_mismatch",
+            "lastSyncWorkerId": 74,
+            "photoUrls": [
+              "/uploads/startup-1.png"
+            ]
+          },
+          "indicator": "syncing",
+          "observedQueueMessages": [
+            "\n          \n          \n          \n        ",
+            "Checking saved submissions...\n\nYou can keep working. Keep this page open until syncing finishes."
+          ]
+        }
+      ]
+    },
+    "newGreen": {
+      "status": "passed",
+      "source": {
+        "path": "output/ci-failure-20261014.local/startup-next-queue-ready.mjs.txt",
+        "sha256": "5f3136b947c21dc6423ce83d9eb5906daaeb27641328ba62d00e87e1b602cb15",
+        "bytes": 18840
+      },
+      "log": {
+        "path": "output/ci-failure-20261014.local/startup-next-queue-ready.log",
+        "sha256": "2c62ad82b2cfad1105663dfe465e99a9a25407d80852dc60919bf1ed10262a44",
+        "bytes": 2464
+      },
+      "trace": [
+        {
+          "stage": "before-old-checkpoint-release",
+          "nextQueueSettled": false,
+          "indicator": "online",
+          "observedQueueMessages": [
+            "\n          \n          \n          \n        "
+          ]
+        },
+        {
+          "stage": "next-native-queue-read-held",
+          "nextQueueSettled": false,
+          "indicator": "syncing",
+          "observedQueueMessages": [
+            "\n          \n          \n          \n        ",
+            "Checking saved submissions...\n\nYou can keep working. Keep this page open until syncing finishes."
+          ]
+        },
+        {
+          "stage": "after-release",
+          "nextQueueSettled": true,
+          "saved": {
+            "ownerWorkerId": 73,
+            "syncStatus": "queued",
+            "syncBlockedReason": "owner_mismatch",
+            "lastSyncWorkerId": 74,
+            "photoUrls": [
+              "/uploads/startup-1.png"
+            ]
+          },
+          "indicator": "attention",
+          "observedQueueMessages": [
+            "\n          \n          \n          \n        ",
+            "Checking saved submissions...\n\nYou can keep working. Keep this page open until syncing finishes.",
+            "Some saved submissions need attention. Open My Reports to check and retry."
+          ]
+        }
+      ]
+    },
+    "privacy": "The complete captured next-account messages are empty, generic Checking saved submissions and generic attention. No outgoing photo count or queued answer is displayed, and the unchanged privacy assertions pass.",
+    "limit": "The 100ms pending assertion could miss an unusually slow old predicate. The captured old run fails before checkpoint release, and the corrected wait is additionally verified pending throughout a held native queue read."
+  }
+}

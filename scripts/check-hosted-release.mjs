@@ -4,6 +4,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import process from 'node:process';
 import { chromium } from 'playwright';
+import { waitForAsyncCondition } from './browser-async-wait.mjs';
 
 // Read-only hosted release checks. No login, production mutation, or credential access.
 const [originArgument, evidenceArgument] = process.argv.slice(2);
@@ -62,7 +63,7 @@ try {
   assert.ok(await page.evaluate(() => document.body.classList.contains('report-only-mode')));
   assert.equal(await page.locator('#registrationPanel').isVisible(), false);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
-  await page.waitForFunction(async () => Boolean((await navigator.serviceWorker.getRegistration())?.active),
+  await waitForAsyncCondition(page, async () => Boolean((await navigator.serviceWorker.getRegistration())?.active),
     null, { timeout: 45000 });
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));

@@ -3,6 +3,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { waitForAsyncCondition } from './browser-async-wait.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const origin = 'http://127.0.0.1:59961'; // Entire real app intercepted: no server, database, or cloud writes.
@@ -616,7 +617,7 @@ try {
       await f.page.locator('#closeReportNoteButton').click();
       await f.page.locator('#reportNotePanel').waitFor({ state: 'hidden' });
     }
-    await f.page.waitForFunction(async (text) => (await (await import('/assets/js/db.js')).getAll('drafts'))
+    await waitForAsyncCondition(f.page, async (text) => (await (await import('/assets/js/db.js')).getAll('drafts'))
       .some((row) => String(row.key).startsWith('report-resolution-note:v1:') && !row.deleted && row.text === text), text);
     const beforeRestore = f.queries.length;
     await shortcut(f.page, '').click();

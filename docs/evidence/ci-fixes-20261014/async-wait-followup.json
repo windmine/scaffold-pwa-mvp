@@ -1,0 +1,258 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-13T21:16:32.124525+00:00",
+  "record_scope": "Dated follow-up before its commit and push. This records an observed remote run and local corrective validation. Subsequent exact-commit GitHub Actions runs are authoritative for their remote results.",
+  "parent_record": "diagnosis.json",
+  "remote_run_after_first_fix": {
+    "id": 38467057230,
+    "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38467057230",
+    "commit": "9bc180b1b462f343cc538201d7d884490b70a550",
+    "backend": {
+      "job_id": 115536455950,
+      "conclusion": "success",
+      "environment_checks": 4,
+      "environment_observations": {
+        "services_absent_before_phase_import": true,
+        "inherited_connection_settings_removed": true,
+        "phase_import_injected_services": true,
+        "services_absent_after_phase_import": true,
+        "services_absent_at_connection": true,
+        "owned_database_connection_succeeded": true,
+        "caller_environment_restored": true,
+        "outer_environment_restored": true
+      },
+      "volume_datasets": 2,
+      "volume_probes": 24,
+      "environment_cleanup_complete": true,
+      "volume_cleanup_complete": true,
+      "runtime": {
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "python": "3.11.17",
+        "psycopg": "3.3.4",
+        "libpq_version": 180000
+      },
+      "postgres_version": "postgres (PostgreSQL) 17.11 (Ubuntu 17.11-1.pgdg24.04+2)",
+      "artifacts": [
+        {
+          "path": "output/ci-failure-20261014.local/fixed-remote-backend/postgres-environment.json",
+          "sha256": "b08fceaeaeab7f01a61ecb3c8b3a56422b0c0d8f3f0449795c8f212bfa4c0926",
+          "bytes": 1791
+        },
+        {
+          "path": "output/ci-failure-20261014.local/fixed-remote-backend/backend-volume.json",
+          "sha256": "1c1c6653391cfcf1046b3e80f288523362391d153bdf7538bf670af94baaef5c",
+          "bytes": 30303
+        }
+      ],
+      "source_sha256": {
+        "backend/postgres_rehearsal.py": "a725a541411363797414def8aa5074e02eb592897f3d56b3262a176dba079d47",
+        "backend/postgres_rehearsal_environment_test.py": "38cb0e1c8f9ae770966515ee03d8e4dd7ae2c5237d55a616e158dc7bd3572443"
+      }
+    },
+    "frontend": {
+      "job_id": 115536456469,
+      "conclusion": "failure",
+      "offline_template_groups_passed": 22,
+      "startup_scenarios_passed_before_failure": 2,
+      "error": "Only an already successful in-flight upload is checkpointed: actual [] versus expected [/uploads/startup-1.png]",
+      "location": "scripts/startup-sync-test.mjs:277",
+      "later_mobile_and_history_volume": "Not reached",
+      "log": {
+        "path": "output/ci-failure-20261014.local/first-fix-failed.log",
+        "sha256": "29a5ecb25d92085a343ae585c388cc725d80c53d26a3138242fe605938336c01",
+        "bytes": 148737
+      }
+    }
+  },
+  "confirmed_wait_defect": {
+    "mechanism": "Locked Playwright 1.61.1 directly accepts the Promise from an async waitForFunction predicate as truthy; a false resolved value returns after one evaluation instead of polling.",
+    "minimal_differential": {
+      "directWaitAcceptedResolvedFalse": true,
+      "sharedHelperRejectedResolvedFalse": true,
+      "sharedHelperError": "Timeout waiting for an asynchronous browser condition",
+      "scope": "One fresh local Chromium page; no application, backend or hosted request."
+    },
+    "controlled_application_reproduction": "A held successful upload response makes the original startup predicate return false, then the unchanged checkpoint assertion sees an empty URL list. After release the response is consumed, one URL is durably checkpointed, and subsequent owner_mismatch writes retain it.",
+    "causality_limit": "The original Linux run did not record its response/transaction scheduling. The controlled reproduction confirms this wait defect and the same assertion failure; it does not establish that exact remote scheduling point.",
+    "startup_evidence": "startup-regression.json"
+  },
+  "fix": {
+    "shared_helper": "scripts/browser-async-wait.mjs",
+    "helper_origin": "Exact extraction of the existing bounded waitForAsyncCondition and delay dependency from check-browser-workflows.mjs.",
+    "migration": "Change the callee and import only for all 14 remaining direct async browser waits, preserving predicate, argument, and timeout. Startup additionally gains native completion controls and waits for the next-account final queue state.",
+    "ci_wait_count": 11,
+    "hosted_wait_count": 3,
+    "migrated_waits_by_file": {
+      "scripts/startup-sync-test.mjs": 4,
+      "scripts/offline-report-template-worker-test.mjs": 1,
+      "scripts/presentation-density-test.mjs": 1,
+      "scripts/report-review-order-test.mjs": 1,
+      "scripts/report-note-editor-test.mjs": 3,
+      "scripts/check-browser-workflows.mjs": 1,
+      "scripts/check-hosted-installer.mjs": 1,
+      "scripts/check-hosted-release.mjs": 1,
+      "scripts/check-hosted-report-improvements.mjs": 1
+    },
+    "assertions_removed": false,
+    "timeouts_increased": false,
+    "application_source_changed": false,
+    "source_sha256": {
+      "scripts/browser-async-wait.mjs": "66b50f274a6fb57f0f69e582d39aa6b795d562bb8da4ab88d9e621b67d0a2c3e",
+      "scripts/browser-queue-wait-test.mjs": "fba261e94ab78abe0de980fdcd63cfc792e84b126fa558d10a981b627eb45b19",
+      "scripts/check-browser-workflows.mjs": "7ab0db4015719d4a14f01e9a8d9c308d5f036a0a5b8d05c4aa82a80efd06e38f",
+      "scripts/startup-sync-test.mjs": "3d3319fe31aef99628db9c93da01893fb50cbadf3b41f2ea82194d9cd0988711",
+      "scripts/offline-report-template-worker-test.mjs": "c284525162924bde1579624da78c50dc31b390320fd3cdb27fec954818e0d2f2",
+      "scripts/presentation-density-test.mjs": "36f1dc1ecfd1d953df287639fcad66d72967b1ec0be84cd1f7efa0c2a35091df",
+      "scripts/report-review-order-test.mjs": "9760d7d678489d9565910d9e796831a2566343c696dc506cce3c848f14449aad",
+      "scripts/report-note-editor-test.mjs": "c8b42af0696cd22dea56d4e9b1eddb5e000a74e290db3b34b08021d034ea0cec",
+      "scripts/check-hosted-installer.mjs": "33bd40398457aaa9ecc9aab9194e220b1b4329887036b1cbcb61481f4bfe890b",
+      "scripts/check-hosted-release.mjs": "1a28c63e8d798df07b5ebd7f13e9f633a0f26a0dc21bce61914ea760d9311710",
+      "scripts/check-hosted-report-improvements.mjs": "5d8f718636db2a39e644f6f3a6db3a902073ca693d7d4c42ae70a2b27e83cebe"
+    }
+  },
+  "validation": {
+    "existing_browser_contract_groups_before_and_after_extraction": 10,
+    "extraction_stage_proof": {
+      "path": "output/ci-failure-20261014.local/async-wait-extraction.json",
+      "sha256": "f59be1023abff6a8c7f084d23ae76ad210a12e5b84598c1adaf252440aea9a2d",
+      "bytes": 1003
+    },
+    "extraction_stage_limit": "The extraction proof binds the intermediate main workflow before its one additional async API predicate migration; final source bindings above are separate.",
+    "minimal_differential_proof": {
+      "path": "output/ci-failure-20261014.local/async-wait-differential.json",
+      "sha256": "dd3f5d6ae425a5c78db41925fb8bbc814b118a4656e2648d98ea1d17cef181e8",
+      "bytes": 259
+    },
+    "focused_migrated_consumer_suites": {
+      "started_at": "2026-10-13T21:09:42.5019082Z",
+      "finished_at": "2026-10-13T21:11:02.4971919Z",
+      "results": [
+        {
+          "script": "scripts/offline-report-template-worker-test.mjs",
+          "exit_code": 0,
+          "sha256": "c284525162924bde1579624da78c50dc31b390320fd3cdb27fec954818e0d2f2"
+        },
+        {
+          "script": "scripts/presentation-density-test.mjs",
+          "exit_code": 0,
+          "sha256": "36f1dc1ecfd1d953df287639fcad66d72967b1ec0be84cd1f7efa0c2a35091df"
+        },
+        {
+          "script": "scripts/report-review-order-test.mjs",
+          "exit_code": 0,
+          "sha256": "9760d7d678489d9565910d9e796831a2566343c696dc506cce3c848f14449aad"
+        },
+        {
+          "script": "scripts/report-note-editor-test.mjs",
+          "exit_code": 0,
+          "sha256": "c8b42af0696cd22dea56d4e9b1eddb5e000a74e290db3b34b08021d034ea0cec"
+        }
+      ]
+    },
+    "focused_group_counts": {
+      "offline_template_worker": 13,
+      "presentation": 6,
+      "report_review_order": 15,
+      "report_note_editor": 19
+    },
+    "presentation_responsive_combinations_in_this_run": 48,
+    "focused_log": {
+      "path": "output/ci-failure-20261014.local/async-wait-focused.log",
+      "sha256": "bc06cf9b963582fdd72c38504ae012eb67c03a83fc6d13d62a3936611f675f6a",
+      "bytes": 5193
+    },
+    "startup_validation": {
+      "command": "npm run check:startup-sync",
+      "status": "passed",
+      "groups": 12,
+      "breakdown": {
+        "startup": 8,
+        "discardLock": 4
+      },
+      "log": {
+        "path": "output/ci-failure-20261014.local/startup-final-focused-group.log",
+        "sha256": "785d8e97fdae3ef5762f5c881fd60ae34d90b76e7270ed77fff8382f67b4616c",
+        "bytes": 1346
+      },
+      "sourceSha256": "3d3319fe31aef99628db9c93da01893fb50cbadf3b41f2ea82194d9cd0988711",
+      "environment": "Local Windows, Node24.15.0, locked Playwright1.61.1; intercepted transport and native IndexedDB only",
+      "remoteAuthority": "https://github.com/windmine/scaffold-pwa-mvp/actions/workflows/ci.yml",
+      "lint": {
+        "status": "passed",
+        "log": {
+          "path": "output/ci-failure-20261014.local/startup-final-lint.log",
+          "sha256": "b871853392637b6055cb1bb29c9caa0697b0c4e1afb69dbcfc9a944323f2c9fa",
+          "bytes": 47
+        }
+      }
+    },
+    "hosted_validation": "Syntax and unchanged-predicate/import review plus shared helper contracts; no hosted execution.",
+    "subsequent_remote_results": "https://github.com/windmine/scaffold-pwa-mvp/actions/workflows/ci.yml?query=branch%3Acodex%2Freport-submission-mvp",
+    "real_backend_offline_replay": {
+      "passed": true,
+      "started_at": "2026-10-13T21:14:42.207458+00:00",
+      "finished_at": "2026-10-13T21:14:54.838010+00:00",
+      "command": [
+        "node",
+        "scripts/check-browser-workflows.mjs"
+      ],
+      "workflow_filter": "Offline Submission ownership, occurrence time, and idempotent replay",
+      "executed_checks": [
+        "ok - Offline Submission ownership, occurrence time, and idempotent replay"
+      ],
+      "exit_code": 0,
+      "source_sha256": {
+        "scripts/check-browser-workflows.mjs": "1fa340c5489f98f67af5609f0280072406fa8a54ba1347e7991e50388544732a",
+        "scripts/browser-async-wait.mjs": "66b50f274a6fb57f0f69e582d39aa6b795d562bb8da4ab88d9e621b67d0a2c3e",
+        "scripts/browser-workflow-source-server.mjs": "8f439b764ecda60774edaebff02555c745094515991d96572125e57807164cdf"
+      },
+      "tested_sources_unchanged_during_run": true,
+      "selected_loopback_ports_closed_after_exit": {
+        "56205": true,
+        "56206": true,
+        "56207": true
+      },
+      "raw_log": "output/ci-failure-20261014.local/offline-replay-shared-wait.log",
+      "raw_log_sha256": "28caaa8c7d592602201510d136f21ea420f64d0a29b1badc9c5e73bc5a820468",
+      "scope": "One focused workflow using the real source frontend and an owned disposable seeded SQLite HTTP backend. Preview server is started by the existing harness but this workflow uses the source frontend. No hosted checks or full 73-workflow pass.",
+      "earlier_extraction_checkpoint": {
+        "path": "output/ci-failure-20261014.local/async-wait-extraction.json",
+        "workflow_script_sha256": "9708e9d4f0b4ba7dceaedb12ecfd55156a514a849d1622f594d500e2b3714a8f",
+        "description": "The helper-to-import-only comparison belongs to the earlier extraction stage. The current script additionally migrates the multiline API-record predicate in checkOfflineQueueAndReplay to the shared helper."
+      },
+      "post_test_line_endings": {
+        "file": "scripts/check-browser-workflows.mjs",
+        "change": "CRLF to LF only; no statement or behavior changed",
+        "tested_sha256": "1fa340c5489f98f67af5609f0280072406fa8a54ba1347e7991e50388544732a",
+        "final_lf_sha256": "7ab0db4015719d4a14f01e9a8d9c308d5f036a0a5b8d05c4aa82a80efd06e38f",
+        "equivalent_after_line_ending_normalization": true
+      }
+    },
+    "real_backend_offline_replay_proof": {
+      "path": "output/ci-failure-20261014.local/offline-replay-shared-wait.json",
+      "sha256": "5e8a4fb7726ae3fd1181f9dfc3622dfcd04527774e49436a298eae91491de4d8",
+      "bytes": 2229
+    },
+    "startup_evidence_sha256": "c671df501ebc15f2b65680daa5ab2b0fe0e5297851932644e75f0a68aa6171b6",
+    "final_static_checks": {
+      "changed_javascript_syntax_files": 11,
+      "lint": "passed",
+      "git_diff_check": "passed",
+      "local_file_links": 228,
+      "local_anchors": 22,
+      "independent_review": "No remaining blockers; historical failures and unobserved original timing retained."
+    },
+    "remaining_direct_wait_ast_scan": {
+      "calls": 373,
+      "async_callbacks": 0,
+      "noninline_callbacks": 0,
+      "note": "Independent final scan of remaining direct waitForFunction calls; shared asynchronous helper calls are separate."
+    }
+  },
+  "boundaries": [
+    "The earlier original failure and first-fix records remain historical; this run was not a complete green CI gate.",
+    "The initial startup trace separately failed a generic syncing-state assertion before reaching its privacy assertion; it did not demonstrate a private-message leak.",
+    "All work uses disposable local browser/backend fixtures. No production deployment, migration, hosted application fixture or user-data mutation occurred.",
+    "No complete local mobile rerun is claimed for this follow-up; the full remote mobile and browser-volume gates must run on the eventual commit."
+  ]
+}

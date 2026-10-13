@@ -6,6 +6,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { chromium } from 'playwright';
+import { waitForAsyncCondition } from './browser-async-wait.mjs';
 
 // Anonymous, read-only installer verification. Does not log in, click Install,
 // approve a browser prompt, activate a waiting worker, or change cloud resources.
@@ -237,7 +238,7 @@ export async function verifyHostedInstaller(config) {
     passed('anonymous English and Chinese installer, shared manifest identity, images, and phone layout verified');
 
     stage = 'shared_worker_control';
-    await page.waitForFunction(async () => Boolean((await navigator.serviceWorker.getRegistration('/'))?.active), null, { timeout: 45000 });
+    await waitForAsyncCondition(page, async () => Boolean((await navigator.serviceWorker.getRegistration('/'))?.active), null, { timeout: 45000 });
     await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller), null, { timeout: 45000 });
     evidence.pwa.registration = await page.evaluate(async () => {
       const registration = await navigator.serviceWorker.getRegistration('/');

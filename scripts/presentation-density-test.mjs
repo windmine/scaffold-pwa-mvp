@@ -3,6 +3,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { waitForAsyncCondition } from './browser-async-wait.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const origin = 'http://127.0.0.1:59981'; // Fully intercepted; no server or live API is contacted.
@@ -257,7 +258,7 @@ try {
     await field.page.locator('#workFormSelect').selectOption(String(template.id));
     await field.page.waitForFunction(() => !document.querySelector('#workFormSubmissionForm').inert && document.querySelector('#workFormField_notes'));
     await field.page.locator('#workFormField_notes').fill('Keep unfinished work visible and recoverable.');
-    await field.page.waitForFunction(async () => {
+    await waitForAsyncCondition(field.page, async () => {
       const { get } = await import('/assets/js/db.js');
       return (await get('drafts', 'work-form-draft:73:81'))?.value?.answers?.notes === 'Keep unfinished work visible and recoverable.';
     });

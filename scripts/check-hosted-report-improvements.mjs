@@ -5,6 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { waitForAsyncCondition } from './browser-async-wait.mjs';
 import { browserApiRequest } from './check-hosted-report-workflow.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
@@ -487,7 +488,7 @@ export async function runImprovements(config) {
       await worker.locator(`#workFormField_${questionId}`).fill(scope.marker);
       await worker.locator('#workFormDate').fill(new Date().toISOString().slice(0, 10));
       await worker.locator('#workFormSite').selectOption('');
-      await worker.waitForFunction(async () => Boolean(navigator.serviceWorker.controller) && Boolean(await caches.match('/index.html')));
+      await waitForAsyncCondition(worker, async () => Boolean(navigator.serviceWorker.controller) && Boolean(await caches.match('/index.html')));
       await worker.locator('#reportTemplateAvailability').getByText(/saved.*offline/i).waitFor();
       await worker.locator('#workFormAutosaveStatus.saved').waitFor();
       await worker.close();

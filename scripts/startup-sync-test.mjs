@@ -3,6 +3,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { waitForAsyncCondition } from './browser-async-wait.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const origin = 'http://127.0.0.1:59982'; // Every request is intercepted; never contacts a backend.
@@ -19,8 +20,66 @@ function deferred() {
   return { promise, resolve };
 }
 
-async function fixture(browser, { photoCount = 2, queueReadFailure = false } = {}) {
+async function fixture(browser, { photoCount = 2, queueReadFailure = false, holdFirstCheckpoint = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  if (holdFirstCheckpoint) await context.addInitScript(() => {
+    const nativePut = IDBObjectStore.prototype.put;
+    const nativeGetAll = IDBObjectStore.prototype.getAll;
+    const completion = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'oncomplete');
+    window.startupCheckpointHeld = false;
+    window.releaseStartupCheckpoint = () => {};
+    window.startupQueueReadArmed = false;
+    window.startupQueueReadHeld = false;
+    let releaseQueueRead = () => {};
+    window.releaseStartupQueueRead = () => {
+      window.startupQueueReadArmed = false;
+      IDBObjectStore.prototype.getAll = nativeGetAll;
+      releaseQueueRead();
+    };
+    IDBObjectStore.prototype.getAll = function (...args) {
+      const request = nativeGetAll.apply(this, args);
+      if (this.name === 'queue' && window.startupQueueReadArmed
+        && document.querySelector('#syncIndicator')?.dataset.state === 'syncing') {
+        window.startupQueueReadArmed = false;
+        Object.defineProperty(this.transaction, 'oncomplete', {
+          configurable: true,
+          get() { return completion.get.call(this); },
+          set(handler) {
+            completion.set.call(this, function (event) {
+              // Preserve the next account's native queue read and defer only
+              // completion delivery while its visible check is still running.
+              window.startupQueueReadHeld = true;
+              releaseQueueRead = () => handler.call(this, event);
+            });
+          }
+        });
+      }
+      return request;
+    };
+    IDBObjectStore.prototype.put = function (value, ...args) {
+      const request = nativePut.call(this, value, ...args);
+      const record = value?.value || value;
+      if (this.name === 'records' && record?.id === 'startup-queued-report'
+        && record.syncStatus === 'syncing' && record.photoUrls?.length === 1) {
+        Object.defineProperty(this.transaction, 'oncomplete', {
+          configurable: true,
+          get() { return completion.get.call(this); },
+          set(handler) {
+            completion.set.call(this, function (event) {
+              // The native write is committed. Delay only delivery of its real
+              // completion callback before replay can check the changed owner.
+              window.startupCheckpointHeld = true;
+              window.releaseStartupCheckpoint = () => {
+                window.releaseStartupCheckpoint = () => {};
+                handler.call(this, event);
+              };
+            });
+          }
+        });
+      }
+      return request;
+    };
+  });
   const firstUpload = deferred();
   const secondUpload = deferred();
   const finalSubmission = deferred();
@@ -213,7 +272,7 @@ try {
     assert.equal(await panel.isVisible(), true, 'Progress remains visible while final Report is saving');
     assert.match(await panel.innerText(), /sav|submitt|finish/i);
     f.finalSubmission.resolve();
-    await f.page.waitForFunction(async () => {
+    await waitForAsyncCondition(f.page, async () => {
       const { getAll } = await import('/assets/js/db.js');
       return (await getAll('queue')).length === 0;
     });
@@ -250,7 +309,7 @@ try {
     await signedIn.close();
   }
 
-  const switched = await fixture(browser);
+  const switched = await fixture(browser, { holdFirstCheckpoint: true });
   try {
     await openWhileUploading(switched);
     await switched.page.locator('#logoutButton').click();
@@ -267,19 +326,49 @@ try {
       window.queueObserver.observe(panel, { subtree: true, childList: true, characterData: true });
     });
     switched.firstUpload.resolve();
-    await switched.page.waitForFunction(async () => {
+    await switched.page.waitForFunction(() => window.startupCheckpointHeld);
+    const committed = (await queuedRecord(switched.page)).record;
+    assert.equal(committed.syncStatus, 'syncing');
+    assert.deepEqual(committed.photoUrls, ['/uploads/startup-1.png'], 'The held callback follows the actual durable checkpoint');
+    let queuedSettled = false;
+    const queued = waitForAsyncCondition(switched.page, async () => {
       const { get } = await import('/assets/js/db.js');
       return (await get('records', 'startup-queued-report')).syncStatus === 'queued';
-    });
+    }).finally(() => { queuedSettled = true; });
+    queued.catch(() => {});
+    await switched.page.evaluate(() => { window.startupQueueReadArmed = true; });
+    let nextQueueSettled = false;
+    const nextQueue = switched.page.waitForFunction(() => document.querySelector('#syncIndicator')?.dataset.state === 'attention')
+      .finally(() => { nextQueueSettled = true; });
+    nextQueue.catch(() => {});
+    try {
+      await switched.page.waitForTimeout(100);
+      assert.equal(queuedSettled, false, 'A false native record predicate must remain pending');
+      assert.equal(nextQueueSettled, false, 'Next Worker queue completion must wait beyond the initial online state');
+      await switched.page.evaluate(() => window.releaseStartupCheckpoint());
+      await queued;
+      await switched.page.waitForFunction(() => window.startupQueueReadHeld);
+      assert.equal(await switched.page.locator('#syncIndicator').getAttribute('data-state'), 'syncing',
+        'The next Worker runs its own queue check after the outgoing run settles');
+      assert.equal(nextQueueSettled, false, 'Next Worker queue completion must wait for its real native queue read');
+    } finally {
+      await switched.page.evaluate(() => {
+        window.releaseStartupCheckpoint();
+        window.releaseStartupQueueRead();
+      });
+      await Promise.all([queued, nextQueue]);
+    }
     const saved = await queuedRecord(switched.page);
     assert.equal(saved.record.ownerWorkerId, worker.id);
+    assert.equal(saved.record.syncBlockedReason, 'owner_mismatch');
+    assert.equal(saved.record.lastSyncWorkerId, nextWorker.id);
     assert.equal(saved.record.photoDataUrls.length, 2);
     assert.deepEqual(saved.record.photoUrls, ['/uploads/startup-1.png'], 'Only an already successful in-flight upload is checkpointed');
     assert.equal(saved.queue.length, 1, 'Outgoing Worker queue remains recoverable');
     assert.equal(switched.requests.uploads, 1, 'No next evidence uploads run as another Worker');
     assert.equal(switched.requests.posts.length, 0, 'No outgoing Worker Report is posted under the next session');
     assert.match(await switched.page.locator('#userContextName').innerText(), /Next test Worker/);
-    await switched.page.waitForFunction(() => document.querySelector('#syncIndicator')?.dataset.state !== 'syncing');
+    assert.equal(await switched.page.locator('#syncIndicator').getAttribute('data-state'), 'attention');
     assert.equal(await switched.page.locator('#syncIndicator').getAttribute('data-state') === 'syncing', false);
     assert.equal(await switched.page.evaluate(() => window.observedQueueMessages.some((text) => /[01]\s*of\s*2/.test(text))), false,
       'Old upload callbacks cannot expose outgoing Worker progress to the next account');
@@ -352,7 +441,7 @@ try {
     assert.equal(await noPhotos.page.locator('#workFormSelect').isEnabled(), true);
     assert.equal((await queuedRecord(noPhotos.page)).queue.length, 1, 'No-photo final save is pending, not yet durable');
     noPhotos.finalSubmission.resolve();
-    await noPhotos.page.waitForFunction(async () => {
+    await waitForAsyncCondition(noPhotos.page, async () => {
       const { getAll } = await import('/assets/js/db.js');
       return (await getAll('queue')).length === 0;
     });
@@ -393,7 +482,7 @@ try {
     relogin.secondUpload.resolve();
     relogin.finalSubmission.resolve();
     await waitUntil(() => relogin.requests.posts.length === 1, 'Fresh login did not finish its Report after retrying evidence');
-    await relogin.page.waitForFunction(async () => {
+    await waitForAsyncCondition(relogin.page, async () => {
       const { getAll } = await import('/assets/js/db.js');
       return (await getAll('queue')).length === 0;
     });

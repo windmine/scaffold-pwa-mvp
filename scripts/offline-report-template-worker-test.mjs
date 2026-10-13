@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { waitForAsyncCondition } from './browser-async-wait.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const origin = 'http://127.0.0.1:59991'; // Intercepted only: no server or real network requests.
@@ -258,7 +259,7 @@ async function checkSubmissionSessionReset(uploadStatus, { holdDraftReads = fals
     await page.evaluate(() => window.fixture.selectPhoto());
     await assertSavedIssue(page, replacementWorker.id, 'Replacement Worker private draft');
     await page.evaluate(() => window.fixture.releaseUpload());
-    await page.waitForFunction(async (oldWorkerId) => {
+    await waitForAsyncCondition(page, async (oldWorkerId) => {
       const { getAll, get } = await import('/assets/js/db.js');
       const records = await getAll('records');
       return records.some((record) => record.ownerWorkerId === oldWorkerId && record.syncStatus === 'queued')

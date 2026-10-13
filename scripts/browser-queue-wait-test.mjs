@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { waitForAsyncCondition } from './browser-async-wait.mjs';
 
 // Exercise the exact real-backend workflow helper without starting its backend.
 const source = readFileSync(new URL('./check-browser-workflows.mjs', import.meta.url), 'utf8');
@@ -10,10 +11,6 @@ const start = source.indexOf('async function waitForQueueCount(');
 const end = source.indexOf('\nasync function waitForQueueAtLeast(', start);
 assert.ok(start > 0 && end > start);
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const asyncStart = source.indexOf('async function waitForAsyncCondition(');
-const asyncEnd = source.indexOf('\nasync function pageWaitForRecordCount(', asyncStart);
-assert.ok(asyncStart > 0 && asyncEnd > asyncStart);
-const waitForAsyncCondition = new Function('delay', `return (${source.slice(asyncStart, asyncEnd).trim()});`)(delay);
 const waitForQueueCount = new Function('waitForAsyncCondition', `return (${source.slice(start, end).trim()});`)(waitForAsyncCondition);
 const accessibleStart = source.indexOf('async function checkAccessibleActionFeedback(');
 const accessibleEnd = source.indexOf('\nasync function checkRestoredSessionLoadsSitesAfterRefresh(', accessibleStart);
