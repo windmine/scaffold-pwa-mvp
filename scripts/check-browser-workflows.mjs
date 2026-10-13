@@ -5143,8 +5143,51 @@ async function checkTemplateEditDraftNavigation(browser) {
 
 async function checkTemplateDraftCloseFailure(browser) {
   const context = await newContext(browser, { reportOnly: true, initScript: () => {
+    const control = window.__templateCloseWrites = {
+      attempts: [], autosaveAbortHeld: false, closeOpenHeld: false, armCloseOpen: false
+    };
+    const open = IDBFactory.prototype.open;
+    const success = Object.getOwnPropertyDescriptor(IDBRequest.prototype, 'onsuccess');
+    IDBFactory.prototype.open = function (...args) {
+      const request = open.apply(this, args);
+      if (control.armCloseOpen && args[0] === 'scaffold-pwa-local') {
+        control.armCloseOpen = false;
+        Object.defineProperty(request, 'onsuccess', {
+          configurable: true,
+          get() { return success.get.call(this); },
+          set(handler) {
+            success.set.call(this, function (event) {
+              // Keep the real open result; delay delivery before the Close
+              // transaction starts so its fault flag stays under test control.
+              control.closeOpenHeld = true;
+              control.releaseCloseOpen = () => {
+                IDBFactory.prototype.open = open;
+                control.releaseCloseOpen = () => {};
+                handler.call(this, event);
+              };
+            });
+          }
+        });
+      }
+      return request;
+    };
     const put = IDBObjectStore.prototype.put;
     IDBObjectStore.prototype.put = function (value, ...rest) {
+      if (this.name === 'drafts' && value?.value?.kind === 'report-template-editor') {
+        control.attempts.push({ fault: window.failTemplateDraftWrites, name: value.value.name });
+        if (control.attempts.length === 1) {
+          const abort = this.transaction.onabort;
+          this.transaction.onabort = function (event) {
+            // The autosave really aborts. Hold only its rejection delivery
+            // until the first Close has queued its own serialized write.
+            control.autosaveAbortHeld = true;
+            control.releaseAutosaveAbort = () => {
+              control.releaseAutosaveAbort = () => {};
+              abort.call(this, event);
+            };
+          };
+        }
+      }
       if (window.failTemplateDraftWrites && this.name === 'drafts' && value?.value?.kind === 'report-template-editor') {
         throw new DOMException('Template storage unavailable', 'QuotaExceededError');
       }
@@ -5158,15 +5201,46 @@ async function checkTemplateDraftCloseFailure(browser) {
     await page.locator('#addWorkFormButton').click();
     await page.evaluate(() => { window.failTemplateDraftWrites = true; });
     await page.locator('#workFormNameInput').fill('Do not lose this Template');
+    await page.waitForFunction(() => window.__templateCloseWrites.autosaveAbortHeld);
     await page.locator('#cancelWorkFormCreateButton').click();
+    if (!await page.locator('#cancelWorkFormCreateButton').isDisabled()) throw new Error('first Close did not wait for the pending Template autosave');
+    await page.evaluate(() => {
+      window.__templateCloseWrites.armCloseOpen = true;
+      window.__templateCloseWrites.releaseAutosaveAbort();
+    });
+    await page.waitForFunction(() => window.__templateCloseWrites.closeOpenHeld);
     if (!await page.locator('#workFormCreatePanel').isVisible()
       || await page.locator('#workFormNameInput').inputValue() !== 'Do not lose this Template') {
       throw new Error('closing the Template editor must pause rather than discard changes when device storage fails');
     }
     await page.locator('#templateCreateDraftStatus').getByText(/could not be saved/).waitFor();
+    // The error may belong to the earlier autosave. Keep the fault active
+    // until this Close finishes its own failed write and unlocks the editor.
+    let failedCloseCompleted = false;
+    const failedClose = page.waitForFunction(() => !document.querySelector('#cancelWorkFormCreateButton').disabled)
+      .then(() => { failedCloseCompleted = true; });
+    void failedClose.catch(() => {});
+    try {
+      await delay(100);
+      if (failedCloseCompleted) throw new Error('Template close failure must wait for its own pending draft write');
+    } finally {
+      await page.evaluate(() => window.__templateCloseWrites.releaseCloseOpen());
+    }
+    await failedClose;
+    const failedWrites = await page.evaluate(() => window.__templateCloseWrites.attempts);
+    if (!await page.locator('#workFormCreatePanel').isVisible()
+      || await page.locator('#workFormNameInput').inputValue() !== 'Do not lose this Template'
+      || failedWrites.length !== 2 || failedWrites.some((attempt) => !attempt.fault || attempt.name !== 'Do not lose this Template')) {
+      throw new Error('completed failed Close must keep the exact Template input while both storage writes fail');
+    }
     await page.evaluate(() => { window.failTemplateDraftWrites = false; });
     await page.locator('#cancelWorkFormCreateButton').click();
     await page.locator('#workFormCreatePanel').waitFor({ state: 'hidden' });
+    const savedDrafts = await page.evaluate(async () => {
+      const { getAll } = await import('/assets/js/db.js');
+      return (await getAll('drafts')).filter((row) => row.value?.kind === 'report-template-editor').map((row) => row.value.name);
+    });
+    if (savedDrafts.length !== 1 || savedDrafts[0] !== 'Do not lose this Template') throw new Error('retry Close did not durably save the exact Template draft');
     await page.locator('#templateDraftsList').getByRole('button', { name: 'Continue Template draft', exact: true }).click();
     await page.locator('#workFormCreatePanel').waitFor({ state: 'visible' });
     if (await page.locator('#workFormNameInput').inputValue() !== 'Do not lose this Template') throw new Error('close/continue did not recover the saved Template');

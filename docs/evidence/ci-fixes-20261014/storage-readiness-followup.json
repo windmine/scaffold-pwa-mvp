@@ -188,5 +188,6 @@
     "Hosted verifier changes received syntax and local contract/mock coverage only; no hosted verifier execution occurred.",
     "The local mobile command excludes the separate Worker history-volume step; that gate remains in the exact-commit GitHub workflow.",
     "No application, backend runtime, migration, package, workflow, deployment or hosted-data change is included in this follow-up."
-  ]
+  ],
+  "follow_up_record": "template-close-followup.json"
 }

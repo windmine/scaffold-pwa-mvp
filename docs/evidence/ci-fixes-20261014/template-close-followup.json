@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-13T22:25:52.812882+00:00",
+  "record_scope": "Dated local corrective validation before commit/push. GitHub Actions records subsequent exact-commit remote results.",
+  "parent_record": "storage-readiness-followup.json",
+  "remote_run_before_fix": {
+    "run_id": 38475022805,
+    "run_url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38475022805",
+    "commit": "3a66cd37e69845b45b9db618e260e717328b68e1",
+    "backend": "success",
+    "frontend": "failure",
+    "focused_mobile_chain_static_installer_wait_contracts": "passed",
+    "main_workflow_passed_count": 72,
+    "main_workflow_failures": [
+      "unfinished Report Template close pauses on storage failure and keeps the draft"
+    ],
+    "worker_history_volume": "not reached",
+    "log": {
+      "path": "output/ci-failure-20261014.local/fourth-fix-frontend.log",
+      "sha256": "7da1f97c443b0d3505a534c3c7b428a6e6d26c352fdb62211d11462cefe4ceb1",
+      "bytes": 172693
+    }
+  },
+  "controlled_cause": {
+    "finding": "An earlier autosave failure can display the shared error while Close has a separate serialized write still pending. Removing the injected quota fault at that status allows the first Close write to succeed and hide the editor; the test then waits for a second click on a hidden button.",
+    "control": "Hold delivery of the real first autosave abort until Close queues its own write; hold the real database-open success before that second transaction starts. Keep native results and application persistence behavior unchanged.",
+    "ready_result": "Keeping the fault active through Close completion causes both writes to fail, leaving the editor and exact name intact. After the fault is removed, retry durably saves one draft and Continue restores the exact name.",
+    "limit": "The original Linux execution did not trace autosave versus Close timing. Controlled evidence establishes the test defect and reproduces the hidden-button failure, but does not identify that original event individually.",
+    "regression_evidence": {
+      "path": "docs/evidence/ci-fixes-20261014/template-close-regression.json",
+      "sha256": "11509c158a545ffc221257cc036c48c840f1d4ba9a86f2cfcee4b001c8afed96",
+      "bytes": 19293
+    }
+  },
+  "fix": {
+    "file": "scripts/check-browser-workflows.mjs",
+    "scope": "Only checkTemplateDraftCloseFailure changes application-facing test behavior.",
+    "completion_boundary": "Keep the fault active through the shared error and until Close re-enables; assert the visible editor, exact name and both failed writes before removing the fault.",
+    "permanent_regression": "Force the autosave/Close overlap, assert that the completion check stays pending while the Close write is held, then release and test failure preservation, durable retry and Continue restoration.",
+    "wait_ownership": "Immediately attach a rejection handler to the pending condition promise while preserving its original awaited outcome.",
+    "timeouts_increased": false,
+    "assertions_removed": false,
+    "application_changed": false,
+    "adjacent_test_audit": "Other Template lifecycle, Worker storage and Supervisor note tests retain faults through completed operations or use explicit retry/saved-state boundaries. No additional affected call was found."
+  },
+  "validation": {
+    "focused_regression": "Old shared-error semantics fail the held-write assertion; corrected Close-completion semantics pass, including exact durable draft restoration. Source stages and the failed port-conflict setup attempt remain in the regression record.",
+    "full_local_main_workflows": {
+      "command": "node scripts/check-browser-workflows.mjs under the CI isolated environment with freshly reserved loopback ports",
+      "passed": 73,
+      "failed": 0,
+      "filter": null,
+      "started_at": "2026-10-13T22:22:10.999426+00:00",
+      "finished_at": "2026-10-13T22:25:47.795528+00:00",
+      "source_sha256": {
+        "scripts/check-browser-workflows.mjs": "3f8cf438e3fa53a4ed8904d599ab9b0c346c71ac51cfb4aeb83a926ee034ce2a",
+        "scripts/browser-work-form-ready.mjs": "74a41c6aad1f66931ccc46254b4530d5899a4c8af19cb054dff00890621d6087",
+        "scripts/browser-async-wait.mjs": "66b50f274a6fb57f0f69e582d39aa6b795d562bb8da4ab88d9e621b67d0a2c3e",
+        "scripts/browser-workflow-source-server.mjs": "8f439b764ecda60774edaebff02555c745094515991d96572125e57807164cdf"
+      },
+      "sources_unchanged_during_run": true,
+      "ports_closed_after_exit": {
+        "56203": true,
+        "56204": true,
+        "56205": true
+      },
+      "temporary_default_directory_removed": true,
+      "log": {
+        "path": "output/ci-failure-20261014.local/fifth-fix-full-browser.log",
+        "sha256": "014984fd1d10e5838d3d47a7d00cef4a0b539ef3a499bfd040b5681415b1ea1f",
+        "bytes": 5647
+      },
+      "aggregate_proof": {
+        "path": "output/ci-failure-20261014.local/fifth-fix-full-browser.json",
+        "sha256": "cb6d057436eca5956f5a739187745ff7c00515b532d5ee304eade70db1c8e349",
+        "bytes": 7171
+      }
+    },
+    "lint": "passed on frozen source",
+    "static_checks": {
+      "artifact_hashes_verified": 21,
+      "current_source_hashes_verified": 4,
+      "valid_markdown_local_links": 235,
+      "valid_markdown_anchors": 22,
+      "javascript_syntax": "passed",
+      "git_diff_check": "passed"
+    },
+    "independent_review": "Native control, completion boundary, exact draft preservation, unchanged deadlines, evidence hashes and observation arrays reviewed without remaining blockers.",
+    "prior_remote_backend_artifacts": [
+      {
+        "path": "output/ci-failure-20261014.local/verified-fourth-remote-backend/postgres-environment.json",
+        "sha256": "4a1bcfbc6fda0dc53f67ee2517219409b12c9387073bd7b47e785a6695e18b45",
+        "bytes": 1791
+      },
+      {
+        "path": "output/ci-failure-20261014.local/verified-fourth-remote-backend/backend-volume.json",
+        "sha256": "e0502af3253bfab0042e19fd12fe8dcdd6613e52fc914ffeee75596dc5472f37",
+        "bytes": 30298
+      }
+    ],
+    "prior_remote_backend_verification": "Four environment checks and 24 volume probes passed with complete owned-cluster cleanup; all nine recorded source hashes match committed 3a66cd3.",
+    "subsequent_remote_results": "https://github.com/windmine/scaffold-pwa-mvp/actions/workflows/ci.yml?query=branch%3Acodex%2Freport-submission-mvp"
+  },
+  "boundaries": [
+    "The complete local mobile run on the previous source remains separate. This follow-up reruns the changed full browser suite; unchanged pre-main suites passed in the preceding actual Linux run.",
+    "The separate Worker history-volume step was not reached in the failed Linux run and is not part of this local browser command.",
+    "Prior remote failures and the controlled probe setup failure remain preserved; no failed run is relabeled as passing.",
+    "No application, backend runtime, migration, package, workflow, hosted fixture, deployment or user-data change is included."
+  ]
+}

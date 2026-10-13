@@ -1,0 +1,451 @@
+{
+  "status": "focused_validation_complete",
+  "recordedAtUtc": "2026-10-13T22:23:19.714254Z",
+  "recordScope": "Dated local controlled diagnosis and focused validation before commit/push. Complete 73-workflow validation and subsequent GitHub results are recorded separately in template-close-followup.json.",
+  "sourceCommitBeforeFix": "3a66cd37e69845b45b9db618e260e717328b68e1",
+  "originalRemoteFailure": {
+    "runId": 38475022805,
+    "runUrl": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38475022805",
+    "location": "scripts/check-browser-workflows.mjs:5168",
+    "workflow": "unfinished Report Template close pauses on storage failure and keeps the draft",
+    "failure": "Second cancelWorkFormCreateButton click timed out after its existing 30000ms deadline because the button became hidden; the initial call log also observed it disabled.",
+    "otherResults": "Backend and the full preceding focused frontend chain passed; the main real-backend browser suite passed 72 of 73 workflows. Worker history growth was not reached.",
+    "fullLog": {
+      "path": "output/ci-failure-20261014.local/fourth-fix-frontend.log",
+      "sha256": "7da1f97c443b0d3505a534c3c7b428a6e6d26c352fdb62211d11462cefe4ceb1",
+      "bytes": 172693
+    },
+    "limit": "The original Linux run did not trace autosave/Close transactions or fault changes. Its individual scheduling remains untraced. The controlled local reproduction establishes this fixture race and reproduces the same hidden second-click failure."
+  },
+  "rankedHypothesesBeforeExperiments": [
+    {
+      "rank": 1,
+      "prediction": "An earlier autosave failure supplies shared error text while Close has another serialized write pending; lifting the quota fault lets that first Close save and hide the editor before the retry click."
+    },
+    {
+      "rank": 2,
+      "prediction": "The error text precedes completion/unlock of the same failing Close operation, so observing text alone does not establish the operation boundary."
+    },
+    {
+      "rank": 3,
+      "prediction": "An application defect hides the editor even though its Close write fails with the fault continuously active; kept-active controlled failure would show missing input or a hidden panel."
+    }
+  ],
+  "controlledNativeOverlap": {
+    "mechanism": "The first matching real Template draft put throws the existing synthetic QuotaExceededError and the native transaction really aborts. Only delivery of its original onabort callback is held until Close is synchronously locked and queues its own serialized write. Then the close write database-open request really succeeds; only delivery of its original onsuccess callback is held before the readwrite transaction starts. Request values, the real abort, all subsequent reads/writes, and the stored row remain native. The diagnostic open wrapper identifies the close open through the updateStoredRow stack frame.",
+    "sourceBeforeFix": {
+      "path": "output/ci-failure-20261014.local/template-close-before-ready.mjs.txt",
+      "sha256": "2ebae145a23f2cd54bd9a806639bd8c22a6763b5fe71b44711d971cb31e39e8e",
+      "bytes": 468173
+    },
+    "instrumentedSource": {
+      "path": "output/ci-failure-20261014.local/template-close-probe.mjs.txt",
+      "sha256": "852665373fb55a48de292951f0b1cc9231f4e43eac3f8cda394b86bf61f0968e",
+      "bytes": 472283
+    },
+    "sourceStage": "Both old and ready traces execute these exact retained LF probe bytes. Only TEMPLATE_CLOSE_PROBE_MODE changes the readiness boundary at runtime. No application source changed.",
+    "old": {
+      "exitCode": 1,
+      "log": {
+        "path": "output/ci-failure-20261014.local/template-close-old.log",
+        "sha256": "21bf2a751ebdd953c87340587097b36ddc5f88a50871978d02597625eed16659",
+        "bytes": 3273
+      },
+      "observations": [
+        {
+          "stage": "autosave-abort-held",
+          "fault": true,
+          "panelVisible": true,
+          "name": "Do not lose this Template",
+          "closeDisabled": false,
+          "status": "Saving Template draft...",
+          "drafts": [],
+          "events": [
+            {
+              "kind": "put",
+              "attempt": 1,
+              "fault": true,
+              "name": "Do not lose this Template",
+              "closeDisabled": false
+            },
+            {
+              "kind": "autosave-native-abort"
+            }
+          ]
+        },
+        {
+          "stage": "first-close-pending",
+          "fault": true,
+          "panelVisible": true,
+          "name": "Do not lose this Template",
+          "closeDisabled": true,
+          "status": "Template draft could not be saved. Keep this page open and try again.",
+          "drafts": [],
+          "events": [
+            {
+              "kind": "put",
+              "attempt": 1,
+              "fault": true,
+              "name": "Do not lose this Template",
+              "closeDisabled": false
+            },
+            {
+              "kind": "autosave-native-abort"
+            },
+            {
+              "kind": "autosave-abort-delivered"
+            },
+            {
+              "kind": "close-open-native-success",
+              "fault": true
+            }
+          ]
+        },
+        {
+          "stage": "shared-error-status",
+          "fault": true,
+          "panelVisible": true,
+          "name": "Do not lose this Template",
+          "closeDisabled": true,
+          "status": "Template draft could not be saved. Keep this page open and try again.",
+          "drafts": [],
+          "events": [
+            {
+              "kind": "put",
+              "attempt": 1,
+              "fault": true,
+              "name": "Do not lose this Template",
+              "closeDisabled": false
+            },
+            {
+              "kind": "autosave-native-abort"
+            },
+            {
+              "kind": "autosave-abort-delivered"
+            },
+            {
+              "kind": "close-open-native-success",
+              "fault": true
+            }
+          ]
+        },
+        {
+          "stage": "fault-lifted-before-first-close-settled",
+          "fault": false,
+          "panelVisible": false,
+          "name": "",
+          "closeDisabled": false,
+          "status": "",
+          "drafts": [
+            {
+              "name": "Do not lose this Template",
+              "revision": 1
+            }
+          ],
+          "events": [
+            {
+              "kind": "put",
+              "attempt": 1,
+              "fault": true,
+              "name": "Do not lose this Template",
+              "closeDisabled": false
+            },
+            {
+              "kind": "autosave-native-abort"
+            },
+            {
+              "kind": "autosave-abort-delivered"
+            },
+            {
+              "kind": "close-open-native-success",
+              "fault": true
+            },
+            {
+              "kind": "close-open-delivered",
+              "fault": false
+            },
+            {
+              "kind": "put",
+              "attempt": 2,
+              "fault": false,
+              "name": "Do not lose this Template",
+              "closeDisabled": true
+            }
+          ]
+        }
+      ],
+      "conclusion": "Earlier autosave error was visible while Close was disabled and its write had not run. Lifting the fault then allowed that first Close to save revision 1 and hide/reset the editor. The original second click timed out on the hidden button. The draft was actually durable; the probe does not show lost input."
+    },
+    "ready": {
+      "exitCode": 0,
+      "log": {
+        "path": "output/ci-failure-20261014.local/template-close-ready.log",
+        "sha256": "1dcde0fd7ed7ef2143c03e04b9b20dd5c05ac12c47ba45620b66984f73e218ec",
+        "bytes": 2718
+      },
+      "observations": [
+        {
+          "stage": "autosave-abort-held",
+          "fault": true,
+          "panelVisible": true,
+          "name": "Do not lose this Template",
+          "closeDisabled": false,
+          "status": "Saving Template draft...",
+          "drafts": [],
+          "events": [
+            {
+              "kind": "put",
+              "attempt": 1,
+              "fault": true,
+              "name": "Do not lose this Template",
+              "closeDisabled": false
+            },
+            {
+              "kind": "autosave-native-abort"
+            }
+          ]
+        },
+        {
+          "stage": "first-close-pending",
+          "fault": true,
+          "panelVisible": true,
+          "name": "Do not lose this Template",
+          "closeDisabled": true,
+          "status": "Template draft could not be saved. Keep this page open and try again.",
+          "drafts": [],
+          "events": [
+            {
+              "kind": "put",
+              "attempt": 1,
+              "fault": true,
+              "name": "Do not lose this Template",
+              "closeDisabled": false
+            },
+            {
+              "kind": "autosave-native-abort"
+            },
+            {
+              "kind": "autosave-abort-delivered"
+            },
+            {
+              "kind": "close-open-native-success",
+              "fault": true
+            }
+          ]
+        },
+        {
+          "stage": "shared-error-status",
+          "fault": true,
+          "panelVisible": true,
+          "name": "Do not lose this Template",
+          "closeDisabled": true,
+          "status": "Template draft could not be saved. Keep this page open and try again.",
+          "drafts": [],
+          "events": [
+            {
+              "kind": "put",
+              "attempt": 1,
+              "fault": true,
+              "name": "Do not lose this Template",
+              "closeDisabled": false
+            },
+            {
+              "kind": "autosave-native-abort"
+            },
+            {
+              "kind": "autosave-abort-delivered"
+            },
+            {
+              "kind": "close-open-native-success",
+              "fault": true
+            }
+          ]
+        },
+        {
+          "stage": "failed-first-close-settled",
+          "fault": true,
+          "panelVisible": true,
+          "name": "Do not lose this Template",
+          "closeDisabled": false,
+          "status": "Template draft could not be saved. Keep this page open and try again.",
+          "drafts": [],
+          "events": [
+            {
+              "kind": "put",
+              "attempt": 1,
+              "fault": true,
+              "name": "Do not lose this Template",
+              "closeDisabled": false
+            },
+            {
+              "kind": "autosave-native-abort"
+            },
+            {
+              "kind": "autosave-abort-delivered"
+            },
+            {
+              "kind": "close-open-native-success",
+              "fault": true
+            },
+            {
+              "kind": "close-open-delivered",
+              "fault": true
+            },
+            {
+              "kind": "put",
+              "attempt": 2,
+              "fault": true,
+              "name": "Do not lose this Template",
+              "closeDisabled": true
+            }
+          ]
+        },
+        {
+          "stage": "retry-and-continue",
+          "fault": false,
+          "panelVisible": true,
+          "name": "Do not lose this Template",
+          "closeDisabled": false,
+          "status": "Template draft saved on this device.",
+          "drafts": [
+            {
+              "name": "Do not lose this Template",
+              "revision": 1
+            }
+          ],
+          "events": [
+            {
+              "kind": "put",
+              "attempt": 1,
+              "fault": true,
+              "name": "Do not lose this Template",
+              "closeDisabled": false
+            },
+            {
+              "kind": "autosave-native-abort"
+            },
+            {
+              "kind": "autosave-abort-delivered"
+            },
+            {
+              "kind": "close-open-native-success",
+              "fault": true
+            },
+            {
+              "kind": "close-open-delivered",
+              "fault": true
+            },
+            {
+              "kind": "put",
+              "attempt": 2,
+              "fault": true,
+              "name": "Do not lose this Template",
+              "closeDisabled": true
+            },
+            {
+              "kind": "put",
+              "attempt": 3,
+              "fault": false,
+              "name": "Do not lose this Template",
+              "closeDisabled": true
+            }
+          ]
+        }
+      ],
+      "conclusion": "The new boundary stayed pending during the held close open. With the fault continuously active, the first Close made the second failed put and unlocked with exact input and visible panel intact. Explicit retry after lifting the fault made the third put, saved revision 1, closed the panel and restored the exact draft through Continue."
+    },
+    "failedSetupAttempt": {
+      "log": {
+        "path": "output/ci-failure-20261014.local/template-close-ready-port-conflict.log",
+        "sha256": "21c45611bce802696ab6098f3f2f157ae92c16154854ebc23f6a356d3a86200a",
+        "bytes": 1644
+      },
+      "exitCode": 1,
+      "cause": "The first ready attempt was started before the old probe had finished its expected 30-second click timeout and cleanup. Its source server failed EADDRINUSE on loopback port 5175. This attempt is not a passing experiment.",
+      "correction": "The failed attempt was retained separately. The old probe was awaited through process exit before the successful ready run started. Subsequent permanent-regression runs used separately reserved loopback backend/source/preview ports, ran sequentially, and verified all owned ports closed after exit."
+    }
+  },
+  "permanentRegression": {
+    "source": {
+      "path": "scripts/check-browser-workflows.mjs",
+      "sha256": "3f8cf438e3fa53a4ed8904d599ab9b0c346c71ac51cfb4aeb83a926ee034ce2a",
+      "bytes": 472162
+    },
+    "scope": "Only checkTemplateDraftCloseFailure in the existing 73-workflow suite changed. No application code, backend, migration, production data, test count, timeout or pre-existing behavioral assertion changed.",
+    "mechanism": "The permanent test deterministically overlaps the real 150ms autosave and first Close using the same native abort/open delivery controls. Its next matching scaffold-pwa-local open is held after autosave rejection; it asserts exactly two matching failed puts before lifting the fault. The open override restores itself when released.",
+    "readinessBoundary": "After the original shared could-not-be-saved text, await the Close button re-enabled while the quota fault remains true. Then recheck visible panel, exact Template name and both failed put attempts before removing the fault and explicitly retrying.",
+    "pendingAssertion": "With the close write database-open delivery held, the new completion promise must remain pending for a 100ms observation window. The native handler is always released in finally. A rejection handler is attached immediately while the original promise is still awaited, preventing an unowned rejection during cleanup.",
+    "pendingAssertionLimit": "The 100ms interval is a negative observation window, not a timeout increase or exhaustive scheduler proof. The controlled old boundary fails this assertion; all original operation deadlines remain 30000ms.",
+    "durableAssertions": "Retry Close must store exactly one report-template-editor draft with the exact expected name before Continue is clicked; the original Continue name assertion remains.",
+    "counterfactual": {
+      "change": "Replace only the new wait-for-Close-enabled expression with the old shared-error-text wait. Relocate the two helper imports for the ignored copy; preserve all native controls and behavioral assertions.",
+      "source": {
+        "path": "output/ci-failure-20261014.local/template-close-native-old.mjs.txt",
+        "sha256": "8944a98764e16419a4d6d926e4d9e37e8c567ae4b6dfa666c2650d012677a11a",
+        "bytes": 472200
+      },
+      "log": {
+        "path": "output/ci-failure-20261014.local/template-close-native-red.log",
+        "sha256": "a918b6dcda530091657b466e36c56881c032e75bf3288050f298ed7b45808a57",
+        "bytes": 944
+      },
+      "exitCode": 1,
+      "expectedFailure": "Template close failure must wait for its own pending draft write",
+      "ownedPortsClosed": true,
+      "temporaryDefaultRemoved": true
+    },
+    "fixed": {
+      "sourceSha256": "3f8cf438e3fa53a4ed8904d599ab9b0c346c71ac51cfb4aeb83a926ee034ce2a",
+      "log": {
+        "path": "output/ci-failure-20261014.local/template-close-native-green.log",
+        "sha256": "24853eb300564fab668d25c9d4be0bad562b7d104669e719594e575676b0af10",
+        "bytes": 234
+      },
+      "exitCode": 0,
+      "passedWorkflows": 1,
+      "ownedPortsClosed": true,
+      "temporaryDefaultRemoved": true
+    },
+    "intermediateValidation": {
+      "description": "An earlier permanent-test red/green pair passed its expected outcomes before the immediate rejection handler was added. Both were rerun on the final source above. Retain these earlier logs as intermediate evidence, not the final source binding.",
+      "oldSource": {
+        "path": "output/ci-failure-20261014.local/template-close-native-old-before-handler.mjs.txt",
+        "sha256": "892603d5bbcd3d56d20e220a0a726b10a26321a1622cb1d155476de414b06cf5",
+        "bytes": 472162
+      },
+      "oldLog": {
+        "path": "output/ci-failure-20261014.local/template-close-native-red-before-handler.log",
+        "sha256": "385f1d0e0025e3cc23626dbfac1bc945652682abb825ab90b85409f28c804a05",
+        "bytes": 944
+      },
+      "fixedLog": {
+        "path": "output/ci-failure-20261014.local/template-close-native-green-before-handler.log",
+        "sha256": "1f3734a447b44d801378ea3224973a7fe32fd7882760372a0352ef4e1d49c3e3",
+        "bytes": 234
+      }
+    },
+    "isolatedRunner": {
+      "path": "output/ci-failure-20261014.local/run-template-close-probe.py",
+      "sha256": "273fa9823e5915bdee321d595bcc6d2274e562ec05a145408908b08df71e58f4",
+      "bytes": 1626
+    },
+    "runnerStage": "Retained runner includes unique loopback port reservation and post-exit cleanup checks added after the initial diagnostic old/ready experiments; it is the exact runner used for all permanent-regression executions."
+  },
+  "validation": {
+    "lint": {
+      "exitCode": 0,
+      "log": {
+        "path": "output/ci-failure-20261014.local/template-close-lint.log",
+        "sha256": "b871853392637b6055cb1bb29c9caa0697b0c4e1afb69dbcfc9a944323f2c9fa",
+        "bytes": 47
+      }
+    },
+    "gitDiffWhitespace": "passed",
+    "full73": "Owned by root follow-up evidence after this source freeze; not claimed by this focused record."
+  },
+  "limitations": [
+    "The exact scheduling of the original Linux failure remains individually untraced.",
+    "The diagnostic and permanent controls preserve native values/results but intentionally arrange the overlap; they do not measure its natural frequency.",
+    "Local loops used fresh disposable backends/browser contexts and synthetic Template input. No hosted fixture, deployment, authentication to an existing hosted user, or physical phone validation occurred."
+  ]
+}

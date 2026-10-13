@@ -47,6 +47,8 @@ The [following remote run](https://github.com/windmine/scaffold-pwa-mvp/actions/
 
 The [run on `2582737`](https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38472318868) passed backend but stopped in the storage-warning fixture before its queue-quota fault was enabled. A held native draft read reproduced blank required notes and blocked Review. Normal selection helpers now share the same readiness boundary across the remaining affected fixtures and hosted verifiers; intentional cancellation tests keep their raw selections. [Storage-readiness follow-up](docs/evidence/ci-fixes-20261014/storage-readiness-followup.json) records the controlled regression, selection audit and applicable complete local validation.
 
+The [run on `3a66cd3`](https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38475022805) passed backend and every focused mobile suite, then passed 72 of 73 full workflows. The remaining Template Close test could mistake an earlier autosave error for completion of its pending close operation and remove its simulated fault too early. A controlled overlap reproduces that sequence. The test now keeps the fault active until Close finishes, then checks the preserved editor before retrying. [Template Close follow-up](docs/evidence/ci-fixes-20261014/template-close-followup.json).
+
 This corrective work changes tests and CI checks, with no application behavior, deployment, migration or hosted application fixture change. Use the [branch's GitHub CI runs](https://github.com/windmine/scaffold-pwa-mvp/actions/workflows/ci.yml?query=branch%3Acodex%2Freport-submission-mvp) to verify both jobs for the exact commit; the dated local regression passes do not establish its remote result.
 
 ## Local Maintenance and Growth Baseline - 2026-10-12
