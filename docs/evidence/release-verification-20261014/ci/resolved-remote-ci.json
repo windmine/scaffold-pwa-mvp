@@ -1,0 +1,55 @@
+{
+  "run_id": 38477858216,
+  "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38477858216",
+  "commit": "e1501d4c91d567521c9dce4d112a0ef15f19c97b",
+  "conclusion": "success",
+  "jobs": {
+    "frontend": 115572903199,
+    "backend": 115572902926
+  },
+  "main_workflows_passed": 73,
+  "main_workflows_failed": 0,
+  "full_mobile_completion_and_temporary_storage_cleanup": true,
+  "frontend_log": {
+    "path": "output/ci-failure-20261014.local/fifth-fix-frontend.log",
+    "sha256": "7ed53ecfca355311fcd707184c6ee3ffec603ef065e1c17a946a93379a93a0fd",
+    "bytes": 172274
+  },
+  "history_volume": {
+    "reports": [
+      100,
+      1000
+    ],
+    "status": "passed",
+    "scope": "Actual history.js renderer, filters and app CSS in a minimal page; synthetic mapped records; intercepted assets/images; no backend/network/phone capacity claim.",
+    "artifact": {
+      "path": "output/ci-failure-20261014.local/verified-fifth-remote-frontend/history-volume.json",
+      "sha256": "f5a954c8c23e5d8851dd9ba6de8c7ad519487c9ce2b3e1fcf1bc16f9ace0c7c1",
+      "bytes": 2233
+    }
+  },
+  "backend": {
+    "postgres-environment.json": {
+      "checks": 4,
+      "cleanup_complete": true,
+      "artifact": {
+        "path": "output/ci-failure-20261014.local/verified-fifth-remote-backend/postgres-environment.json",
+        "sha256": "a5e0bdc8823c297d143e83aaec1d2dea09e242a3574ada9eeae407fad0530404",
+        "bytes": 1791
+      }
+    },
+    "backend-volume.json": {
+      "checks": 2,
+      "cleanup_complete": true,
+      "artifact": {
+        "path": "output/ci-failure-20261014.local/verified-fifth-remote-backend/backend-volume.json",
+        "sha256": "e2e7eb83a3a3b8da7b29d573f7b3eda6a66d2c0f2796de1b19dc7dd3aa663397",
+        "bytes": 30300
+      },
+      "probes": 24
+    }
+  },
+  "verified_committed_source_bindings": 12,
+  "worktree_clean": true,
+  "production_deployment_performed": false
+}

@@ -1,0 +1,1150 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "startedAtUtc": "2026-10-13T23:23:14.625601+00:00",
+  "sourceCommit": "e1501d4c91d567521c9dce4d112a0ef15f19c97b",
+  "backendSourceCommit": "c5b7ab56a54cb786042b592fb06288a5e7c18990",
+  "scope": "Read-only exact current production and fresh frontend build verification; no promotion is attempted.",
+  "inputArtifacts": [
+    {
+      "path": "docs/evidence/release-verification-20261014/backend-baseline.json",
+      "sha256": "6f0e59c1c9b013beebd7e64f818bd91bbc37b6a78ee764d77bb62e8dc32d2dc3",
+      "bytes": 7653
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/backend-baseline.json",
+      "sha256": "82405b167e605accdf0cdb94b5b58217e9abaec8052f77325267245b58effbda",
+      "bytes": 8949
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/release.json",
+      "sha256": "1dcb90b21dac5e89dd9228ecc0b3a5be2a33b2548c82e062aa4dfffa753e5547",
+      "bytes": 20022
+    },
+    {
+      "path": "docs/evidence/frontend-release-20261012/build-manifest.json",
+      "sha256": "69dd11ca137eccf63549c0ddf2a4f35fdb43ff359c6d776c4edb147c755138ff",
+      "bytes": 9155
+    },
+    {
+      "path": "docs/evidence/report-fixes-release-20261012/release.json",
+      "sha256": "25597ad5bc58325f3fcdc646281ca4d86483d4f2855143b55dcbd90a2b47fbe2",
+      "bytes": 11223
+    },
+    {
+      "path": "output/release-20261014.local/verify-current-production.py",
+      "sha256": "b89a0da3940f26a3e3c5e6c2e3d724d4aebd8487e386c5b47934b7d39bf58fed",
+      "bytes": 16699
+    },
+    {
+      "path": "scripts/report-release-operator.py",
+      "sha256": "a1e4b7c57ee3b355c269d4e6123264ca07dcd78d9da2eafe85d4a46b332d1c51",
+      "bytes": 33359
+    },
+    {
+      "path": "scripts/report-release-inventory.py",
+      "sha256": "8c41225ee603f0751c2bd49da93be477270d80f444c2cb708ef33f8f41d4eb75",
+      "bytes": 7252
+    },
+    {
+      "path": "firebase.json",
+      "sha256": "3d7ee67e97c67b3c8d4bafe76eeeca71d794e9370858cc27a95ce0f74c575ee7",
+      "bytes": 1517
+    },
+    {
+      "path": "package.json",
+      "sha256": "0ef53cdf9c69e546cb0dffcc9310dfd6ae0c50937d570c5394cc6a41a6dd21fd",
+      "bytes": 5987
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "a80e2a886f78a77adcf5d8d1e551fe1b70e7143d6bc203bf0700130fc1b8a825",
+      "bytes": 64213
+    }
+  ],
+  "backendRuntimeSourceUnchanged": true,
+  "frontendMatchesReleased85FileManifest": true,
+  "distFileSha256": {
+    "404.html": "e031c43bef932c522a3b353dfc65507544fd589c5dd7bba978fa8a6310c044ff",
+    "assets/css/install.css": "9d16fa4507b9e7b49801ae9f052c5e3d6084553dfa683e28292c9d9967832a36",
+    "assets/css/styles.css": "833d76ca2c2c5a0254501878549b7cde2db6f77af5eb790161856d5a544efb3d",
+    "assets/icons/apple-touch-icon.png": "feb566a167b5ec4c6feb23b5ae6b7109e36cc5ac32c5c625d9d8a12627ea123d",
+    "assets/icons/bop-logo.svg": "5ed79a4842b4840194e7536a819ed4ff0f9d866ec940ae443f95e6f8bbfe12ac",
+    "assets/icons/icon-192.png": "b20a8f9b1e530157673656ff1abb99a584ad155e848d7fa8450b3a2412bddf04",
+    "assets/icons/icon-512.png": "7fd38eb7ec00a447009273f157d5cb46858ac5edccf908a56750100469404bdf",
+    "assets/icons/leader-icon.svg": "f049144b250bda7be9ddd2d2502df5cc92ab86b4f75dbec01df2c35b005b94cc",
+    "assets/icons/leader-logo-export.png": "cd6ef60ecc607ee1f1730f63e74241ff93c67d29d2c1fceab53491a9fa7fdecc",
+    "assets/icons/maskable-512.png": "7fd38eb7ec00a447009273f157d5cb46858ac5edccf908a56750100469404bdf",
+    "assets/icons/mc-logo.svg": "c13567d8505cf175922a3afb494a095c02da25a630070dbbfd74fb8fc958b31a",
+    "assets/icons/mutual-logo.svg": "a9e809079b6aa74913126c55cac23823a3b87471ae1732b089c71eb1209cd274",
+    "assets/icons/reportflow-192.png": "961b7eb26034d8c71e4f50f89ec0cefce0268a5281c9a06c8891cb532c93c356",
+    "assets/icons/reportflow-512.png": "4090a88306e084a874a5d0c6fe74b8d7ee580a42ae9820bf84ec032ed02692c2",
+    "assets/icons/reportflow-apple-touch-180.png": "19490723922a88652f3635596a19b4e8c31de9781b699bdd65577d9210792449",
+    "assets/icons/reportflow-icon.svg": "701fa758282e87038af6769b36cf42e540dde60c2caa4e3a384d1f5b741a0ac5",
+    "assets/icons/reportflow-install-qr.svg": "300188ad752dd1aa5fec734584f43f2b77b36627f4894d477556874370557397",
+    "assets/icons/reportflow-maskable-512.png": "2cc14eda704cd203040cd75c4bdea70c58a7557292c6759445a2373a68fdf357",
+    "assets/icons/stech-logo.svg": "be704e3c5be46feffd1a6ed1beb9e7fbef530da8c684bd3023172728c242d36f",
+    "assets/js/api-client.js": "81a620ccf01b720492473369a5d84384de209e9882d620b6b9d3bcfef53f35ff",
+    "assets/js/app-shell-state.js": "b48465eeb14e5cdf66e36373618caf68ba61692a2b5ac586b821a1ecef4b6396",
+    "assets/js/app.js": "133042e2023455c70a2a3950963e919740ac357f3686e5a82fcbc606411a355f",
+    "assets/js/confirmation-dialog.js": "1802ed4d977027b36fdc0a0576c54f38c870da826a649ea74d65c0457fae32fe",
+    "assets/js/date-inputs.js": "00eab23342a10df6092f2d33d626ee39ccfe61bc26bab5a1a5b6c5414c310aca",
+    "assets/js/db.js": "fea6c978904fcc751dca3b720a763fb2beb26f9f409c003d46d97602f376bbb2",
+    "assets/js/history.js": "7b4daef59990db258d041c8efbe703c60c13b685c8263a72c0760f098286d9f8",
+    "assets/js/i18n.js": "6c962b9cb2b37bd6872bcbb36d9b9bbc44064cdf1936fc3163e454c6e5337859",
+    "assets/js/install.js": "4b293f9e1af53f5aa22653c7c815bf815371b006f03844d6ac0ed6ae8da08b0a",
+    "assets/js/mock-api.js": "fbfccf242441f2e6dd94fe0eaadea298bca47a90cfe352f25d67a883b1892f09",
+    "assets/js/offline-attendance-snapshot.js": "e4d9f0726695f76d043cdbcd456be7e4a9e6bda7ff0d3a0307fa139ceae033ae",
+    "assets/js/offline-report-template-snapshot.js": "6ddaf2a589a76adfc0cde74d7a24f4e4ea0194bb31ef9d0ddca3ca8bfb3786e2",
+    "assets/js/offline-site-snapshot.js": "4918261b4560330460a7c7b19783ab38146f45809f23ec6e42e63a83bb2c5ace",
+    "assets/js/offline-submissions.js": "c49c6a026881e566d79ca609517f50c39a36254b44640bb397c55ce69bc1c555",
+    "assets/js/photo-viewer.js": "2535e13f7bc73051c3754e4300b63ff53cecd95fbb3f68cbc1b3c4938cf54810",
+    "assets/js/recover-password.js": "b2753e1f2e012cdba8daad45d80de6df4432d92330360c68d726eea4cd28e8c9",
+    "assets/js/report-drafts.js": "5c71bfd0d642c6a78d626c80f0e3c342d47737cccc70b22166107469c84099d3",
+    "assets/js/report-note-drafts.js": "f80fd2b3dd134251ecb4cdd04df0079bb40f57285324244bc5e02d672ce34711",
+    "assets/js/report-note-editor.js": "02972187308c366f9fbfcd2461e39bb73a0e26cb25b12f7403d49a6ea7bda88d",
+    "assets/js/report-photo-evidence.js": "cae3b42aa0efb3e965ca6ba8e2eef82653785bfc0c3964976690c0bf23cc8277",
+    "assets/js/report-photo-gallery.js": "826ec2fa2d84e8227dcd5582a48cfb1c7625cb0205176fb479003844d40c33bd",
+    "assets/js/report-photo-thumbnails.js": "a1018043cb30f00bb3c22ec23b397027d96e765725b10dfaefd705baa966b15c",
+    "assets/js/report-review-age.js": "ad496e2270399e917c27f30a7cf96863b0808c4f1f33cd141f405973dac11539",
+    "assets/js/report-review-preferences.js": "3d698a0c328e0e4c01b0eabe20f9cdbc95954008ad662fb9b0690a9bbc51170e",
+    "assets/js/report-storage-budget.js": "b7ebf4e16a4ebeaa7364c9be41e5588b95e3d4fa1a3e1e3cdd7f1fac680124b7",
+    "assets/js/report-submit-review.js": "ae745658f071401a052629a85b35000efc1fd7f09b51b0d6fc0628da85c87733",
+    "assets/js/report-template-drafts.js": "71732a472c20da4e2211749a50b02b53c39903db377c64953729822d4407c3de",
+    "assets/js/report-upload-recovery.js": "1da7e35d017514489784dbf3c66735f0104066a85e7a7b19f1fdf60948627a5e",
+    "assets/js/review-export-adapters.js": "61ec72ab16557ab7a110cf58237da05d36ddb61c84eea79403cd7134c66a8c6b",
+    "assets/js/setup-password.js": "74b409804978fd502f79dcc79cd082ac75c873e0cdfe8a3c1946db4862563716",
+    "assets/js/site-map-picker.js": "6f98222d804ccdf345a31adf98aa165f9d5326af2b5254243c2dbb65d3d8bff2",
+    "assets/js/staff-sites.js": "2e3af606b9ca857924ce68449fd9f5061654295fac59f25e3ef5cb247c399e1b",
+    "assets/js/supervisor-analytics.js": "75976cffd8ff20dd18db246a26cd6b43e22cfd8d5b187d990bc201193f520357",
+    "assets/js/supervisor-map.js": "32b6973baf0dc64e2371f89624213a38c2d9bbca089d605b7d886441bc0cf6eb",
+    "assets/js/supervisor-review-utils.js": "020382ac99cd7a8c0b628acf2a40da9d08d43084474438ce2c807b9f00b19778",
+    "assets/js/supervisor-review.js": "3fdbe2df0415ace9a1692d03643e70589ef6d1560ababecc2d45b314edd8319a",
+    "assets/js/team-member-picker.js": "06dae167fe27dc49d8854ae62311705111074fac8890c750f8741a8d65368a52",
+    "assets/js/team-work-log.js": "0319af91959114ab4f29ee34c5cbdc30a01c03ef4002931e1858ce917c301b7b",
+    "assets/js/ui-feedback.js": "9c5164cf84380c2cf18368d1121d38578aa413a8b4c6bd7a78f6eb084b72aad9",
+    "assets/js/utils.js": "c098732a72ae20d0759a8d9ae192910b482248e8f55b12f79d6486229050bb5b",
+    "assets/js/work-form-builder.js": "d6da6dacac97239b12e5f2176a004cb0613e7a26e166178281b62e8f957a9d7a",
+    "assets/js/work-form-fields.js": "ae75e7d4494ff005b9a83453bd2e93f0562856668344d7356b4474b6727c264f",
+    "assets/js/worker-attendance.js": "69e464ad49de35679756e31a4378a8d2bdc07debcb3bff1f0423432c341c0757",
+    "assets/js/worker-form.js": "abcb8c252bb8ace87157ef2a68807798d665d6460a372d93851b68cc1a92391c",
+    "assets/js/worker-invitation-dialog.js": "db1bcc8934754f26619daa4f26475346f125aeea9396665c4ffac4ec0c98d743",
+    "assets/js/worker-log.js": "9221de0de4e0d37003eebff974acf975020d3e0c53df21bb8b416a2dc748130c",
+    "assets/js/worker-sites.js": "4125475a302f4ae50025590b876d4eb197f458983bcd56ec63d560a567989a93",
+    "assets/main-BCJNYTbE.css": "eb8915e77ae9f9fb5dad62e0b252c44381591e2e2c8034bdcbf86a59ee325ce7",
+    "assets/main-DLSPx9C_.js": "e51a982c49dd5ac7611db75167151a2b4fb1a0eaf32b3d4198a1d7743f00f6c6",
+    "assets/manifest-7iJLFcKU.webmanifest": "47085fc4c3ff8188bc78851c8ffb46a0195fe57cd65d0f6a322dc9265a04061a",
+    "assets/reportflow-192-O9QSIbGD.png": "961b7eb26034d8c71e4f50f89ec0cefce0268a5281c9a06c8891cb532c93c356",
+    "assets/reportflow-apple-touch-180-4XY2rcXm.png": "19490723922a88652f3635596a19b4e8c31de9781b699bdd65577d9210792449",
+    "assets/reportflow-icon-JUMdDTPL.svg": "701fa758282e87038af6769b36cf42e540dde60c2caa4e3a384d1f5b741a0ac5",
+    "downloads/reportflow-install-a4.pdf": "278d5679ecf0bbd988e91ac47290e742e886de7b4fcb5a3e02317eaf373064c8",
+    "downloads/reportflow-install-qr.png": "b7dbc5ed4a8b85656f6a86e130f47a5d2099387631d754fe31504c8253bbba08",
+    "downloads/reportflow-install-qr.svg": "300188ad752dd1aa5fec734584f43f2b77b36627f4894d477556874370557397",
+    "favicon.svg": "701fa758282e87038af6769b36cf42e540dde60c2caa4e3a384d1f5b741a0ac5",
+    "icons.svg": "7ca2d67c9c3aebf50cdc8709ee8aacf8cdb8cc7ea6325ea94939caef5da1c53d",
+    "index.html": "b6c11a1b345ad149efb4b893dbd109517dad716ffabab97f4103fe4daffcadb7",
+    "install.html": "4067e3713271cb08111eafaef6a040afaac57d23afd907150c606c7639b06c65",
+    "manifest.webmanifest": "47085fc4c3ff8188bc78851c8ffb46a0195fe57cd65d0f6a322dc9265a04061a",
+    "offline.html": "5fafba297754c73156b6c05d37fbeb15c632fbd08bf20a603893346fecbe66f0",
+    "premium-preview.html": "85bb7e215a5e144d4d4935fafe336efcead6a1901e00bb1e29412a3d9eb1188b",
+    "recover-password.html": "43b75200e77f17bcdaea0756b7e7153e2523729087f0567cc48c43d08fcc3206",
+    "setup-password.html": "dd4479ca34f56fc061dd944fadb67953e78a2d6ef9422e8183dc026b06113f09",
+    "sw.js": "13e77abdb796d8fefd1161579cd040eb6f6245f95e7443a600c320a57d9cc8cf"
+  },
+  "anonymousHttpChecks": [
+    {
+      "origin": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+      "path": "/health",
+      "status": 200,
+      "cacheControl": null
+    },
+    {
+      "origin": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+      "path": "/health/ready",
+      "status": 200,
+      "cacheControl": null,
+      "readiness": {
+        "status": "ok",
+        "checks": {
+          "database": "ok",
+          "migrations": "ok",
+          "upload_storage": "ok"
+        },
+        "uploadStorageBackend": "gcs"
+      }
+    },
+    {
+      "origin": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+      "path": "/sites",
+      "status": 401,
+      "cacheControl": null
+    },
+    {
+      "origin": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+      "path": "/my-form-submissions?purpose=report",
+      "status": 401,
+      "cacheControl": null
+    },
+    {
+      "origin": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+      "path": "/supervisor/form-submissions?purpose=report",
+      "status": 401,
+      "cacheControl": null
+    },
+    {
+      "origin": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+      "path": "/supervisor/form-submissions/export.pdf?purpose=report",
+      "status": 401,
+      "cacheControl": null
+    },
+    {
+      "origin": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+      "path": "/uploads/release-verification-20261014-absent.png",
+      "status": 401,
+      "cacheControl": "private, no-store"
+    },
+    {
+      "origin": "https://geo-attendance-system-db9ca.web.app",
+      "path": "/api/health",
+      "status": 200,
+      "cacheControl": "private"
+    },
+    {
+      "origin": "https://geo-attendance-system-db9ca.web.app",
+      "path": "/api/health/ready",
+      "status": 200,
+      "cacheControl": "private",
+      "readiness": {
+        "status": "ok",
+        "checks": {
+          "database": "ok",
+          "migrations": "ok",
+          "upload_storage": "ok"
+        },
+        "uploadStorageBackend": "gcs"
+      }
+    },
+    {
+      "origin": "https://geo-attendance-system-db9ca.web.app",
+      "path": "/api/sites",
+      "status": 401,
+      "cacheControl": null
+    },
+    {
+      "origin": "https://geo-attendance-system-db9ca.web.app",
+      "path": "/api/my-form-submissions?purpose=report",
+      "status": 401,
+      "cacheControl": null
+    },
+    {
+      "origin": "https://geo-attendance-system-db9ca.web.app",
+      "path": "/api/supervisor/form-submissions?purpose=report",
+      "status": 401,
+      "cacheControl": null
+    },
+    {
+      "origin": "https://geo-attendance-system-db9ca.web.app",
+      "path": "/api/supervisor/form-submissions/export.pdf?purpose=report",
+      "status": 401,
+      "cacheControl": null
+    },
+    {
+      "origin": "https://geo-attendance-system-db9ca.web.app",
+      "path": "/uploads/release-verification-20261014-absent.png",
+      "status": 401,
+      "cacheControl": "private, no-store"
+    }
+  ],
+  "assets": [
+    {
+      "path": "/404.html",
+      "sha256": "e031c43bef932c522a3b353dfc65507544fd589c5dd7bba978fa8a6310c044ff",
+      "bytes": 1841,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/css/install.css",
+      "sha256": "9d16fa4507b9e7b49801ae9f052c5e3d6084553dfa683e28292c9d9967832a36",
+      "bytes": 5732,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/css/styles.css",
+      "sha256": "833d76ca2c2c5a0254501878549b7cde2db6f77af5eb790161856d5a544efb3d",
+      "bytes": 147136,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/apple-touch-icon.png",
+      "sha256": "feb566a167b5ec4c6feb23b5ae6b7109e36cc5ac32c5c625d9d8a12627ea123d",
+      "bytes": 13993,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/bop-logo.svg",
+      "sha256": "5ed79a4842b4840194e7536a819ed4ff0f9d866ec940ae443f95e6f8bbfe12ac",
+      "bytes": 587,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/icon-192.png",
+      "sha256": "b20a8f9b1e530157673656ff1abb99a584ad155e848d7fa8450b3a2412bddf04",
+      "bytes": 15125,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/icon-512.png",
+      "sha256": "7fd38eb7ec00a447009273f157d5cb46858ac5edccf908a56750100469404bdf",
+      "bytes": 38017,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/leader-icon.svg",
+      "sha256": "f049144b250bda7be9ddd2d2502df5cc92ab86b4f75dbec01df2c35b005b94cc",
+      "bytes": 1533,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/leader-logo-export.png",
+      "sha256": "cd6ef60ecc607ee1f1730f63e74241ff93c67d29d2c1fceab53491a9fa7fdecc",
+      "bytes": 20598,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/maskable-512.png",
+      "sha256": "7fd38eb7ec00a447009273f157d5cb46858ac5edccf908a56750100469404bdf",
+      "bytes": 38017,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/mc-logo.svg",
+      "sha256": "c13567d8505cf175922a3afb494a095c02da25a630070dbbfd74fb8fc958b31a",
+      "bytes": 650,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/mutual-logo.svg",
+      "sha256": "a9e809079b6aa74913126c55cac23823a3b87471ae1732b089c71eb1209cd274",
+      "bytes": 574,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/reportflow-192.png",
+      "sha256": "961b7eb26034d8c71e4f50f89ec0cefce0268a5281c9a06c8891cb532c93c356",
+      "bytes": 4397,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/reportflow-512.png",
+      "sha256": "4090a88306e084a874a5d0c6fe74b8d7ee580a42ae9820bf84ec032ed02692c2",
+      "bytes": 11224,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/reportflow-apple-touch-180.png",
+      "sha256": "19490723922a88652f3635596a19b4e8c31de9781b699bdd65577d9210792449",
+      "bytes": 2569,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/reportflow-icon.svg",
+      "sha256": "701fa758282e87038af6769b36cf42e540dde60c2caa4e3a384d1f5b741a0ac5",
+      "bytes": 786,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/reportflow-install-qr.svg",
+      "sha256": "300188ad752dd1aa5fec734584f43f2b77b36627f4894d477556874370557397",
+      "bytes": 5678,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/reportflow-maskable-512.png",
+      "sha256": "2cc14eda704cd203040cd75c4bdea70c58a7557292c6759445a2373a68fdf357",
+      "bytes": 6354,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/icons/stech-logo.svg",
+      "sha256": "be704e3c5be46feffd1a6ed1beb9e7fbef530da8c684bd3023172728c242d36f",
+      "bytes": 648,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/api-client.js",
+      "sha256": "81a620ccf01b720492473369a5d84384de209e9882d620b6b9d3bcfef53f35ff",
+      "bytes": 23026,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/app-shell-state.js",
+      "sha256": "b48465eeb14e5cdf66e36373618caf68ba61692a2b5ac586b821a1ecef4b6396",
+      "bytes": 24857,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/app.js",
+      "sha256": "133042e2023455c70a2a3950963e919740ac357f3686e5a82fcbc606411a355f",
+      "bytes": 74575,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/confirmation-dialog.js",
+      "sha256": "1802ed4d977027b36fdc0a0576c54f38c870da826a649ea74d65c0457fae32fe",
+      "bytes": 3068,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/date-inputs.js",
+      "sha256": "00eab23342a10df6092f2d33d626ee39ccfe61bc26bab5a1a5b6c5414c310aca",
+      "bytes": 2435,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/db.js",
+      "sha256": "fea6c978904fcc751dca3b720a763fb2beb26f9f409c003d46d97602f376bbb2",
+      "bytes": 17581,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/history.js",
+      "sha256": "7b4daef59990db258d041c8efbe703c60c13b685c8263a72c0760f098286d9f8",
+      "bytes": 65224,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/i18n.js",
+      "sha256": "6c962b9cb2b37bd6872bcbb36d9b9bbc44064cdf1936fc3163e454c6e5337859",
+      "bytes": 129764,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/install.js",
+      "sha256": "4b293f9e1af53f5aa22653c7c815bf815371b006f03844d6ac0ed6ae8da08b0a",
+      "bytes": 10792,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/mock-api.js",
+      "sha256": "fbfccf242441f2e6dd94fe0eaadea298bca47a90cfe352f25d67a883b1892f09",
+      "bytes": 8178,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/offline-attendance-snapshot.js",
+      "sha256": "e4d9f0726695f76d043cdbcd456be7e4a9e6bda7ff0d3a0307fa139ceae033ae",
+      "bytes": 2842,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/offline-report-template-snapshot.js",
+      "sha256": "6ddaf2a589a76adfc0cde74d7a24f4e4ea0194bb31ef9d0ddca3ca8bfb3786e2",
+      "bytes": 5670,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/offline-site-snapshot.js",
+      "sha256": "4918261b4560330460a7c7b19783ab38146f45809f23ec6e42e63a83bb2c5ace",
+      "bytes": 2920,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/offline-submissions.js",
+      "sha256": "c49c6a026881e566d79ca609517f50c39a36254b44640bb397c55ce69bc1c555",
+      "bytes": 41549,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/photo-viewer.js",
+      "sha256": "2535e13f7bc73051c3754e4300b63ff53cecd95fbb3f68cbc1b3c4938cf54810",
+      "bytes": 15813,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/recover-password.js",
+      "sha256": "b2753e1f2e012cdba8daad45d80de6df4432d92330360c68d726eea4cd28e8c9",
+      "bytes": 8481,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-drafts.js",
+      "sha256": "5c71bfd0d642c6a78d626c80f0e3c342d47737cccc70b22166107469c84099d3",
+      "bytes": 5756,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-note-drafts.js",
+      "sha256": "f80fd2b3dd134251ecb4cdd04df0079bb40f57285324244bc5e02d672ce34711",
+      "bytes": 8329,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-note-editor.js",
+      "sha256": "02972187308c366f9fbfcd2461e39bb73a0e26cb25b12f7403d49a6ea7bda88d",
+      "bytes": 25561,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-photo-evidence.js",
+      "sha256": "cae3b42aa0efb3e965ca6ba8e2eef82653785bfc0c3964976690c0bf23cc8277",
+      "bytes": 1913,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-photo-gallery.js",
+      "sha256": "826ec2fa2d84e8227dcd5582a48cfb1c7625cb0205176fb479003844d40c33bd",
+      "bytes": 2958,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-photo-thumbnails.js",
+      "sha256": "a1018043cb30f00bb3c22ec23b397027d96e765725b10dfaefd705baa966b15c",
+      "bytes": 4930,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-review-age.js",
+      "sha256": "ad496e2270399e917c27f30a7cf96863b0808c4f1f33cd141f405973dac11539",
+      "bytes": 1646,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-review-preferences.js",
+      "sha256": "3d698a0c328e0e4c01b0eabe20f9cdbc95954008ad662fb9b0690a9bbc51170e",
+      "bytes": 3803,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-storage-budget.js",
+      "sha256": "b7ebf4e16a4ebeaa7364c9be41e5588b95e3d4fa1a3e1e3cdd7f1fac680124b7",
+      "bytes": 4754,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-submit-review.js",
+      "sha256": "ae745658f071401a052629a85b35000efc1fd7f09b51b0d6fc0628da85c87733",
+      "bytes": 4476,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-template-drafts.js",
+      "sha256": "71732a472c20da4e2211749a50b02b53c39903db377c64953729822d4407c3de",
+      "bytes": 7845,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/report-upload-recovery.js",
+      "sha256": "1da7e35d017514489784dbf3c66735f0104066a85e7a7b19f1fdf60948627a5e",
+      "bytes": 15716,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/review-export-adapters.js",
+      "sha256": "61ec72ab16557ab7a110cf58237da05d36ddb61c84eea79403cd7134c66a8c6b",
+      "bytes": 6134,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/setup-password.js",
+      "sha256": "74b409804978fd502f79dcc79cd082ac75c873e0cdfe8a3c1946db4862563716",
+      "bytes": 9671,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/site-map-picker.js",
+      "sha256": "6f98222d804ccdf345a31adf98aa165f9d5326af2b5254243c2dbb65d3d8bff2",
+      "bytes": 8512,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/staff-sites.js",
+      "sha256": "2e3af606b9ca857924ce68449fd9f5061654295fac59f25e3ef5cb247c399e1b",
+      "bytes": 83764,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/supervisor-analytics.js",
+      "sha256": "75976cffd8ff20dd18db246a26cd6b43e22cfd8d5b187d990bc201193f520357",
+      "bytes": 28340,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/supervisor-map.js",
+      "sha256": "32b6973baf0dc64e2371f89624213a38c2d9bbca089d605b7d886441bc0cf6eb",
+      "bytes": 23355,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/supervisor-review-utils.js",
+      "sha256": "020382ac99cd7a8c0b628acf2a40da9d08d43084474438ce2c807b9f00b19778",
+      "bytes": 7588,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/supervisor-review.js",
+      "sha256": "3fdbe2df0415ace9a1692d03643e70589ef6d1560ababecc2d45b314edd8319a",
+      "bytes": 101505,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/team-member-picker.js",
+      "sha256": "06dae167fe27dc49d8854ae62311705111074fac8890c750f8741a8d65368a52",
+      "bytes": 8304,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/team-work-log.js",
+      "sha256": "0319af91959114ab4f29ee34c5cbdc30a01c03ef4002931e1858ce917c301b7b",
+      "bytes": 18577,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/ui-feedback.js",
+      "sha256": "9c5164cf84380c2cf18368d1121d38578aa413a8b4c6bd7a78f6eb084b72aad9",
+      "bytes": 10838,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/utils.js",
+      "sha256": "c098732a72ae20d0759a8d9ae192910b482248e8f55b12f79d6486229050bb5b",
+      "bytes": 4273,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/work-form-builder.js",
+      "sha256": "d6da6dacac97239b12e5f2176a004cb0613e7a26e166178281b62e8f957a9d7a",
+      "bytes": 43566,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/work-form-fields.js",
+      "sha256": "ae75e7d4494ff005b9a83453bd2e93f0562856668344d7356b4474b6727c264f",
+      "bytes": 47705,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/worker-attendance.js",
+      "sha256": "69e464ad49de35679756e31a4378a8d2bdc07debcb3bff1f0423432c341c0757",
+      "bytes": 25039,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/worker-form.js",
+      "sha256": "abcb8c252bb8ace87157ef2a68807798d665d6460a372d93851b68cc1a92391c",
+      "bytes": 76126,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/worker-invitation-dialog.js",
+      "sha256": "db1bcc8934754f26619daa4f26475346f125aeea9396665c4ffac4ec0c98d743",
+      "bytes": 7466,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/worker-log.js",
+      "sha256": "9221de0de4e0d37003eebff974acf975020d3e0c53df21bb8b416a2dc748130c",
+      "bytes": 11884,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/js/worker-sites.js",
+      "sha256": "4125475a302f4ae50025590b876d4eb197f458983bcd56ec63d560a567989a93",
+      "bytes": 5142,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/main-BCJNYTbE.css",
+      "sha256": "eb8915e77ae9f9fb5dad62e0b252c44381591e2e2c8034bdcbf86a59ee325ce7",
+      "bytes": 128645,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/main-DLSPx9C_.js",
+      "sha256": "e51a982c49dd5ac7611db75167151a2b4fb1a0eaf32b3d4198a1d7743f00f6c6",
+      "bytes": 729317,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/manifest-7iJLFcKU.webmanifest",
+      "sha256": "47085fc4c3ff8188bc78851c8ffb46a0195fe57cd65d0f6a322dc9265a04061a",
+      "bytes": 696,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/reportflow-192-O9QSIbGD.png",
+      "sha256": "961b7eb26034d8c71e4f50f89ec0cefce0268a5281c9a06c8891cb532c93c356",
+      "bytes": 4397,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/reportflow-apple-touch-180-4XY2rcXm.png",
+      "sha256": "19490723922a88652f3635596a19b4e8c31de9781b699bdd65577d9210792449",
+      "bytes": 2569,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/assets/reportflow-icon-JUMdDTPL.svg",
+      "sha256": "701fa758282e87038af6769b36cf42e540dde60c2caa4e3a384d1f5b741a0ac5",
+      "bytes": 786,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/downloads/reportflow-install-a4.pdf",
+      "sha256": "278d5679ecf0bbd988e91ac47290e742e886de7b4fcb5a3e02317eaf373064c8",
+      "bytes": 19368,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/downloads/reportflow-install-qr.png",
+      "sha256": "b7dbc5ed4a8b85656f6a86e130f47a5d2099387631d754fe31504c8253bbba08",
+      "bytes": 5742,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/downloads/reportflow-install-qr.svg",
+      "sha256": "300188ad752dd1aa5fec734584f43f2b77b36627f4894d477556874370557397",
+      "bytes": 5678,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/favicon.svg",
+      "sha256": "701fa758282e87038af6769b36cf42e540dde60c2caa4e3a384d1f5b741a0ac5",
+      "bytes": 786,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/icons.svg",
+      "sha256": "7ca2d67c9c3aebf50cdc8709ee8aacf8cdb8cc7ea6325ea94939caef5da1c53d",
+      "bytes": 5055,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/index.html",
+      "sha256": "b6c11a1b345ad149efb4b893dbd109517dad716ffabab97f4103fe4daffcadb7",
+      "bytes": 92692,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/install.html",
+      "sha256": "4067e3713271cb08111eafaef6a040afaac57d23afd907150c606c7639b06c65",
+      "bytes": 6343,
+      "status": 200,
+      "cacheControl": "no-cache"
+    },
+    {
+      "path": "/manifest.webmanifest",
+      "sha256": "47085fc4c3ff8188bc78851c8ffb46a0195fe57cd65d0f6a322dc9265a04061a",
+      "bytes": 696,
+      "status": 200,
+      "cacheControl": "public,max-age=3600"
+    },
+    {
+      "path": "/offline.html",
+      "sha256": "5fafba297754c73156b6c05d37fbeb15c632fbd08bf20a603893346fecbe66f0",
+      "bytes": 3762,
+      "status": 200,
+      "cacheControl": "no-cache"
+    },
+    {
+      "path": "/premium-preview.html",
+      "sha256": "85bb7e215a5e144d4d4935fafe336efcead6a1901e00bb1e29412a3d9eb1188b",
+      "bytes": 29920,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/recover-password.html",
+      "sha256": "43b75200e77f17bcdaea0756b7e7153e2523729087f0567cc48c43d08fcc3206",
+      "bytes": 2783,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/setup-password.html",
+      "sha256": "dd4479ca34f56fc061dd944fadb67953e78a2d6ef9422e8183dc026b06113f09",
+      "bytes": 2636,
+      "status": 200,
+      "cacheControl": "max-age=3600"
+    },
+    {
+      "path": "/sw.js",
+      "sha256": "13e77abdb796d8fefd1161579cd040eb6f6245f95e7443a600c320a57d9cc8cf",
+      "bytes": 7978,
+      "status": 200,
+      "cacheControl": "no-cache"
+    }
+  ],
+  "hostedWritesPerformed": false,
+  "deploymentPerformed": false,
+  "authenticatedUserRequests": false,
+  "applicationFixturesCreated": false,
+  "migrationPerformed": false,
+  "limitations": [
+    "Observed database fields compare only against this release attempt fresh baseline, not October 12; real activity between those dates is allowed.",
+    "A failed fresh inventory comparison can represent concurrent user activity; it does not authorize database changes or a claim of corruption.",
+    "The inventory is hashed/count-based coverage, not an exhaustive database backup. Cloud Run annotations use the existing selected-annotation coverage.",
+    "No new service-worker version is published, so a new old-to-new waiting-update result is neither attempted nor claimed.",
+    "Anonymous HTTP parity does not establish authenticated hosted workflows or physical-phone behavior."
+  ],
+  "live": {
+    "revision": "geo-backend-fixes-20261012",
+    "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4",
+    "traffic": [
+      {
+        "percent": 100,
+        "revisionName": "geo-backend-fixes-20261012"
+      }
+    ],
+    "runtimeSpec": {
+      "containerConcurrency": 80,
+      "containers": [
+        {
+          "env": [
+            {
+              "name": "CORS_ORIGINS",
+              "value": "https://geo-attendance-system-db9ca.web.app"
+            },
+            {
+              "name": "AUTO_MIGRATE",
+              "value": "false"
+            },
+            {
+              "name": "SQL_ECHO",
+              "value": "false"
+            },
+            {
+              "name": "UPLOAD_STORAGE_BACKEND",
+              "value": "gcs"
+            },
+            {
+              "name": "UPLOAD_BUCKET",
+              "value": "geo-attendance-system-db9ca-uploads"
+            },
+            {
+              "name": "UPLOAD_OBJECT_PREFIX",
+              "value": "uploads"
+            },
+            {
+              "name": "ACCESS_TOKEN_EXPIRE_MINUTES",
+              "value": "10080"
+            },
+            {
+              "name": "BUSINESS_TIMEZONE",
+              "value": "Pacific/Auckland"
+            },
+            {
+              "name": "MAX_UPLOAD_BYTES",
+              "value": "5242880"
+            },
+            {
+              "name": "DATABASE_URL",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "2",
+                  "name": "geo-backend-database-url"
+                }
+              }
+            },
+            {
+              "name": "GEO_SECRET_KEY",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "1",
+                  "name": "geo-backend-jwt-secret"
+                }
+              }
+            }
+          ],
+          "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4",
+          "name": "geo-backend-1",
+          "ports": [
+            {
+              "containerPort": 8080,
+              "name": "http1"
+            }
+          ],
+          "resources": {
+            "limits": {
+              "cpu": "1",
+              "memory": "512Mi"
+            }
+          },
+          "startupProbe": {
+            "failureThreshold": 1,
+            "periodSeconds": 240,
+            "tcpSocket": {
+              "port": 8080
+            },
+            "timeoutSeconds": 240
+          }
+        }
+      ],
+      "serviceAccountName": "geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com",
+      "timeoutSeconds": 300
+    },
+    "runtimeSha256": "71d36f4b949260515542fb64100915481149c7e833dc07558d0712457ca90e94",
+    "serviceAnnotations": {
+      "run.googleapis.com/ingress": "all",
+      "run.googleapis.com/maxScale": "20"
+    },
+    "templateAnnotations": {
+      "autoscaling.knative.dev/maxScale": "20",
+      "run.googleapis.com/cloudsql-instances": "",
+      "run.googleapis.com/startup-cpu-boost": "true"
+    }
+  },
+  "iamSha256": "4f098028995ae0d0f50572c4126053443316c4fb6f8ee3642eb5ad587a784522",
+  "build": {
+    "id": "41751c09-1397-45f2-acff-c8080f148793",
+    "status": "SUCCESS",
+    "imageDigest": "sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4",
+    "source": {
+      "storageSource": {
+        "bucket": "geo-attendance-system-db9ca_cloudbuild",
+        "generation": "1791762249738047",
+        "object": "source/1791762233.095693-8a9f3e1089fd4f65b3a51cf56979126c.tgz"
+      }
+    },
+    "createTime": "2026-10-11T23:44:11.166555007Z",
+    "finishTime": "2026-10-11T23:45:23.356116Z"
+  },
+  "hostingVersion": "7d52593100c9f3a2",
+  "hostingEffectiveConfig": {
+    "headers": [
+      {
+        "glob": "/sw.js",
+        "headers": {
+          "Cache-Control": "no-cache"
+        }
+      },
+      {
+        "glob": "/offline.html",
+        "headers": {
+          "Cache-Control": "no-cache"
+        }
+      },
+      {
+        "glob": "/install.html",
+        "headers": {
+          "Cache-Control": "no-cache"
+        }
+      },
+      {
+        "glob": "/manifest.webmanifest",
+        "headers": {
+          "Cache-Control": "public,max-age=3600"
+        }
+      }
+    ],
+    "rewrites": [
+      {
+        "glob": "/api/**",
+        "run": {
+          "serviceId": "geo-backend",
+          "region": "australia-southeast1"
+        }
+      },
+      {
+        "glob": "/uploads/**",
+        "run": {
+          "serviceId": "geo-backend",
+          "region": "australia-southeast1"
+        }
+      }
+    ]
+  },
+  "hostingChannels": [
+    {
+      "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/live",
+      "url": "https://geo-attendance-system-db9ca.web.app",
+      "expireTime": null,
+      "version": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/versions/7d52593100c9f3a2",
+      "versionStatus": "FINALIZED",
+      "releaseTime": "2026-10-12T00:58:53.004Z"
+    },
+    {
+      "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/release-ui-20261012",
+      "url": "https://geo-attendance-system-db9ca--release-ui-20261012-wcij2qzb.web.app",
+      "expireTime": "2026-10-19T00:55:35.412505360Z",
+      "version": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/versions/7d52593100c9f3a2",
+      "versionStatus": "FINALIZED",
+      "releaseTime": "2026-10-12T00:55:43.141Z"
+    },
+    {
+      "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/rollback-ui-20261012",
+      "url": "https://geo-attendance-system-db9ca--rollback-ui-20261012-6qgao7g2.web.app",
+      "expireTime": "2026-10-19T00:19:51.388350569Z",
+      "version": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/versions/ba2962f66af41dcb",
+      "versionStatus": "FINALIZED",
+      "releaseTime": "2026-10-12T00:19:52.193Z"
+    }
+  ],
+  "inventory": {
+    "accountCredentialsSha256": "c134d7e6e340110dfdbc357388453087bf1b70b6d31693a7b041450d742fe3c8",
+    "auditCount": 221,
+    "immutableSubmissionColumns": [
+      "id",
+      "department_id",
+      "form_id",
+      "worker_id",
+      "site_id",
+      "work_date",
+      "answers_json",
+      "form_definition_version",
+      "definition_snapshot_json",
+      "photo_urls",
+      "photo_metadata",
+      "client_submission_id",
+      "status",
+      "created_at"
+    ],
+    "immutableSubmissionsSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "ledgerChecksumMismatches": [],
+    "ledgerMatchesBundledPrefix": true,
+    "ledgerVersionPrefixMatches": true,
+    "migrationChecksums": {
+      "0001_initial_schema": "ca680312c20261896afd57ee8e3fa77fabd7e43547546e8b3234cd00d96a0598",
+      "0002_work_form_photo_metadata": "53beedb98b3f626671de343613d48f5c9692c952c21264b2141f3ef2b6e2acaf",
+      "0003_departments": "efaf3cbc645cf72c2b89439ee2f2936c70084bcc4b6d299cb17dca0030535aec",
+      "0004_registration_verification": "cc6b9a22bee6c96b319e00e38c0ca508b312e53bd6464f22d5663d451b5b9e5e",
+      "0005_dashboard_department_preference": "16a27e1990ec07b60b5c2b7dc31f56b1a32af5447e3e7d4f41e2cbf970d7f9ca",
+      "0006_manual_attendance_entries": "f843a3ead5678a779e0affed06b8695edcf0e2eb801518d5906c8fcdc33f9608",
+      "0007_record_rubbish_bin": "238a66040a3ce4873b2c51838b907de5f91bb6522e40d7ab4a277f36eeb79a50",
+      "0008_manual_task_logs": "760e26aab15969ac8e2784e40c348fa60410e6d8e2201be2f4ef12c56f2387e3",
+      "0009_worker_classes_and_team_logs": "ff685e351f255bb1c049d1ec8e1f6bdb1629c7a9c7de522c6bb6ddc078ba463e",
+      "0010_pdf_daywork_form_template": "d8c51b0a395a931bd03bebf8eec78ae035edb5d91d5d34e4d9592a81d82e106c",
+      "0011_multi_team_daywork_form": "408df2694d00aa0f71086bf42874d04d6e6c68bba3786f4f77500f681777ae7b",
+      "0012_form_and_team_log_rubbish_bin": "3ff6be84f747b9b65284333ce1014c24eaad1d1f984ae9f97460218a4f0a7d4a",
+      "0013_daywork_team_break_options": "a4be942d39791da59cc7ef6594a0f63fcfb097b4756db7c42cca88d5c4afcb35",
+      "0014_client_submission_unique_indexes": "8057dc963d8169d6efda2d6f7b16b4bd34d06f4026fbfa9f4bbcb4f520300fea",
+      "0015_work_form_definition_snapshots": "3f2c89faa22b8c8bc6b5b9269f56c2c010383b04c504d23e598b7ac95a472e20",
+      "0016_review_queue_indexes": "1f08daac75297fdcfe3871ba261834b14707a426cc1253920e5cc4c2bdf0f4a7",
+      "0017_global_admin_supervisor_invariant": "3f5cfdc6cf1fb0a652d302a2cc4257d449816a5266c58790777b279311855424",
+      "0018_report_review_workflow": "5ebdbf80b5a6e7fb5e984125eb888d3b5daf02b949051479458c98663f9e0785",
+      "0019_report_daywork_purpose": "51324596555f46d6b12cf3cb98ce6c6e5e3d33bcaf1c62ce8ef9220b1adf6487",
+      "0020_missing_snapshot_daywork_correction": "42039acf7600a876ef1ef5d1f65dd7bf7df47a8749158b453fb54ff3029e5112",
+      "0021_worker_invitations": "313800ca901d913e7ba1ec09c586e671607f5bdfc1643322a512c6eb4bb769ad",
+      "0022_worker_password_recovery": "178f7bcbdf92ab060d433d37b62d77dafc62590a675edb91fe50d6d02f11cfb8"
+    },
+    "migrationCount": 22,
+    "migrationHead": "0022_worker_password_recovery",
+    "missingSnapshots": [],
+    "recordedAtUtc": "2026-10-13T23:23:45.843265+00:00",
+    "recoverySchema": {
+      "accountCount": 2,
+      "columnsPresent": [
+        "auth_generation",
+        "legacy_auth_allowed",
+        "password_recovery_generation"
+      ],
+      "legacyAllowedCount": 1,
+      "nullSecurityStateCount": 0,
+      "recoveryRowCount": 0,
+      "tablePresent": true,
+      "zeroAuthGenerationCount": 2,
+      "zeroRecoveryGenerationCount": 1
+    },
+    "schemaVersion": 1,
+    "status": "passed",
+    "submissionCount": 0,
+    "templateCount": 0,
+    "transactionReadOnly": true,
+    "userCounts": [
+      {
+        "count": 2,
+        "role": "supervisor",
+        "status": "active"
+      }
+    ]
+  },
+  "inventoryChangedFields": [],
+  "runtimeTrafficIamAndBuildUnchanged": true,
+  "full85FileHttpParity": true,
+  "observedInventoryUnchangedFromFreshBaseline": true,
+  "inventoryExcludedFields": [
+    "recordedAtUtc"
+  ],
+  "all22MigrationChecksumsUnchanged": true,
+  "anonymousDirectAndHostingCheckCount": 14,
+  "sourceAndProofInputsUnchanged": true,
+  "productionIdentityUnchangedDuringRead": true,
+  "completedAtUtc": "2026-10-13T23:23:57.538532+00:00"
+}

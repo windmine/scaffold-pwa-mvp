@@ -1,0 +1,248 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "checkedAtUtc": "2026-10-13T23:25:34.386317+00:00",
+  "sourceCommit": "e1501d4c91d567521c9dce4d112a0ef15f19c97b",
+  "referenceBackendSourceCommit": "c5b7ab56a54cb786042b592fb06288a5e7c18990",
+  "method": "Compare exact Git tree/blob objects and SHA-256 file manifests between commits; working-tree line endings do not affect runtime parity. Independently validate the retained deployment archive, manifest and existing build/promotion record links.",
+  "runtimeSourceComparisons": [
+    {
+      "path": "backend/app",
+      "fileCount": 44,
+      "equal": true,
+      "referenceGitObject": "653bd9f779e79375c85db0be14b1b33f1bc9e63d",
+      "currentGitObject": "653bd9f779e79375c85db0be14b1b33f1bc9e63d",
+      "fileContentManifestSha256": "f546fb7c38f9e032df8b18d5a7fcd3397b529a7f973d53a4d5f07362d331117b"
+    },
+    {
+      "path": "backend/migrations",
+      "fileCount": 24,
+      "equal": true,
+      "referenceGitObject": "96700b5e219f01e14a89d5266e4d9483b85dfbd9",
+      "currentGitObject": "96700b5e219f01e14a89d5266e4d9483b85dfbd9",
+      "fileContentManifestSha256": "ddda9189cf06a93330eb17092856387648cd04e6df05ede0fd16451380f16c0c"
+    },
+    {
+      "path": "requirements.txt",
+      "fileCount": 1,
+      "equal": true,
+      "referenceGitObject": "470925e6d7a21c3046b167df70ddb4ac676ee4ad",
+      "currentGitObject": "470925e6d7a21c3046b167df70ddb4ac676ee4ad",
+      "fileContentManifestSha256": "de0b7d870233dadd90dd06d3ffcf0b062fe57126d1a36c422ae8a0c386238dd7"
+    },
+    {
+      "path": "Dockerfile",
+      "fileCount": 1,
+      "equal": true,
+      "referenceGitObject": "f311b4b46417dc980cd00c6f2053a0da110091dc",
+      "currentGitObject": "f311b4b46417dc980cd00c6f2053a0da110091dc",
+      "fileContentManifestSha256": "3517a3d375c97371eca1773a066deb2b6b52a772d643a263a21740690a81e732"
+    },
+    {
+      "path": ".dockerignore",
+      "fileCount": 1,
+      "equal": true,
+      "referenceGitObject": "3e360424d340197614e2c1f42360ea57da83a643",
+      "currentGitObject": "3e360424d340197614e2c1f42360ea57da83a643",
+      "fileContentManifestSha256": "0bb4de70efac9dfd60d7fff287fe457ceaecb6d7de657fce7500fccb8404053b"
+    },
+    {
+      "path": ".gcloudignore",
+      "fileCount": 1,
+      "equal": true,
+      "referenceGitObject": "3e360424d340197614e2c1f42360ea57da83a643",
+      "currentGitObject": "3e360424d340197614e2c1f42360ea57da83a643",
+      "fileContentManifestSha256": "44de2151d7d556cedcd872e43d2c2f1b04802d8bc55af6c707bd11b508917bae"
+    }
+  ],
+  "unchangedMigrationCount": 22,
+  "migrationRequired": false,
+  "backendDeltas": [
+    {
+      "path": "backend/invitation_test.py",
+      "change": "M",
+      "classification": "test-only",
+      "description": "Owned disposable HTTP test-server cleanup."
+    },
+    {
+      "path": "backend/postgres_rehearsal.py",
+      "change": "M",
+      "classification": "test-only",
+      "description": "Isolated native PostgreSQL rehearsal service-environment correction."
+    },
+    {
+      "path": "backend/postgres_rehearsal_environment_test.py",
+      "change": "A",
+      "classification": "test-only",
+      "description": "Native PostgreSQL environment regression checks."
+    },
+    {
+      "path": "backend/report_volume_test.py",
+      "change": "A",
+      "classification": "test-only",
+      "description": "Synthetic native PostgreSQL history/export volume probes."
+    },
+    {
+      "path": "backend/security_test.py",
+      "change": "M",
+      "classification": "test-only",
+      "description": "Owned disposable HTTP security-test server cleanup."
+    },
+    {
+      "path": "backend/test_server_process.py",
+      "change": "A",
+      "classification": "test-only",
+      "description": "Owned test-server process-tree and port cleanup helper."
+    }
+  ],
+  "dockerCopyAssessment": {
+    "instruction": "COPY backend ./backend",
+    "wholeBackendTreeEqual": false,
+    "runtimeApplicationAndMigrationsEqual": true,
+    "changedBackendPaths": 6,
+    "changedBackendPathsAreOnlyTestsAndRehearsalTools": true,
+    "meaning": "A new image would package the six test/rehearsal deltas. Application source, entrypoint, migrations, requirements and Docker/ignore inputs are unchanged. A hypothetical rebuild is not claimed byte-identical."
+  },
+  "existingDeploymentProvenance": {
+    "status": "verified_from_existing_artifacts",
+    "sourceCommit": "c5b7ab56a54cb786042b592fb06288a5e7c18990",
+    "verifiedArchivedSourceFiles": 104,
+    "archiveSha256": "4f9666e0faa24b092c3cbb07f9411df5e1dfc85f0dd82b07a35acb997e16ecd9",
+    "retainedArchiveMatchesRecordedManifestExactly": true,
+    "archiveSourceMatchesGitAfterRecordedLineEndingNormalization": true,
+    "archiveLineEndings": {
+      "byteIdenticalGitFiles": 35,
+      "textFilesDifferingOnlyByCRLFversusLF": 69,
+      "normalizedPaths": [
+        ".dockerignore",
+        ".gcloudignore",
+        "Dockerfile",
+        "backend/app/assets/report-fonts/.gitattributes",
+        "backend/app/auth.py",
+        "backend/app/authorization.py",
+        "backend/app/config.py",
+        "backend/app/database.py",
+        "backend/app/main.py",
+        "backend/app/maintenance.py",
+        "backend/app/migrations.py",
+        "backend/app/models.py",
+        "backend/app/rate_limit.py",
+        "backend/app/schemas.py",
+        "backend/app/upload_storage.py",
+        "backend/app/use_cases/__init__.py",
+        "backend/app/use_cases/attendance.py",
+        "backend/app/use_cases/audit.py",
+        "backend/app/use_cases/common.py",
+        "backend/app/use_cases/record_trash.py",
+        "backend/app/use_cases/registration.py",
+        "backend/app/use_cases/report_pdf.py",
+        "backend/app/use_cases/report_pdf_branding.py",
+        "backend/app/use_cases/report_pdf_fonts.py",
+        "backend/app/use_cases/review_queue.py",
+        "backend/app/use_cases/review_record_adapters.py",
+        "backend/app/use_cases/review_record_policy.py",
+        "backend/app/use_cases/staff_site_admin.py",
+        "backend/app/use_cases/supervisor_review.py",
+        "backend/app/use_cases/supervisor_review_exports.py",
+        "backend/app/use_cases/task_logs.py",
+        "backend/app/use_cases/team_work_logs.py",
+        "backend/app/use_cases/work_forms.py",
+        "backend/app/use_cases/worker_invitations.py",
+        "backend/app/use_cases/worker_password_recovery.py",
+        "backend/database_test.py",
+        "backend/invitation_test.py",
+        "backend/maintenance_test.py",
+        "backend/migration_cli_test.py",
+        "backend/migration_test.py",
+        "backend/migrations/__init__.py",
+        "backend/password_recovery_test.py",
+        "backend/postgres_invitation_rehearsal.py",
+        "backend/postgres_migration_rehearsal.py",
+        "backend/postgres_password_recovery_rehearsal.py",
+        "backend/postgres_rehearsal.py",
+        "backend/postgres_review_rehearsal.py",
+        "backend/postgres_template_edit_rehearsal.py",
+        "backend/report_export_evidence_test.py",
+        "backend/report_export_test.py",
+        "backend/report_pdf_branding_test.py",
+        "backend/report_pdf_layout_test.py",
+        "backend/report_pdf_preview.py",
+        "backend/report_pdf_unicode_preview.py",
+        "backend/report_pdf_unicode_test.py",
+        "backend/report_pdf_volume_test.py",
+        "backend/report_photo_limit_test.py",
+        "backend/report_purpose_correction_test.py",
+        "backend/report_purpose_test.py",
+        "backend/report_review_order_test.py",
+        "backend/report_upload_recovery_test.py",
+        "backend/report_workflow_test.py",
+        "backend/review_queue_test.py",
+        "backend/security_test.py",
+        "backend/smoke_test.py",
+        "backend/template_edit_test.py",
+        "backend/upload_storage_test.py",
+        "backend/work_form_definition_test.py",
+        "requirements.txt"
+      ],
+      "explanation": "The retained archive exactly matches its recorded manifest. Listed UTF-8 text files differ from Git blobs only in CRLF/LF endings; all remaining files match byte-for-byte. This normalization applies only to historical archive provenance; current-versus-reference runtime source equality above is exact."
+    },
+    "buildId": "41751c09-1397-45f2-acff-c8080f148793",
+    "buildStatus": "SUCCESS",
+    "buildStorageSource": {
+      "bucket": "geo-attendance-system-db9ca_cloudbuild",
+      "generation": "1791762249738047",
+      "object": "source/1791762233.095693-8a9f3e1089fd4f65b3a51cf56979126c.tgz"
+    },
+    "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4",
+    "revision": "geo-backend-fixes-20261012",
+    "promotionVerifiedAtUtc": "2026-10-12T00:01:06.464920+00:00",
+    "sourceToBuildLink": "Source-package manifest and retained archive content match c5b7ab5 with the line-ending distinction above. The build-submission record binds that source commit and image tag to the successful build ID. Declared step arguments, image names and logging options match the saved successful build. Its output digest matches candidate, promotion and later frontend backend-postcheck.",
+    "evidence": [
+      {
+        "path": "docs/evidence/report-fixes-release-20261012/source-package.json",
+        "sha256": "8619254e95995ec0ba390240a5de53f6df4d2d7170163ab0bd2d5caced1dc07e"
+      },
+      {
+        "path": "docs/evidence/report-fixes-release-20261012/build-submission-r2.json",
+        "sha256": "81f9ca5b4590316d69364bc4d860c9c0b0867a0fa407e5517197950f797fc52d"
+      },
+      {
+        "path": "docs/evidence/report-fixes-release-20261012/build.json",
+        "sha256": "0553b0de51b456390e4bf332d48741b5abb36bf9f465804b6050019f928d1a08"
+      },
+      {
+        "path": "docs/evidence/report-fixes-release-20261012/build-configuration.json",
+        "sha256": "9b7bbf6a010b1c8655fe69bd16d733febffe63657055cea79b08d2d951ccc244"
+      },
+      {
+        "path": "docs/evidence/report-fixes-release-20261012/candidate-deployment.json",
+        "sha256": "83db806aa0bb32da0c2a15318cd91c6aae0850c73448864afc1edccca02bbf21"
+      },
+      {
+        "path": "docs/evidence/report-fixes-release-20261012/backend-promotion.json",
+        "sha256": "859df250cc99637e7c33e0fc0c562a7d20b3f447020832cac0a6eafc0b31c329"
+      },
+      {
+        "path": "docs/evidence/report-fixes-release-20261012/image-validation.json",
+        "sha256": "5ca5274ecc8934256b0806695c5ba272b084868498758f4dbefd5a26ca948c09"
+      }
+    ],
+    "releaseIndex": {
+      "path": "docs/evidence/report-fixes-release-20261012/release.json",
+      "sha256": "25597ad5bc58325f3fcdc646281ca4d86483d4f2855143b55dcbd90a2b47fbe2"
+    },
+    "laterBackendPostcheck": {
+      "path": "docs/evidence/frontend-release-20261012/backend-postcheck.json",
+      "sha256": "c8581366643d284c6ead5f3a5ccd1515a88b3bf4200088db8256e2a9933266b7"
+    }
+  },
+  "conclusion": "No new backend application behavior or migration needs deployment. Retaining the verified deployed image preserves the runtime and avoids rebuilding against a mutable Python base image.",
+  "providerCallsPerformed": false,
+  "buildPerformed": false,
+  "deploymentPerformed": false,
+  "limits": [
+    "Current serving identity, runtime/IAM, health and database inventory require separate fresh read-only verification.",
+    "Existing provider artifacts are checked locally; the remote source object and container filesystem were not downloaded again.",
+    "Six test/rehearsal changes are not claimed to be present inside the retained deployed image."
+  ]
+}

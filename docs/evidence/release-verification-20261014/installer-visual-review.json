@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "recordedAtUtc": "2026-10-13T23:23:44.960977+00:00",
+  "sourceCommit": "e1501d4c91d567521c9dce4d112a0ef15f19c97b",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "scope": "Human-readable visual inspection of the three supplied fresh live installer screenshots using local image viewing, with artifact hashes verified against the hosted installer evidence.",
+  "installerEvidence": {
+    "path": "docs/evidence/release-verification-20261014/live-installer.json",
+    "bytes": 7647,
+    "sha256": "293438406d37709c5cd519412c8b938b8e51f41659a9755128e8b2df79512ed4"
+  },
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "screenshots": [
+    {
+      "label": "english",
+      "path": "docs/evidence/release-verification-20261014/live-installer-english.png",
+      "bytes": 79554,
+      "sha256": "7d1256436055831db19e9aa787b8497cf8c941d2c9fd0f5bcf2b5d117e8836f8",
+      "imageWidth": 390,
+      "imageHeight": 1976,
+      "visualResult": "passed",
+      "observations": "Brand/header and language controls align. Full iPhone/iPad and Android instructions are readable; action labels, intact logo and complete QR are clear. Cards, download links and storage-preservation guidance do not overlap."
+    },
+    {
+      "label": "chinese",
+      "path": "docs/evidence/release-verification-20261014/live-installer-chinese.png",
+      "bytes": 88333,
+      "sha256": "c762b7ac4899b2a6b9132e4ed4117f61755d4a22acb1aff3b98933590a820b12",
+      "imageWidth": 390,
+      "imageHeight": 1908,
+      "visualResult": "passed",
+      "observations": "Chinese headings, instructions, account guidance, download labels and preservation note render legibly with proper wrapping. Brand, language controls, QR and buttons fit the page width."
+    },
+    {
+      "label": "offline",
+      "path": "docs/evidence/release-verification-20261014/live-installer-offline.png",
+      "bytes": 79554,
+      "sha256": "7d1256436055831db19e9aa787b8497cf8c941d2c9fd0f5bcf2b5d117e8836f8",
+      "imageWidth": 390,
+      "imageHeight": 1976,
+      "visualResult": "passed",
+      "observations": "The full installer remains visually complete, including logo, instructions, QR, copy/download controls and preservation guidance. It is byte-identical to the English screenshot."
+    }
+  ],
+  "summary": [
+    "No visible page overflow, missing images, overlapping controls or unreadable instructional text in either language.",
+    "The long installation URL remains contained in its single-line field, with a separate Copy link action below it; the automated evidence binds its complete value.",
+    "English online and cold-offline screenshots are identical."
+  ],
+  "limitations": [
+    "Screenshots are Chromium captures at 390px width, not physical iOS/Android installation or camera-based QR verification.",
+    "No native installation, recipient sharing, authenticated workflow or PDF page visual review was performed in this review.",
+    "The screenshot review does not establish a new service-worker update transition."
+  ]
+}

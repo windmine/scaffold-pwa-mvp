@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "outcome": "already-current-no-deployment-required",
+  "recordedAtUtc": "2026-10-13T23:25:53.033406+00:00",
+  "verificationDateLocal": "2026-10-14",
+  "timezone": "Pacific/Auckland",
+  "requestedAction": "deploy everything",
+  "verifiedSourceCommit": "e1501d4c91d567521c9dce4d112a0ef15f19c97b",
+  "reason": "Current application source matches the released backend runtime source; a fresh locked frontend build exactly matches all 85 live files. Changes since release are CI, tests, development-tool locks, and documentation. Retain the verified serving artifacts.",
+  "production": {
+    "url": "https://geo-attendance-system-db9ca.web.app",
+    "hostingVersion": "7d52593100c9f3a2",
+    "hostingOriginalSourceCommit": "e6b38f95834b66577a519bed3226f1cc1f314f73",
+    "cache": "leader-field-f8081912f2bd",
+    "backendRevision": "geo-backend-fixes-20261012",
+    "backendImage": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4",
+    "backendOriginalSourceCommit": "c5b7ab56a54cb786042b592fb06288a5e7c18990",
+    "backendBuildId": "41751c09-1397-45f2-acff-c8080f148793",
+    "traffic": [
+      {
+        "percent": 100,
+        "revisionName": "geo-backend-fixes-20261012"
+      }
+    ]
+  },
+  "verification": {
+    "liveIdentityCheckedAtUtc": "2026-10-13T23:23:57.538532+00:00",
+    "freshLockedBuildAndLintPassed": true,
+    "fullLiveFileParity": 85,
+    "pwaShellAssets": 75,
+    "installerArtifacts": 7,
+    "installerImagesVisuallyReviewed": 3,
+    "anonymousDirectAndHostingChecks": 14,
+    "strictHardeningChecks": 40,
+    "runtimeAndIamUnchanged": true,
+    "all22MigrationChecksumsUnchanged": true,
+    "observedInventoryUnchangedFromFreshBaseline": true,
+    "inventoryExcludedFields": [
+      "recordedAtUtc"
+    ],
+    "ciUrl": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38477858216",
+    "ciConclusion": "success",
+    "completeMobileWorkflowsPassed": 73,
+    "nativePostgresEnvironmentGroups": 4,
+    "nativePostgresVolumeProbes": 24,
+    "browserHistoryVolumes": [
+      100,
+      1000
+    ]
+  },
+  "actions": {
+    "backendDeploymentPerformed": false,
+    "hostingDeploymentPerformed": false,
+    "trafficChanged": false,
+    "migrationPerformed": false,
+    "maintenancePerformed": false,
+    "providerConfigurationChanged": false,
+    "hostedApplicationFixturesCreated": false,
+    "existingUserLoginsUsed": false,
+    "deviceStorageCleared": false
+  },
+  "waitingUpdate": {
+    "status": "not-applicable",
+    "reason": "Live and fresh-build service worker bytes and cache identity are identical; no new service worker was published. Historical update evidence is not relabeled as a new run."
+  },
+  "warnings": [
+    "warn - Neon history retention is only 6 hours; choose a longer paid window or external logical backups before relying on it for production recovery"
+  ],
+  "limits": [
+    "No authenticated hosted workflow or physical-phone run was performed.",
+    "The unchanged deployed image retains its historical test files; the new test harness is active in GitHub CI, not repackaged into production.",
+    "CI success binds the verified source commit. A later documentation-only commit does not change the application and is not claimed to have completed a new CI run.",
+    "Database preservation compares the inventory helper's observed fields against the fresh October 14 baseline, not against October 12 or an exhaustive database backup.",
+    "Recovery proofs remain within their configured age limits and were independently rechecked by the fresh strict gate; no new recovery drill was performed."
+  ],
+  "evidence": [
+    {
+      "path": "docs/evidence/release-verification-20261014/.gitattributes",
+      "sha256": "95b16508ccb4f40f1f331f35070d7f907e2a0b275c01a9230b44e752feb7cc08",
+      "bytes": 157
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/backend-baseline.json",
+      "sha256": "6f0e59c1c9b013beebd7e64f818bd91bbc37b6a78ee764d77bb62e8dc32d2dc3",
+      "bytes": 7653
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/build-manifest.json",
+      "sha256": "4b20947e0775360a499c0a216f91c1b93ad3a529ee4a16de2e92a5400a3c7c12",
+      "bytes": 9155
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/build-parity.json",
+      "sha256": "8878e652e2e14e0fef1e3f66a1458ccb02d90d98dd7eeebdb3fbfef2596d83ba",
+      "bytes": 4869
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/ci/backend-volume.json",
+      "sha256": "e2e7eb83a3a3b8da7b29d573f7b3eda6a66d2c0f2796de1b19dc7dd3aa663397",
+      "bytes": 30300
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/ci/history-volume.json",
+      "sha256": "f5a954c8c23e5d8851dd9ba6de8c7ad519487c9ce2b3e1fcf1bc16f9ace0c7c1",
+      "bytes": 2233
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/ci/postgres-environment.json",
+      "sha256": "a5e0bdc8823c297d143e83aaec1d2dea09e242a3574ada9eeae407fad0530404",
+      "bytes": 1791
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/ci/resolved-remote-ci.json",
+      "sha256": "f7135fbf6900734b154a2d0580d9e8decf2f5d7b0ed6b109785b6991afcd58f3",
+      "bytes": 1910
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/ci/run-observation.json",
+      "sha256": "4abb888ac86e81b8a60fb9358202d1971052614757f1143ea6b3c68c89ce50cf",
+      "bytes": 9829
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/current-production.json",
+      "sha256": "29f89e8e215f6083bad3590496620c11fd00acffee9165a6524c581ea46fd3d5",
+      "bytes": 44520
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/hardening-current.json",
+      "sha256": "900f6d722d68cc1f73dfb727f0052b42f1eb41d30ecd7a1c58e3a7111f2c368b",
+      "bytes": 5140
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/installer-visual-review.json",
+      "sha256": "ea9b120f4f82fdd50ba82d8e2f82db537347a351bab8a4c322a8cc81c64f2a26",
+      "bytes": 3125
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/live-installer-chinese.png",
+      "sha256": "c762b7ac4899b2a6b9132e4ed4117f61755d4a22acb1aff3b98933590a820b12",
+      "bytes": 88333
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/live-installer-english.png",
+      "sha256": "7d1256436055831db19e9aa787b8497cf8c941d2c9fd0f5bcf2b5d117e8836f8",
+      "bytes": 79554
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/live-installer-offline.png",
+      "sha256": "7d1256436055831db19e9aa787b8497cf8c941d2c9fd0f5bcf2b5d117e8836f8",
+      "bytes": 79554
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/live-installer.json",
+      "sha256": "293438406d37709c5cd519412c8b938b8e51f41659a9755128e8b2df79512ed4",
+      "bytes": 7647
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/live-shell.json",
+      "sha256": "0bc90aa86454f9265a787ba3a2d3bf5087ee86037a4fef21069771942ab6537c",
+      "bytes": 17336
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/operator-sources/check-hardening.log.txt",
+      "sha256": "8adbf2038d2ef569657df238f0f54de0c60c2687e6ff0f20a6d44abadf2c88a7",
+      "bytes": 3336
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/operator-sources/check-hardening.py",
+      "sha256": "049558951bfd0aba532c0499f6e6a9eb4428a98664d7cf1c867ded1ae473bcc1",
+      "bytes": 2842
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/operator-sources/npm-build.log.txt",
+      "sha256": "850c6b757b4a492551a1f984075c9ec682fe9254d42525907d555b12bef055c5",
+      "bytes": 1363
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/operator-sources/npm-ci.log.txt",
+      "sha256": "e2e44777b522600e14644a42148c2c7ea015c8a32e06b7f6b2002cfdeec0384b",
+      "bytes": 149
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/operator-sources/npm-lint.log.txt",
+      "sha256": "b871853392637b6055cb1bb29c9caa0697b0c4e1afb69dbcfc9a944323f2c9fa",
+      "bytes": 47
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/operator-sources/verify-current-production.py",
+      "sha256": "b89a0da3940f26a3e3c5e6c2e3d724d4aebd8487e386c5b47934b7d39bf58fed",
+      "bytes": 16699
+    },
+    {
+      "path": "docs/evidence/release-verification-20261014/runtime-source-parity.json",
+      "sha256": "d9e9d1107ff04718231171f9dad1194cdf504c59b9094de7f20f90537809309b",
+      "bytes": 11612
+    }
+  ]
+}

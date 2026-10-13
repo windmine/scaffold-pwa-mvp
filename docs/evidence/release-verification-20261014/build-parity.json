@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "scope": "Fresh locked local frontend install, production build, lint, and byte-for-byte parity with the October 12 frozen build. No Hosting or backend provider calls.",
+  "startedAtUtc": "2026-10-13T23:19:38.366764+00:00",
+  "completedAtUtc": "2026-10-13T23:21:36.688821+00:00",
+  "sourceCommit": "e1501d4c91d567521c9dce4d112a0ef15f19c97b",
+  "environment": {
+    "platform": "Windows",
+    "node": "24.15.0",
+    "npm": "11.12.1",
+    "vite": "8.1.4"
+  },
+  "commands": [
+    {
+      "command": "npm ci",
+      "startedAtUtc": "2026-10-13T23:19:54.8548533Z",
+      "completedAtUtc": "2026-10-13T23:20:05.7090328Z",
+      "exitCode": 0,
+      "log": {
+        "path": "output/release-20261014.local/npm-ci.log",
+        "bytes": 149,
+        "sha256": "e2e44777b522600e14644a42148c2c7ea015c8a32e06b7f6b2002cfdeec0384b"
+      }
+    },
+    {
+      "command": "npm run build",
+      "startedAtUtc": "2026-10-13T23:20:22.2072453Z",
+      "completedAtUtc": "2026-10-13T23:20:26.0557130Z",
+      "exitCode": 0,
+      "log": {
+        "path": "output/release-20261014.local/npm-build.log",
+        "bytes": 1363,
+        "sha256": "850c6b757b4a492551a1f984075c9ec682fe9254d42525907d555b12bef055c5"
+      }
+    },
+    {
+      "command": "npm run lint",
+      "startedAtUtc": "2026-10-13T23:20:22.5181886Z",
+      "completedAtUtc": "2026-10-13T23:20:36.4478402Z",
+      "exitCode": 0,
+      "log": {
+        "path": "output/release-20261014.local/npm-lint.log",
+        "bytes": 47,
+        "sha256": "b871853392637b6055cb1bb29c9caa0697b0c4e1afb69dbcfc9a944323f2c9fa"
+      }
+    }
+  ],
+  "inputSha256": {
+    "package.json": "0ef53cdf9c69e546cb0dffcc9310dfd6ae0c50937d570c5394cc6a41a6dd21fd",
+    "package-lock.json": "a80e2a886f78a77adcf5d8d1e551fe1b70e7143d6bc203bf0700130fc1b8a825",
+    "firebase.json": "3d7ee67e97c67b3c8d4bafe76eeeca71d794e9370858cc27a95ce0f74c575ee7",
+    "vite.config.js": "abd250bc395887328c9a415741c4fc0fc7aec32594f3334feddabcfb3c2ee0c8",
+    "scripts/generate-pwa-service-worker.mjs": "2ab263ccc6d968aed1eff0263f89f44abf5ef8962a84bf6f57912ab5502c5bdc",
+    "scripts/pwa-shell-assets.mjs": "d25edf808059f296732a2524ca5de714180e67ae03c73e0139b6671c7bc0fb95",
+    "index.html": "8d92b9521b364ae4d7f3164179f510e1adb55b28dc9dbd6cd71c90b231ecaf73",
+    "sw.js": "2da863b86b3a483fbbde6e12772bab6fe3b0f2c65111195ca1294a2e08fca8b9"
+  },
+  "trackedStatusBefore": "",
+  "trackedStatusAfter": "",
+  "trackedFilesChangedByInstallBuildLint": [],
+  "distParity": {
+    "baselineSourceCommit": "e6b38f95834b66577a519bed3226f1cc1f314f73",
+    "baselineHostingVersion": "7d52593100c9f3a2",
+    "baselineManifest": {
+      "path": "docs/evidence/frontend-release-20261012/build-manifest.json",
+      "bytes": 9155,
+      "sha256": "69dd11ca137eccf63549c0ddf2a4f35fdb43ff359c6d776c4edb147c755138ff"
+    },
+    "freshManifest": {
+      "path": "docs/evidence/release-verification-20261014/build-manifest.json",
+      "bytes": 9155,
+      "sha256": "4b20947e0775360a499c0a216f91c1b93ad3a529ee4a16de2e92a5400a3c7c12"
+    },
+    "baselineFileCount": 85,
+    "freshFileCount": 85,
+    "matchingPathsAndHashes": 85,
+    "addedPaths": [],
+    "removedPaths": [],
+    "changedPaths": [],
+    "allPathsAndHashesEqual": true,
+    "canonicalMappingEncoding": "UTF-8 JSON, keys sorted, compact separators comma and colon",
+    "baselineMappingSha256": "728b137dd4a45630de24852e41335203f55da45c8aa3895a2960441b297642ce",
+    "freshMappingSha256": "728b137dd4a45630de24852e41335203f55da45c8aa3895a2960441b297642ce",
+    "sourceCache": "leader-field-5578491b5f12",
+    "builtCache": "leader-field-f8081912f2bd",
+    "builtCacheUnchanged": true,
+    "indexSha256": "b6c11a1b345ad149efb4b893dbd109517dad716ffabab97f4103fe4daffcadb7",
+    "swSha256": "13e77abdb796d8fefd1161579cd040eb6f6245f95e7443a600c320a57d9cc8cf"
+  },
+  "diagnostics": [
+    "npm ci reported zero vulnerabilities.",
+    "The build retained the existing Vite warning about chunks larger than 500 kB; no byte changed relative to the previous frozen build."
+  ],
+  "limits": [
+    "This proof compares fresh local output to the committed October 12 build manifest; it does not itself establish current live Hosting identity or live bytes.",
+    "No complete mobile rerun was performed in this step. Current-source GitHub CI validation is recorded separately (run 38477858216).",
+    "Because the frozen frontend service-worker bytes and cache identity are unchanged, an old-to-new waiting-worker transition is not applicable unless live inspection reveals different serving bytes. Do not claim a new transition pass from this local comparison.",
+    "No hosted fixtures, existing-user login, provider mutation, migration or physical-phone certification occurred."
+  ]
+}

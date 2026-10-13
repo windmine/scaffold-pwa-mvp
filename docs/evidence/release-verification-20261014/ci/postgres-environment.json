@@ -1,0 +1,45 @@
+{
+  "started_at": "2026-10-13T22:28:48.814134+00:00",
+  "isolation": "new local cluster, loopback only, synthetic data, non-superuser database owner",
+  "checks": [
+    {
+      "label": "Inherited service variables are removed, never replaced with empty strings"
+    },
+    {
+      "label": "Unrelated settings survive while inherited connection overrides are removed"
+    },
+    {
+      "label": "Settings introduced during phase import cannot select a PostgreSQL service"
+    },
+    {
+      "label": "Callback service settings cannot prevent the owned non-superuser loopback connection"
+    }
+  ],
+  "failures": [],
+  "scope": "review",
+  "passed": true,
+  "cleanup_complete": true,
+  "binary_version": "postgres (PostgreSQL) 17.11 (Ubuntu 17.11-1.pgdg24.04+2)",
+  "server_version": "PostgreSQL 17.11 (Ubuntu 17.11-1.pgdg24.04+2) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+  "finished_at": "2026-10-13T22:28:50.292704+00:00",
+  "environment_observations": {
+    "services_absent_before_phase_import": true,
+    "inherited_connection_settings_removed": true,
+    "phase_import_injected_services": true,
+    "services_absent_after_phase_import": true,
+    "services_absent_at_connection": true,
+    "owned_database_connection_succeeded": true,
+    "caller_environment_restored": true,
+    "outer_environment_restored": true
+  },
+  "runtime": {
+    "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "python": "3.11.17",
+    "psycopg": "3.3.4",
+    "libpq_version": 180000
+  },
+  "source_sha256": {
+    "backend/postgres_rehearsal.py": "a725a541411363797414def8aa5074e02eb592897f3d56b3262a176dba079d47",
+    "backend/postgres_rehearsal_environment_test.py": "38cb0e1c8f9ae770966515ee03d8e4dd7ae2c5237d55a616e158dc7bd3572443"
+  }
+}
