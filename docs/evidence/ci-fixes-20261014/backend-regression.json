@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-13T20:57:57.388467+00:00",
+  "status": "local_passed_awaiting_github_actions",
+  "scope": "Disposable rehearsal and CI test harness only; no application, migration, hosted data, runtime configuration or deployment change.",
+  "original_github_failure": {
+    "run_url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38316026948",
+    "job_url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38316026948/job/115032738546",
+    "source_commit": "b977ad3b0e725b19ee78455714a8726ae9d2d8de",
+    "path": "output/ci-failure-20261014.local/artifacts/backend-growth-evidence/backend-volume.json",
+    "sha256": "c08f866e2a50859ee5128b687ca9b0510b4028e1d4f06aaaf9b959a3c7e690d9",
+    "passed": false,
+    "cleanup_complete": true,
+    "started_at": "2026-10-12T22:21:57.498130+00:00",
+    "finished_at": "2026-10-12T22:21:58.765292+00:00",
+    "binary_version": "postgres (PostgreSQL) 17.11 (Ubuntu 17.11-1.pgdg24.04+2)",
+    "check_count": 0,
+    "failures": [
+      {
+        "phase": "review",
+        "error": "OperationalError: (psycopg.OperationalError) connection is bad: service file \"\" not found\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+      }
+    ],
+    "environment": {
+      "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+      "python": "3.11.17",
+      "logical_cpu_count": 4,
+      "contention_note": "Concurrent load was not controlled or recorded; timings are descriptive correctness-run observations.",
+      "contention_note_source": "operator; no OS workload isolation is claimed"
+    },
+    "first_owned_engine_connection_failed": true,
+    "completed_volume_datasets": 0,
+    "runner_sha256": "4134311861c7772b8cb98469cdee56c662d4aecec05678a2ed7bbdad3d538e88"
+  },
+  "diagnosis": {
+    "cause": "The runner replaced absent PGSERVICE and PGSERVICEFILE with empty strings. On POSIX, libpq interprets both as configured values and fails while opening the empty service-file path before connecting to the explicitly selected owned database.",
+    "windows_masking": {
+      "path": "output/ci-failure-20261014.local/windows-empty-environment.json",
+      "sha256": "64fe4a456c543cb2f54b48540d03e098c78f4c33e91e956df0c48e4c4b819326",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "python": "3.14.5",
+      "results": {
+        "PGSERVICE": {
+          "python_environment_contains_key": true,
+          "python_value_is_empty": true,
+          "native_getenv_is_null": true
+        },
+        "PGSERVICEFILE": {
+          "python_environment_contains_key": true,
+          "python_value_is_empty": true,
+          "native_getenv_is_null": true
+        }
+      },
+      "interpretation": "On this Windows runtime, assigning an empty value leaves the Python mapping key but removes the CRT variable. Linux libpq reads an actual empty native value."
+    },
+    "primary_sources": [
+      "https://www.postgresql.org/docs/17/libpq-envars.html",
+      "https://raw.githubusercontent.com/postgres/postgres/REL_17_STABLE/src/interfaces/libpq/fe-connect.c"
+    ],
+    "linux_libpq_differential": {
+      "path": "output/ci-failure-20261014.local/linux-libpq/differential.json",
+      "sha256": "6d12e937f28e4ffe3c7a3487b8887a2d502a566cb615e0a18270d45f5e10430d",
+      "environment": "WSL docker-desktop Linux x86_64, task-local Alpine musl client libraries; not the Ubuntu GitHub runner",
+      "psql_version": "psql (PostgreSQL) 17.11",
+      "package_source": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/",
+      "package_sha256": {
+        "libpq-17.11-r0.apk": "8033b1e6be177b679de357bce7d6f435e8536fb598017acda89f3c7e7b1abf6a",
+        "postgresql17-client-17.11-r0.apk": "41b1d0b7065da4d27b43d4f63eb7918d5b51d589d53996d6dc5b4aa8c5097d11"
+      },
+      "loaded_libpq_sha256": "d12492314c8d34022f229120b20cb02823ca0d67f9884d7f5756c16dd82ef3dd",
+      "isolated_environment": "env -i with task-local LD_LIBRARY_PATH; each case uses identical explicit loopback connection options",
+      "connection_options": "host=127.0.0.1 hostaddr=127.0.0.1 port=1 dbname=synthetic user=synthetic connect_timeout=1 sslmode=disable gssencmode=disable",
+      "cases": [
+        {
+          "case": "unset",
+          "exitCode": 2,
+          "message": "psql: error: connection to server at \"127.0.0.1\", port 1 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?"
+        },
+        {
+          "case": "both-empty",
+          "exitCode": 2,
+          "message": "psql: error: service file \"\" not found"
+        },
+        {
+          "case": "empty-service-only",
+          "exitCode": 2,
+          "message": "psql: error: definition of service \"\" not found"
+        },
+        {
+          "case": "empty-file-only",
+          "exitCode": 2,
+          "message": "psql: error: connection to server at \"127.0.0.1\", port 1 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?"
+        }
+      ],
+      "boundary": "Unset and empty-file-only cases reach an intentionally closed loopback port. No successful Linux database connection or full Linux application check is claimed. Packages were fetched and unpacked only into the ignored task directory; no package installation or service start occurred."
+    }
+  },
+  "fix": {
+    "runner": "backend/postgres_rehearsal.py",
+    "behavior": "Leave both service variables absent. Remove only these two variables again after phase imports and at each owned database factory call. Preserve explicit loopback settings and restore the complete caller environment on exit.",
+    "regression": "backend/postgres_rehearsal_environment_test.py",
+    "regression_scope": "Real owned native cluster with synthetic inherited service settings, simulated import-time settings, callback-time settings, non-superuser loopback connection and exact caller-environment restoration.",
+    "tested_source_sha256": {
+      "backend/postgres_rehearsal.py": "a725a541411363797414def8aa5074e02eb592897f3d56b3262a176dba079d47",
+      "backend/postgres_rehearsal_environment_test.py": "38cb0e1c8f9ae770966515ee03d8e4dd7ae2c5237d55a616e158dc7bd3572443"
+    },
+    "unchanged_volume_test_sha256": "e3302b9b414969d25a1c7a1bed61f434bf9e4d0d8404822ed98714483e4ae0e7"
+  },
+  "red_old_runner": {
+    "path": "output/ci-failure-20261014.local/postgres-environment-old.json",
+    "sha256": "59f53894b9c8198474feb243a60a2dc605ceac9480bed9dc438b7a0752e97668",
+    "passed": false,
+    "cleanup_complete": true,
+    "started_at": "2026-10-13T20:53:08.765832+00:00",
+    "finished_at": "2026-10-13T20:53:15.982883+00:00",
+    "binary_version": "postgres (PostgreSQL) 17.6",
+    "check_count": 0,
+    "failures": [
+      {
+        "phase": "review",
+        "error": "AssertionError: Service variables must be absent, not empty, before phase imports"
+      }
+    ],
+    "runtime": {
+      "platform": "Windows-11-10.0.26200-SP0",
+      "python": "3.14.5",
+      "psycopg": "3.3.4",
+      "libpq_version": 180003
+    },
+    "environment_observations": {
+      "services_absent_before_phase_import": false,
+      "inherited_connection_settings_removed": true,
+      "phase_import_injected_services": true,
+      "caller_environment_restored": true,
+      "outer_environment_restored": true
+    },
+    "source_sha256": {
+      "backend/postgres_rehearsal.py": "4134311861c7772b8cb98469cdee56c662d4aecec05678a2ed7bbdad3d538e88",
+      "backend/postgres_rehearsal_environment_test.py": "38cb0e1c8f9ae770966515ee03d8e4dd7ae2c5237d55a616e158dc7bd3572443"
+    }
+  },
+  "green_fixed_runner": {
+    "path": "output/ci-failure-20261014.local/postgres-environment-fixed.json",
+    "sha256": "8a46b2bedc66a8175100e8b4ea253b91ffd1d61bcd6048afda52bf18d7410fc9",
+    "passed": true,
+    "cleanup_complete": true,
+    "started_at": "2026-10-13T20:53:28.646955+00:00",
+    "finished_at": "2026-10-13T20:53:37.851772+00:00",
+    "binary_version": "postgres (PostgreSQL) 17.6",
+    "check_count": 4,
+    "failures": [],
+    "runtime": {
+      "platform": "Windows-11-10.0.26200-SP0",
+      "python": "3.14.5",
+      "psycopg": "3.3.4",
+      "libpq_version": 180003
+    },
+    "environment_observations": {
+      "services_absent_before_phase_import": true,
+      "inherited_connection_settings_removed": true,
+      "phase_import_injected_services": true,
+      "services_absent_after_phase_import": true,
+      "services_absent_at_connection": true,
+      "owned_database_connection_succeeded": true,
+      "caller_environment_restored": true,
+      "outer_environment_restored": true
+    },
+    "check_labels": [
+      "Inherited service variables are removed, never replaced with empty strings",
+      "Unrelated settings survive while inherited connection overrides are removed",
+      "Settings introduced during phase import cannot select a PostgreSQL service",
+      "Callback service settings cannot prevent the owned non-superuser loopback connection"
+    ],
+    "source_sha256": {
+      "backend/postgres_rehearsal.py": "a725a541411363797414def8aa5074e02eb592897f3d56b3262a176dba079d47",
+      "backend/postgres_rehearsal_environment_test.py": "38cb0e1c8f9ae770966515ee03d8e4dd7ae2c5237d55a616e158dc7bd3572443"
+    }
+  },
+  "ci_profile_fixed_runner": {
+    "path": "output/ci-failure-20261014.local/backend-volume-fixed.json",
+    "sha256": "103d2a477b713a9e486cd0ecb854955f349858d22dd7ae548b286cf7184f0883",
+    "passed": true,
+    "cleanup_complete": true,
+    "started_at": "2026-10-13T20:54:04.688249+00:00",
+    "finished_at": "2026-10-13T20:55:04.216629+00:00",
+    "binary_version": "postgres (PostgreSQL) 17.6",
+    "check_count": 2,
+    "failures": [],
+    "profile": "ci",
+    "probe_count": 24,
+    "environment": {
+      "platform": "Windows-11-10.0.26200-SP0",
+      "python": "3.14.5",
+      "logical_cpu_count": 20,
+      "contention_note": "Coordinated local validation; other heavy test jobs paused. Background OS work uncontrolled.",
+      "contention_note_source": "operator; no OS workload isolation is claimed"
+    },
+    "datasets": [
+      {
+        "own_report_count": 25,
+        "probe_count": 12,
+        "all_observed_report_fields_unchanged": true,
+        "all_response_statuses_200": true
+      },
+      {
+        "own_report_count": 100,
+        "probe_count": 12,
+        "all_observed_report_fields_unchanged": true,
+        "all_response_statuses_200": true
+      }
+    ]
+  },
+  "full_native_fixed_runner": {
+    "path": "output/ci-failure-20261014.local/native-postgres-fixed.json",
+    "sha256": "568ad4fb656f05876fcbbd156eb28a5274279d8379d0dc325632a5f06414a945",
+    "passed": true,
+    "cleanup_complete": true,
+    "started_at": "2026-10-13T20:55:12.061631+00:00",
+    "finished_at": "2026-10-13T20:56:33.365116+00:00",
+    "binary_version": "postgres (PostgreSQL) 17.6",
+    "check_count": 82,
+    "failures": []
+  },
+  "limits": [
+    "Green owned-cluster checks ran on Windows 11, Python 3.14.5, psycopg 3.3.4, libpq 18.3 and PostgreSQL server 17.6.",
+    "The exact service-file error was separately reproduced on Linux libpq 17.11. This compact record does not include a new Ubuntu GitHub Actions pass; the subsequent run must be verified separately.",
+    "Volume timings are diagnostic correctness-run observations, not an SLA or hosted performance claim.",
+    "No hosted application fixtures, existing-user login, provider writes, migration or deployment were performed."
+  ]
+}

@@ -85,6 +85,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends postgresql-17
           /usr/lib/postgresql/17/bin/postgres --version
+      - name: Verify native PostgreSQL environment isolation
+        run: python backend/postgres_rehearsal_environment_test.py --pg-bin /usr/lib/postgresql/17/bin --output output/ci/postgres-environment.json
       - name: Check small native PostgreSQL volume with a new owned local cluster
         run: python backend/report_volume_test.py --pg-bin /usr/lib/postgresql/17/bin --profile ci --output output/ci/backend-volume.json
       - name: Retain aggregate growth evidence

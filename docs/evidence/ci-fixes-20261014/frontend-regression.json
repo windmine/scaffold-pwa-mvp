@@ -1,0 +1,414 @@
+{
+  "status": "focused-local-pass-awaiting-remote-ci",
+  "recordedAtUtc": "2026-10-13T20:53:59.986545Z",
+  "sourceCommitBeforeFix": "b977ad3b0e725b19ee78455714a8726ae9d2d8de",
+  "originalRemoteFailure": {
+    "runId": 38316026948,
+    "jobId": 115032738333,
+    "runUrl": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38316026948",
+    "environment": "Ubuntu 24.04; Node 24.21.0; Python 3.11.17",
+    "condition": "First checkSubmissionSessionReset(200) timed out after 30000ms waiting for window.fixture.uploadStarted",
+    "sourceLocation": "scripts/offline-report-template-worker-test.mjs:175",
+    "individualCause": "UNCONFIRMED: the original remote run did not capture Issue value, inertness or native validation events.",
+    "originalFullLog": {
+      "path": "output/ci-failure-20261014.local/original-failed.log",
+      "sha256": "5df9e9c0be7b3bd0ead5a18936f92991bb93531e088f6f72b09bc665063fdab7",
+      "bytes": 324563
+    }
+  },
+  "hypothesesBeforeExperiments": [
+    {
+      "rank": 1,
+      "prediction": "If draft-restoration inertness causes a silent fill, holding real native completion reproduces an empty Issue without input events; waiting for non-inert state permits entry and upload."
+    },
+    {
+      "rank": 2,
+      "prediction": "If photo readiness is missing, the failing pre-submit snapshot has no accepted photo or saved-draft mismatch despite a correct Issue."
+    },
+    {
+      "rank": 3,
+      "prediction": "If another prerequisite or interception is wrong, correct Issue/photo state accompanies a Date/auth/validation error or a request pathname that bypasses the upload hook."
+    }
+  ],
+  "unchangedLocalBaseline": {
+    "status": "passed",
+    "workerGroups": 12,
+    "log": {
+      "path": "output/ci-failure-20261014.local/frontend-baseline.log",
+      "sha256": "d19e34146e28499774a82a5e46f3fe07bd9cc04fd98abe3f435038a76398b827",
+      "bytes": 1190
+    },
+    "meaning": "The original failure was not reproduced by the unchanged Windows focused run."
+  },
+  "controlledFailureMode": {
+    "status": "confirmed",
+    "mechanism": "Playwright fill can return while the form is inert and leave its required Issue blank. Programmatic photo selection then saves a photo-only draft. Native required-field validation blocks submit, so uploadStarted never becomes true.",
+    "nativeStorageControl": "Native IDBObjectStore.get succeeds with its actual result. Only delivery of the original readonly legacy-draft transaction.oncomplete callback is held; request success, result and storage data are not replaced.",
+    "red": {
+      "status": "failed",
+      "sameTimeoutMilliseconds": 30000,
+      "observations": [
+        {
+          "stage": "native-draft-complete-held",
+          "issue": "",
+          "date": "2026-10-14",
+          "inert": true,
+          "active": "",
+          "photoBlobs": 0,
+          "photoFiles": 0,
+          "autosave": "Changes save automatically on this device.",
+          "messages": [],
+          "uploadStarted": false,
+          "events": [
+            {
+              "kind": "native-request-success",
+              "hasValue": false
+            },
+            {
+              "kind": "native-complete"
+            }
+          ]
+        },
+        {
+          "stage": "issue-fill-returned",
+          "issue": "",
+          "date": "2026-10-14",
+          "inert": true,
+          "active": "",
+          "photoBlobs": 0,
+          "photoFiles": 0,
+          "autosave": "Changes save automatically on this device.",
+          "messages": [],
+          "uploadStarted": false,
+          "events": [
+            {
+              "kind": "native-request-success",
+              "hasValue": false
+            },
+            {
+              "kind": "native-complete"
+            }
+          ]
+        },
+        {
+          "stage": "before-submit",
+          "issue": "",
+          "date": "2026-10-14",
+          "inert": false,
+          "active": "",
+          "photoBlobs": 1,
+          "photoFiles": 1,
+          "autosave": "Saved at 9:48 AM.",
+          "messages": [],
+          "uploadStarted": false,
+          "events": [
+            {
+              "kind": "native-request-success",
+              "hasValue": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "delivered-complete"
+            }
+          ]
+        },
+        {
+          "stage": "after-submit",
+          "issue": "",
+          "date": "2026-10-14",
+          "inert": false,
+          "active": "workFormField_issue",
+          "photoBlobs": 1,
+          "photoFiles": 1,
+          "autosave": "Saved at 9:48 AM.",
+          "messages": [],
+          "uploadStarted": false,
+          "events": [
+            {
+              "kind": "native-request-success",
+              "hasValue": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "delivered-complete"
+            },
+            {
+              "kind": "invalid",
+              "id": "workFormField_issue",
+              "valueMissing": true
+            }
+          ]
+        },
+        {
+          "stage": "upload-wait-finished",
+          "issue": "",
+          "date": "2026-10-14",
+          "inert": false,
+          "active": "workFormField_issue",
+          "photoBlobs": 1,
+          "photoFiles": 1,
+          "autosave": "Saved at 9:48 AM.",
+          "messages": [],
+          "uploadStarted": false,
+          "events": [
+            {
+              "kind": "native-request-success",
+              "hasValue": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "delivered-complete"
+            },
+            {
+              "kind": "invalid",
+              "id": "workFormField_issue",
+              "valueMissing": true
+            }
+          ]
+        }
+      ],
+      "log": {
+        "path": "output/ci-failure-20261014.local/frontend-held-read-old.log",
+        "sha256": "a9d51ac5808eee4cd8ed69bd216a5ada39ed69de1b7b238f9d421d12b8295a76",
+        "bytes": 2254
+      }
+    },
+    "green": {
+      "status": "passed",
+      "observations": [
+        {
+          "stage": "native-draft-complete-held",
+          "issue": "",
+          "date": "2026-10-14",
+          "inert": true,
+          "active": "",
+          "photoBlobs": 0,
+          "photoFiles": 0,
+          "autosave": "Changes save automatically on this device.",
+          "messages": [],
+          "uploadStarted": false,
+          "events": [
+            {
+              "kind": "native-request-success",
+              "hasValue": false
+            },
+            {
+              "kind": "native-complete"
+            }
+          ]
+        },
+        {
+          "stage": "issue-fill-returned",
+          "issue": "Original Worker evidence",
+          "date": "2026-10-14",
+          "inert": false,
+          "active": "workFormField_issue",
+          "photoBlobs": 0,
+          "photoFiles": 0,
+          "autosave": "Saving draft...",
+          "messages": [],
+          "uploadStarted": false,
+          "events": [
+            {
+              "kind": "native-request-success",
+              "hasValue": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "delivered-complete"
+            },
+            {
+              "kind": "issue-input",
+              "length": 24
+            }
+          ]
+        },
+        {
+          "stage": "before-submit",
+          "issue": "Original Worker evidence",
+          "date": "2026-10-14",
+          "inert": false,
+          "active": "workFormField_issue",
+          "photoBlobs": 1,
+          "photoFiles": 1,
+          "autosave": "Saved at 9:50 AM.",
+          "messages": [],
+          "uploadStarted": false,
+          "events": [
+            {
+              "kind": "native-request-success",
+              "hasValue": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "delivered-complete"
+            },
+            {
+              "kind": "issue-input",
+              "length": 24
+            }
+          ]
+        },
+        {
+          "stage": "after-submit",
+          "issue": "Original Worker evidence",
+          "date": "2026-10-14",
+          "inert": false,
+          "active": "",
+          "photoBlobs": 1,
+          "photoFiles": 1,
+          "autosave": "Saved at 9:50 AM.",
+          "messages": [],
+          "uploadStarted": false,
+          "events": [
+            {
+              "kind": "native-request-success",
+              "hasValue": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "delivered-complete"
+            },
+            {
+              "kind": "issue-input",
+              "length": 24
+            }
+          ]
+        },
+        {
+          "stage": "upload-wait-finished",
+          "issue": "Original Worker evidence",
+          "date": "2026-10-14",
+          "inert": false,
+          "active": "",
+          "photoBlobs": 1,
+          "photoFiles": 1,
+          "autosave": "Saved at 9:50 AM.",
+          "messages": [],
+          "uploadStarted": true,
+          "events": [
+            {
+              "kind": "native-request-success",
+              "hasValue": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "delivered-complete"
+            },
+            {
+              "kind": "issue-input",
+              "length": 24
+            },
+            {
+              "kind": "fetch",
+              "pathname": "/api/photo-uploads"
+            }
+          ]
+        }
+      ],
+      "log": {
+        "path": "output/ci-failure-20261014.local/frontend-held-read-ready.log",
+        "sha256": "381ab6ede9f0da44e4a84f5eba8217cf0677630c61fe388c8a87442b03e53b0d",
+        "bytes": 2048
+      }
+    },
+    "otherHypotheses": "The controlled failure had a valid Report Date and one accepted Blob/file with saved status. It raised native valueMissing on Issue before any upload fetch; the green run reached /api/photo-uploads."
+  },
+  "permanentRegression": {
+    "file": "scripts/offline-report-template-worker-test.mjs",
+    "redBeforeReadinessFix": {
+      "status": "failed",
+      "assertion": "Issue editing must wait for native draft restoration",
+      "sourceSha256": "47cee7efc5f0e3c07cc335d9e8d9f7af9c71bf2dc99ddafa93805535327dfd06",
+      "log": {
+        "path": "output/ci-failure-20261014.local/frontend-regression-red.log",
+        "sha256": "3877466dc4a1fad67474feb25e2c295c26cc0bc169dffdf7683fcbf83c7cf38b",
+        "bytes": 780
+      }
+    },
+    "greenAfterFix": {
+      "status": "passed",
+      "workerGroups": 13,
+      "log": {
+        "path": "output/ci-failure-20261014.local/frontend-regression-green.log",
+        "sha256": "7a458599f97a1479eee45fc4abc140a24a696aca60229db7b8363646d7ac8fa6",
+        "bytes": 1338
+      }
+    },
+    "coverage": [
+      "Hold native draft completion separately for original and replacement Workers",
+      "Require editing to remain pending while native completion is held",
+      "Release the real callback and assert exact visible Issue",
+      "Assert exact persisted Issue and one photo before submit or prior-upload release",
+      "Preserve prior-session upload 200/401 isolation, queue retirement and replacement-draft assertions"
+    ],
+    "caseIsolation": "Held variant uses Workers10400/11400; natural cases retain400/1400 and601/1601, preventing prior-case queue/draft matches.",
+    "negativeObservationWindowMilliseconds": 100,
+    "negativeObservationLimit": "On an unusually slow runner an old eager fill could remain pending during the short negative observation window. The captured old-source run did fail that assertion; exact post-release value and persisted-evidence assertions still run in every fixed regression."
+  },
+  "fix": {
+    "change": "A same-file fill helper waits for the mounted Issue and form.inert=false, then asserts the entered value. All three select-and-edit callsites use it; the later edit uses the same helper. Session-reset cases verify exact saved Issue/photo content.",
+    "applicationCodeChanged": false,
+    "timeoutsIncreased": false,
+    "assertionsRemoved": false,
+    "savedBoundaryReview": "handlePhotoChange synchronously marks the draft dirty and clears saved status; persistDraftState awaits pending photos and all revisions before restoring saved status (worker-form.js:1305,303-321,345-374).",
+    "independentReview": "Root reviewed the diff without blockers; product reviewer identified case-ID reuse before green and confirmed unique IDs.",
+    "currentSourceSha256": "1f84b7bc2341a8b5b8cee50e511ec5b566bd5834ebdda09cb8e16defdf17924d",
+    "applicationSourceSha256": {
+      "assets/js/worker-form.js": "abcb8c252bb8ace87157ef2a68807798d665d6460a372d93851b68cc1a92391c",
+      "assets/js/db.js": "fea6c978904fcc751dca3b720a763fb2beb26f9f409c003d46d97602f376bbb2"
+    }
+  },
+  "validation": {
+    "offlineTemplateGroup": {
+      "command": "npm run check:offline-report-templates",
+      "status": "passed",
+      "groups": 22,
+      "breakdown": {
+        "snapshot": 7,
+        "worker": 13,
+        "submitRender": 2
+      },
+      "log": {
+        "path": "output/ci-failure-20261014.local/frontend-focused-group.log",
+        "sha256": "61c9366a427b518aebe0b13e963d1e02b8f36a453d4fc3c0ac0864ba5d34cb27",
+        "bytes": 2490
+      }
+    },
+    "lint": {
+      "command": "npm run lint",
+      "status": "passed",
+      "log": {
+        "path": "output/ci-failure-20261014.local/frontend-lint.log",
+        "sha256": "b871853392637b6055cb1bb29c9caa0697b0c4e1afb69dbcfc9a944323f2c9fa",
+        "bytes": 47
+      }
+    },
+    "environment": {
+      "platform": "Windows",
+      "node": "v24.15.0",
+      "playwright": "1.61.1"
+    },
+    "newRemoteRun": "pending root commit/push and actual Linux CI verification",
+    "applicationFixtures": "All browser module requests intercepted; no hosted fixtures or external writes."
+  },
+  "limits": [
+    "The controlled failure matches the original timeout but does not individually establish the cause of that uninstrumented Linux run.",
+    "The focused local pass is not an actual Linux CI pass.",
+    "No full local mobile rerun was performed; actual remote full CI is the next validation gate."
+  ]
+}

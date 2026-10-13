@@ -63,6 +63,13 @@ def rehearsal(pg_bin, *, migrations_only=False, review_only=False):
         return _rehearsal(pg_bin, migrations_only=migrations_only, review_only=review_only)
 
 
+def _clear_service_environment():
+    # libpq treats empty service settings as configured values on POSIX. Keep
+    # them absent, including when a phase import has loaded a dotenv file.
+    os.environ.pop("PGSERVICE", None)
+    os.environ.pop("PGSERVICEFILE", None)
+
+
 def _rehearsal(pg_bin, *, migrations_only=False, review_only=False):
     tools = postgres_tools(pg_bin)
     root = Path(tempfile.mkdtemp(prefix=PREFIX)).resolve()
@@ -98,6 +105,7 @@ def _rehearsal(pg_bin, *, migrations_only=False, review_only=False):
     def database(label):
         if not label.replace("_", "").isalnum():
             raise ValueError("Rehearsal database labels must be alphanumeric/underscore")
+        _clear_service_environment()
         name = f"rehearsal_{label[:25]}_{secrets.token_hex(6)}"
         admin.execute(sql.SQL("CREATE DATABASE {} OWNER rehearsal_app").format(sql.Identifier(name)))
         engine = create_engine(
@@ -144,7 +152,7 @@ def _rehearsal(pg_bin, *, migrations_only=False, review_only=False):
             "GEO_SECRET_KEY": secrets.token_urlsafe(32), "ENABLE_DEV_SEED": "false", "SQL_ECHO": "false",
             "UPLOAD_STORAGE_BACKEND": "local", "UPLOAD_DIR": str(root / "uploads"), "UPLOAD_BUCKET": "",
             "BUSINESS_TIMEZONE": "Pacific/Auckland",
-            "PGHOSTADDR": "127.0.0.1", "PGSERVICE": "", "PGSERVICEFILE": "", "PGGSSENCMODE": "disable",
+            "PGHOSTADDR": "127.0.0.1", "PGGSSENCMODE": "disable",
         }
         with patch.dict(os.environ, runtime):
             phases = []
@@ -163,6 +171,7 @@ def _rehearsal(pg_bin, *, migrations_only=False, review_only=False):
                 phases.append(("password_recovery", run_password_recovery_checks))
             for phase, run_checks in phases:
                 try:
+                    _clear_service_environment()
                     run_checks(database, report)
                 except Exception as error:
                     message = f"{type(error).__name__}: {error}".replace(bootstrap_password, "[redacted]").replace(app_password, "[redacted]")

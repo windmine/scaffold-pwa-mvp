@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "scope": "Repair the first GitHub CI failures without changing application behavior",
+  "original_run": {
+    "id": 38316026948,
+    "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38316026948",
+    "commit": "b977ad3b0e725b19ee78455714a8726ae9d2d8de",
+    "branch": "codex/report-submission-mvp",
+    "conclusion": "failure",
+    "created_at": "2026-10-12T22:19:52Z",
+    "frontend": {
+      "job_id": 115032738333,
+      "failed_step": "Build and run the complete disposable mobile gate",
+      "error": "page.waitForFunction: Timeout 30000ms exceeded at checkSubmissionSessionReset, scripts/offline-report-template-worker-test.mjs:175",
+      "observation": "The first module-reset scenario never observed uploadStarted. The original log does not capture its input or draft-loading state. Installation, audit, dependency consistency, workflow validation and lint passed. Later mobile suites and browser volume were not reached."
+    },
+    "backend": {
+      "job_id": 115032738546,
+      "failed_step": "Check small native PostgreSQL volume with a new owned local cluster",
+      "error": "OperationalError: (psycopg.OperationalError) connection is bad: service file \"\" not found",
+      "observation": "All disposable backend suites passed. PostgreSQL 17.11 started and its identity was verified, but the first review engine connection failed before any volume dataset. The owned cluster was removed."
+    },
+    "environment": {
+      "os": "Ubuntu 24.04.5",
+      "python": "3.11.17",
+      "node": "24.21.0",
+      "postgresql": "17.11"
+    }
+  },
+  "status": "focused_validation_complete",
+  "record_scope": "This pre-push record captures the original failure, controlled reproductions, fixes and local validation. GitHub Actions records the remote result for each subsequent commit.",
+  "fixes": {
+    "frontend": {
+      "file": "scripts/offline-report-template-worker-test.mjs",
+      "change": "Wait until the selected form is no longer inert before filling its Issue, assert the entered value, and verify the saved answer and photo before the existing upload/session-reset checks.",
+      "regression": "Hold the real native draft transaction completion for both original and replacement Workers. Editing must remain pending until release; the complete scenario then preserves the replacement Worker's draft.",
+      "causality_limit": "The controlled reproduction reaches the same 30-second timeout through an empty required Issue. The original uninstrumented GitHub timeout remains individually unconfirmed.",
+      "evidence": "frontend-regression.json"
+    },
+    "backend": {
+      "files": ["backend/postgres_rehearsal.py", "backend/postgres_rehearsal_environment_test.py", ".github/workflows/ci.yml"],
+      "change": "Keep PGSERVICE and PGSERVICEFILE absent instead of empty, including settings introduced by phase imports or callbacks before an owned connection.",
+      "cause": "Linux libpq treats empty-but-present service variables as configured values and fails with service file empty-string not found. Windows native environment handling removes empty assignments and masked the defect locally.",
+      "regression": "Verify inherited settings are removed, import/callback service settings cannot redirect or prevent the owned non-superuser loopback connection, and the caller environment is restored. Run this check after PostgreSQL installation in CI.",
+      "evidence": "backend-regression.json"
+    }
+  },
+  "validation": {
+    "frontend_focused_groups": {"passed": 22, "failed": 0},
+    "lint": "passed",
+    "postgres_environment_checkpoints": {"passed": 4, "failed": 0},
+    "postgres_volume_probes": {"passed": 24, "failed": 0},
+    "full_native_postgres_checkpoints": {"passed": 82, "failed": 0},
+    "owned_cluster_cleanup": "confirmed for all local native runs",
+    "workflow_syntax": "actionlint 1.7.12 passed on Windows; Linux CI additionally runs its available ShellCheck",
+    "syntax_and_whitespace": "Node syntax, Python compilation and git diff --check passed",
+    "independent_review": "Both fixes, regressions and CI wiring reviewed without remaining blockers",
+    "remote_results": "https://github.com/windmine/scaffold-pwa-mvp/actions/workflows/ci.yml?query=branch%3Acodex%2Freport-submission-mvp"
+  },
+  "boundaries": [
+    "Historical October 12 local validation remains unchanged; it did not establish a remote Ubuntu pass.",
+    "No application source was changed, no assertions were removed, and no test timeouts were increased.",
+    "No production deployment, migration, hosted application fixture or user-data change is part of this repair."
+  ]
+}

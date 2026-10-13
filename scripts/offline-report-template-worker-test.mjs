@@ -137,11 +137,85 @@ async function checkAppSessionRestore(refreshStatus, currentUserStatus, expectSi
   }
 }
 
-async function checkSubmissionSessionReset(uploadStatus) {
+async function fillIssue(page, issue) {
+  // A mounted field can still be inert while its native draft read is pending.
+  await page.waitForFunction(() => document.querySelector('#workFormField_issue')
+    && document.querySelector('#workFormSubmissionForm')?.inert === false);
+  await page.locator('#workFormField_issue').fill(issue);
+  assert.equal(await page.locator('#workFormField_issue').inputValue(), issue);
+}
+
+async function holdDraftCompletion(page, workerId) {
+  await page.evaluate((currentWorkerId) => {
+    const nativeGet = IDBObjectStore.prototype.get;
+    const completion = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'oncomplete');
+    const targetKey = `work-form-draft:${currentWorkerId}:51`;
+    const hold = window.fixture.draftReadHold = { pending: [], requestSucceeded: false };
+    IDBObjectStore.prototype.get = function (key) {
+      const request = nativeGet.call(this, key);
+      if (this.name === 'drafts' && key === targetKey && this.transaction.mode === 'readonly'
+        && this.transaction.db.name === 'scaffold-pwa-local') {
+        this.transaction.holdDraftCompletion = true;
+        request.addEventListener('success', () => { hold.requestSucceeded = true; });
+      }
+      return request;
+    };
+    Object.defineProperty(IDBTransaction.prototype, 'oncomplete', {
+      ...completion,
+      set(callback) {
+        const transaction = this;
+        completion.set.call(this, typeof callback === 'function' ? function (event) {
+          if (transaction.holdDraftCompletion) {
+            hold.pending.push(() => callback.call(transaction, event));
+          } else callback.call(transaction, event);
+        } : callback);
+      }
+    });
+    hold.release = () => {
+      IDBObjectStore.prototype.get = nativeGet;
+      Object.defineProperty(IDBTransaction.prototype, 'oncomplete', completion);
+      for (const deliver of hold.pending.splice(0)) deliver();
+    };
+  }, workerId);
+}
+
+async function selectAndFillIssue(page, issue, { holdRead = false, workerId } = {}) {
+  if (holdRead) await holdDraftCompletion(page, workerId);
+  await page.locator('#workFormSelect').selectOption('51');
+  if (!holdRead) return fillIssue(page, issue);
+  await page.waitForFunction(() => window.fixture.draftReadHold.pending.length > 0);
+  assert.equal(await page.evaluate(() => window.fixture.draftReadHold.requestSucceeded
+    && document.querySelector('#workFormSubmissionForm').inert), true);
+  const filling = fillIssue(page, issue).then(() => ({ completed: true }), (error) => ({ completed: true, error }));
+  try {
+    // Keep native completion held across an actual fill attempt; an eager fill
+    // must not silently finish before the editor becomes interactive.
+    const early = await Promise.race([
+      filling, page.waitForTimeout(100).then(() => ({ completed: false }))
+    ]);
+    assert.equal(early.completed, false, 'Issue editing must wait for native draft restoration');
+  } finally {
+    await page.evaluate(() => window.fixture.draftReadHold.release());
+  }
+  const outcome = await filling;
+  if (outcome.error) throw outcome.error;
+}
+
+async function assertSavedIssue(page, workerId, issue) {
+  await page.locator('#workFormAutosaveStatus.saved').waitFor();
+  assert.deepEqual(await page.evaluate(async (currentWorkerId) => {
+    const { getDraft } = await import('/assets/js/mock-api.js');
+    const draft = await getDraft(`work-form-draft:${currentWorkerId}:51`);
+    return { issue: draft?.answers?.issue, photos: draft?.photoBlobs?.length };
+  }, workerId), { issue, photos: 1 });
+}
+
+async function checkSubmissionSessionReset(uploadStatus, { holdDraftReads = false } = {}) {
   // Explicit module reset is a defensive contract test, not a claimed live
   // logout reproduction: the app itself blocks logout during submission.
-  const originalWorker = { ...worker, id: 200 + uploadStatus };
-  const replacementWorker = { ...worker, id: 1200 + uploadStatus };
+  const fixtureOffset = holdDraftReads ? 10000 : 0;
+  const originalWorker = { ...worker, id: fixtureOffset + 200 + uploadStatus };
+  const replacementWorker = { ...worker, id: fixtureOffset + 1200 + uploadStatus };
   const page = await context.newPage();
   try {
     await openWorkerPage(page, originalWorker);
@@ -167,10 +241,9 @@ async function checkSubmissionSessionReset(uploadStatus) {
         picker.dispatchEvent(new Event('change', { bubbles: true }));
       };
     }, { currentWorker: originalWorker, status: uploadStatus });
-    await page.locator('#workFormSelect').selectOption('51');
-    await page.locator('#workFormField_issue').fill('Original Worker evidence');
+    await selectAndFillIssue(page, 'Original Worker evidence', { holdRead: holdDraftReads, workerId: originalWorker.id });
     await page.evaluate(() => window.fixture.selectPhoto());
-    await page.locator('#workFormAutosaveStatus.saved').waitFor();
+    await assertSavedIssue(page, originalWorker.id, 'Original Worker evidence');
     await page.locator('#submitWorkFormButton').click();
     await page.waitForFunction(() => window.fixture.uploadStarted);
 
@@ -181,10 +254,9 @@ async function checkSubmissionSessionReset(uploadStatus) {
       saveSession(currentWorker);
       await window.fixture.form.refreshWorkForms();
     }, replacementWorker);
-    await page.locator('#workFormSelect').selectOption('51');
-    await page.locator('#workFormField_issue').fill('Replacement Worker private draft');
+    await selectAndFillIssue(page, 'Replacement Worker private draft', { holdRead: holdDraftReads, workerId: replacementWorker.id });
     await page.evaluate(() => window.fixture.selectPhoto());
-    await page.locator('#workFormAutosaveStatus.saved').waitFor();
+    await assertSavedIssue(page, replacementWorker.id, 'Replacement Worker private draft');
     await page.evaluate(() => window.fixture.releaseUpload());
     await page.waitForFunction(async (oldWorkerId) => {
       const { getAll, get } = await import('/assets/js/db.js');
@@ -205,13 +277,14 @@ async function checkSubmissionSessionReset(uploadStatus) {
       issue: 'Replacement Worker private draft', photos: 1, expired: false,
       draftIssue: 'Replacement Worker private draft'
     });
-    console.log(`ok - explicit module reset ignores previous Worker upload ${uploadStatus} completion without changing replacement draft`);
+    console.log(`ok - explicit module reset ignores previous Worker upload ${uploadStatus} completion without changing replacement draft${holdDraftReads ? ' while both native draft reads are held' : ''}`);
   } finally {
     await page.close();
   }
 }
 
 try {
+  await checkSubmissionSessionReset(200, { holdDraftReads: true });
   await checkSubmissionSessionReset(200);
   await checkSubmissionSessionReset(401);
   let page = await context.newPage();
@@ -225,8 +298,7 @@ try {
   assert.equal(await page.evaluate(() => window.fixture.form.hasOfflineTemplates()), true);
   console.log('ok - a new Worker page restores previously authenticated Templates when the API is unavailable');
 
-  await page.locator('#workFormSelect').selectOption('51');
-  await page.locator('#workFormField_issue').fill('Unsaved offline observation');
+  await selectAndFillIssue(page, 'Unsaved offline observation');
   apiStatus = 200;
   assert.equal(await page.evaluate(() => window.fixture.form.refreshAfterReconnect()), true);
   assert.equal(await page.locator('#workFormField_issue').inputValue(), 'Unsaved offline observation');
@@ -239,7 +311,7 @@ try {
 
   apiStatus = 0;
   await page.evaluate(() => window.fixture.form.refreshWorkForms());
-  await page.locator('#workFormField_issue').fill('Keep this unsaved original observation');
+  await fillIssue(page, 'Keep this unsaved original observation');
   await page.evaluate(() => {
     window.originalPut = IDBObjectStore.prototype.put;
     IDBObjectStore.prototype.put = function (...args) {
