@@ -43,6 +43,8 @@ The test now waits for draft restoration before typing and verifies the entered 
 
 The [next remote run](https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38467057230) on `9bc180b` passed the backend job and all 22 offline-Template groups, then failed a startup checkpoint assertion. A controlled reproduction confirmed that direct asynchronous browser waits could accept a resolved false result. The follow-up reuses the existing bounded polling helper across all 14 remaining direct asynchronous waits, with a native checkpoint regression and separate account-switch readiness checks. [Follow-up evidence](docs/evidence/ci-fixes-20261014/async-wait-followup.json).
 
+The [following remote run](https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38469471301) on `604cba1` passed backend and every focused mobile suite, then failed the full runner's draft-resume and restored-photo submission workflows. Controlled native reads subsequently showed an empty answer could be saved before reload; reopening preserved those saved bytes. The runner now waits for the selected form's new surface and completed draft loading, and owns submission-response waits alongside their actions. [Draft-readiness follow-up](docs/evidence/ci-fixes-20261014/draft-readiness-followup.json).
+
 This corrective work changes tests and CI checks, with no application behavior, deployment, migration or hosted application fixture change. Use the [branch's GitHub CI runs](https://github.com/windmine/scaffold-pwa-mvp/actions/workflows/ci.yml?query=branch%3Acodex%2Freport-submission-mvp) to verify both jobs for the exact commit; the dated local regression passes do not establish its remote result.
 
 ## Local Maintenance and Growth Baseline - 2026-10-12

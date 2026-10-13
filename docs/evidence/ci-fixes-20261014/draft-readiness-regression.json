@@ -1,0 +1,684 @@
+{
+  "status": "focused_validation_complete",
+  "recordedAtUtc": "2026-10-13T21:35:06.330736Z",
+  "recordScope": "Dated pre-push controlled diagnosis and focused validation. This record alone does not establish a complete mobile or main-workflow pass; the follow-up release evidence and GitHub Actions record subsequent full results.",
+  "sourceCommitBeforeFix": "604cba15fe231612b1f8e1b7bd9029a0d2b3ecc0",
+  "originalRemoteFailure": {
+    "runId": 38469471301,
+    "runUrl": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38469471301",
+    "commit": "604cba1",
+    "passedBeforeFailure": "Backend job, all focused mobile/static/installer/native-browser-contract groups, and first16 main workflows",
+    "failures": [
+      {
+        "location": "scripts/check-browser-workflows.mjs:1809",
+        "message": "Continue draft must restore the same Template, Report Date, answers, and selected photo"
+      },
+      {
+        "location": "scripts/check-browser-workflows.mjs:1864",
+        "message": "Unhandled waitForResponse20000ms timeout in restored-plus-appended photo submission; process terminated"
+      }
+    ],
+    "fullLog": {
+      "path": "output/ci-failure-20261014.local/second-fix-frontend.log",
+      "sha256": "1e2207428a19fe3d7c8f641aed4711c233c0f92883feee8732371f58ae777c88",
+      "bytes": 164919
+    },
+    "limit": "The original remote run recorded neither component values nor native read/input/POST timing. Its exact mismatched component and absent-response cause remain individually untraced."
+  },
+  "rankedHypothesesBeforeExperiments": [
+    {
+      "rank": 1,
+      "prediction": "An inert initial draft read causes fill to return with no input event and an empty answer; later Date/photo edits persist that empty answer, and readiness prevents it."
+    },
+    {
+      "rank": 2,
+      "prediction": "If Saved precedes the last native write, expected input exists in the UI while the exact stored draft differs before reload."
+    },
+    {
+      "rank": 3,
+      "prediction": "If restoration loses data, the exact pre-reload stored answer/date/photo differs from the restored surface or post-reload stored draft."
+    }
+  ],
+  "controlledNativeRead": {
+    "mechanism": "Allow the real first readonly Work Form draft get to succeed and its transaction to complete, but defer only delivery of the original oncomplete callback while the real editor is inert. No request result or storage bytes are fabricated.",
+    "sourceBeforeFix": {
+      "path": "output/ci-failure-20261014.local/main-before-ready.mjs.txt",
+      "sha256": "3cf7d994105c84e0b7f7a6a38a580ff93ff9d6c230cfe7064a224581b8b5afb5",
+      "bytes": 473298
+    },
+    "baselineNormalizedSha256": "7ab0db4015719d4a14f01e9a8d9c308d5f036a0a5b8d05c4aa82a80efd06e38f",
+    "instrumentedSource": {
+      "path": "output/ci-failure-20261014.local/main-draft-probe.mjs.txt",
+      "sha256": "0c3a7fc56d95ca00e40f2d174f2bd93cf8bf9ada550629b385cbf7dc77c5f742",
+      "bytes": 481841,
+      "stage": "Final submission probe, after request-count and submission-validation logging were added",
+      "appliesTo": [
+        "submitOld",
+        "submitReady"
+      ]
+    },
+    "resumeOld": {
+      "status": "failed",
+      "log": {
+        "path": "output/ci-failure-20261014.local/main-draft-old-resume.log",
+        "sha256": "4372430f7fb283ce620d14bce28ededaf83c57c18b452545a2ee221496c8cd1f",
+        "bytes": 2111
+      },
+      "observations": [
+        {
+          "stage": "native-read-held",
+          "template": "Inspection form",
+          "inert": true,
+          "answer": "",
+          "date": "2026-10-14",
+          "photoCount": 0,
+          "saved": false,
+          "draft": null,
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            }
+          ]
+        },
+        {
+          "stage": "fill-returned",
+          "template": "Inspection form",
+          "inert": true,
+          "answer": "",
+          "date": "2026-10-14",
+          "photoCount": 0,
+          "saved": false,
+          "draft": null,
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            }
+          ]
+        },
+        {
+          "stage": "saved-before-reload",
+          "template": "Inspection form",
+          "inert": false,
+          "answer": "",
+          "date": "2026-09-14",
+          "photoCount": 1,
+          "saved": true,
+          "draft": {
+            "formId": 2,
+            "answer": "",
+            "date": "2026-09-14",
+            "photoHashes": [
+              "1b2b3c5e3ab5912a0d6c5a09a4db5bf4224263306ee34493dfe4e06bb2997940"
+            ],
+            "names": [
+              "resume-report-photo.png"
+            ]
+          },
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "completion-delivered"
+            }
+          ]
+        },
+        {
+          "stage": "restored-after-continue",
+          "template": "Inspection form",
+          "inert": false,
+          "answer": "",
+          "date": "2026-09-14",
+          "photoCount": 1,
+          "saved": true,
+          "draft": {
+            "formId": 2,
+            "answer": "",
+            "date": "2026-09-14",
+            "photoHashes": [
+              "1b2b3c5e3ab5912a0d6c5a09a4db5bf4224263306ee34493dfe4e06bb2997940"
+            ],
+            "names": [
+              "resume-report-photo.png"
+            ]
+          },
+          "events": []
+        }
+      ],
+      "sourceStage": "Earlier resume probe described in resumeProbeSourceStage"
+    },
+    "resumeReady": {
+      "status": "passed",
+      "log": {
+        "path": "output/ci-failure-20261014.local/main-draft-ready-resume.log",
+        "sha256": "eb11c63847d99f9a28a4f40249319a05e6d5b169b9c6d7c6d0920a4b9c6a916d",
+        "bytes": 1720
+      },
+      "observations": [
+        {
+          "stage": "native-read-held",
+          "template": "Inspection form",
+          "inert": true,
+          "answer": "",
+          "date": "2026-10-14",
+          "photoCount": 0,
+          "saved": false,
+          "draft": null,
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            }
+          ]
+        },
+        {
+          "stage": "fill-returned",
+          "template": "Inspection form",
+          "inert": false,
+          "answer": "Continue ordinary device draft 1791926984827",
+          "date": "2026-10-14",
+          "photoCount": 0,
+          "saved": false,
+          "draft": null,
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "completion-delivered"
+            },
+            {
+              "kind": "input",
+              "length": 44
+            }
+          ]
+        },
+        {
+          "stage": "saved-before-reload",
+          "template": "Inspection form",
+          "inert": false,
+          "answer": "Continue ordinary device draft 1791926984827",
+          "date": "2026-09-14",
+          "photoCount": 1,
+          "saved": true,
+          "draft": {
+            "formId": 2,
+            "answer": "Continue ordinary device draft 1791926984827",
+            "date": "2026-09-14",
+            "photoHashes": [
+              "1b2b3c5e3ab5912a0d6c5a09a4db5bf4224263306ee34493dfe4e06bb2997940"
+            ],
+            "names": [
+              "resume-report-photo.png"
+            ]
+          },
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "completion-delivered"
+            },
+            {
+              "kind": "input",
+              "length": 44
+            }
+          ]
+        },
+        {
+          "stage": "restored-after-continue",
+          "template": "Inspection form",
+          "inert": false,
+          "answer": "Continue ordinary device draft 1791926984827",
+          "date": "2026-09-14",
+          "photoCount": 1,
+          "saved": true,
+          "draft": {
+            "formId": 2,
+            "answer": "Continue ordinary device draft 1791926984827",
+            "date": "2026-09-14",
+            "photoHashes": [
+              "1b2b3c5e3ab5912a0d6c5a09a4db5bf4224263306ee34493dfe4e06bb2997940"
+            ],
+            "names": [
+              "resume-report-photo.png"
+            ]
+          },
+          "events": []
+        }
+      ],
+      "sourceStage": "Earlier resume probe described in resumeProbeSourceStage"
+    },
+    "submitOld": {
+      "status": "failed",
+      "log": {
+        "path": "output/ci-failure-20261014.local/main-draft-old-submit.log",
+        "sha256": "e8b63c379221216c07416c863b9a0d345cf57659125fc079c102d5877314abeb",
+        "bytes": 3049
+      },
+      "observations": [
+        {
+          "stage": "native-read-held",
+          "template": "Inspection form",
+          "inert": true,
+          "answer": "",
+          "date": "2026-10-14",
+          "photoCount": 0,
+          "saved": false,
+          "draft": null,
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            }
+          ],
+          "submissionAttempts": 0
+        },
+        {
+          "stage": "fill-returned",
+          "template": "Inspection form",
+          "inert": true,
+          "answer": "",
+          "date": "2026-10-14",
+          "photoCount": 0,
+          "saved": false,
+          "draft": null,
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            }
+          ],
+          "submissionAttempts": 0
+        },
+        {
+          "stage": "saved-before-reload",
+          "template": "Inspection form",
+          "inert": false,
+          "answer": "",
+          "date": "2026-10-14",
+          "photoCount": 1,
+          "saved": true,
+          "draft": {
+            "formId": 2,
+            "answer": "",
+            "date": "2026-10-14",
+            "photoHashes": [
+              "8a73857f20ba7d5a443b9ca1ac7754db6ac5d4ea524e587f6cfad1edc6e628c2"
+            ],
+            "names": [
+              "restored-report-photo.png"
+            ]
+          },
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "completion-delivered"
+            }
+          ],
+          "submissionAttempts": 0
+        },
+        {
+          "stage": "restored-before-append",
+          "template": "Inspection form",
+          "inert": false,
+          "answer": "",
+          "date": "2026-10-14",
+          "photoCount": 1,
+          "saved": true,
+          "draft": {
+            "formId": 2,
+            "answer": "",
+            "date": "2026-10-14",
+            "photoHashes": [
+              "8a73857f20ba7d5a443b9ca1ac7754db6ac5d4ea524e587f6cfad1edc6e628c2"
+            ],
+            "names": [
+              "restored-report-photo.png"
+            ]
+          },
+          "events": [],
+          "submissionAttempts": 0
+        },
+        {
+          "stage": "before-submit",
+          "template": "Inspection form",
+          "inert": false,
+          "answer": "",
+          "date": "2026-10-14",
+          "photoCount": 2,
+          "saved": false,
+          "draft": {
+            "formId": 2,
+            "answer": "",
+            "date": "2026-10-14",
+            "photoHashes": [
+              "8a73857f20ba7d5a443b9ca1ac7754db6ac5d4ea524e587f6cfad1edc6e628c2"
+            ],
+            "names": [
+              "restored-report-photo.png"
+            ]
+          },
+          "events": [],
+          "submissionAttempts": 0
+        },
+        {
+          "stage": "after-submit-wait",
+          "template": "Inspection form",
+          "inert": false,
+          "answer": "",
+          "date": "2026-10-14",
+          "photoCount": 2,
+          "saved": true,
+          "draft": {
+            "formId": 2,
+            "answer": "",
+            "date": "2026-10-14",
+            "photoHashes": [
+              "8a73857f20ba7d5a443b9ca1ac7754db6ac5d4ea524e587f6cfad1edc6e628c2",
+              "e0e5f9f242f6d0474ef8173d35c707e10b5da5902714699811a1c48ae7599e87"
+            ],
+            "names": [
+              "restored-report-photo.png",
+              "appended-report-photo.png"
+            ]
+          },
+          "events": [
+            {
+              "kind": "invalid",
+              "id": "workFormField_inspection_area",
+              "missing": true
+            }
+          ],
+          "submissionAttempts": 0
+        }
+      ],
+      "sourceStage": "Final submission probe bound by instrumentedSource"
+    },
+    "submitReady": {
+      "status": "passed",
+      "log": {
+        "path": "output/ci-failure-20261014.local/main-draft-ready-submit.log",
+        "sha256": "aed92f5beef2060cd15a540235c94737eea4c4bad3077e1d9275fc82b378fd8b",
+        "bytes": 2805
+      },
+      "observations": [
+        {
+          "stage": "native-read-held",
+          "template": "Inspection form",
+          "inert": true,
+          "answer": "",
+          "date": "2026-10-14",
+          "photoCount": 0,
+          "saved": false,
+          "draft": null,
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            }
+          ],
+          "submissionAttempts": 0
+        },
+        {
+          "stage": "fill-returned",
+          "template": "Inspection form",
+          "inert": false,
+          "answer": "Restored plus new Report photos 1791927091037",
+          "date": "2026-10-14",
+          "photoCount": 0,
+          "saved": false,
+          "draft": null,
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "completion-delivered"
+            },
+            {
+              "kind": "input",
+              "length": 45
+            }
+          ],
+          "submissionAttempts": 0
+        },
+        {
+          "stage": "saved-before-reload",
+          "template": "Inspection form",
+          "inert": false,
+          "answer": "Restored plus new Report photos 1791927091037",
+          "date": "2026-10-14",
+          "photoCount": 1,
+          "saved": true,
+          "draft": {
+            "formId": 2,
+            "answer": "Restored plus new Report photos 1791927091037",
+            "date": "2026-10-14",
+            "photoHashes": [
+              "8a73857f20ba7d5a443b9ca1ac7754db6ac5d4ea524e587f6cfad1edc6e628c2"
+            ],
+            "names": [
+              "restored-report-photo.png"
+            ]
+          },
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "completion-delivered"
+            },
+            {
+              "kind": "input",
+              "length": 45
+            }
+          ],
+          "submissionAttempts": 0
+        },
+        {
+          "stage": "restored-before-append",
+          "template": "Inspection form",
+          "inert": false,
+          "answer": "Restored plus new Report photos 1791927091037",
+          "date": "2026-10-14",
+          "photoCount": 1,
+          "saved": true,
+          "draft": {
+            "formId": 2,
+            "answer": "Restored plus new Report photos 1791927091037",
+            "date": "2026-10-14",
+            "photoHashes": [
+              "8a73857f20ba7d5a443b9ca1ac7754db6ac5d4ea524e587f6cfad1edc6e628c2"
+            ],
+            "names": [
+              "restored-report-photo.png"
+            ]
+          },
+          "events": [],
+          "submissionAttempts": 0
+        },
+        {
+          "stage": "before-submit",
+          "template": "Inspection form",
+          "inert": false,
+          "answer": "Restored plus new Report photos 1791927091037",
+          "date": "2026-10-14",
+          "photoCount": 2,
+          "saved": false,
+          "draft": {
+            "formId": 2,
+            "answer": "Restored plus new Report photos 1791927091037",
+            "date": "2026-10-14",
+            "photoHashes": [
+              "8a73857f20ba7d5a443b9ca1ac7754db6ac5d4ea524e587f6cfad1edc6e628c2"
+            ],
+            "names": [
+              "restored-report-photo.png"
+            ]
+          },
+          "events": [],
+          "submissionAttempts": 0
+        },
+        {
+          "stage": "after-submit-wait",
+          "template": "Inspection form",
+          "inert": false,
+          "answer": "Restored plus new Report photos 1791927091037",
+          "date": "2026-10-14",
+          "photoCount": 2,
+          "saved": true,
+          "draft": {
+            "formId": 2,
+            "answer": "Restored plus new Report photos 1791927091037",
+            "date": "2026-10-14",
+            "photoHashes": [
+              "8a73857f20ba7d5a443b9ca1ac7754db6ac5d4ea524e587f6cfad1edc6e628c2",
+              "e0e5f9f242f6d0474ef8173d35c707e10b5da5902714699811a1c48ae7599e87"
+            ],
+            "names": [
+              "restored-report-photo.png",
+              "appended-report-photo.png"
+            ]
+          },
+          "events": [],
+          "submissionAttempts": 1
+        }
+      ],
+      "sourceStage": "Final submission probe bound by instrumentedSource"
+    },
+    "finding": "Old fill completes without any input event while inert. The empty answer, correct Date and original photo hash are already committed before reload and are faithfully restored. In the submission case native required-field validation rejects the empty answer and no POST begins. Waiting for editor readiness yields entered text, exact saved/restored content and one successful submission with original/appended pixels and order intact.",
+    "scope": "These controlled results establish a fixture setup race and rule out premature Saved or restoration loss in these experiments. They do not retroactively trace the original remote executions.",
+    "resumeProbeSourceStage": {
+      "stage": "Earlier resume probe, before the later request-count and submission-validation logging additions",
+      "exactExecutedSourceRetained": false,
+      "appliesTo": [
+        "resumeOld",
+        "resumeReady"
+      ],
+      "verifiedLaterChanges": [
+        "Add a POST request counter to each probe case and include submissionAttempts in diagnostic snapshots.",
+        "Add a post-reload native invalid-event observer and an after-submit-wait snapshot around the existing Promise.all in the submission case."
+      ],
+      "unchangedControl": "The native draft-read hold, fill/readiness branches, pre-reload saved contents and restored-content snapshots were unchanged between these diagnostic stages.",
+      "bindingLimit": "The final retained instrumented-source hash does not claim exact executed bytes for the earlier resume logs. Their captured observations and original log hashes remain separately bound."
+    }
+  },
+  "permanentRegression": {
+    "workflowCountUnchanged": 73,
+    "location": "Existing checkReportDraftVisibleAndResumable workflow",
+    "contract": "Start the actual selection helper while the native completion is held, verify it stays pending, release the completion, then enter and assert the answer/Date. Verify exact Worker/Template-scoped persisted answers, Date, original photo hash and name before reload; retain all Continue-draft restoration assertions.",
+    "negativeObservationWindowMilliseconds": 100,
+    "oldSemanticsRed": {
+      "status": "failed",
+      "assertion": "Report selection must wait for native draft restoration before editing",
+      "source": {
+        "path": "output/ci-failure-20261014.local/main-native-regression-old.mjs.txt",
+        "sha256": "7a568bc5e4949e9d947aef81053d4f9fd573f61a6b98f375ee281d57b21a9dc1",
+        "bytes": 477256
+      },
+      "log": {
+        "path": "output/ci-failure-20261014.local/main-native-regression-red.log",
+        "sha256": "fa1832256741aeb254f9201dbdde956767d60228210c141a86a9d2c6da10bdbb",
+        "bytes": 850
+      }
+    },
+    "fixedGreen": {
+      "status": "passed",
+      "sourceSha256": "d3d40322687bb34ee381e8656ae5381b11db459597bb24af1710d3a43ab2301b",
+      "log": {
+        "path": "output/ci-failure-20261014.local/main-native-regression-green.log",
+        "sha256": "70d2e719216901e0066a2fe98082c7622d7f4f77388d4d8acf67ba91a7fc932f",
+        "bytes": 125
+      }
+    },
+    "limit": "An unusually slow raw-selection promise could exceed the100ms negative observation window. The recorded old-semantics execution fails the assertion; the native editor remains held until explicit release."
+  },
+  "fix": {
+    "file": "scripts/check-browser-workflows.mjs",
+    "sourceSha256": "d3d40322687bb34ee381e8656ae5381b11db459597bb24af1710d3a43ab2301b",
+    "applicationCodeChanged": false,
+    "selectionHelper": "selectWorkFormWhenReady captures the prior field-surface firstChild, selects the requested Template, and requires the selected value, a replacement field surface and a non-inert form. The replacement requirement prevents accepting old fields while a previous-draft save is still pending.",
+    "callSites": "Successful Worker Work Form selections across Report and retained-form workflows use the shared readiness helper. The deliberate failed old-draft save/reverted Template selection remains raw with its original failure-state assertions.",
+    "persistedSetupAssertions": "Both failed workflows now assert entered answers and exact scoped native draft evidence before reload.",
+    "responseOwnership": "Four Report submission workflows immediately await response plus triggering review/confirm sequence with Promise.all; the50-photo retry-status assertion remains inside its action branch. Existing deadlines and behavior assertions are retained.",
+    "responseEvidence": "The controlled blank-answer submission probe uses this ownership pattern and reports the20s response timeout through runCheck with normal fixture cleanup, rather than an unhandled rejection abort. This diagnostic ownership change is separate from the native-input cause.",
+    "assertionsRemoved": false,
+    "timeoutsIncreased": false,
+    "applicationSourceSha256": {
+      "assets/js/worker-form.js": "abcb8c252bb8ace87157ef2a68807798d665d6460a372d93851b68cc1a92391c",
+      "assets/js/db.js": "fea6c978904fcc751dca3b720a763fb2beb26f9f409c003d46d97602f376bbb2",
+      "assets/js/mock-api.js": "fbfccf242441f2e6dd94fe0eaadea298bca47a90cfe352f25d67a883b1892f09"
+    }
+  },
+  "focusedValidation": {
+    "sourceSha256": "d3d40322687bb34ee381e8656ae5381b11db459597bb24af1710d3a43ab2301b",
+    "resumeWithHeldNativeRead": {
+      "path": "output/ci-failure-20261014.local/main-native-regression-green.log",
+      "sha256": "70d2e719216901e0066a2fe98082c7622d7f4f77388d4d8acf67ba91a7fc932f",
+      "bytes": 125
+    },
+    "restoredAndAppendedPhotoSubmission": {
+      "path": "output/ci-failure-20261014.local/main-photo-submit-green.log",
+      "sha256": "b53cf08777d95bebb3b57abe84f133f62e6cce50e9f1fad9ae26c503e7ed98c6",
+      "bytes": 114
+    },
+    "lint": {
+      "status": "passed",
+      "log": {
+        "path": "output/ci-failure-20261014.local/main-final-lint.log",
+        "sha256": "b871853392637b6055cb1bb29c9caa0697b0c4e1afb69dbcfc9a944323f2c9fa",
+        "bytes": 47
+      }
+    },
+    "environment": "Local Windows, Node24.15.0 and locked Playwright1.61.1, real disposable backend and native IndexedDB; inherited hosted/database/cloud configuration excluded",
+    "independentReview": "Product reviewer found no blocker in native read control, prior-surface binding, saved evidence assertions or response ownership.",
+    "remoteAuthority": "https://github.com/windmine/scaffold-pwa-mvp/actions/workflows/ci.yml"
+  }
+}

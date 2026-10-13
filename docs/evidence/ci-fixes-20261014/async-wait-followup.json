@@ -254,5 +254,6 @@
     "The initial startup trace separately failed a generic syncing-state assertion before reaching its privacy assertion; it did not demonstrate a private-message leak.",
     "All work uses disposable local browser/backend fixtures. No production deployment, migration, hosted application fixture or user-data mutation occurred.",
     "No complete local mobile rerun is claimed for this follow-up; the full remote mobile and browser-volume gates must run on the eventual commit."
-  ]
+  ],
+  "follow_up_record": "draft-readiness-followup.json"
 }

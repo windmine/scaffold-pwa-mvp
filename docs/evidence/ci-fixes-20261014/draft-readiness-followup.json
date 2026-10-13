@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-13T21:39:46.680903+00:00",
+  "record_scope": "Dated local corrective validation before commit/push. Remote results for subsequent exact commits are recorded by GitHub Actions.",
+  "parent_record": "async-wait-followup.json",
+  "remote_run_before_fix": {
+    "run_id": 38469471301,
+    "run_url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38469471301",
+    "commit": "604cba15fe231612b1f8e1b7bd9029a0d2b3ecc0",
+    "backend": "success",
+    "frontend": "failure",
+    "all_focused_mobile_suites_reached_end": true,
+    "static_shell": "passed",
+    "installer_checks": 11,
+    "async_queue_contract_groups": 10,
+    "main_workflows_passed_before_failure": 16,
+    "main_passed": [
+      "ok - action feedback is local, busy, announced, and separate from sync state",
+      "ok - Chinese translation covers validation, forms, signatures, and photos",
+      "ok - required signatures are fully keyboard accessible",
+      "ok - photo viewer traps and restores focus",
+      "ok - primary action gradients meet WCAG AA contrast",
+      "ok - anonymous login startup does not request or expose sites",
+      "ok - restored session loads sites only after auth refresh",
+      "ok - authenticated Site failure does not expose demo Sites",
+      "ok - browser login uses cookie session without localStorage bearer token",
+      "ok - browser geolocation grant enables attendance capture",
+      "ok - attendance presents one contextual action with a secondary correction path",
+      "ok - normal Worker guide compacts and Site priority follows attendance context",
+      "ok - normal Workers submit active Work Forms and see their own history",
+      "ok - Report photo selection appends without replacing earlier photos",
+      "ok - Report photo selection rejects invalid files without clearing earlier photos",
+      "ok - Report photo removal keeps other photos and persists in the draft"
+    ],
+    "main_failures": [
+      "not ok - My Reports shows ordinary device drafts and continues their saved answers and photos"
+    ],
+    "termination": "Uncaught timeout of a response waiter in checkReportRestoredPhotosAppendAndSubmit; remaining main workflows and browser history volume were not reached.",
+    "log": {
+      "path": "output/ci-failure-20261014.local/second-fix-frontend.log",
+      "sha256": "1e2207428a19fe3d7c8f641aed4711c233c0f92883feee8732371f58ae777c88",
+      "bytes": 164919
+    }
+  },
+  "confirmed_controlled_cause": {
+    "mechanism": "A raw Template selection can return while the real form is inert waiting for native draft restoration; fill then returns without entering the required answer. Later Date/photo changes commit an empty answer before reload. Continue correctly restores those stored bytes; native required-answer validation can prevent a subsequent submission POST.",
+    "separate_test_failure": "An already-created response waiter could reject while the test was still awaiting its submit action, aborting the process instead of being reported by runCheck.",
+    "regression_evidence": "draft-readiness-regression.json",
+    "regression_evidence_sha256": "19ddab24bdc4c7a7de93719b888c98bb36ab874130c2955c1d911a49f0f91799",
+    "causality_limit": "The original Linux run captured neither its individual mismatched values nor input/validation/POST timing. Controlled traces demonstrate the same failure patterns; original remote event causes remain individually untraced."
+  },
+  "fix": {
+    "file": "scripts/check-browser-workflows.mjs",
+    "selection_boundary": "Successful selections wait for the previously rendered field surface to be replaced, the intended selected value, and completion of draft loading before editing.",
+    "exception": "The deliberately quota-rejected Template selection remains a raw selection, preserving its reverted-selection and unsaved-data assertions.",
+    "response_boundary": "Wait for the submission response and its triggering action together with Promise.all, preserving response predicates and existing timeouts.",
+    "permanent_regression": "Hold only native draft transaction completion delivery, verify the selection remains pending, then release and assert the exact persisted answer, Report Date, photo name and original photo hash before reload. Preserve the existing Template, Date, answer and photo-hash assertions after Continue.",
+    "application_changed": false,
+    "assertions_removed": false,
+    "timeouts_increased": false,
+    "tested_source_sha256": "d3d40322687bb34ee381e8656ae5381b11db459597bb24af1710d3a43ab2301b",
+    "committed_lf_source_sha256": "72650fc28f8997132b316b54a63532908db1dea723e0e9d3f836cd3e0320a948",
+    "line_ending_scope": "Local runs used the recorded CRLF bytes; Git normalizes only CRLF to LF on staging. Final staged source must match committed_lf_source_sha256; statement content is identical after this normalization."
+  },
+  "validation": {
+    "focused_regressions": "Both formerly failing workflows passed, including the permanent held-native draft-read regression and final two-photo content/order assertions; exact red/green stages are in the linked regression record.",
+    "lint": "passed on frozen source",
+    "full_local_main_workflows": {
+      "passed": 73,
+      "failed": 0,
+      "filter": null,
+      "started_at": "2026-10-13T21:33:51.604344+00:00",
+      "finished_at": "2026-10-13T21:37:42.787776+00:00",
+      "source_sha256": {
+        "scripts/check-browser-workflows.mjs": "d3d40322687bb34ee381e8656ae5381b11db459597bb24af1710d3a43ab2301b",
+        "scripts/browser-async-wait.mjs": "66b50f274a6fb57f0f69e582d39aa6b795d562bb8da4ab88d9e621b67d0a2c3e",
+        "scripts/browser-workflow-source-server.mjs": "8f439b764ecda60774edaebff02555c745094515991d96572125e57807164cdf"
+      },
+      "source_unchanged_during_run": true,
+      "ports_closed_after_exit": {
+        "52944": true,
+        "52945": true,
+        "52946": true
+      },
+      "temporary_default_directory_removed": true,
+      "log": {
+        "path": "output/ci-failure-20261014.local/third-fix-full-browser.log",
+        "sha256": "014984fd1d10e5838d3d47a7d00cef4a0b539ef3a499bfd040b5681415b1ea1f",
+        "bytes": 5647
+      },
+      "aggregate_proof": {
+        "path": "output/ci-failure-20261014.local/third-fix-full-browser.json",
+        "sha256": "cc2e2a27beb2d4f3e1e2dae4bca22ea3873cb746acf3d8aa62b09780cd633d3c",
+        "bytes": 7060
+      }
+    },
+    "earlier_remote_backend": "The backend job on 604cba1 passed; downloaded artifacts confirmed four environment checks and 24 volume checks, no failures and complete owned-cluster cleanup. All artifact source hashes match committed source.",
+    "backend_artifacts": [
+      {
+        "path": "output/ci-failure-20261014.local/final-remote-backend/postgres-environment.json",
+        "sha256": "d2445cd44476e6b7e19fe45cdf3ef340ea78a56deae8cbf1de7160721bb0a484",
+        "bytes": 1791
+      },
+      {
+        "path": "output/ci-failure-20261014.local/final-remote-backend/backend-volume.json",
+        "sha256": "df44d34e476eff996d0b23f6cf17eb7ec45b8e78512a55c39c92073b5e5c32a7",
+        "bytes": 30306
+      }
+    ],
+    "independent_review": "Controlled causality, successful-selection boundaries, intentional failure exception, response-wait ownership and preserved assertions reviewed without remaining blockers.",
+    "subsequent_remote_results": "https://github.com/windmine/scaffold-pwa-mvp/actions/workflows/ci.yml?query=branch%3Acodex%2Freport-submission-mvp",
+    "static_checks": {
+      "javascript_syntax": "passed",
+      "git_diff_check": "passed",
+      "valid_markdown_local_links": 230,
+      "valid_markdown_anchors": 22
+    }
+  },
+  "boundaries": [
+    "This full local run covers the 73 main workflows. It does not constitute a new complete local check:mobile or a remote Linux pass.",
+    "The previous failed remote runs and their limits remain recorded; no failed result is relabeled as passing.",
+    "No application, migration, deployment, hosted application fixture or user-data change is included."
+  ]
+}

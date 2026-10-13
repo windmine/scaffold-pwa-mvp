@@ -35,6 +35,68 @@ async function reviewAndSubmitReport(page) {
   await page.locator('#confirmWorkFormSubmitButton').click();
 }
 
+async function selectWorkFormWhenReady(page, option) {
+  // Selection can first flush the previous draft. Wait for its old surface to
+  // be replaced, then for native draft restoration to release the new editor.
+  const previous = await page.locator('#workFormFields').evaluateHandle((fields) => fields.firstChild);
+  try {
+    const [selected] = await page.locator('#workFormSelect').selectOption(option);
+    await page.waitForFunction(({ previous, selected }) => {
+      const form = document.querySelector('#workFormSubmissionForm');
+      const fields = document.querySelector('#workFormFields');
+      return document.querySelector('#workFormSelect')?.value === selected
+        && fields && fields.firstChild !== previous && form && !form.inert;
+    }, { previous, selected });
+  } finally {
+    await previous.dispose();
+  }
+}
+
+function holdNextWorkFormDraftRead() {
+  const nativeGet = IDBObjectStore.prototype.get;
+  const completion = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'oncomplete');
+  const control = window.__workFormDraftRead = { armed: true, held: false, release: () => {} };
+  IDBObjectStore.prototype.get = function (key) {
+    const request = nativeGet.call(this, key);
+    if (control.armed && this.name === 'drafts' && this.transaction.mode === 'readonly'
+      && String(key).startsWith('work-form-draft:') && document.querySelector('#workFormSubmissionForm')?.inert) {
+      control.armed = false;
+      Object.defineProperty(this.transaction, 'oncomplete', {
+        configurable: true,
+        get() { return completion.get.call(this); },
+        set(handler) {
+          completion.set.call(this, function (event) {
+            // Native request success and transaction completion stay real;
+            // only delivery to the app is held, preserving its actual result.
+            control.held = true;
+            control.release = () => {
+              IDBObjectStore.prototype.get = nativeGet;
+              control.release = () => {};
+              handler.call(this, event);
+            };
+          });
+        }
+      });
+    }
+    return request;
+  };
+}
+
+async function savedWorkFormDraft(page) {
+  return page.evaluate(async () => {
+    const { getDraft } = await import('/assets/js/mock-api.js');
+    const workerId = JSON.parse(localStorage.getItem('geo_user')).id;
+    const formId = document.querySelector('#workFormSelect').value;
+    const draft = await getDraft(`work-form-draft:${workerId}:${formId}`);
+    const photoHashes = await Promise.all((draft?.photoBlobs || []).map(async (blob) => (
+      [...new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()))]
+        .map((byte) => byte.toString(16).padStart(2, '0')).join('')
+    )));
+    return { formId: draft?.formId, answers: draft?.answers, workDate: draft?.workDate,
+      photoHashes, photoNames: draft?.photoMetadata?.map((photo) => photo.name) };
+  });
+}
+
 function sqliteUrl(filePath) {
   return `sqlite:///${filePath.replace(/\\/g, '/')}`;
 }
@@ -631,7 +693,7 @@ async function checkAccessibleActionFeedback(browser) {
       [...document.querySelectorAll('#workFormSelect option')]
         .some((option) => option.textContent === 'Inspection form')
     ));
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
 
     await page.locator('#submitWorkFormButton').click();
     const areaField = page.locator('#workFormField_inspection_area');
@@ -1614,7 +1676,7 @@ async function checkReportPhotoSelectionAppends(browser) {
       [...document.querySelectorAll('#workFormSelect option')]
         .some((option) => option.textContent?.trim() === 'Inspection form')
     ));
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
     await selectReportPhoto(page, 'first-report-photo.png', '#dc2626');
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
@@ -1641,7 +1703,7 @@ async function checkReportRejectedPhotoSelectionPreserves(browser) {
       [...document.querySelectorAll('#workFormSelect option')]
         .some((option) => option.textContent?.trim() === 'Inspection form')
     ));
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
     await selectReportPhoto(page, 'kept-report-photo.png', '#16a34a');
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
@@ -1661,7 +1723,7 @@ async function checkReportRejectedPhotoSelectionPreserves(browser) {
     await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#workerView').waitFor({ state: 'visible' });
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
     if ((await photoPreviewHashes(page))[0] !== originalSource) {
       throw new Error('rejected Report photo selection must not erase the earlier photo from the saved device draft');
@@ -1705,7 +1767,7 @@ async function checkReportPhotoRemovalPersists(browser) {
       [...document.querySelectorAll('#workFormSelect option')]
         .some((option) => option.textContent?.trim() === 'Inspection form')
     ));
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
     await selectReportPhoto(page, 'remove-report-photo.png', '#dc2626');
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
@@ -1752,7 +1814,7 @@ async function checkReportPhotoRemovalPersists(browser) {
     await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#workerView').waitFor({ state: 'visible' });
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
     const restoredSources = await photoPreviewHashes(page);
     if (restoredSources.length !== 1 || restoredSources[0] !== keptSource) {
@@ -1778,13 +1840,35 @@ async function checkReportDraftVisibleAndResumable(browser) {
       [...document.querySelectorAll('#workFormSelect option')]
         .some((option) => option.textContent?.trim() === 'Inspection form')
     ));
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await page.evaluate(holdNextWorkFormDraftRead);
+    let selectionReady = false;
+    const selection = selectWorkFormWhenReady(page, { label: 'Inspection form' })
+      .finally(() => { selectionReady = true; });
+    selection.catch(() => {});
+    try {
+      await page.waitForFunction(() => window.__workFormDraftRead.held);
+      await page.waitForTimeout(100);
+      if (selectionReady) throw new Error('Report selection must wait for native draft restoration before editing');
+    } finally {
+      await page.evaluate(() => window.__workFormDraftRead.release());
+      await selection;
+    }
     await page.locator('#workFormField_inspection_area').fill(answer);
     await page.locator('#workFormDate').fill(reportDate);
+    if (await page.locator('#workFormField_inspection_area').inputValue() !== answer
+      || await page.locator('#workFormDate').inputValue() !== reportDate) {
+      throw new Error('Report draft setup must enter the intended answer and date before saving');
+    }
     await selectReportPhoto(page, 'resume-report-photo.png', '#d97706');
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
     const [source] = await photoPreviewHashes(page);
     await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
+    const persisted = await savedWorkFormDraft(page);
+    if (persisted.answers?.inspection_area !== answer || persisted.workDate !== reportDate
+      || JSON.stringify(persisted.photoHashes) !== JSON.stringify([source])
+      || JSON.stringify(persisted.photoNames) !== JSON.stringify(['resume-report-photo.png'])) {
+      throw new Error(`Report draft contents must be committed before reload: ${JSON.stringify(persisted)}`);
+    }
 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#workerView').waitFor({ state: 'visible' });
@@ -1848,15 +1932,26 @@ async function checkReportRestoredPhotosAppendAndSubmit(browser) {
       [...document.querySelectorAll('#workFormSelect option')]
         .some((option) => option.textContent?.trim() === 'Inspection form')
     ));
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormField_inspection_area').fill(answer);
     await page.locator('#workFormField_inspection_result').selectOption('Pass');
+    if (await page.locator('#workFormField_inspection_area').inputValue() !== answer
+      || await page.locator('#workFormField_inspection_result').inputValue() !== 'Pass') {
+      throw new Error('Report photo draft setup must enter both intended answers before saving');
+    }
     await selectReportPhoto(page, 'restored-report-photo.png', '#dc2626');
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
     await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
+    const [originalHash] = await photoPreviewHashes(page);
+    const persisted = await savedWorkFormDraft(page);
+    if (persisted.answers?.inspection_area !== answer || persisted.answers?.inspection_result !== 'Pass'
+      || JSON.stringify(persisted.photoHashes) !== JSON.stringify([originalHash])
+      || JSON.stringify(persisted.photoNames) !== JSON.stringify(['restored-report-photo.png'])) {
+      throw new Error(`Report photo draft contents must be committed before reload: ${JSON.stringify(persisted)}`);
+    }
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#workerView').waitFor({ state: 'visible' });
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
     await selectReportPhoto(page, 'appended-report-photo.png', '#2563eb');
     await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 2);
@@ -1865,8 +1960,7 @@ async function checkReportRestoredPhotosAppendAndSubmit(browser) {
       response.request().method() === 'POST'
       && new URL(response.url()).pathname === '/api/form-submissions'
     ), { timeout: 20000 });
-    await reviewAndSubmitReport(page);
-    const response = await submission;
+    const [response] = await Promise.all([submission, reviewAndSubmitReport(page)]);
     if (!response.ok()) throw new Error(`restored-plus-appended Report submission failed: ${response.status()} ${await response.text()}`);
     const report = await response.json();
     if (report.photo_urls?.length !== 2
@@ -1920,7 +2014,7 @@ async function checkReportOverlappingPhotoSelections(browser) {
       [...document.querySelectorAll('#workFormSelect option')]
         .some((option) => option.textContent?.trim() === 'Inspection form')
     ));
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
     await page.locator('#workFormPhotos').evaluate(async (input) => {
       const selections = [];
@@ -2012,7 +2106,7 @@ async function checkReportDraftSharedDeviceIsolation(browser) {
       [...document.querySelectorAll('#workFormSelect option')]
         .some((option) => option.textContent?.trim() === 'Inspection form')
     ));
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormField_inspection_area').fill('Private draft on a shared device');
     await page.locator('#workFormDate').fill(reportDate);
     await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
@@ -2073,7 +2167,7 @@ async function checkSubmittedReportDraftCleanupFailure(browser) {
       [...document.querySelectorAll('#workFormSelect option')]
         .some((option) => option.textContent?.trim() === 'Inspection form')
     ));
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormField_inspection_area').fill(answer);
     await page.locator('#workFormField_inspection_result').selectOption('Pass');
     await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
@@ -2100,7 +2194,7 @@ async function checkSubmittedReportDraftCleanupFailure(browser) {
       throw new Error('a confirmed submitted Report with failed draft cleanup must not offer an enabled Continue draft action');
     }
     await page.locator('.tab[data-tab-target="formTab"]').click();
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
     await page.waitForFunction(() => !document.querySelector('#workFormSubmissionForm').inert);
     if (await page.locator('#workFormField_inspection_area').inputValue()) {
@@ -2134,7 +2228,7 @@ async function checkReportPhotoLimitAndEmptyPicker(browser) {
       [...document.querySelectorAll('#workFormSelect option')]
         .some((option) => option.textContent?.trim() === 'Inspection form')
     ));
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
     await page.locator('#workFormPhotos').setInputFiles([]);
     await openMyReportsAfterDraftRead(page);
@@ -2166,7 +2260,7 @@ async function checkReportPhotoLimitAndEmptyPicker(browser) {
     await page.locator('#workFormAutosaveStatus.saved').waitFor();
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#workerView').waitFor({ state: 'visible' });
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 50);
     const restored = await photoPreviewHashes(page);
     if (JSON.stringify(restored) !== JSON.stringify(replacementSources)) throw new Error('50-photo draft changed after reload');
@@ -2201,7 +2295,7 @@ async function checkReportFiftyPhotoUpload(browser) {
     await loginAs(page, 'worker@example.com', 'worker');
     await page.waitForFunction(() => [...document.querySelectorAll('#workFormSelect option')]
       .some((option) => option.textContent?.trim() === 'Inspection form'));
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormField_inspection_area').fill(marker);
     await page.locator('#workFormField_inspection_result').selectOption('Pass');
     await selectReportPhotoBatch(page, 50);
@@ -2210,7 +2304,7 @@ async function checkReportFiftyPhotoUpload(browser) {
     // Reload forces the persisted Blob path instead of retained browser Files.
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#workerView').waitFor({ state: 'visible' });
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.waitForFunction(() => document.querySelectorAll('#workFormPhotoPreview img').length === 50);
     await page.route('**/api/photo-uploads', async (route) => {
       uploads += 1;
@@ -2225,9 +2319,10 @@ async function checkReportFiftyPhotoUpload(browser) {
     });
     const submitted = page.waitForResponse((response) => response.request().method() === 'POST'
       && new URL(response.url()).pathname === '/api/form-submissions', { timeout: 60000 });
-    await reviewAndSubmitReport(page);
-    await page.locator('#workFormPhotoStatus').getByText('Upload limit reached. Retrying in 1 seconds. 30 of 50 photos and signatures uploaded.', { exact: true }).waitFor();
-    const response = await submitted;
+    const [response] = await Promise.all([submitted, (async () => {
+      await reviewAndSubmitReport(page);
+      await page.locator('#workFormPhotoStatus').getByText('Upload limit reached. Retrying in 1 seconds. 30 of 50 photos and signatures uploaded.', { exact: true }).waitFor();
+    })()]);
     if (!response.ok()) throw new Error(`50-photo submission failed: ${response.status()}`);
     const report = await response.json();
     if (uploads !== 51 || retriedAt - limitedAt < 950 || report.photo_urls.length !== 50
@@ -2345,7 +2440,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
       throw new Error(`normal Worker did not receive only active department Work Forms: ${JSON.stringify(activeForms)}`);
     }
 
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible', timeout: 10000 });
     await page.locator('#workFormDate').fill('');
     await page.locator('#submitWorkFormButton').click();
@@ -2366,8 +2461,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
       response.request().method() === 'POST'
       && new URL(response.url()).pathname === '/api/form-submissions'
     ), { timeout: 20000 });
-    await reviewAndSubmitReport(page);
-    const submissionResponse = await submissionResponsePromise;
+    const [submissionResponse] = await Promise.all([submissionResponsePromise, reviewAndSubmitReport(page)]);
     if (!submissionResponse.ok()) {
       throw new Error(`normal Worker Work Form submission failed: ${submissionResponse.status()} ${await submissionResponse.text()}`);
     }
@@ -3005,7 +3099,7 @@ async function checkOfflineReportTemplateChange(browser) {
     await page.waitForFunction((formId) => (
       [...document.querySelectorAll('#workFormSelect option')].some((option) => option.value === String(formId))
     ), form.id, { timeout: 20000 });
-    await page.locator('#workFormSelect').selectOption(String(form.id));
+    await selectWorkFormWhenReady(page, String(form.id));
     await page.locator('#workFormField_issue').fill(answerMarker);
     await page.locator('#workFormDate').fill('2026-09-07');
     await page.locator('#workFormFields [data-signature-canvas]').evaluateAll((canvases) => {
@@ -3138,7 +3232,7 @@ async function checkOfflineReportTemplateChange(browser) {
     // it must never rewrite or silently discard the original queued Report.
     await context.setOffline(false);
     await page.locator('.tab[data-tab-target="formTab"]').click();
-    await page.locator('#workFormSelect').selectOption(String(form.id));
+    await selectWorkFormWhenReady(page, String(form.id));
     // Playwright fill can return without input while draft restoration makes the form inert.
     await page.waitForFunction(() => document.querySelector('#workFormField_replacement')
       && !document.querySelector('#workFormSubmissionForm')?.inert);
@@ -3219,7 +3313,7 @@ async function checkStaleReportDraftPreservation(browser, { legacyDraft = false 
     await loginAs(page, 'worker@example.com', 'worker');
     await page.waitForFunction((id) => [...document.querySelectorAll('#workFormSelect option')]
       .some((option) => option.value === String(id)), form.id, { timeout: 20000 });
-    await page.locator('#workFormSelect').selectOption(String(form.id));
+    await selectWorkFormWhenReady(page, String(form.id));
     await page.locator('#workFormField_issue').fill(marker);
     await page.locator('#workFormDate').fill('2026-09-07');
     await page.locator('#workFormFields [data-signature-canvas]').evaluateAll((canvases) => {
@@ -3293,7 +3387,7 @@ async function checkStaleReportDraftPreservation(browser, { legacyDraft = false 
     await page.locator('#workerView').waitFor({ state: 'visible', timeout: 20000 });
     await page.waitForFunction((id) => [...document.querySelectorAll('#workFormSelect option')]
       .some((option) => option.value === String(id)), form.id, { timeout: 20000 });
-    await page.locator('#workFormSelect').selectOption(String(form.id));
+    await selectWorkFormWhenReady(page, String(form.id));
     await page.waitForTimeout(700);
     const replacement = page.locator('#workFormField_replacement');
     if (await replacement.isVisible() && await replacement.isEnabled()) {
@@ -3305,15 +3399,15 @@ async function checkStaleReportDraftPreservation(browser, { legacyDraft = false 
       || await page.locator('#submitWorkFormButton').innerText() !== 'Keep draft and start new report') {
       throw new Error('stale Report draft must show its original read-only content and explicit keep/start action');
     }
-    await page.locator('#workFormSelect').selectOption('');
-    await page.locator('#workFormSelect').selectOption(String(form.id));
+    await selectWorkFormWhenReady(page, '');
+    await selectWorkFormWhenReady(page, String(form.id));
     await page.waitForTimeout(700);
     await assertOriginalDraft('after switching templates');
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('#workerView').waitFor({ state: 'visible', timeout: 20000 });
     await page.waitForFunction((id) => [...document.querySelectorAll('#workFormSelect option')]
       .some((option) => option.value === String(id)), form.id, { timeout: 20000 });
-    await page.locator('#workFormSelect').selectOption(String(form.id));
+    await selectWorkFormWhenReady(page, String(form.id));
     await page.waitForTimeout(700);
     await assertOriginalDraft('after reloading');
     if (!legacyDraft) {
@@ -3853,7 +3947,7 @@ async function checkReportOnlyExcludesDaywork(browser) {
       })}`);
     }
 
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormDate').fill('2026-09-01');
     await page.locator('#workFormField_inspection_area').fill(reportMarker);
     await page.locator('#workFormField_inspection_result').selectOption('Pass');
@@ -4065,7 +4159,7 @@ async function checkExplicitReportPurposeOverridesDayworkName(browser) {
       [...document.querySelectorAll('#workFormSelect option')]
         .some((option) => option.textContent?.trim() === name)
     ), templateName, { timeout: 15000 });
-    await page.locator('#workFormSelect').selectOption({ label: templateName });
+    await selectWorkFormWhenReady(page, { label: templateName });
     await page.locator('#workFormDate').fill('2026-09-01');
     await page.locator('#workFormField_issue').fill(answerMarker);
     await reviewAndSubmitReport(page);
@@ -4324,7 +4418,7 @@ async function checkReconnectPreservesWorkerForms(browser) {
       [...document.querySelectorAll('#workFormSelect option')]
         .some((option) => option.textContent === 'Inspection form')
     ));
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     const inspectionInput = page.locator('#workFormFields [data-work-form-field="inspection_area"] input');
     await inspectionInput.waitFor({ state: 'visible', timeout: 10000 });
     await inspectionInput.fill(formMarker);
@@ -4652,7 +4746,7 @@ async function checkReportOnlyResponsiveLayout(browser) {
     await page.waitForFunction((formId) => (
       [...document.querySelectorAll('#workFormSelect option')].some((option) => option.value === String(formId))
     ), form.id);
-    await page.locator('#workFormSelect').selectOption(String(form.id));
+    await selectWorkFormWhenReady(page, String(form.id));
     await page.locator('#workFormField_inspection_area').fill('South access platform');
     await page.locator('#workFormField_inspection_result').selectOption('Needs action');
     await page.locator('#workFormField_inspection_notes').fill('Check the platform edge protection and attach evidence if needed.');
@@ -5709,14 +5803,14 @@ async function checkReportFindExportDownloads(browser) {
   try {
     await loginAs(page, 'worker@example.com', 'worker');
     for (const answer of [wanted, omitted]) {
-      await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+      await selectWorkFormWhenReady(page, { label: 'Inspection form' });
       await page.locator('#workFormField_inspection_area').fill(answer);
       await page.locator('#workFormField_inspection_result').selectOption('Pass');
       const submission = page.waitForResponse((response) => (
         response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/form-submissions'
       ));
-      await reviewAndSubmitReport(page);
-      if (!(await submission).ok()) throw new Error('export fixture Report submission failed');
+      const [response] = await Promise.all([submission, reviewAndSubmitReport(page)]);
+      if (!response.ok()) throw new Error('export fixture Report submission failed');
       await page.waitForFunction(() => !document.querySelector('#submitWorkFormButton').disabled);
     }
     await logout(page);
@@ -7725,7 +7819,7 @@ async function checkColdOfflineReportReturn(browser) {
   const answer = `Offline return draft ${Date.now()}`;
   try {
     await loginAs(page, 'worker@example.com', 'worker');
-    await page.locator('#workFormSelect').selectOption({ label: 'Inspection form' });
+    await selectWorkFormWhenReady(page, { label: 'Inspection form' });
     await page.locator('#workFormField_inspection_area').fill(answer);
     await page.locator('#workFormField_inspection_result').selectOption('Pass');
     await waitForAsyncCondition(page, async () => Boolean(navigator.serviceWorker.controller) && Boolean(await caches.match('/index.html')));
@@ -8110,7 +8204,7 @@ async function checkWorkFormAutosaveAndUpdateProtection(browser) {
       });
     }, { foreignFormId: inspectionFormId });
 
-    await page.locator('#workFormSelect').selectOption(inspectionFormId);
+    await selectWorkFormWhenReady(page, inspectionFormId);
     await page.locator('#workFormField_inspection_area').waitFor({ state: 'visible' });
     await page.locator('#workFormField_inspection_area').fill('North elevation draft');
     await page.locator('#workFormField_inspection_area').fill(inspectionMarker);
@@ -8140,12 +8234,12 @@ async function checkWorkFormAutosaveAndUpdateProtection(browser) {
       throw new Error(`Saved at receipt did not match committed storage: ${JSON.stringify({ persistedSavedAt, savedStatus })}`);
     }
 
-    await page.locator('#workFormSelect').selectOption(dayworkFormId);
+    await selectWorkFormWhenReady(page, dayworkFormId);
     await page.locator('#workFormField_client').waitFor({ state: 'visible' });
     await page.locator('#workFormField_client').fill(dayworkMarker);
     await waitForDraftAnswer(dayworkFormId, 'client', dayworkMarker);
 
-    await page.locator('#workFormSelect').selectOption(inspectionFormId);
+    await selectWorkFormWhenReady(page, inspectionFormId);
     await page.waitForFunction(({ expected, expectedSiteId }) => (
       document.querySelector('#workFormField_inspection_area')?.value === expected
       && document.querySelector('#workFormDate')?.value === '2026-07-20'
@@ -8159,7 +8253,7 @@ async function checkWorkFormAutosaveAndUpdateProtection(browser) {
       [...document.querySelectorAll('#workFormSelect option')]
         .some((option) => option.textContent === 'Inspection form')
     ));
-    await page.locator('#workFormSelect').selectOption(inspectionFormId);
+    await selectWorkFormWhenReady(page, inspectionFormId);
     await page.waitForFunction(({ expected, expectedSiteId }) => (
       document.querySelector('#workFormField_inspection_area')?.value === expected
       && document.querySelector('#workFormDate')?.value === '2026-07-20'
@@ -8186,7 +8280,7 @@ async function checkWorkFormAutosaveAndUpdateProtection(browser) {
       remainingFormId: dayworkFormId
     }, { timeout: 15000, polling: 100 });
 
-    await page.locator('#workFormSelect').selectOption(dayworkFormId);
+    await selectWorkFormWhenReady(page, dayworkFormId);
     await page.waitForFunction((expected) => document.querySelector('#workFormField_client')?.value === expected, dayworkMarker);
     await page.locator('#workFormField_client').fill(logoutMarker);
     await page.locator('#logoutButton').click();
@@ -8195,7 +8289,7 @@ async function checkWorkFormAutosaveAndUpdateProtection(browser) {
     await page.locator('.tab[data-tab-target="formTab"]').click();
     await page.waitForFunction(() => [...document.querySelectorAll('#workFormSelect option')]
       .some((option) => option.textContent === 'Daywork log form'));
-    await page.locator('#workFormSelect').selectOption(dayworkFormId);
+    await selectWorkFormWhenReady(page, dayworkFormId);
     await page.waitForFunction((expected) => document.querySelector('#workFormField_client')?.value === expected, logoutMarker);
     await page.evaluate(() => {
       window.__originalDraftPut = IDBObjectStore.prototype.put;
@@ -8207,6 +8301,7 @@ async function checkWorkFormAutosaveAndUpdateProtection(browser) {
       };
     });
     await page.locator('#workFormField_client').fill(latestUpdateMarker);
+    // This selection is deliberately rejected by the failing old-draft save.
     await page.locator('#workFormSelect').selectOption(inspectionFormId);
     await page.waitForFunction((expectedFormId) => (
       document.querySelector('#workFormSelect')?.value === expectedFormId
