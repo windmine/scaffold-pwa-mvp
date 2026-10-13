@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-13T22:01:51.124376+00:00",
+  "record_scope": "Dated local corrective validation before commit/push. GitHub Actions records subsequent exact-commit remote results.",
+  "parent_record": "draft-readiness-followup.json",
+  "remote_run_before_fix": {
+    "run_id": 38472318868,
+    "run_url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38472318868",
+    "commit": "2582737411429409ad38a485ecab1f012ae17d3d",
+    "backend": "success",
+    "frontend": "failure",
+    "failure": "Review panel stayed hidden until its unchanged 10000ms wait expired, before the case enabled its queue-quota failure.",
+    "location": "scripts/report-storage-warning-test.mjs:481",
+    "remaining_mobile_suites_and_main_workflows_and_history_volume": "not reached",
+    "log": {
+      "path": "output/ci-failure-20261014.local/third-fix-frontend.log",
+      "sha256": "7a30ac9dd752b9985b0dbdf5c18873ca209a89ed712454d383c38a274b588349",
+      "bytes": 92653
+    },
+    "backend_verified": {
+      "environment_checks": 4,
+      "volume_checks": 24,
+      "cleanup_complete": true,
+      "all_recorded_source_hashes_match": true,
+      "artifacts": [
+        {
+          "path": "output/ci-failure-20261014.local/verified-third-remote-backend/postgres-environment.json",
+          "sha256": "6d2db7d7068677f75b178ca6567169e98b04fd00a9350d5496d132c7f434b6d2",
+          "bytes": 1791
+        },
+        {
+          "path": "output/ci-failure-20261014.local/verified-third-remote-backend/backend-volume.json",
+          "sha256": "df9e38e8474c6d6ffaaae410f50000e81bddb5b0fac8da4fd246aeb55e5bb4e1",
+          "bytes": 30304
+        }
+      ]
+    }
+  },
+  "controlled_cause": {
+    "finding": "The old fill returned empty with no input event while inert. The actual committed draft then contained empty notes, the intended Date and the exact photo hash. Native required-notes validation prevented Review while failStore remained empty. Readiness produced the intended notes and visible Review; the same final queue-quota failure preserved the committed draft and truthful recovery guidance.",
+    "limit": "The original Linux execution did not trace entered notes, native draft timing or validation events. Its exact hidden-Review cause is individually untraced; the controlled reproduction below establishes the fixture defect.",
+    "regression_evidence": {
+      "path": "docs/evidence/ci-fixes-20261014/storage-readiness-regression.json",
+      "sha256": "2e244433a44607f107c9a8001ce566f2b002259d218d8ea71e9959838a6573d2",
+      "bytes": 17050
+    },
+    "permanent_regression": "The existing queue-quota case holds native draft completion. Selection must wait for release; every storage fixture verifies entered and committed required notes and Date before beginning its actual scenario."
+  },
+  "fix": {
+    "shared_helper": "scripts/browser-work-form-ready.mjs",
+    "readiness": "Capture the previous field surface before selection; await the intended selected value, replacement surface and completion of draft loading. Dispose the captured handle on every exit.",
+    "polling": "Reuse the bounded Node-side asynchronous polling helper, so readiness works while the browser clock is paused.",
+    "timeouts": "Storage keeps 10000ms; main/submission-render use 30000ms. Hosted verifiers have 45000ms context defaults and use the helper default of 30000ms. No timeout was increased.",
+    "storage_callbacks": "Paused-clock re-login retains its manual change dispatch inside readiness; estimate/dialog cancellation keeps raw dispatch.",
+    "other_migrated_calls": 8,
+    "other_migrated_files": 5,
+    "selection_audit": {
+      "path": "output/ci-failure-20261014.local/form-selection-audit.json",
+      "sha256": "c2fde60d2b6c59c021681cef0897610847ffb2a2ff13a6cbd1e7f4ce81b26f83",
+      "bytes": 9471
+    },
+    "migrated_normal_calls": [
+      {
+        "file": "scripts/check-hosted-report-ux-release.mjs",
+        "lines": [
+          352,
+          455,
+          494
+        ],
+        "source_sha256": "f850787488116b12f59a22e5887035c0baeefec558eaaaa2e1ebdd5af8c95b47",
+        "classification": "migrated_normal_selection",
+        "reason": "Initial photo draft, new draft after submission, and restoration after relogin."
+      },
+      {
+        "file": "scripts/check-hosted-report-october-release.mjs",
+        "lines": [
+          375,
+          477
+        ],
+        "source_sha256": "bd0b1f4bbb7ef6b43a80cfa9b8b43fff460edfda572b7240b63e6c8ddc2d294b",
+        "classification": "migrated_normal_selection",
+        "reason": "Initial editable Report and second independent Report."
+      },
+      {
+        "file": "scripts/check-hosted-report-improvements.mjs",
+        "lines": [
+          488
+        ],
+        "source_sha256": "0a96ec8df4b6a491e937ed354421aea114caf904f07b2d2b7687068d014d5e61",
+        "classification": "migrated_normal_selection",
+        "reason": "Initial draft before the cold offline return sequence."
+      },
+      {
+        "file": "scripts/check-hosted-report-workflow.mjs",
+        "lines": [
+          666
+        ],
+        "source_sha256": "3a2e70ba1ac3bde2797e138c527ea64d9056e880968f66195c7c26fa5d84c035",
+        "classification": "migrated_normal_selection",
+        "reason": "Initial Report evidence entry; hosted mutation authorization is unchanged."
+      },
+      {
+        "file": "scripts/worker-form-submit-render-test.mjs",
+        "lines": [
+          100
+        ],
+        "source_sha256": "f7f08f87ea1b66c39e8112b6fdf57513aafce25e3d74a39fa5a7b81b80fcce99",
+        "classification": "migrated_normal_selection",
+        "reason": "Only final normal re-selection after successful submission; intentional pending-render operations unchanged."
+      }
+    ],
+    "preserved_exceptions": "Already-guarded and explicitly-awaited fixtures, native-read controls, held-save/submission lock probes, rejected quota-save selections and photo-estimate cancellation retain their intended behavior.",
+    "application_changed": false,
+    "assertions_removed": false
+  },
+  "validation": {
+    "focused_storage": {
+      "policy_groups": 11,
+      "browser_groups": 38,
+      "status": "passed"
+    },
+    "other_migrations": {
+      "syntax_checks": 7,
+      "local_suites": 7,
+      "status": "passed",
+      "sources_unchanged": true,
+      "proof": {
+        "path": "output/ci-failure-20261014.local/selection-migrations-verified.json",
+        "sha256": "d539ac8774d484af9989b51c6afa8ad57ae8b2ba81cbc64f0b96c5da1077a20b",
+        "bytes": 3749
+      },
+      "scope": "Syntax and local test contracts only; no hosted runner or provider requests."
+    },
+    "full_local_mobile": {
+      "command": "python .github/scripts/run_local_checks.py mobile",
+      "passed": true,
+      "started_at": "2026-10-13T21:51:12.934602+00:00",
+      "finished_at": "2026-10-13T22:01:41.163227+00:00",
+      "main_workflows_passed": 73,
+      "main_workflows_failed": 0,
+      "all_pre_main_mobile_suites_and_static_installer_wait_contracts": "passed in this single complete command",
+      "temporary_default_storage_removed": true,
+      "main_ports_closed_after_exit": {
+        "8765": true,
+        "5175": true,
+        "4175": true
+      },
+      "sources_unchanged_during_run": true,
+      "source_sha256": {
+        "scripts/browser-work-form-ready.mjs": "74a41c6aad1f66931ccc46254b4530d5899a4c8af19cb054dff00890621d6087",
+        "scripts/browser-async-wait.mjs": "66b50f274a6fb57f0f69e582d39aa6b795d562bb8da4ab88d9e621b67d0a2c3e",
+        "scripts/check-browser-workflows.mjs": "2ebae145a23f2cd54bd9a806639bd8c22a6763b5fe71b44711d971cb31e39e8e",
+        "scripts/report-storage-warning-test.mjs": "53ecc4fea73c3f009e34acc3495e5650abe647f77d7fa98a86d1fedbb25e37c6",
+        "scripts/check-hosted-report-improvements.mjs": "0a96ec8df4b6a491e937ed354421aea114caf904f07b2d2b7687068d014d5e61",
+        "scripts/check-hosted-report-october-release.mjs": "bd0b1f4bbb7ef6b43a80cfa9b8b43fff460edfda572b7240b63e6c8ddc2d294b",
+        "scripts/check-hosted-report-ux-release.mjs": "f850787488116b12f59a22e5887035c0baeefec558eaaaa2e1ebdd5af8c95b47",
+        "scripts/check-hosted-report-workflow.mjs": "3a2e70ba1ac3bde2797e138c527ea64d9056e880968f66195c7c26fa5d84c035",
+        "scripts/worker-form-submit-render-test.mjs": "f7f08f87ea1b66c39e8112b6fdf57513aafce25e3d74a39fa5a7b81b80fcce99",
+        ".github/scripts/run_local_checks.py": "5a52f1a73aba7241c122f7104b83e011b13d35e6e64d5d22a1a562b251c21295",
+        "package.json": "0ef53cdf9c69e546cb0dffcc9310dfd6ae0c50937d570c5394cc6a41a6dd21fd",
+        "package-lock.json": "a80e2a886f78a77adcf5d8d1e551fe1b70e7143d6bc203bf0700130fc1b8a825"
+      },
+      "log": {
+        "path": "output/ci-failure-20261014.local/fourth-fix-full-mobile.log",
+        "sha256": "f8ec82674476208e86162cb2cee2c6696ca0232a557425b2e01d7258d856b0b6",
+        "bytes": 72697
+      },
+      "aggregate_proof": {
+        "path": "output/ci-failure-20261014.local/fourth-fix-full-mobile.json",
+        "sha256": "978da5e6b7928b506eea35d780ec0d41f3c9c6a6c3a91f7ebbf8c645b50d37b8",
+        "bytes": 8154
+      }
+    },
+    "lint": "passed on frozen source",
+    "static_checks": {
+      "artifact_hashes_verified": 18,
+      "current_source_hashes_verified": 12,
+      "valid_markdown_local_links": 233,
+      "valid_markdown_anchors": 22,
+      "javascript_syntax": "passed",
+      "git_diff_check": "passed"
+    },
+    "independent_review": "No blockers; controlled observations, source and artifact hashes, unchanged deadlines/assertions, paused-clock handling and intentional exceptions independently checked.",
+    "subsequent_remote_results": "https://github.com/windmine/scaffold-pwa-mvp/actions/workflows/ci.yml?query=branch%3Acodex%2Freport-submission-mvp"
+  },
+  "boundaries": [
+    "Prior remote failures remain recorded separately; a complete local Windows pass does not establish a remote Ubuntu pass.",
+    "Hosted verifier changes received syntax and local contract/mock coverage only; no hosted verifier execution occurred.",
+    "The local mobile command excludes the separate Worker history-volume step; that gate remains in the exact-commit GitHub workflow.",
+    "No application, backend runtime, migration, package, workflow, deployment or hosted-data change is included in this follow-up."
+  ]
+}

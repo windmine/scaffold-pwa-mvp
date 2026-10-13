@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import process from 'node:process';
 import { chromium } from 'playwright';
+import { selectWorkFormWhenReady } from './browser-work-form-ready.mjs';
 import { approvedOrigin, evidenceDirectory, forwardWithoutRedirects, safeFailure } from './check-hosted-onboarding-release.mjs';
 import { browserApiRequest, showSupervisorFilters } from './check-hosted-report-workflow.mjs';
 
@@ -348,7 +349,7 @@ export async function runUxRelease(config) {
     await step('mixed_photo_selection_lightweight_preview_and_original_draft', async () => {
       await worker.reload({ waitUntil: 'domcontentloaded' });
       await worker.locator('#workerView').waitFor({ state: 'visible' });
-      await worker.locator('#workFormSelect').selectOption(String(scope.templateId));
+      await selectWorkFormWhenReady(worker, String(scope.templateId));
       await worker.locator('#workFormField_ux_detail').fill(scope.marker);
       await worker.locator('#workFormDate').fill(scope.reportDate);
       const image = await worker.evaluate(() => {
@@ -451,7 +452,7 @@ export async function runUxRelease(config) {
     });
     await step('cookie_free_reset_preserves_supervisor_and_worker_draft', async () => {
       await verifyWorker();
-      await worker.locator('#workFormSelect').selectOption(String(scope.templateId));
+      await selectWorkFormWhenReady(worker, String(scope.templateId));
       const draftMarker = `Unfinished after submission ${nonce}`;
       await worker.locator('#workFormField_ux_detail').fill(draftMarker);
       await poll(async () => (await draftSnapshot())?.answer === draftMarker, 'unfinished_draft_not_saved');
@@ -490,7 +491,7 @@ export async function runUxRelease(config) {
       await login(worker, { email: scope.worker.email, password: scope.worker.newPassword }, 'worker');
       const me = await api(worker, '/api/auth/me');
       requireCondition(me.ok && ownedWorker(me.body, scope), 'new_password_login_failed');
-      await worker.locator('#workFormSelect').selectOption(String(scope.templateId));
+      await selectWorkFormWhenReady(worker, String(scope.templateId));
       await poll(async () => await worker.locator('#workFormField_ux_detail').inputValue() === draftMarker, 'draft_not_restored_after_relogin');
       await recoveryPage.close();
     });

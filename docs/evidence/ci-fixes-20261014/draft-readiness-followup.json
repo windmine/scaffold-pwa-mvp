@@ -120,5 +120,6 @@
     "This full local run covers the 73 main workflows. It does not constitute a new complete local check:mobile or a remote Linux pass.",
     "The previous failed remote runs and their limits remain recorded; no failed result is relabeled as passing.",
     "No application, migration, deployment, hosted application fixture or user-data change is included."
-  ]
+  ],
+  "follow_up_record": "storage-readiness-followup.json"
 }

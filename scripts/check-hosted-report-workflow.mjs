@@ -6,6 +6,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { chromium } from 'playwright';
+import { selectWorkFormWhenReady } from './browser-work-form-ready.mjs';
 
 // Opt-in only. Operators provision three dedicated accounts; this runner never seeds,
 // creates users, resets a database, deletes upload objects, or changes infrastructure.
@@ -662,7 +663,7 @@ async function main() {
     await step('worker_ui_date_optional_site_photo_and_handwritten_signature', async () => {
       await workerPage.reload({ waitUntil: 'domcontentloaded' });
       await workerPage.locator('#workerView').waitFor({ state: 'visible' });
-      await workerPage.locator('#workFormSelect').selectOption(String(evidence.owned.templateId));
+      await selectWorkFormWhenReady(workerPage, String(evidence.owned.templateId));
       await workerPage.locator('#workFormField_issue_detail').fill(marker);
       await workerPage.locator('#workFormDate').fill('');
       await workerPage.locator('#submitWorkFormButton').click();

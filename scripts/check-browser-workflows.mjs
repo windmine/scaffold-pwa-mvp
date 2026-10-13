@@ -6,6 +6,7 @@ import process from 'node:process';
 
 import { chromium } from 'playwright';
 import { waitForAsyncCondition } from './browser-async-wait.mjs';
+import { selectWorkFormWhenReady } from './browser-work-form-ready.mjs';
 
 const root = process.cwd();
 const backendDir = join(root, 'backend');
@@ -33,23 +34,6 @@ async function reviewAndSubmitReport(page) {
   await page.locator('#submitWorkFormButton').click();
   await page.locator('#workFormReviewPanel').waitFor({ state: 'visible' });
   await page.locator('#confirmWorkFormSubmitButton').click();
-}
-
-async function selectWorkFormWhenReady(page, option) {
-  // Selection can first flush the previous draft. Wait for its old surface to
-  // be replaced, then for native draft restoration to release the new editor.
-  const previous = await page.locator('#workFormFields').evaluateHandle((fields) => fields.firstChild);
-  try {
-    const [selected] = await page.locator('#workFormSelect').selectOption(option);
-    await page.waitForFunction(({ previous, selected }) => {
-      const form = document.querySelector('#workFormSubmissionForm');
-      const fields = document.querySelector('#workFormFields');
-      return document.querySelector('#workFormSelect')?.value === selected
-        && fields && fields.firstChild !== previous && form && !form.inert;
-    }, { previous, selected });
-  } finally {
-    await previous.dispose();
-  }
 }
 
 function holdNextWorkFormDraftRead() {

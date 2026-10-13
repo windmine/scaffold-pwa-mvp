@@ -3,6 +3,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { selectWorkFormWhenReady } from './browser-work-form-ready.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const origin = 'http://127.0.0.1:59960'; // Full real app; every request is intercepted, including unexpected requests.
@@ -20,11 +21,42 @@ const low = { usage: 80 * mib, quota: 100 * mib };
 
 // Only browser API boundaries are replaced. App modules, event handlers,
 // confirmation dialog, actual Blob persistence and IndexedDB transactions are real.
-function installBrowserBoundaries({ reportOnly, estimate }) {
+function installBrowserBoundaries({ reportOnly, estimate, holdDraftRead }) {
   window.__REPORT_ONLY_MODE_OVERRIDE__ = reportOnly;
   window.storageTest = { mode: 'value', value: estimate, calls: 0, releases: [], failDraft: false, failStore: '',
     failures: 0, failedStores: [], deletes: [], puts: [], serviceWorkerMessages: [], originals: new Map() };
   const test = window.storageTest;
+  if (holdDraftRead) {
+    const nativeGet = IDBObjectStore.prototype.get;
+    const completion = Object.getOwnPropertyDescriptor(IDBTransaction.prototype, 'oncomplete');
+    let armed = true;
+    test.draftReadHeld = false;
+    test.releaseDraftRead = () => {};
+    IDBObjectStore.prototype.get = function (key) {
+      const request = nativeGet.call(this, key);
+      if (armed && this.name === 'drafts' && this.transaction.mode === 'readonly'
+        && key === 'work-form-draft:73:81' && document.querySelector('#workFormSubmissionForm')?.inert) {
+        armed = false;
+        Object.defineProperty(this.transaction, 'oncomplete', {
+          configurable: true,
+          get() { return completion.get.call(this); },
+          set(handler) {
+            completion.set.call(this, function (event) {
+              // Let native request success and commit finish unchanged, then
+              // hold only delivery of the real completion to the editor.
+              test.draftReadHeld = true;
+              test.releaseDraftRead = () => {
+                IDBObjectStore.prototype.get = nativeGet;
+                test.releaseDraftRead = () => {};
+                handler.call(this, event);
+              };
+            });
+          }
+        });
+      }
+      return request;
+    };
+  }
   const estimateStorage = () => {
     test.calls += 1;
     if (test.mode === 'throw') throw new TypeError('Estimate unavailable');
@@ -77,10 +109,10 @@ function installBrowserBoundaries({ reportOnly, estimate }) {
     } }) });
 }
 
-async function fixture(browser, { reportOnly = true, estimate = ample } = {}) {
+async function fixture(browser, { reportOnly = true, estimate = ample, holdDraftRead = false } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   context.setDefaultTimeout(10000);
-  await context.addInitScript(installBrowserBoundaries, { reportOnly, estimate });
+  await context.addInitScript(installBrowserBoundaries, { reportOnly, estimate, holdDraftRead });
   const errors = [], unexpected = [], traffic = { uploads: [], posts: [] };
   let currentWorker = structuredClone(worker), signedIn = true, historyFailure = 0;
   await context.route('**/*', async (route) => {
@@ -125,9 +157,26 @@ async function fixture(browser, { reportOnly = true, estimate = ample } = {}) {
   await page.locator('#workerView').waitFor({ state: 'visible' });
   await page.locator('button.tab[data-tab-target="formTab"]').click();
   await page.waitForFunction(() => document.querySelector('#workFormSelect option[value="81"]'));
-  await page.locator('#workFormSelect').selectOption('81');
-  await page.locator('#workFormField_notes').fill('Preserve existing observations while selecting photos.');
+  if (holdDraftRead) {
+    let ready = false;
+    const selection = selectWorkFormWhenReady(page, '81', { timeout: 10000 }).finally(() => { ready = true; });
+    selection.catch(() => {});
+    try {
+      await poll(page, () => window.storageTest.draftReadHeld);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      assert.equal(ready, false, 'Storage fixture selection must wait for native draft restoration');
+    } finally {
+      await page.evaluate(() => window.storageTest.releaseDraftRead());
+      await selection;
+    }
+  } else {
+    await selectWorkFormWhenReady(page, '81', { timeout: 10000 });
+  }
+  const observations = 'Preserve existing observations while selecting photos.';
+  await page.locator('#workFormField_notes').fill(observations);
   await page.locator('#workFormDate').fill('2026-10-02');
+  assert.equal(await page.locator('#workFormField_notes').inputValue(), observations);
+  assert.equal(await page.locator('#workFormDate').inputValue(), '2026-10-02');
   await page.evaluate((pngBytes) => {
     const test = window.storageTest;
     test.hash = async (blob) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()))]
@@ -149,6 +198,9 @@ async function fixture(browser, { reportOnly = true, estimate = ample } = {}) {
     };
   }, png);
   await waitSaved(page, 0);
+  const initial = await saved(page);
+  assert.equal(initial.answers.notes, observations, 'Storage tests start with the required answer committed');
+  assert.equal(initial.workDate, '2026-10-02', 'Storage tests start with the intended Date committed');
   return { context, page, traffic,
     setWorker(value) { currentWorker = structuredClone(value); },
     expire() { signedIn = false; historyFailure = 401; },
@@ -457,12 +509,17 @@ try {
     await poll(f.page, () => document.body.dataset.activeView === 'worker');
     await f.page.locator('button.tab[data-tab-target="formTab"]').evaluate((button) => button.click());
     await poll(f.page, () => Boolean(document.querySelector('#workFormSelect option[value="81"]')));
-    await f.page.locator('#workFormSelect').evaluate((select) => {
-      select.value = '81'; select.dispatchEvent(new Event('change', { bubbles: true }));
+    await selectWorkFormWhenReady(f.page, '81', {
+      timeout: 10000,
+      select: (value) => f.page.locator('#workFormSelect').evaluate((select, value) => {
+        select.value = value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        return [select.value];
+      }, value)
     });
-    await poll(f.page, () => Boolean(document.querySelector('#workFormField_notes')));
     const newest = 'Newer observations after same-account sign-in must win over an expired pending autosave.';
     await f.page.locator('#workFormField_notes').fill(newest);
+    assert.equal(await f.page.locator('#workFormField_notes').inputValue(), newest);
     await f.page.locator('#submitWorkFormButton').evaluate((button) => button.click());
     await poll(f.page, async ({ key, newest }) => (await (await import('/assets/js/db.js')).get('drafts', key))?.value?.answers?.notes === newest,
       { key: draftKey, newest });
@@ -491,7 +548,7 @@ try {
     assert.equal(await f.page.locator('#workFormStorageRetryButton').isVisible(), false,
       'A clean draft needs no draft-save retry; submission uncertainty requires checking My Reports');
     assert.deepEqual(await saved(f.page), before);
-  });
+  }, { holdDraftRead: store === 'queue' });
 
   await check('an optimistic estimate cannot hide a real quota error; retry preserves saved and in-memory originals', async (f) => {
     await pick(f.page, [{ name: 'already-saved.png', size: mib }]);

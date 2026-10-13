@@ -1,0 +1,453 @@
+{
+  "status": "focused_validation_complete",
+  "recordedAtUtc": "2026-10-13T21:51:17.695513Z",
+  "recordScope": "Dated local controlled diagnosis and focused validation before the next commit/push. Subsequent complete mobile and remote results belong to the follow-up evidence and GitHub Actions.",
+  "sourceCommitBeforeFix": "2582737411429409ad38a485ecab1f012ae17d3d",
+  "originalRemoteFailure": {
+    "runId": 38472318868,
+    "runUrl": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38472318868",
+    "commit": "2582737",
+    "location": "scripts/report-storage-warning-test.mjs:481",
+    "workflow": "a queue quota failure during final submission keeps the clean draft and gives truthful recovery guidance",
+    "failure": "Review panel stayed hidden until its unchanged 10000ms wait expired, before the case enabled its queue-quota failure.",
+    "passedBeforeFailure": "Backend job and preceding frontend checks, including all 11 storage budget groups and the records-quota case immediately before this queue-quota case",
+    "fullLog": {
+      "path": "output/ci-failure-20261014.local/third-fix-frontend.log",
+      "sha256": "7a30ac9dd752b9985b0dbdf5c18873ca209a89ed712454d383c38a274b588349",
+      "bytes": 92653
+    },
+    "limit": "The original Linux execution did not trace entered notes, native draft timing or validation events. Its exact hidden-Review cause is individually untraced; the controlled reproduction below establishes the fixture defect."
+  },
+  "rankedHypothesesBeforeExperiments": [
+    {
+      "rank": 1,
+      "prediction": "Inert draft restoration makes required notes fill return without input; Date/photo changes persist blank notes, causing native validation before Review."
+    },
+    {
+      "rank": 2,
+      "prediction": "If native draft saving is still pending, the expected notes exist in the editor while its Saved state or committed draft is incomplete."
+    },
+    {
+      "rank": 3,
+      "prediction": "If storage-warning Review is defective, valid committed notes/Date/photo still fail to produce Review independently of fixture readiness."
+    }
+  ],
+  "controlledNativeRead": {
+    "mechanism": "Preserve the first real readonly draft get result and native transaction completion, deferring only delivery of the original transaction.oncomplete handler while the application keeps the editor inert.",
+    "sourceBeforeFix": {
+      "path": "output/ci-failure-20261014.local/storage-warning-before-ready.mjs.txt",
+      "sha256": "ed7b21259aa99bb3761de3b5e287f4e2f9012f11db09743b1de347fe2d4ec01f",
+      "bytes": 38628
+    },
+    "instrumentedSource": {
+      "path": "output/ci-failure-20261014.local/storage-draft-probe.mjs.txt",
+      "sha256": "6bdb4f539c15c79637cfb476f4f26f5859a19f39a43eb0c157967df7f60a4f55",
+      "bytes": 42243
+    },
+    "sourceStage": "Both red and green traces ran these exact retained LF probe bytes; only STORAGE_DRAFT_PROBE_MODE changed at runtime.",
+    "old": {
+      "status": "failed",
+      "log": {
+        "path": "output/ci-failure-20261014.local/storage-draft-old.log",
+        "sha256": "bc77505619a301b2bf92f2f43a2daeb084821e5c1cceeb186d22290566212b15",
+        "bytes": 2806
+      },
+      "observations": [
+        {
+          "stage": "native-read-held",
+          "inert": true,
+          "notes": "",
+          "date": "2026-10-14",
+          "reviewVisible": false,
+          "saved": false,
+          "draft": null,
+          "failStore": "",
+          "failedStores": [],
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            }
+          ]
+        },
+        {
+          "stage": "fill-returned",
+          "inert": true,
+          "notes": "",
+          "date": "2026-10-02",
+          "reviewVisible": false,
+          "saved": false,
+          "draft": null,
+          "failStore": "",
+          "failedStores": [],
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            }
+          ]
+        },
+        {
+          "stage": "initial-draft-saved",
+          "inert": false,
+          "notes": "",
+          "date": "2026-10-02",
+          "reviewVisible": false,
+          "saved": true,
+          "draft": {
+            "notes": "",
+            "date": "2026-10-02",
+            "photos": []
+          },
+          "failStore": "",
+          "failedStores": [],
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "completion-delivered"
+            }
+          ]
+        },
+        {
+          "stage": "photo-saved-before-review",
+          "inert": false,
+          "notes": "",
+          "date": "2026-10-02",
+          "reviewVisible": false,
+          "saved": true,
+          "draft": {
+            "notes": "",
+            "date": "2026-10-02",
+            "photos": [
+              "b0fd109a586e7abb5bf43105bdb7326801c949e293f4b3e0887c8081e04c90d8"
+            ]
+          },
+          "failStore": "",
+          "failedStores": [],
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "completion-delivered"
+            }
+          ]
+        },
+        {
+          "stage": "after-review-wait",
+          "inert": false,
+          "notes": "",
+          "date": "2026-10-02",
+          "reviewVisible": false,
+          "saved": true,
+          "draft": {
+            "notes": "",
+            "date": "2026-10-02",
+            "photos": [
+              "b0fd109a586e7abb5bf43105bdb7326801c949e293f4b3e0887c8081e04c90d8"
+            ]
+          },
+          "failStore": "",
+          "failedStores": [],
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "completion-delivered"
+            },
+            {
+              "kind": "invalid",
+              "id": "workFormField_notes",
+              "missing": true
+            }
+          ]
+        }
+      ]
+    },
+    "ready": {
+      "status": "passed",
+      "log": {
+        "path": "output/ci-failure-20261014.local/storage-draft-ready.log",
+        "sha256": "1c8c0d0a2b3404b3550095e9db4e761f94ed87e184cbf3a254a0054f45fe6d32",
+        "bytes": 2938
+      },
+      "observations": [
+        {
+          "stage": "native-read-held",
+          "inert": true,
+          "notes": "",
+          "date": "2026-10-14",
+          "reviewVisible": false,
+          "saved": false,
+          "draft": null,
+          "failStore": "",
+          "failedStores": [],
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            }
+          ]
+        },
+        {
+          "stage": "fill-returned",
+          "inert": false,
+          "notes": "Preserve existing observations while selecting photos.",
+          "date": "2026-10-02",
+          "reviewVisible": false,
+          "saved": false,
+          "draft": null,
+          "failStore": "",
+          "failedStores": [],
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "completion-delivered"
+            },
+            {
+              "kind": "input",
+              "length": 54
+            }
+          ]
+        },
+        {
+          "stage": "initial-draft-saved",
+          "inert": false,
+          "notes": "Preserve existing observations while selecting photos.",
+          "date": "2026-10-02",
+          "reviewVisible": false,
+          "saved": true,
+          "draft": {
+            "notes": "Preserve existing observations while selecting photos.",
+            "date": "2026-10-02",
+            "photos": []
+          },
+          "failStore": "",
+          "failedStores": [],
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "completion-delivered"
+            },
+            {
+              "kind": "input",
+              "length": 54
+            }
+          ]
+        },
+        {
+          "stage": "photo-saved-before-review",
+          "inert": false,
+          "notes": "Preserve existing observations while selecting photos.",
+          "date": "2026-10-02",
+          "reviewVisible": false,
+          "saved": true,
+          "draft": {
+            "notes": "Preserve existing observations while selecting photos.",
+            "date": "2026-10-02",
+            "photos": [
+              "b0fd109a586e7abb5bf43105bdb7326801c949e293f4b3e0887c8081e04c90d8"
+            ]
+          },
+          "failStore": "",
+          "failedStores": [],
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "completion-delivered"
+            },
+            {
+              "kind": "input",
+              "length": 54
+            }
+          ]
+        },
+        {
+          "stage": "after-review-wait",
+          "inert": false,
+          "notes": "Preserve existing observations while selecting photos.",
+          "date": "2026-10-02",
+          "reviewVisible": true,
+          "saved": true,
+          "draft": {
+            "notes": "Preserve existing observations while selecting photos.",
+            "date": "2026-10-02",
+            "photos": [
+              "b0fd109a586e7abb5bf43105bdb7326801c949e293f4b3e0887c8081e04c90d8"
+            ]
+          },
+          "failStore": "",
+          "failedStores": [],
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "completion-delivered"
+            },
+            {
+              "kind": "input",
+              "length": 54
+            }
+          ]
+        },
+        {
+          "stage": "after-quota-failure",
+          "inert": false,
+          "notes": "Preserve existing observations while selecting photos.",
+          "date": "2026-10-02",
+          "reviewVisible": false,
+          "saved": true,
+          "draft": {
+            "notes": "Preserve existing observations while selecting photos.",
+            "date": "2026-10-02",
+            "photos": [
+              "b0fd109a586e7abb5bf43105bdb7326801c949e293f4b3e0887c8081e04c90d8"
+            ]
+          },
+          "failStore": "queue",
+          "failedStores": [
+            "queue",
+            "queue"
+          ],
+          "events": [
+            {
+              "kind": "native-success",
+              "valuePresent": false
+            },
+            {
+              "kind": "native-complete"
+            },
+            {
+              "kind": "completion-delivered"
+            },
+            {
+              "kind": "input",
+              "length": 54
+            }
+          ]
+        }
+      ]
+    },
+    "finding": "The old fill returned empty with no input event while inert. The actual committed draft then contained empty notes, the intended Date and the exact photo hash. Native required-notes validation prevented Review while failStore remained empty. Readiness produced the intended notes and visible Review; the same final queue-quota failure preserved the committed draft and truthful recovery guidance.",
+    "scope": "No application Review or storage-warning change is justified by this experiment; pending save or restoration loss did not explain the controlled failure."
+  },
+  "permanentNativeRegression": {
+    "location": "Existing queue-quota case; browser group count remains 38",
+    "contract": "Run the actual shared selection helper while native draft completion delivery is held. It must remain pending until explicit release; then enter and assert exact notes/Date in both DOM and committed draft before any storage-warning test begins.",
+    "negativeObservationWindowMilliseconds": 100,
+    "oldSemanticsRed": {
+      "status": "failed",
+      "assertion": "Storage fixture selection must wait for native draft restoration",
+      "source": {
+        "path": "output/ci-failure-20261014.local/storage-native-regression-old.mjs.txt",
+        "sha256": "60a1f9b03ae2c7120ef23fadfa50c33130e94a750fd26043474ae526cbe7d3b6",
+        "bytes": 41212
+      },
+      "log": {
+        "path": "output/ci-failure-20261014.local/storage-native-regression-red.log",
+        "sha256": "a1f3a06fb4a3ed0cdb61fab5a0f394bdc7a760adb704aa8d26da0348abe19306",
+        "bytes": 818
+      },
+      "sourceStage": "The hold and setup assertions with a raw-selection substitute, recorded before explicit 10s options were added to calls of the new helper; the raw-selection substitute does not use readiness options."
+    },
+    "green": {
+      "status": "passed",
+      "log": {
+        "path": "output/ci-failure-20261014.local/storage-final-focused.log",
+        "sha256": "35a0295b70478c92b9cf8fd9b975b0e56f14296db8c33a638992942bf4a13457",
+        "bytes": 4255
+      },
+      "sourceSha256": {
+        "scripts/report-storage-warning-test.mjs": "53ecc4fea73c3f009e34acc3495e5650abe647f77d7fa98a86d1fedbb25e37c6",
+        "scripts/browser-work-form-ready.mjs": "74a41c6aad1f66931ccc46254b4530d5899a4c8af19cb054dff00890621d6087",
+        "scripts/browser-async-wait.mjs": "66b50f274a6fb57f0f69e582d39aa6b795d562bb8da4ab88d9e621b67d0a2c3e"
+      }
+    },
+    "limit": "An unusually slow raw selection could exceed the 100ms negative observation window; the captured old execution fails this assertion and the native result is held until explicit release."
+  },
+  "fix": {
+    "file": "scripts/report-storage-warning-test.mjs",
+    "applicationCodeChanged": false,
+    "setup": "Initial normal selection uses the shared prior-surface/selected-value/non-inert helper, then asserts exact entered notes/Date and their committed draft values.",
+    "pausedClock": "After same-account sign-in, the intentional manual evaluate/change action is retained through the helper callback. Node-side polling binds the replacement surface and non-inert state without advancing the paused application clock; exact new notes are asserted before continuing.",
+    "preservedAdversarialSelection": "Template/clear changes during held estimate/dialog remain raw: they intentionally test cancellation and perform no subsequent edit.",
+    "timeouts": "Existing Review waits, storage polling and new storage selection-readiness limits remain 10000ms; no deadline inflation.",
+    "assertionsRemoved": false,
+    "storageBehavior": "Quota faults, before/after draft equality, no automatic cleanup, no unexpected uploads/posts, exact original evidence and recovery-warning assertions are retained."
+  },
+  "validation": {
+    "command": "npm run check:report-storage",
+    "status": "passed",
+    "budgetGroups": 11,
+    "browserGroups": 38,
+    "log": {
+      "path": "output/ci-failure-20261014.local/storage-final-focused.log",
+      "sha256": "35a0295b70478c92b9cf8fd9b975b0e56f14296db8c33a638992942bf4a13457",
+      "bytes": 4255
+    },
+    "lint": {
+      "status": "passed",
+      "log": {
+        "path": "output/ci-failure-20261014.local/storage-final-lint.log",
+        "sha256": "b871853392637b6055cb1bb29c9caa0697b0c4e1afb69dbcfc9a944323f2c9fa",
+        "bytes": 47
+      }
+    },
+    "sourceSha256": {
+      "scripts/report-storage-warning-test.mjs": "53ecc4fea73c3f009e34acc3495e5650abe647f77d7fa98a86d1fedbb25e37c6",
+      "scripts/browser-work-form-ready.mjs": "74a41c6aad1f66931ccc46254b4530d5899a4c8af19cb054dff00890621d6087",
+      "scripts/browser-async-wait.mjs": "66b50f274a6fb57f0f69e582d39aa6b795d562bb8da4ab88d9e621b67d0a2c3e"
+    },
+    "sourceLineEndings": "LF",
+    "environment": "Local Windows, Node24.15.0 and locked Playwright1.61.1; real application modules, native IndexedDB and Blob persistence with all HTTP/browser-boundary interactions isolated",
+    "independentReview": "Product reviewer found no blocker in the controls, exact content assertions, preserved cancellation stress or paused-clock readiness; backend reviewer independently classified the normal versus adversarial selections.",
+    "remoteAuthority": "https://github.com/windmine/scaffold-pwa-mvp/actions/workflows/ci.yml"
+  }
+}

@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import process from 'node:process';
 import { chromium } from 'playwright';
+import { selectWorkFormWhenReady } from './browser-work-form-ready.mjs';
 import { approvedOrigin, evidenceDirectory, forwardWithoutRedirects, safeFailure } from './check-hosted-onboarding-release.mjs';
 import { browserApiRequest, showSupervisorFilters } from './check-hosted-report-workflow.mjs';
 import { ownedWorker, ownedTemplate } from './check-hosted-report-ux-release.mjs';
@@ -371,7 +372,7 @@ export async function runOctoberRelease(config) {
       requireCondition(me.ok && ownedWorker(me.body, scope), 'owned_worker_login_identity_failed');
     });
     await step('injected_low_estimate_cancel_and_explicit_original_photo_acceptance', async () => {
-      await worker.locator('#workFormSelect').selectOption(String(scope.templateId));
+      await selectWorkFormWhenReady(worker, String(scope.templateId));
       await worker.locator('#workFormField_ux_detail').fill(scope.originalMarker);
       await worker.locator('#workFormDate').fill(scope.reportDate);
       const images = await worker.evaluate(() => Array.from({ length: 8 }, (_, index) => {
@@ -473,7 +474,7 @@ export async function runOctoberRelease(config) {
     });
     await step('second_real_report_establishes_owned_ordering_pair', async () => {
       await worker.locator('button.tab[data-tab-target="formTab"]').click();
-      await worker.locator('#workFormSelect').selectOption(String(scope.templateId));
+      await selectWorkFormWhenReady(worker, String(scope.templateId));
       await worker.locator('#workFormField_ux_detail').fill(second.marker);
       await worker.locator('#workFormDate').fill(scope.reportDate);
       requireCondition(await worker.locator('#workFormPhotoPreview img').count() === 0, 'second_report_unexpected_photos');

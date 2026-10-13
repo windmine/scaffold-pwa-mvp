@@ -5,6 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { selectWorkFormWhenReady } from './browser-work-form-ready.mjs';
 import { waitForAsyncCondition } from './browser-async-wait.mjs';
 import { browserApiRequest } from './check-hosted-report-workflow.mjs';
 
@@ -484,7 +485,7 @@ export async function runImprovements(config) {
     await step('downloaded_template_cold_offline_return_queues_and_replays_once', async () => {
       await worker.reload({ waitUntil: 'domcontentloaded' });
       await worker.locator('#workerView').waitFor({ state: 'visible' });
-      await worker.locator('#workFormSelect').selectOption(String(scope.templateId));
+      await selectWorkFormWhenReady(worker, String(scope.templateId));
       await worker.locator(`#workFormField_${questionId}`).fill(scope.marker);
       await worker.locator('#workFormDate').fill(new Date().toISOString().slice(0, 10));
       await worker.locator('#workFormSite').selectOption('');

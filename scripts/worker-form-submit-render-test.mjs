@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
+import { selectWorkFormWhenReady } from './browser-work-form-ready.mjs';
 
 const origin = 'http://127.0.0.1:59986';
 const markup = `<!doctype html><form id="workFormSubmissionForm">
@@ -96,7 +97,7 @@ try {
       await page.evaluate(() => window.releaseSubmission());
       await page.waitForFunction(() => !window.fixture.state.submittingWorkForm);
       assert.equal(await page.locator('#workFormSelect').isEnabled(), true);
-      await page.locator('#workFormSelect').selectOption('51');
+      await selectWorkFormWhenReady(page, '51');
       await page.locator('#workFormField_replacement').waitFor();
       assert.equal(await page.locator('#workFormField_replacement').inputValue(), '');
       assert.equal(await page.locator('#workFormField_replacement').isEnabled(), true);
