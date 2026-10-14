@@ -1,0 +1,75 @@
+Source: 8e5e123093fcbb3a734753c68fde5848dc0edcca; GitHub run 38648634657 attempt 1.
+2026-10-14T22:42:16.0615488Z ok - action feedback is local, busy, announced, and separate from sync state
+2026-10-14T22:42:17.8476892Z ok - Chinese translation covers validation, forms, signatures, and photos
+2026-10-14T22:42:18.0568593Z ok - required signatures are fully keyboard accessible
+2026-10-14T22:42:18.3158198Z ok - photo viewer traps and restores focus
+2026-10-14T22:42:18.6165922Z ok - primary action gradients meet WCAG AA contrast
+2026-10-14T22:42:19.0606769Z ok - anonymous login startup does not request or expose sites
+2026-10-14T22:42:19.6932300Z ok - restored session loads sites only after auth refresh
+2026-10-14T22:42:20.2010957Z ok - authenticated Site failure does not expose demo Sites
+2026-10-14T22:42:20.7090824Z ok - browser login uses cookie session without localStorage bearer token
+2026-10-14T22:42:21.4196066Z ok - browser geolocation grant enables attendance capture
+2026-10-14T22:42:22.3842387Z ok - attendance presents one contextual action with a secondary correction path
+2026-10-14T22:42:25.6915713Z ok - normal Worker guide compacts and Site priority follows attendance context
+2026-10-14T22:42:30.9520014Z ok - normal Workers submit active Work Forms and see their own history
+2026-10-14T22:42:31.5435778Z ok - Report photo selection appends without replacing earlier photos
+2026-10-14T22:42:33.9324093Z ok - Report photo selection rejects invalid files without clearing earlier photos
+2026-10-14T22:42:37.2218682Z ok - Report photo removal keeps other photos and persists in the draft
+2026-10-14T22:42:38.9959713Z ok - My Reports shows ordinary device drafts and continues their saved answers and photos
+2026-10-14T22:42:40.8961488Z ok - Report photo drafts append new selections and submit both original images
+2026-10-14T22:42:41.4604200Z ok - Report photo overlapping selections retain both images in selection order
+2026-10-14T22:42:44.3165165Z ok - My Reports ordinary drafts stay private across shared-device account switches
+2026-10-14T22:42:47.6229662Z ok - My Reports blocks Continue for submitted drafts when local cleanup fails
+2026-10-14T22:42:50.7325151Z ok - Report photo capacity and empty picker preserve existing selections without blank drafts
+2026-10-14T22:42:54.5863498Z ok - Report photo 50-file batch restores and uploads once across rate limiting
+2026-10-14T22:42:56.9800087Z ok - shared-device Worker Reports clear on logout, pending login, and late responses
+2026-10-14T22:42:59.5646413Z ok - shared-device late authorization errors cannot sign out the replacement Worker
+2026-10-14T22:43:01.9806284Z ok - shared-device same-account relogin ignores the previous session authorization failure
+2026-10-14T22:43:03.4622998Z ok - shared-device active session expiry clears open Report photos and history
+2026-10-14T22:43:06.5233619Z ok - shared-device Supervisor Reports clear across Departments and failed queue loads
+2026-10-14T22:43:07.0739161Z ok - browser geolocation denial shows recoverable error
+2026-10-14T22:43:07.6864858Z ok - Daywork team rows use searchable member picker
+2026-10-14T22:43:09.3732376Z ok - Daywork history and review hide helper fields
+2026-10-14T22:43:12.0048137Z ok - report-only New Report, My Reports, queue, and exports exclude Daywork
+2026-10-14T22:43:12.5818829Z ok - offline My Reports fallback shows only queued Report submissions
+2026-10-14T22:43:14.9013808Z ok - explicit Report purpose overrides Daywork words in a template name
+2026-10-14T22:43:16.2763084Z ok - report-only automatic and manual replay skip hidden record queues
+2026-10-14T22:43:17.0200313Z ok - reconnect preserves in-progress Daywork and Work Form answers
+2026-10-14T22:43:24.4046085Z ok - ReportFlow branding and Mutual defaults preserve explicit Departments and global focus
+2026-10-14T22:43:32.6894157Z ok - report-only responsive layout keeps controls and final actions usable in light and dark themes
+2026-10-14T22:43:34.3593134Z ok - unfinished Report Template creation survives reload with pending raw syntax
+2026-10-14T22:43:36.0376471Z ok - unfinished Report Template close pauses on storage failure and keeps the draft
+2026-10-14T22:43:38.1655966Z ok - unfinished Report Template edits survive workspace navigation and reload
+2026-10-14T22:43:46.9286034Z ok - unfinished Report Template lifecycle protects logout, update, and account privacy
+2026-10-14T22:43:50.8414512Z ok - unfinished Report Template publication retires drafts and isolates uncertain saves
+2026-10-14T22:43:51.8794093Z ok - unfinished Report Template actions wait for post-publication refresh before editing
+2026-10-14T22:43:53.4271574Z ok - unfinished Report Template stale versions stay read-only without overwriting newer work
+2026-10-14T22:43:56.1780255Z ok - unfinished Report Template cross-tab protection preserves newer edits and removed-draft recovery
+2026-10-14T22:43:57.4980458Z ok - Staff creation focus preserves newer editing and closed panel choices
+2026-10-14T22:43:59.1346207Z ok - Worker invitation replaces Supervisor-chosen passwords with a private setup link
+2026-10-14T22:44:07.3396556Z ok - Worker invitation password setup confirms ownership without changing another signed-in session
+2026-10-14T22:44:08.8035955Z ok - Worker invitation clean browser continues directly into Reports
+2026-10-14T22:44:10.4393175Z ok - Worker invitation replacement and revocation clear invalid setup secrets
+2026-10-14T22:44:11.8288874Z ok - Worker invitation late responses never expose a prior Supervisor private link
+2026-10-14T22:44:15.1647275Z ok - Private Worker password recovery replaces and revokes links, preserves shared accounts and drafts, and invalidates old sessions
+2026-10-14T22:44:17.7929475Z ok - Report Find exports download CSV and PDF matching the searched inbox
+2026-10-14T22:44:21.6657076Z ok - Supervisor Report filters remember structured selections per account and Department without saving Find
+2026-10-14T22:44:27.5306375Z ok - staff users scope global admin controls by role
+2026-10-14T22:44:29.9506086Z ok - Template library searches names and descriptions, filters lifecycle states, and protects unfinished edits
+2026-10-14T22:44:32.9309603Z ok - supervisors create and edit conditional Work Forms with field cards
+2026-10-14T22:44:36.5405385Z ok - Offline Submission ownership, occurrence time, and idempotent replay
+2026-10-14T22:44:38.1156118Z ok - Report Dates reject impossible calendar values and preserve invalid queued evidence
+2026-10-14T22:44:51.0333553Z ok - offline Report template changes preserve queued answers, photos, and signatures
+2026-10-14T22:44:58.3554711Z ok - stale Report drafts preserve original answers until explicit new-report recovery
+2026-10-14T22:45:04.3745243Z ok - stale Report drafts without captured fields or version preserve original evidence
+2026-10-14T22:45:06.5543546Z ok - Report photos and repeat signatures resume once after partial upload failure
+2026-10-14T22:45:10.3329319Z ok - supervisor review shows pending outside-site worker record
+2026-10-14T22:45:11.6820804Z ok - department switching replaces map points and clears stale selection
+2026-10-14T22:45:14.0558258Z ok - supervisor workspaces remain navigable on desktop and mobile
+2026-10-14T22:45:14.6446208Z ok - supervisor Review Desk is responsive
+2026-10-14T22:45:15.7715609Z ok - offline Review Queue is explicit and read-only
+2026-10-14T22:45:17.8979343Z ok - Report offline return resumes a downloaded Template draft after every page closes
+2026-10-14T22:45:18.9573562Z ok - retained attendance app cold-launches offline and queues attendance
+2026-10-14T22:45:24.1281725Z ok - retained Work Form drafts protect production-mode app updates
+2026-10-14T22:45:24.3113385Z ok - report-only service worker update prompt posts SKIP_WAITING
+73 real-backend workflows passed.

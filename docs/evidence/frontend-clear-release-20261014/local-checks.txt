@@ -1,0 +1,316 @@
+COMMAND ["cmd.exe", "/d", "/c", "npm.cmd", "run", "build"]
+
+> scaffold-pwa-mvp@0.0.0 build
+> npm run generate:pwa && vite build
+
+
+> scaffold-pwa-mvp@0.0.0 generate:pwa
+> node scripts/generate-pwa-service-worker.mjs
+
+generated sw.js (leader-field-a76f48019280)
+vite v8.1.4 building client environment for production...
+[2Ktransforming...✓ 53 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/assets/manifest-7iJLFcKU.webmanifest              0.69 kB
+dist/assets/reportflow-icon-JUMdDTPL.svg               0.78 kB │ gzip:   0.40 kB
+dist/assets/reportflow-apple-touch-180-4XY2rcXm.png    2.56 kB
+dist/assets/reportflow-192-O9QSIbGD.png                4.39 kB
+dist/premium-preview.html                             29.92 kB │ gzip:   6.15 kB
+dist/index.html                                       94.35 kB │ gzip:  17.17 kB
+dist/assets/main-dxekg7ln.css                        131.49 kB │ gzip:  27.51 kB
+dist/assets/main-CPOp_Mwp.js                         731.59 kB │ gzip: 208.76 kB
+
+✓ built in 1.36s
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+COMMAND ["cmd.exe", "/d", "/c", "npm.cmd", "run", "lint"]
+
+> scaffold-pwa-mvp@0.0.0 lint
+> eslint .
+
+COMMAND ["C:\\Program Files\\nodejs\\node.exe", "scripts/presentation-density-test.mjs"]
+ok - login: 16 responsive/language/theme combinations preserve targets and non-overflow
+ok - concise sign-in retains keyboard-accessible help, QR access, translated guidance, preferences and visible errors
+ok - worker: 16 responsive/language/theme combinations preserve targets and non-overflow
+ok - Worker draft Continue/save and offline/update protections remain visible and intact
+ok - supervisor: 16 responsive/language/theme combinations preserve targets and non-overflow
+ok - healthy Supervisor review retains concise export scope; offline failure remains explicit and disables exports
+ok - Supervisor Clear aligns with the complete filter group across 32 layouts and resets the Report query by keyboard on desktop/mobile in English/Chinese
+ok - restored desktop defaults and user-controlled filter disclosure survive responsive changes
+COMMAND ["cmd.exe", "/d", "/c", "npm.cmd", "run", "check:report-review-filters"]
+
+> scaffold-pwa-mvp@0.0.0 check:report-review-filters
+> node scripts/report-review-preferences-test.mjs && node scripts/report-review-filters-test.mjs
+
+PASS canonical identity and effective Department scope
+PASS invalid identities and scopes cannot access storage
+PASS structured preferences round-trip without search or Report content
+PASS accounts, home Departments, global capability and focused Departments remain isolated
+PASS only Report workflow values and canonical safe identifiers survive
+PASS v1 records without sort retain filters and invalid sorts fall back to newest
+PASS Report Dates require real calendar days including Gregorian leap rules
+PASS missing, corrupt, oversized or incompatible records safely use defaults
+PASS blocked and quota-limited storage never interrupts filtering
+PASS default browser storage access is resolved lazily inside the error boundary
+PASS clear overwrites only the active scope and returned defaults are not shared
+Report review preferences passed 11 groups.
+ok - authorized catalogs precede the first Report queue request, and options include archived/resigned history but exclude foreign/legacy records
+ok - workflow shortcuts preserve other filters; reload restores structured filters before querying and never saves Find text or private labels
+ok - individual Departments and global All departments retain separate preferences and never carry Find text between scopes
+ok - logout/reset preserves the same identity preferences, account/home-Department/privilege changes isolate them, and Clear affects only the current scope
+ok - deleted or no-longer-authorized Template/Worker IDs are discarded only after a successful fresh catalog validation
+ok - temporary catalog failures disable unavailable pickers without overwriting saved IDs; Refresh restores them after recovery
+ok - malformed storage falls back safely, and storage write failures keep live filtering usable with a visible notice
+ok - blocked preference reads fall back to usable empty filters without blocking the Report inbox
+ok - Newest first is the default; Oldest waiting is sent only with Reports, summarized, restored before querying and preserved by shortcuts within its exact scope
+ok - first-page rendering and Load more preserve the server workflow/oldest submission order without a client-side newest-first re-sort
+ok - changing sort invalidates cursor pages immediately, clears old cards and disables exports until the new sorted query completes
+ok - failed unchanged-sort Refresh retains durable ordering read-only, while offline sort changes never relabel or reuse the old-sort results
+ok - unsupported Oldest waiting fails closed with actionable guidance, default newest remains compatible, and Clear persists Newest first
+ok - changed-order 409s preserve same-query rows read-only, remove stale pagination and show persistent Refresh guidance until a new inbox snapshot succeeds
+ok - a first-page changed-order conflict never reuses prior-filter rows and retains the selected order and workflow for explicit retry
+ok - a delayed previous-Department cursor page cannot append to a new Department inbox
+ok - changing a filter invalidates an in-flight response before debounce, and Department changes cancel obsolete scheduled searches
+ok - same-scope profile replacement during catalog or final queue loading preserves filters, finishes loading, and unlocks controls
+ok - a delayed old-scope catalog completion cannot restore foreign options or leave the new scope locked
+ok - failed same-scope Refresh keeps last durable results read-only and disables exports until reconnection
+ok - PDF export uses the current structured filters and session-only Find query across all pages, never a stale cursor
+ok - refreshed catalog removals and failures clear old cards/details and disable exports until the changed queue query completes
+ok - a saved-default response updates the same account after a focus switch without changing the current Department or its separate review filters
+ok - delayed default-Department responses cannot replace a new login or overwrite its saved browser identity
+ok - shortcuts remain visible, translated, keyboard-operable and >=44px with no phone overflow at 320/390px in both themes
+ok - retained full-interface status filtering remains approve/reject based and does not save Report preferences
+PASS - Report review filter browser regressions
+COMMAND ["C:\\Program Files\\nodejs\\node.exe", "scripts/check-mobile-browser-workflows.mjs"]
+ok - Chinese catalogue is valid Unicode without mojibake or replacement artifacts
+ok - Chinese catalogue fully translates high-value UI labels instead of mixed English
+ok - Chinese catalogue covers report-only shell, history, and workflow terminology
+ok - Chinese catalogue translates Analytics exception navigation
+ok - Chinese catalogue fully translates app confirmation dialog copy
+ok - Chinese catalogue translates keyboard signature instructions and live status
+ok - work form field ids survive label edits
+ok - advanced work form syntax round-trips visual field data
+ok - production build exists
+ok - dist/assets/js/date-inputs.js exists
+ok - dist/assets/js/confirmation-dialog.js exists
+ok - dist/assets/js/site-map-picker.js exists
+ok - dist/assets/js/team-member-picker.js exists
+ok - dist/assets/js/team-work-log.js exists
+ok - dist/assets/js/ui-feedback.js exists
+ok - dist/assets/js/worker-sites.js exists
+ok - dist/assets/js/work-form-builder.js exists
+ok - dist/assets/js/offline-report-template-snapshot.js exists
+ok - dist/assets/js/report-template-drafts.js exists
+ok - dist/assets/js/report-note-drafts.js exists
+ok - dist/assets/js/report-note-editor.js exists
+ok - dist/assets/icons/leader-logo-export.png exists
+ok - dist/assets/icons/mutual-logo.svg exists
+ok - dist/assets/icons/mc-logo.svg exists
+ok - dist/assets/icons/stech-logo.svg exists
+ok - dist/assets/icons/bop-logo.svg exists
+ok - dist/assets/icons/reportflow-icon.svg exists
+ok - dist/assets/icons/reportflow-apple-touch-180.png exists
+ok - dist/assets/icons/reportflow-192.png exists
+ok - dist/assets/icons/reportflow-512.png exists
+ok - dist/assets/icons/reportflow-maskable-512.png exists
+ok - production HTML keeps stable PWA links
+ok - public registration is hidden for invited accounts
+ok - login form precedes the install promotion
+ok - Staff and Work Form creation stay behind accessible Add actions
+ok - #statusBanner exists in the app shell
+ok - #syncIndicator exists in the app shell
+ok - #syncIndicatorText exists in the app shell
+ok - #toastViewport exists in the app shell
+ok - #themeToggleButton exists in the app shell
+ok - #brandLogo exists in the app shell
+ok - #installButton exists in the app shell
+ok - #downloadAppButton exists in the app shell
+ok - #updateButton exists in the app shell
+ok - #loginForm exists in the app shell
+ok - #loginSubmitButton exists in the app shell
+ok - #loginFeedback exists in the app shell
+ok - #registerForm exists in the app shell
+ok - #sendRegistrationCodeButton exists in the app shell
+ok - #registrationCodeFields exists in the app shell
+ok - #registrationCodeInput exists in the app shell
+ok - #verifyRegistrationCodeButton exists in the app shell
+ok - #registrationCompletionFields exists in the app shell
+ok - #registerDepartmentSelect exists in the app shell
+ok - #workerView exists in the app shell
+ok - #workerSiteMap exists in the app shell
+ok - #workerSiteMapStatus exists in the app shell
+ok - #teamLogTab exists in the app shell
+ok - #teamWorkLogForm exists in the app shell
+ok - #teamWorkLogWeekStart exists in the app shell
+ok - #teamWorkLogEntries exists in the app shell
+ok - #addTeamWorkLogEntryButton exists in the app shell
+ok - #submitTeamWorkLogButton exists in the app shell
+ok - #teamWorkLogAutosaveStatus exists in the app shell
+ok - #teamWorkLogFeedback exists in the app shell
+ok - #teamWorkLogHistory exists in the app shell
+ok - #supervisorView exists in the app shell
+ok - #adminMobileWorkspaceLabel exists in the app shell
+ok - #adminMobileMenuButton exists in the app shell
+ok - #adminWorkspaceDrawer exists in the app shell
+ok - #adminWorkspaceDrawerCloseButton exists in the app shell
+ok - #adminOverview exists in the app shell
+ok - #adminReviewWorkspace exists in the app shell
+ok - #adminReportsWorkspace exists in the app shell
+ok - #adminPeopleWorkspace exists in the app shell
+ok - #adminFormsWorkspace exists in the app shell
+ok - #adminAuditWorkspace exists in the app shell
+ok - #adminOverview exists in the app shell
+ok - #reviewQueueDetails exists in the app shell
+ok - #reviewQueueNotice exists in the app shell
+ok - #reviewQueueFeedback exists in the app shell
+ok - #reviewQueuePagination exists in the app shell
+ok - #reviewQueueDetail exists in the app shell
+ok - #reviewQueueDetailTitle exists in the app shell
+ok - #reviewQueueModeBadge exists in the app shell
+ok - #reviewQueueSelectionPosition exists in the app shell
+ok - #previousReviewRecordButton exists in the app shell
+ok - #nextReviewRecordButton exists in the app shell
+ok - #auditHistoryDetails exists in the app shell
+ok - #workFormsDetails exists in the app shell
+ok - #addWorkFormButton exists in the app shell
+ok - #workFormCreatePanel exists in the app shell
+ok - #cancelWorkFormCreateButton exists in the app shell
+ok - #sitesDetails exists in the app shell
+ok - #siteUseLocationButton exists in the app shell
+ok - #siteMap exists in the app shell
+ok - #siteMapStatus exists in the app shell
+ok - #staffUsersDetails exists in the app shell
+ok - #addStaffUserButton exists in the app shell
+ok - #staffUserCreatePanel exists in the app shell
+ok - #staffUserSubmitButton exists in the app shell
+ok - #cancelStaffUserCreateButton exists in the app shell
+ok - #staffWorkerClassSelect exists in the app shell
+ok - #attendanceSite exists in the app shell
+ok - #captureLocationButton exists in the app shell
+ok - #attendancePrimaryButton exists in the app shell
+ok - #attendanceCorrectionDetails exists in the app shell
+ok - #attendanceCorrectionSummary exists in the app shell
+ok - #attendanceCorrectionButton exists in the app shell
+ok - #attendanceFeedback exists in the app shell
+ok - #taskForm exists in the app shell
+ok - #taskFeedback exists in the app shell
+ok - #workFormSubmissionForm exists in the app shell
+ok - #workFormFeedback exists in the app shell
+ok - #reviewQueueList exists in the app shell
+ok - #manualAttendanceDetails exists in the app shell
+ok - #manualAttendanceForm exists in the app shell
+ok - #manualAttendanceWorker exists in the app shell
+ok - #manualAttendanceSite exists in the app shell
+ok - #manualAttendanceType exists in the app shell
+ok - #manualAttendanceTime exists in the app shell
+ok - #manualAttendanceNote exists in the app shell
+ok - #manualAttendanceSubmitButton exists in the app shell
+ok - #manualAttendanceFeedback exists in the app shell
+ok - #adminTaskLogDetails exists in the app shell
+ok - #adminTaskLogForm exists in the app shell
+ok - #adminTaskLogUser exists in the app shell
+ok - #adminTaskLogSite exists in the app shell
+ok - #adminTaskLogDate exists in the app shell
+ok - #adminTaskLogDescription exists in the app shell
+ok - #adminTaskLogSubmitButton exists in the app shell
+ok - #adminTaskLogFeedback exists in the app shell
+ok - #rubbishBinDetails exists in the app shell
+ok - #rubbishBinCount exists in the app shell
+ok - #rubbishBinList exists in the app shell
+ok - #refreshRubbishBinButton exists in the app shell
+ok - #supervisorDepartmentFilter exists in the app shell
+ok - #saveDefaultDepartmentButton exists in the app shell
+ok - #auditEventsList exists in the app shell
+ok - #refreshAuditButton exists in the app shell
+ok - #managementAnalyticsDetails exists in the app shell
+ok - #analyticsTrendChart exists in the app shell
+ok - #analyticsExceptionSummary exists in the app shell
+ok - #analyticsExceptionList exists in the app shell
+ok - #analyticsSiteSummary exists in the app shell
+ok - #analyticsFormCharts exists in the app shell
+ok - #locationMapDetails exists in the app shell
+ok - #locationReviewMap exists in the app shell
+ok - #locationMapHistory exists in the app shell
+ok - mobile viewport and camera/photo controls exist
+ok - Worker photo preflight matches the backend raster limits
+ok - attendance GPS is Worker-owned, fresh, and invalidated between sessions
+ok - action feedback separates sync, system, toast, local, field, and busy states
+ok - authenticated Site loading never falls back to seeded demo Sites
+ok - reconnect preserves active Daywork and Work Form DOM state
+ok - Work Form drafts autosave per Worker and form before app updates
+ok - consequential actions use one accessible app confirmation dialog
+ok - queued upload failures are visible and recoverable by the owning Worker
+ok - the retained full interface keeps six responsive supervisor workspaces
+ok - Reports allow a visible 50-photo batch without expanding retained limits
+ok - report-only mode exposes only report, template, and staff navigation
+ok - report-only data requests and exports exclude Daywork
+ok - report product language replaces Work Form copy without renaming internals
+ok - worker Reports retain the submission engine and expose the report workflow
+ok - Supervisor Reports use report transitions, durable filters, and Report exports
+ok - Report details and downloads use lifecycle and Report language
+ok - supervisor Review Desk uses an accessible master-detail layout
+ok - localized date inputs stay inside mobile form boundaries
+ok - verified registration gates department selection
+ok - theme toggle is persistent and available before paint
+ok - same-origin phone proxy is configured
+ok - service worker update prompt is wired
+ok - PWA assets and cache name are generated from one manifest
+ok - installed, browser, and offline product copy is report-only
+ok - initial signed-out brand is company-neutral ReportFlow
+ok - ReportFlow install icons use fresh URLs and preserve the installed app identity
+ok - ReportFlow source and production PNGs have their declared pixel dimensions
+ok - ReportFlow brand and install icons are copied and precached for offline launches
+ok - visible app download button is wired
+ok - production service worker uses the current app shell rules
+ok - cold offline launch restores only Worker-scoped cached Site and attendance context
+ok - service worker does not auto-activate updates on install
+ok - offline queue covers worker forms, signatures, and photos
+ok - offline retry is single-flight and auth-aware
+ok - browser auth uses HttpOnly cookie session with CSRF header
+ok - offline sync uses client submission idempotency
+ok - partial uploads persist progress before retry
+ok - required handwritten signatures are enforced and keyboard operable
+ok - photo viewer traps focus and restores its opener
+ok - primary action gradient stops use the AA palette
+ok - advanced work form fields and photo timestamps are wired
+ok - worker Log tab uses the Daywork work form path
+ok - workers can add missing sites
+ok - normal workers can submit Reports while Daywork and weekly team logs remain leader-only
+ok - normal worker UI is focused and step based
+ok - attendance defaults checkout to the open Site and prioritises recent or nearest Sites
+ok - attendance exposes one contextual primary action and a correction path
+ok - worker and supervisor workflow modules are active
+ok - supervisors can preview work forms
+ok - PDF exports are available for Daywork and submitted forms
+ok - supervisors build work forms with accessible draggable field cards
+ok - New Form field checkboxes use the accessible app control
+ok - Review Queue durability and policy seams are explicit
+ok - supervisor audit history is wired
+ok - supervisor location map review is wired
+ok - site coordinates are rounded and map points stay compact
+ok - dark-mode location toggles are clear and consistently sized
+ok - static checkboxes use the Daywork checkbox treatment
+ok - management analytics and reports are wired
+ok - supervisors can add audit-logged manual attendance without GPS
+ok - supervisors can submit approved logs for themselves or others
+ok - rapid duplicate submissions and the 30-day rubbish bin are wired
+ok - missing check-outs use a 12-hour grace and pair overnight shifts
+ok - department focus and persisted default department are wired
+ok - department supervisors cannot view or edit global admins
+ok - global admin access requires the Supervisor role
+ok - private password recovery shell is copied without caching credentials or protected responses
+ok - private password recovery has translated entry points and safety copy
+ok - private Supervisor notes have offline shell modules and translated recovery controls
+ok - failed Report recovery has offline shell coverage and translated safety controls
+ok - Report oldest-waiting order has offline shell coverage and translated labels
+ok - Report storage warnings have offline shell coverage and translated recovery guidance
+
+mobile/browser workflow checks passed
+COMMAND ["git", "diff", "--check"]
+warning: in the working copy of 'assets/css/styles.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/presentation-density-test.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'sw.js', LF will be replaced by CRLF the next time Git touches it

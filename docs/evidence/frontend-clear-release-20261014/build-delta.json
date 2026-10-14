@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "baseSource": "133286659e7459e6d4c73b1b3ad5882c44ba2051",
+  "candidateSource": "8e5e123093fcbb3a734753c68fde5848dc0edcca",
+  "changed": [
+    "assets/css/styles.css",
+    "index.html",
+    "sw.js"
+  ],
+  "added": [
+    "assets/main-CPOp_Mwp.js",
+    "assets/main-dxekg7ln.css"
+  ],
+  "removed": [
+    "assets/main-B5XD4I6e.js",
+    "assets/main-DU8IRI9k.css"
+  ],
+  "sourceJavaScriptAndHtmlUnchanged": true,
+  "bundledJavaScriptBytesEqual": true,
+  "note": "Vite chunk names can depend on the CSS bundle. An initial diagnostic assumption that JavaScript filenames would stay identical was rejected; source JavaScript is unchanged."
+}

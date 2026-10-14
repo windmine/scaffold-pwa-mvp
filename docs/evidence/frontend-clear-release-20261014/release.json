@@ -1,0 +1,219 @@
+{
+  "schemaVersion": 1,
+  "status": "deployed-and-verified",
+  "recordedAtUtc": "2026-10-14T22:49:31.915811+00:00",
+  "sourceCommit": "8e5e123093fcbb3a734753c68fde5848dc0edcca",
+  "url": "https://geo-attendance-system-db9ca.web.app",
+  "hostingVersion": "61d90b34933c5079",
+  "previousHostingVersion": "3de58c285d322d0f",
+  "promotionsPerformed": 1,
+  "requestedAtUtc": "2026-10-14T22:46:45.530221+00:00",
+  "verifiedAtUtc": "2026-10-14T22:46:54.198610+00:00",
+  "sourceCache": "leader-field-a76f48019280",
+  "builtCache": "leader-field-a2a1fad2c3c4",
+  "change": "One desktop Report-only CSS grid rule aligns Clear with the full filter group; handlers and clearing behavior are unchanged.",
+  "validation": {
+    "localAlignmentLayouts": 32,
+    "localKeyboardClearCases": 4,
+    "languages": [
+      "English",
+      "Chinese"
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "buildLintFilterExportStaticChecks": "passed",
+    "ciRun": 38648634657,
+    "ciUrl": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38648634657",
+    "ciAttempt": 1,
+    "ciConclusion": "success",
+    "realBackendWorkflows": 73,
+    "previewAndLiveFileCountEach": 85,
+    "shellAssetCountEach": 75,
+    "installerArtifactCountEach": 7,
+    "liveWaitingUpdateChecks": 4,
+    "strictHardeningChecks": 40
+  },
+  "backend": {
+    "revision": "geo-backend-fixes-20261012",
+    "trafficPercent": 100,
+    "beforeAfterServiceStatusEqual": true,
+    "deploymentOrMigrationPerformed": false,
+    "databaseInventoryRepeated": false
+  },
+  "rollback": {
+    "version": "3de58c285d322d0f",
+    "channel": "release-ux-20261014",
+    "expiresAtUtc": "2026-10-21T00:37:46.043748963Z",
+    "constraints": "Reverify before use. Frontend only; preserve current backend, device storage, drafts and auth generations."
+  },
+  "limits": [
+    "No production application fixtures, existing-user login or authenticated hosted Clear test.",
+    "Physical iOS/Android checks remain unverified.",
+    "Existing six-hour Neon history warning remains."
+  ],
+  "followUpCi": "Final documentation/evidence commit CI is reported in the task outcome; no extra metadata commit is needed.",
+  "evidence": [
+    {
+      "path": ".gitattributes",
+      "sha256": "11b9f1f626d619b3bf9fd7f000e86a0cd80c42552203ec6dde71d737eddeddfb"
+    },
+    {
+      "path": "backend-after.json",
+      "sha256": "ce3dbba6a1697dacd7f279b1d66b1fd6fa87dd784248e6e148ebfa485737e600"
+    },
+    {
+      "path": "backend-before.json",
+      "sha256": "ce3dbba6a1697dacd7f279b1d66b1fd6fa87dd784248e6e148ebfa485737e600"
+    },
+    {
+      "path": "build-delta.json",
+      "sha256": "edf3ef60bbd45bd320750e3ab52a5678b0d7968d3ec5b65b7a8f13833744b350"
+    },
+    {
+      "path": "build-manifest.json",
+      "sha256": "dd90ba6802f5f5236f6ee9a567676a67ad3983bbdddc37105fa72bc12046fa56"
+    },
+    {
+      "path": "candidate.json",
+      "sha256": "6c55160e452562c2a3b4f17c065f710c7c97f8ec7d7b869a1376c4fa3ef124d9"
+    },
+    {
+      "path": "ci-source.json",
+      "sha256": "eb1f7778ce3ddcf5809c3081ac8bb072854be7c851e36f58ab7bd69ecf0de6fe"
+    },
+    {
+      "path": "ci-workflows.txt",
+      "sha256": "4f839f28de26ddd119e476e3fd3346a3cb4f1ac60946adbbabc9b242ef3f7bd0"
+    },
+    {
+      "path": "hardening-current.json",
+      "sha256": "2fece9163d0ddbf8cd1bd24f4ec69c6757bcca6f743643e0c3cfd2e9d1fccd40"
+    },
+    {
+      "path": "hardening-log.txt",
+      "sha256": "8adbf2038d2ef569657df238f0f54de0c60c2687e6ff0f20a6d44abadf2c88a7"
+    },
+    {
+      "path": "hosting-before.json",
+      "sha256": "89bde30dcd739451294b2ceceda58887e60b2d0b41d9f425045323ae768277af"
+    },
+    {
+      "path": "hosting-preview-raw.json",
+      "sha256": "5ef246e828f195676e4c36dd32c10981c1f18a308c0126cca402b7fb153a5a70"
+    },
+    {
+      "path": "hosting-promotion.json",
+      "sha256": "957873048c660ae079cfa9da685acd2fe85cbb56aaba69d599394f5f61fc5604"
+    },
+    {
+      "path": "live-full-parity.json",
+      "sha256": "5049379a22864d7718dd3d38c501ac8a45c17be5da905162d32eab378ec076b8"
+    },
+    {
+      "path": "live-installer-chinese.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "live-installer-english.png",
+      "sha256": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d"
+    },
+    {
+      "path": "live-installer-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "live-installer.json",
+      "sha256": "c71d1a369c15a5e1b3c81f4271925da1731fd5ee2eea51582b21b5957ce359e5"
+    },
+    {
+      "path": "live-shell.json",
+      "sha256": "4a644b5189256d5422dfd732986fb76dfcd2e13529c04284cdd08da2e049a35f"
+    },
+    {
+      "path": "live-visual-review.json",
+      "sha256": "662a2e8a03049874fd2128ac26bf012d8f52fe89287c6ac604554477221a80e3"
+    },
+    {
+      "path": "live-waiting-update-offline.png",
+      "sha256": "288aedc8f66fffcf5a6f0e7168f50d1d7f15c59656106619660a214d2f503982"
+    },
+    {
+      "path": "live-waiting-update-updated.png",
+      "sha256": "94b6489db27cde259cc4933459afcc2931a05215a6477113375606355cd3952e"
+    },
+    {
+      "path": "live-waiting-update-waiting.png",
+      "sha256": "b0a6ddc449af3dab310fdf98a96326354f65c418c68ed9bf1058afa1870ff569"
+    },
+    {
+      "path": "live-waiting-update.json",
+      "sha256": "ea43a102f39aa0cff356b61b5e671876a90f7f8cb4479aa3ae250351818a2fb8"
+    },
+    {
+      "path": "local-checks.txt",
+      "sha256": "c4bb97f0b862fffebfcabd6cf72266a76c60bfb0e5ccc2e15cb603e1733929d2"
+    },
+    {
+      "path": "local-validation.json",
+      "sha256": "53b296846b438a9e4072916e984c59010f12ba8bf4470aafc5f00d8cd1b11ac8"
+    },
+    {
+      "path": "local-visual-review.json",
+      "sha256": "807cd2ad85dda9fe06234e1d8fa191d117c56cfcb07e737e5dbb38fde68127e9"
+    },
+    {
+      "path": "operator-sources/check-hardening.py",
+      "sha256": "2bfaf4394378082b7829ab916d447ec7b0601969640f1ab4c867ca13c5cbb3ad"
+    },
+    {
+      "path": "operator-sources/check-parity.py",
+      "sha256": "0929095d4b1250974844ea71c880f7cf3b298f977455a314f8969dcdba99c1a0"
+    },
+    {
+      "path": "operator-sources/finalize.py",
+      "sha256": "6ca1912c4c2685c053d1df1b1d086d83f192864c91048b904fd92d3754dde7a2"
+    },
+    {
+      "path": "operator-sources/promote.py",
+      "sha256": "26ecf101a96714ae26c295a2d401b9b8a356060108504999c58848c1996f8dba"
+    },
+    {
+      "path": "preview-full-parity.json",
+      "sha256": "f6cb6197e05cf642cefc8a0e9176ec8b708fd84d0043c5bf967a6a34aaf5806c"
+    },
+    {
+      "path": "preview-installer-chinese.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "preview-installer-english.png",
+      "sha256": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d"
+    },
+    {
+      "path": "preview-installer-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "preview-installer.json",
+      "sha256": "6309be846b4866ecfb0a8f1e947feb3fa39e1635c284e9e6a29b68f910b4c2fc"
+    },
+    {
+      "path": "preview-shell.json",
+      "sha256": "2016033de0c65cbd0e7d568c81b59941726923b9c253fb2090c5ec379e4f34cb"
+    },
+    {
+      "path": "preview-visual-review.json",
+      "sha256": "edd31f28adffc5b074639d2a26541b9fdd661955dfbc83f3ce94d0608dab615c"
+    },
+    {
+      "path": "supervisor-clear-1280-en-light.png",
+      "sha256": "c6237d5bca87e6e264bb95febad3b00b5daf9d577b7af71681f0ececdc9b5234"
+    },
+    {
+      "path": "supervisor-clear-390-zh-dark.png",
+      "sha256": "174af98f20777d58a116a8c9e74cc2fd958676cf1596926c2309648b324b7efc"
+    }
+  ]
+}

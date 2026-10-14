@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "scope": "Anonymous cold-offline Chinese/dark installer; Clear layout is verified separately by the exact-source local browser evidence.",
+  "reviewed": [
+    {
+      "file": "preview-installer-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    }
+  ]
+}

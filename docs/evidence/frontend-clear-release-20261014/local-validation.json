@@ -1,0 +1,69 @@
+{
+  "startedAtUtc": "2026-10-14T22:33:24.710016+00:00",
+  "status": "passed",
+  "baseCommit": "0fcc8696d5b9bc6581b4b3df01e6e444c99436fc",
+  "scope": "Isolated local browser using repository HTML/CSS/JavaScript and intercepted synthetic API responses; no backend or hosted fixtures.",
+  "commands": [
+    {
+      "command": [
+        "cmd.exe",
+        "/d",
+        "/c",
+        "npm.cmd",
+        "run",
+        "build"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "cmd.exe",
+        "/d",
+        "/c",
+        "npm.cmd",
+        "run",
+        "lint"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "scripts/presentation-density-test.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "cmd.exe",
+        "/d",
+        "/c",
+        "npm.cmd",
+        "run",
+        "check:report-review-filters"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "C:\\Program Files\\nodejs\\node.exe",
+        "scripts/check-mobile-browser-workflows.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "completedAtUtc": "2026-10-14T22:34:29.897291+00:00",
+  "sourceFiles": {
+    "assets/css/styles.css": "4ef09419748388cabebcb21fa0603c84d6ca636e5026605c8eba5349acbb0e79",
+    "scripts/presentation-density-test.mjs": "84ee732ac4e7f45bb06359b955b3e9a6bb8a5591db9bfc8b3a4afa95ddcbb4e0",
+    "sw.js": "709fa1f6f4d77fe72625c1c666fd5b8597adda050e40f79d9bec87f5eb93a5cf"
+  }
+}

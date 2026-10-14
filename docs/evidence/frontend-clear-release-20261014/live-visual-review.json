@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "reviewedAtUtc": "2026-10-14T22:49:31.801484+00:00",
+  "scope": "Visual review of two anonymous live cold-offline screenshots. No authenticated production or physical-phone check is implied.",
+  "screenshots": [
+    {
+      "path": "live-waiting-update-offline.png",
+      "sha256": "288aedc8f66fffcf5a6f0e7168f50d1d7f15c59656106619660a214d2f503982",
+      "findings": "English dark phone sign-in shell loads offline after the explicit waiting-worker update. Header, form, help and installer link remain legible within the viewport."
+    },
+    {
+      "path": "live-installer-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+      "findings": "Chinese dark phone installer loads offline with readable controls, device instructions, complete QR code, copy action and PDF download link; no horizontal page overflow is visible."
+    }
+  ]
+}

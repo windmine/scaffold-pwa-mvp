@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "scope": "Fresh isolated local Chromium; desktop English/light and mobile Chinese/dark; not an authenticated production or physical-phone test.",
+  "reviewed": [
+    {
+      "file": "supervisor-clear-1280-en-light.png",
+      "sha256": "c6237d5bca87e6e264bb95febad3b00b5daf9d577b7af71681f0ececdc9b5234"
+    },
+    {
+      "file": "supervisor-clear-390-zh-dark.png",
+      "sha256": "174af98f20777d58a116a8c9e74cc2fd958676cf1596926c2309648b324b7efc"
+    }
+  ]
+}

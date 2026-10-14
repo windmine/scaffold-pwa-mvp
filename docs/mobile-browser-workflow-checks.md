@@ -2,6 +2,12 @@
 
 Use this checklist before calling the MVP ready for phone testing or production use. Local automation, hosted automation, and a hosted real-phone pass are separate gates.
 
+## Supervisor filter Clear alignment — released 2026-10-14 UTC
+
+Source `8e5e123093fcbb3a734753c68fde5848dc0edcca` is live as exact Hosting `61d90b34933c5079`, promoted at `2026-10-14T22:46:45.530221+00:00` and verified at `2026-10-14T22:46:54.198610+00:00`. Production cache is `leader-field-a2a1fad2c3c4`. A single desktop Report-only grid rule aligns Clear with the full filter group instead of the first column. Clearing behavior, Report data and exports are unchanged.
+
+Fresh local checks pass 32 desktop/tablet/phone layouts, four English/Chinese keyboard-clearing cases, filter/export regressions, build, lint and static shell checks. [Source CI](https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38648634657) passes both jobs and all 73 real-backend workflows. Preview/live match 85 frozen files and pass 75 shell-asset and seven installer-artifact checks each; the new live waiting-update probe passes four checks. Strict hardening passes 40 checks with the existing six-hour recovery-history warning. The regression first failed at desktop width 1280 (Clear right edge 618 versus filter-group edge 1222), then passed after the one-line CSS change. See the [release evidence](evidence/frontend-clear-release-20261014/release.json). Hosted checks remain anonymous; the actual filter interaction is verified with isolated local fixtures.
+
 ## Report UX improvements — released 2026-10-14
 
 The local interface now has a compact mobile header, consolidated sign-in/recovery help, Show/Hide password, and an installer that shares only the app's theme/language preferences and puts detected-device instructions first. My Reports filters and general storage guidance are expandable; live errors, save/sync status and recovery actions remain visible. Supervisor filters and collection exports are secondary to the inbox and review actions. Signature keyboard instructions remain available in an accessible disclosure. Final submission review shows an inspectable photo gallery alongside the existing handwritten signature preview.
