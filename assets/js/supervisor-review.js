@@ -231,7 +231,7 @@ export function createSupervisorReviewModule({
     selectedReviewRecordKey = '';
     visibleReviewRecords = [];
     setMobileDetailOpen(false);
-    if (reportReviewFilters) reportReviewFilters.open = !isNarrowReportReview();
+    if (reportReviewFilters) reportReviewFilters.open = !reportOnly;
     clearReviewDetail();
     decisionInProgress = false;
     state.supervisorRecords = {
@@ -2315,15 +2315,18 @@ export function createSupervisorReviewModule({
   function bindEvents() {
     noteEditor.bindEvents();
     els.reviewQueueDetails.classList.toggle('report-review-layout', reportOnly);
-    if (reportReviewFilters) reportReviewFilters.open = !isNarrowReportReview();
+    if (reportReviewFilters) reportReviewFilters.open = !reportOnly;
     if (reportOnly) {
+      const shortcuts = els.reviewQueueDetails.querySelector('.report-workflow-shortcuts');
+      shortcuts?.append(els.refreshSupervisorButton);
+      const exports = document.getElementById('reportExportOptions');
+      if (exports) els.reviewQueueDetails.querySelector('.review-desk')?.after(exports);
       supervisorSortOrder.addEventListener('change', scheduleReviewQueueRefresh);
       workflowShortcuts.forEach((button) => button.addEventListener('click', () => {
         void selectWorkflowShortcut(button.dataset.reportWorkflowShortcut);
       }));
       reviewQueueBackButton?.addEventListener('click', () => showReviewInbox({ restoreFocus: true }));
-      window.matchMedia('(max-width: 1099px)').addEventListener('change', (event) => {
-        if (!event.matches && reportReviewFilters) reportReviewFilters.open = true;
+      window.matchMedia('(max-width: 1099px)').addEventListener('change', () => {
         renderReviewDetail(selectedReviewRecord());
       });
     }

@@ -278,6 +278,7 @@ try {
     const guidance = f.page.locator('#reportLocalStorageGuidance');
     assert.equal(await guidance.isVisible(), true);
     assert.match(await guidance.innerText(), /not.*backup|not.*guarantee/i);
+    await guidance.locator('summary').click();
     assert.match(await guidance.innerText(), /browser.*(?:clear|evict|remove)|(?:clear|evict|remove).*browser/i);
     await f.page.locator('#submitWorkFormButton').click();
     await f.page.locator('#workFormReviewPanel').waitFor({ state: 'visible' });

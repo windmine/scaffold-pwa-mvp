@@ -305,36 +305,31 @@
               Email
               <input id="emailInput" type="email" autocomplete="email" required />
             </label>
-            <label>
-              Password
+            <div class="password-field">
+              <label for="passwordInput">Password</label>
+              <div class="password-input-row">
               <input id="passwordInput" type="password" autocomplete="current-password" required />
-            </label>
+              <button id="passwordVisibilityButton" type="button" class="ghost" aria-controls="passwordInput" aria-pressed="false">Show password</button>
+              </div>
+            </div>
             <button id="loginSubmitButton" type="submit">Sign in</button>
             <div id="loginFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
           </form>
 
-          <details id="passwordRecoveryHelp" class="compact-help">
-            <summary>Forgot password?</summary>
-            <div class="compact-help-content">
+          <details id="signInHelp" class="compact-help">
+            <summary>Sign-in help / Forgot password?</summary>
+            <div id="passwordRecoveryHelp" class="compact-help-content">
               <p>Contact your supervisor privately for an expiring recovery link. Open it to choose your own new password.</p>
               <p>Never share your password. Automatic password-reset emails are not available yet.</p>
-            </div>
-          </details>
-          <details id="signInHelp" class="compact-help">
-            <summary>Need help signing in?</summary>
-            <div class="compact-help-content">
               <p>Sign in with the account provided by your supervisor. Contact your supervisor if you need access.</p>
               <p>Newly invited? Open your private setup link to choose your password and continue into ReportFlow.</p>
             </div>
           </details>
           <div class="install-box">
-            <details id="installHelp" class="compact-help">
-              <summary>Install on your phone</summary>
-              <div class="compact-help-content">
+            <div id="installHelp" hidden>
               <p id="downloadAppHelp" class="install-help">Download this app to your home screen from a supported browser.</p>
               <button id="downloadAppButton" type="button" class="ghost">Download App</button>
-              </div>
-            </details>
+            </div>
             <a class="install-guide-link" href="/install.html">Install guide and QR code</a>
           </div>
 
@@ -680,7 +675,10 @@
                   aria-live="polite"
                   aria-atomic="true"
                 >Changes save automatically on this device.</p>
-                <p id="reportLocalStorageGuidance" class="muted report-storage-guidance">Local drafts and queued Reports are not backups. Browser storage can be cleared or evicted under pressure. Keep original photos until submission is confirmed in My Reports.</p>
+                <div id="reportLocalStorageGuidance" class="muted report-storage-guidance">
+                  <p>Local drafts and queued Reports are not backups. Keep original photos until Submitted in My Reports.</p>
+                  <details class="compact-help"><summary>About device storage</summary><p>Browser storage can be cleared or evicted under pressure. Do not clear this app's site data while work is unfinished.</p></details>
+                </div>
                 <div id="workFormFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
               </form>
             </article>
@@ -692,12 +690,14 @@
                 <h2 data-full-text="My history" data-report-only-text="My Reports">My Reports</h2>
                 <button id="refreshHistoryButton" type="button" class="ghost">Refresh</button>
               </div>
-              <p class="muted report-storage-guidance report-only-storage-guidance">Local drafts and queued Reports are not backups. Browser storage can be cleared or evicted under pressure. Keep original photos until submission is confirmed in My Reports.</p>
+              <details class="compact-help report-only-storage-guidance"><summary>Drafts and queued Reports are not backups</summary><p>Local drafts and queued Reports are not backups. Browser storage can be cleared or evicted under pressure. Keep original photos until submission is confirmed in My Reports.</p></details>
               <section id="reportDraftsPanel" class="report-drafts-panel" aria-labelledby="reportDraftsHeading" hidden>
                 <h3 id="reportDraftsHeading">Drafts on this device</h3>
                 <p class="muted">Not submitted. Only saved on this device.</p>
                 <div id="reportDraftsList" class="report-drafts-list"></div>
               </section>
+              <details id="historyFilters" class="report-review-filters" open>
+                <summary data-report-only-visible><span>Find and filter Reports</span><span id="historyFilterSummary" class="report-review-filter-summary">All Reports</span></summary>
               <form id="historyFilterForm" class="filter-bar">
                 <label class="history-search-filter">
                   Find
@@ -733,6 +733,7 @@
                 </label>
                 <button id="clearHistoryFiltersButton" type="button" class="ghost">Clear</button>
               </form>
+              </details>
               <p id="historyResultCount" class="list-count"></p>
               <div id="workerEditPanel" class="edit-panel hidden">
                 <div class="section-heading">
@@ -956,16 +957,19 @@
                   <p class="muted" data-full-text="Choose a record from the inbox, review its evidence, then decide or adjust it without losing your place." data-report-only-text="Choose a report, review its answers and evidence, then move it through the report workflow.">Choose a report, review its answers and evidence, then move it through the report workflow.</p>
                 </div>
                 <div class="review-heading-actions">
-                  <div class="report-export-actions" data-report-only-visible>
-                    <button id="exportReportsPdfButton" type="button">Export Reports PDF</button>
-                    <button id="exportReportsCsvButton" type="button" class="ghost">Export Reports CSV</button>
-                  </div>
                   <button id="refreshSupervisorButton" type="button" class="ghost">Refresh</button>
                 </div>
               </div>
-              <p class="muted report-export-scope" data-report-only-visible>Exports match Find and filters, across all pages.</p>
+              <details id="reportExportOptions" class="compact-help report-export-options" data-report-only-visible>
+                <summary>Export Reports</summary>
+                <p class="muted report-export-scope">Exports match Find and filters, across all pages.</p>
+                <div class="report-export-actions">
+                  <button id="exportReportsPdfButton" type="button" class="ghost">Export Reports PDF</button>
+                  <button id="exportReportsCsvButton" type="button" class="ghost">Export Reports CSV</button>
+                </div>
+              </details>
               <div class="report-workflow-shortcuts" role="group" aria-label="Report workflow shortcuts" data-report-only-visible>
-                <button type="button" class="ghost" data-report-workflow-shortcut="" aria-pressed="true">All workflows</button>
+                <button type="button" class="ghost" data-report-workflow-shortcut="" aria-label="All workflows" aria-pressed="true">All</button>
                 <button type="button" class="ghost" data-report-workflow-shortcut="submitted" aria-pressed="false">Submitted</button>
                 <button type="button" class="ghost" data-report-workflow-shortcut="in_review" aria-pressed="false">In review</button>
               </div>

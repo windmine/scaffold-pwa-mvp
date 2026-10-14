@@ -611,6 +611,7 @@ try {
     await switchFocus(races, '2');
     console.log('ok - failed same-scope Refresh keeps last durable results read-only and disables exports until reconnection');
 
+    await page.locator('#reportExportOptions > summary').click();
     await selectFilters(races, { status: 'submitted', template: '21', worker: '25', date: '2026-09-18', search: 'Current export query' });
     await page.locator('#exportReportsPdfButton').click();
     for (let attempt = 0; !races.exports.length && attempt < 100; attempt++) await page.waitForTimeout(20);

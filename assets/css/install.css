@@ -1,14 +1,14 @@
 :root {
-  color-scheme: light dark;
-  font-family: Arial, Helvetica, sans-serif;
-  color: #14253d;
-  background: #f2f6fc;
+  color-scheme: light;
+  font-family: Inter, "Segoe UI", Roboto, Arial, Helvetica, sans-serif;
+  color: #0d1726;
+  background: #f4f7fb;
   font-synthesis: none;
   line-height: 1.55;
   --install-panel: #fff;
-  --install-soft: #f2f6fc;
-  --install-text: #14253d;
-  --install-muted: #4b5e77;
+  --install-soft: #edf4ff;
+  --install-text: #0d1726;
+  --install-muted: #58677b;
   --install-line: #cbd6e6;
   --install-link: #123b72;
 }
@@ -44,14 +44,14 @@ h2 { font-size: 1.4rem; }
 .language-controls button { min-height: 44px; min-width: 54px; border: 1px solid transparent; padding: .5rem .65rem; border-radius: .6rem; background: transparent; color: var(--install-muted); }
 .language-controls button[aria-pressed="true"] { background: var(--install-panel); border-color: var(--install-line); color: var(--install-text); font-weight: 700; }
 .install-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, .85fr); gap: 1.5rem; align-items: start; }
-.install-panel, .share-panel { min-width: 0; border: 1px solid var(--install-line); border-radius: 1.25rem; background: var(--install-panel); padding: clamp(1.25rem, 3.5vw, 2.25rem); }
+.install-panel, .share-panel { min-width: 0; border: 1px solid var(--install-line); border-radius: 8px; background: var(--install-panel); padding: clamp(1rem, 3vw, 1.75rem); }
 .eyebrow { font-size: .875rem; letter-spacing: .12em; font-weight: 700; color: var(--install-link); margin-bottom: .75rem; }
 .intro { font-size: 1.125rem; color: var(--install-muted); }
 .device-hint { color: var(--install-muted); }
 .install-actions { display: grid; gap: .65rem; margin: 1.25rem 0; }
 .button { display: inline-flex; align-items: center; justify-content: center; text-align: center; min-height: 48px; padding: .75rem 1rem; border: 1px solid transparent; border-radius: .75rem; text-decoration: none; font-weight: 700; line-height: 1.4; }
-.primary { color: #fff; background: #123b72; border-color: #123b72; }
-.primary:hover { background: #0d2d58; }
+.primary { color: #fff; background: #096cf5; border-color: #096cf5; }
+.primary:hover { background: #075dcc; }
 .secondary { color: var(--install-link); background: var(--install-panel); border-color: var(--install-line); }
 .secondary:hover { background: var(--install-soft); }
 .button:disabled { cursor: wait; opacity: .75; }
@@ -89,9 +89,7 @@ h2 { font-size: 1.4rem; }
   .product-name img { width: 40px; height: 40px; }
   .language-controls button { padding-inline: .5rem; min-width: 44px; }
 }
-@media (prefers-color-scheme: dark) {
-  :root { background: #091426; color: #edf3fc; --install-panel: #11223a; --install-soft: #172c48; --install-text: #edf3fc; --install-muted: #b9c9de; --install-line: #3c526f; --install-link: #a5caff; }
-  .primary { background: #18539b; border-color: #4178bc; }
-  .primary:hover { background: #2163b1; }
-  :focus-visible { outline-color: #8bbbff; }
-}
+html[data-theme="dark"] { color-scheme: dark; background: #000; color: #f8fbff; --install-panel: #111c2b; --install-soft: #1f2c3d; --install-text: #f8fbff; --install-muted: #a8b7ca; --install-line: #425064; --install-link: #a5caff; }
+html[data-theme="dark"] :focus-visible { outline-color: #8bbbff; }
+.language-controls { flex-wrap: wrap; }
+.eyebrow { display: none; }

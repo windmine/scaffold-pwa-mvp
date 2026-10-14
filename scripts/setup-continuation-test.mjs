@@ -326,10 +326,10 @@ async function checkRecoveryAndPhoneLayouts(browser) {
   try {
     await f.page.goto(`${origin}/index.html`);
     await f.page.waitForFunction(() => document.body.dataset.activeView === 'login');
-    const recovery = f.page.locator('#passwordRecoveryHelp');
+    const recovery = f.page.locator('#signInHelp');
     assert.equal(await recovery.isVisible(), true, 'Recovery entry is visible without opening another help disclosure');
     assert.equal(await recovery.evaluate((element) => Boolean(element.parentElement.closest('details'))), false);
-    assert.equal(await recovery.locator('summary').innerText(), 'Forgot password?');
+    assert.equal(await recovery.locator('summary').innerText(), 'Sign-in help / Forgot password?');
     const before = f.requests.api.length;
     await recovery.locator('summary').focus();
     await f.page.keyboard.press('Enter');
@@ -342,7 +342,7 @@ async function checkRecoveryAndPhoneLayouts(browser) {
       await f.page.setViewportSize({ width, height: 844 });
       for (const language of ['en', 'zh']) {
         if (await f.page.evaluate(() => document.documentElement.dataset.language) !== language) await f.page.locator('#languageToggleButton').click();
-        await assertLayout(f.page, ['#loginSubmitButton', '#passwordRecoveryHelp > summary'], `recovery-${width}-${language}`);
+        await assertLayout(f.page, ['#loginSubmitButton', '#signInHelp > summary'], `recovery-${width}-${language}`);
         if (language === 'zh') assert.match(await recovery.locator('summary').innerText(), /[\u3400-\u9fff]/);
         await f.page.mouse.move(1, 1);
         await f.page.screenshot({ path: path.join(output, `recovery-${width}-${language}.png`), fullPage: true, animations: 'disabled' });

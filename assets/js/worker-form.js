@@ -3,6 +3,7 @@ import { getDraft, getDraftEntries, saveDraft } from './mock-api.js';
 import { isReportDraftForWorker, reportDraftKeyForWorker, summarizeReportDrafts } from './report-drafts.js';
 import { createPhotoPreviewSources, reportPhotoSources, restoreReportPhotoEvidence } from './report-photo-evidence.js';
 import { renderReportSubmitReview } from './report-submit-review.js';
+import { mountReportPhotoGallery } from './report-photo-gallery.js';
 import { estimateReportPhotoStorage, isStorageQuotaError } from './report-storage-budget.js';
 import {
   saveWorkerReportTemplateSnapshot,
@@ -102,6 +103,8 @@ export function createWorkerFormModule({
   const storageRetry = els.workFormSubmissionForm.querySelector('#workFormStorageRetryButton');
   const localStorageGuidance = els.workFormSubmissionForm.querySelector('#reportLocalStorageGuidance');
   let photoPreviewSources = createPhotoPreviewSources([]);
+  let reviewPhotoSources = createPhotoPreviewSources([]);
+  let disposeReviewGallery = () => {};
   let submissionReview = null;
   state.workFormPhotoBlobs ||= [];
   let draftListRequest = 0;
@@ -481,6 +484,10 @@ export function createWorkerFormModule({
 
   function clearSubmissionReview({ focus = false } = {}) {
     submissionReview = null;
+    photoViewer.closeForSources?.(reviewPhotoSources.urls, { restoreFocus: false });
+    disposeReviewGallery();
+    disposeReviewGallery = () => {};
+    reviewPhotoSources.dispose();
     if (els.workFormReviewPanel) els.workFormReviewPanel.hidden = true;
     els.workFormReviewSummary?.replaceChildren();
     if (els.workFormReviewPhotoWarning) els.workFormReviewPhotoWarning.hidden = true;
@@ -504,6 +511,20 @@ export function createWorkerFormModule({
       photoCount: review.snapshot.photoBlobs.length || review.snapshot.photoDataUrls.length
     });
     submissionReview = review;
+    const sources = createPhotoPreviewSources(reportPhotoSources(review.snapshot));
+    reviewPhotoSources = sources;
+    if (sources.urls.length) {
+      const gallery = document.createElement('section');
+      gallery.className = 'report-submit-photo-gallery';
+      els.workFormReviewSummary.querySelector('.report-review-meta').after(gallery);
+      disposeReviewGallery = mountReportPhotoGallery(gallery, {
+        sources: sources.urls,
+        metadata: review.snapshot.photoMetadata || [],
+        title: 'Report photo',
+        photoViewer,
+        isCurrent: () => submissionReview === review && reviewStillMatches(review, renderedWorkForm)
+      });
+    }
     els.workFormEditor.hidden = true;
     els.workFormEditor.inert = true;
     els.workFormReviewPanel.hidden = false;

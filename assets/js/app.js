@@ -479,6 +479,7 @@ function bindEvents() {
   ].forEach(([form, localFeedback]) => uiFeedback.bindFormValidation(form, localFeedback));
 
   renderThemeToggle();
+  document.getElementById('historyFilters').open = !REPORT_ONLY_MODE;
   initLanguageToggle({
     button: els.languageToggleButton,
     root: document.body,
@@ -490,6 +491,10 @@ function bindEvents() {
   });
   els.themeToggleButton.addEventListener('click', handleThemeToggle);
   els.loginForm.addEventListener('submit', handleLogin);
+  document.getElementById('passwordVisibilityButton').addEventListener('click', () => {
+    setPasswordVisibility(els.passwordInput.type === 'password');
+  });
+  els.loginForm.addEventListener('reset', () => setPasswordVisibility(false));
   els.registerForm.addEventListener('submit', handleRegister);
   els.sendRegistrationCodeButton.addEventListener('click', handleRegistrationStart);
   els.verifyRegistrationCodeButton.addEventListener('click', handleRegistrationVerify);
@@ -1087,8 +1092,17 @@ async function refreshStatusBannerForSession() {
   );
 }
 
+function setPasswordVisibility(visible) {
+  els.passwordInput.type = visible ? 'text' : 'password';
+  const button = document.getElementById('passwordVisibilityButton');
+  button.textContent = visible ? 'Hide password' : 'Show password';
+  button.setAttribute('aria-pressed', String(visible));
+  applyLanguage(button);
+}
+
 async function handleLogin(event) {
   event.preventDefault();
+  setPasswordVisibility(false);
   if (els.loginSubmitButton.getAttribute('aria-busy') === 'true') return;
   uiFeedback.clearLocal(els.loginFeedback);
   uiFeedback.setButtonBusy(els.loginSubmitButton, true, 'Signing in...');
@@ -1870,6 +1884,8 @@ function installFallbackMessage() {
 }
 
 function renderInstallHelp(forceFallback = false) {
+  // Manual steps and QR downloads have one home: the public installation page.
+  document.getElementById('installHelp').hidden = !state.installPrompt || forceFallback || isInstalledApp();
   if (isInstalledApp()) {
     els.downloadAppButton.textContent = 'App Installed';
     els.downloadAppButton.disabled = true;

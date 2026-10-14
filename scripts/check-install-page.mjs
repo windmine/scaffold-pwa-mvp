@@ -67,8 +67,8 @@ function instrumentBrowserBoundaries(options) {
     storageAccesses: [], messages: [], registrations: [], clipboardWrites: [],
     promptCalls: 0, promptDefaultPrevented: false
   };
-  // Seed an isolated context before installing guards. Reading/writing these
-  // browser boundaries from installer code is a regression, even if reversible.
+  // Seed an isolated context before installing guards. Only the theme/language
+  // preference keys are allowed; all account, Report and session access fails.
   const local = window.localStorage;
   const session = window.sessionStorage;
   const getItem = Storage.prototype.getItem;
@@ -80,7 +80,7 @@ function instrumentBrowserBoundaries(options) {
     Object.defineProperty(window, property, {
       configurable: true,
       get() {
-        probe.storageAccesses.push(property);
+        if (property !== 'localStorage') probe.storageAccesses.push(property);
         return storage;
       }
     });
@@ -88,7 +88,9 @@ function instrumentBrowserBoundaries(options) {
   for (const method of ['getItem', 'setItem', 'removeItem', 'clear', 'key']) {
     const original = Storage.prototype[method];
     Storage.prototype[method] = function (...args) {
-      probe.storageAccesses.push(`Storage.${method}`);
+      const presentationOnly = this === local && ['getItem', 'setItem'].includes(method)
+        && ['leader-theme', 'leader-language'].includes(args[0]);
+      if (!presentationOnly) probe.storageAccesses.push(`Storage.${method}:${args[0] || ''}`);
       return original.apply(this, args);
     };
   }
@@ -307,7 +309,11 @@ async function checkManualEnvironments() {
       assert.equal(await page.locator('#installAppButton').isVisible(), false, options.name);
       assert.equal(await page.locator('#iosInstructions').isVisible(), true, options.name);
       assert.equal(await page.locator('#androidInstructions').isVisible(), true, options.name);
-      if (options.instructions) assert.equal(await page.locator(options.instructions).evaluate((details) => details.open), true, options.name);
+      if (options.instructions) {
+        assert.equal(await page.locator(options.instructions).evaluate((details) => details.open), true, options.name);
+        assert.equal(await page.locator('.phone-instructions > details').first().getAttribute('id'), options.instructions.slice(1), 'Detected device is first');
+        assert.equal(await page.locator('.phone-instructions > details[open]').count(), 1, 'Other devices remain available without expanded instructions');
+      }
       assert.equal(await page.locator('#embeddedBrowserHelp').isVisible(), Boolean(options.embedded), options.name);
       if (options.installed) {
         assert.equal(await page.locator('body').getAttribute('data-install-state'), 'installed', options.name);
@@ -388,9 +394,14 @@ async function checkLanguagesAndCopy() {
     try {
       const page = await openInstaller(fixture);
       await page.locator('#iosInstructions > summary').click();
+      assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
+      await page.locator('#installThemeButton').click();
+      assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
+      assert.equal(await page.locator('#installThemeButton').getAttribute('aria-pressed'), 'false');
       assert.equal(await page.locator('#iosInstructions').evaluate((details) => details.open), false);
       await page.locator('[data-language="zh"]').click();
       await page.waitForFunction(() => document.documentElement.lang.startsWith('zh'));
+      assert.equal(await page.locator('#installThemeButton').innerText(), '深色模式');
       assert.equal(await page.locator('#iosInstructions').evaluate((details) => details.open), false, 'language changes must preserve manually closed instructions');
       await page.locator('#iosInstructions > summary').click();
       assert.match(await page.locator('#iosInstructions').innerText(), /[\u3400-\u9fff]/);
@@ -405,7 +416,8 @@ async function checkLanguagesAndCopy() {
         assert.deepEqual(selection, { focused: true, start: 0, end: canonicalInstallUrl.length });
       }
       await page.reload({ waitUntil: 'load' });
-      await page.waitForFunction(() => document.documentElement.lang.startsWith('en'));
+      await page.waitForFunction(() => document.documentElement.lang.startsWith('zh'));
+      assert.equal(await page.locator('html').getAttribute('data-theme'), 'light', 'Theme preference persists alongside the app preference');
       await assertIsolated(page, fixture);
     } finally {
       await fixture.context.close();
@@ -559,7 +571,7 @@ try {
   await check('rejected prompt is recoverable without reusing the event', () => checkPromptFailure('rejects'));
   await check('rejected install choice is recoverable without reusing the event', () => checkPromptFailure('choice-rejects'));
   await check('waiting updates are informational and never forced', checkWaitingWorker);
-  await check('language and clipboard fallback work without persisting or touching app data', checkLanguagesAndCopy);
+  await check('language preference and clipboard fallback preserve account and Report data', checkLanguagesAndCopy);
   await check('installer shares ReportFlow identity and exposes real permanent-link downloads', checkManifestAndDownloads);
   await check('installer controls fit 320, 390, and 1280px in both languages', checkResponsiveLayout);
   await check('real service worker cold-launches the exact offline installer after all pages close', checkColdOfflineInstaller);

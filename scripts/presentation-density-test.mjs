@@ -27,8 +27,8 @@ const reports = ['submitted', 'in_review', 'resolved'].map((workflowStatus, inde
   resolved_at: workflowStatus === 'resolved' ? '2026-09-25T02:30:00Z' : null
 }));
 
-async function fixture(browser, user = null) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+async function fixture(browser, user = null, width = 390) {
+  const context = await browser.newContext({ viewport: { width, height: 844 }, serviceWorkers: 'block' });
   const errors = [];
   const unexpectedRequests = [];
   let offline = false;
@@ -150,6 +150,7 @@ async function assertTopbar(page, label) {
     const visible = (element) => Boolean(element.getClientRects().length) && getComputedStyle(element).visibility !== 'hidden';
     return {
       width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth,
+      height: document.querySelector('.topbar').getBoundingClientRect().height,
       buttons: [...document.querySelectorAll('.topbar-actions button')].filter(visible).map((element) => {
         const { x, width, height } = element.getBoundingClientRect();
         return { id: element.id, x, width, height };
@@ -157,6 +158,9 @@ async function assertTopbar(page, label) {
     };
   });
   assert.ok(layout.scrollWidth <= layout.width, `${label}: no horizontal overflow (${layout.scrollWidth}/${layout.width})`);
+  if (layout.width <= 390 && layout.buttons.length <= 3) {
+    assert.ok(layout.height <= 140, `${label}: ordinary mobile header stays compact (${layout.height}px)`);
+  }
   assert.ok(layout.buttons.some((button) => button.id === 'languageToggleButton'), `${label}: language remains directly available`);
   assert.ok(layout.buttons.some((button) => button.id === 'themeToggleButton'), `${label}: theme remains directly available`);
   for (const button of layout.buttons) {
@@ -176,7 +180,7 @@ async function matrix(page, role) {
         const signIn = await page.locator('#loginSubmitButton').boundingBox();
         assert.ok(signIn.y >= 0 && signIn.y + signIn.height <= 844, `${label}: sign-in is visible without scrolling`);
         assert.equal(await page.locator('#signInHelp').evaluate((element) => element.open), false);
-        assert.equal(await page.locator('#installHelp').evaluate((element) => element.open), false);
+        assert.equal(await page.locator('#installHelp').isVisible(), false, 'Manual install guidance has one entry point');
         const guide = page.locator('#loginView a[href="/install.html"]');
         assert.equal(await guide.isVisible(), true, `${label}: QR/install guide remains directly visible`);
         assert.equal(await guide.evaluate((element) => Boolean(element.closest('details'))), false);
@@ -211,20 +215,23 @@ try {
     assert.match(await guidance.innerText(), /supervisor/i);
     await login.page.keyboard.press('Space');
     assert.equal(await guidance.evaluate((element) => element.open), false, 'Help closes using the keyboard');
-    const installation = login.page.locator('#installHelp');
-    await installation.locator('summary').focus();
+    const password = login.page.locator('#passwordInput');
+    const visibility = login.page.locator('#passwordVisibilityButton');
+    await password.fill('Fixture-password-only');
+    await visibility.focus();
+    await login.page.keyboard.press('Space');
+    assert.equal(await password.getAttribute('type'), 'text');
+    assert.equal(await visibility.getAttribute('aria-pressed'), 'true');
+    assert.equal(await visibility.innerText(), 'Hide password');
+    assert.equal(await password.inputValue(), 'Fixture-password-only');
     await login.page.keyboard.press('Enter');
-    assert.equal(await login.page.locator('#downloadAppButton').isVisible(), true);
-    assert.match(await login.page.locator('#downloadAppHelp').innerText(), /browser.*menu|home screen/i);
-    await login.page.locator('#downloadAppButton').click();
-    assert.match(await login.page.locator('#downloadAppHelp').innerText(), /browser.*menu|home screen/i);
-    await login.page.getByRole('button', { name: 'Dismiss notification', exact: true }).click();
+    assert.equal(await password.getAttribute('type'), 'password');
+    assert.equal(await visibility.getAttribute('aria-controls'), 'passwordInput');
     await guidance.locator('summary').click();
     await login.page.evaluate(() => window.scrollTo(0, 0));
     await login.page.mouse.move(1, 1);
     await login.page.screenshot({ path: path.join(output, 'login-help-open-390-en-light.png'), animations: 'disabled', fullPage: true });
     await guidance.locator('summary').click();
-    await installation.locator('summary').click();
     await setPresentation(login.page, 'zh', 'dark');
     await guidance.locator('summary').click();
     assert.match(await guidance.innerText(), /[\u4e00-\u9fff]/, 'Expanded guidance is translated');
@@ -240,6 +247,7 @@ try {
     const heldLogin = login.holdNextLogin();
     await login.page.locator('#loginSubmitButton').click();
     await heldLogin.started;
+    assert.equal(await password.getAttribute('type'), 'password', 'Submitting always conceals the password');
     await login.page.locator('#loginFeedback').waitFor({ state: 'visible' });
     assert.equal(await login.page.locator('#loginSubmitButton').isDisabled(), true);
     assert.match(await login.page.locator('#loginFeedback').innerText(), /Signing in with the backend/,
@@ -312,6 +320,9 @@ try {
     await matrix(review.page, 'supervisor');
     assert.equal(await review.page.locator('#reviewQueueModeBadge').innerText(), 'Live');
     assert.equal(await review.page.locator('#exportReportsPdfButton').isEnabled(), true);
+    assert.equal(await review.page.locator('#reportReviewFilters').evaluate((element) => element.open), false);
+    assert.equal(await review.page.locator('#reportExportOptions').evaluate((element) => element.open), false);
+    await review.page.locator('#reportExportOptions > summary').click();
     assert.equal(await review.page.locator('.report-export-scope').isVisible(), true, 'Export scope remains discoverable');
     assert.match(await review.page.locator('.report-export-scope').innerText(), /filter|Find|match/i);
     assert.match(await review.page.locator('.report-export-scope').innerText(), /all|every|across/i, 'Export scope still explains cross-page inclusion');
@@ -327,6 +338,18 @@ try {
     await review.page.screenshot({ path: path.join(output, 'supervisor-offline-readonly-390-en-light.png'), animations: 'disabled' });
     console.log('ok - healthy Supervisor review retains concise export scope; offline failure remains explicit and disables exports');
   } finally { await review.close(); }
+  const desktop = await fixture(browser, supervisor, 1280);
+  try {
+    assert.equal(await desktop.page.locator('#reportReviewFilters').evaluate((element) => element.open), false, 'Restored desktop sessions start with secondary filters closed');
+    await desktop.page.locator('#reportReviewFilters > summary').click();
+    await desktop.page.setViewportSize({ width: 390, height: 844 });
+    await desktop.page.setViewportSize({ width: 1280, height: 844 });
+    assert.equal(await desktop.page.locator('#reportReviewFilters').evaluate((element) => element.open), true, 'Resizing preserves the user choice');
+    await desktop.page.reload();
+    await desktop.page.waitForFunction(() => document.body.dataset.activeView === 'supervisor');
+    assert.equal(await desktop.page.locator('#reportReviewFilters').evaluate((element) => element.open), false, 'Reload restores the compact desktop default');
+    console.log('ok - restored desktop defaults and user-controlled filter disclosure survive responsive changes');
+  } finally { await desktop.close(); }
 } finally {
   await browser.close();
 }

@@ -761,6 +761,10 @@ export function createHistoryModule({
   function renderFilteredHistory() {
     if (state.user?.role !== 'worker') state.historyRecords = [];
     const filters = getHistoryFilters();
+    const filterSummary = document.getElementById('historyFilterSummary');
+    if (reportOnly && filterSummary) {
+      setTranslatableText(filterSummary, filters.query || filters.status || filters.date ? 'Filters active' : 'All Reports');
+    }
     lastHistoryFilterKey = JSON.stringify(filters);
     const filteredRecords = filterRecords(state.historyRecords, filters);
     els.historyResultCount.textContent = `${filteredRecords.length} of ${state.historyRecords.length} records`;

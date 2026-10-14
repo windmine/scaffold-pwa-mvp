@@ -37,6 +37,17 @@ const LANGUAGE_META = {
 };
 
 const ZH_TEXT = {
+  'Sign-in help / Forgot password?': '登录帮助 / 忘记密码？',
+  'Show password': '显示密码',
+  'Hide password': '隐藏密码',
+  'About device storage': '关于设备存储',
+  'Local drafts and queued Reports are not backups. Keep original photos until Submitted in My Reports.': '本机草稿和待同步报告不是备份。请保留原始照片，直到“我的报告”显示已提交。',
+  "Browser storage can be cleared or evicted under pressure. Do not clear this app's site data while work is unfinished.": '浏览器存储可能被清除，或在空间不足时被移除。工作尚未完成时，请勿清除此应用的网站数据。',
+  'Drafts and queued Reports are not backups': '草稿和待同步报告不是备份',
+  'Find and filter Reports': '搜索和筛选报告',
+  'Filters active': '已应用筛选',
+  'Export Reports': '导出报告',
+  'Signature help / Keyboard controls': '签名帮助 / 键盘操作',
   'Show advanced field options': '显示高级字段选项',
   'This pre-release recovery copy is read-only. Keep the original photos and contact your Supervisor.': '此预发布版本保存的恢复副本为只读。请保留原始照片，并联系主管。',
   'Check photo storage': '检查照片存储空间',

@@ -251,9 +251,17 @@ try {
     assert.match(summary, /Witness signature/);
     assert.equal(await editing.page.evaluate(() => Boolean(window.answerInjected)), false, 'User answers never become executable markup');
     assert.equal(await editing.page.locator('#workFormEditor').isVisible(), false);
-    assert.equal(await editing.page.locator('#workFormReviewSummary img').count(), 1, 'Only the provided signature is shown; photos use a count');
+    assert.equal(await editing.page.locator('#workFormReviewSummary img').count(), 2, 'Captured photo and handwritten signature are both inspectable');
     assert.equal(await editing.page.evaluate(() => document.activeElement.id), 'workFormReviewHeading', 'Review has a stable keyboard focus target');
     assert.equal(await editing.page.locator('#workFormAutosaveStatus').isVisible(), true);
+    const thumbnail = editing.page.locator('.report-submit-photo-gallery button[data-photo-index="0"]');
+    await thumbnail.click();
+    assert.equal(await editing.page.locator('#photoViewer').isVisible(), true);
+    assert.equal(await editing.page.locator('#photoViewerImage').getAttribute('src'), await thumbnail.locator('img').getAttribute('src'));
+    assert.equal(editing.traffic.posts.length, 0, 'Inspecting evidence does not submit');
+    assert.equal(editing.traffic.uploads.length, 0, 'Inspecting evidence does not upload');
+    await editing.page.keyboard.press('Escape');
+    assert.equal(await thumbnail.evaluate((button) => document.activeElement === button), true, 'Closing the viewer restores focus to its review photo');
 
     for (const width of [320, 390]) for (const language of ['en', 'zh']) for (const theme of ['light', 'dark']) {
       await editing.page.setViewportSize({ width, height: 844 });
@@ -471,7 +479,18 @@ try {
     const stale = await fixture(browser);
     try {
       await fill(stale.page, 'Never submit an outdated confirmation.');
+      await stale.page.evaluate(async () => {
+        window.revokedReviewUrls = [];
+        const revoke = URL.revokeObjectURL.bind(URL);
+        URL.revokeObjectURL = (url) => { window.revokedReviewUrls.push(url); revoke(url); };
+        await window.addPhoto();
+      });
       await review(stale.page);
+      await stale.page.evaluate(() => {
+        window.staleReviewPhoto = document.querySelector('.report-submit-photo-gallery .photo-thumb');
+        window.staleReviewPhotoUrl = window.staleReviewPhoto.querySelector('img').src;
+      });
+      await stale.page.locator('.report-submit-photo-gallery .photo-thumb').click();
       if (reason === 'session') await stale.page.evaluate(() => window.fixture.form.clearSessionState());
       if (reason === 'template') {
         stale.traffic.version = 3;
@@ -486,6 +505,10 @@ try {
         await stale.page.evaluate(() => window.fixture.form.refreshAfterReconnect());
       }
       assert.equal(await stale.page.locator('#workFormReviewPanel').isVisible(), false, `${reason} invalidates an already-visible review`);
+      assert.equal(await stale.page.locator('#photoViewer').isVisible(), false, `${reason} closes private review evidence`);
+      assert.equal(await stale.page.evaluate(() => window.revokedReviewUrls.includes(window.staleReviewPhotoUrl)), true, `${reason} releases the owned review URL`);
+      await stale.page.evaluate(() => window.staleReviewPhoto.click());
+      assert.equal(await stale.page.locator('#photoViewer').isVisible(), false, 'Detached controls cannot reopen old evidence');
       await stale.page.evaluate(() => document.querySelector('#confirmWorkFormSubmitButton').click());
       await assertUnsubmitted(stale);
       console.log(`ok - ${reason} changes invalidate stale confirmation without submitting or queuing`);

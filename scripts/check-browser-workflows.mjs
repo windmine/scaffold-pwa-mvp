@@ -18,6 +18,13 @@ const backendBase = `http://127.0.0.1:${backendPort}`;
 const appBase = `http://127.0.0.1:${frontendPort}`;
 const productionAppBase = `http://127.0.0.1:${previewPort}`;
 const password = 'Passw0rd!';
+async function openReportTools(page, selector) {
+  const disclosure = page.locator(selector);
+  if (await disclosure.count() && !await disclosure.evaluate((node) => node.open)) {
+    await disclosure.locator(':scope > summary').click();
+  }
+}
+
 const workflowFilter = String(process.env.BROWSER_WORKFLOW_ONLY || '').trim().toLowerCase();
 const processOutputLimit = 40000;
 
@@ -654,8 +661,18 @@ async function checkAccessibleActionFeedback(browser) {
       throw new Error('login button kept aria-busy after the failed request');
     }
 
-    await page.locator('#installHelp > summary').click();
+    // Offer a disposable native prompt; manual installation now uses one guide link.
+    await page.evaluate(() => {
+      const prompt = new Event('beforeinstallprompt', { cancelable: true });
+      prompt.prompt = async () => {};
+      prompt.userChoice = Promise.resolve({ outcome: 'dismissed' });
+      window.dispatchEvent(prompt);
+    });
     await page.locator('#downloadAppButton').click();
+    await page.locator('#installHelp').waitFor({ state: 'hidden' });
+    // A late click after the browser consumes the prompt still uses the
+    // retained fallback feedback handler, even though its entry is now hidden.
+    await page.evaluate(() => document.querySelector('#downloadAppButton').click());
     const toast = page.locator('#toastViewport .toast[role="status"]').last();
     await toast.waitFor({ state: 'visible', timeout: 5000 });
     if (!(await toast.innerText()).trim()) {
@@ -1446,7 +1463,9 @@ async function checkSharedDeviceWorkerReportPrivacy(browser, {
     releaseWorkerBHistory();
     await failedHistory;
     await delay(250);
+    await openReportTools(page, '#historyFilters');
     await page.locator('#historyStatusFilter').selectOption('resolved');
+    await openReportTools(page, '#historyFilters');
     await page.locator('#historyStatusFilter').selectOption('');
     await assertPrivateDataCleared('replacement Worker history failed and filters rerendered');
     if (violations.length) {
@@ -2559,9 +2578,13 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
         && url.searchParams.get('worker_id') === String(submittedReport.worker_id)
         && url.searchParams.get('record_date') === '2026-09-01';
     });
+    await openReportTools(page, '#reportReviewFilters');
     await page.locator('#supervisorStatusFilter').selectOption('submitted');
+    await openReportTools(page, '#reportReviewFilters');
     await page.locator('#supervisorTemplateFilter').selectOption({ label: 'Inspection form' });
+    await openReportTools(page, '#reportReviewFilters');
     await page.locator('#supervisorWorkerFilter').selectOption({ label: 'Normal Report Worker' });
+    await openReportTools(page, '#reportReviewFilters');
     await page.locator('#supervisorDateFilter').fill('2026-09-01');
     if (!(await filteredQueueResponse).ok()) {
       throw new Error('combined Supervisor Report filters did not produce a successful scoped request');
@@ -2605,6 +2628,8 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
       throw new Error(`Start review transition was incomplete: ${JSON.stringify(startReviewPayload)}`);
     }
     await page.locator('#reviewQueueList .empty-state').waitFor({ state: 'visible', timeout: 10000 });
+
+    await openReportTools(page, '#reportReviewFilters');
 
     await page.locator('#supervisorStatusFilter').selectOption('in_review');
     const inReviewReport = page.locator('#reviewQueueList .record-form').filter({ hasText: reportMarker }).first();
@@ -2658,6 +2683,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     }
     // The in-review filter removes the resolved Report and restores the inbox.
     await page.locator('#reviewQueueList .empty-state').waitFor({ state: 'visible', timeout: 10000 });
+    await openReportTools(page, '#reportReviewFilters');
     await page.locator('#supervisorStatusFilter').selectOption('resolved');
     const resolvedSupervisorReport = page.locator('#reviewQueueList .record-form').filter({ hasText: reportMarker }).first();
     await resolvedSupervisorReport.waitFor({ state: 'visible', timeout: 20000 });
@@ -2729,8 +2755,10 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     ) {
       throw new Error(`resolved Report history omitted its final Supervisor note: ${resolvedHistoryText}`);
     }
+    await openReportTools(page, '#historyFilters');
     await page.locator('#historyStatusFilter').selectOption('submitted');
     await page.locator('#historyList .empty-state').waitFor({ state: 'visible', timeout: 10000 });
+    await openReportTools(page, '#historyFilters');
     await page.locator('#historyStatusFilter').selectOption('resolved');
     await page.locator('#historyList > .record-report-compact').first().waitFor({ state: 'visible' });
     await page.locator('#historyList > .record-report-compact .record-disclosure-button').first().click();
@@ -3939,6 +3967,7 @@ async function checkReportOnlyExcludesDaywork(browser) {
     await page.locator('#workFormFeedback').getByText('Inspection form submitted for review').waitFor({ timeout: 20000 });
 
     await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await openReportTools(page, '#historyFilters');
     await page.locator('#historySearchInput').fill(reportMarker);
     const compactReport = page.locator('#historyList > .record-report-compact').first();
     await compactReport.waitFor({ state: 'visible', timeout: 20000 });
@@ -3984,6 +4013,7 @@ async function checkReportOnlyExcludesDaywork(browser) {
     const exportResponsePromise = page.waitForResponse((response) => (
       new URL(response.url()).pathname === '/api/supervisor/form-submissions/export.csv'
     ), { timeout: 20000 });
+    await openReportTools(page, '#reportExportOptions');
     await page.locator('#exportReportsCsvButton').click();
     const exportResponse = await exportResponsePromise;
     if (
@@ -3996,6 +4026,7 @@ async function checkReportOnlyExcludesDaywork(browser) {
     const pdfResponsePromise = page.waitForResponse((response) => (
       new URL(response.url()).pathname === '/api/supervisor/form-submissions/export.pdf'
     ), { timeout: 20000 });
+    await openReportTools(page, '#reportExportOptions');
     await page.locator('#exportReportsPdfButton').click();
     const pdfResponse = await pdfResponsePromise;
     if (
@@ -4765,12 +4796,14 @@ async function checkReportOnlyResponsiveLayout(browser) {
         await capture(`new-report-final-action-${label}`, false);
 
         await page.locator('.tab[data-tab-target="historyTab"]').click();
+        await openReportTools(page, '#historyFilters');
         await page.locator('#historyDateFilter').fill('2026-09-10');
         await page.locator('#refreshHistoryButton').click();
         await page.locator('#historyList > .record-report-compact').first().waitFor({ state: 'visible' });
         if (await page.locator('#historyList img, #historyList .record-report-expanded').count()) {
           throw new Error('My Reports must not mount full answers or evidence before disclosure');
         }
+        await openReportTools(page, '#historyFilters');
         await page.locator('#historySearchInput').fill('North access platform');
         await page.waitForFunction(() => document.querySelectorAll('#historyList > .record-report-compact').length === 1);
         await page.evaluate(() => window.scrollTo(0, 0));
@@ -4785,6 +4818,7 @@ async function checkReportOnlyResponsiveLayout(browser) {
         if (await page.locator('#historyList .record-report-expanded').count()) {
           throw new Error(`Collapsing must dispose the full Report detail (${label}; expanded details=${expandedDetailsId}; current details=${await disclosure.getAttribute('aria-controls')}; current expanded=${await disclosure.getAttribute('aria-expanded')})`);
         }
+        await openReportTools(page, '#historyFilters');
         await page.locator('#historySearchInput').fill('');
       }
     }
@@ -4793,6 +4827,7 @@ async function checkReportOnlyResponsiveLayout(browser) {
     await loginAs(page, 'supervisor@example.com', 'supervisor');
     await openAdminWorkspace(page, 'review');
     await page.locator('#reportReviewFilters').evaluate((filters) => { filters.open = true; });
+    await openReportTools(page, '#reportReviewFilters');
     await page.locator('#supervisorDateFilter').fill('2026-09-10');
     await page.locator('#reviewQueueList .record-form').filter({ hasText: 'North access platform' }).waitFor({ state: 'visible' });
     for (const viewport of viewports) {
@@ -5766,7 +5801,9 @@ async function checkRememberedSupervisorReportFilters(browser) {
       && document.querySelector('#supervisorWorkerFilter option:not([value=""])')
     ));
     await openFilters();
+    await openReportTools(page, '#reportReviewFilters');
     await page.locator('#supervisorTemplateFilter').selectOption({ label: 'Inspection form' });
+    await openReportTools(page, '#reportReviewFilters');
     await page.locator('#supervisorWorkerFilter').selectOption({ index: 1 });
     const saved = {
       departmentId: await page.locator('#supervisorDepartmentFilter').inputValue(),
@@ -5777,8 +5814,11 @@ async function checkRememberedSupervisorReportFilters(browser) {
       search: ''
     };
     await changeAndCheckQueue({ ...saved, search: privateSearch }, async () => {
+      await openReportTools(page, '#reportReviewFilters');
       await page.locator('#supervisorStatusFilter').selectOption(saved.status);
+      await openReportTools(page, '#reportReviewFilters');
       await page.locator('#supervisorDateFilter').fill(saved.date);
+      await openReportTools(page, '#reportReviewFilters');
       await page.locator('#supervisorSearchInput').fill(privateSearch);
     });
     const persistedSearch = await page.evaluate((needle) => (
@@ -5817,13 +5857,16 @@ async function checkRememberedSupervisorReportFilters(browser) {
     await openFilters();
     await changeAndCheckQueue({ ...leaderPreference, departmentId: saved.departmentId, search: privateSearch }, async () => {
       await inReview.click();
+      await openReportTools(page, '#reportReviewFilters');
       await page.locator('#supervisorDateFilter').fill(leaderPreference.date);
+      await openReportTools(page, '#reportReviewFilters');
       await page.locator('#supervisorSearchInput').fill(privateSearch);
     });
     await switchDepartment(mutualId, empty);
     const mutualPreference = { ...empty, status: 'submitted', date: '2026-09-10' };
     await changeAndCheckQueue({ ...mutualPreference, departmentId: mutualId }, async () => {
       await submitted.click();
+      await openReportTools(page, '#reportReviewFilters');
       await page.locator('#supervisorDateFilter').fill(mutualPreference.date);
     });
     await switchDepartment(saved.departmentId, leaderPreference);
@@ -5879,6 +5922,7 @@ async function checkReportFindExportDownloads(browser) {
       new URL(response.url()).pathname === '/api/supervisor/review-queue'
       && new URL(response.url()).searchParams.get('search') === wanted
     ));
+    await openReportTools(page, '#reportReviewFilters');
     await page.locator('#supervisorSearchInput').fill(wanted);
     if (!(await searched).ok()) throw new Error('Report Find query failed');
     await page.waitForFunction(({ wanted, omitted }) => {
@@ -5891,11 +5935,12 @@ async function checkReportFindExportDownloads(browser) {
     await page.locator('#reportReviewFilters > summary').click();
     const primaryDownload = await page.locator('.report-export-actions').evaluate((group) => ({
       first: group.firstElementChild?.id,
-      primary: !group.firstElementChild?.matches('.ghost, .secondary')
+      disclosure: group.closest('details')?.id
     }));
-    if (primaryDownload.first !== 'exportReportsPdfButton' || !primaryDownload.primary) {
-      throw new Error('PDF must be the first, primary Report collection download');
+    if (primaryDownload.first !== 'exportReportsPdfButton' || primaryDownload.disclosure !== 'reportExportOptions') {
+      throw new Error('PDF must remain first within the secondary Report export disclosure');
     }
+    await openReportTools(page, '#reportExportOptions');
     for (const [format, buttonId] of [['pdf', 'exportReportsPdfButton'], ['csv', 'exportReportsCsvButton']]) {
       const responsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === `/api/supervisor/form-submissions/export.${format}`);
       const downloadPromise = page.waitForEvent('download');
@@ -7901,6 +7946,7 @@ async function checkColdOfflineReportReturn(browser) {
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
     await waitForQueueCount(page, 0);
     await page.locator('.tab[data-tab-target="historyTab"]').click();
+    await openReportTools(page, '#historyFilters');
     await page.locator('#historySearchInput').fill(answer);
     const submitted = page.locator('#historyList > .record-report-compact').first();
     await submitted.getByText('Submitted', { exact: true }).waitFor({ timeout: 20000 });

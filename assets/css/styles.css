@@ -7078,3 +7078,46 @@ body.report-only-mode .topbar-actions :is(#languageToggleButton, #themeToggleBut
     flex: 1 1 100%;
   }
 }
+
+/* Focused Report screens: optional help and tools leave room for the work. */
+.password-field { display: grid; gap: 8px; min-width: 0; }
+.password-input-row { display: flex; align-items: stretch; gap: 6px; }
+.password-input-row input { min-width: 0; flex: 1; }
+.password-input-row #passwordVisibilityButton { width: auto; min-width: 44px; min-height: 44px; padding: 8px; font-size: .875rem; }
+.report-only-mode .report-storage-guidance p { margin: 0; }
+.report-only-mode #historyTab .compact-help { margin: 0 0 8px; }
+.report-only-mode #historyFilters { margin-bottom: 8px; }
+body:not(.report-only-mode) #historyFilters { display: contents; }
+.report-only-mode .review-desk-heading { display: none; }
+.report-only-mode .review-desk-heading > div:first-child { display: none; }
+.report-only-mode .review-heading-actions { width: 100%; justify-content: flex-end; }
+.report-only-mode .review-inbox > .review-pane-heading .eyebrow,
+.report-only-mode .review-inbox > .review-pane-heading .review-pane-hint { display: none; }
+.report-only-mode .review-inbox > .review-pane-heading h2 { font-size: 1rem; margin: 0; }
+.report-only-mode .report-workflow-shortcuts button { min-width: 44px; padding-inline: 10px; }
+.report-only-mode .report-export-options { margin: 0 0 8px; }
+.report-only-mode .report-export-options summary { min-height: 44px; font-size: .875rem; color: var(--muted); }
+.report-only-mode .report-export-options .report-export-actions { margin-block: 8px; }
+.report-submit-photo-gallery { margin-block: 12px; }
+.signature-keyboard-help { margin: 0; font-size: .875rem; }
+.signature-keyboard-help summary { min-height: 44px; }
+
+@media (max-width: 600px) {
+  .report-only-mode #workerView #historyFilterForm { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 979px) {
+  body.report-only-mode .app-shell { padding-top: max(10px, env(safe-area-inset-top)); }
+  body.report-only-mode .topbar { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; min-height: 0; margin-bottom: 12px; }
+  body.report-only-mode .brand-lockup { display: flex; flex-direction: row; flex-wrap: nowrap; gap: 6px; width: auto; }
+  body.report-only-mode .brand-logo { width: 32px; height: 32px; padding: 0; }
+  body.report-only-mode .brand-heading { flex: none; position: static; width: auto; height: auto; margin: 0; padding: 0; border: 0; clip: auto; clip-path: none; overflow: visible; }
+  body.report-only-mode .brand-heading .eyebrow { display: none; }
+  body.report-only-mode .topbar h1 { font-size: 1.125rem; margin: 0; }
+  body.report-only-mode .user-context { width: auto; min-width: 0; padding: 0; border: 0; box-shadow: none; background: none; gap: 0; text-align: right; font-size: .8rem; }
+  body.report-only-mode .user-context-group { font-size: .75rem; }
+  body.report-only-mode .topbar-actions { grid-column: 1 / -1; width: 100%; gap: 4px; align-items: center; }
+  body.report-only-mode .sync-indicator { flex: 1 1 auto; width: auto; min-width: 0; padding: 4px 0; font-size: .75rem; }
+  body.report-only-mode .topbar-actions :is(#languageToggleButton, #themeToggleButton, #logoutButton, #installButton, #updateButton) { width: auto; min-width: 44px; min-height: 44px; padding: 8px; font-size: .8rem; }
+  body.report-only-mode .admin-mobile-toolbar { margin-bottom: 8px; padding-block: 8px; }
+}

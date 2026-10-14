@@ -2,6 +2,16 @@
 
 Use this checklist before calling the MVP ready for phone testing or production use. Local automation, hosted automation, and a hosted real-phone pass are separate gates.
 
+## Local Report UX improvements — 2026-10-14
+
+The local interface now has a compact mobile header, consolidated sign-in/recovery help, Show/Hide password, and an installer that shares only the app's theme/language preferences and puts detected-device instructions first. My Reports filters and general storage guidance are expandable; live errors, save/sync status and recovery actions remain visible. Supervisor filters and collection exports are secondary to the inbox and review actions. Signature keyboard instructions remain available in an accessible disclosure. Final submission review shows an inspectable photo gallery alongside the existing handwritten signature preview.
+
+The gallery reuses the captured originals and existing viewer. Opening it creates no upload or submission, and leaving review or changing session/Template closes it, invalidates old controls and releases its owned Blob URLs. Report purpose, authorization, immutable content, offline identity/replay, backend and migrations are unchanged. The generated service-worker cache changes with the shell assets.
+
+Validation, earlier failures and the final gate status are recorded in [the local evidence](evidence/report-ux-20261014/validation.json). The isolated real-backend walkthrough covers draft restart, exact photo/signature retention, offline confirmation/replay, Submitted → In review → Resolved, required final note and Worker visibility. This work is not deployed and does not establish a physical-phone pass.
+
+The final full `check:mobile` gate passed all **73 real-backend workflows**, all preceding focused suites, 64 presentation combinations and 11 installer checks; build, lint and `git diff --check` also pass. The earlier 71/73 run found a real narrow-screen My Reports date-clipping regression and an obsolete test requiring collection exports to be visually primary. The corrected responsive selector and disclosure-aware PDF-first assertion pass both focused reruns and the final complete gate, retaining filtered CSV/PDF content checks. App-source hashes stayed unchanged during that gate, temporary storage was removed, and all owned test service ports were confirmed closed. [Final workflow results](evidence/report-ux-20261014/mobile-gate-results.txt).
+
 The [October 5 permanent cleanup](evidence/test-cleanup-20261005.json) removed all former production demo/test accounts and their Templates/Reports, including the presentation dataset. Old logins, IDs and walkthroughs are historical. New authenticated hosted or phone tests require separately approved, exactly owned fixtures; use local seeds only with a disposable development backend. The October 12 release checks created no hosted application fixtures.
 
 ## CI Failure Diagnosis - 2026-10-14

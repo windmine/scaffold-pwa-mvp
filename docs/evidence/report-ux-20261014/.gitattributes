@@ -1,0 +1,3 @@
+# Preserve hash-bound validation evidence across platforms.
+* -text
+*.txt -whitespace

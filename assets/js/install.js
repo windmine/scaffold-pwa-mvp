@@ -1,4 +1,5 @@
-// Public installation only: do not import app/auth, access stored Reports, or replay queues here.
+// Public installation only. Only the two shared presentation preferences may be
+// accessed; never import auth, read stored Reports, or replay queues here.
 const translations = {
   en: {
     title: 'Install ReportFlow', eyebrow: 'ON YOUR PHONE', heading: 'Install ReportFlow',
@@ -65,6 +66,10 @@ const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent)
   || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isAndroid = /android/i.test(navigator.userAgent);
 let language = /^zh/i.test(navigator.language) ? 'zh' : 'en';
+try {
+  const preference = localStorage.getItem('leader-language');
+  if (['en', 'zh'].includes(preference)) language = preference;
+} catch { /* Installation guidance also works when storage is unavailable. */ }
 let deferredPrompt = null;
 let prompting = false;
 let accepted = false;
@@ -98,8 +103,23 @@ function renderLanguage() {
     button.setAttribute('aria-pressed', String(button.dataset.language === language));
   });
   document.querySelector('.install-qr').alt = translations[language].qrAlt;
+  renderTheme();
   renderState();
 }
+
+function renderTheme() {
+  const dark = document.documentElement.dataset.theme !== 'light';
+  const button = document.getElementById('installThemeButton');
+  button.textContent = language === 'zh' ? (dark ? '浅色模式' : '深色模式') : (dark ? 'Light mode' : 'Dark mode');
+  button.setAttribute('aria-pressed', String(dark));
+  document.querySelector('meta[name="theme-color"]').content = dark ? '#000000' : '#f4f7fb';
+}
+document.getElementById('installThemeButton').addEventListener('click', () => {
+  const theme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem('leader-theme', theme); } catch { /* Optional preference. */ }
+  renderTheme();
+});
 
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
@@ -145,12 +165,14 @@ displayMode.addEventListener?.('change', (event) => { if (event.matches) markIns
 document.querySelectorAll('[data-language]').forEach((button) => {
   button.addEventListener('click', () => {
     language = button.dataset.language === 'zh' ? 'zh' : 'en';
+    try { localStorage.setItem('leader-language', language); } catch { /* Optional preference. */ }
     renderLanguage();
   });
 });
 document.getElementById('languageControls').hidden = false;
-document.getElementById('iosInstructions').open = isIos || !isAndroid;
-document.getElementById('androidInstructions').open = isAndroid || !isIos;
+document.getElementById('iosInstructions').open = isIos;
+document.getElementById('androidInstructions').open = isAndroid;
+if (isAndroid) document.querySelector('.phone-instructions').prepend(document.getElementById('androidInstructions'));
 document.getElementById('embeddedBrowserHelp').hidden = !/FBAN|FBAV|Instagram|MicroMessenger|Line\/|\bwv\b/i.test(navigator.userAgent);
 
 const copyButton = document.getElementById('copyInstallLink');

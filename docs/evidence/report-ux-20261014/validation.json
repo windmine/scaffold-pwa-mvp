@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "status": "verified-local",
+  "recordedAtUtc": "2026-10-14T00:18:21.110045+00:00",
+  "baselineCommit": "8cbcfb3ef5512c86f98151065fa3a10303cf80f8",
+  "scope": "Local UX implementation; no commit, push, deployment, dependency installation, backend change or migration.",
+  "improvements": [
+    "Compact mobile header with direct 44px controls",
+    "One combined sign-in/recovery help entry and one manual installation guide",
+    "Accessible Show/Hide password, concealed on submit",
+    "Installer theme/language continuity and detected-device-first instructions",
+    "Collapsed Worker filters and concise local-storage guidance bring Reports higher",
+    "Expandable device-storage and signature keyboard instructions",
+    "Supervisor filters and collection exports secondary to review",
+    "Read-only pre-submit photo gallery with original evidence and scope-safe cleanup"
+  ],
+  "verified": {
+    "build": true,
+    "lint": true,
+    "presentationCombinations": 64,
+    "installerChecks": 11,
+    "manualLocalWorkflow": {
+      "status": "passed",
+      "reportId": 1,
+      "templateId": 4,
+      "workflow": "Submitted -> In review -> Resolved",
+      "blankNoteBlocked": true,
+      "workerFinalNoteVisible": true,
+      "photoCount": 1,
+      "signatureRetained": true,
+      "durableReportCount": 1
+    },
+    "focusedResponsiveAfterFix": true,
+    "focusedCsvPdfAfterUpdate": true,
+    "completeMobileGate": "passed",
+    "realBackendWorkflowsPassed": 73,
+    "realBackendWorkflowsFailed": 0,
+    "finalGateExitCode": 0,
+    "appSourceUnchangedDuringFinalGate": true,
+    "gitDiffCheck": true
+  },
+  "earlierAttempts": [
+    "Initial complete gate stopped at an export test that did not open the new disclosure; test updated without changing export query/data assertions.",
+    "Second complete gate passed 71 of 73 real-backend workflows. It found a real 390px My Reports date-clipping regression and an obsolete assertion that collection exports must be visually primary.",
+    "The first clipping fix did not override an existing higher-specificity selector; the corrected selector passed the existing responsive workflow.",
+    "The PDF-first assertion now checks order inside the secondary disclosure and retains actual filtered CSV/PDF and single-Report download checks; its focused rerun passed.",
+    "A supplemental runner lost child console output; a diagnostic wrapper then failed on Windows GBK encoding. Existing captured-output wrappers and explicit UTF-8 output were used for the successful focused reruns. These attempts are not claimed as application passes."
+  ],
+  "sourceSha256": {
+    "index.html": "1fb0506bb9a6de0054af83f377c6c88e707af1b318d8f55bf6513db23a18b134",
+    "install.html": "3befbb29ca4ea2037192e095ab0f3918b97528a224de9f82202cbefcb596aad0",
+    "assets/css/styles.css": "9f3856d5963d6ecb707f8d4cedef104408386fe8ce0b1be94d5365882071d88b",
+    "assets/css/install.css": "3985c74efaf7673a979ae66ca99cbbb0711df0af8f02e97ccf3ff0f3f12311c4",
+    "assets/js/app.js": "adba24545308292ae685be45b231ad2956bf5fba0f795b8a7e74135a44d46bae",
+    "assets/js/history.js": "c4c59c4809a183786f3162b27c4f1a810f1710f5b8a19f3293af2fb8539b6969",
+    "assets/js/i18n.js": "50d267a4c8783ac0fae390dfad229b11f3d6f9de5b0525a22b7ca46bd19cb205",
+    "assets/js/install.js": "42aabf6da5b55254baf8e52d649b5e1ba78e933cab5ad2d44ed3405bfd9fa79e",
+    "assets/js/supervisor-review.js": "8f1415f4ce046886552858f36966ebdc8ecbc30a2cdd051d3860e86480f9514b",
+    "assets/js/worker-form.js": "fad0d400e5346942036cc8743727a2c8d9b1bbd4cb546fcdb5bbfa430a6987db",
+    "assets/js/work-form-fields.js": "86e2381480a89fb97d9c6b3279c19eaacfcbc8a27f2883c0f48516aa0e303252",
+    "sw.js": "6cf238c5cbe16813f721edec006b882051ecfebd44b229fc803fb154b574df92"
+  },
+  "logs": {
+    "initial": "C:\\Users\\12273\\AppData\\Local\\Temp\\reportflow-ux-mobile.log",
+    "second": "C:\\Users\\12273\\AppData\\Local\\Temp\\reportflow-ux-mobile-final.log",
+    "final": "C:\\Users\\12273\\AppData\\Local\\Temp\\reportflow-ux-mobile-verified.log"
+  },
+  "limits": [
+    "Desktop Chromium and mobile browser emulation; no physical iOS/Android certification.",
+    "No hosted accounts, production fixtures, cloud mutations or deployment.",
+    "Production remains on its previously deployed release."
+  ],
+  "manualServicesStopped": true,
+  "screenshots": {
+    "03-worker-review-light.png": "e44c261c828d0fdcd499732d476e9ab7df29c6618b39633f53b1c61438d142e6",
+    "04-review-photo-open.png": "e94f5e8af910007a6020aafecc7a3b0b48e509685cf1da13f360190123a6d3c5",
+    "05-worker-review-chinese-dark.png": "be7b811fc070ad6a0c8041fe8410ec7114c2876675cf8dbc261357cb8908d915",
+    "09-supervisor-mobile-inbox.png": "9b516d345859e489276ceb5f2927450d5e0f7c7b70956b39c1d4452c3cbf3bc9",
+    "13-worker-final-note.png": "d3c91e42b2b518fe3b45632faa311756c44d67a8c915fc892a6b2f7fe82f79f6",
+    "14-install-ios-light.png": "bd18e63848fbf4d3294f7f73db39c08902c4e6f9612e9607d356977302f71f84",
+    "14-install-android-dark.png": "9e637d51873874d1ffb6a75792482bcac12ff4fc4edac7e374ad1c5161f14bdf"
+  },
+  "finalGate": {
+    "command": "C:\\Python314\\python.exe .github/scripts/run_local_checks.py mobile",
+    "executionSession": 1490,
+    "exitCode": 0,
+    "stdoutSha256": "cc26ac2158a9e477b802ded8a1869a58c884b48a06e81c97d7d78445b52e0385",
+    "resultsFile": "mobile-gate-results.txt",
+    "temporaryStorageRemoved": true,
+    "localTestPortsConfirmedClosed": {
+      "54664": true,
+      "54666": true,
+      "8765": true,
+      "5175": true,
+      "4175": true
+    }
+  },
+  "sourceCacheVersion": "leader-field-76f02703dbf1",
+  "testSourceSha256": {
+    "scripts/check-browser-workflows.mjs": "2851825f2b7b38f83a5eba21e461187bce9912af4815837d4813e6520085bad1",
+    "scripts/check-install-page.mjs": "087cd4c558176971bbd2b80d853fe6ad3add8e2bd39896e6e8111798e0b71989",
+    "scripts/presentation-density-test.mjs": "0dbfda71e4c261a0eef4a9f6fc9611dcf90a7b65957afcf37c11219d09f886a4",
+    "scripts/report-review-filters-test.mjs": "06f749eee30a4c4206cc61dae151d5a9e3b11d320f3f771349d313732fde4bd3",
+    "scripts/report-storage-warning-test.mjs": "aadc7c08c53880cd2b7bd32cba1e6918f113cc9ba6c594a0c45ccb2626de8ff4",
+    "scripts/report-submit-review-test.mjs": "9779d0f89ed07b0c05cd7693c9cd2bfefeea420dd9e03f05eca21ff93a8630ff",
+    "scripts/setup-continuation-test.mjs": "bb58ea8cc01428cbb1bce30575c907d96e520fcb55d9b4506068ca6b77faf28f"
+  }
+}

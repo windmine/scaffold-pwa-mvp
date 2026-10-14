@@ -448,7 +448,10 @@ function renderField(field, options = {}, rowContext = null) {
           aria-describedby="${escapeHtml(signatureInstructionsId)} ${escapeHtml(signatureStatusId)}"
           aria-keyshortcuts="Space Enter ArrowUp ArrowDown ArrowLeft ArrowRight Escape"
         ></canvas>
-        <p id="${escapeHtml(signatureInstructionsId)}" class="muted">Draw your signature inside the box. Keyboard: focus the signature pad, press Space or Enter to start, use the arrow keys to draw (hold Shift for larger moves), then press Space, Enter or Escape to stop.</p>
+        <details class="compact-help signature-keyboard-help">
+          <summary>Signature help / Keyboard controls</summary>
+          <p id="${escapeHtml(signatureInstructionsId)}" class="muted">Draw your signature inside the box. Keyboard: focus the signature pad, press Space or Enter to start, use the arrow keys to draw (hold Shift for larger moves), then press Space, Enter or Escape to stop.</p>
+        </details>
         <p id="${escapeHtml(signatureStatusId)}" class="visually-hidden" data-signature-status role="status" aria-live="polite" aria-atomic="true">The signature pad is blank.</p>
       </div>
     `;
