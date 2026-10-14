@@ -83,7 +83,8 @@ async function fixture(browser, user = null, width = 390) {
     if (url.pathname === '/api/supervisor/review-queue') {
       assert.equal(url.searchParams.get('purpose'), 'report');
       const counts = { total: reports.length, pending: 2, reviewed: 1, form: reports.length, attendance: 0, task: 0, team_log: 0 };
-      return json({ items: reports, counts, summary_counts: counts, has_more: false, next_cursor: null, snapshot_at: new Date().toISOString() });
+      return json({ items: reports, counts, summary_counts: counts, has_more: false, next_cursor: null,
+        sort_order: url.searchParams.get('sort_order') || 'newest', snapshot_at: new Date().toISOString() });
     }
     if (url.pathname.startsWith('/api/')) {
       unexpectedRequests.push(`${route.request().method()} ${url.pathname}`);
@@ -342,6 +343,68 @@ try {
   try {
     assert.equal(await desktop.page.locator('#reportReviewFilters').evaluate((element) => element.open), false, 'Restored desktop sessions start with secondary filters closed');
     await desktop.page.locator('#reportReviewFilters > summary').click();
+    for (const width of [1280, 1440, 1100, 1024, 980, 768, 390, 320]) {
+      await desktop.page.setViewportSize({ width, height: 844 });
+      for (const language of ['en', 'zh']) for (const theme of ['light', 'dark']) {
+        const label = `supervisor-clear-${width}-${language}-${theme}`;
+        await setPresentation(desktop.page, language, theme);
+        const clear = desktop.page.locator('#clearSupervisorFiltersButton');
+        await clear.scrollIntoViewIfNeeded();
+        if ([1280, 390, 320].includes(width) && ((language === 'en' && theme === 'light') || (language === 'zh' && theme === 'dark'))) {
+          await desktop.page.locator('#reportReviewFilters').screenshot({ path: path.join(output, `${label}.png`), animations: 'disabled' });
+        }
+        const layout = await desktop.page.evaluate(() => {
+          const form = document.querySelector('#supervisorFilterForm');
+          const button = document.querySelector('#clearSupervisorFiltersButton').getBoundingClientRect();
+          const controls = [...form.querySelectorAll('input, select')].filter((node) => node.getClientRects().length);
+          return {
+            right: button.right, formRight: form.getBoundingClientRect().right,
+            width: button.width, height: button.height, top: button.top,
+            lastControlBottom: Math.max(...controls.map((node) => node.getBoundingClientRect().bottom)),
+            overflow: document.documentElement.scrollWidth > window.innerWidth
+          };
+        });
+        assert.ok(Math.abs(layout.right - layout.formRight) <= 1, `${label}: Clear aligns with the full filter group, not the first grid column (${layout.right}/${layout.formRight})`);
+        assert.ok(layout.top >= layout.lastControlBottom, `${label}: Clear follows the filter controls without overlap`);
+        assert.ok(layout.width >= 44 && layout.height >= 44, `${label}: Clear retains a 44px target`);
+        assert.equal(layout.overflow, false, `${label}: no horizontal overflow`);
+        assert.equal(await clear.getAttribute('type'), 'button');
+        assert.equal(await clear.innerText(), language === 'en' ? 'Clear' : '清除');
+      }
+    }
+    for (const width of [1280, 390]) for (const language of ['en', 'zh']) {
+      await desktop.page.setViewportSize({ width, height: 844 });
+      await setPresentation(desktop.page, language, 'light');
+      await desktop.page.locator('#supervisorStatusFilter').selectOption('submitted');
+      await desktop.page.locator('#supervisorTemplateFilter').selectOption(String(template.id));
+      await desktop.page.locator('#supervisorWorkerFilter').selectOption(String(worker.id));
+      await desktop.page.locator('#supervisorDateFilter').fill('2026-10-14');
+      await desktop.page.locator('#supervisorSortOrder').selectOption('oldest_waiting');
+      const filtered = desktop.page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return url.pathname === '/api/supervisor/review-queue' && url.searchParams.get('search') === 'Clear position check';
+      });
+      await desktop.page.locator('#supervisorSearchInput').fill('Clear position check');
+      await filtered;
+      await desktop.page.waitForFunction(() => !document.querySelector('#clearSupervisorFiltersButton').disabled);
+      await desktop.page.locator('#supervisorSortOrder').focus();
+      await desktop.page.keyboard.press('Tab');
+      assert.equal(await desktop.page.locator('#clearSupervisorFiltersButton').evaluate((node) => document.activeElement === node), true, 'Clear follows Sort order in keyboard navigation');
+      const cleared = desktop.page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return url.pathname === '/api/supervisor/review-queue' && url.searchParams.get('purpose') === 'report'
+          && ['search', 'workflow_status', 'form_id', 'worker_id', 'record_date', 'cursor'].every((key) => !url.searchParams.get(key))
+          && (url.searchParams.get('sort_order') || 'newest') === 'newest';
+      });
+      await desktop.page.keyboard.press('Enter');
+      assert.equal((await cleared).ok(), true, 'Clear refreshes the default Report query');
+      for (const selector of ['#supervisorSearchInput', '#supervisorStatusFilter', '#supervisorTemplateFilter', '#supervisorWorkerFilter', '#supervisorDateFilter']) {
+        assert.equal(await desktop.page.locator(selector).inputValue(), '', `${width}/${language}: Clear resets ${selector}`);
+      }
+      assert.equal(await desktop.page.locator('#supervisorSortOrder').inputValue(), 'newest');
+      assert.equal(await desktop.page.locator('#reportReviewFilters').evaluate((node) => node.open), true, 'Clear keeps the filters open');
+    }
+    console.log('ok - Supervisor Clear aligns with the complete filter group across 32 layouts and resets the Report query by keyboard on desktop/mobile in English/Chinese');
     await desktop.page.setViewportSize({ width: 390, height: 844 });
     await desktop.page.setViewportSize({ width: 1280, height: 844 });
     assert.equal(await desktop.page.locator('#reportReviewFilters').evaluate((element) => element.open), true, 'Resizing preserves the user choice');
