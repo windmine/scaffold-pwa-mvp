@@ -1,0 +1,155 @@
+[
+  {
+    "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/live",
+    "url": "https://geo-attendance-system-db9ca.web.app",
+    "expireTime": null,
+    "version": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/versions/7d52593100c9f3a2",
+    "status": "FINALIZED",
+    "config": {
+      "headers": [
+        {
+          "headers": {
+            "Cache-Control": "no-cache"
+          },
+          "glob": "/sw.js"
+        },
+        {
+          "headers": {
+            "Cache-Control": "no-cache"
+          },
+          "glob": "/offline.html"
+        },
+        {
+          "headers": {
+            "Cache-Control": "no-cache"
+          },
+          "glob": "/install.html"
+        },
+        {
+          "headers": {
+            "Cache-Control": "public,max-age=3600"
+          },
+          "glob": "/manifest.webmanifest"
+        }
+      ],
+      "rewrites": [
+        {
+          "glob": "/api/**",
+          "run": {
+            "serviceId": "geo-backend",
+            "region": "australia-southeast1"
+          }
+        },
+        {
+          "glob": "/uploads/**",
+          "run": {
+            "serviceId": "geo-backend",
+            "region": "australia-southeast1"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/release-ui-20261012",
+    "url": "https://geo-attendance-system-db9ca--release-ui-20261012-wcij2qzb.web.app",
+    "expireTime": "2026-10-19T00:55:35.412505360Z",
+    "version": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/versions/7d52593100c9f3a2",
+    "status": "FINALIZED",
+    "config": {
+      "headers": [
+        {
+          "headers": {
+            "Cache-Control": "no-cache"
+          },
+          "glob": "/sw.js"
+        },
+        {
+          "headers": {
+            "Cache-Control": "no-cache"
+          },
+          "glob": "/offline.html"
+        },
+        {
+          "headers": {
+            "Cache-Control": "no-cache"
+          },
+          "glob": "/install.html"
+        },
+        {
+          "headers": {
+            "Cache-Control": "public,max-age=3600"
+          },
+          "glob": "/manifest.webmanifest"
+        }
+      ],
+      "rewrites": [
+        {
+          "glob": "/api/**",
+          "run": {
+            "serviceId": "geo-backend",
+            "region": "australia-southeast1"
+          }
+        },
+        {
+          "glob": "/uploads/**",
+          "run": {
+            "serviceId": "geo-backend",
+            "region": "australia-southeast1"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/rollback-ui-20261012",
+    "url": "https://geo-attendance-system-db9ca--rollback-ui-20261012-6qgao7g2.web.app",
+    "expireTime": "2026-10-19T00:19:51.388350569Z",
+    "version": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/versions/ba2962f66af41dcb",
+    "status": "FINALIZED",
+    "config": {
+      "headers": [
+        {
+          "headers": {
+            "Cache-Control": "no-cache"
+          },
+          "glob": "/sw.js"
+        },
+        {
+          "headers": {
+            "Cache-Control": "no-cache"
+          },
+          "glob": "/offline.html"
+        },
+        {
+          "headers": {
+            "Cache-Control": "no-cache"
+          },
+          "glob": "/install.html"
+        },
+        {
+          "headers": {
+            "Cache-Control": "public,max-age=3600"
+          },
+          "glob": "/manifest.webmanifest"
+        }
+      ],
+      "rewrites": [
+        {
+          "glob": "/api/**",
+          "run": {
+            "serviceId": "geo-backend",
+            "region": "australia-southeast1"
+          }
+        },
+        {
+          "glob": "/uploads/**",
+          "run": {
+            "serviceId": "geo-backend",
+            "region": "australia-southeast1"
+          }
+        }
+      ]
+    }
+  }
+]

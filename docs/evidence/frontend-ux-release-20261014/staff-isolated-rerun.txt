@@ -1,0 +1,4 @@
+ok - staff users scope global admin controls by role
+
+browser workflow checks passed
+Workflow exit: 0

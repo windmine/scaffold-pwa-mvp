@@ -1,0 +1,30 @@
+{
+  "status": "passed",
+  "scope": "Anonymous preview login and installer visual inspection; authenticated Worker and Supervisor review is covered by separate isolated local evidence.",
+  "reviewed": [
+    {
+      "file": "preview-ux-login-320-en-light.png",
+      "sha256": "4292d662b7ae94d194afe3ee5fd277ace6ee7e2060e500b79485ddbc1a0244d8"
+    },
+    {
+      "file": "preview-ux-login-1280-en-light.png",
+      "sha256": "ac961dce70514f0abced343689e22ea9a52826afa0b69644cbc3b7a1956dc30f"
+    },
+    {
+      "file": "preview-ux-login-390-zh-dark.png",
+      "sha256": "e7cf4e51b8b70d0f29290bf5a5f00e6ad9fa4ca763b312f8fb3d7a0e18257be9"
+    },
+    {
+      "file": "preview-ux-installer-ios-light.png",
+      "sha256": "a4c6b96b4f2d166c5ebbb4644bcb410c24ac2c66b5d2d990cfed797218e15ace"
+    },
+    {
+      "file": "preview-ux-installer-android-dark.png",
+      "sha256": "604cc676420c4f3bf885ea0d965f235f32475b3f13c23cc9bd04ea5b6f24793f"
+    },
+    {
+      "file": "preview-installer-verified-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+import assert from 'node:assert/strict';
+import { writeFileSync, existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { chromium } from 'playwright';
+
+const [origin, evidencePath] = process.argv.slice(2);
+assert.match(origin, /^https:\/\/geo-attendance-system-db9ca(?:--[a-z0-9-]+)?\.web\.app$/);
+assert.ok(!existsSync(evidencePath));
+const evidence = { status: 'running', origin, startedAtUtc: new Date().toISOString(),
+  scope: 'Anonymous GET-only login and installer UX; fresh browser contexts; no account login or Report writes',
+  checks: [], blocked: [], pageErrors: [], screenshots: [] };
+const browser = await chromium.launch({ headless: true });
+try {
+  for (const test of [
+    { name: 'login-320-en-light', width: 320, lang: 'en', theme: 'light' },
+    { name: 'login-390-zh-dark', width: 390, lang: 'zh', theme: 'dark' },
+    { name: 'login-1280-en-light', width: 1280, lang: 'en', theme: 'light' },
+    { name: 'installer-ios-light', width: 390, lang: 'en', theme: 'light', device: 'ios', userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1' },
+    { name: 'installer-android-dark', width: 390, lang: 'zh', theme: 'dark', device: 'android', userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/140.0.0.0 Mobile Safari/537.36' }
+  ]) {
+    const context = await browser.newContext({ viewport: { width: test.width, height: 844 }, isMobile: test.width < 600,
+      hasTouch: test.width < 600, locale: test.lang === 'zh' ? 'zh-CN' : 'en-NZ', ...(test.userAgent ? { userAgent: test.userAgent } : {}) });
+    await context.addInitScript(({ lang, theme }) => {
+      localStorage.setItem('leader-language', lang); localStorage.setItem('leader-theme', theme);
+    }, test);
+    await context.route('**/*', async route => {
+      const request = route.request(); const url = new URL(request.url());
+      if (url.origin !== origin || !['GET', 'HEAD', 'OPTIONS'].includes(request.method())) {
+        evidence.blocked.push({ method: request.method(), origin: url.origin, path: url.pathname });
+        await route.abort();
+      } else await route.continue();
+    });
+    const page = await context.newPage(); page.setDefaultTimeout(20000);
+    page.on('pageerror', error => evidence.pageErrors.push(error.name));
+    await page.goto(origin + (test.device ? '/install.html' : '/'), { waitUntil: 'networkidle' });
+    if (!test.device) {
+      await page.waitForFunction(() => document.body.dataset.activeView === 'login');
+      assert.equal(await page.locator('#registrationPanel').isVisible(), false);
+      const field = page.locator('#passwordInput'); const toggle = page.locator('#passwordVisibilityButton');
+      await field.fill('LOCAL-UI-CHECK-ONLY'); await toggle.focus(); await page.keyboard.press('Space');
+      assert.equal(await field.getAttribute('type'), 'text'); assert.equal(await toggle.getAttribute('aria-pressed'), 'true');
+      assert.equal(await field.inputValue(), 'LOCAL-UI-CHECK-ONLY');
+      await page.keyboard.press('Space'); assert.equal(await field.getAttribute('type'), 'password');
+      assert.equal(await toggle.getAttribute('aria-pressed'), 'false'); await field.fill('');
+      assert.equal(await page.locator('#signInHelp > summary').count(), 1);
+      assert.equal(await page.locator('.install-guide-link').getAttribute('href'), '/install.html');
+      if (test.width < 600) assert.ok((await page.locator('.topbar').boundingBox()).height <= 140);
+    } else {
+      await page.locator('#languageControls').waitFor({ state: 'visible' });
+      const first = await page.locator('.phone-instructions > details').first().getAttribute('id');
+      assert.equal(first, test.device === 'ios' ? 'iosInstructions' : 'androidInstructions');
+      assert.equal(await page.locator('.phone-instructions > details[open]').count(), 1);
+      assert.equal(await page.locator('html').getAttribute('data-theme'), test.theme);
+      await page.locator('#installThemeButton').click();
+      assert.notEqual(await page.locator('html').getAttribute('data-theme'), test.theme);
+      await page.locator('#installThemeButton').click();
+    }
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), test.name);
+    assert.ok((await page.locator('html').getAttribute('lang')).startsWith(test.lang));
+    const path = evidencePath.replace(/\.json$/, `-${test.name}.png`);
+    assert.ok(!existsSync(path));
+    await page.screenshot({ path, fullPage: true, animations: 'disabled' });
+    evidence.screenshots.push({ path, sha256: createHash('sha256').update(readFileSync(path)).digest('hex') });
+    evidence.checks.push(test.name); console.log('ok - ' + test.name);
+    await context.close();
+  }
+  assert.deepEqual(evidence.blocked, []); assert.deepEqual(evidence.pageErrors, []);
+  evidence.status = 'passed';
+} catch (error) {
+  evidence.status = 'failed'; evidence.failure = String(error.message); process.exitCode = 1;
+  console.error(evidence.failure);
+} finally {
+  await browser.close(); evidence.completedAtUtc = new Date().toISOString();
+  writeFileSync(evidencePath, JSON.stringify(evidence, null, 2) + '\n', { flag: 'wx' });
+}

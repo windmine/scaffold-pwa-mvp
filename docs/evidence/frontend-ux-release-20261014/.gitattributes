@@ -1,0 +1,3 @@
+# Preserve release evidence bytes.
+* -text
+*.txt -whitespace

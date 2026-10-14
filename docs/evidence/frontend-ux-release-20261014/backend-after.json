@@ -1,0 +1,13 @@
+{
+  "status": {
+    "latestCreatedRevisionName": "geo-backend-fixes-20261012",
+    "latestReadyRevisionName": "geo-backend-fixes-20261012",
+    "traffic": [
+      {
+        "percent": 100,
+        "revisionName": "geo-backend-fixes-20261012"
+      }
+    ],
+    "url": "https://geo-backend-eitdijn7cq-ts.a.run.app"
+  }
+}

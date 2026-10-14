@@ -262,7 +262,8 @@ export async function verifyHostedInstaller(config) {
     assert.equal(coldNavigation.fromServiceWorker(), true);
     const offlineSha256 = sha256(await coldNavigation.body());
     assert.equal(offlineSha256, expectedInstaller.sha256, 'Cold offline page is not the exact cached installer');
-    await inspect(coldPage, 'en', 'offline');
+    // The installer's presentation preference survives closing every page.
+    await inspect(coldPage, 'zh', 'offline');
     assert.equal(await coldPage.locator('#loginForm').count(), 0, 'Cold offline installer was replaced by the app login shell');
     evidence.pwa.offline = { status: coldNavigation.status(), fromServiceWorker: true, installerSha256: offlineSha256, logoAndQrLoaded: true };
     evidence.pwa.physicalPhoneTest = false;

@@ -1,0 +1,47 @@
+{
+  "status": "passed",
+  "reviewedAtUtc": "2026-10-14T01:12:28.787676+00:00",
+  "scope": "Anonymous live login, device-specific installer, cold-offline installer and old-to-new update screenshots; no authenticated production or physical-phone test.",
+  "findings": [
+    "Phone and desktop sign-in controls, bilingual help and device-first installer layouts are legible without visible overlap or horizontal overflow.",
+    "Waiting-update screenshot shows the previous shell and Update App action. The immediate post-update screenshot captures the new header before sign-in content renders; the later cold-offline screenshot shows the complete new sign-in form. Transition success is established separately by live-waiting-update-after-ci.json."
+  ],
+  "reviewed": [
+    {
+      "file": "live-ux-login-320-en-light.png",
+      "sha256": "1137fc772eabf8fb2d69b9dc4bdfa424362cb66f3d51bd807415273b4675454b"
+    },
+    {
+      "file": "live-ux-login-390-zh-dark.png",
+      "sha256": "de30a034745ee2df54e6ab8e548d035f8080d87102608a821b8daffbada8e9f8"
+    },
+    {
+      "file": "live-ux-login-1280-en-light.png",
+      "sha256": "d6857b5645117ef8d77d0d589344845f757e058d4d34437c94d52dc85798da1f"
+    },
+    {
+      "file": "live-ux-installer-ios-light.png",
+      "sha256": "a4c6b96b4f2d166c5ebbb4644bcb410c24ac2c66b5d2d990cfed797218e15ace"
+    },
+    {
+      "file": "live-ux-installer-android-dark.png",
+      "sha256": "604cc676420c4f3bf885ea0d965f235f32475b3f13c23cc9bd04ea5b6f24793f"
+    },
+    {
+      "file": "live-installer-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "file": "live-waiting-update-after-ci-waiting.png",
+      "sha256": "a3566b984d6842c234f90ab7e2a2f5f7a448ccd5d12214e23852dcf60eb51feb"
+    },
+    {
+      "file": "live-waiting-update-after-ci-updated.png",
+      "sha256": "092e732e505308751ac741edb942a449825029c859b89045f2c6f76558f5c2b1"
+    },
+    {
+      "file": "live-waiting-update-after-ci-offline.png",
+      "sha256": "288aedc8f66fffcf5a6f0e7168f50d1d7f15c59656106619660a214d2f503982"
+    }
+  ]
+}

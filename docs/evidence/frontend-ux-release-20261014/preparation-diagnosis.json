@@ -1,0 +1,39 @@
+{
+  "recordedAtUtc": "2026-10-14T00:49:29.679086+00:00",
+  "sourceCommit": "133286659e7459e6d4c73b1b3ad5882c44ba2051",
+  "ciRun": 38491025490,
+  "firstAttempt": {
+    "backend": "success",
+    "frontend": "failure",
+    "workflowsPassed": 72,
+    "workflowsFailed": 1,
+    "failure": "Staff role-scoping test timed out waiting for Supervisor view after its final admin sign-in at check-browser-workflows.mjs:6489."
+  },
+  "unchangedLocalIsolatedRerun": "passed",
+  "cause": "UNCONFIRMED",
+  "assertionsWeakened": false,
+  "retry": {
+    "status": "passed",
+    "attempt": 2,
+    "workflowsPassed": 73,
+    "bothJobs": "success",
+    "evidence": "ci-source.json",
+    "workflowEvidence": "ci-retry-workflows.txt",
+    "sourceUnchanged": true
+  },
+  "installerVerifierCorrection": "Cold offline installer expects the selected Chinese preference to persist. First failed preview check is preserved; corrected preview and live checks passed. App build unchanged.",
+  "otherPreparationFailures": [
+    "Fresh build and lint passed; sandbox blocked empty temporary build-directory cleanup. Exact empty directory later removed with verified path.",
+    "First promotion preflight read failed on Windows default GBK decoding before any mutation; explicit UTF-8 reads passed."
+  ],
+  "firstWaitingUpdateProbe": {
+    "status": "timed-out-before-promotion",
+    "reason": "Production promotion was withheld for failed CI and its unchanged retry; no new live service worker was published during the 15-minute probe.",
+    "evidence": "live-waiting-update.json",
+    "subsequentProbe": {
+      "status": "passed",
+      "checks": 4,
+      "evidence": "live-waiting-update-after-ci.json"
+    }
+  }
+}

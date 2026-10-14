@@ -1,0 +1,38 @@
+{
+  "status": "passed",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "startedAtUtc": "2026-10-14T01:02:56.543Z",
+  "scope": "Anonymous GET-only login and installer UX; fresh browser contexts; no account login or Report writes",
+  "checks": [
+    "login-320-en-light",
+    "login-390-zh-dark",
+    "login-1280-en-light",
+    "installer-ios-light",
+    "installer-android-dark"
+  ],
+  "blocked": [],
+  "pageErrors": [],
+  "screenshots": [
+    {
+      "path": "docs/evidence/frontend-ux-release-20261014/live-ux-login-320-en-light.png",
+      "sha256": "1137fc772eabf8fb2d69b9dc4bdfa424362cb66f3d51bd807415273b4675454b"
+    },
+    {
+      "path": "docs/evidence/frontend-ux-release-20261014/live-ux-login-390-zh-dark.png",
+      "sha256": "de30a034745ee2df54e6ab8e548d035f8080d87102608a821b8daffbada8e9f8"
+    },
+    {
+      "path": "docs/evidence/frontend-ux-release-20261014/live-ux-login-1280-en-light.png",
+      "sha256": "d6857b5645117ef8d77d0d589344845f757e058d4d34437c94d52dc85798da1f"
+    },
+    {
+      "path": "docs/evidence/frontend-ux-release-20261014/live-ux-installer-ios-light.png",
+      "sha256": "a4c6b96b4f2d166c5ebbb4644bcb410c24ac2c66b5d2d990cfed797218e15ace"
+    },
+    {
+      "path": "docs/evidence/frontend-ux-release-20261014/live-ux-installer-android-dark.png",
+      "sha256": "604cc676420c4f3bf885ea0d965f235f32475b3f13c23cc9bd04ea5b6f24793f"
+    }
+  ],
+  "completedAtUtc": "2026-10-14T01:03:01.966Z"
+}

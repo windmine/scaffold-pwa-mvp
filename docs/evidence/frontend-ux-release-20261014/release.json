@@ -1,0 +1,295 @@
+{
+  "schemaVersion": 1,
+  "status": "deployed-and-verified",
+  "recordedAtUtc": "2026-10-14T01:12:28.790081+00:00",
+  "sourceCommit": "133286659e7459e6d4c73b1b3ad5882c44ba2051",
+  "url": "https://geo-attendance-system-db9ca.web.app",
+  "hosting": {
+    "version": "3de58c285d322d0f",
+    "previousVersion": "7d52593100c9f3a2",
+    "previewChannel": "release-ux-20261014",
+    "requestedAtUtc": "2026-10-14T01:02:11.378547+00:00",
+    "verifiedAtUtc": "2026-10-14T01:02:20.889802+00:00",
+    "builtCache": "leader-field-d6c0f1fda7bb",
+    "sourceCache": "leader-field-76f02703dbf1",
+    "promotionsPerformed": 1
+  },
+  "scope": "Frontend UX only: compact header, consolidated sign-in help, accessible password visibility, shared installer theme/language and device-first instructions, collapsed Worker filters/storage guidance, signature keyboard guidance disclosure, secondary Supervisor filters/exports, and original-photo review gallery.",
+  "unchangedBoundaries": [
+    "Report purpose and immutable submitted content",
+    "Authorization, account/session policy and offline submission identity/replay",
+    "Backend runtime source, dependencies, Dockerfile and migrations",
+    "Production application fixtures and user records were not mutated by release checks"
+  ],
+  "backend": {
+    "revision": "geo-backend-fixes-20261012",
+    "trafficPercent": 100,
+    "tags": [],
+    "beforeAfterServiceStatusEqual": true,
+    "newDatabaseInventoryPerformed": false,
+    "exhaustiveRuntimeOrDatabaseComparisonClaimed": false
+  },
+  "validation": {
+    "localEvidence": "../report-ux-20261014/validation.json",
+    "localRealBackendWorkflows": 73,
+    "sourceCi": {
+      "run": 38491025490,
+      "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38491025490",
+      "attempt": 2,
+      "conclusion": "success",
+      "realBackendWorkflows": 73,
+      "firstAttempt": "72/73 frontend workflows; Staff final admin sign-in timeout cause UNCONFIRMED; unchanged isolated rerun and CI retry passed."
+    },
+    "previewAndLive": {
+      "exactBuiltFilesEach": 85,
+      "shellAssetsEach": 75,
+      "installerArtifactsEach": 7,
+      "anonymousUxCasesEach": 5
+    },
+    "liveWaitingUpdateChecks": 4,
+    "strictHardeningChecks": 40,
+    "previewImagesReviewed": 6,
+    "liveImagesReviewed": 9
+  },
+  "rollback": {
+    "version": "7d52593100c9f3a2",
+    "channel": "release-ui-20261012",
+    "expiresAtUtc": "2026-10-19T00:55:35.412505360Z",
+    "verifiedEvidence": "rollback-shell-identity.json",
+    "constraints": "Reverify identity/availability before use. Frontend fallback only; retain the current backend, device storage, drafts and auth generations."
+  },
+  "retainedFailures": "preparation-diagnosis.json",
+  "limitations": [
+    "No authenticated production-user or hosted-fixture workflow was run.",
+    "Physical iOS/Android, low-disk, full-resolution camera gallery and native sharing checks remain unverified.",
+    "Existing six-hour Neon history-retention warning remains.",
+    "The initial Staff CI timeout cause remains UNCONFIRMED."
+  ],
+  "followUpCi": "The separate release-record/verifier commit will run CI; its final result is reported in the task outcome rather than causing another evidence-only commit.",
+  "evidence": [
+    {
+      "path": ".gitattributes",
+      "sha256": "7f896df6915343e728882e625ac84ff3b65ac38c84e43dfe9dfdd84fdd0bcd48"
+    },
+    {
+      "path": "backend-after.json",
+      "sha256": "ce3dbba6a1697dacd7f279b1d66b1fd6fa87dd784248e6e148ebfa485737e600"
+    },
+    {
+      "path": "backend-baseline.json",
+      "sha256": "ce3dbba6a1697dacd7f279b1d66b1fd6fa87dd784248e6e148ebfa485737e600"
+    },
+    {
+      "path": "build-manifest.json",
+      "sha256": "12115c85161463a3ed639700fff4219ee3b74eef11d38ffd58c638edaf11b61e"
+    },
+    {
+      "path": "build.txt",
+      "sha256": "abc047af7630f48972e802101825e7e0f9901e2ee6e1dbe149d9977938cacd36"
+    },
+    {
+      "path": "candidate.json",
+      "sha256": "922b0afb2807d444563d4e7ccac3905e7aea98d160d0b3cfabbea0cd151c5639"
+    },
+    {
+      "path": "ci-first-failure.txt",
+      "sha256": "5ffd413d67df963d449419221d2ba6501a363f973343706f14b5a679de0b6ddf"
+    },
+    {
+      "path": "ci-retry-workflows.txt",
+      "sha256": "3cee4282f99dae5365ce59dc319862b61d0e84d145dac5df2f574db6bd8a5101"
+    },
+    {
+      "path": "ci-source.json",
+      "sha256": "932bb2bba63e8b03eb829ebb7fc8c84db4129b0ef081c7834a613ff1546008c7"
+    },
+    {
+      "path": "hardening-current.json",
+      "sha256": "3ecec6636147defa40740c4562ada8e99119ba914a5cace527082c1d04531884"
+    },
+    {
+      "path": "hardening-log.txt",
+      "sha256": "8adbf2038d2ef569657df238f0f54de0c60c2687e6ff0f20a6d44abadf2c88a7"
+    },
+    {
+      "path": "hosting-before.json",
+      "sha256": "0e4d40c4150e35d7a847fe11bcd687be8b8b3845a006dda58998745feae8f114"
+    },
+    {
+      "path": "hosting-preview-channels.json",
+      "sha256": "8c42fe36b09d7c1ac514e88c73451bec7e196fc91b6a6c1efbbc1a3fba475a15"
+    },
+    {
+      "path": "hosting-preview-raw.json",
+      "sha256": "91730fb1935f99221b37b584fa07eebcb7fabcbd8337ce2004565b96f62d2384"
+    },
+    {
+      "path": "hosting-promotion.json",
+      "sha256": "57c93d97dd59cc886d2cb8fd6971396e7c62783621a4c829718bef5e54fbcae8"
+    },
+    {
+      "path": "lint.txt",
+      "sha256": "bc3898f0cdd54520a439a61c527c12c0004c6b43b257caa70ad991cc5fe2da78"
+    },
+    {
+      "path": "live-full-parity.json",
+      "sha256": "4361714e61fd6d33eb7c47bc809346d0356e7bc104e88b0dbd442bd15d8871bf"
+    },
+    {
+      "path": "live-installer-chinese.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "live-installer-english.png",
+      "sha256": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d"
+    },
+    {
+      "path": "live-installer-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "live-installer.json",
+      "sha256": "56c0c6b39915242bc64f34655536df7d25e726fe8aeadd7817498d86c0333813"
+    },
+    {
+      "path": "live-shell.json",
+      "sha256": "0a62dc8b318e974e13509b2f893da0d0f85bebc44d0528ead2083df65d36e380"
+    },
+    {
+      "path": "live-ux-installer-android-dark.png",
+      "sha256": "604cc676420c4f3bf885ea0d965f235f32475b3f13c23cc9bd04ea5b6f24793f"
+    },
+    {
+      "path": "live-ux-installer-ios-light.png",
+      "sha256": "a4c6b96b4f2d166c5ebbb4644bcb410c24ac2c66b5d2d990cfed797218e15ace"
+    },
+    {
+      "path": "live-ux-login-1280-en-light.png",
+      "sha256": "d6857b5645117ef8d77d0d589344845f757e058d4d34437c94d52dc85798da1f"
+    },
+    {
+      "path": "live-ux-login-320-en-light.png",
+      "sha256": "1137fc772eabf8fb2d69b9dc4bdfa424362cb66f3d51bd807415273b4675454b"
+    },
+    {
+      "path": "live-ux-login-390-zh-dark.png",
+      "sha256": "de30a034745ee2df54e6ab8e548d035f8080d87102608a821b8daffbada8e9f8"
+    },
+    {
+      "path": "live-ux.json",
+      "sha256": "fd740d0a17c473e48784fac3bc14ec49080ba0de11b502fff9feb0d2c99a4f95"
+    },
+    {
+      "path": "live-visual-review.json",
+      "sha256": "c48dc11603530c0969844615c33416a96b08e2d8701a1e3bfcc97847faf339b7"
+    },
+    {
+      "path": "live-waiting-update-after-ci-offline.png",
+      "sha256": "288aedc8f66fffcf5a6f0e7168f50d1d7f15c59656106619660a214d2f503982"
+    },
+    {
+      "path": "live-waiting-update-after-ci-updated.png",
+      "sha256": "092e732e505308751ac741edb942a449825029c859b89045f2c6f76558f5c2b1"
+    },
+    {
+      "path": "live-waiting-update-after-ci-waiting.png",
+      "sha256": "a3566b984d6842c234f90ab7e2a2f5f7a448ccd5d12214e23852dcf60eb51feb"
+    },
+    {
+      "path": "live-waiting-update-after-ci.json",
+      "sha256": "4d7dc292366c226058ffaa162dd7a34f6f991b83d090f6a9b8fe63f3e6e85724"
+    },
+    {
+      "path": "live-waiting-update.json",
+      "sha256": "229be76e22a2de46caf2dc819c750d6ee24e82329206650068d34c8b7c13ac89"
+    },
+    {
+      "path": "operator-sources/anonymous-ux-smoke.mjs.txt",
+      "sha256": "f6c39109868de983f87b188e33833a9d8c85a3b70e2bf85cbf9471e24697bf1b"
+    },
+    {
+      "path": "operator-sources/check-hardening.py",
+      "sha256": "3dc18f28ce3be510ab1628ebcda0268d12a44c372c422c57f3a674ba0a80d622"
+    },
+    {
+      "path": "operator-sources/promote.py",
+      "sha256": "fb632b802a88ec3b8e11ed10c14a194c17ac075d0d85fbd69cb26d367ae1ae41"
+    },
+    {
+      "path": "preparation-diagnosis.json",
+      "sha256": "89ab7198f62bf8a2c37a336e0a56617fb135392dd789c0c2dbd84b1bb73ba9e3"
+    },
+    {
+      "path": "preview-full-parity.json",
+      "sha256": "ef5dfda5c4fbca2cc60c099a8307b01f8e1313592361cb348867ddc09fad4357"
+    },
+    {
+      "path": "preview-installer-chinese.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "preview-installer-english.png",
+      "sha256": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d"
+    },
+    {
+      "path": "preview-installer-verified-chinese.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "preview-installer-verified-english.png",
+      "sha256": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d"
+    },
+    {
+      "path": "preview-installer-verified-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "preview-installer-verified.json",
+      "sha256": "e8162e5adcdfb1f42c0df4c7f3a3c97bfc65fde58f0c576275a990dc111ac847"
+    },
+    {
+      "path": "preview-installer.json",
+      "sha256": "869a6290e48d92d27373f44ecd1e27bb4ab6d9ad5ce2135fe079c3b31a5fc237"
+    },
+    {
+      "path": "preview-shell.json",
+      "sha256": "101da3e0f31fb7dee040cf6acc7c140abcb9add29470d80d4946eac65350b068"
+    },
+    {
+      "path": "preview-ux-installer-android-dark.png",
+      "sha256": "604cc676420c4f3bf885ea0d965f235f32475b3f13c23cc9bd04ea5b6f24793f"
+    },
+    {
+      "path": "preview-ux-installer-ios-light.png",
+      "sha256": "a4c6b96b4f2d166c5ebbb4644bcb410c24ac2c66b5d2d990cfed797218e15ace"
+    },
+    {
+      "path": "preview-ux-login-1280-en-light.png",
+      "sha256": "ac961dce70514f0abced343689e22ea9a52826afa0b69644cbc3b7a1956dc30f"
+    },
+    {
+      "path": "preview-ux-login-320-en-light.png",
+      "sha256": "4292d662b7ae94d194afe3ee5fd277ace6ee7e2060e500b79485ddbc1a0244d8"
+    },
+    {
+      "path": "preview-ux-login-390-zh-dark.png",
+      "sha256": "e7cf4e51b8b70d0f29290bf5a5f00e6ad9fa4ca763b312f8fb3d7a0e18257be9"
+    },
+    {
+      "path": "preview-ux.json",
+      "sha256": "950d1790e552bc875ef19d52b6f847082820c0d734f92c7d8e2805906b5a5e85"
+    },
+    {
+      "path": "preview-visual-review.json",
+      "sha256": "f0a0e04088ead87d6f4310d89f2e61dde1a412124e376f2d7d90829714c9f7b6"
+    },
+    {
+      "path": "rollback-shell-identity.json",
+      "sha256": "a8e475b1114f9c7155fee853140434336f4aead8b90210484a238fc1fb04598d"
+    },
+    {
+      "path": "staff-isolated-rerun.txt",
+      "sha256": "3d7eeba374041ad867c46877f4f27049bcbdc57642a5f8b77c7afb70cc3c6f7e"
+    }
+  ]
+}

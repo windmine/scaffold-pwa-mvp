@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "origin": "https://geo-attendance-system-db9ca--release-ui-20261012-wcij2qzb.web.app",
+  "hostingVersion": "7d52593100c9f3a2",
+  "expiresAt": "2026-10-19T00:55:35.412505360Z",
+  "assets": [
+    {
+      "path": "/sw.js",
+      "sha256": "13e77abdb796d8fefd1161579cd040eb6f6245f95e7443a600c320a57d9cc8cf"
+    },
+    {
+      "path": "/index.html",
+      "sha256": "b6c11a1b345ad149efb4b893dbd109517dad716ffabab97f4103fe4daffcadb7"
+    }
+  ]
+}
