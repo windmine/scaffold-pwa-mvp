@@ -1,4 +1,4 @@
-"""New-Worker password setup; manual private handoff, never account recovery."""
+"""New-Worker password setup; explicit private delivery, never account recovery."""
 from datetime import datetime, timedelta, timezone
 import secrets
 
@@ -31,18 +31,24 @@ def _invalid():
 
 
 def invitation_metadata(user, session):
+    email = {"invitation_id": None, "invitation_email_status": "not_sent",
+             "invitation_email_attempted_at": None, "invitation_email_accepted_at": None}
     if not getattr(user, "password_setup_required", False):
-        return {"invitation_status": None, "invitation_expires_at": None}
+        return {"invitation_status": None, "invitation_expires_at": None, **email}
     invitation = session.exec(select(WorkerInvitation).where(
         WorkerInvitation.worker_id == user.id,
     ).order_by(WorkerInvitation.id.desc())).first() if session else None
     if not invitation:
-        return {"invitation_status": "none", "invitation_expires_at": None}
+        return {"invitation_status": "none", "invitation_expires_at": None, **email}
     expires_at = normalized_datetime(invitation.expires_at)
     status = "revoked" if invitation.revoked_at or invitation.generation != user.invitation_generation else (
         "expired" if expires_at <= utc_now() else "pending"
     )
-    return {"invitation_status": status, "invitation_expires_at": expires_at.isoformat()}
+    return {"invitation_status": status, "invitation_expires_at": expires_at.isoformat(),
+            "invitation_id": invitation.id,
+            "invitation_email_status": "unknown" if invitation.email_status == "requested" else invitation.email_status,
+            "invitation_email_attempted_at": normalized_datetime(invitation.email_attempted_at).isoformat() if invitation.email_attempted_at else None,
+            "invitation_email_accepted_at": normalized_datetime(invitation.email_accepted_at).isoformat() if invitation.email_accepted_at else None}
 
 
 def _new_invitation(user, supervisor, session):

@@ -63,9 +63,21 @@ async function fixture(browser, { user = admin, reportOnly = true } = {}) {
       const isInvitation = url.pathname.endsWith('worker-invitations');
       const created = { ...baseUser, ...payload, id: 400 + mutations.length,
         department_name: departments.find((entry) => entry.id === payload.department_id)?.name,
-        ...(isInvitation ? { role: 'worker', password_setup_required: true, invitation_status: 'pending' } : {}) };
+        ...(isInvitation ? { role: 'worker', password_setup_required: true, invitation_status: 'pending',
+          invitation_id: 700 + mutations.length, invitation_email_status: 'not_sent' } : {}) };
       users.push(created);
       return json(isInvitation ? { user: created, token: 'isolated_fixture_token_123456789012345678901234567890', expires_at: '2026-12-01T12:00:00Z' } : created);
+    }
+    const emailMatch = url.pathname.match(/^\/api\/supervisor\/users\/(\d+)\/invitation\/email$/);
+    if (emailMatch && request.method() === 'POST') {
+      const current = users.find((entry) => entry.id === Number(emailMatch[1]));
+      assert.deepEqual(request.postDataJSON(), { token: 'isolated_fixture_token_123456789012345678901234567890' });
+      mutations.push({ path: url.pathname, payload: request.postDataJSON() });
+      Object.assign(current, { invitation_email_status: 'accepted', invitation_email_attempted_at: '2026-10-20T12:00:00Z',
+        invitation_email_accepted_at: '2026-10-20T12:00:01Z' });
+      return json({ user_id: current.id, invitation_id: current.invitation_id, recipient: current.email,
+        email_status: current.invitation_email_status, email_attempted_at: current.invitation_email_attempted_at,
+        email_accepted_at: current.invitation_email_accepted_at });
     }
     if (url.pathname === '/api/supervisor/review-queue') {
       assert.equal(url.searchParams.get('purpose'), reportOnly ? 'report' : null);
@@ -242,7 +254,27 @@ try {
     assert.deepEqual(f.mutations.at(-1), { path: '/api/supervisor/worker-invitations', payload: {
       name: 'New worker fixture', email: 'new-worker@example.invalid', worker_class: 'normal', department_id: 2
     } }, 'New report-only Worker explicitly defaults normal, even with a stale hidden value');
+    const beforeSend = f.mutations.length;
+    await page.locator('#sendWorkerInvitationEmailButton').click();
+    await page.locator('#workerInvitationEmailStatus').filter({ hasText: 'Delivery is not confirmed.' }).waitFor();
+    assert.equal(f.mutations.length, beforeSend + 1, 'Only the explicit send action calls email');
+    assert.equal(await page.locator('#sendWorkerInvitationEmailButton').isDisabled(), true);
+    assert.equal(await page.locator('#copyWorkerInvitationButton').isEnabled(), true);
+    for (const [width, language, theme] of [[390, 'en', 'light'], [320, 'zh', 'dark']]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.evaluate(async ({ language, theme }) => {
+        (await import('/assets/js/i18n.js')).setLanguage(language);
+        document.documentElement.dataset.theme = theme;
+      }, { language, theme });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+      const bounds = await page.locator('#sendWorkerInvitationEmailButton').boundingBox();
+      assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width);
+      await page.screenshot({ path: path.join(output, `invitation-email-${width}-${language}.png`), animations: 'disabled' });
+    }
+    await page.setViewportSize({ width: 1280, height: 960 });
+    await page.evaluate(async () => { (await import('/assets/js/i18n.js')).setLanguage('en'); document.documentElement.dataset.theme = 'light'; });
     await page.locator('#closeWorkerInvitationButton').click();
+    await card(page, { email: 'new-worker@example.invalid' }).getByText('Invitation email accepted; delivery is unconfirmed.', { exact: true }).waitFor();
     pass('Report-only cards/create hide class, retain invitations and safely default normal');
 
     for (const user of [normal, leader]) {

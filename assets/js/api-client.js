@@ -268,6 +268,12 @@ export async function createWorkerInvitation(worker) {
   return apiFetch('/supervisor/worker-invitations', { method: 'POST', body: JSON.stringify(worker) });
 }
 
+export async function emailWorkerInvitation(userId, token) {
+  return apiFetch(`/supervisor/users/${encodeURIComponent(userId)}/invitation/email`, {
+    method: 'POST', body: JSON.stringify({ token })
+  });
+}
+
 export async function reissueWorkerInvitation(userId) {
   return apiFetch(`/supervisor/users/${encodeURIComponent(userId)}/invitation`, { method: 'POST' });
 }

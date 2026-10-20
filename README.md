@@ -6,6 +6,10 @@ The production-default interface is intentionally narrow: every active Worker ca
 
 ## Current Version
 
+Local invitation-email changes are prepared for review and are **not deployed**. After creating or replacing a Worker invitation in Staff, **Send invitation email** sends to the displayed, saved Worker email. Opening the dialog sends nothing; Copy/Share stays available. Status distinguishes SMTP acceptance, rejection and an uncertain result; acceptance does not establish inbox delivery. Each invitation permits one email attempt. Do not retry an uncertain send; check with the Worker or share the same private link. A deliberate new invitation invalidates the previous setup link.
+
+Future deployment requires additive migration `0023_worker_invitation_email` and the compatible backend before Hosting. Existing releases reject future migration history, so prepare a compatible backend rollback/forward-fix plan rather than simply selecting the previous revision after migration. Configure `PUBLIC_APP_URL` to the canonical HTTPS frontend origin (no path/query/fragment), alongside the existing SMTP sender and secret binding. Missing/unsafe configuration fails before claiming an attempt. Keep `REGISTRATION_EMAIL_ENABLED=false`. No extra IAM, mailbox access, bulk sending, password-recovery email or PDF emailing is introduced. Validate locally with `npm run check:invitations`, `npm run check:onboarding`, `npm run check:report-simplicity`, the isolated backend/mobile runners, build and lint.
+
 ```text
 Frontend: Vite-served PWA-style static app
 Backend: FastAPI REST API

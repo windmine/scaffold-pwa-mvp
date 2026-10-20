@@ -1,13 +1,29 @@
 import { setTranslatableText, translateText } from './i18n.js';
 import { formatDateTime } from './utils.js';
 
-export function createWorkerInvitationDialog(els) {
+export function invitationEmailStatusText(status) {
+  return {
+    accepted: 'Invitation email accepted by the mail server. Delivery is not confirmed.',
+    failed: 'Email was not sent. Copy or share this link privately, or create a new link in Staff to try email again.',
+    unknown: 'Email acceptance is unconfirmed. Do not send again. Check with the Worker or share the same link privately.'
+  }[status] || '';
+}
+
+export function createWorkerInvitationDialog(els, { sendInvitationEmail } = {}) {
   let opener = null;
   let generation = 0;
   let shareIdentity = '';
   let sharing = false;
   let mode = 'invitation';
   let currentContext = () => true;
+  let emailContext = null;
+  let emailSending = false;
+
+  function updateEmailButton() {
+    if (!els.sendWorkerInvitationEmailButton) return;
+    els.sendWorkerInvitationEmailButton.hidden = mode === 'recovery' || !emailContext || !sendInvitationEmail;
+    els.sendWorkerInvitationEmailButton.disabled = emailSending || Boolean(emailContext?.attempted);
+  }
 
   function setDialogCopy(nextMode) {
     const recovery = nextMode === 'recovery';
@@ -15,7 +31,7 @@ export function createWorkerInvitationDialog(els) {
       workerInvitationTitle: recovery ? 'Worker recovery link ready' : 'Worker invitation ready',
       workerInvitationHelp: recovery
         ? 'Verify this Worker’s identity before sharing privately. Anyone with this link can choose a new password for this account. No email has been sent.'
-        : "Share this link privately with the intended Worker. Anyone with it can set this account's password. No email has been sent.",
+        : "Send an invitation email to the Worker shown above, or share this link privately. Anyone with it can set this account's password.",
       workerInvitationLinkLabel: recovery ? 'Private recovery link' : 'Private setup link',
       workerInvitationLinkNotice: recovery
         ? 'The current password stays unchanged until this link is used. The link is shown only now; closing this window hides it.'
@@ -39,6 +55,8 @@ export function createWorkerInvitationDialog(els) {
     const target = opener;
     opener = null;
     shareIdentity = '';
+    emailContext = null;
+    if (els.workerInvitationEmailStatus) els.workerInvitationEmailStatus.textContent = '';
     mode = 'invitation';
     currentContext = () => true;
     els.workerInvitationLink.value = '';
@@ -47,6 +65,7 @@ export function createWorkerInvitationDialog(els) {
     els.workerInvitationStatus.textContent = '';
     els.copyWorkerInvitationButton.disabled = false;
     updateShareButton();
+    updateEmailButton();
     if (els.workerInvitationDialog.open) els.workerInvitationDialog.close();
     if (restoreFocus && target?.isConnected) target.focus({ preventScroll: true });
   }
@@ -72,6 +91,14 @@ export function createWorkerInvitationDialog(els) {
     els.workerInvitationIdentity.textContent = `${result.user.name} — ${result.user.email}`;
     shareIdentity = `${result.user.name} (${result.user.email})`;
     els.workerInvitationExpiry.textContent = formatDateTime(result.expires_at);
+    const validId = (value) => Number.isSafeInteger(value) && value > 0;
+    if (!recovery && validId(result.user.id) && validId(result.user.invitation_id)) {
+      emailContext = { userId: result.user.id, invitationId: result.user.invitation_id,
+        recipient: result.user.email, token: result.token, attempted: Boolean(result.user.invitation_email_attempted_at) };
+      if (els.workerInvitationEmailStatus) setTranslatableText(els.workerInvitationEmailStatus,
+        invitationEmailStatusText(result.user.invitation_email_status) || 'No email has been sent.');
+    }
+    updateEmailButton();
     opener = focusTarget;
     try {
       els.workerInvitationDialog.showModal();
@@ -84,6 +111,41 @@ export function createWorkerInvitationDialog(els) {
   }
 
   els.closeWorkerInvitationButton.addEventListener('click', () => clear({ restoreFocus: true }));
+  els.sendWorkerInvitationEmailButton?.addEventListener('click', async () => {
+    if (!currentContext()) { clear(); return; }
+    if (!els.workerInvitationDialog.open || mode !== 'invitation' || !emailContext
+      || !sendInvitationEmail || emailSending || emailContext.attempted) return;
+    const requestGeneration = generation;
+    const context = emailContext;
+    const isCurrent = () => requestGeneration === generation && context === emailContext && currentContext();
+    emailSending = true;
+    context.attempted = true;
+    updateEmailButton();
+    setTranslatableText(els.workerInvitationEmailStatus, 'Sending invitation email. Closing this window will not cancel it.');
+    try {
+      const result = await sendInvitationEmail(context.userId, context.token);
+      if (!isCurrent()) return;
+      if (result?.user_id !== context.userId || result.invitation_id !== context.invitationId
+        || result.recipient !== context.recipient || !['accepted', 'failed', 'unknown'].includes(result.email_status)) {
+        throw new Error('Unconfirmed invitation email response');
+      }
+      setTranslatableText(els.workerInvitationEmailStatus, invitationEmailStatusText(result.email_status));
+    } catch (error) {
+      if (!isCurrent()) return;
+      if (error?.code === 'INVITATION_EMAIL_UNAVAILABLE') {
+        context.attempted = false; // Server rejected configuration before claiming or sending.
+        setTranslatableText(els.workerInvitationEmailStatus, 'Invitation email is unavailable. Copy or share the private link.');
+      } else if (error?.status >= 400 && error.status < 500) {
+        setTranslatableText(els.workerInvitationEmailStatus, 'The email request was rejected. Refresh Staff before making another change.');
+      } else {
+        setTranslatableText(els.workerInvitationEmailStatus, invitationEmailStatusText('unknown'));
+      }
+    } finally {
+      emailSending = false;
+      if (requestGeneration === generation && !currentContext()) clear();
+      updateEmailButton();
+    }
+  });
   window.addEventListener('pagehide', () => clear());
   els.workerInvitationDialog.addEventListener('close', () => {
     if (!els.workerInvitationDialog.open) clear();

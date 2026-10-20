@@ -74,6 +74,9 @@ class WorkerInvitation(SQLModel, table=True):
     expires_at: datetime
     consumed_at: Optional[datetime] = None
     revoked_at: Optional[datetime] = None
+    email_status: str = Field(default="not_sent")
+    email_attempted_at: Optional[datetime] = None
+    email_accepted_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

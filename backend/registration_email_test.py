@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
 
-from app import main as application
+from app import main as application, email_transport
 from app.use_cases import registration
 
 
@@ -28,10 +28,12 @@ class RegistrationEmailTests(unittest.TestCase):
             "SMTP_USE_SSL": False, "SMTP_USE_STARTTLS": True,
         }
         for name, value in settings.items():
-            self.enterContext(patch.object(registration, name, value))
+            self.enterContext(patch.object(registration if name in {"PRODUCTION_LIKE", "REGISTRATION_EMAIL_ENABLED"} else email_transport, name, value))
         self.enterContext(patch("socket.create_connection", side_effect=AssertionError("Network forbidden")))
-        self.smtp = self.enterContext(patch.object(registration.smtplib, "SMTP"))
-        self.smtp_ssl = self.enterContext(patch.object(registration.smtplib, "SMTP_SSL"))
+        self.smtp = self.enterContext(patch.object(email_transport.smtplib, "SMTP"))
+        self.smtp_ssl = self.enterContext(patch.object(email_transport.smtplib, "SMTP_SSL"))
+        self.smtp.return_value.send_message.return_value = {}
+        self.smtp_ssl.return_value.send_message.return_value = {}
 
     def assert_unavailable(self, callback):
         with self.assertRaises(HTTPException) as caught:
@@ -116,13 +118,13 @@ class RegistrationEmailTests(unittest.TestCase):
 
     def test_missing_sender_configuration_never_connects(self):
         for name in ("SMTP_HOST", "SMTP_FROM_EMAIL"):
-            with self.subTest(name=name), patch.object(registration, name, ""):
+            with self.subTest(name=name), patch.object(email_transport, name, ""):
                 self.assert_unavailable(self.send)
         self.smtp.assert_not_called()
         self.smtp_ssl.assert_not_called()
 
     def test_plaintext_configuration_rejected_before_database_or_authentication(self):
-        registration.SMTP_USE_STARTTLS = False
+        email_transport.SMTP_USE_STARTTLS = False
         session = MagicMock()
         self.assert_unavailable(self.send)
         self.assert_unavailable(lambda: registration.start_registration(
@@ -134,9 +136,9 @@ class RegistrationEmailTests(unittest.TestCase):
 
     def test_starttls_verifies_certificate_before_authentication_and_send(self):
         self.send()
-        client = self.smtp.return_value.__enter__.return_value
+        client = self.smtp.return_value
         self.assert_verified_context(client.starttls.call_args.kwargs["context"])
-        self.assertEqual([call[0] for call in client.method_calls], ["starttls", "login", "send_message"])
+        self.assertEqual([call[0] for call in client.method_calls], ["set_debuglevel", "starttls", "login", "send_message", "close"])
         client.login.assert_called_once_with("sender@example.invalid", "synthetic-test-password")
         message = client.send_message.call_args.args[0]
         self.assertEqual(message["To"], "worker@example.invalid")
@@ -145,11 +147,11 @@ class RegistrationEmailTests(unittest.TestCase):
         self.smtp_ssl.assert_not_called()
 
     def test_implicit_tls_also_verifies_certificate(self):
-        registration.SMTP_USE_SSL = True
-        registration.SMTP_PORT = 465
+        email_transport.SMTP_USE_SSL = True
+        email_transport.SMTP_PORT = 465
         self.send()
         self.assert_verified_context(self.smtp_ssl.call_args.kwargs["context"])
-        client = self.smtp_ssl.return_value.__enter__.return_value
+        client = self.smtp_ssl.return_value
         client.starttls.assert_not_called()
         client.login.assert_called_once()
         client.send_message.assert_called_once()
@@ -159,7 +161,7 @@ class RegistrationEmailTests(unittest.TestCase):
         for failure in (ssl.SSLCertVerificationError("synthetic invalid certificate"),
                         smtplib.SMTPNotSupportedError("synthetic missing STARTTLS")):
             with self.subTest(failure=type(failure).__name__):
-                client = self.smtp.return_value.__enter__.return_value
+                client = self.smtp.return_value
                 client.reset_mock()
                 client.starttls.side_effect = failure
                 self.assert_unavailable(self.send)
@@ -168,7 +170,7 @@ class RegistrationEmailTests(unittest.TestCase):
         self.smtp_ssl.assert_not_called()
 
     def test_implicit_tls_certificate_failure_never_falls_back(self):
-        registration.SMTP_USE_SSL = True
+        email_transport.SMTP_USE_SSL = True
         self.smtp_ssl.side_effect = ssl.SSLCertVerificationError("synthetic invalid certificate")
         self.assert_unavailable(self.send)
         self.smtp.assert_not_called()

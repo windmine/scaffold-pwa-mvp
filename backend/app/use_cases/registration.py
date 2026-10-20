@@ -1,10 +1,7 @@
 import hashlib
 import hmac
 import secrets
-import smtplib
-import ssl
 from datetime import datetime, timedelta, timezone
-from email.message import EmailMessage
 
 from fastapi import HTTPException
 from sqlmodel import Session, select
@@ -18,14 +15,8 @@ from app.config import (
     REGISTRATION_EMAIL_ENABLED,
     REGISTRATION_MAX_ATTEMPTS,
     REGISTRATION_RESEND_SECONDS,
-    SMTP_FROM_EMAIL,
-    SMTP_HOST,
-    SMTP_PASSWORD,
-    SMTP_PORT,
-    SMTP_USERNAME,
-    SMTP_USE_SSL,
-    SMTP_USE_STARTTLS,
 )
+from app import email_transport
 from app.models import RegistrationVerification, User
 from app.use_cases.common import ensure_department_exists, list_departments
 from app.use_cases.staff_site_admin import create_user_account
@@ -59,7 +50,7 @@ def normalize_identity(email: str, name: str):
 
 
 def smtp_is_configured():
-    return bool(SMTP_HOST and SMTP_FROM_EMAIL)
+    return email_transport.smtp_is_configured()
 
 
 def registration_email_ready():
@@ -70,7 +61,9 @@ def registration_email_ready():
                 detail="Registration email service is not configured",
             )
         return False
-    if not SMTP_USE_SSL and not SMTP_USE_STARTTLS:
+    try:
+        email_transport.require_smtp_configuration()
+    except email_transport.EmailSendError:
         raise HTTPException(
             status_code=503,
             detail="Registration email service requires TLS",
@@ -82,32 +75,14 @@ def send_verification_email(email: str, code: str):
     if not registration_email_ready():
         return
 
-    message = EmailMessage()
-    message["Subject"] = "Leader Field Operations verification code"
-    message["From"] = SMTP_FROM_EMAIL
-    message["To"] = email
-    message.set_content(
-        "Your Leader Field Operations verification code is "
-        f"{code}. It expires in {REGISTRATION_CODE_TTL_MINUTES} minutes."
-    )
-
-    smtp_class = smtplib.SMTP_SSL if SMTP_USE_SSL else smtplib.SMTP
-    tls_context = ssl.create_default_context()
-    smtp_options = {"timeout": 15}
-    if SMTP_USE_SSL:
-        smtp_options["context"] = tls_context
     try:
-        with smtp_class(SMTP_HOST, SMTP_PORT, **smtp_options) as smtp:
-            if SMTP_USE_STARTTLS and not SMTP_USE_SSL:
-                smtp.starttls(context=tls_context)
-            if SMTP_USERNAME:
-                smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
-            smtp.send_message(message)
-    except (OSError, smtplib.SMTPException) as error:
-        raise HTTPException(
-            status_code=503,
-            detail="Could not send verification email",
-        ) from error
+        email_transport.send_email(
+            email, "Leader Field Operations verification code",
+            "Your Leader Field Operations verification code is "
+            f"{code}. It expires in {REGISTRATION_CODE_TTL_MINUTES} minutes.",
+        )
+    except email_transport.EmailSendError:
+        raise HTTPException(status_code=503, detail="Could not send verification email") from None
 
 
 def start_registration(data, session: Session):

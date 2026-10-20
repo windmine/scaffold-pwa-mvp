@@ -1,0 +1,130 @@
+{
+  "prepared_at_utc": "2026-10-20T23:15:47.008417+00:00",
+  "status": "implemented and validated locally; not deployed or committed",
+  "branch": "codex/report-submission-mvp",
+  "base_commit": "b32dc42785289c995ea53e2a60e3e1336ae9c75f",
+  "scope": "Explicit Supervisor Worker-invitation email; shared verified TLS; durable one-attempt guard; manual Copy/Share fallback",
+  "checks": {
+    "backend_suites": 23,
+    "new_invitation_backend_tests": 11,
+    "registration_smtp_tests": 10,
+    "new_invitation_browser_checks": 12,
+    "staff_browser_groups": 11,
+    "full_mobile_gate": "passed",
+    "real_backend_browser_workflows": 73,
+    "postgres_17_6_migration_checkpoints": 29,
+    "postgres_owned_cluster_cleanup": true,
+    "build": "passed, locked Vite 8.1.6",
+    "lint": "passed",
+    "phone_visual_review": [
+      "390px English/light",
+      "320px Chinese/dark"
+    ]
+  },
+  "evidence": [
+    "output/invitation-email-backend-tests.log",
+    "output/invitation-email-mobile-recheck.log",
+    "output/invitation-email-postgres-recheck.json",
+    "output/report-staff-simplicity.local/invitation-email-390-en.png",
+    "output/report-staff-simplicity.local/invitation-email-320-zh.png"
+  ],
+  "earlier_attempts": [
+    {
+      "check": "full mobile",
+      "result": "failed at unchanged report-photo-upload-test.mjs Retry-After wall-clock assertion",
+      "resolution": "unchanged isolated rerun passed; subsequent complete mobile rerun passed",
+      "evidence": "output/invitation-email-mobile-tests.log"
+    },
+    {
+      "check": "PostgreSQL migration",
+      "result": "test expected 22 migrations",
+      "resolution": "updated release head/count for additive 0023; all 29 checkpoints passed",
+      "evidence": "output/invitation-email-postgres.json"
+    },
+    {
+      "check": "initial Windows sandbox invocation",
+      "result": "temporary SQLite access unavailable; in-process registration test stalled",
+      "resolution": "stopped sandbox invocation and used approved local isolated test environment"
+    }
+  ],
+  "release_prerequisites": [
+    "Approve a separate deployment",
+    "Apply additive 0023 and compatible backend before Hosting",
+    "Configure PUBLIC_APP_URL as canonical HTTPS frontend origin",
+    "Prepare migration-compatible backend rollback or forward fix; old revisions reject future migration history",
+    "Keep REGISTRATION_EMAIL_ENABLED=false"
+  ],
+  "limitations": [
+    "SMTP mocked for this feature; no real invitation or email sent",
+    "SMTP acceptance is not inbox delivery",
+    "A committed unconfirmed attempt cannot retry; private same-link sharing remains available",
+    "Revocation cannot recall an email already in transit; it invalidates the setup link",
+    "Physical-phone/native-share behavior not newly certified"
+  ],
+  "production_mutations": false,
+  "real_emails_sent": 0,
+  "new_credentials_or_IAM": false,
+  "unrelated_preserved": [
+    "output/smtp-test-20261020/"
+  ],
+  "changed_files": [
+    ".env.example",
+    ".github/scripts/run_local_checks.py",
+    "AGENTS.md",
+    "CONTEXT.md",
+    "README.md",
+    "assets/js/api-client.js",
+    "assets/js/app-shell-state.js",
+    "assets/js/i18n.js",
+    "assets/js/staff-sites.js",
+    "assets/js/worker-invitation-dialog.js",
+    "backend/app/config.py",
+    "backend/app/email_transport.py",
+    "backend/app/main.py",
+    "backend/app/models.py",
+    "backend/app/schemas.py",
+    "backend/app/use_cases/registration.py",
+    "backend/app/use_cases/worker_invitation_email.py",
+    "backend/app/use_cases/worker_invitations.py",
+    "backend/invitation_email_test.py",
+    "backend/migration_test.py",
+    "backend/migrations/versions/0023_worker_invitation_email.py",
+    "backend/postgres_migration_rehearsal.py",
+    "backend/registration_email_test.py",
+    "index.html",
+    "package.json",
+    "scripts/report-staff-simplicity-test.mjs",
+    "scripts/worker-invitation-email-test.mjs",
+    "sw.js"
+  ],
+  "sha256": {
+    ".env.example": "28682a4548ca55c49e43ac0029e927ca0434781e287d0ed62f3621f092e9d6bb",
+    ".github/scripts/run_local_checks.py": "fc552f00c6c6655b47f6e3eb32059e79880964e8d2b5ff01c968066825190ebf",
+    "AGENTS.md": "f582c7461a189863819f9f9b0cbb6938938f381341767ff4b154f5afc9da2df4",
+    "CONTEXT.md": "00fa8e0c55c421e7732860650a8ab5249186c8290e8807d5e614d17abbe2c656",
+    "README.md": "d7fe10b26ef997e0b33b3cbf7c57f2ce64ec5d0f92a4673d8853090e7df0bbf0",
+    "assets/js/api-client.js": "51f1b095c925ea80ca94883ed9e4354461c12574e60ca67d2feb9d8e1b450867",
+    "assets/js/app-shell-state.js": "1bb6b46d5073435581e4126a5527d171a42db8a635478556780182bee1aaa920",
+    "assets/js/i18n.js": "efa7ff62b5f8e986969bcf58b330424732762af2efa866a5cf61b85c0497d68a",
+    "assets/js/staff-sites.js": "07f185c67c0f64428c737fdd85f3ae0a10aca65269c730f54e0a0375457422dc",
+    "assets/js/worker-invitation-dialog.js": "df59542898ae141823d5c09010999f5e844b7ed7a4834bd84dd5c37216870c2b",
+    "backend/app/config.py": "68121544ce8262bcf8394cfabcc068e5ea84f46e22d1f75d380b8845d6885c9e",
+    "backend/app/email_transport.py": "57b58a37317afe6953d4f5b9cef9c23725c5f835a177d644417f353b9bcf2437",
+    "backend/app/main.py": "b72538c94c5cbe4c6a79a3ed9b6a7b94197e6c504d34aecd878ecee15e81abb7",
+    "backend/app/models.py": "31c79851f0f319bb78c3096be6e86afa25aa81a6d292e036de57ae017f209339",
+    "backend/app/schemas.py": "b3e155de851aac4f90ca31ad6c087a61bee2cbbc0e9f7154b3fad2157f2533c2",
+    "backend/app/use_cases/registration.py": "7ad4bdaaaeea1cc537b3f559f394ab45d7fe6fedd2a7b641ba3b29d4a9ec5f53",
+    "backend/app/use_cases/worker_invitation_email.py": "7a1f72289cdf8bc2da2b2f6c2deee8bfce2d55d4c8181bf54f69c57585d098bb",
+    "backend/app/use_cases/worker_invitations.py": "72364b68e99021690b1080490d6d288a3b38120a146d915f5bd79f0ea29b1b9d",
+    "backend/invitation_email_test.py": "0dab719a9680e31a69bd6fea3446427f6bf08001356dbc8134a690ccf8f450b3",
+    "backend/migration_test.py": "57bc86e317fc2b56e12088d7b25b23f4b2048f9194ddafb09a44ef6fef67966f",
+    "backend/migrations/versions/0023_worker_invitation_email.py": "140c97cf7224a380b66c3a4edc588399d1fdfb461e0a206f04df66969ad857c8",
+    "backend/postgres_migration_rehearsal.py": "16bf00d46248c574cf3fd7a38e32d926924570a9194a0c4855af66f18fe5209c",
+    "backend/registration_email_test.py": "e3973188c619feeeb2447fe288911ca1e7d1f09d8c918fca9132b4a3b200da63",
+    "index.html": "a0acd47e6bebddb8d146c6795ba133e712240e6fa50a06a8ea7ba4157a5bdd1c",
+    "package.json": "71ddc4e34374461c9986b2695fe9e8e82feea0e61bae18a414ac4e13e00c9cf8",
+    "scripts/report-staff-simplicity-test.mjs": "608a2ca57f955d9fce6ff82be4af942814059d661b0f1fa39d712343f93e1e4d",
+    "scripts/worker-invitation-email-test.mjs": "04173690e8e89840931a9d6fc0351b878822d9155cf4138686115d73b6dac23f",
+    "sw.js": "55ed3799ec7a355abbb8fcdd04e3d82e0c5948f62ca88943aa701cd8c7266623"
+  }
+}

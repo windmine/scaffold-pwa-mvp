@@ -59,6 +59,7 @@ from app.schemas import (
     WorkFormSubmissionCreate,
     WorkFormUpdate,
     WorkerInvitationCreateRequest,
+    WorkerInvitationEmailRequest,
     WorkerInvitationTokenRequest,
     WorkerInvitationAcceptRequest,
     WorkerPasswordRecoveryTokenRequest,
@@ -91,6 +92,7 @@ from app.use_cases import task_logs as task_log_use_cases
 from app.use_cases import team_work_logs as team_work_log_use_cases
 from app.use_cases import work_forms as work_form_use_cases
 from app.use_cases import worker_invitations as worker_invitation_use_cases
+from app.use_cases import worker_invitation_email as worker_invitation_email_use_cases
 from app.use_cases import worker_password_recovery as worker_password_recovery_use_cases
 from app.use_cases.common import (
     DEPARTMENT_NAMES,
@@ -165,7 +167,7 @@ def apply_upload_cache_policy(request_path: str, response: Response):
     if normalized_path.startswith("/uploads/") and response.status_code >= 400:
         response.headers["Cache-Control"] = "private, no-store"
     if normalized_path == "/auth/login/after-setup" or normalized_path.startswith(("/auth/worker-invitations", "/auth/worker-password-recovery", "/supervisor/worker-invitations")) or (
-        normalized_path.startswith("/supervisor/users/") and normalized_path.endswith(("/invitation", "/password-recovery"))
+        normalized_path.startswith("/supervisor/users/") and normalized_path.endswith(("/invitation", "/invitation/email", "/password-recovery"))
     ):
         response.headers["Cache-Control"] = "private, no-store"
         response.headers["Referrer-Policy"] = "no-referrer"
@@ -175,6 +177,8 @@ def apply_upload_cache_policy(request_path: str, response: Response):
 @app.exception_handler(RequestValidationError)
 async def redact_recovery_validation(request: Request, exc: RequestValidationError):
     path = request.url.path.removeprefix("/api")
+    if path.startswith("/supervisor/users/") and path.endswith("/invitation/email"):
+        return JSONResponse(status_code=422, content={"detail": "Check the invitation and try again."})
     if path.startswith("/auth/worker-password-recovery") or (
         path.startswith("/supervisor/users/") and path.endswith("/password-recovery")
     ):
@@ -867,6 +871,14 @@ def revoke_worker_invitation(
     user_id: int, supervisor: User = Depends(require_supervisor), session: Session = Depends(get_session),
 ):
     return worker_invitation_use_cases.revoke_worker_invitation(user_id, supervisor, session)
+
+
+@app.post("/supervisor/users/{user_id}/invitation/email")
+def send_worker_invitation_email(
+    user_id: int, data: WorkerInvitationEmailRequest,
+    supervisor: User = Depends(require_supervisor), session: Session = Depends(get_session),
+):
+    return worker_invitation_email_use_cases.send_worker_invitation_email(user_id, data, supervisor, session)
 
 
 @app.post("/supervisor/users/{user_id}/password-recovery")

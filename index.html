@@ -1591,15 +1591,17 @@
       <div class="confirmation-dialog-content">
         <h2 id="workerInvitationTitle">Worker invitation ready</h2>
         <p id="workerInvitationIdentity" data-no-i18n></p>
-        <p id="workerInvitationHelp">Share this link privately with the intended Worker. Anyone with it can set this account's password. No email has been sent.</p>
+        <p id="workerInvitationHelp">Send an invitation email to the Worker shown above, or share this link privately. Anyone with it can set this account's password.</p>
         <p><span>Expires</span>: <span id="workerInvitationExpiry" data-no-i18n></span></p>
         <label><span id="workerInvitationLinkLabel">Private setup link</span><input id="workerInvitationLink" type="text" readonly autocomplete="off" spellcheck="false" data-no-i18n /></label>
         <p id="workerInvitationLinkNotice" class="muted">The link is shown only now. Closing this window hides it; create a new link from Staff if needed.</p>
         <p id="workerInvitationStatus" role="status" aria-live="polite"></p>
+        <p id="workerInvitationEmailStatus" role="status" aria-live="polite"></p>
         <div class="confirmation-dialog-actions">
           <button id="closeWorkerInvitationButton" type="button" class="ghost">Done</button>
           <button id="shareWorkerInvitationButton" type="button" hidden>Share privately</button>
           <button id="copyWorkerInvitationButton" type="button">Copy private link</button>
+          <button id="sendWorkerInvitationEmailButton" type="button" aria-describedby="workerInvitationIdentity workerInvitationEmailStatus" hidden>Send invitation email</button>
         </div>
       </div>
     </dialog>

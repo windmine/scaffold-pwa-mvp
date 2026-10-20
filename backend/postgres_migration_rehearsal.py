@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from app.migrations import MIGRATIONS_DIR, MigrationError, run_migrations, verify_migrations
 
 
-RELEASE_HEAD = "0022_worker_password_recovery"
+RELEASE_HEAD = "0023_worker_invitation_email"
 REPORT_FIELDS = [
     {"id": "issue", "label": "Issue", "type": "text"},
     {"id": "worker_signature", "label": "Signature", "type": "signature"},
@@ -84,7 +84,7 @@ def reject_statement(engine, label, statement, parameters=None, sqlstate="23514"
 
 def manifest_versions():
     versions = sorted(path.stem for path in MIGRATIONS_DIR.glob("*.py") if path.name != "__init__.py")
-    require(len(versions) == 22 and versions[-1] == RELEASE_HEAD, "Update rehearsal expectations for a changed migration manifest")
+    require(len(versions) == 23 and versions[-1] == RELEASE_HEAD, "Update rehearsal expectations for a changed migration manifest")
     return versions
 
 
@@ -180,7 +180,7 @@ def check_fresh(database, report):
         require(not inspect(engine).get_table_names(), "Read-only PostgreSQL verification created tables")
         report("PostgreSQL empty-schema verification fails without creating migration tables")
         versions = manifest_versions()
-        require(run_migrations(engine) == versions, "Fresh PostgreSQL did not apply all 20 real migrations")
+        require(run_migrations(engine) == versions, "Fresh PostgreSQL did not apply the full migration manifest")
         before = ledger(engine)
         verify_read_only(engine)
         require(run_migrations(engine) == [], "Second PostgreSQL migration run was not idempotent")

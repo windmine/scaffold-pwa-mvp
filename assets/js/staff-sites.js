@@ -2,6 +2,7 @@ import {
   createSite as createBackendSite,
   createUser as createBackendUser,
   createWorkerInvitation,
+  emailWorkerInvitation,
   reissueWorkerInvitation,
   revokeWorkerInvitation,
   createWorkerPasswordRecovery,
@@ -59,7 +60,23 @@ export function createStaffSitesModule({
   const sameTemplateUser = (user) => Boolean(templateDraftScope(state.user) && templateDraftScope(user)
     && String(state.user.id) === String(user.id) && String(state.user.departmentId) === String(user.departmentId)
     && Boolean(state.user.isGlobalAdmin) === Boolean(user.isGlobalAdmin));
-  const invitationDialog = createWorkerInvitationDialog(els);
+  const invitationDialog = createWorkerInvitationDialog(els, {
+    sendInvitationEmail: async (userId, token) => {
+      const generation = sessionGeneration;
+      const scope = staffScopeKey();
+      const result = await emailWorkerInvitation(userId, token);
+      if (generation === sessionGeneration && scope === staffScopeKey() && result?.user_id === userId
+        && ['accepted', 'failed', 'unknown'].includes(result.email_status)) {
+        state.staffUsers = state.staffUsers.map((user) => user.id === userId
+          && user.invitation_id === result.invitation_id && user.email === result.recipient
+          ? { ...user, invitation_email_status: result.email_status,
+            invitation_email_attempted_at: result.email_attempted_at,
+            invitation_email_accepted_at: result.email_accepted_at } : user);
+        renderFilteredStaffUsers();
+      }
+      return result;
+    }
+  });
   let privateLinkGeneration = 0;
   let privateLinkScope = staffScopeKey();
   const recoveryRequests = new Map();
@@ -735,6 +752,7 @@ export function createStaffSitesModule({
         user.status || 'active',
         user.password_setup_required ? 'invited password setup required' : '',
         user.invitation_status || '',
+        user.invitation_email_status || '',
         user.password_recovery_status || '',
         user.department_name || user.departmentName,
         user.is_global_admin || user.isGlobalAdmin ? 'global admin' : ''
@@ -760,6 +778,11 @@ export function createStaffSitesModule({
       const invitationStatus = {
         pending: 'Awaiting password setup', expired: 'Invitation expired', revoked: 'Invitation revoked'
       }[user.invitation_status] || 'No active invitation';
+      const invitationEmailStatus = {
+        accepted: 'Invitation email accepted; delivery is unconfirmed.',
+        failed: 'Invitation email was not sent.',
+        unknown: 'Invitation email acceptance is unconfirmed. Do not send again.'
+      }[user.invitation_email_status];
       const recoveryStatus = {
         pending: 'Password recovery link pending', expired: 'Password recovery link expired',
         revoked: 'Password recovery link revoked', used: 'Password recovery completed'
@@ -776,6 +799,12 @@ export function createStaffSitesModule({
         ${!needsSetup && user.role === 'worker' && recoveryStatus ? `<p class="record-meta"><span>${recoveryStatus}</span>${user.password_recovery_status === 'pending' && user.password_recovery_expires_at ? ` · <span>Expires</span>: <span data-no-i18n>${escapeHtml(formatDateTime(user.password_recovery_expires_at))}</span>` : ''}</p>` : ''}
         <div class="record-actions"></div>
       `;
+      if (needsSetup && invitationEmailStatus) {
+        const emailStatus = document.createElement('p');
+        emailStatus.className = 'record-meta';
+        setTranslatableText(emailStatus, invitationEmailStatus);
+        node.insertBefore(emailStatus, node.querySelector('.record-actions'));
+      }
       const actions = node.querySelector('.record-actions');
       const editButton = document.createElement('button');
       editButton.type = 'button';
@@ -1637,8 +1666,9 @@ export function createStaffSitesModule({
     if (button.getAttribute('aria-busy') === 'true' || state.user?.role !== 'supervisor') return;
     const generation = sessionGeneration;
     const supervisorId = state.user.id;
+    const scope = staffScopeKey();
     const isCurrent = () => generation === sessionGeneration && state.user?.role === 'supervisor'
-      && String(state.user.id) === String(supervisorId);
+      && String(state.user.id) === String(supervisorId) && scope === staffScopeKey();
     const reissue = action === 'reissue';
     if (!await confirmAction({
       title: reissue ? 'Replace setup link?' : 'Revoke setup link?',
@@ -1651,7 +1681,7 @@ export function createStaffSitesModule({
     try {
       const result = reissue ? await reissueWorkerInvitation(user.id) : await revokeWorkerInvitation(user.id);
       if (!isCurrent()) return;
-      if (reissue) invitationDialog.show(result, els.addStaffUserButton);
+      if (reissue) invitationDialog.show(result, els.addStaffUserButton, { isCurrent });
       else renderStatusBanner('Setup link revoked.');
       const refreshed = await renderStaffUsers({ preserveOnError: true, reportError: false });
       if (isCurrent() && !refreshed) {
@@ -1734,8 +1764,9 @@ export function createStaffSitesModule({
     let restoreFocus = false;
     const generation = sessionGeneration;
     const supervisorId = state.user?.id;
+    const scope = staffScopeKey();
     const isCurrent = () => generation === sessionGeneration && state.user?.role === 'supervisor'
-      && String(state.user.id) === String(supervisorId);
+      && String(state.user.id) === String(supervisorId) && scope === staffScopeKey();
     if (!isCurrent()) return;
     setButtonBusy(els.staffUserSubmitButton, true, 'Creating staff account...');
     els.cancelStaffUserCreateButton.disabled = true;
@@ -1773,7 +1804,7 @@ export function createStaffSitesModule({
         { restoreFocus: false }
       );
       els.addStaffUserButton.disabled = true;
-      if (usesInvitation) invitationDialog.show(result, els.addStaffUserButton);
+      if (usesInvitation) invitationDialog.show(result, els.addStaffUserButton, { isCurrent });
       renderStatusBanner(usesInvitation ? 'Worker invitation created. Share the setup link privately.' : 'Staff user created.');
       const staffUsersRefreshed = await renderStaffUsers({
         preserveOnError: true,

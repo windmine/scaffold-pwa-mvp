@@ -348,6 +348,8 @@ export const els = {
   workerInvitationStatus: document.getElementById('workerInvitationStatus'),
   copyWorkerInvitationButton: document.getElementById('copyWorkerInvitationButton'),
   shareWorkerInvitationButton: document.getElementById('shareWorkerInvitationButton'),
+  sendWorkerInvitationEmailButton: document.getElementById('sendWorkerInvitationEmailButton'),
+  workerInvitationEmailStatus: document.getElementById('workerInvitationEmailStatus'),
   closeWorkerInvitationButton: document.getElementById('closeWorkerInvitationButton'),
   staffRoleSelect: document.getElementById('staffRoleSelect'),
   staffWorkerClassSelect: document.getElementById('staffWorkerClassSelect'),
