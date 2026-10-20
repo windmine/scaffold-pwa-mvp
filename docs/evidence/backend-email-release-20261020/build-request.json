@@ -1,0 +1,5 @@
+{
+  "requestedAtUtc": "2026-10-20T22:06:22.850394+00:00",
+  "sourceCommit": "89c1d5e81017ea87b10f690116d11bec66573ff1",
+  "imageTag": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:smtp-20261020-89c1d5e"
+}

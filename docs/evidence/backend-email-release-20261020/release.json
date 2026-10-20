@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "status": "deployed-and-verified",
+  "recordedAtUtc": "2026-10-20T22:24:18.461697+00:00",
+  "scope": "Gmail SMTP configuration and minimal verified-TLS/disabled-registration prerequisite only",
+  "project": "geo-attendance-system-db9ca",
+  "region": "australia-southeast1",
+  "service": "geo-backend",
+  "revision": "geo-backend-smtp-20261020",
+  "traffic": [
+    {
+      "percent": 100,
+      "revisionName": "geo-backend-smtp-20261020"
+    }
+  ],
+  "imageSourceCommit": "89c1d5e81017ea87b10f690116d11bec66573ff1",
+  "ciSourceCommit": "2437ac3a1c3a7e331e98ebc36515c38b43692152",
+  "backendAndBuildInputsIdenticalBetweenImageAndCiSource": true,
+  "buildId": "78f4d6a2-cad0-4dd3-bbd5-daa44558e200",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:d35069fcbd55009a7f9da20db661acbe49ed8cdd511402e0801b6b2fe527acf6",
+  "promotionRequestedAtUtc": "2026-10-20T22:22:02.036678+00:00",
+  "promotionVerifiedAtUtc": "2026-10-20T22:22:27.177522+00:00",
+  "previousRevision": "geo-backend-fixes-20261012",
+  "settings": {
+    "SMTP_HOST": "smtp.gmail.com",
+    "SMTP_PORT": "587",
+    "SMTP_USERNAME": "info@mutualconstruction.co.nz",
+    "SMTP_FROM_EMAIL": "info@mutualconstruction.co.nz",
+    "SMTP_USE_STARTTLS": "true",
+    "SMTP_USE_SSL": "false",
+    "REGISTRATION_EMAIL_ENABLED": "false"
+  },
+  "passwordReference": {
+    "environmentVariable": "SMTP_PASSWORD",
+    "secret": "reportflow-smtp-password",
+    "version": "1",
+    "state": "ENABLED"
+  },
+  "iamChange": {
+    "scope": "this secret only",
+    "role": "roles/secretmanager.secretAccessor",
+    "member": "serviceAccount:geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com"
+  },
+  "securityBehavior": [
+    "SMTP STARTTLS and implicit TLS use ssl.create_default_context with certificate and hostname verification.",
+    "Plaintext SMTP configuration is rejected; TLS failures do not proceed to authentication or sending.",
+    "Public-registration email defaults off and is explicitly disabled in production; the disabled path rejects before identity lookup or database writes."
+  ],
+  "validation": {
+    "mockedSmtpTests": 10,
+    "exactImageMockedSmtpTests": 10,
+    "exactImageTestNetwork": "disabled",
+    "localBackendSuites": 22,
+    "localCleanupRegressionRunner": "passed",
+    "sourceCi": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39505958754",
+    "sourceCiConclusion": "success",
+    "realBackendBrowserWorkflows": 73,
+    "nativePostgresIsolationAndVolumeCi": "passed",
+    "prePromotionHardeningChecks": 40,
+    "postPromotionHardeningChecks": 40,
+    "liveHealth": "direct and Firebase Hosting health/readiness passed",
+    "runtimeComparison": "Only the approved image, SMTP settings, disabled-registration flag and version-1 secret reference changed.",
+    "existingSecretReferencesAndServiceIam": "preserved",
+    "candidateAndLiveErrorOr5xxCount": 0,
+    "hostingIndexAndServiceWorkerHashes": "unchanged"
+  },
+  "ciGateRepair": {
+    "run": 39505465869,
+    "failedStep": "npm audit --audit-level=low",
+    "affectedPackage": "Vite 8.1.4 bundles launch-editor code covered by three advisories updated October 20.",
+    "advisories": [
+      "GHSA-698v-4r3x-3vcv",
+      "GHSA-r825-w8mm-5pxw",
+      "GHSA-587h-7wmj-h5pm"
+    ],
+    "fix": "Vite 8.1.6 only; package manifest and lockfile updated, no other installed package version changed. npm reports zero vulnerabilities.",
+    "runtimeOrHostingChange": false
+  },
+  "limitations": [
+    "No real SMTP authentication or email delivery was attempted; Gmail acceptance and delivery are unverified.",
+    "Worker invitations remain manual private links; Report PDFs remain downloads. No invitation or PDF email feature was added.",
+    "The existing six-hour Neon recovery-history warning remains; no backup-policy change was made.",
+    "No migrations, hosted application fixtures, existing-user login or new database inventory comparison were performed.",
+    "No Firebase Hosting deployment or physical-phone testing was performed.",
+    "Initial local ASGI test sandbox stall remains unexplained; successful permitted-local, CI and exact-image tests are recorded separately."
+  ],
+  "secretValuesRead": false,
+  "smtpAuthenticationOrEmailAttempted": false,
+  "evidence": {
+    ".gitattributes": {
+      "sha256": "53f49dff0112c8c9ea6a97a1c240bdf63f969d12c9f318c8408852ee4ab6cc1b",
+      "bytes": 47
+    },
+    "backend-local.txt": {
+      "sha256": "6ad9262d928c08444fffabde7e0c9e93db6f00f5001625eacd9cfd64f87116ff",
+      "bytes": 42411
+    },
+    "backend-source-comparison.json": {
+      "sha256": "96a21ff428661155d6a695237445a53655ae53b804c5b8cb77cb04883c6fac09",
+      "bytes": 768
+    },
+    "baseline.json": {
+      "sha256": "36301b3fdfa0887b9070bff24ffe15b676cfe86958a913f0176629af7e20c0d9",
+      "bytes": 6209
+    },
+    "build-configuration.json": {
+      "sha256": "4ad59ba68b37e491e58ab1ea42228d6298724d7b439082557d01a64bf65616fc",
+      "bytes": 1241
+    },
+    "build-request.json": {
+      "sha256": "3a4d737e7c78cb9fce97501bd8167553f33b2d90764c8e2afdafb090468e6ac6",
+      "bytes": 260
+    },
+    "build-submission.json": {
+      "sha256": "629e76478b4c04a7b6ca4ca45fb7f9f5171d59c4c76b73ddd545abc3b99f4be3",
+      "bytes": 2511
+    },
+    "build.json": {
+      "sha256": "32129bfabe4184822124b8168d76758d72c50a2e06eff98bf381efdb350ed702",
+      "bytes": 5157
+    },
+    "candidate-image.json": {
+      "sha256": "db04e1067cdee7645bf6441c1a1d05e6c3e790fd384effcc4f18596da07db0ed",
+      "bytes": 404
+    },
+    "candidate-source-parity.json": {
+      "sha256": "6dc37e9c75b787b33472109fca9776c1efa8a13efe51007026d71b3a09beaf1b",
+      "bytes": 198
+    },
+    "candidate.json": {
+      "sha256": "fb94dc20a876526117a04bef747fe342707ad625d3441760afc916a63ef57f58",
+      "bytes": 5177
+    },
+    "check_hardening.py": {
+      "sha256": "da97a16f39a9d72ae182737d0a1c0dc8aa15de6be23cb0abce6ac916c971623e",
+      "bytes": 2993
+    },
+    "ci-backend-summary.json": {
+      "sha256": "e3e448bc50b1535215a807f139dabec0a0b35e20cacb262df084fda6332be3c0",
+      "bytes": 1213
+    },
+    "ci-source.json": {
+      "sha256": "c70e0ee897b657fd89662c6eb021e549e0c2124957fed620451c5cb3556a7538",
+      "bytes": 15642
+    },
+    "deployment-request.json": {
+      "sha256": "5194b9c27178e245603ec9461e52f093266f0da3a6aa01b5e714f40fe8b35a37",
+      "bytes": 654
+    },
+    "finalize_record.py": {
+      "sha256": "714f06bc0ca0ab72514e506fc8bd2bdbe6a0c7df6934b0d784e26404d85268f5",
+      "bytes": 4782
+    },
+    "hardening-current.json": {
+      "sha256": "5a3fcfb247dcb66f9ad51915e090c7c447491278c40bc981a7c203a4e44cb014",
+      "bytes": 5140
+    },
+    "hardening-log.txt": {
+      "sha256": "8adbf2038d2ef569657df238f0f54de0c60c2687e6ff0f20a6d44abadf2c88a7",
+      "bytes": 3336
+    },
+    "hardening-post-promotion-log.txt": {
+      "sha256": "e115797adfc4767d78a001f6920b89ebe8900edcf32e7786d5f31bbff96ef633",
+      "bytes": 3335
+    },
+    "hardening-post-promotion.json": {
+      "sha256": "58e9f61d8fd2ba4e1ab48592b6b5aa11bb279bc96089b9a4551a66e752ff7e09",
+      "bytes": 5139
+    },
+    "live-verification.json": {
+      "sha256": "a315eb5a0da7ad7618bfb7f756b68f6e43aec80c9d4ac7ef5b1ce23f80b90015",
+      "bytes": 6124
+    },
+    "pre-promotion-readonly.json": {
+      "sha256": "739de7f08a8fc97fc41ccf4147922a5ff61a4b3aeaf8680f19edd94866c5f46a",
+      "bytes": 957
+    },
+    "preparation.json": {
+      "sha256": "1b51792e6ab11bd0c1c9b0adcb431d1193d9e50205d4198fe21d15aefb942e9a",
+      "bytes": 1338
+    },
+    "promotion-request.json": {
+      "sha256": "0a492264d0ac294fb08589f465ba1477c881dcd42dbf87293ae1e796f8b01c87",
+      "bytes": 178
+    },
+    "promotion.json": {
+      "sha256": "a4ababd9e21f9890e9771e2db7c7e639266e05f3c9fe69e246f06a58a4cc3b67",
+      "bytes": 5461
+    },
+    "secret-access-request.json": {
+      "sha256": "261c46d65f6dbf799a4463e7926c8cf54df7b0d5af36a55543e907c2ae501113",
+      "bytes": 249
+    },
+    "secret-access.json": {
+      "sha256": "338d034e5de171f9b024fd0ea05c7498d0f70b615e160da9cc46af23598bfb50",
+      "bytes": 644
+    },
+    "smtp_release_operator.py": {
+      "sha256": "b725c869ff618234d55798950710144a602852c4d8c3e977ef1d1f8ec8793104",
+      "bytes": 11284
+    },
+    "source-package.json": {
+      "sha256": "6536bd6dc3e723887ce33cccb6d930e7e26fe53387a8a990fede05b409230412",
+      "bytes": 12942
+    },
+    "upload-validation.json": {
+      "sha256": "a7871241e5559e60aa7adb10313bd211ac07973d47ca92bbb63018ec0d27ca0c",
+      "bytes": 141
+    },
+    "verify_live.py": {
+      "sha256": "26c01afa97145ff177ddaeaeb95ae741179563d0f8c5dba9470545056cab9eb8",
+      "bytes": 2902
+    }
+  }
+}

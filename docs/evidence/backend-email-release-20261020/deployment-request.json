@@ -1,0 +1,16 @@
+{
+  "requestedAtUtc": "2026-10-20T22:11:58.771325+00:00",
+  "revision": "geo-backend-smtp-20261020",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:d35069fcbd55009a7f9da20db661acbe49ed8cdd511402e0801b6b2fe527acf6",
+  "traffic": "zero",
+  "settings": {
+    "SMTP_HOST": "smtp.gmail.com",
+    "SMTP_PORT": "587",
+    "SMTP_USERNAME": "info@mutualconstruction.co.nz",
+    "SMTP_FROM_EMAIL": "info@mutualconstruction.co.nz",
+    "SMTP_USE_STARTTLS": "true",
+    "SMTP_USE_SSL": "false",
+    "REGISTRATION_EMAIL_ENABLED": "false"
+  },
+  "secretReference": "reportflow-smtp-password:1"
+}

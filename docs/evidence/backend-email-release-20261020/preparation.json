@@ -1,0 +1,22 @@
+{
+  "scope": "SMTP configuration prerequisite only; no invitation/PDF delivery features.",
+  "registrationPolicy": "REGISTRATION_EMAIL_ENABLED=false by default and explicitly false for deployment. Production start fails before database access; development retains synthetic-code flow.",
+  "tests": "Ten mocked SMTP/configuration/ASGI tests; outbound socket creation forbidden.",
+  "initialHarnessAttempts": [
+    "Starlette TestClient required unavailable httpx2; replaced with repository-standard direct ASGI approach. A direct httpx attempt also found the local test-only dependency absent. No dependencies changed.",
+    "Initial sandboxed direct-ASGI run stalled; same source passed all ten tests with the permitted local test execution environment. Cause not established."
+  ],
+  "noRealSmtpAuthenticationOrEmail": true,
+  "ciAuditDiagnosis": {
+    "run": 39505465869,
+    "failedStep": "npm audit --audit-level=low",
+    "affectedPackage": "Vite 8.1.4 bundles launch-editor code covered by three advisories updated October 20.",
+    "advisories": [
+      "GHSA-698v-4r3x-3vcv",
+      "GHSA-r825-w8mm-5pxw",
+      "GHSA-587h-7wmj-h5pm"
+    ],
+    "fix": "Vite 8.1.6 only; package manifest and lockfile updated, no other installed package version changed. npm reports zero vulnerabilities.",
+    "runtimeOrHostingChange": false
+  }
+}

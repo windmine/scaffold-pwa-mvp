@@ -1,0 +1,356 @@
+{
+  "databaseId": 39505958754,
+  "headSha": "2437ac3a1c3a7e331e98ebc36515c38b43692152",
+  "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39505958754",
+  "status": "completed",
+  "conclusion": "success",
+  "attempt": 1,
+  "createdAt": "2026-10-20T22:09:06Z",
+  "updatedAt": "2026-10-20T22:21:03Z",
+  "jobs": [
+    {
+      "id": 118914810511,
+      "name": "Frontend, audit and mobile workflows",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-20T22:09:09Z",
+      "completedAt": "2026-10-20T22:21:03Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-20T22:09:10Z",
+          "completed_at": "2026-10-20T22:09:11Z"
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-20T22:09:11Z",
+          "completed_at": "2026-10-20T22:09:13Z"
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-20T22:09:13Z",
+          "completed_at": "2026-10-20T22:09:14Z"
+        },
+        {
+          "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-20T22:09:14Z",
+          "completed_at": "2026-10-20T22:09:14Z"
+        },
+        {
+          "name": "Validate workflow syntax and expressions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-20T22:09:14Z",
+          "completed_at": "2026-10-20T22:09:16Z"
+        },
+        {
+          "name": "Install locked JavaScript dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-20T22:09:16Z",
+          "completed_at": "2026-10-20T22:09:18Z"
+        },
+        {
+          "name": "Audit all dependency severities",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-20T22:09:18Z",
+          "completed_at": "2026-10-20T22:09:18Z"
+        },
+        {
+          "name": "Install Python runtime and test dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-10-20T22:09:18Z",
+          "completed_at": "2026-10-20T22:09:30Z"
+        },
+        {
+          "name": "Check Python dependency compatibility",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-10-20T22:09:30Z",
+          "completed_at": "2026-10-20T22:09:30Z"
+        },
+        {
+          "name": "Install the locked Playwright Chromium and system libraries",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-10-20T22:09:30Z",
+          "completed_at": "2026-10-20T22:09:53Z"
+        },
+        {
+          "name": "Lint",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-10-20T22:09:53Z",
+          "completed_at": "2026-10-20T22:09:56Z"
+        },
+        {
+          "name": "Build and run the complete disposable mobile gate",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-10-20T22:09:56Z",
+          "completed_at": "2026-10-20T22:20:58Z"
+        },
+        {
+          "name": "Check Worker history at growing local data volumes",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-10-20T22:20:58Z",
+          "completed_at": "2026-10-20T22:21:00Z"
+        },
+        {
+          "name": "Retain aggregate growth evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-10-20T22:21:00Z",
+          "completed_at": "2026-10-20T22:21:01Z"
+        },
+        {
+          "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 26,
+          "started_at": "2026-10-20T22:21:01Z",
+          "completed_at": "2026-10-20T22:21:01Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 27,
+          "started_at": "2026-10-20T22:21:01Z",
+          "completed_at": "2026-10-20T22:21:01Z"
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 28,
+          "started_at": "2026-10-20T22:21:01Z",
+          "completed_at": "2026-10-20T22:21:01Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 29,
+          "started_at": "2026-10-20T22:21:01Z",
+          "completed_at": "2026-10-20T22:21:01Z"
+        }
+      ]
+    },
+    {
+      "id": 118914810777,
+      "name": "Backend boundaries and native PostgreSQL volume",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-10-20T22:09:10Z",
+      "completedAt": "2026-10-20T22:11:44Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-20T22:09:10Z",
+          "completed_at": "2026-10-20T22:09:11Z"
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-20T22:09:11Z",
+          "completed_at": "2026-10-20T22:09:14Z"
+        },
+        {
+          "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-20T22:09:14Z",
+          "completed_at": "2026-10-20T22:09:14Z"
+        },
+        {
+          "name": "Install Python runtime and test dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-20T22:09:14Z",
+          "completed_at": "2026-10-20T22:09:23Z"
+        },
+        {
+          "name": "Check Python dependency compatibility",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-20T22:09:23Z",
+          "completed_at": "2026-10-20T22:09:23Z"
+        },
+        {
+          "name": "Run disposable backend regression suites",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-20T22:09:23Z",
+          "completed_at": "2026-10-20T22:10:48Z"
+        },
+        {
+          "name": "Install PostgreSQL 17 from its official signed apt repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-20T22:10:48Z",
+          "completed_at": "2026-10-20T22:11:07Z"
+        },
+        {
+          "name": "Verify native PostgreSQL environment isolation",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-10-20T22:11:07Z",
+          "completed_at": "2026-10-20T22:11:09Z"
+        },
+        {
+          "name": "Check small native PostgreSQL volume with a new owned local cluster",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-10-20T22:11:09Z",
+          "completed_at": "2026-10-20T22:11:40Z"
+        },
+        {
+          "name": "Retain aggregate growth evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-10-20T22:11:40Z",
+          "completed_at": "2026-10-20T22:11:41Z"
+        },
+        {
+          "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 19,
+          "started_at": "2026-10-20T22:11:41Z",
+          "completed_at": "2026-10-20T22:11:42Z"
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20,
+          "started_at": "2026-10-20T22:11:42Z",
+          "completed_at": "2026-10-20T22:11:42Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21,
+          "started_at": "2026-10-20T22:11:42Z",
+          "completed_at": "2026-10-20T22:11:42Z"
+        }
+      ]
+    }
+  ],
+  "browserWorkflowCount": 73,
+  "browserWorkflows": [
+    "ok - action feedback is local, busy, announced, and separate from sync state",
+    "ok - Chinese translation covers validation, forms, signatures, and photos",
+    "ok - required signatures are fully keyboard accessible",
+    "ok - photo viewer traps and restores focus",
+    "ok - primary action gradients meet WCAG AA contrast",
+    "ok - anonymous login startup does not request or expose sites",
+    "ok - restored session loads sites only after auth refresh",
+    "ok - authenticated Site failure does not expose demo Sites",
+    "ok - browser login uses cookie session without localStorage bearer token",
+    "ok - browser geolocation grant enables attendance capture",
+    "ok - attendance presents one contextual action with a secondary correction path",
+    "ok - normal Worker guide compacts and Site priority follows attendance context",
+    "ok - normal Workers submit active Work Forms and see their own history",
+    "ok - Report photo selection appends without replacing earlier photos",
+    "ok - Report photo selection rejects invalid files without clearing earlier photos",
+    "ok - Report photo removal keeps other photos and persists in the draft",
+    "ok - My Reports shows ordinary device drafts and continues their saved answers and photos",
+    "ok - Report photo drafts append new selections and submit both original images",
+    "ok - Report photo overlapping selections retain both images in selection order",
+    "ok - My Reports ordinary drafts stay private across shared-device account switches",
+    "ok - My Reports blocks Continue for submitted drafts when local cleanup fails",
+    "ok - Report photo capacity and empty picker preserve existing selections without blank drafts",
+    "ok - Report photo 50-file batch restores and uploads once across rate limiting",
+    "ok - shared-device Worker Reports clear on logout, pending login, and late responses",
+    "ok - shared-device late authorization errors cannot sign out the replacement Worker",
+    "ok - shared-device same-account relogin ignores the previous session authorization failure",
+    "ok - shared-device active session expiry clears open Report photos and history",
+    "ok - shared-device Supervisor Reports clear across Departments and failed queue loads",
+    "ok - browser geolocation denial shows recoverable error",
+    "ok - Daywork team rows use searchable member picker",
+    "ok - Daywork history and review hide helper fields",
+    "ok - report-only New Report, My Reports, queue, and exports exclude Daywork",
+    "ok - offline My Reports fallback shows only queued Report submissions",
+    "ok - explicit Report purpose overrides Daywork words in a template name",
+    "ok - report-only automatic and manual replay skip hidden record queues",
+    "ok - reconnect preserves in-progress Daywork and Work Form answers",
+    "ok - ReportFlow branding and Mutual defaults preserve explicit Departments and global focus",
+    "ok - report-only responsive layout keeps controls and final actions usable in light and dark themes",
+    "ok - unfinished Report Template creation survives reload with pending raw syntax",
+    "ok - unfinished Report Template close pauses on storage failure and keeps the draft",
+    "ok - unfinished Report Template edits survive workspace navigation and reload",
+    "ok - unfinished Report Template lifecycle protects logout, update, and account privacy",
+    "ok - unfinished Report Template publication retires drafts and isolates uncertain saves",
+    "ok - unfinished Report Template actions wait for post-publication refresh before editing",
+    "ok - unfinished Report Template stale versions stay read-only without overwriting newer work",
+    "ok - unfinished Report Template cross-tab protection preserves newer edits and removed-draft recovery",
+    "ok - Staff creation focus preserves newer editing and closed panel choices",
+    "ok - Worker invitation replaces Supervisor-chosen passwords with a private setup link",
+    "ok - Worker invitation password setup confirms ownership without changing another signed-in session",
+    "ok - Worker invitation clean browser continues directly into Reports",
+    "ok - Worker invitation replacement and revocation clear invalid setup secrets",
+    "ok - Worker invitation late responses never expose a prior Supervisor private link",
+    "ok - Private Worker password recovery replaces and revokes links, preserves shared accounts and drafts, and invalidates old sessions",
+    "ok - Report Find exports download CSV and PDF matching the searched inbox",
+    "ok - Supervisor Report filters remember structured selections per account and Department without saving Find",
+    "ok - staff users scope global admin controls by role",
+    "ok - Template library searches names and descriptions, filters lifecycle states, and protects unfinished edits",
+    "ok - supervisors create and edit conditional Work Forms with field cards",
+    "ok - Offline Submission ownership, occurrence time, and idempotent replay",
+    "ok - Report Dates reject impossible calendar values and preserve invalid queued evidence",
+    "ok - offline Report template changes preserve queued answers, photos, and signatures",
+    "ok - stale Report drafts preserve original answers until explicit new-report recovery",
+    "ok - stale Report drafts without captured fields or version preserve original evidence",
+    "ok - Report photos and repeat signatures resume once after partial upload failure",
+    "ok - supervisor review shows pending outside-site worker record",
+    "ok - department switching replaces map points and clears stale selection",
+    "ok - supervisor workspaces remain navigable on desktop and mobile",
+    "ok - supervisor Review Desk is responsive",
+    "ok - offline Review Queue is explicit and read-only",
+    "ok - Report offline return resumes a downloaded Template draft after every page closes",
+    "ok - retained attendance app cold-launches offline and queues attendance",
+    "ok - retained Work Form drafts protect production-mode app updates",
+    "ok - report-only service worker update prompt posts SKIP_WAITING"
+  ]
+}

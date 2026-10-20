@@ -1,0 +1,44 @@
+{
+  "checkedAtUtc": "2026-10-20T22:13:19.771603+00:00",
+  "candidateRevision": "geo-backend-smtp-20261020",
+  "errorOr5xxCount": 0,
+  "logs": [],
+  "hostingFiles": [
+    {
+      "path": "index.html",
+      "sha256": "9e4ee25ee6ad409cc93a2fe71bca6d5243189da0cb55deaf33f1b642c408bd58"
+    },
+    {
+      "path": "sw.js",
+      "sha256": "f314fdff8d436c6f3c02c49ab7eafbab942c7375b2ddaf464512f0b6564723b6"
+    }
+  ],
+  "hostingHealth": [
+    {
+      "path": "/api/health",
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "message": "Geo backend is running"
+      }
+    },
+    {
+      "path": "/api/health/ready",
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "checks": {
+          "database": "ok",
+          "migrations": "ok",
+          "upload_storage": "ok"
+        },
+        "details": {
+          "upload_storage": {
+            "backend": "gcs"
+          }
+        }
+      }
+    }
+  ],
+  "status": "passed"
+}

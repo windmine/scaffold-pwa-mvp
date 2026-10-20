@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "previousBackendSource": "c5b7ab56a54cb786042b592fb06288a5e7c18990",
+  "imageSource": "89c1d5e81017ea87b10f690116d11bec66573ff1",
+  "changedApplicationFiles": [
+    "backend/app/config.py",
+    "backend/app/use_cases/registration.py"
+  ],
+  "migrationsAndRuntimeDependenciesUnchanged": true,
+  "databaseInventoryCompared": false,
+  "allBackendAndBuildFileChanges": [
+    "backend/app/config.py",
+    "backend/app/use_cases/registration.py",
+    "backend/invitation_test.py",
+    "backend/postgres_rehearsal.py",
+    "backend/postgres_rehearsal_environment_test.py",
+    "backend/registration_email_test.py",
+    "backend/report_volume_test.py",
+    "backend/security_test.py",
+    "backend/test_server_process.py"
+  ]
+}

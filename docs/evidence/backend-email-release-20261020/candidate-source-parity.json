@@ -1,0 +1,6 @@
+{
+  "status": "passed",
+  "imageSourceCommit": "89c1d5e81017ea87b10f690116d11bec66573ff1",
+  "ciSourceCommit": "2437ac3a1c3a7e331e98ebc36515c38b43692152",
+  "backendAndBuildInputsIdentical": true
+}

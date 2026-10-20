@@ -1,0 +1,47 @@
+{
+  "steps": [
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "args": [
+        "build",
+        "-t",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:smtp-20261020-89c1d5e",
+        "."
+      ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "id": "mocked-smtp-exact-image",
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:smtp-20261020-89c1d5e",
+        "/app/backend/registration_email_test.py"
+      ]
+    }
+  ],
+  "images": [
+    "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:smtp-20261020-89c1d5e"
+  ],
+  "options": {
+    "logging": "CLOUD_LOGGING_ONLY"
+  },
+  "timeout": "1200s"
+}

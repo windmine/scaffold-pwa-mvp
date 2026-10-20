@@ -14,13 +14,25 @@ Continue to require the current release's database/image compatibility, exact ow
 
 ## Deployment Truth
 
+### Current Backend Release - SMTP configuration, 2026-10-20
+
+Strict infrastructure checks pass all 40 checks before and after promotion, retaining the existing six-hour recovery-history warning.
+
+Backend `geo-backend-smtp-20261020` is live at 100% without tags. Promotion was requested at `2026-10-20T22:22:02.036678+00:00` and verified at `2026-10-20T22:22:27.177522+00:00`. The image was built from `89c1d5e81017ea87b10f690116d11bec66573ff1`; its backend/build inputs match source-CI commit `2437ac3a1c3a7e331e98ebc36515c38b43692152`. Build `78f4d6a2-cad0-4dd3-bbd5-daa44558e200` produced image `sha256:d35069fcbd55009a7f9da20db661acbe49ed8cdd511402e0801b6b2fe527acf6`.
+
+`info@mutualconstruction.co.nz` is configured through `smtp.gmail.com:587` with certificate-verified STARTTLS. `SMTP_PASSWORD` references fixed Secret Manager version `reportflow-smtp-password:1`; only the existing runtime identity received Secret Accessor on this secret. Existing secret references, service IAM and other runtime settings are preserved. Plaintext authentication is rejected, and TLS failure cannot fall back to sending. `REGISTRATION_EMAIL_ENABLED=false` keeps dormant public-registration email disabled before identity lookup or database writes.
+
+Ten mocked SMTP tests pass locally, in CI and in the exact image with network disabled. All 22 local backend suites and cleanup checks pass. [Source CI](https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39505958754) passes both jobs, including all 73 real-backend browser workflows and native PostgreSQL checks. The first CI run failed newly updated Vite advisories; Vite 8.1.6 repairs that development-tool audit gate without a Hosting deployment.
+
+Direct/Hosting health and readiness pass, with zero observed revision ERROR/5xx entries. No secret payload was read, SMTP authentication attempted or email sent; Gmail acceptance and delivery remain unverified. Worker invitations remain manual private links, and PDFs remain downloads. No migration, hosted fixture or new database inventory comparison was performed. Hosting `index.html` and `sw.js` hashes are unchanged. The existing six-hour recovery-history warning remains. [Release evidence](evidence/backend-email-release-20261020/release.json).
+
 ### Current Frontend Release - Clear alignment, 2026-10-14
 
 Source `8e5e123093fcbb3a734753c68fde5848dc0edcca` is live as exact Hosting `61d90b34933c5079`, promoted at `2026-10-14T22:46:45.530221+00:00` and verified at `2026-10-14T22:46:54.198610+00:00`. Production cache is `leader-field-a2a1fad2c3c4`. A single desktop Report-only grid rule aligns Clear with the full filter group instead of the first column. Clearing behavior, Report data and exports are unchanged.
 
 Fresh local checks pass 32 desktop/tablet/phone layouts, four English/Chinese keyboard-clearing cases, filter/export regressions, build, lint and static shell checks. [Source CI](https://github.com/windmine/scaffold-pwa-mvp/actions/runs/38648634657) passes both jobs and all 73 real-backend workflows. Preview/live match 85 frozen files and pass 75 shell-asset and seven installer-artifact checks each; the new live waiting-update probe passes four checks. Strict hardening passes 40 checks with the existing six-hour recovery-history warning.
 
-Backend `geo-backend-fixes-20261012` remains at 100% without tags, with matching before/after service status. No backend deployment, migration, production fixture writes or existing-user login occurred; no new database inventory comparison is claimed. Authenticated production and physical-phone checks remain unverified. Previous exact Hosting `3de58c285d322d0f` remains in `release-ux-20261014` until `2026-10-21T00:37:46.043748963Z`; reverify before use and preserve the current backend and device state. [Release evidence](evidence/frontend-clear-release-20261014/release.json).
+At that October 14 frontend cutover, backend `geo-backend-fixes-20261012` remained at 100% without tags, with matching before/after service status. No backend deployment, migration, production fixture writes or existing-user login occurred; no new database inventory comparison is claimed. Authenticated production and physical-phone checks remain unverified. Previous exact Hosting `3de58c285d322d0f` remains in `release-ux-20261014` until `2026-10-21T00:37:46.043748963Z`; reverify before use and preserve the current backend and device state. [Release evidence](evidence/frontend-clear-release-20261014/release.json).
 
 ### Earlier Frontend Release - Report UX, 2026-10-14
 
@@ -57,9 +69,9 @@ Exact previous October 5 Hosting `ba2962f66af41dcb` is retained in `rollback-ui-
 
 The rollback-channel CLI can attempt Firebase Auth domain synchronization. The read-only inspection returned `SERVICE_DISABLED`, so present/absent domain state and prior Auth configuration are not claimed. No API enablement or domain removal was performed; the preview uses `--no-authorized-domains`. [Scoped inspection](evidence/frontend-release-20261012/rollback-auth-domain-inspection.json).
 
-### Current backend: 2026-10-12 evidence authorization and Chinese PDF fixes
+### Historical backend: 2026-10-12 evidence authorization and Chinese PDF fixes
 
-Committed/pushed backend source `c5b7ab56a54cb786042b592fb06288a5e7c18990` is live as `geo-backend-fixes-20261012` at **100% traffic without tags**. Promotion was requested at **2026-10-12T00:00:52.248902Z** and verified at **00:01:06.464920Z** (October 12 NZDT). Build `41751c09-1397-45f2-acff-c8080f148793` produced image `sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4`. This backend-only release changes no migration, runtime configuration or Hosting files. At this backend-only cutover, October 5 Hosting `ba2962f66af41dcb` and cache `leader-field-7a709da8321a` remained live. The later October 12 frontend release above supersedes that shell while retaining this backend.
+At the October 12 cutover, committed/pushed backend source `c5b7ab56a54cb786042b592fb06288a5e7c18990` was live as `geo-backend-fixes-20261012` at **100% traffic without tags**. Promotion was requested at **2026-10-12T00:00:52.248902Z** and verified at **00:01:06.464920Z** (October 12 NZDT). Build `41751c09-1397-45f2-acff-c8080f148793` produced image `sha256:90b34975add60e7e002f921d5395a8940daf13e7baf0c90c3b1ca2a6f86c63f4`. This backend-only release changes no migration, runtime configuration or Hosting files. At this backend-only cutover, October 5 Hosting `ba2962f66af41dcb` and cache `leader-field-7a709da8321a` remained live. The later October 12 frontend release superseded that shell while retaining this backend; the October 20 SMTP release above now supersedes this backend.
 
 The released backend ties Department media access to actual record evidence and the record's Department, preventing a Staff transfer from exposing historical photos/signatures. Upload creators/global admins retain access; other Supervisors cannot inspect unsubmitted uploads. Ordinary answer text cannot grant image access, and signature permissions use the frozen Definition rather than the current Template. Legacy signatures without a trustworthy snapshot remain owner/global-only; conservative cleanup preserves their bytes. No database migration or content backfill is included.
 

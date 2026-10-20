@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "buildId": "78f4d6a2-cad0-4dd3-bbd5-daa44558e200",
+  "sourceCommit": "89c1d5e81017ea87b10f690116d11bec66573ff1",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:d35069fcbd55009a7f9da20db661acbe49ed8cdd511402e0801b6b2fe527acf6",
+  "exactImageMockedSmtpTests": 10,
+  "networkDisabledDuringImageTests": true
+}
