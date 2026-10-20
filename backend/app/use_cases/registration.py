@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import secrets
 import smtplib
+import ssl
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 
@@ -14,6 +15,7 @@ from app.config import (
     REGISTRATION_CODE_TTL_MINUTES,
     REGISTRATION_COMPLETE_TTL_MINUTES,
     REGISTRATION_EXPOSE_CODE,
+    REGISTRATION_EMAIL_ENABLED,
     REGISTRATION_MAX_ATTEMPTS,
     REGISTRATION_RESEND_SECONDS,
     SMTP_FROM_EMAIL,
@@ -60,13 +62,24 @@ def smtp_is_configured():
     return bool(SMTP_HOST and SMTP_FROM_EMAIL)
 
 
-def send_verification_email(email: str, code: str):
-    if not smtp_is_configured():
+def registration_email_ready():
+    if not REGISTRATION_EMAIL_ENABLED or not smtp_is_configured():
         if PRODUCTION_LIKE:
             raise HTTPException(
                 status_code=503,
                 detail="Registration email service is not configured",
             )
+        return False
+    if not SMTP_USE_SSL and not SMTP_USE_STARTTLS:
+        raise HTTPException(
+            status_code=503,
+            detail="Registration email service requires TLS",
+        )
+    return True
+
+
+def send_verification_email(email: str, code: str):
+    if not registration_email_ready():
         return
 
     message = EmailMessage()
@@ -79,10 +92,14 @@ def send_verification_email(email: str, code: str):
     )
 
     smtp_class = smtplib.SMTP_SSL if SMTP_USE_SSL else smtplib.SMTP
+    tls_context = ssl.create_default_context()
+    smtp_options = {"timeout": 15}
+    if SMTP_USE_SSL:
+        smtp_options["context"] = tls_context
     try:
-        with smtp_class(SMTP_HOST, SMTP_PORT, timeout=15) as smtp:
+        with smtp_class(SMTP_HOST, SMTP_PORT, **smtp_options) as smtp:
             if SMTP_USE_STARTTLS and not SMTP_USE_SSL:
-                smtp.starttls()
+                smtp.starttls(context=tls_context)
             if SMTP_USERNAME:
                 smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
             smtp.send_message(message)
@@ -94,6 +111,9 @@ def send_verification_email(email: str, code: str):
 
 
 def start_registration(data, session: Session):
+    # Fail before identity lookup, token generation or writes in production.
+    # Development retains its synthetic-code flow without sending email.
+    registration_email_ready()
     email, name = normalize_identity(data.email, data.name)
     existing_user = session.exec(
         select(User).where(User.email == email)

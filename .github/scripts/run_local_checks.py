@@ -16,6 +16,7 @@ BACKEND_SUITES = (
     "maintenance_test.py",
     "migration_test.py",  # Includes CLI and durable purpose-correction checks.
     "security_test.py",
+    "registration_email_test.py",
     "upload_storage_test.py",
     "work_form_definition_test.py",
     "review_queue_test.py",
@@ -59,6 +60,7 @@ def isolated_environment(directory):
         "UPLOAD_STORAGE_BACKEND": "local", "UPLOAD_DIR": str(directory / "uploads"),
         "UPLOAD_BUCKET": "", "UPLOAD_OBJECT_PREFIX": "uploads",
         "SMTP_HOST": "", "SMTP_USERNAME": "", "SMTP_PASSWORD": "", "SMTP_FROM_EMAIL": "",
+        "REGISTRATION_EMAIL_ENABLED": "false",
         "GOOGLE_APPLICATION_CREDENTIALS": "", "API_BASE_URL": "http://127.0.0.1:8000",
         "VITE_API_PROXY_TARGET": "http://127.0.0.1:8000", "VITE_DISABLE_HTTPS": "true",
     })

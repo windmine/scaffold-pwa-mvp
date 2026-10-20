@@ -1197,7 +1197,7 @@ Public self-registration is temporarily hidden during the invited-account pilot.
 3. `POST /auth/register` accepts the registration token, password, and selected `department_id`, then creates the worker with `resigned` status.
 4. A supervisor reviews and reactivates the worker before the worker can sign in.
 
-Verification codes expire, are attempt-limited, and cannot be reused. In local development, `REGISTRATION_EXPOSE_CODE=true` returns `dev_verification_code` so the dormant flow can be tested without SMTP. Production never exposes the code; configure `SMTP_HOST` and `SMTP_FROM_EMAIL` before verified email registration is exposed again.
+Verification codes expire, are attempt-limited, and cannot be reused. In local development, `REGISTRATION_EXPOSE_CODE=true` returns `dev_verification_code` so the dormant flow can be tested without SMTP. `REGISTRATION_EMAIL_ENABLED` defaults to `false`: configuring SMTP credentials does not activate public-registration email. Production rejects a disabled or unconfigured registration request before identity lookup or writes. A future explicit registration rollout must enable this separate flag and configure the sender. SMTP requires certificate-verified TLS and rejects plaintext authentication. Current Worker invitations and Report PDF downloads do not send email.
 
 New-Worker invitation endpoints (released with migration `0021`):
 
