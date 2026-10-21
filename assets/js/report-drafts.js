@@ -4,8 +4,8 @@ function id(value) {
 }
 
 function workerScope(worker) {
-  if (worker?.role !== 'worker' || !id(worker.id) || !id(worker.departmentId)) return null;
-  return { workerId: id(worker.id), departmentId: id(worker.departmentId) };
+  if (!['worker', 'supervisor'].includes(worker?.role) || !id(worker.id) || !id(worker.departmentId)) return null;
+  return { workerId: id(worker.id), departmentId: id(worker.departmentId), role: worker.role };
 }
 
 function isObject(value) {
@@ -31,6 +31,7 @@ function hasTemplatePurpose(value) {
 function isOrdinaryDraft(value, scope) {
   return isObject(value)
     && value.kind === 'work-form'
+    && (value.ownerRole || 'worker') === scope.role
     && value.schemaVersion === 1
     && !value.isDraftRecovery
     && id(value.ownerWorkerId) === scope.workerId
@@ -61,7 +62,7 @@ export function isReportDraftForWorker(value, worker, template) {
 export function reportDraftKeyForWorker(value, worker) {
   const scope = workerScope(worker);
   if (!scope || !isOrdinaryDraft(value, scope)) return '';
-  if (value.uploadRecovery === undefined) return `work-form-draft:${scope.workerId}:${value.formId}`;
+  if (value.uploadRecovery === undefined) return `work-form-draft:${scope.role === 'supervisor' ? 'supervisor:' : ''}${scope.workerId}:${value.formId}`;
   const recovery = value.uploadRecovery;
   const boundedKey = (key) => typeof key === 'string' && key.trim() === key && key.length > 0 && key.length <= 120;
   if (!isObject(recovery)
@@ -75,7 +76,7 @@ export function reportDraftKeyForWorker(value, worker) {
     || recovery.omittedPhotos.some((photo) => !isObject(photo)
       || !Number.isSafeInteger(photo.index) || photo.index < 0
       || typeof photo.name !== 'string' || typeof photo.reason !== 'string' || !photo.reason.trim())) return '';
-  return `work-form-recovery:${scope.workerId}:${scope.departmentId}:${recovery.sourceRecordId}`;
+  return `work-form-recovery:${scope.role === 'supervisor' ? 'supervisor:' : ''}${scope.workerId}:${scope.departmentId}:${recovery.sourceRecordId}`;
 }
 
 function text(value) {

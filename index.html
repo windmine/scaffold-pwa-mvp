@@ -757,6 +757,7 @@
               <a href="#adminOverview" data-admin-workspace-target="overview" aria-current="page" data-report-only-hidden><strong>Overview</strong><small>Live status and scope</small></a>
               <a href="#adminReviewWorkspace" data-admin-workspace-target="review"><strong data-full-text="Review" data-report-only-text="Reports">Reports</strong><small data-full-text="Queues, maps and corrections" data-report-only-text="Review submitted reports">Review submitted reports</small></a>
               <a href="#adminReportsWorkspace" data-admin-workspace-target="reports" data-report-only-hidden><strong>Reports</strong><small>Analytics and exports</small></a>
+              <a href="#adminSubmitWorkspace" data-admin-workspace-target="submit" data-report-only-visible><strong>Submit form</strong><small>Submit a report as yourself</small></a>
               <a href="#adminFormsWorkspace" data-admin-workspace-target="forms"><strong data-full-text="Report Templates" data-report-only-text="Report Templates">Report Templates</strong><small data-full-text="Create and manage templates" data-report-only-text="Create and manage templates">Create and manage templates</small></a>
               <a href="#adminPeopleWorkspace" data-admin-workspace-target="people"><strong data-full-text="People &amp; Sites" data-report-only-text="Staff">Staff</strong><small data-full-text="Teams and job locations" data-report-only-text="Manage report access">Manage report access</small></a>
               <a href="#adminAuditWorkspace" data-admin-workspace-target="audit" data-report-only-hidden><strong>Audit</strong><small>Changes and deleted records</small></a>
@@ -783,6 +784,7 @@
               <a href="#adminOverview" data-admin-workspace-target="overview" aria-current="page" data-report-only-hidden><strong>Overview</strong><small>Live status and scope</small></a>
               <a href="#adminReviewWorkspace" data-admin-workspace-target="review"><strong data-full-text="Review" data-report-only-text="Reports">Reports</strong><small data-full-text="Queues, maps and corrections" data-report-only-text="Review submitted reports">Review submitted reports</small></a>
               <a href="#adminReportsWorkspace" data-admin-workspace-target="reports" data-report-only-hidden><strong>Reports</strong><small>Analytics and exports</small></a>
+              <a href="#adminSubmitWorkspace" data-admin-workspace-target="submit" data-report-only-visible><strong>Submit form</strong><small>Submit a report as yourself</small></a>
               <a href="#adminFormsWorkspace" data-admin-workspace-target="forms"><strong data-full-text="Report Templates" data-report-only-text="Report Templates">Report Templates</strong><small data-full-text="Create and manage templates" data-report-only-text="Create and manage templates">Create and manage templates</small></a>
               <a href="#adminPeopleWorkspace" data-admin-workspace-target="people"><strong data-full-text="People &amp; Sites" data-report-only-text="Staff">Staff</strong><small data-full-text="Teams and job locations" data-report-only-text="Manage report access">Manage report access</small></a>
               <a href="#adminAuditWorkspace" data-admin-workspace-target="audit" data-report-only-hidden><strong>Audit</strong><small>Changes and deleted records</small></a>
@@ -1309,6 +1311,18 @@
             </div>
           </details>
               </div>
+            </section>
+
+            <section id="adminSubmitWorkspace" class="admin-workspace-panel supervisor-self-submit" data-admin-workspace-panel="submit" aria-labelledby="adminSubmitWorkspaceTitle" data-report-only-visible hidden>
+              <header class="admin-workspace-heading">
+                <h2 id="adminSubmitWorkspaceTitle" tabindex="-1">Submit form</h2>
+                <p class="muted">Reports are submitted as you, using active templates in your home Department. Review filters do not change this scope.</p>
+              </header>
+              <div class="tabs" role="tablist" aria-label="Your report submissions">
+                <button type="button" class="tab active" data-own-report-tab-target="formTab" role="tab" aria-controls="formTab" aria-selected="true">New Report</button>
+                <button type="button" class="tab" data-own-report-tab-target="historyTab" role="tab" aria-controls="historyTab" aria-selected="false">My Reports</button>
+              </div>
+              <div id="supervisorOwnReportPanels"></div>
             </section>
 
             <section id="adminFormsWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="forms" aria-labelledby="adminFormsWorkspaceTitle" hidden>

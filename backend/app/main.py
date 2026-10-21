@@ -58,6 +58,7 @@ from app.schemas import (
     WorkFormCreate,
     WorkFormSubmissionCreate,
     WorkFormUpdate,
+    WorkFormEmailSettings,
     WorkerInvitationCreateRequest,
     WorkerInvitationEmailRequest,
     WorkerInvitationTokenRequest,
@@ -162,7 +163,10 @@ CSRF_EXEMPT_PATHS = {
 
 def apply_upload_cache_policy(request_path: str, response: Response):
     normalized_path = request_path[4:] if request_path.startswith("/api/") else request_path
-    if normalized_path == "/my-form-submissions/by-client-id":
+    if normalized_path == "/my-form-submissions/by-client-id" or normalized_path.startswith("/supervisor/my-report-submissions"):
+        response.headers["Cache-Control"] = "private, no-store"
+    if normalized_path in {"/work-forms", "/supervisor/review-queue"} or normalized_path.startswith("/supervisor/work-forms"):
+        # Supervisor-only recipient settings must not enter shared caches.
         response.headers["Cache-Control"] = "private, no-store"
     if normalized_path.startswith("/uploads/") and response.status_code >= 400:
         response.headers["Cache-Control"] = "private, no-store"
@@ -613,17 +617,22 @@ def update_site(
     return staff_site_admin_use_cases.update_site(site_id, data, supervisor, session)
 
 
-def require_report_recovery_identity(request: Request, user: User):
+def require_report_recovery_identity(request: Request, user: User, allow_supervisor: bool = False,
+                                     required: bool = False):
     workers = request.headers.getlist("X-Report-Recovery-Worker")
     departments = request.headers.getlist("X-Report-Recovery-Department")
-    if not workers and not departments:
+    roles = request.headers.getlist("X-Report-Recovery-Role")
+    if not workers and not departments and not roles and not required:
         return
     # These optional headers bind a recovered attempt to its captured identity,
     # rather than trusting whichever account a shared browser cookie now holds.
     # Reject partial, duplicated or non-canonical scope before any side effect.
     if (
         len(workers) != 1 or len(departments) != 1
-        or user.role != "worker" or not user.department_id
+        or len(roles) > 1
+        or (roles[0] if roles else "worker") != user.role
+        or user.role not in ({"worker", "supervisor"} if allow_supervisor else {"worker"})
+        or not user.department_id
         or workers[0] != str(user.id) or departments[0] != str(user.department_id)
     ):
         raise HTTPException(status_code=409, detail={
@@ -638,7 +647,7 @@ async def upload_photo(
     file: UploadFile = File(...),
     user: User = Depends(get_current_user)
 ):
-    require_report_recovery_identity(request, user)
+    require_report_recovery_identity(request, user, allow_supervisor=True)
     try:
         stored = await store_verified_raster_upload(file, uploaded_by=user.id)
     except UploadTooLargeError as error:
@@ -1121,6 +1130,42 @@ def create_work_form_submission(
 ):
     require_report_recovery_identity(request, user)
     return work_form_use_cases.create_work_form_submission(data, user, session, include_replay_marker=True)
+
+
+@app.put("/supervisor/work-forms/{form_id}/pdf-email")
+def update_work_form_email_settings(
+    form_id: int,
+    data: WorkFormEmailSettings,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session),
+):
+    from app.use_cases.report_pdf_email import update_email_settings
+    return update_email_settings(form_id, data, supervisor, session)
+
+
+@app.post("/supervisor/my-report-submissions")
+def create_supervisor_own_report(
+    data: WorkFormSubmissionCreate,
+    request: Request,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session),
+):
+    require_report_recovery_identity(request, supervisor, allow_supervisor=True, required=True)
+    return work_form_use_cases.create_work_form_submission(
+        data, supervisor, session, include_replay_marker=True, supervisor_self=True,
+    )
+
+
+@app.get("/supervisor/my-report-submissions/by-client-id")
+def get_supervisor_own_report_by_client_id(
+    client_submission_id: str,
+    purpose: str,
+    supervisor: User = Depends(require_supervisor),
+    session: Session = Depends(get_session),
+):
+    return work_form_use_cases.find_my_report_submission_by_client_id(
+        client_submission_id, supervisor, session, purpose=purpose, supervisor_self=True,
+    )
 
 
 @app.post("/supervisor/form-submissions")

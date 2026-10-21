@@ -31,7 +31,7 @@ const stubs = {
     export function saveTemplateDraft() { throw new Error('Recovery must not save drafts'); }
     export function removeTemplateDraft() { throw new Error('Recovery must not remove drafts'); }`
 };
-const allowedModules = new Set(['staff-sites.js', 'worker-invitation-dialog.js', 'api-client.js', 'ui-feedback.js', 'i18n.js', 'utils.js']);
+const allowedModules = new Set(['staff-sites.js', 'worker-invitation-dialog.js', 'report-pdf-email.js', 'api-client.js', 'ui-feedback.js', 'i18n.js', 'utils.js']);
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext();
 let users;

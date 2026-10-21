@@ -81,7 +81,8 @@ function reportRecoveryHeaders(scope) {
   }
   return {
     "X-Report-Recovery-Worker": String(scope.workerId),
-    "X-Report-Recovery-Department": String(scope.departmentId)
+    "X-Report-Recovery-Department": String(scope.departmentId),
+    ...(scope.role ? { "X-Report-Recovery-Role": scope.role } : {})
   };
 }
 
@@ -497,10 +498,16 @@ export async function updateWorkForm(formId, form) {
 }
 
 export async function createFormSubmission(submission, recoveryScope = null) {
-  return await apiFetch("/form-submissions", {
+  return await apiFetch(recoveryScope?.role === "supervisor" ? "/supervisor/my-report-submissions" : "/form-submissions", {
     method: "POST",
     headers: reportRecoveryHeaders(recoveryScope),
     body: JSON.stringify(submission)
+  });
+}
+
+export async function updateWorkFormEmailSettings(formId, settings) {
+  return await apiFetch(`/supervisor/work-forms/${formId}/pdf-email`, {
+    method: 'PUT', body: JSON.stringify({ ...settings, confirmed: true })
   });
 }
 
@@ -524,7 +531,8 @@ export async function getMyReportSubmissionByClientId(clientSubmissionId) {
   const query = new URLSearchParams({ client_submission_id: clientSubmissionId, purpose: "report" });
   // A generic 404 may be an old backend, not proof that the Report is absent.
   // Keep all failures explicit and require the caller to validate the envelope.
-  return await apiFetch(`/my-form-submissions/by-client-id?${query}`, { cache: "no-store" });
+  const path = getSession()?.role === "supervisor" ? "/supervisor/my-report-submissions" : "/my-form-submissions";
+  return await apiFetch(`${path}/by-client-id?${query}`, { cache: "no-store" });
 }
 
 export async function getSupervisorFormSubmissions(purpose = "") {

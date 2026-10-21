@@ -200,6 +200,9 @@ class WorkForm(SQLModel, table=True):
     definition_version: int = Field(default=1)
     status: str = Field(default="active", index=True)
     template_purpose: str = Field(default="report", index=True)
+    pdf_email_enabled: bool = Field(default=False)
+    pdf_email_recipient: Optional[str] = None
+    pdf_email_version: int = Field(default=1)
     created_by: Optional[int] = Field(default=None, index=True)
 
     created_at: datetime = Field(
@@ -249,6 +252,27 @@ class WorkFormSubmission(SQLModel, table=True):
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
+
+
+class ReportPdfEmail(SQLModel, table=True):
+    """One durable attempt per newly submitted Report; never a retroactive queue."""
+    __table_args__ = (CheckConstraint(
+        "status IN ('pending', 'accepted', 'failed', 'uncertain')",
+        name="ck_reportpdfemail_status",
+    ),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    submission_id: int = Field(unique=True, index=True)
+    department_id: int = Field(index=True)
+    recipient: str
+    template_email_version: int
+    snapshot_json: str = Field(sa_column=Column(Text, nullable=False))
+    status: str = Field(default="pending", index=True)
+    failure_code: Optional[str] = None
+    message_id: str
+    attempted_at: Optional[datetime] = None
+    accepted_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class TeamWorkLog(SQLModel, table=True):

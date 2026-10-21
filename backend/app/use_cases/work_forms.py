@@ -6,7 +6,7 @@ from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from app.models import AuditEvent, User, WorkForm, WorkFormSubmission
+from app.models import AuditEvent, Site, User, WorkForm, WorkFormSubmission
 from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
     VALID_REPORT_WORKFLOW_STATUSES,
@@ -47,7 +47,7 @@ def list_work_forms(user: User, session: Session, purpose: str | None = None):
     forms = session.exec(statement).all()
 
     return [
-        work_form_response(form, session)
+        work_form_response(form, session, include_email_settings=user.role == "supervisor")
         for form in forms
     ]
 
@@ -90,7 +90,7 @@ def create_work_form(data, supervisor: User, session: Session):
     session.commit()
     session.refresh(form)
 
-    return work_form_response(form, session)
+    return work_form_response(form, session, include_email_settings=True)
 
 
 def update_work_form(form_id: int, data, supervisor: User, session: Session):
@@ -189,7 +189,7 @@ def update_work_form(form_id: int, data, supervisor: User, session: Session):
     session.commit()
     session.refresh(form)
 
-    return work_form_response(form, session)
+    return work_form_response(form, session, include_email_settings=True)
 
 
 def _trashed_submission_purpose_for_client_id(
@@ -231,10 +231,18 @@ def _report_recovery_key_conflict():
     })
 
 
-def create_work_form_submission(data, user: User, session: Session, include_replay_marker: bool = False):
-    require_worker(user)
+def create_work_form_submission(data, user: User, session: Session, include_replay_marker: bool = False,
+                                supervisor_self: bool = False):
+    if supervisor_self:
+        if user.role != "supervisor" or not user.department_id:
+            raise HTTPException(status_code=403, detail="A Supervisor home Department is required")
+    else:
+        require_worker(user)
 
     def response(submission, replay=False):
+        if supervisor_self and (submission.submission_purpose != "report"
+                                or submission.department_id != user.department_id):
+            raise HTTPException(status_code=409, detail="Submission belongs to a different scope")
         result = work_form_submission_response(submission, session)
         if include_replay_marker and submission.submission_purpose == "report":
             # Transport metadata only: the immutable Report and read APIs are
@@ -258,6 +266,8 @@ def create_work_form_submission(data, user: User, session: Session, include_repl
     if not form or form.status != "active" or not can_access_department(user, form.department_id):
         raise HTTPException(status_code=404, detail="Report Template not found")
     submission_purpose = form.template_purpose or "report"
+    if supervisor_self and (submission_purpose != "report" or form.department_id != user.department_id):
+        raise HTTPException(status_code=404, detail="Active home Department Report Template not found")
     if submission_purpose == "daywork":
         require_leader(user)
     if submission_purpose == "report":
@@ -302,6 +312,10 @@ def create_work_form_submission(data, user: User, session: Session, include_repl
                     "current_definition_version": definition["version"],
                 },
             )
+    if supervisor_self and data.site_id is not None:
+        site = session.get(Site, data.site_id)
+        if not site or site.department_id != user.department_id:
+            raise HTTPException(status_code=404, detail="Home Department Site not found")
     ensure_site_exists(session, data.site_id, user)
     answers = validate_work_form_answers(definition, data.answers)
     photo_urls = normalize_work_form_photo_urls(data.photo_urls, purpose=submission_purpose)
@@ -330,6 +344,10 @@ def create_work_form_submission(data, user: User, session: Session, include_repl
     )
     session.add(submission)
     try:
+        session.flush()
+        if submission_purpose == "report":
+            from app.use_cases.report_pdf_email import enqueue_report_pdf
+            enqueue_report_pdf(submission, form, session)
         session.commit()
     except IntegrityError:
         session.rollback()
@@ -451,8 +469,13 @@ def find_my_report_submission_by_client_id(
     user: User,
     session: Session,
     purpose: str,
+    supervisor_self: bool = False,
 ):
-    require_worker(user)
+    if supervisor_self:
+        if user.role != "supervisor" or not user.department_id:
+            raise HTTPException(status_code=403, detail="A Supervisor home Department is required")
+    else:
+        require_worker(user)
     if purpose != "report":
         raise HTTPException(status_code=400, detail="purpose must be report")
     if (
@@ -469,6 +492,8 @@ def find_my_report_submission_by_client_id(
         )
     ).first()
     if submission:
+        if supervisor_self and submission.department_id != user.department_id:
+            raise HTTPException(status_code=409, detail="Submission belongs to a different scope")
         if submission.submission_purpose != "report":
             raise _report_recovery_key_conflict()
         deleted = submission.deleted_at is not None
@@ -500,6 +525,8 @@ def list_my_form_submissions(
         WorkFormSubmission.worker_id == user.id,
         WorkFormSubmission.deleted_at.is_(None),
     )
+    if user.role == "supervisor":
+        statement = statement.where(WorkFormSubmission.department_id == user.department_id)
     normalized_purpose = normalize_work_form_purpose(purpose)
     if normalized_purpose:
         statement = statement.where(

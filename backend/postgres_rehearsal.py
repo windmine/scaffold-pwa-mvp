@@ -55,12 +55,12 @@ def command(arguments, environment, timeout=45):
     return transcript.strip()
 
 
-def rehearsal(pg_bin, *, migrations_only=False, review_only=False):
+def rehearsal(pg_bin, *, migrations_only=False, review_only=False, pdf_email_only=False):
     # Clear libpq settings in Python too, not just in initdb/pg_ctl children.
     # Explicit hostaddr below also defeats settings reintroduced by dotenv files.
     environment = {key: value for key, value in os.environ.items() if not key.upper().startswith("PG")}
     with patch.dict(os.environ, environment, clear=True):
-        return _rehearsal(pg_bin, migrations_only=migrations_only, review_only=review_only)
+        return _rehearsal(pg_bin, migrations_only=migrations_only, review_only=review_only, pdf_email_only=pdf_email_only)
 
 
 def _clear_service_environment():
@@ -70,7 +70,7 @@ def _clear_service_environment():
     os.environ.pop("PGSERVICEFILE", None)
 
 
-def _rehearsal(pg_bin, *, migrations_only=False, review_only=False):
+def _rehearsal(pg_bin, *, migrations_only=False, review_only=False, pdf_email_only=False):
     tools = postgres_tools(pg_bin)
     root = Path(tempfile.mkdtemp(prefix=PREFIX)).resolve()
     owner = secrets.token_hex(16)
@@ -90,7 +90,7 @@ def _rehearsal(pg_bin, *, migrations_only=False, review_only=False):
         "isolation": "new local cluster, loopback only, synthetic data, non-superuser database owner",
         "checks": [],
         "failures": [],
-        "scope": "migrations" if migrations_only else "review" if review_only else "full_release",
+        "scope": "pdf_email" if pdf_email_only else "migrations" if migrations_only else "review" if review_only else "full_release",
         "passed": False,
         "cleanup_complete": False,
     }
@@ -156,19 +156,24 @@ def _rehearsal(pg_bin, *, migrations_only=False, review_only=False):
         }
         with patch.dict(os.environ, runtime):
             phases = []
-            if not review_only:
+            if not review_only and not pdf_email_only:
                 from postgres_migration_rehearsal import run_migration_checks
                 phases.append(("migrations", run_migration_checks))
-            if not migrations_only:
+            if not migrations_only and not pdf_email_only:
                 from postgres_review_rehearsal import run_review_checks
                 phases.append(("review", run_review_checks))
-            if not migrations_only and not review_only:
+            if not migrations_only and not review_only and not pdf_email_only:
                 from postgres_invitation_rehearsal import run_invitation_checks
                 from postgres_template_edit_rehearsal import run_template_edit_checks
                 from postgres_password_recovery_rehearsal import run_password_recovery_checks
+                from postgres_report_pdf_email_rehearsal import run_pdf_email_checks
                 phases.append(("invitations", run_invitation_checks))
                 phases.append(("template_edits", run_template_edit_checks))
                 phases.append(("password_recovery", run_password_recovery_checks))
+                phases.append(("report_pdf_email", run_pdf_email_checks))
+            if pdf_email_only:
+                from postgres_report_pdf_email_rehearsal import run_pdf_email_checks
+                phases.append(("report_pdf_email", run_pdf_email_checks))
             for phase, run_checks in phases:
                 try:
                     _clear_service_environment()
@@ -211,10 +216,11 @@ def main():
     scope = parser.add_mutually_exclusive_group()
     scope.add_argument("--migrations-only", action="store_true", help="Run migration rehearsal without concurrent review")
     scope.add_argument("--review-only", action="store_true", help="Run migrated concurrent-review fixtures without historical backfill checks")
+    scope.add_argument("--pdf-email-only", action="store_true", help="Run the PDF email migration and mocked outbox concurrency checks")
     args = parser.parse_args()
     if args.output and args.output.exists():
         parser.error("--output already exists; choose a new evidence file")
-    evidence = rehearsal(args.pg_bin.resolve(), migrations_only=args.migrations_only, review_only=args.review_only)
+    evidence = rehearsal(args.pg_bin.resolve(), migrations_only=args.migrations_only, review_only=args.review_only, pdf_email_only=args.pdf_email_only)
     evidence["source_commit"] = command(["git", "-C", REPOSITORY, "rev-parse", "HEAD"], os.environ.copy())
     evidence["source_dirty"] = bool(command(["git", "-C", REPOSITORY, "status", "--porcelain"], os.environ.copy()))
     evidence["source_sha256"] = {
@@ -222,6 +228,10 @@ def main():
         for path in sorted([*BACKEND.glob("postgres*_rehearsal.py"), BACKEND / "app" / "migrations.py",
                             BACKEND / "app" / "models.py", BACKEND / "app" / "schemas.py",
                             BACKEND / "app" / "use_cases" / "work_forms.py",
+                            BACKEND / "app" / "use_cases" / "report_pdf_email.py",
+                            BACKEND / "app" / "email_transport.py",
+                            BACKEND / "app" / "report_pdf_email_worker.py",
+                            BACKEND / "report_pdf_email_migration_checks.py",
                             BACKEND / "app" / "use_cases" / "worker_invitations.py",
                             BACKEND / "app" / "use_cases" / "worker_password_recovery.py",
                             BACKEND / "app" / "auth.py", BACKEND / "app" / "main.py",

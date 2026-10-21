@@ -38,7 +38,11 @@ def require_smtp_configuration():
     validate_mailbox(SMTP_FROM_EMAIL)
 
 
-def send_email(recipient, subject, body):
+MAX_PDF_ATTACHMENT_BYTES = 10 * 1024 * 1024
+MAX_EMAIL_BYTES = 15 * 1024 * 1024
+
+
+def send_email(recipient, subject, body, *, pdf_attachment=None, filename="report.pdf", message_id=None):
     """Return only after SMTP acceptance; this does not establish delivery."""
     require_smtp_configuration()
     validate_mailbox(recipient)
@@ -46,7 +50,15 @@ def send_email(recipient, subject, body):
     message["From"] = SMTP_FROM_EMAIL
     message["To"] = recipient
     message["Subject"] = subject
+    if message_id:
+        message["Message-ID"] = message_id
     message.set_content(body)
+    if pdf_attachment is not None:
+        if not isinstance(pdf_attachment, bytes) or not pdf_attachment.startswith(b"%PDF-") or len(pdf_attachment) > MAX_PDF_ATTACHMENT_BYTES:
+            raise EmailSendError()
+        message.add_attachment(pdf_attachment, maintype="application", subtype="pdf", filename=filename)
+    if len(message.as_bytes()) > MAX_EMAIL_BYTES:
+        raise EmailSendError()
     context = ssl.create_default_context()
     options = {"timeout": 15}
     if SMTP_USE_SSL:

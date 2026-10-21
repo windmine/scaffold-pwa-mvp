@@ -16,6 +16,7 @@ import { setTranslatableText } from './i18n.js';
 import { createPhotoPreviewSources, reportPhotoSources } from './report-photo-evidence.js';
 import { mountReportPhotoGallery } from './report-photo-gallery.js';
 import { reportWaitingAgeLabel } from './report-review-age.js';
+import { reportPdfEmailStatus } from './report-pdf-email.js';
 
 function getBackendSiteId(siteId) {
   if (!siteId) return null;
@@ -364,6 +365,9 @@ export function createHistoryModule({
   reportOnly = false,
   onAttendanceContextChanged = () => {}
 }) {
+  const canReadOwnReports = (user = state.user) => user?.role === 'worker' || (reportOnly && user?.role === 'supervisor');
+  const ownedLocalReport = (record, user) => (record.ownerRole || 'worker') === user.role
+    && (user.role !== 'supervisor' || String(record.departmentId || '') === String(user.departmentId || ''));
   let workerSummaryRenderId = 0;
   let workerHistoryRenderId = 0;
   let workerHistoryRequestId = 0;
@@ -523,6 +527,7 @@ export function createHistoryModule({
         ['approved', 'rejected'].includes(record.status) ? 'resolved' : 'submitted'
       ),
       supervisorNote: record.supervisor_note || '',
+      pdfEmail: record.pdf_email || null,
       reviewingSupervisorId: record.reviewing_supervisor_id,
       reviewingSupervisorName: record.reviewing_supervisor_name || '',
       reviewStartedAt: record.review_started_at || '',
@@ -586,13 +591,13 @@ export function createHistoryModule({
   }
 
   async function getWorkerHistoryRecords() {
-    const worker = state.user;
-    if (!worker || worker.role !== 'worker') return [];
+    const worker = { ...state.user };
+    if (!canReadOwnReports(worker)) return [];
     const requestSession = sessionGeneration;
     const requestId = ++workerHistoryRequestId;
     const workerScopeStillActive = () => (
       requestSession === sessionGeneration
-      && state.user?.role === 'worker'
+      && canReadOwnReports() && state.user.role === worker.role
       && String(state.user.id) === String(worker.id)
       && String(state.user.departmentId || '') === String(worker.departmentId || '')
     );
@@ -605,7 +610,7 @@ export function createHistoryModule({
         ]);
         if (!workerScopeStillActive()) return [];
         const pendingLocalReports = localRecords.filter((record) => (
-          record.type === 'form'
+          record.type === 'form' && ownedLocalReport(record, worker)
           && recordSubmissionPurpose(record) === 'report'
           && ['queued', 'syncing'].includes(record.syncStatus)
         ));
@@ -662,7 +667,7 @@ export function createHistoryModule({
       if (!workerScopeStillActive()) return [];
       if (reportOnly) {
         return mergeWorkerHistoryRecords(localRecords.filter((record) => (
-          record.type === 'form'
+          record.type === 'form' && ownedLocalReport(record, worker)
           && recordSubmissionPurpose(record) === 'report'
           && ['queued', 'syncing'].includes(record.syncStatus)
         )));
@@ -743,14 +748,15 @@ export function createHistoryModule({
   }
 
   async function renderHistory() {
-    if (state.user?.role !== 'worker') return;
+    if (!canReadOwnReports()) return;
     const renderId = ++workerHistoryRenderId;
     const workerId = state.user.id;
     const workerDepartmentId = state.user.departmentId;
+    const authorRole = state.user.role;
     const records = await getWorkerHistoryRecords();
     if (
       renderId !== workerHistoryRenderId
-      || state.user?.role !== 'worker'
+      || !canReadOwnReports() || state.user.role !== authorRole
       || String(state.user?.id || '') !== String(workerId)
       || String(state.user?.departmentId || '') !== String(workerDepartmentId || '')
     ) return;
@@ -759,7 +765,7 @@ export function createHistoryModule({
   }
 
   function renderFilteredHistory() {
-    if (state.user?.role !== 'worker') state.historyRecords = [];
+    if (!canReadOwnReports()) state.historyRecords = [];
     const filters = getHistoryFilters();
     const filterSummary = document.getElementById('historyFilterSummary');
     if (reportOnly && filterSummary) {
@@ -833,9 +839,10 @@ export function createHistoryModule({
   function workerRecordScope(node, record) {
     const session = sessionGeneration;
     const workerId = String(state.user?.id || '');
+    const authorRole = state.user?.role;
     const departmentId = String(state.user?.departmentId || '');
     return () => session === sessionGeneration && node.isConnected
-      && state.user?.role === 'worker' && String(state.user.id) === workerId
+      && canReadOwnReports() && state.user.role === authorRole && String(state.user.id) === workerId
       && String(state.user.departmentId || '') === departmentId
       && String(record.userId || '') === workerId
       && (record.departmentId == null || String(record.departmentId) === departmentId);
@@ -894,9 +901,10 @@ export function createHistoryModule({
   function renderCompactReportCard(container, record, options) {
     const session = sessionGeneration;
     const workerId = String(state.user?.id || '');
+    const authorRole = state.user?.role;
     const departmentId = String(state.user?.departmentId || '');
     if (
-      state.user?.role !== 'worker'
+      !canReadOwnReports()
       || String(record.userId || '') !== workerId
       || (record.departmentId != null && String(record.departmentId) !== departmentId)
     ) return;
@@ -964,7 +972,7 @@ export function createHistoryModule({
 
     const currentScope = () => (
       session === sessionGeneration
-      && state.user?.role === 'worker'
+      && canReadOwnReports() && state.user.role === authorRole
       && String(state.user.id) === workerId
       && String(state.user.departmentId || '') === departmentId
       && node.isConnected
@@ -1168,6 +1176,8 @@ export function createHistoryModule({
         ? record.supervisorNote || 'No supervisor note was recorded.'
         : '';
       extra.innerHTML = `
+        ${state.user?.role === 'supervisor' && record.type === 'form' && recordSubmissionPurpose(record) === 'report' && record.pdfEmail
+          ? `<p class="report-pdf-email-status"><span>${escapeHtml(reportPdfEmailStatus(record.pdfEmail))}</span>${record.pdfEmail.recipient ? `<br><span>PDF recipient:</span> <span data-no-i18n>${escapeHtml(record.pdfEmail.recipient)}</span>` : ''}</p>` : ''}
         ${!simplifyReport ? `<p><strong>Type:</strong> ${record.type === 'attendance' ? escapeHtml(record.action === 'check_in' ? 'Check in' : 'Check out') : record.type === 'form' ? 'Report' : record.type === 'team_log' ? 'Weekly team log' : 'Task log'}</p>` : ''}
         ${record.entrySource === 'supervisor_manual' ? `<p><strong>Entry source:</strong> ${record.type === 'attendance' ? 'Manual supervisor attendance' : 'Admin-entered approved log'}${record.createdBySupervisorName ? ` by ${escapeHtml(record.createdBySupervisorName)}` : ''}${record.type === 'attendance' ? '; no GPS was captured.' : '; no approval is required.'}</p>` : ''}
         ${record.type === 'attendance' && record.location ? `<p><strong>Location:</strong> ${record.location.latitude}, ${record.location.longitude} (${record.location.accuracy}m)</p>` : ''}

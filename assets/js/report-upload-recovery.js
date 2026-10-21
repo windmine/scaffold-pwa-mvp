@@ -40,7 +40,7 @@ function validFields(fields) {
 }
 
 export function isRecoverableQueuedReport(record, worker) {
-  return worker?.role === 'worker' && positiveId(worker.id) && positiveId(worker.departmentId)
+  return ['worker', 'supervisor'].includes(worker?.role) && (record?.ownerRole || 'worker') === worker.role && positiveId(worker.id) && positiveId(worker.departmentId)
     && record?.type === 'form'
     && (record.submissionPurpose || record.submission_purpose) === 'report'
     && positiveId(record.formId)
@@ -56,7 +56,7 @@ export function reportRecoveryDraftKey(record, worker) {
   if (!boundedKey(sourceId) || !positiveId(worker?.id) || !positiveId(worker?.departmentId)) {
     throw recoveryError(UNSAFE_RECOVERY_MESSAGE);
   }
-  return `work-form-recovery:${worker.id}:${worker.departmentId}:${sourceId}`;
+  return `work-form-recovery:${worker.role === 'supervisor' ? 'supervisor:' : ''}${worker.id}:${worker.departmentId}:${sourceId}`;
 }
 
 export function validateReportRecoveryLookup(result, record, worker) {
@@ -312,6 +312,7 @@ export async function prepareReportRecoveryDraft(record, worker, { assertCurrent
   const recoveredAt = new Date().toISOString();
   return { key, value: {
     kind: 'work-form', schemaVersion: 1, ownerWorkerId: worker.id, departmentId: worker.departmentId,
+    ...(worker.role === 'supervisor' ? { ownerRole: 'supervisor' } : {}),
     templatePurpose: 'report', formId: record.formId, formName: record.formName || 'Report',
     definitionVersion: record.definitionVersion ?? null, fields, siteId: record.siteId == null ? '' : String(record.siteId),
     workDate: record.workDate || '', answers, photoBlobs, photoDataUrls: [], photoMetadata, savedAt: recoveredAt,

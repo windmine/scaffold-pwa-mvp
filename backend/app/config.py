@@ -160,3 +160,5 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", SMTP_USERNAME).strip()
 SMTP_USE_SSL = bool_env("SMTP_USE_SSL", False)
 SMTP_USE_STARTTLS = bool_env("SMTP_USE_STARTTLS", not SMTP_USE_SSL)
+# Enable only on an explicitly provisioned dispatcher, never implicitly with SMTP.
+REPORT_PDF_EMAIL_WORKER_ENABLED = bool_env("REPORT_PDF_EMAIL_WORKER_ENABLED", False)

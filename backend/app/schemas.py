@@ -223,6 +223,13 @@ class WorkFormUpdate(BaseModel):
     confirmed: bool = False
 
 
+class WorkFormEmailSettings(BaseModel):
+    enabled: bool
+    recipient: Optional[str] = Field(default=None, max_length=254)
+    expected_version: int = Field(ge=1)
+    confirmed: bool = False
+
+
 class WorkFormSubmissionCreate(BaseModel):
     form_id: int = Field(ge=1)
     expected_definition_version: Optional[int] = Field(default=None, ge=1)

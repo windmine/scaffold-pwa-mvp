@@ -20,7 +20,8 @@ const fields = [
 ];
 const templates = [
   { id: 81, department_id: 2, name: 'Site safety inspection', description, fields,
-    status: 'active', template_purpose: 'report', definition_version: 4 },
+    status: 'active', template_purpose: 'report', definition_version: 4,
+    pdf_email: { enabled: false, recipient: null, version: 1 } },
   { id: 82, department_id: 2, name: '<img src=x onerror=alert(1)> Gear check',
     description: '<svg onload=alert(2)> Mutual scaffold equipment & PPE',
     fields: [{ id: 'hostile', type: 'text', label: '<img src=x onerror=alert(3)> Detailed equipment check' }],
@@ -73,6 +74,15 @@ async function fixture(browser, { reportOnly = true } = {}) {
       const created = { status: 'active', template_purpose: 'report', ...body, id: 100, department_id: 2, definition_version: 1 };
       forms.push(created);
       return json(created);
+    }
+    const emailMatch = /^\/api\/supervisor\/work-forms\/(\d+)\/pdf-email$/.exec(url.pathname);
+    if (emailMatch && request.method() === 'PUT') {
+      const body = request.postDataJSON();
+      mutations.push({ id: Number(emailMatch[1]), method: request.method(), body });
+      if (holdMutations) await new Promise((resolve) => held.push(resolve));
+      const form = forms.find((item) => item.id === Number(emailMatch[1]));
+      form.pdf_email = { enabled: body.enabled, recipient: body.recipient, version: body.expected_version + 1 };
+      return json(form);
     }
     const match = /^\/api\/supervisor\/work-forms\/(\d+)$/.exec(url.pathname);
     if (match && request.method() === 'PATCH') {
@@ -508,6 +518,33 @@ try {
     assert.equal(created.mutations[0].body.name, 'Fresh library Template');
     console.log('ok - publishing a new Template restores the Active library so its new card is immediately discoverable');
   } finally { await created.close(); }
+
+  const email = await fixture(browser);
+  try {
+    const { page } = email;
+    const settings = card(page, templates[0].name).locator('.pdf-email-settings');
+    await settings.locator('summary').click();
+    assert.equal(await settings.locator('[data-pdf-email-enabled]').isChecked(), false);
+    await settings.locator('[data-pdf-email-enabled]').check();
+    await settings.locator('[data-pdf-email-recipient]').fill('report@example.invalid');
+    email.hold();
+    await settings.locator('button').click();
+    await page.waitForFunction(() => document.querySelector('[data-pdf-email-recipient]').disabled);
+    assert.equal((await page.evaluate(() => window.fixture.staff.prepareForNavigation())).safe, false);
+    await page.locator('#workFormSearchInput').fill('first aid');
+    await email.release();
+    await page.waitForFunction(() => !document.querySelector('#workFormNameInput').disabled);
+    await page.evaluate(() => window.fixture.refreshWorkForms());
+    await resetFilters(page);
+    const restored = card(page, templates[0].name).locator('.pdf-email-settings');
+    await restored.locator('summary').click();
+    assert.equal(await restored.locator('[data-pdf-email-enabled]').isChecked(), true);
+    assert.equal(await restored.locator('[data-pdf-email-recipient]').inputValue(), 'report@example.invalid');
+    assert.equal(email.mutations.length, 1);
+    assert.equal(email.mutations[0].method, 'PUT');
+    assert.equal(await page.evaluate(() => window.fixture.state.workForms.find((item) => item.id === 81).definition_version), 4);
+    console.log('ok - saved Template email settings use their own version; filtering during save cannot strand navigation or change questions');
+  } finally { await email.close(); }
 
   const layout = await fixture(browser);
   try {

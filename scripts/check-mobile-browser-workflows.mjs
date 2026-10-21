@@ -740,7 +740,7 @@ check('Reports allow a visible 50-photo batch without expanding retained limits'
 check('report-only mode exposes only report, template, and staff navigation', () => (
   sourceApp.includes("const REPORT_ONLY_MODE = typeof window.__REPORT_ONLY_MODE_OVERRIDE__ === 'boolean'")
   && sourceApp.includes("const REPORT_ONLY_WORKER_TABS = new Set(['formTab', 'historyTab'])")
-  && sourceApp.includes("const REPORT_ONLY_ADMIN_WORKSPACES = new Set(['review', 'forms', 'people'])")
+  && sourceApp.includes("const REPORT_ONLY_ADMIN_WORKSPACES = new Set(['review', 'submit', 'forms', 'people'])")
   && sourceApp.includes("const DEFAULT_ADMIN_WORKSPACE = REPORT_ONLY_MODE ? 'review' : 'overview'")
   && sourceApp.includes("els.historyTypeFilter.value = 'form'")
   && sourceApp.includes("els.supervisorTypeFilter.value = 'form'")

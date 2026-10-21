@@ -36,8 +36,8 @@ const STORAGE_REASONS = {
   unknown: 'Storage space could not be checked. This large photo batch may not save.'
 };
 
-function workFormDraftKey(workerId, formId) {
-  return `${WORK_FORM_DRAFT_PREFIX}:${workerId}:${formId}`;
+function workFormDraftKey(workerId, formId, role = 'worker') {
+  return `${WORK_FORM_DRAFT_PREFIX}:${role === 'supervisor' ? 'supervisor:' : ''}${workerId}:${formId}`;
 }
 
 function definitionVersion(form) {
@@ -82,7 +82,12 @@ export function createWorkerFormModule({
   onSupervisorWorkFormsChanged = () => {},
   onWorkFormsChanged = () => {}
 }) {
+  const canAuthor = (user = state.user) => user?.role === 'worker' || (reportOnly && user?.role === 'supervisor');
+  const allowedTemplate = (form) => form.status === 'active' && (!reportOnly || formPurpose(form) === 'report')
+    && (state.user?.role !== 'supervisor' || (reportOnly && formPurpose(form) === 'report'
+      && String(form.department_id ?? form.departmentId ?? '') === String(state.user.departmentId || '')));
   let renderedWorkForm = null;
+  let renderedAuthorRole = null;
   let renderedDraftKey = '';
   let autosaveTimer = null;
   let selectionToken = 0;
@@ -199,7 +204,7 @@ export function createWorkerFormModule({
     const options = [`<option value="">${emptyTemplateOption}</option>`]
       .concat(
         state.workForms
-          .filter((form) => form.status === 'active' && (!reportOnly || formPurpose(form) === 'report'))
+          .filter(allowedTemplate)
           .map((form) => `<option value="${form.id}">${escapeHtml(form.name)}</option>`)
       )
       .join('');
@@ -207,22 +212,22 @@ export function createWorkerFormModule({
     els.workFormSelect.innerHTML = options;
     els.workFormSelect.value = state.workForms.some((form) => (
       String(form.id) === selectedValue
-      && form.status === 'active'
-      && (!reportOnly || formPurpose(form) === 'report')
+      && allowedTemplate(form)
     ))
       ? selectedValue
       : '';
   }
 
   function selectedWorkForm(formId = els.workFormSelect.value) {
-    return state.workForms.find((form) => String(form.id) === String(formId));
+    return state.workForms.find((form) => String(form.id) === String(formId)
+      && (state.user?.role !== 'supervisor' || allowedTemplate(form)));
   }
 
   function draftStateFor(form, workerId = state.user?.id, requestedKey = '') {
     if (!form || workerId == null) return null;
     const key = requestedKey || (String(renderedWorkForm?.id) === String(form.id)
       && String(workerId) === String(state.user?.id) && renderedDraftKey)
-      || workFormDraftKey(workerId, form.id);
+      || workFormDraftKey(workerId, form.id, state.user?.role);
     if (!draftStates.has(key)) {
       draftStates.set(key, {
         key,
@@ -240,7 +245,7 @@ export function createWorkerFormModule({
   }
 
   function activeDraftState() {
-    if (!renderedWorkForm || state.user?.role !== 'worker') return null;
+    if (!renderedWorkForm || !canAuthor() || state.user.role !== renderedAuthorRole) return null;
     return draftStateFor(renderedWorkForm);
   }
 
@@ -251,6 +256,7 @@ export function createWorkerFormModule({
       schemaVersion: WORK_FORM_DRAFT_SCHEMA_VERSION,
       ownerWorkerId: draftState.ownerWorkerId,
       departmentId: state.user.departmentId,
+      ...(state.user.role === 'supervisor' ? { ownerRole: 'supervisor' } : {}),
       templatePurpose: formPurpose(form),
       formId: form.id,
       formName: form.name,
@@ -853,7 +859,7 @@ export function createWorkerFormModule({
     const requestedFormId = els.workFormSelect.value;
     const requestedDraftKey = options.draftKey || (options.normalDraft !== true
       && String(renderedWorkForm?.id) === String(requestedFormId) && renderedDraftKey)
-      || workFormDraftKey(state.user?.id, requestedFormId);
+      || workFormDraftKey(state.user?.id, requestedFormId, state.user?.role);
     const token = ++selectionToken;
     if (options.preserveCurrent !== false) feedback.clearLocal(els.workFormFeedback);
 
@@ -874,11 +880,12 @@ export function createWorkerFormModule({
     resetDraftSurface();
     renderWorkFormFields(els.workFormFields, form, { container: els.workFormFields });
     renderedWorkForm = form || null;
+    renderedAuthorRole = state.user?.role;
     renderedDraftKey = form ? requestedDraftKey : '';
     setSubmitActionLabel();
     updatePhotoRemovalControls();
     showDefaultAutosaveStatus();
-    if (!form || state.user?.role !== 'worker') return;
+    if (!form || !canAuthor()) return;
 
     const draftState = draftStateFor(form, state.user.id, renderedDraftKey);
     await restoreSelectedDraft(form, draftState, token);
@@ -890,14 +897,15 @@ export function createWorkerFormModule({
     onReportTemplateSourceChanged({
       source,
       savedAt,
-      templateCount: state.workForms.filter((form) => form.status === 'active' && formPurpose(form) === 'report').length
+      templateCount: state.workForms.filter((form) => form.status === 'active' && formPurpose(form) === 'report'
+        && (state.user?.role !== 'supervisor' || allowedTemplate(form))).length
     });
   }
 
   async function applyRefreshedWorkForms(workForms, isCurrentSession) {
     // A refresh may replace the Definition used by the visible Report. Save the
     // original fields/answers/evidence before the existing version guard runs.
-    if (state.user?.role === 'worker') {
+    if (canAuthor()) {
       if (reloadLocked || state.submittingWorkForm) return false;
       try {
         await flushPendingDrafts();
@@ -965,6 +973,10 @@ export function createWorkerFormModule({
           return true;
         }
       }
+      if (reportOnly && state.user.role === 'supervisor') {
+        setReportTemplateSource(state.workForms.some(allowedTemplate) ? 'offline' : 'unavailable');
+        renderStatusBanner('Connect to load active Report Templates for your home Department.', true, { local: els.workFormFeedback });
+      }
       if (state.user.role === 'worker') {
         state.workForms = [];
         renderWorkFormOptions();
@@ -992,7 +1004,7 @@ export function createWorkerFormModule({
   }
 
   function hasOfflineTemplates() {
-    return reportOnly && state.user?.role === 'worker' && reportTemplateSource === 'offline';
+    return reportOnly && canAuthor() && reportTemplateSource === 'offline';
   }
 
   async function refreshAfterReconnect() {
@@ -1001,7 +1013,7 @@ export function createWorkerFormModule({
 
   function draftScopeStillActive(worker, generation) {
     return generation === sessionGeneration
-      && state.user?.role === 'worker'
+      && canAuthor() && state.user.role === worker.role
       && String(state.user.id) === String(worker.id)
       && String(state.user.departmentId || '') === String(worker.departmentId || '');
   }
@@ -1009,9 +1021,9 @@ export function createWorkerFormModule({
   async function renderDraftList({ flush = false } = {}) {
     if (!reportOnly || !els.reportDraftsPanel) return;
     const request = ++draftListRequest;
-    const worker = state.user;
+    const worker = { ...state.user };
     const generation = sessionGeneration;
-    if (worker?.role !== 'worker') {
+    if (!canAuthor(worker)) {
       els.reportDraftsPanel.hidden = true;
       els.reportDraftsList.replaceChildren();
       return;
@@ -1067,7 +1079,7 @@ export function createWorkerFormModule({
   }
 
   async function continueReportDraft(formId, requestedKey = '') {
-    if (!reportOnly || state.user?.role !== 'worker' || draftContinueInFlight || recoveryInFlight || reloadLocked || state.submittingWorkForm) return false;
+    if (!reportOnly || !canAuthor() || draftContinueInFlight || recoveryInFlight || reloadLocked || state.submittingWorkForm) return false;
     const worker = { ...state.user };
     const generation = sessionGeneration;
     draftContinueInFlight = true;
@@ -1075,7 +1087,7 @@ export function createWorkerFormModule({
       await flushPendingDrafts();
       if (!draftScopeStillActive(worker, generation)) return false;
       const form = selectedWorkForm(formId);
-      const key = requestedKey || workFormDraftKey(worker.id, formId);
+      const key = requestedKey || workFormDraftKey(worker.id, formId, worker.role);
       const draft = await getDraft(key);
       if (!draftScopeStillActive(worker, generation) || reloadLocked || state.submittingWorkForm) return false;
       if (submittedDraftsPendingCleanup.has(key) || !isReportDraftForWorker(draft, worker, form)
@@ -1107,7 +1119,7 @@ export function createWorkerFormModule({
   }
 
   async function recoverFailedReport(record, recover) {
-    if (!reportOnly || state.user?.role !== 'worker' || typeof recover !== 'function'
+    if (!reportOnly || !canAuthor() || typeof recover !== 'function'
       || draftContinueInFlight || recoveryInFlight || reloadLocked || state.submittingWorkForm) {
       throw new Error('Finish the current Report operation before recovering this upload.');
     }
@@ -1185,13 +1197,13 @@ export function createWorkerFormModule({
     const sameSavedIdentity = () => {
       try {
         const current = getSession();
-        return current?.role === 'worker' && current.status === 'active'
+        return current?.role === scope.role && current.status === 'active'
           && String(current.id) === scope.workerId
           && String(current.departmentId || '') === scope.departmentId;
       } catch { return false; }
     };
     const isCurrent = () => token === photoSelectionToken && activeDraftState() === draftState
-      && scope.generation === sessionGeneration && state.user?.role === 'worker'
+      && scope.generation === sessionGeneration && canAuthor() && state.user.role === scope.role
       && String(state.user.id) === scope.workerId && String(state.user.departmentId || '') === scope.departmentId
       && (formPurpose(renderedWorkForm) !== 'report' || sameSavedIdentity());
     if (!isCurrent()) return;
@@ -1326,7 +1338,7 @@ export function createWorkerFormModule({
     markActiveDraftDirty({ capture: false });
     const token = photoSelectionToken;
     const scope = { generation: sessionGeneration, storageGeneration: photoStorageGeneration,
-      workerId: String(state.user?.id), departmentId: String(state.user?.departmentId || '') };
+      workerId: String(state.user?.id), departmentId: String(state.user?.departmentId || ''), role: state.user?.role };
     const reportPhotos = formPurpose(renderedWorkForm) === 'report';
     if (reportPhotos) photoStoragePending += 1;
     // Complete selections in order. A second picker event must not cancel an
@@ -1444,9 +1456,9 @@ export function createWorkerFormModule({
     const submittedDraft = draftStateFor(form);
     const submittedSessionGeneration = sessionGeneration;
     const submittedSelection = selectionToken;
-    const submittedWorker = { id: state.user.id, name: state.user.fullName, departmentId: state.user.departmentId };
+    const submittedWorker = { id: state.user.id, name: state.user.fullName, departmentId: state.user.departmentId, role: state.user.role };
     const isCurrentSubmission = () => sessionGeneration === submittedSessionGeneration
-      && state.user?.role === 'worker'
+      && canAuthor() && state.user.role === submittedWorker.role
       && String(state.user.id) === String(submittedWorker.id)
       && String(state.user.departmentId || '') === String(submittedWorker.departmentId || '');
     const isCurrentCapture = () => isCurrentSubmission()
@@ -1537,6 +1549,7 @@ export function createWorkerFormModule({
         userId: submittedWorker.id,
         userName: submittedWorker.name,
         departmentId: submittedWorker.departmentId,
+        ...(submittedWorker.role === 'supervisor' ? { ownerRole: 'supervisor' } : {}),
         ...(submittedDraft.snapshot?.uploadRecovery ? {
           uploadRecovery: structuredClone(submittedDraft.snapshot.uploadRecovery),
           clientSubmissionId: submittedDraft.snapshot.uploadRecovery.clientSubmissionId
@@ -1709,7 +1722,7 @@ export function createWorkerFormModule({
     els.workFormSubmissionForm.addEventListener('input', handleDraftMutation);
     els.workFormSubmissionForm.addEventListener('change', handleDraftMutation);
     window.addEventListener('offline', () => {
-      if (reportOnly && state.user?.role === 'worker' && reportTemplateSource === 'online') {
+      if (reportOnly && canAuthor() && reportTemplateSource === 'online') {
         setReportTemplateSource('offline', reportTemplatesSavedAt);
       }
     });

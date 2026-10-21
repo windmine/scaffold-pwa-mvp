@@ -2532,6 +2532,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     if (
       JSON.stringify(supervisorShell.navigation) !== JSON.stringify([
         { target: 'review', label: 'Reports' },
+        { target: 'submit', label: 'Submit form' },
         { target: 'forms', label: 'Report Templates' },
         { target: 'people', label: 'Staff' }
       ])
@@ -7653,6 +7654,7 @@ async function checkSupervisorWorkspaceNavigation(browser) {
       desktopNavVisible: getComputedStyle(document.querySelector('.admin-desktop-nav')).display !== 'none',
       mobileToolbarVisible: getComputedStyle(document.querySelector('.admin-mobile-toolbar')).display !== 'none',
       targets: [...document.querySelectorAll('.admin-desktop-nav [data-admin-workspace-target]')]
+        .filter((link) => link.getClientRects().length)
         .map((link) => link.dataset.adminWorkspaceTarget),
       visiblePanels: [...document.querySelectorAll('[data-admin-workspace-panel]')]
         .filter((panel) => !panel.hidden)
@@ -7774,7 +7776,7 @@ async function checkSupervisorWorkspaceNavigation(browser) {
     await page.locator('#adminMobileMenuButton').click();
     await page.locator('#adminWorkspaceDrawer[open]').waitFor({ state: 'visible' });
     const drawerTargets = await page.locator('#adminWorkspaceDrawer [data-admin-workspace-target]').evaluateAll(
-      (links) => links.map((link) => link.dataset.adminWorkspaceTarget)
+      (links) => links.filter((link) => link.getClientRects().length).map((link) => link.dataset.adminWorkspaceTarget)
     );
     if (JSON.stringify(drawerTargets) !== JSON.stringify(expectedWorkspaces)) {
       throw new Error(`mobile workspace drawer targets were incomplete: ${JSON.stringify(drawerTargets)}`);
@@ -9002,6 +9004,154 @@ async function checkChineseTranslation(browser) {
   }
 }
 
+async function checkSupervisorSelfSubmission(browser) {
+  const context = await newContext(browser, { reportOnly: true, viewport: { width: 1440, height: 1000 }, isMobile: false });
+  const page = await context.newPage();
+  const answer = `Supervisor own report ${Date.now()}`;
+  try {
+    await loginAs(page, 'supervisor@example.com', 'supervisor');
+    const fixture = await page.evaluate(async () => {
+      const api = await import('/assets/js/api-client.js');
+      const user = api.getSession();
+      const form = await api.createWorkForm({ name: `Supervisor self submission ${Date.now()}`, fields: [
+        { id: 'details', label: 'Inspection details', type: 'textarea', required: true },
+        { id: 'signature', label: 'Your signature', type: 'signature', required: true }
+      ] });
+      return { user, form };
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#supervisorView').waitFor({ state: 'visible' });
+    await openAdminWorkspace(page, 'submit');
+    await selectWorkFormWhenReady(page, { label: fixture.form.name });
+    await page.locator('#workFormField_details').fill(answer);
+    const signature = page.locator('#workFormField_signature');
+    await signature.focus();
+    await page.keyboard.press('Space');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Shift+ArrowDown');
+    await page.keyboard.press('Enter');
+    await selectReportPhoto(page, 'supervisor-evidence.png', '#0891b2');
+    await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+    await page.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
+    await openAdminWorkspace(page, 'review');
+    await openAdminWorkspace(page, 'submit');
+    if (await page.locator('#workFormField_details').inputValue() !== answer) throw new Error('review navigation lost own Report');
+    const draft = await page.evaluate(async ({ user, form }) => {
+      const { getDraft } = await import('/assets/js/mock-api.js');
+      return await getDraft(`work-form-draft:supervisor:${user.id}:${form.id}`);
+    }, fixture);
+    if (draft?.ownerRole !== 'supervisor' || draft.answers.details !== answer || draft.photoBlobs.length !== 1
+      || !draft.answers.signature?.startsWith('data:image/')) throw new Error('Supervisor draft did not preserve identity and evidence');
+    const screenshotRoot = String(process.env.BROWSER_WORKFLOW_SCREENSHOT_DIR || '').trim();
+    if (screenshotRoot) {
+      mkdirSync(resolve(screenshotRoot), { recursive: true });
+      await page.screenshot({ path: join(resolve(screenshotRoot), 'supervisor-submit-desktop.png'), fullPage: true });
+      await page.setViewportSize({ width: 390, height: 844 });
+      if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) throw new Error('Supervisor Submit form overflows phone width');
+      await page.screenshot({ path: join(resolve(screenshotRoot), 'supervisor-submit-phone.png'), fullPage: true });
+      await page.locator('#languageToggleButton').click();
+      await page.screenshot({ path: join(resolve(screenshotRoot), 'supervisor-submit-phone-zh.png'), fullPage: true });
+      await page.locator('#languageToggleButton').click();
+    }
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#supervisorView').waitFor({ state: 'visible' });
+    await openAdminWorkspace(page, 'submit');
+    await selectWorkFormWhenReady(page, { label: fixture.form.name });
+    await page.waitForFunction((expected) => document.querySelector('#workFormField_details')?.value === expected, answer);
+    await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+    await context.setOffline(true);
+    await reviewAndSubmitReport(page);
+    await waitForQueueCount(page, 1, { atLeast: true });
+    await page.locator('#adminSubmitWorkspace [data-own-report-tab-target="historyTab"]').click();
+    await page.locator('#historyList').getByText(fixture.form.name, { exact: true }).waitFor();
+    const queued = await page.evaluate(async () => {
+      const { getAll } = await import('/assets/js/db.js');
+      return (await getAll('records')).find((record) => record.ownerRole === 'supervisor' && record.syncStatus === 'queued');
+    });
+    if (queued.ownerWorkerId !== fixture.user.id || String(queued.departmentId) !== String(fixture.user.departmentId)) throw new Error('queued Supervisor ownership changed');
+    const responsePromise = page.waitForResponse((response) => response.request().method() === 'POST'
+      && new URL(response.url()).pathname === '/api/supervisor/my-report-submissions', { timeout: 30000 });
+    await context.setOffline(false);
+    const response = await responsePromise;
+    if (!response.ok()) throw new Error(`self submission failed ${response.status()}: ${await response.text()}`);
+    const report = await response.json();
+    if (report.worker_id !== fixture.user.id || report.department_id !== fixture.user.departmentId
+      || report.answers.details !== answer || report.photo_urls.length !== 1 || !report.answers.signature.startsWith('/uploads/')
+      || report.submission_purpose !== 'report' || report.workflow_status !== 'submitted') throw new Error('submitted Supervisor Report changed ownership/content');
+    await waitForQueueCount(page, 0);
+    const replay = await page.evaluate(async ({ report, user }) => {
+      const api = await import('/assets/js/api-client.js');
+      const result = await api.createFormSubmission({ form_id: report.form_id, client_submission_id: report.client_submission_id,
+        work_date: report.work_date, answers: { details: 'Must not replace accepted Report' } },
+      { workerId: user.id, departmentId: user.departmentId, role: 'supervisor' });
+      const history = await api.getMyFormSubmissions('report');
+      return { result, count: history.filter((item) => item.client_submission_id === report.client_submission_id).length };
+    }, { report, user: fixture.user });
+    if (replay.count !== 1 || !replay.result.idempotent_replay || replay.result.answers.details !== answer) throw new Error('Supervisor replay duplicated or mutated Report');
+    await logout(page);
+    await loginAs(page, 'worker@example.com', 'worker');
+    await selectWorkFormWhenReady(page, { label: fixture.form.name });
+    if (await page.locator('#workFormField_details').inputValue() !== '') throw new Error('Worker inherited Supervisor draft');
+    const workerHistory = await page.evaluate(async () => (await import('/assets/js/api-client.js')).getMyFormSubmissions('report'));
+    if (workerHistory.some((item) => item.id === report.id)) throw new Error('Worker received Supervisor Report');
+    if (!await page.locator('#workerView #workFormSubmissionForm').isVisible()) throw new Error('shared editor did not return to Worker shell');
+  } finally { await context.close(); }
+}
+
+async function checkSupervisorOwnScope(browser) {
+  const context = await newContext(browser, { reportOnly: true, viewport: { width: 1280, height: 900 }, isMobile: false });
+  const page = await context.newPage();
+  try {
+    await loginAs(page, 'admin@example.com', 'supervisor');
+    const fixtureAccount = await page.evaluate(async () => {
+      const api = await import('/assets/js/api-client.js');
+      const user = api.getSession();
+      const department = (await api.getDepartments()).find((item) => String(item.id) !== String(user.departmentId));
+      const email = `foreign-self-submit-${Date.now()}@example.invalid`;
+      await api.createUser({ name: 'Synthetic foreign Supervisor', email, password: 'Passw0rd!', role: 'supervisor', department_id: department.id });
+      return { email };
+    });
+    const foreignContext = await newContext(browser, { reportOnly: true });
+    try {
+      const foreignPage = await foreignContext.newPage();
+      await loginAs(foreignPage, fixtureAccount.email, 'supervisor');
+      await foreignPage.evaluate(async () => (await import('/assets/js/api-client.js')).createWorkForm({
+        name: `Foreign self-submit scope ${Date.now()}`, fields: [{ id: 'note', label: 'Note', type: 'text' }]
+      }));
+    } finally { await foreignContext.close(); }
+    const identity = await page.evaluate(async () => {
+      const api = await import('/assets/js/api-client.js');
+      const user = api.getSession();
+      const forms = await api.getWorkForms('report');
+      const foreign = forms.find((form) => String(form.department_id) !== String(user.departmentId));
+      if (!foreign) throw new Error('Global fixture needs a foreign Department template');
+      await api.updateDefaultDepartment(foreign.department_id);
+      return { user, forms, foreign };
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#supervisorView').waitFor({ state: 'visible' });
+    await openAdminWorkspace(page, 'submit');
+    await page.waitForFunction(() => document.querySelector('#workFormSelect')?.options.length > 1);
+    const options = await page.locator('#workFormSelect option').evaluateAll((items) => items.map((item) => item.value).filter(Boolean));
+    if (!options.length || options.some((id) => !identity.forms.some((form) => String(form.id) === id
+      && String(form.department_id) === String(identity.user.departmentId) && form.status === 'active' && form.template_purpose === 'report'))) {
+      throw new Error('Global review focus broadened Supervisor own-template choices');
+    }
+    const attempts = await page.evaluate(async ({ user, foreign }) => {
+      const { submitOfflineSubmission } = await import('/assets/js/offline-submissions.js');
+      const base = { id: 'scope-probe', type: 'form', formId: foreign.id, submissionPurpose: 'report',
+        ownerRole: 'supervisor', userId: user.id, departmentId: user.departmentId, createdAt: new Date().toISOString() };
+      const cases = [{ ...base, type: 'attendance' }, { ...base, submissionPurpose: 'daywork' },
+        { ...base, ownerRole: 'worker' }, { ...base, departmentId: foreign.department_id }];
+      let rejected = 0;
+      for (const record of cases) { try { await submitOfflineSubmission(record); } catch { rejected += 1; } }
+      return rejected;
+    }, identity);
+    if (attempts !== 4) throw new Error('Supervisor queue accepted a legacy, cross-role or foreign-Department record');
+    await page.evaluate(async (previous) => (await import('/assets/js/api-client.js')).updateDefaultDepartment(previous), identity.user.dashboardDepartmentId);
+  } finally { await context.close(); }
+}
+
 async function main() {
   await setupServers();
 
@@ -9015,6 +9165,8 @@ async function main() {
   }
 
   try {
+    await runCheck('Supervisor Submit form keeps global review focus separate and rejects legacy queue types', () => checkSupervisorOwnScope(browser));
+    await runCheck('Supervisor Submit form preserves own identity, drafts, photos, signature and offline replay', () => checkSupervisorSelfSubmission(browser));
     await runCheck('action feedback is local, busy, announced, and separate from sync state', () => checkAccessibleActionFeedback(browser));
     await runCheck('Chinese translation covers validation, forms, signatures, and photos', () => checkChineseTranslation(browser));
     await runCheck('required signatures are fully keyboard accessible', () => checkKeyboardAccessibleRequiredSignature(browser));

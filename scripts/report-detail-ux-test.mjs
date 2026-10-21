@@ -428,6 +428,16 @@ try {
     }
   }
   assert.equal(screenshots, 6);
+  await render({ surface: 'supervisor', override: {
+    pdfEmail: { status: 'uncertain', recipient: 'saved-recipient@example.invalid' }
+  } });
+  assert.equal(await details.locator('.report-pdf-email-status').count(), 1);
+  assert.equal(await details.locator('.report-pdf-email-status [data-no-i18n]').innerText(), 'saved-recipient@example.invalid');
+  await render({ surface: 'worker', override: {
+    pdfEmail: { status: 'uncertain', recipient: 'saved-recipient@example.invalid' }
+  } });
+  assert.equal(await history.locator('.report-pdf-email-status').count(), 0);
+  console.log('ok - PDF email status and captured recipient stay Supervisor-only, including after language changes');
   assert.deepEqual(errors, []);
   console.log('ok - six 320px EN/light and 390px ZH/dark warning/resolved layouts have accessible controls, translated chrome and no horizontal overflow');
   console.log(`Report detail UX screenshots: ${output}`);

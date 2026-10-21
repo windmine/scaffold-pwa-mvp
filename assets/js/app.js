@@ -101,7 +101,26 @@ const REPORT_ONLY_MODE = typeof window.__REPORT_ONLY_MODE_OVERRIDE__ === 'boolea
   ? window.__REPORT_ONLY_MODE_OVERRIDE__
   : true;
 const REPORT_ONLY_WORKER_TABS = new Set(['formTab', 'historyTab']);
-const REPORT_ONLY_ADMIN_WORKSPACES = new Set(['review', 'forms', 'people']);
+const REPORT_ONLY_ADMIN_WORKSPACES = new Set(['review', 'submit', 'forms', 'people']);
+
+const canSubmitOwnReport = (user = state.user) => user?.role === 'worker'
+  || (REPORT_ONLY_MODE && user?.role === 'supervisor');
+// Move the single existing editor/history, preserving handlers and draft ownership.
+const ownReportPanels = ['formTab', 'historyTab'].map((id) => {
+  const panel = document.getElementById(id);
+  const home = document.createComment(`${id} home`);
+  panel.before(home);
+  return { panel, home };
+});
+function mountOwnReportPanels() {
+  const supervisor = REPORT_ONLY_MODE && state.user?.role === 'supervisor';
+  const target = document.getElementById('supervisorOwnReportPanels');
+  const moved = supervisor ? ownReportPanels[0].panel.parentElement !== target
+    : ownReportPanels[0].panel.parentElement !== ownReportPanels[0].home.parentElement;
+  if (!moved) return;
+  ownReportPanels.forEach(({ panel, home }) => supervisor ? target.append(panel) : home.after(panel));
+  activateTab('formTab');
+}
 
 const historyModule = createHistoryModule({
   els,
@@ -191,10 +210,19 @@ const workerForm = createWorkerFormModule({
 function renderReportTemplateAvailability({ source, savedAt, templateCount }) {
   const availability = document.getElementById('reportTemplateAvailability');
   if (!availability) return;
-  availability.hidden = !REPORT_ONLY_MODE || state.user?.role !== 'worker';
+  availability.hidden = !REPORT_ONLY_MODE || !canSubmitOwnReport();
   availability.replaceChildren();
   if (availability.hidden) return;
   const message = document.createElement('span');
+  if (state.user?.role === 'supervisor') {
+    message.textContent = source === 'online'
+      ? 'Use an active template from your home Department. Drafts save on this device.'
+      : templateCount ? 'Offline: keep this page open. Saved submissions will sync when you reconnect.'
+        : 'Connect to load active Report Templates for your home Department.';
+    availability.append(message);
+    applyLanguage(availability);
+    return;
+  }
   message.textContent = source === 'online'
     ? templateCount
       ? savedAt
@@ -523,8 +551,8 @@ function bindEvents() {
   els.keepEditingWorkFormButton.addEventListener('click', keepEditingWorkForm);
   bindAdminNavigation();
 
-  document.querySelectorAll('[data-tab-target]').forEach((button) => {
-    button.addEventListener('click', () => activateTab(button.dataset.tabTarget));
+  document.querySelectorAll('[data-tab-target], [data-own-report-tab-target]').forEach((button) => {
+    button.addEventListener('click', () => activateTab(button.dataset.tabTarget || button.dataset.ownReportTabTarget));
   });
 
   window.addEventListener('online', async () => {
@@ -546,6 +574,7 @@ function bindEvents() {
       await historyModule.renderHistory();
     } else {
       await supervisorReviewModule.renderPanel();
+      if (REPORT_ONLY_MODE && state.user === requestUser) await historyModule.renderHistory();
     }
     if (state.user !== requestUser) return;
 
@@ -585,6 +614,7 @@ const ADMIN_WORKSPACES = Object.freeze({
   review: { label: REPORT_ONLY_MODE ? 'Reports' : 'Review', panelId: 'adminReviewWorkspace', headingId: 'adminReviewWorkspaceTitle' },
   reports: { label: 'Reports', panelId: 'adminReportsWorkspace', headingId: 'adminReportsWorkspaceTitle' },
   people: { label: REPORT_ONLY_MODE ? 'Staff' : 'People & Sites', panelId: 'adminPeopleWorkspace', headingId: 'adminPeopleWorkspaceTitle' },
+  submit: { label: 'Submit form', panelId: 'adminSubmitWorkspace', headingId: 'adminSubmitWorkspaceTitle' },
   forms: { label: 'Report Templates', panelId: 'adminFormsWorkspace', headingId: 'adminFormsWorkspaceTitle' },
   audit: { label: 'Audit', panelId: 'adminAuditWorkspace', headingId: 'adminAuditWorkspaceTitle' }
 });
@@ -614,6 +644,7 @@ function applyReportOnlyInterface() {
 }
 
 function adminWorkspaceIsAvailable(workspace) {
+  if (workspace === 'submit') return REPORT_ONLY_MODE;
   return !REPORT_ONLY_MODE || REPORT_ONLY_ADMIN_WORKSPACES.has(workspace);
 }
 
@@ -847,7 +878,11 @@ function fillSiteSelects() {
 
   workerAttendance.renderSiteOptions();
   els.taskSite.innerHTML = options;
-  els.workFormSite.innerHTML = options;
+  els.workFormSite.innerHTML = state.user?.role === 'supervisor'
+    ? '<option value="">Select a site</option>' + state.sites.filter((site) =>
+      String(site.department_id ?? site.departmentId ?? '') === String(state.user.departmentId || ''))
+      .map((site) => `<option value="${site.id}">${escapeHtml(site.name)} - ${escapeHtml(site.address)}</option>`).join('')
+    : options;
 }
 
 async function refreshSitesAfterReconnect() {
@@ -923,6 +958,7 @@ function clearSessionViewState() {
 
 function renderApp() {
   updateTopbar();
+  mountOwnReportPanels();
   if (!state.user) {
     showView('login');
     if (hasPendingAppUpdate()) {
@@ -951,6 +987,7 @@ function renderApp() {
     renderAdminWorkspaceFromLocation({ focus: shouldFocusWorkspace });
     supervisorReviewModule.renderPanel();
     void staffSitesModule.renderTemplateDrafts();
+    if (REPORT_ONLY_MODE) void historyModule.renderHistory();
   }
 
   if (hasPendingAppUpdate()) {
@@ -1304,6 +1341,7 @@ async function handleLogout() {
     }
     if (!readiness.safe) {
       if (readiness.workspace === 'review') supervisorReviewModule.focusNoteEditor();
+      else if (readiness.workspace === 'submit') { activateTab('formTab'); workerForm.focusUnsavedInput(); }
       else activateAdminWorkspace('forms');
       renderStatusBanner(readiness.message, true);
       return;
@@ -1366,6 +1404,8 @@ function handleSessionExpired(message = 'Your backend session expired. Please si
     // Capture synchronously, then clear private UI without waiting on device storage.
     void staffSitesModule.flushTemplateDrafts().catch(() => {});
     void supervisorReviewModule.flushNoteDraft().catch(() => {});
+    void workerForm.flushPendingDrafts().catch(() => {});
+    workerForm.finishRecoveryOnSessionExpiry();
     finish();
     return;
   }
@@ -1598,7 +1638,7 @@ async function handleRetryQueuedRecord() {
 }
 
 async function handleRecoverQueuedReport(record, button) {
-  if (!REPORT_ONLY_MODE || state.user?.role !== 'worker' || !button?.isConnected
+  if (!REPORT_ONLY_MODE || !canSubmitOwnReport() || !button?.isConnected
     || button.getAttribute('aria-busy') === 'true') return;
   const worker = state.user;
   const current = () => state.user === worker;
@@ -1694,9 +1734,12 @@ async function handleSupervisorExportRecord(record, exportType) {
 }
 
 function activateTab(targetId) {
+  if (REPORT_ONLY_MODE && state.user?.role === 'supervisor' && REPORT_ONLY_WORKER_TABS.has(targetId)) {
+    activateAdminWorkspace('submit');
+  }
   if (REPORT_ONLY_MODE && !REPORT_ONLY_WORKER_TABS.has(targetId)) return;
   document.querySelectorAll('.tab').forEach((button) => {
-    const active = button.dataset.tabTarget === targetId;
+    const active = (button.dataset.tabTarget || button.dataset.ownReportTabTarget) === targetId;
     button.classList.toggle('active', active);
     button.setAttribute('aria-selected', String(active));
   });
@@ -1740,7 +1783,7 @@ function showQueueSyncFeedback(status, message, { completed, total, hint = '' } 
 
 function startBackgroundQueueSync() {
   const requestUser = state.user;
-  if (requestUser?.role !== 'worker') return;
+  if (!canSubmitOwnReport(requestUser)) return;
   // Do not renderApp/refresh Templates on completion: the Worker may already
   // be typing a new Report. History has its own session/render-generation guard.
   void syncQueueIfPossible(false).then(async () => {
@@ -1783,7 +1826,7 @@ function syncQueueIfPossible(showMessage) {
 async function performQueueSync(run) {
   const requestUser = run.user;
   const isCurrentRun = () => state.user === requestUser && queueSyncRun === run;
-  if (requestUser?.role === 'worker' && navigator.onLine) {
+  if (canSubmitOwnReport(requestUser) && navigator.onLine) {
     setSyncState('syncing', 'Online - syncing');
     showQueueSyncFeedback('syncing', 'Checking saved submissions...', {
       hint: 'You can keep working. Keep this page open until syncing finishes.'
@@ -1937,7 +1980,9 @@ function keepEditingWorkForm() {
   } else if (state.user?.role === 'supervisor') {
     staffSitesModule.cancelNavigationPreparation();
     supervisorReviewModule.cancelNavigationPreparation();
+    workerForm.cancelAppUpdatePreparation();
     if (appUpdatePausedWorkspace === 'review') supervisorReviewModule.focusNoteEditor();
+    else if (appUpdatePausedWorkspace === 'submit') { activateTab('formTab'); workerForm.focusUnsavedInput(); }
     else activateAdminWorkspace('forms');
   }
 }
@@ -1958,8 +2003,18 @@ async function prepareSupervisorNavigation() {
       staffSitesModule.cancelNavigationPreparation();
       return { ...template, workspace: 'forms' };
     }
+    if (REPORT_ONLY_MODE) {
+      const submission = await workerForm.prepareForAppUpdate();
+      if (!submission.safe) {
+        supervisorReviewModule.cancelNavigationPreparation();
+        staffSitesModule.cancelNavigationPreparation();
+        workerForm.cancelAppUpdatePreparation();
+        return { ...submission, workspace: 'submit' };
+      }
+    }
     return { safe: true };
   } catch {
+    workerForm.cancelAppUpdatePreparation();
     supervisorReviewModule.cancelNavigationPreparation();
     staffSitesModule.cancelNavigationPreparation();
     return {

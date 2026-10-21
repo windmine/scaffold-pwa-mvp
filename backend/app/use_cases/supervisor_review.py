@@ -1590,6 +1590,20 @@ def _stored_inline_form_images(record):
             and re.match(r"^data:image/(?:png|jpeg|webp);base64,", value)}
 
 
+def validate_form_record_evidence(item, record, *, daywork_layout=False):
+    """Validate attachments against one already-authorized saved record."""
+    from app.upload_storage import upload_filename_from_url
+    values = _form_export_image_values(item, daywork_layout=daywork_layout)
+    trusted_uploads = record_evidence_upload_urls(record)
+    inline_images = _stored_inline_form_images(record)
+    for value in values:
+        if isinstance(value, str) and value in inline_images:
+            continue
+        filename = upload_filename_from_url(value)
+        if not filename or value != f"/uploads/{filename}" or value not in trusted_uploads:
+            raise ValueError("Unverified saved evidence")
+
+
 def _validate_form_export_evidence(items, session, supervisor, *, daywork_layout=False):
     """Refuse unverified image embedding before any bytes are loaded/rendered.
 
@@ -1598,22 +1612,12 @@ def _validate_form_export_evidence(items, session, supervisor, *, daywork_layout
     do not let an export reinterpret ordinary text as this record's evidence.
     Missing objects keep the renderer's existing unavailable-image behavior.
     """
-    from app.upload_storage import upload_filename_from_url
-
     for item in items:
         record = session.get(WorkFormSubmission, item["id"])
         if not record or record.deleted_at is not None or not can_access_department(supervisor, record.department_id):
             raise HTTPException(status_code=404, detail="Report not found", headers={"Cache-Control": "private, no-store"})
         try:
-            values = _form_export_image_values(item, daywork_layout=daywork_layout)
-            trusted_uploads = record_evidence_upload_urls(record)
-            inline_images = _stored_inline_form_images(record)
-            for value in values:
-                if isinstance(value, str) and value in inline_images:
-                    continue
-                filename = upload_filename_from_url(value)
-                if not filename or value != f"/uploads/{filename}" or value not in trusted_uploads:
-                    raise ValueError("Unverified saved evidence")
+            validate_form_record_evidence(item, record, daywork_layout=daywork_layout)
         except (ValueError, TypeError, AttributeError):
             raise HTTPException(
                 status_code=409,

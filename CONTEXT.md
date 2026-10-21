@@ -4,6 +4,18 @@ This file defines the product language for the report-only MVP. Use these terms 
 
 ## People And Scope
 
+**Optional Report PDF email (local preparation, not deployed)**:
+Each saved Report Template can have one Supervisor-configured recipient and an
+off-by-default email toggle, saved separately from its questions. Only new durable
+Worker and Supervisor self-submitted Reports enqueue an immutable submitted-version PDF; offline
+replays and existing Reports do not enqueue another email. Supervisor details show
+the captured recipient and pending/accepted/failed/uncertain result; Worker APIs
+omit routing settings. SMTP acceptance is not mailbox delivery. The durable outbox
+and bounded worker require additive migration 0024 and a separately approved
+scheduled runtime before activation. No real email or routing was enabled during
+preparation. Photos/signatures are included, subject to a 10 MiB PDF limit; failures
+do not undo submitted Reports. See [behavior and deployment prerequisites](docs/report-pdf-email.md).
+
 **Worker**:
 A field user who submits Reports from active Department Report Templates and sees only their own Report history. A Worker may be a Normal worker or a Leader; both classes have the same report-only product surface.
 _Avoid_: Staff user when role-specific behaviour matters
@@ -19,7 +31,7 @@ _Avoid_: Treating Leader as a Report approval role
 Released 2026-10-12 presentation refinement (prepared October 8): report-only Staff displays both classes as Worker and omits the class choice. New invited Workers use the existing Normal default; updates omit `worker_class` so the backend retains the current class, including a concurrent authorized class change. Explicit Worker/Supervisor role changes still use the existing backend default/clear policy. No identity or retained permission is rewritten; the full-interface override still manages classes. The Worker header hides the redundant Leader-class badge, not the Leader Department name or global-admin capability.
 
 **Supervisor**:
-An admin user who reviews Department Reports, manages Report Templates, and manages Staff. A Department Supervisor may not read or transition another Department's Reports.
+An admin user who reviews Department Reports, manages Report Templates, and manages Staff. A Department Supervisor may not read or transition another Department's Reports. The local, unreleased Submit form section also permits Reports authored as themselves from active home-Department Templates; global review focus does not broaden submission scope. See [Supervisor self-submission](docs/supervisor-report-submission.md).
 _Avoid_: Approver when describing the Report workflow
 
 **Invited account**:
@@ -67,7 +79,7 @@ _Avoid_: Job or location when the stored Site entity is meant
 ## Field Records
 
 **Report**:
-An immutable Worker submission created from an active Report Template. It contains a required Report Date, optional Site, answers, photos, signatures, an exact Definition snapshot, submission time, and Report workflow state. A Worker can read only their own Reports.
+An immutable self-submission created from an active Report Template. The local unreleased Supervisor section adds authenticated Supervisor authors alongside Workers. It contains a required Report Date, optional Site, answers, photos, signatures, an exact Definition snapshot, submission time, and Report workflow state. A Worker can read only their own Reports.
 The released limit is 50 JPEG/PNG/WebP photos at most 5 MB each; configured handwritten signatures are additional. Retained Daywork/Task Logs keep their eight-photo limit. These limits do not certify physical-phone capacity for maximum-size batches.
 Report Date must be a real calendar date in `YYYY-MM-DD` format, not merely a string matching that shape. Calendar validation introduces no additional past/future date restriction and never rewrites the original date on duplicate replay.
 _Avoid_: Diary, Daywork, Work Form, or approval record in user-facing language

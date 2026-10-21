@@ -137,10 +137,12 @@ def _printable_raster(content, max_width, max_height, *, lossless=False):
             raster.close()
 
 
-def _image(value, image_loader, max_height, *, lossless=False):
+def _image(value, image_loader, max_height, *, lossless=False, strict=False):
     try:
         content = image_loader(value)
         if not content:
+            if strict:
+                raise ValueError("Report evidence unavailable")
             return None
         content, width, height = _printable_raster(
             content, VALUE_WIDTH - 16, max_height, lossless=lossless,
@@ -150,11 +152,13 @@ def _image(value, image_loader, max_height, *, lossless=False):
         result.hAlign = "LEFT"
         return result
     except Exception:
+        if strict:
+            raise ValueError("Report evidence unavailable") from None
         # Missing or damaged evidence must be visible, not silently dropped.
         return None
 
 
-def _answer_rows(fields, answers, styles, image_loader):
+def _answer_rows(fields, answers, styles, image_loader, *, strict=False):
     children = {}
     for field in fields:
         if field.get("repeat"):
@@ -198,7 +202,7 @@ def _answer_rows(fields, answers, styles, image_loader):
                     result.extend([Spacer(1, 6), heading, Spacer(1, 4)])
                     result.extend(render(children.get(field_id, []), row if isinstance(row, dict) else {}))
             elif kind == "signature":
-                evidence = _image(value, image_loader, 94, lossless=True) if value else None
+                evidence = _image(value, image_loader, 94, lossless=True, strict=strict) if value else None
                 content = [evidence] if evidence else (
                     [_paragraph("Signature unavailable.", styles["muted"])] if value else ""
                 )
@@ -214,7 +218,7 @@ def _answer_rows(fields, answers, styles, image_loader):
     return render([field for field in fields if not field.get("repeat")], answers)
 
 
-def _report_story(item, styles, image_loader):
+def _report_story(item, styles, image_loader, *, strict=False):
     story = []
     if item.get("form_description"):
         story.append(_paragraph(item["form_description"], styles["muted"]))
@@ -234,7 +238,7 @@ def _report_story(item, styles, image_loader):
         fields = [{"id": key, "label": label_from_id(key)} for key in answers]
     if not fields or fields[0].get("type") != "section":
         story.append(_paragraph("Report answers", styles["section"]))
-    story.extend(_answer_rows(fields, answers, styles, image_loader) or [
+    story.extend(_answer_rows(fields, answers, styles, image_loader, strict=strict) or [
         _row("Answers", "No answers provided.", styles),
     ])
 
@@ -242,7 +246,7 @@ def _report_story(item, styles, image_loader):
     urls = item.get("photo_urls") or []
     metadata = item.get("photo_metadata") or []
     for index, url in enumerate(urls, start=1):
-        evidence = _image(url, image_loader, 215)
+        evidence = _image(url, image_loader, 215, strict=strict)
         cell = [evidence] if evidence else [_paragraph("Photo unavailable.", styles["muted"])]
         cell.extend([Spacer(1, 5), _paragraph(photo_caption(index, metadata), styles["muted"])])
         story.append(_row(f"Photo {index}", cell, styles))
@@ -339,7 +343,7 @@ def _page_template(index, item, styles):
     return template, overflow
 
 
-def build_report_pdf(items, image_loader=image_bytes_from_value):
+def build_report_pdf(items, image_loader=image_bytes_from_value, *, strict_evidence=False):
     """Return PDF bytes for authorized Reports, each starting on its own page."""
     buffer = BytesIO()
     styles = _styles()
@@ -356,7 +360,7 @@ def build_report_pdf(items, image_loader=image_bytes_from_value):
             story.extend([NextPageTemplate(template.id), PageBreak()])
         story.extend(overflow)
         if item:
-            story.extend(_report_story(item, styles, image_loader))
+            story.extend(_report_story(item, styles, image_loader, strict=strict_evidence))
         else:
             story.append(_paragraph("No Reports found", styles["section"]))
     document.build(story, canvasmaker=_NumberedCanvas)

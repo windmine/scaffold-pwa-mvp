@@ -71,12 +71,14 @@ function activeWorker() {
   const session = getSession();
   const workerId = Number(session?.id);
 
-  if (session?.role !== 'worker' || !Number.isInteger(workerId) || workerId < 1) {
+  if (!['worker', 'supervisor'].includes(session?.role) || !Number.isInteger(workerId) || workerId < 1) {
     return null;
   }
 
   return {
     id: workerId,
+    role: session.role,
+    departmentId: session.departmentId,
     name: session.fullName || session.name || session.email || `Worker ${workerId}`
   };
 }
@@ -114,7 +116,15 @@ function assertOwnedByWorker(record, expectedWorker = null) {
   if (!ownerWorkerId) {
     throw new Error('Offline submission is missing its Worker owner.');
   }
-  if ((expectedWorker && worker.id !== expectedWorker.id) || ownerWorkerId !== worker.id) {
+  const roleMatches = (record.ownerRole || 'worker') === worker.role;
+  const supervisorScope = worker.role !== 'supervisor' || (
+    record.type === 'form' && record.submissionPurpose === 'report'
+    && String(record.departmentId || '') === String(worker.departmentId || '')
+    && Boolean(worker.departmentId)
+  );
+  if (!roleMatches || !supervisorScope
+    || (expectedWorker && (worker.id !== expectedWorker.id || worker.role !== expectedWorker.role))
+    || ownerWorkerId !== worker.id) {
     const error = new Error(`This offline submission belongs to ${record.ownerWorkerName || record.userName || `Worker ${ownerWorkerId}`}.`);
     error.code = 'OFFLINE_OWNER_MISMATCH';
     throw error;
@@ -432,6 +442,8 @@ function createLocalSubmission(record) {
   if (suppliedWorkerId && suppliedWorkerId !== worker.id) {
     throw new Error('The signed-in Worker does not match this offline submission.');
   }
+  assertOwnedByWorker({ ...record, ownerWorkerId: worker.id,
+    ownerRole: record.ownerRole || 'worker' }, worker);
 
   const capturedAt = record.type === 'attendance'
     ? record.location?.capturedAt
@@ -640,7 +652,9 @@ async function syncSubmission(record, options = {}) {
   const uploadOptions = {
     onProgress: options.onProgress,
     onUploadProgress: options.onUploadProgress,
-    recoveryScope: record.uploadRecovery ? {
+    recoveryScope: record.ownerRole === 'supervisor' ? {
+      workerId: record.ownerWorkerId, departmentId: record.departmentId, role: 'supervisor'
+    } : record.uploadRecovery ? {
       workerId: record.ownerWorkerId, departmentId: record.uploadRecovery.departmentId
     } : null,
     assertCanSync,
@@ -897,7 +911,7 @@ async function flushQueuedSubmissions(worker, options = {}) {
           return;
         }
 
-        if (!matchesReplayScope(record, options)) {
+        if (!matchesReplayScope(record, options) || (record.ownerRole || 'worker') !== worker.role) {
           scopeSkipped += 1;
           return;
         }
@@ -988,12 +1002,12 @@ export async function syncQueuedSubmissions(options = {}) {
   }
 
   if (syncQueuePromise) {
-    if (syncQueueWorkerId === worker.id) return syncQueuePromise;
+    if (syncQueueWorkerId === `${worker.role}:${worker.id}`) return syncQueuePromise;
     await syncQueuePromise;
     return syncQueuedSubmissions(options);
   }
 
-  syncQueueWorkerId = worker.id;
+  syncQueueWorkerId = `${worker.role}:${worker.id}`;
   syncQueuePromise = flushQueuedSubmissions(worker, options).finally(() => {
     syncQueuePromise = null;
     syncQueueWorkerId = null;
@@ -1041,7 +1055,7 @@ export async function recoverOfflineReportAsDraft(recordId, { isCurrent = () => 
       const worker = { ...getSession() };
       const assertCurrent = () => {
         const session = getSession();
-        if (!isCurrent() || worker.role !== 'worker' || session?.role !== 'worker'
+        if (!isCurrent() || !['worker', 'supervisor'].includes(worker.role) || session?.role !== worker.role
           || String(worker.id) !== String(session.id)
           || String(worker.departmentId) !== String(session.departmentId)) {
           throw new Error('The Report recovery session changed. Your saved copy is unchanged.');

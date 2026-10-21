@@ -6,7 +6,7 @@ from sqlalchemy import delete
 from sqlmodel import Session, select
 
 from app.database import engine
-from app.models import AttendanceRecord, TaskLog, TeamWorkLog, TeamWorkLogEntry, User, WorkFormSubmission
+from app.models import AttendanceRecord, ReportPdfEmail, TaskLog, TeamWorkLog, TeamWorkLogEntry, User, WorkFormSubmission
 from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
     can_access_department,
@@ -43,6 +43,11 @@ def purge_expired_deleted_records(session: Session, now: datetime | None = None)
         ).all()
         for record in expired_records:
             upload_urls.update(record_upload_urls(record))
+
+        if record_type == "form" and expired_records:
+            session.exec(delete(ReportPdfEmail).where(
+                ReportPdfEmail.submission_id.in_([record.id for record in expired_records]),
+            ).execution_options(synchronize_session=False))
 
         if record_type == "team_log":
             expired_ids = [record.id for record in expired_records]

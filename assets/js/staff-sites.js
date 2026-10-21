@@ -22,6 +22,7 @@ import { escapeHtml, roundCoordinate, formatDateTime } from './utils.js';
 import { defaultStaffDepartmentId } from './app-shell-state.js';
 import { createWorkerInvitationDialog } from './worker-invitation-dialog.js';
 import { setTranslatableText } from './i18n.js';
+import { mountTemplateEmailSettings } from './report-pdf-email.js';
 import { listTemplateDrafts, removeTemplateDraft, saveTemplateDraft, templateDraftScope } from './report-template-drafts.js';
 
 export function createStaffSitesModule({
@@ -47,6 +48,7 @@ export function createStaffSitesModule({
   let editTemplateReadOnly = false;
   let createTemplateReadOnly = false;
   let templateMutationInFlight = false;
+  let templateEmailOperation = null;
   const completedTemplateDraftIds = new Set();
   const unsafeTemplateDraftEditors = new WeakSet();
   const templateDraftReceipts = new Map();
@@ -510,7 +512,7 @@ export function createStaffSitesModule({
   function lockTemplateEditors(locked) {
     templateEditorsLocked = locked;
     if (locked) {
-      document.querySelectorAll('#workFormBuilderForm input, #workFormBuilderForm select, #workFormBuilderForm textarea, #workFormBuilderForm button, #templateEditForm input, #templateEditForm select, #templateEditForm textarea, #templateEditForm button, #workFormsList button').forEach((control) => {
+      document.querySelectorAll('#workFormBuilderForm input, #workFormBuilderForm select, #workFormBuilderForm textarea, #workFormBuilderForm button, #templateEditForm input, #templateEditForm select, #templateEditForm textarea, #templateEditForm button, #workFormsList button, #workFormsList input').forEach((control) => {
         if (!templateDisabledControls.has(control)) templateDisabledControls.set(control, control.disabled);
         control.disabled = true;
       });
@@ -574,6 +576,7 @@ export function createStaffSitesModule({
     createTemplateReadOnly = false;
     clearTemplateEdit();
     templateMutationInFlight = false;
+    templateEmailOperation = null;
     templateDraftListGeneration += 1;
     window.clearTimeout(templateDraftTimer);
     templateDraftTimer = null;
@@ -1400,6 +1403,24 @@ export function createStaffSitesModule({
       statusButton.addEventListener('click', () => { void changeTemplateStatus(form, statusButton); });
 
       node.querySelector('.record-actions').append(previewButton, editButton, statusButton);
+      const emailGeneration = sessionGeneration;
+      const emailScope = staffScopeKey();
+      mountTemplateEmailSettings(node, form, {
+        isCurrent: () => node.isConnected && emailGeneration === sessionGeneration && emailScope === staffScopeKey(),
+        canSave: () => !templateEditorsLocked && !templateMutationInFlight && state.user?.role === 'supervisor',
+        onBusy: (busy) => {
+          if (emailGeneration !== sessionGeneration) return;
+          if (busy) templateEmailOperation = node;
+          else if (templateEmailOperation !== node) return;
+          else templateEmailOperation = null;
+          templateMutationInFlight = busy;
+          lockTemplateEditors(busy);
+        },
+        onSaved: (updated) => {
+          state.workForms = state.workForms.map((item) => item.id === updated.id ? updated : item);
+          void refreshSupervisorAuditHistory?.();
+        }
+      });
       els.workFormsList.appendChild(node);
     });
     syncTemplateStatusControls({ beforeEditorLock: true });

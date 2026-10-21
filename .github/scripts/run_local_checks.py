@@ -18,6 +18,8 @@ BACKEND_SUITES = (
     "security_test.py",
     "registration_email_test.py",
     "invitation_email_test.py",
+    "report_pdf_email_test.py",
+    "supervisor_report_submission_test.py",
     "upload_storage_test.py",
     "work_form_definition_test.py",
     "review_queue_test.py",
@@ -62,6 +64,7 @@ def isolated_environment(directory):
         "UPLOAD_BUCKET": "", "UPLOAD_OBJECT_PREFIX": "uploads",
         "SMTP_HOST": "", "SMTP_USERNAME": "", "SMTP_PASSWORD": "", "SMTP_FROM_EMAIL": "",
         "REGISTRATION_EMAIL_ENABLED": "false", "PUBLIC_APP_URL": "",
+        "REPORT_PDF_EMAIL_WORKER_ENABLED": "false",
         "GOOGLE_APPLICATION_CREDENTIALS": "", "API_BASE_URL": "http://127.0.0.1:8000",
         "VITE_API_PROXY_TARGET": "http://127.0.0.1:8000", "VITE_DISABLE_HTTPS": "true",
     })

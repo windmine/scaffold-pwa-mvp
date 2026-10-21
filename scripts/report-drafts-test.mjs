@@ -210,3 +210,16 @@ for (const definitionVersion of [undefined, null, 0, -1, '', 'unknown', {}, []])
 assert.equal(summarizeReportDrafts([{ ...recoveredEntry, value: { ...recoveredValue, definitionVersion: '1' } }], worker, [uneditedTemplate])[0].availability, 'editable');
 assert.equal(summarizeReportDrafts([{ ...entry, value: incompleteLegacy }], worker, [uneditedTemplate])[0].availability, 'editable');
 console.log('ok - unknown recovered Definitions stay read-only while ordinary legacy version-one drafts remain editable');
+
+const supervisor = { ...worker, role: 'supervisor' };
+const supervisorValue = { ...value, ownerRole: 'supervisor' };
+const supervisorEntry = { ...entry, key: 'work-form-draft:supervisor:12:51', value: supervisorValue };
+assert.equal(reportDraftKeyForWorker(supervisorValue, supervisor), supervisorEntry.key);
+assert.equal(summarizeReportDrafts([supervisorEntry], supervisor, [template])[0].availability, 'editable');
+assert.deepEqual(summarizeReportDrafts([supervisorEntry], worker, [template]), []);
+assert.deepEqual(summarizeReportDrafts([entry], supervisor, [template]), []);
+assert.deepEqual(summarizeReportDrafts([supervisorEntry], { ...supervisor, departmentId: 4 }, [template]), []);
+assert.equal(isReportDraftForWorker(supervisorValue, supervisor, { ...template, department_id: 4 }), false);
+assert.equal(isReportDraftForWorker(supervisorValue, supervisor, { ...template, template_purpose: 'daywork' }), false);
+assert.equal(reportDraftKeyForWorker({ ...recoveredValue, ownerRole: 'supervisor' }, supervisor), 'work-form-recovery:supervisor:12:3:failed-report-1');
+console.log('ok - Supervisor drafts use separate ordinary/recovery keys and cannot cross role or home Department');

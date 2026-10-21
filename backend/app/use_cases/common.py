@@ -275,7 +275,7 @@ def work_form_submission_definition(submission: WorkFormSubmission, session: Ses
     }
 
 
-def work_form_response(form: WorkForm, session: Session | None = None):
+def work_form_response(form: WorkForm, session: Session | None = None, *, include_email_settings=False):
     department = session.get(Department, form.department_id) if session and form.department_id else None
 
     return {
@@ -290,6 +290,9 @@ def work_form_response(form: WorkForm, session: Session | None = None):
         "template_purpose": form.template_purpose or "report",
         "created_by": form.created_by,
         "created_at": format_datetime(form.created_at),
+        **({"pdf_email": {"enabled": form.pdf_email_enabled,
+                          "recipient": form.pdf_email_recipient,
+                          "version": form.pdf_email_version}} if include_email_settings and form.template_purpose == "report" else {}),
     }
 
 
@@ -414,6 +417,9 @@ def review_record_response(record_kind: str, record, session: Session):
         item = task_log_response(record, session)
     elif record_kind == "form":
         item = work_form_submission_response(record, session)
+        if record.submission_purpose == "report":
+            from app.use_cases.report_pdf_email import email_status
+            item["pdf_email"] = email_status(record.id, session)
     elif record_kind == "team_log":
         item = team_work_log_response(record, session)
     else:
