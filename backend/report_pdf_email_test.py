@@ -84,6 +84,25 @@ class ReportPdfEmailTests(unittest.TestCase):
         stored = upload_storage.store_verified_raster(buffer.getvalue(), self.worker.id)
         return f"/uploads/{stored.filename}"
 
+    def test_exports_skip_unused_email_status_but_review_keeps_it(self):
+        from app.use_cases import supervisor_review as review
+        self.settings()
+        submitted = self.submit()
+        with patch.object(delivery, "email_status", side_effect=AssertionError("Export queried unused email status")):
+            for export in (review.export_form_submissions_csv, review.export_form_submissions_html,
+                           review.export_form_submissions_pdf):
+                response = export(session=self.session, supervisor=self.supervisor, purpose="report")
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.body)
+            for export in (review.export_form_submission_csv, review.export_form_submission_html,
+                           review.export_form_submission_pdf):
+                response = export(submission_id=submitted["id"], session=self.session, supervisor=self.supervisor)
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.body)
+        record = self.session.get(WorkFormSubmission, submitted["id"])
+        self.assertEqual(review_record_response("form", record, self.session)["pdf_email"]["status"], "pending")
+        self.client.send_message.assert_not_called()
+
     def test_default_off_no_retroactive_enqueue_and_worker_privacy(self):
         first = self.submit()
         self.assertEqual(self.session.exec(select(ReportPdfEmail)).all(), [])

@@ -1655,7 +1655,7 @@ def form_submission_export_items(
     records = filter_form_records(records, session, supervisor, form_id)
     records = filter_records_by_date(records, date_from, date_to)
     items = [
-        review_record_response("form", record, session)
+        review_record_response("form", record, session, include_pdf_email=False)
         for record in records
     ]
     return items
@@ -1801,7 +1801,7 @@ def export_form_submission_html(submission_id: int, session: Session, supervisor
     ):
         raise HTTPException(status_code=404, detail="Report not found")
 
-    item = review_record_response("form", record, session)
+    item = review_record_response("form", record, session, include_pdf_email=False)
     _validate_form_export_evidence([item], session, supervisor)
     is_daywork = is_daywork_submission(item)
     filename_prefix = "daywork-submission" if is_daywork else "report"
@@ -1829,7 +1829,7 @@ def export_form_submission_pdf(
     ):
         raise HTTPException(status_code=404, detail="Report not found")
 
-    item = review_record_response("form", record, session)
+    item = review_record_response("form", record, session, include_pdf_email=False)
     is_daywork = is_daywork_submission(item)
     if template == "daywork" and not is_daywork:
         raise HTTPException(status_code=400, detail="Submission is not a Daywork form")
@@ -2399,7 +2399,7 @@ def export_form_submission_csv(submission_id: int, session: Session, supervisor:
     ):
         raise HTTPException(status_code=404, detail="Report not found")
 
-    item = review_record_response("form", record, session)
+    item = review_record_response("form", record, session, include_pdf_email=False)
     filename_prefix = (
         "daywork-submission"
         if is_daywork_submission(item)

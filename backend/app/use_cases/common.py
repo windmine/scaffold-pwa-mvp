@@ -410,14 +410,14 @@ def team_work_log_response(log: TeamWorkLog, session: Session):
     }
 
 
-def review_record_response(record_kind: str, record, session: Session):
+def review_record_response(record_kind: str, record, session: Session, *, include_pdf_email: bool = True):
     if record_kind == "attendance":
         item = attendance_record_response(record, session)
     elif record_kind == "task":
         item = task_log_response(record, session)
     elif record_kind == "form":
         item = work_form_submission_response(record, session)
-        if record.submission_purpose == "report":
+        if include_pdf_email and record.submission_purpose == "report":
             from app.use_cases.report_pdf_email import email_status
             item["pdf_email"] = email_status(record.id, session)
     elif record_kind == "team_log":
