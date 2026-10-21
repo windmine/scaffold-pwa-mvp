@@ -1,0 +1,13 @@
+{
+  "initialBuild":"3fb51736-4f18-43ef-928e-264ba07ff78f",
+  "outcome":"terminal FAILURE before image publishing or deployment",
+  "passed":"Candidate image build, 10 mocked SMTP tests, 11 invitation tests",
+  "failure":"PDF-email tests import pypdf, which is correctly excluded from production runtime dependencies",
+  "correction":"Disposable test-only image layer adds the existing pinned pypdf 6.20.0 reader. Production image/application/dependencies remain unchanged; actual SMTP tests still run with network disabled.",
+  "sourceCommitUnchanged":"80b4ea01a041a84bdcc0483f8e3d41a34d55f117",
+  "productionChanged":false,
+  "secondBuild":"1ecb069f-7994-4058-b09a-4040d1df4060",
+  "secondOutcome":"terminal FAILURE; all 18 PDF-email tests executed, with one error only when the successful PDF test attempted to save its local preview under read-only /app/output",
+  "secondCorrection":"A 32 MiB disposable /app/output tmpfs only for the PDF test. All application files remain read-only and test networking remains disabled.",
+  "repeat":"Distinct v3 image tags after verified terminal failures; original application source and production dependencies unchanged"
+}

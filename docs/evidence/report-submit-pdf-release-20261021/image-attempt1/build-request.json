@@ -1,0 +1,10 @@
+{
+  "requestedAtUtc": "2026-10-21T03:18:53.978510+00:00",
+  "sourceCommit": "80b4ea01a041a84bdcc0483f8e3d41a34d55f117",
+  "directory": "C:\\Users\\12273\\AppData\\Local\\Temp\\reportflow-report-pdf-build-b3z7gkjt",
+  "images": {
+    "candidate": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-candidate-20261021-80b4ea0",
+    "fallback": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-fallback-20261021-80b4ea0"
+  },
+  "status": "requested"
+}

@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-21T03:56:17.556225+00:00",
+  "execution": "reportflow-pdf-email-z4k8g",
+  "result": {
+    "status": "disabled"
+  },
+  "smtpAuthenticationOrEmailAttempted": false
+}

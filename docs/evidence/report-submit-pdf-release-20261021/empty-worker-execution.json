@@ -1,0 +1,175 @@
+{
+  "apiVersion": "run.googleapis.com/v1",
+  "kind": "Execution",
+  "metadata": {
+    "annotations": {
+      "run.googleapis.com/client-name": "gcloud",
+      "run.googleapis.com/client-version": "571.0.0",
+      "run.googleapis.com/creator": "hty2003ah@gmail.com",
+      "run.googleapis.com/execution-environment": "gen2",
+      "run.googleapis.com/lastModifier": "hty2003ah@gmail.com",
+      "run.googleapis.com/operation-id": "f6aea53b-725b-404b-9c0a-a44addba1077"
+    },
+    "creationTimestamp": "2026-10-21T03:57:23.510913Z",
+    "generation": 1,
+    "labels": {
+      "cloud.googleapis.com/location": "australia-southeast1",
+      "run.googleapis.com/job": "reportflow-pdf-email",
+      "run.googleapis.com/jobGeneration": "2",
+      "run.googleapis.com/jobResourceVersion": "1792555014550289",
+      "run.googleapis.com/jobUid": "79727046-6bda-4e84-a5bf-564ca330b196",
+      "run.googleapis.com/satisfiesPzs": "true"
+    },
+    "name": "reportflow-pdf-email-tqtj8",
+    "namespace": "794826041820",
+    "ownerReferences": [
+      {
+        "apiVersion": "serving.knative.dev/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "Job",
+        "name": "reportflow-pdf-email",
+        "uid": "79727046-6bda-4e84-a5bf-564ca330b196"
+      }
+    ],
+    "resourceVersion": "AAZeUb6b2oE",
+    "selfLink": "/apis/run.googleapis.com/v1/namespaces/794826041820/executions/reportflow-pdf-email-tqtj8",
+    "uid": "212e9f63-4a6c-436e-a9dc-afd9ddfeb4f7"
+  },
+  "spec": {
+    "parallelism": 1,
+    "taskCount": 1,
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "args": [
+              "-m",
+              "app.report_pdf_email_worker",
+              "--limit",
+              "10"
+            ],
+            "command": [
+              "python"
+            ],
+            "env": [
+              {
+                "name": "ACCESS_TOKEN_EXPIRE_MINUTES",
+                "value": "10080"
+              },
+              {
+                "name": "AUTO_MIGRATE",
+                "value": "false"
+              },
+              {
+                "name": "BUSINESS_TIMEZONE",
+                "value": "Pacific/Auckland"
+              },
+              {
+                "name": "CORS_ORIGINS",
+                "value": "https://geo-attendance-system-db9ca.web.app"
+              },
+              {
+                "name": "DATABASE_URL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "2",
+                    "name": "geo-backend-database-url"
+                  }
+                }
+              },
+              {
+                "name": "GEO_SECRET_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "1",
+                    "name": "geo-backend-jwt-secret"
+                  }
+                }
+              },
+              {
+                "name": "MAX_UPLOAD_BYTES",
+                "value": "5242880"
+              },
+              {
+                "name": "PUBLIC_APP_URL",
+                "value": "https://geo-attendance-system-db9ca.web.app"
+              },
+              {
+                "name": "REGISTRATION_EMAIL_ENABLED",
+                "value": "false"
+              },
+              {
+                "name": "REPORT_PDF_EMAIL_WORKER_ENABLED",
+                "value": "true"
+              },
+              {
+                "name": "SMTP_FROM_EMAIL",
+                "value": "info@mutualconstruction.co.nz"
+              },
+              {
+                "name": "SMTP_HOST",
+                "value": "smtp.gmail.com"
+              },
+              {
+                "name": "SMTP_PASSWORD",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "1",
+                    "name": "reportflow-smtp-password"
+                  }
+                }
+              },
+              {
+                "name": "SMTP_PORT",
+                "value": "587"
+              },
+              {
+                "name": "SMTP_USERNAME",
+                "value": "info@mutualconstruction.co.nz"
+              },
+              {
+                "name": "SMTP_USE_SSL",
+                "value": "false"
+              },
+              {
+                "name": "SMTP_USE_STARTTLS",
+                "value": "true"
+              },
+              {
+                "name": "SQL_ECHO",
+                "value": "false"
+              },
+              {
+                "name": "UPLOAD_BUCKET",
+                "value": "geo-attendance-system-db9ca-uploads"
+              },
+              {
+                "name": "UPLOAD_OBJECT_PREFIX",
+                "value": "uploads"
+              },
+              {
+                "name": "UPLOAD_STORAGE_BACKEND",
+                "value": "gcs"
+              }
+            ],
+            "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:3ed05aed53d42cc8d9b6835d93635e0e282fe579345144e922e93949d78a3fee",
+            "name": "geo-backend-1",
+            "resources": {
+              "limits": {
+                "cpu": "1",
+                "memory": "512Mi"
+              }
+            }
+          }
+        ],
+        "maxRetries": 0,
+        "serviceAccountName": "geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com",
+        "timeoutSeconds": "600"
+      }
+    }
+  },
+  "status": {
+    "logUri": "https://console.cloud.google.com/logs/viewer?project=geo-attendance-system-db9ca&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22reportflow-pdf-email%22%0Aresource.labels.location%3D%22australia-southeast1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22reportflow-pdf-email-tqtj8%22"
+  }
+}

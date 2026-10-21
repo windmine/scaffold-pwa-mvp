@@ -1,0 +1,21 @@
+{
+  "atUtc": "2026-10-21T03:19:12.705557+00:00",
+  "phase": "pre",
+  "command": [
+    "C:\\Users\\12273\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.EXE",
+    "-NoProfile",
+    "-File",
+    "scripts/prove-neon-recovery.ps1",
+    "-RestoreOffsetMinutes",
+    "2",
+    "-PythonCommand",
+    "C:\\Python314\\python.exe",
+    "-EvidencePath",
+    "C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\docs\\evidence\\report-submit-pdf-release-20261021\\neon-premigration.json",
+    "-ReleasePhase",
+    "PreMigration",
+    "-PreMigrationRecoveryHead",
+    "0023_worker_invitation_email"
+  ],
+  "smtpSecretAccess": false
+}

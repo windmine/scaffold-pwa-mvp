@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-21T03:51:15.023960+00:00",
+  "policy": {
+    "bindings": [
+      {
+        "members": [
+          "serviceAccount:reportflow-pdf-scheduler@geo-attendance-system-db9ca.iam.gserviceaccount.com"
+        ],
+        "role": "roles/run.invoker"
+      }
+    ],
+    "etag": "BwZeUaf8sIM=",
+    "version": 1
+  },
+  "scope": "reportflow-pdf-email",
+  "projectRoles": []
+}

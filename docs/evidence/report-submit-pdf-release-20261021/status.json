@@ -1,0 +1,13 @@
+{
+  "atUtc": "2026-10-21T04:02:29.924342+00:00",
+  "status": "deployed_and_verified_release_record_ci_pending",
+  "sourceCommit": "80b4ea01a041a84bdcc0483f8e3d41a34d55f117",
+  "backendRevision": "geo-backend-report-pdf-20261021",
+  "hostingVersion": "12a1d6dbf481ba3b",
+  "migration": "0024_report_pdf_email",
+  "normalServiceRestored": true,
+  "schedulerEnabled": true,
+  "allTemplatesOff": true,
+  "outboxRows": 0,
+  "emailsSent": false
+}

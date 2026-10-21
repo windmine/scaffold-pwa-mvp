@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-21T02:46:15.923677+00:00",
+  "apiEnabled": true,
+  "agent": "service-794826041820@gcp-sa-cloudscheduler.iam.gserviceaccount.com",
+  "role": "roles/cloudscheduler.serviceAgent",
+  "project": "geo-attendance-system-db9ca",
+  "addedBindings": [
+    [
+      "roles/cloudscheduler.serviceAgent",
+      "serviceAccount:service-794826041820@gcp-sa-cloudscheduler.iam.gserviceaccount.com",
+      "null"
+    ]
+  ],
+  "removedBindings": [],
+  "afterProjectPolicySha256": "af744e319a6afdbec8e8dcd99a6cd76347b8a23d00acc184a29dcc8393b93013",
+  "productionServiceChanged": false,
+  "jobsExecuted": false
+}

@@ -1,0 +1,11 @@
+{
+  "initialRun":39534050819,
+  "initialSource":"2aa89fc29555beef5a59433d29d5e94dae81d5e6",
+  "initialOutcome":"Frontend passed; backend failed native PostgreSQL volume query budget",
+  "cause":"PDF email status lookup was added to the shared review serializer and performed one unused query per exported Report.",
+  "fixCommit":"80b4ea01a041a84bdcc0483f8e3d41a34d55f117",
+  "fix":"Collection and individual CSV/HTML/PDF exports omit only unused email status; Supervisor review still includes it.",
+  "localValidation":{"mockedPdfEmailTests":18,"nativePostgresVolume":"passed; original SQL limits unchanged; owned cluster cleanup verified","diffCheck":"passed"},
+  "realEmailSent":false,
+  "productionApplicationChanged":false
+}

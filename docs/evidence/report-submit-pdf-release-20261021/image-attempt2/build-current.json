@@ -1,0 +1,418 @@
+{
+  "artifacts": {
+    "images": [
+      "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-candidate-20261021-80b4ea0-v2",
+      "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-fallback-20261021-80b4ea0-v2"
+    ]
+  },
+  "createTime": "2026-10-21T03:23:57.272086662Z",
+  "failureInfo": {
+    "detail": "Build step failure: build step 4 \"gcr.io/cloud-builders/docker\" failed: step exited with non-zero status: 1",
+    "type": "USER_BUILD_STEP"
+  },
+  "finishTime": "2026-10-21T03:25:07.406418Z",
+  "id": "1ecb069f-7994-4058-b09a-4040d1df4060",
+  "images": [
+    "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-candidate-20261021-80b4ea0-v2",
+    "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-fallback-20261021-80b4ea0-v2"
+  ],
+  "logUrl": "https://console.cloud.google.com/cloud-build/builds;region=australia-southeast1/1ecb069f-7994-4058-b09a-4040d1df4060?project=794826041820",
+  "name": "projects/794826041820/locations/australia-southeast1/builds/1ecb069f-7994-4058-b09a-4040d1df4060",
+  "options": {
+    "logging": "CLOUD_LOGGING_ONLY",
+    "pool": {},
+    "workerRelease": "legacy"
+  },
+  "projectId": "geo-attendance-system-db9ca",
+  "queueTtl": "3600s",
+  "results": {
+    "buildStepImages": [
+      "sha256:f772ab459889c67835bd959c2b9e9351f2c0752c4f989710ecda20c229f0733e",
+      "sha256:f772ab459889c67835bd959c2b9e9351f2c0752c4f989710ecda20c229f0733e",
+      "sha256:f772ab459889c67835bd959c2b9e9351f2c0752c4f989710ecda20c229f0733e",
+      "sha256:f772ab459889c67835bd959c2b9e9351f2c0752c4f989710ecda20c229f0733e",
+      "sha256:f772ab459889c67835bd959c2b9e9351f2c0752c4f989710ecda20c229f0733e",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "buildStepOutputs": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "buildStepResults": {
+      "build-candidate": {},
+      "candidate-invitation-email-test.py": {},
+      "candidate-registration-email-test.py": {},
+      "candidate-report-pdf-email-test.py": {},
+      "prepare-test-only-pdf-reader": {}
+    }
+  },
+  "serviceAccount": "projects/geo-attendance-system-db9ca/serviceAccounts/794826041820-compute@developer.gserviceaccount.com",
+  "source": {
+    "storageSource": {
+      "bucket": "geo-attendance-system-db9ca_cloudbuild",
+      "generation": "1792553035538901",
+      "object": "source/1792553019.563354-16ec623d0bbd437ba3c3a348b72ce0a8.tgz"
+    }
+  },
+  "sourceProvenance": {
+    "fileHashes": {
+      "gs://geo-attendance-system-db9ca_cloudbuild/source/1792553019.563354-16ec623d0bbd437ba3c3a348b72ce0a8.tgz#1792553035538901": {
+        "fileHash": [
+          {
+            "type": "MD5",
+            "value": "oTwgmF81I2kRj3XAQNKFqQ=="
+          },
+          {
+            "type": "SHA256",
+            "value": "IihcZcXvBK2YVZbZAH4U_eJSMKpM3siDNwlZu1bKi3A="
+          }
+        ]
+      }
+    },
+    "resolvedStorageSource": {
+      "bucket": "geo-attendance-system-db9ca_cloudbuild",
+      "generation": "1792553035538901",
+      "object": "source/1792553019.563354-16ec623d0bbd437ba3c3a348b72ce0a8.tgz"
+    }
+  },
+  "startTime": "2026-10-21T03:23:59.096254244Z",
+  "status": "FAILURE",
+  "steps": [
+    {
+      "args": [
+        "build",
+        "-t",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-candidate-20261021-80b4ea0-v2",
+        "candidate"
+      ],
+      "id": "build-candidate",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-10-21T03:24:06.158024935Z",
+        "startTime": "2026-10-21T03:24:06.151717764Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-10-21T03:24:36.956818289Z",
+        "startTime": "2026-10-21T03:24:06.151717764Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-candidate-20261021-80b4ea0-v2",
+        "/app/backend/registration_email_test.py"
+      ],
+      "id": "candidate-registration-email-test.py",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-10-21T03:24:36.958681923Z",
+        "startTime": "2026-10-21T03:24:36.957152309Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-10-21T03:24:40.714175436Z",
+        "startTime": "2026-10-21T03:24:36.957152309Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-candidate-20261021-80b4ea0-v2",
+        "/app/backend/invitation_email_test.py"
+      ],
+      "id": "candidate-invitation-email-test.py",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-10-21T03:24:40.715997158Z",
+        "startTime": "2026-10-21T03:24:40.714442119Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-10-21T03:24:45.724484092Z",
+        "startTime": "2026-10-21T03:24:40.714442119Z"
+      }
+    },
+    {
+      "args": [
+        "build",
+        "-f",
+        "Dockerfile.pdf-test",
+        "--build-arg",
+        "RUNTIME_IMAGE=australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-candidate-20261021-80b4ea0-v2",
+        "-t",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-candidate-20261021-80b4ea0-v2-reader-tests",
+        "."
+      ],
+      "id": "prepare-test-only-pdf-reader",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-10-21T03:24:45.726405037Z",
+        "startTime": "2026-10-21T03:24:45.724725120Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-10-21T03:24:50.691293662Z",
+        "startTime": "2026-10-21T03:24:45.724725120Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-candidate-20261021-80b4ea0-v2-reader-tests",
+        "/app/backend/report_pdf_email_test.py"
+      ],
+      "exitCode": 1,
+      "id": "candidate-report-pdf-email-test.py",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-10-21T03:24:50.693372607Z",
+        "startTime": "2026-10-21T03:24:50.691533297Z"
+      },
+      "status": "FAILURE",
+      "timing": {
+        "endTime": "2026-10-21T03:24:57.050833528Z",
+        "startTime": "2026-10-21T03:24:50.691533297Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-candidate-20261021-80b4ea0-v2",
+        "/app/backend/supervisor_report_submission_test.py"
+      ],
+      "id": "candidate-supervisor-report-submission-test.py",
+      "name": "gcr.io/cloud-builders/docker",
+      "status": "QUEUED"
+    },
+    {
+      "args": [
+        "build",
+        "-t",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-fallback-20261021-80b4ea0-v2",
+        "fallback"
+      ],
+      "id": "build-fallback",
+      "name": "gcr.io/cloud-builders/docker",
+      "status": "QUEUED"
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-fallback-20261021-80b4ea0-v2",
+        "/app/backend/registration_email_test.py"
+      ],
+      "id": "fallback-registration-email-test.py",
+      "name": "gcr.io/cloud-builders/docker",
+      "status": "QUEUED"
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-fallback-20261021-80b4ea0-v2",
+        "/app/backend/invitation_email_test.py"
+      ],
+      "id": "fallback-invitation-email-test.py",
+      "name": "gcr.io/cloud-builders/docker",
+      "status": "QUEUED"
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-fallback-20261021-80b4ea0-v2",
+        "-c",
+        "from sqlmodel import create_engine,Session,select; from app.migrations import run_migrations,verify_migrations; from app.models import User,WorkerInvitation,WorkForm,ReportPdfEmail; e=create_engine('sqlite:////tmp/fallback.db'); v=run_migrations(e); assert len(v)==24 and v[-1]=='0024_report_pdf_email'; c=e.connect(); verify_migrations(c); c.close(); s=Session(e); s.exec(select(User)).all(); s.exec(select(WorkerInvitation)).all(); s.exec(select(WorkForm)).all(); s.exec(select(ReportPdfEmail)).all(); s.close(); print('Fallback exact 24-migration schema and previous models verified')"
+      ],
+      "id": "fallback-schema-compatibility",
+      "name": "gcr.io/cloud-builders/docker",
+      "status": "QUEUED"
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-pdf-fallback-20261021-80b4ea0-v2",
+        "-c",
+        "from datetime import datetime, timezone, timedelta\nfrom sqlmodel import create_engine, Session, select\nfrom app.migrations import run_migrations\nfrom app.models import WorkFormSubmission, ReportPdfEmail\nfrom app.use_cases.record_trash import purge_expired_deleted_records\nengine=create_engine('sqlite:////tmp/fallback-purge.db')\nrun_migrations(engine)\nwith Session(engine) as session:\n    record=WorkFormSubmission(form_id=9001, worker_id=9001, department_id=1, answers_json='{}', deleted_at=datetime.now(timezone.utc)-timedelta(days=31))\n    session.add(record); session.flush()\n    session.add(ReportPdfEmail(submission_id=record.id, department_id=1, recipient='fixture@example.invalid', template_email_version=1, snapshot_json='{}', message_id='<synthetic@reportflow.invalid>', status='uncertain'))\n    session.commit()\n    purge_expired_deleted_records(session)\n    assert session.exec(select(ReportPdfEmail)).all()==[]\n    assert session.exec(select(WorkFormSubmission)).all()==[]\nprint('Fallback preserves outbox purge with no network or SMTP')\n"
+      ],
+      "id": "fallback-outbox-purge",
+      "name": "gcr.io/cloud-builders/docker",
+      "status": "QUEUED"
+    }
+  ],
+  "tags": [
+    "reportflow-report-pdf-20261021"
+  ],
+  "timeout": "1200s",
+  "timing": {
+    "BUILD": {
+      "endTime": "2026-10-21T03:24:57.051046923Z",
+      "startTime": "2026-10-21T03:24:05.540453567Z"
+    },
+    "FETCHSOURCE": {
+      "endTime": "2026-10-21T03:24:05.540230798Z",
+      "startTime": "2026-10-21T03:23:59.194609033Z"
+    },
+    "STORAGE_SOURCE": {
+      "endTime": "2026-10-21T03:24:05.540230798Z",
+      "startTime": "2026-10-21T03:23:59.194609033Z"
+    }
+  }
+}

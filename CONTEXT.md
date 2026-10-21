@@ -1,18 +1,20 @@
 # Leader Field Reports Context
 
-This file defines the product language for the report-only MVP. Use these terms consistently in modules, routes, UI copy, tests, and documentation. The broader geo-attendance, Daywork, task-log, weekly-log, map, analytics, export, and recovery code remains available only as a reversible legacy interface. Deployment truth was refreshed on 2026-10-12; preserve dated evidence as historical rather than treating older serving identities as current.
+This file defines the product language for the report-only MVP. Use these terms consistently in modules, routes, UI copy, tests, and documentation. The broader geo-attendance, Daywork, task-log, weekly-log, map, analytics, export, and recovery code remains available only as a reversible legacy interface. Deployment truth was refreshed on 2026-10-21; preserve dated evidence as historical rather than treating older serving identities as current.
 
 ## People And Scope
 
-**Optional Report PDF email (local preparation, not deployed)**:
+Supervisor Submit form and optional per-template PDF email are live from `80b4ea01a041a84bdcc0483f8e3d41a34d55f117`: backend `geo-backend-report-pdf-20261021` serves 100% without tags; Hosting `12a1d6dbf481ba3b` uses cache `leader-field-c878ffd1be3c`. Additive `0024_report_pdf_email` and the compatible backend preceded Hosting. Existing business rows and all prior migration checksums are preserved. Supervisors submit as themselves within their home Department. Every production Template remains off and the outbox is empty; no real Reports or emails were created by this release. The five-minute worker uses one task, batch 10, zero retries, the existing backend runtime and SMTP secret version 1. Only the standard Google Scheduler service-agent project role and the dedicated trigger's job-only invocation were added. Existing service/secret permissions and SMTP settings are preserved; public registration and web-process dispatch remain disabled. [Release evidence](docs/evidence/report-submit-pdf-release-20261021/release.json).
+
+**Optional Report PDF email (released 2026-10-21 UTC)**:
 Each saved Report Template can have one Supervisor-configured recipient and an
 off-by-default email toggle, saved separately from its questions. Only new durable
 Worker and Supervisor self-submitted Reports enqueue an immutable submitted-version PDF; offline
 replays and existing Reports do not enqueue another email. Supervisor details show
 the captured recipient and pending/accepted/failed/uncertain result; Worker APIs
 omit routing settings. SMTP acceptance is not mailbox delivery. The durable outbox
-and bounded worker require additive migration 0024 and a separately approved
-scheduled runtime before activation. No real email or routing was enabled during
+and bounded worker use deployed additive migration 0024 and the approved five-minute
+scheduled runtime. Production routing remains off until recipients are chosen. No real email or routing was enabled during
 preparation. Photos/signatures are included, subject to a 10 MiB PDF limit; failures
 do not undo submitted Reports. See [behavior and deployment prerequisites](docs/report-pdf-email.md).
 
@@ -31,7 +33,7 @@ _Avoid_: Treating Leader as a Report approval role
 Released 2026-10-12 presentation refinement (prepared October 8): report-only Staff displays both classes as Worker and omits the class choice. New invited Workers use the existing Normal default; updates omit `worker_class` so the backend retains the current class, including a concurrent authorized class change. Explicit Worker/Supervisor role changes still use the existing backend default/clear policy. No identity or retained permission is rewritten; the full-interface override still manages classes. The Worker header hides the redundant Leader-class badge, not the Leader Department name or global-admin capability.
 
 **Supervisor**:
-An admin user who reviews Department Reports, manages Report Templates, and manages Staff. A Department Supervisor may not read or transition another Department's Reports. The local, unreleased Submit form section also permits Reports authored as themselves from active home-Department Templates; global review focus does not broaden submission scope. See [Supervisor self-submission](docs/supervisor-report-submission.md).
+An admin user who reviews Department Reports, manages Report Templates, and manages Staff. A Department Supervisor may not read or transition another Department's Reports. The released Submit form section also permits Reports authored as themselves from active home-Department Templates; global review focus does not broaden submission scope. See [Supervisor self-submission](docs/supervisor-report-submission.md).
 _Avoid_: Approver when describing the Report workflow
 
 **Invited account**:
@@ -79,7 +81,7 @@ _Avoid_: Job or location when the stored Site entity is meant
 ## Field Records
 
 **Report**:
-An immutable self-submission created from an active Report Template. The local unreleased Supervisor section adds authenticated Supervisor authors alongside Workers. It contains a required Report Date, optional Site, answers, photos, signatures, an exact Definition snapshot, submission time, and Report workflow state. A Worker can read only their own Reports.
+An immutable self-submission created from an active Report Template. The released Supervisor section adds authenticated Supervisor authors alongside Workers. It contains a required Report Date, optional Site, answers, photos, signatures, an exact Definition snapshot, submission time, and Report workflow state. A Worker can read only their own Reports.
 The released limit is 50 JPEG/PNG/WebP photos at most 5 MB each; configured handwritten signatures are additional. Retained Daywork/Task Logs keep their eight-photo limit. These limits do not certify physical-phone capacity for maximum-size batches.
 Report Date must be a real calendar date in `YYYY-MM-DD` format, not merely a string matching that shape. Calendar validation introduces no additional past/future date restriction and never rewrites the original date on duplicate replay.
 _Avoid_: Diary, Daywork, Work Form, or approval record in user-facing language

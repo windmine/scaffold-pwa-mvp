@@ -1,0 +1,12 @@
+{
+  "atUtc": "2026-10-21T02:46:02.800338+00:00",
+  "api": "cloudscheduler.googleapis.com",
+  "project": "geo-attendance-system-db9ca",
+  "allowedProjectGrant": [
+    "roles/cloudscheduler.serviceAgent",
+    "serviceAccount:service-794826041820@gcp-sa-cloudscheduler.iam.gserviceaccount.com",
+    "null"
+  ],
+  "beforeProjectPolicySha256": "89836abee71c1c9677d27763ce5b42db33c5e92c1a7de316ffcfc47ddda5d20c",
+  "productionServiceChanged": false
+}

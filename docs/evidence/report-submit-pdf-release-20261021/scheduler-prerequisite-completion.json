@@ -1,0 +1,14 @@
+{
+  "status": "approved_and_completed",
+  "apiEnabled": true,
+  "newProjectGrant": [
+    [
+      "roles/cloudscheduler.serviceAgent",
+      "serviceAccount:service-794826041820@gcp-sa-cloudscheduler.iam.gserviceaccount.com",
+      "null"
+    ]
+  ],
+  "triggerIdentityProjectRoles": [],
+  "noOtherProjectGrantAuthorized": true,
+  "applicationUnchanged": true
+}

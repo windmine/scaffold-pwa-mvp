@@ -1,0 +1,77 @@
+{
+  "recordedAtUtc": "2026-10-21T02:36:53.688010+00:00",
+  "status": "preparing_source_and_ci_scheduler_prerequisite_pending",
+  "project": "geo-attendance-system-db9ca",
+  "region": "australia-southeast1",
+  "candidateRevision": "geo-backend-report-pdf-20261021",
+  "fallbackRevision": "geo-backend-report-pdf-fallback-20261021",
+  "maintenanceRevision": "geo-backend-report-pdf-maint-20261021",
+  "migration": "0024_report_pdf_email",
+  "releaseOrder": [
+    "source CI and exact image/mock tests",
+    "isolated native PostgreSQL and provider staging",
+    "verified compatible fallback and current recovery proof",
+    "announced maintenance, drain, verified backup and additive migration",
+    "compatible backend and normal service restoration",
+    "empty/outbox/default-off checks and bounded worker verification",
+    "Hosting promotion and offline checks",
+    "scheduler activation only after approved IAM prerequisite and no actionable outbox",
+    "cleanup exact release temporary resources and final record CI"
+  ],
+  "worker": {
+    "name": "reportflow-pdf-email",
+    "runtimeIdentity": "geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com",
+    "smtpSecretVersion": "reportflow-smtp-password:1",
+    "batchLimit": 10,
+    "taskCount": 1,
+    "parallelism": 1,
+    "maxRetries": 0,
+    "timeoutSeconds": 600,
+    "cpu": "1",
+    "memory": "512Mi",
+    "entrypoint": [
+      "python",
+      "-m",
+      "app.report_pdf_email_worker",
+      "--limit",
+      "10"
+    ],
+    "preserveExistingBindings": true
+  },
+  "scheduler": {
+    "name": "reportflow-pdf-email",
+    "cron": "*/5 * * * *",
+    "timeZone": "Etc/UTC",
+    "oauthIdentity": "reportflow-pdf-scheduler@geo-attendance-system-db9ca.iam.gserviceaccount.com",
+    "invokerBinding": "roles/run.invoker on Cloud Run job reportflow-pdf-email only",
+    "maxRetryAttempts": 0
+  },
+  "additionalApprovalNeeded": {
+    "outcome": "pending_not_attempted",
+    "action": "Enable cloudscheduler.googleapis.com and its standard Google-managed project service-agent role",
+    "principal": "service-794826041820@gcp-sa-cloudscheduler.iam.gserviceaccount.com",
+    "role": "roles/cloudscheduler.serviceAgent",
+    "scope": "project geo-attendance-system-db9ca",
+    "reason": "API, service agent and its required project binding are absent; user-approved scope currently permits job-only invocation IAM",
+    "reference": "https://docs.cloud.google.com/scheduler/docs/http-target-auth"
+  },
+  "costs": {
+    "schedulerUsdPer31Days": 0.1,
+    "schedulerFreeTier": "First three jobs per billing account; remaining entitlement not verified",
+    "schedulerReference": "https://cloud.google.com/scheduler/pricing",
+    "cloudRun": "Each job execution has a minimum one-minute instance-based CPU/memory charge; regional rates and shared free tier apply",
+    "cloudRunReference": "https://cloud.google.com/run/pricing",
+    "cadenceExecutionsPer30Days": 8640,
+    "other": "Database wakeups/compute, storage, network and logs can add usage charges; total account-specific cost not estimated"
+  },
+  "boundaries": {
+    "productionTemplateEmailSettings": "all off",
+    "outboxBeforeActivation": "empty/no actionable rows",
+    "realEmails": false,
+    "productionFixtures": false,
+    "publicRegistrationEmailEnabled": false,
+    "secretPayloadReads": false,
+    "broaderProjectIam": "not authorized"
+  },
+  "productionChanged": false
+}

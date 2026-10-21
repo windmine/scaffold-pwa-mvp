@@ -1,0 +1,10 @@
+{
+  "atUtc": "2026-10-21T03:52:00.318717+00:00",
+  "name": "reportflow-pdf-email",
+  "cron": "*/5 * * * *",
+  "uri": "https://run.googleapis.com/v2/projects/geo-attendance-system-db9ca/locations/australia-southeast1/jobs/reportflow-pdf-email:run",
+  "identity": "reportflow-pdf-scheduler@geo-attendance-system-db9ca.iam.gserviceaccount.com",
+  "workerDisabled": true,
+  "pauseImmediately": true,
+  "retries": 0
+}

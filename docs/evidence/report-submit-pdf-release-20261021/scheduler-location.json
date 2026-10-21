@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-21T03:14:30.988110+00:00",
+  "location": {
+    "labels": {
+      "cloud.googleapis.com/region": "australia-southeast1"
+    },
+    "locationId": "australia-southeast1",
+    "name": "projects/geo-attendance-system-db9ca/locations/australia-southeast1"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "outcome": "No binding present after first invocation",
+  "installedCli": "Cloud Run job add-iam-policy-binding accepts member/role/region but no condition flag",
+  "correction": "Remove unsupported condition flag; repeat same approved job-only grant once",
+  "widerPermissions": false
+}

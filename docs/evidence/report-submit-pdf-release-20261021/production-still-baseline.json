@@ -1,0 +1,64 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-21T02:58:28.799677+00:00",
+  "traffic": [
+    {
+      "percent": 100,
+      "revisionName": "geo-backend-invite-20261020"
+    }
+  ],
+  "checks": [
+    {
+      "path": "/health",
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "message": "Geo backend is running"
+      }
+    },
+    {
+      "path": "/health/ready",
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "checks": {
+          "database": "ok",
+          "migrations": "ok",
+          "upload_storage": "ok"
+        },
+        "details": {
+          "upload_storage": {
+            "backend": "gcs"
+          }
+        }
+      }
+    },
+    {
+      "path": "/health",
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "message": "Geo backend is running"
+      }
+    },
+    {
+      "path": "/health/ready",
+      "status": 200,
+      "body": {
+        "status": "ok",
+        "checks": {
+          "database": "ok",
+          "migrations": "ok",
+          "upload_storage": "ok"
+        },
+        "details": {
+          "upload_storage": {
+            "backend": "gcs"
+          }
+        }
+      }
+    }
+  ],
+  "serviceIamAndSmtpSecretUnchanged": true,
+  "productionApplicationChanged": false
+}

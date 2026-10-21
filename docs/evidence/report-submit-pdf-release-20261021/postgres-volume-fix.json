@@ -1,0 +1,801 @@
+{
+  "started_at": "2026-10-21T02:44:36.278835+00:00",
+  "isolation": "new local cluster, loopback only, synthetic data, non-superuser database owner",
+  "checks": [
+    {
+      "label": "Report volume 25, small originals: scoped answers/evidence checks and unchanged records",
+      "details": {
+        "owned_worker_reports": 25,
+        "large_images": false,
+        "rows_by_category": {
+          "own": 25,
+          "peer": 3,
+          "foreign": 3,
+          "daywork": 3,
+          "deleted": 3
+        },
+        "stored_upload_count": 148,
+        "stored_upload_bytes": 260192,
+        "photos_per_report": 2,
+        "direct_signatures_per_report": 1,
+        "repeating_signatures_per_report": 1,
+        "photo_dimensions": [
+          64,
+          48
+        ],
+        "signature_dimensions": [
+          240,
+          90
+        ],
+        "text_fixture": "English plus Simplified/Traditional Chinese field labels, Worker/Site names and final notes",
+        "all_observed_report_fields_unchanged": true,
+        "probes": [
+          {
+            "case": "worker_history",
+            "format": "history",
+            "request": "first",
+            "expected_records": 25,
+            "sql_statements": 67,
+            "sql_seconds": 0.035486,
+            "submission_rows_returned": 25,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 25,
+              "Site": 25,
+              "Department": 25,
+              "User": 16
+            },
+            "response_bytes": 61697,
+            "elapsed_seconds_profiled": 0.171966,
+            "process_cpu_seconds_profiled": 0.15625,
+            "python_allocation_peak_bytes": 1622151,
+            "status": 200,
+            "process_rss_start_bytes": 119144448,
+            "process_rss_sampled_peak_bytes": 122789888,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 83,
+            "verified_output": {
+              "records": 25,
+              "evidence_references_per_record": 4
+            }
+          },
+          {
+            "case": "worker_history",
+            "format": "history",
+            "request": "repeat",
+            "expected_records": 25,
+            "sql_statements": 67,
+            "sql_seconds": 0.036234,
+            "submission_rows_returned": 25,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 25,
+              "Site": 25,
+              "Department": 25,
+              "User": 16
+            },
+            "response_bytes": 61697,
+            "elapsed_seconds_profiled": 0.146772,
+            "process_cpu_seconds_profiled": 0.140625,
+            "python_allocation_peak_bytes": 745945,
+            "status": 200,
+            "process_rss_start_bytes": 122781696,
+            "process_rss_sampled_peak_bytes": 122896384,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 83,
+            "verified_output": {
+              "records": 25,
+              "evidence_references_per_record": 4
+            }
+          },
+          {
+            "case": "department_csv_all",
+            "format": "csv",
+            "request": "first",
+            "expected_records": 28,
+            "sql_statements": 85,
+            "sql_seconds": 0.034182,
+            "submission_rows_returned": 28,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 28,
+              "User": 28,
+              "Site": 28,
+              "Department": 28
+            },
+            "response_bytes": 32619,
+            "elapsed_seconds_profiled": 0.127026,
+            "process_cpu_seconds_profiled": 0.125,
+            "python_allocation_peak_bytes": 847333,
+            "status": 200,
+            "process_rss_start_bytes": 122798080,
+            "process_rss_sampled_peak_bytes": 122908672,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 92,
+            "verified_output": {
+              "records": 28
+            }
+          },
+          {
+            "case": "department_csv_all",
+            "format": "csv",
+            "request": "repeat",
+            "expected_records": 28,
+            "sql_statements": 85,
+            "sql_seconds": 0.034605,
+            "submission_rows_returned": 28,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 28,
+              "User": 28,
+              "Site": 28,
+              "Department": 28
+            },
+            "response_bytes": 32619,
+            "elapsed_seconds_profiled": 0.12624,
+            "process_cpu_seconds_profiled": 0.078125,
+            "python_allocation_peak_bytes": 789750,
+            "status": 200,
+            "process_rss_start_bytes": 122834944,
+            "process_rss_sampled_peak_bytes": 122957824,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 92,
+            "verified_output": {
+              "records": 28
+            }
+          },
+          {
+            "case": "worker_date_csv",
+            "format": "csv",
+            "request": "first",
+            "expected_records": 25,
+            "sql_statements": 76,
+            "sql_seconds": 0.032224,
+            "submission_rows_returned": 25,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 25,
+              "User": 25,
+              "Site": 25,
+              "Department": 25
+            },
+            "response_bytes": 29176,
+            "elapsed_seconds_profiled": 0.119146,
+            "process_cpu_seconds_profiled": 0.140625,
+            "python_allocation_peak_bytes": 780160,
+            "status": 200,
+            "process_rss_start_bytes": 122982400,
+            "process_rss_sampled_peak_bytes": 123101184,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 83,
+            "verified_output": {
+              "records": 25
+            }
+          },
+          {
+            "case": "worker_date_csv",
+            "format": "csv",
+            "request": "repeat",
+            "expected_records": 25,
+            "sql_statements": 76,
+            "sql_seconds": 0.030991,
+            "submission_rows_returned": 25,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 25,
+              "User": 25,
+              "Site": 25,
+              "Department": 25
+            },
+            "response_bytes": 29176,
+            "elapsed_seconds_profiled": 0.108802,
+            "process_cpu_seconds_profiled": 0.125,
+            "python_allocation_peak_bytes": 707124,
+            "status": 200,
+            "process_rss_start_bytes": 123006976,
+            "process_rss_sampled_peak_bytes": 123117568,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 83,
+            "verified_output": {
+              "records": 25
+            }
+          },
+          {
+            "case": "global_department_csv",
+            "format": "csv",
+            "request": "first",
+            "expected_records": 28,
+            "sql_statements": 104,
+            "sql_seconds": 0.044338,
+            "submission_rows_returned": 31,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 31,
+              "Department": 29,
+              "User": 46,
+              "Site": 28
+            },
+            "response_bytes": 32619,
+            "elapsed_seconds_profiled": 0.159979,
+            "process_cpu_seconds_profiled": 0.15625,
+            "python_allocation_peak_bytes": 867525,
+            "status": 200,
+            "process_rss_start_bytes": 123019264,
+            "process_rss_sampled_peak_bytes": 123166720,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 120,
+            "verified_output": {
+              "records": 28
+            }
+          },
+          {
+            "case": "global_department_csv",
+            "format": "csv",
+            "request": "repeat",
+            "expected_records": 28,
+            "sql_statements": 104,
+            "sql_seconds": 0.039683,
+            "submission_rows_returned": 31,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 31,
+              "Department": 29,
+              "User": 46,
+              "Site": 28
+            },
+            "response_bytes": 32619,
+            "elapsed_seconds_profiled": 0.143652,
+            "process_cpu_seconds_profiled": 0.140625,
+            "python_allocation_peak_bytes": 784435,
+            "status": 200,
+            "process_rss_start_bytes": 123084800,
+            "process_rss_sampled_peak_bytes": 123203584,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 120,
+            "verified_output": {
+              "records": 28
+            }
+          },
+          {
+            "case": "worker_date_html",
+            "format": "html",
+            "request": "first",
+            "expected_records": 25,
+            "sql_statements": 101,
+            "sql_seconds": 0.044503,
+            "submission_rows_returned": 50,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 50,
+              "User": 25,
+              "Site": 25,
+              "Department": 25
+            },
+            "response_bytes": 314398,
+            "elapsed_seconds_profiled": 0.292251,
+            "process_cpu_seconds_profiled": 0.28125,
+            "python_allocation_peak_bytes": 3348276,
+            "status": 200,
+            "process_rss_start_bytes": 123109376,
+            "process_rss_sampled_peak_bytes": 123265024,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 108,
+            "verified_output": {
+              "records": 25,
+              "unique_embedded_images": 76,
+              "photos_and_direct_signatures_verified": 75,
+              "repeating_signatures_embedded": 0,
+              "repeating_signatures_not_embedded": 25,
+              "out_of_scope_fixture_images": 0
+            }
+          },
+          {
+            "case": "worker_date_html",
+            "format": "html",
+            "request": "repeat",
+            "expected_records": 25,
+            "sql_statements": 101,
+            "sql_seconds": 0.042963,
+            "submission_rows_returned": 50,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 50,
+              "User": 25,
+              "Site": 25,
+              "Department": 25
+            },
+            "response_bytes": 314398,
+            "elapsed_seconds_profiled": 0.304286,
+            "process_cpu_seconds_profiled": 0.265625,
+            "python_allocation_peak_bytes": 3276771,
+            "status": 200,
+            "process_rss_start_bytes": 122978304,
+            "process_rss_sampled_peak_bytes": 123969536,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 108,
+            "verified_output": {
+              "records": 25,
+              "unique_embedded_images": 76,
+              "photos_and_direct_signatures_verified": 75,
+              "repeating_signatures_embedded": 0,
+              "repeating_signatures_not_embedded": 25,
+              "out_of_scope_fixture_images": 0
+            }
+          },
+          {
+            "case": "worker_date_pdf",
+            "format": "pdf",
+            "request": "first",
+            "expected_records": 25,
+            "sql_statements": 101,
+            "sql_seconds": 0.042834,
+            "submission_rows_returned": 50,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 50,
+              "User": 25,
+              "Site": 25,
+              "Department": 25
+            },
+            "response_bytes": 357358,
+            "elapsed_seconds_profiled": 6.397771,
+            "process_cpu_seconds_profiled": 6.3125,
+            "python_allocation_peak_bytes": 64629858,
+            "status": 200,
+            "process_rss_start_bytes": 123457536,
+            "process_rss_sampled_peak_bytes": 240934912,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 108,
+            "verified_output": {
+              "records": 25,
+              "pages": 50,
+              "image_occurrences": 150,
+              "original_evidence_images_pixel_verified": 100,
+              "out_of_scope_fixture_images": 0,
+              "simplified_and_traditional_chinese_excerpts_verified": true
+            }
+          },
+          {
+            "case": "worker_date_pdf",
+            "format": "pdf",
+            "request": "repeat",
+            "expected_records": 25,
+            "sql_statements": 101,
+            "sql_seconds": 0.044709,
+            "submission_rows_returned": 50,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 50,
+              "User": 25,
+              "Site": 25,
+              "Department": 25
+            },
+            "response_bytes": 357358,
+            "elapsed_seconds_profiled": 3.012278,
+            "process_cpu_seconds_profiled": 3.0,
+            "python_allocation_peak_bytes": 15447266,
+            "status": 200,
+            "process_rss_start_bytes": 185298944,
+            "process_rss_sampled_peak_bytes": 196108288,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 108,
+            "verified_output": {
+              "records": 25,
+              "pages": 50,
+              "image_occurrences": 150,
+              "original_evidence_images_pixel_verified": 100,
+              "out_of_scope_fixture_images": 0,
+              "simplified_and_traditional_chinese_excerpts_verified": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "label": "Report volume 100, small originals: scoped answers/evidence checks and unchanged records",
+      "details": {
+        "owned_worker_reports": 100,
+        "large_images": false,
+        "rows_by_category": {
+          "own": 100,
+          "peer": 10,
+          "foreign": 10,
+          "daywork": 3,
+          "deleted": 3
+        },
+        "stored_upload_count": 504,
+        "stored_upload_bytes": 883811,
+        "photos_per_report": 2,
+        "direct_signatures_per_report": 1,
+        "repeating_signatures_per_report": 1,
+        "photo_dimensions": [
+          64,
+          48
+        ],
+        "signature_dimensions": [
+          240,
+          90
+        ],
+        "text_fixture": "English plus Simplified/Traditional Chinese field labels, Worker/Site names and final notes",
+        "all_observed_report_fields_unchanged": true,
+        "probes": [
+          {
+            "case": "worker_history",
+            "format": "history",
+            "request": "first",
+            "expected_records": 100,
+            "sql_statements": 267,
+            "sql_seconds": 0.104053,
+            "submission_rows_returned": 100,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 100,
+              "Site": 100,
+              "Department": 100,
+              "User": 66
+            },
+            "response_bytes": 247073,
+            "elapsed_seconds_profiled": 0.467562,
+            "process_cpu_seconds_profiled": 0.5,
+            "python_allocation_peak_bytes": 2619476,
+            "status": 200,
+            "process_rss_start_bytes": 186466304,
+            "process_rss_sampled_peak_bytes": 189108224,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 308,
+            "verified_output": {
+              "records": 100,
+              "evidence_references_per_record": 4
+            }
+          },
+          {
+            "case": "worker_history",
+            "format": "history",
+            "request": "repeat",
+            "expected_records": 100,
+            "sql_statements": 267,
+            "sql_seconds": 0.092458,
+            "submission_rows_returned": 100,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 100,
+              "Site": 100,
+              "Department": 100,
+              "User": 66
+            },
+            "response_bytes": 247073,
+            "elapsed_seconds_profiled": 0.403012,
+            "process_cpu_seconds_profiled": 0.375,
+            "python_allocation_peak_bytes": 2606644,
+            "status": 200,
+            "process_rss_start_bytes": 185462784,
+            "process_rss_sampled_peak_bytes": 188375040,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 308,
+            "verified_output": {
+              "records": 100,
+              "evidence_references_per_record": 4
+            }
+          },
+          {
+            "case": "department_csv_all",
+            "format": "csv",
+            "request": "first",
+            "expected_records": 110,
+            "sql_statements": 331,
+            "sql_seconds": 0.11524,
+            "submission_rows_returned": 110,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 110,
+              "User": 110,
+              "Site": 110,
+              "Department": 110
+            },
+            "response_bytes": 127364,
+            "elapsed_seconds_profiled": 0.431401,
+            "process_cpu_seconds_profiled": 0.359375,
+            "python_allocation_peak_bytes": 2406701,
+            "status": 200,
+            "process_rss_start_bytes": 188407808,
+            "process_rss_sampled_peak_bytes": 189542400,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 338,
+            "verified_output": {
+              "records": 110
+            }
+          },
+          {
+            "case": "department_csv_all",
+            "format": "csv",
+            "request": "repeat",
+            "expected_records": 110,
+            "sql_statements": 331,
+            "sql_seconds": 0.112447,
+            "submission_rows_returned": 110,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 110,
+              "User": 110,
+              "Site": 110,
+              "Department": 110
+            },
+            "response_bytes": 127364,
+            "elapsed_seconds_profiled": 0.430538,
+            "process_cpu_seconds_profiled": 0.375,
+            "python_allocation_peak_bytes": 2349403,
+            "status": 200,
+            "process_rss_start_bytes": 189521920,
+            "process_rss_sampled_peak_bytes": 189689856,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 338,
+            "verified_output": {
+              "records": 110
+            }
+          },
+          {
+            "case": "worker_date_csv",
+            "format": "csv",
+            "request": "first",
+            "expected_records": 25,
+            "sql_statements": 76,
+            "sql_seconds": 0.029551,
+            "submission_rows_returned": 100,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 100,
+              "User": 25,
+              "Site": 25,
+              "Department": 25
+            },
+            "response_bytes": 29176,
+            "elapsed_seconds_profiled": 0.11463,
+            "process_cpu_seconds_profiled": 0.125,
+            "python_allocation_peak_bytes": 833859,
+            "status": 200,
+            "process_rss_start_bytes": 189620224,
+            "process_rss_sampled_peak_bytes": 189743104,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 83,
+            "verified_output": {
+              "records": 25
+            }
+          },
+          {
+            "case": "worker_date_csv",
+            "format": "csv",
+            "request": "repeat",
+            "expected_records": 25,
+            "sql_statements": 76,
+            "sql_seconds": 0.029944,
+            "submission_rows_returned": 100,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 100,
+              "User": 25,
+              "Site": 25,
+              "Department": 25
+            },
+            "response_bytes": 29176,
+            "elapsed_seconds_profiled": 0.111446,
+            "process_cpu_seconds_profiled": 0.109375,
+            "python_allocation_peak_bytes": 778943,
+            "status": 200,
+            "process_rss_start_bytes": 189636608,
+            "process_rss_sampled_peak_bytes": 189743104,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 83,
+            "verified_output": {
+              "records": 25
+            }
+          },
+          {
+            "case": "global_department_csv",
+            "format": "csv",
+            "request": "first",
+            "expected_records": 110,
+            "sql_statements": 404,
+            "sql_seconds": 0.140021,
+            "submission_rows_returned": 120,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 120,
+              "Department": 111,
+              "User": 182,
+              "Site": 110
+            },
+            "response_bytes": 127364,
+            "elapsed_seconds_profiled": 0.514561,
+            "process_cpu_seconds_profiled": 0.515625,
+            "python_allocation_peak_bytes": 2255922,
+            "status": 200,
+            "process_rss_start_bytes": 189640704,
+            "process_rss_sampled_peak_bytes": 189890560,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 448,
+            "verified_output": {
+              "records": 110
+            }
+          },
+          {
+            "case": "global_department_csv",
+            "format": "csv",
+            "request": "repeat",
+            "expected_records": 110,
+            "sql_statements": 404,
+            "sql_seconds": 0.139007,
+            "submission_rows_returned": 120,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 120,
+              "Department": 111,
+              "User": 182,
+              "Site": 110
+            },
+            "response_bytes": 127364,
+            "elapsed_seconds_profiled": 0.513651,
+            "process_cpu_seconds_profiled": 0.484375,
+            "python_allocation_peak_bytes": 2415024,
+            "status": 200,
+            "process_rss_start_bytes": 189853696,
+            "process_rss_sampled_peak_bytes": 190193664,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 448,
+            "verified_output": {
+              "records": 110
+            }
+          },
+          {
+            "case": "worker_date_html",
+            "format": "html",
+            "request": "first",
+            "expected_records": 25,
+            "sql_statements": 101,
+            "sql_seconds": 0.0428,
+            "submission_rows_returned": 125,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 125,
+              "User": 25,
+              "Site": 25,
+              "Department": 25
+            },
+            "response_bytes": 314398,
+            "elapsed_seconds_profiled": 0.283349,
+            "process_cpu_seconds_profiled": 0.25,
+            "python_allocation_peak_bytes": 3383126,
+            "status": 200,
+            "process_rss_start_bytes": 190087168,
+            "process_rss_sampled_peak_bytes": 191152128,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 108,
+            "verified_output": {
+              "records": 25,
+              "unique_embedded_images": 76,
+              "photos_and_direct_signatures_verified": 75,
+              "repeating_signatures_embedded": 0,
+              "repeating_signatures_not_embedded": 25,
+              "out_of_scope_fixture_images": 0
+            }
+          },
+          {
+            "case": "worker_date_html",
+            "format": "html",
+            "request": "repeat",
+            "expected_records": 25,
+            "sql_statements": 101,
+            "sql_seconds": 0.043857,
+            "submission_rows_returned": 125,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 125,
+              "User": 25,
+              "Site": 25,
+              "Department": 25
+            },
+            "response_bytes": 314398,
+            "elapsed_seconds_profiled": 0.290975,
+            "process_cpu_seconds_profiled": 0.25,
+            "python_allocation_peak_bytes": 3341607,
+            "status": 200,
+            "process_rss_start_bytes": 191156224,
+            "process_rss_sampled_peak_bytes": 191270912,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 108,
+            "verified_output": {
+              "records": 25,
+              "unique_embedded_images": 76,
+              "photos_and_direct_signatures_verified": 75,
+              "repeating_signatures_embedded": 0,
+              "repeating_signatures_not_embedded": 25,
+              "out_of_scope_fixture_images": 0
+            }
+          },
+          {
+            "case": "worker_date_pdf",
+            "format": "pdf",
+            "request": "first",
+            "expected_records": 25,
+            "sql_statements": 101,
+            "sql_seconds": 0.038716,
+            "submission_rows_returned": 125,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 125,
+              "User": 25,
+              "Site": 25,
+              "Department": 25
+            },
+            "response_bytes": 357358,
+            "elapsed_seconds_profiled": 2.743363,
+            "process_cpu_seconds_profiled": 2.734375,
+            "python_allocation_peak_bytes": 15351239,
+            "status": 200,
+            "process_rss_start_bytes": 191164416,
+            "process_rss_sampled_peak_bytes": 198533120,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 108,
+            "verified_output": {
+              "records": 25,
+              "pages": 50,
+              "image_occurrences": 150,
+              "original_evidence_images_pixel_verified": 100,
+              "out_of_scope_fixture_images": 0,
+              "simplified_and_traditional_chinese_excerpts_verified": true
+            }
+          },
+          {
+            "case": "worker_date_pdf",
+            "format": "pdf",
+            "request": "repeat",
+            "expected_records": 25,
+            "sql_statements": 101,
+            "sql_seconds": 0.037406,
+            "submission_rows_returned": 125,
+            "orm_objects_loaded": {
+              "WorkFormSubmission": 125,
+              "User": 25,
+              "Site": 25,
+              "Department": 25
+            },
+            "response_bytes": 357358,
+            "elapsed_seconds_profiled": 2.813313,
+            "process_cpu_seconds_profiled": 2.765625,
+            "python_allocation_peak_bytes": 15322035,
+            "status": 200,
+            "process_rss_start_bytes": 188862464,
+            "process_rss_sampled_peak_bytes": 198619136,
+            "process_rss_sample_interval_ms": 10,
+            "sql_statement_budget": 108,
+            "verified_output": {
+              "records": 25,
+              "pages": 50,
+              "image_occurrences": 150,
+              "original_evidence_images_pixel_verified": 100,
+              "out_of_scope_fixture_images": 0,
+              "simplified_and_traditional_chinese_excerpts_verified": true
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "failures": [],
+  "scope": "representative_report_volume",
+  "passed": true,
+  "cleanup_complete": true,
+  "binary_version": "postgres (PostgreSQL) 17.6",
+  "server_version": "PostgreSQL 17.6 on x86_64-windows, compiled by msvc-19.44.35217, 64-bit",
+  "finished_at": "2026-10-21T02:45:33.391241+00:00",
+  "profile": "ci",
+  "schema_version": 1,
+  "environment": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.14.5",
+    "logical_cpu_count": 20,
+    "contention_note": "Concurrent load was not controlled or recorded; timings are descriptive correctness-run observations.",
+    "contention_note_source": "operator; no OS workload isolation is claimed"
+  },
+  "source_commit": "2aa89fc29555beef5a59433d29d5e94dae81d5e6",
+  "source_sha256": {
+    "backend/report_volume_test.py": "e3302b9b414969d25a1c7a1bed61f434bf9e4d0d8404822ed98714483e4ae0e7",
+    "backend/postgres_rehearsal.py": "797d50f0fa0fc81cd9c84bfc075023834ca5c1277000b6e7629101c16b5fb876",
+    "backend/app/use_cases/work_forms.py": "86505a79d78f1d337191352941b08d58b6aec5fd450f8c8ad637dff63b79171c",
+    "backend/app/use_cases/common.py": "fd393c09c5d19344008ce25dfe3773e667ea7d4cdf22a0474f2ec8939bc5dfa6",
+    "backend/app/use_cases/supervisor_review.py": "2b100f8077cfa6e514998bd74c848362d35a1eba608ed94dd62b606641d67d4d",
+    "backend/app/use_cases/supervisor_review_exports.py": "e4001ee2ea4a42e9856ba57791ceffe33e2918e2ceecbea7576e08b9c5c14cbe",
+    "backend/app/use_cases/report_pdf.py": "093429ce49fcaccbd81b92a7752c944a3c628275978ba398686f272887636b9d"
+  },
+  "guardrails": {
+    "maximum_response_bytes": 33554432,
+    "maximum_python_allocation_peak_bytes": 268435456,
+    "maximum_profiled_probe_seconds": 120
+  },
+  "measurement_notes": [
+    "Sequential requests against native local PostgreSQL and the real ASGI endpoints; authentication is dependency-overridden with synthetic scoped identities.",
+    "First/repeat each uses a fresh ORM session. First is not an OS/disk-cold guarantee; PostgreSQL caches are not flushed and Python/font caches may be warm from earlier probes.",
+    "Wall and SQL timings include tracemalloc/event instrumentation overhead. RSS samples the Python process every 10ms; PostgreSQL memory and browser memory are excluded.",
+    "Responses are fully captured, matching current buffered endpoint semantics. Output verification occurs after the measured request and is excluded from request timing/allocation peak.",
+    "Synthetic small originals and one bounded larger-original comparison are not 50-photo/5MB evidence capacity, concurrent load, provider latency or physical-phone certification.",
+    "Absolute resource bounds are generous runaway guards for this fixed fixture, not production latency/memory service-level objectives.",
+    "Query ceilings allow the measured current N+1 behavior and prevent an additional per-record lookup; they do not claim query counts are constant or suitable for unbounded growth.",
+    "HTML verifies every selected photo/direct signature and records repeating-signature embedding separately. PDF compares all four selected evidence images by decoded pixels and excludes all out-of-scope fixture evidence."
+  ]
+}

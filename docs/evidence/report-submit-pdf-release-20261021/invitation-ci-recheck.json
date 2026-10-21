@@ -1,0 +1,24 @@
+{
+  "startedAtUtc": "2026-10-21T03:05:22.455833+00:00",
+  "sourceCommit": "80b4ea01a041a84bdcc0483f8e3d41a34d55f117",
+  "scope": "unchanged exact invitation late-response privacy workflow; isolated local data and SMTP disabled",
+  "runs": [
+    {
+      "number": 1,
+      "exitCode": 0,
+      "log": "output\\report-submit-pdf-invitation-recheck-1.log"
+    },
+    {
+      "number": 2,
+      "exitCode": 0,
+      "log": "output\\report-submit-pdf-invitation-recheck-2.log"
+    },
+    {
+      "number": 3,
+      "exitCode": 0,
+      "log": "output\\report-submit-pdf-invitation-recheck-3.log"
+    }
+  ],
+  "status": "passed",
+  "finishedAtUtc": "2026-10-21T03:05:59.746286+00:00"
+}

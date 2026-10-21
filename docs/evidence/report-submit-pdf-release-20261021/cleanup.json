@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-21T04:01:08.823098+00:00",
+  "jobs": [
+    "rf-pdf-backup-verified-20261021",
+    "rf-pdf-baseline-verified-20261021",
+    "rf-pdf-post-release-20261021",
+    "rf-pdf-pre-activation-20261021",
+    "rf-pdf-pre-worker-20261021",
+    "rf-pdf-production-20261021",
+    "rf-pdf-stage-fallback-20261021",
+    "rf-pdf-stage-migration-20261021",
+    "rf-pdf-stage-provider-20261021"
+  ],
+  "stageBranch": "br-sparkling-butterfly-a7jord2n",
+  "retainedBackup": "br-holy-river-a7yrw273",
+  "deleted": [
+    "rf-pdf-backup-verified-20261021",
+    "rf-pdf-baseline-verified-20261021",
+    "rf-pdf-post-release-20261021",
+    "rf-pdf-pre-activation-20261021",
+    "rf-pdf-pre-worker-20261021",
+    "rf-pdf-production-20261021",
+    "rf-pdf-stage-fallback-20261021",
+    "rf-pdf-stage-migration-20261021",
+    "rf-pdf-stage-provider-20261021",
+    "br-sparkling-butterfly-a7jord2n"
+  ],
+  "verifiedAtUtc": "2026-10-21T04:02:12.764170+00:00",
+  "absenceVerified": true,
+  "productionAndBackupPreserved": true
+}

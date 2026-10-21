@@ -14,7 +14,17 @@ Continue to require the current release's database/image compatibility, exact ow
 
 ## Deployment Truth
 
-### Current invitation-email release - 2026-10-21 UTC
+### Current combined release - 2026-10-21 UTC
+
+Supervisor Submit form and optional per-template PDF email are live from `80b4ea01a041a84bdcc0483f8e3d41a34d55f117`: backend `geo-backend-report-pdf-20261021` serves 100% without tags; Hosting `12a1d6dbf481ba3b` uses cache `leader-field-c878ffd1be3c`. Additive `0024_report_pdf_email` and the compatible backend preceded Hosting. Existing business rows and all prior migration checksums are preserved. Supervisors submit as themselves within their home Department. Every production Template remains off and the outbox is empty; no real Reports or emails were created by this release. The five-minute worker uses one task, batch 10, zero retries, the existing backend runtime and SMTP secret version 1. Only the standard Google Scheduler service-agent project role and the dedicated trigger's job-only invocation were added. Existing service/secret permissions and SMTP settings are preserved; public registration and web-process dispatch remain disabled.
+
+Source CI passes both jobs and all 75 real-backend browser workflows. The export query regression was fixed without raising limits. The first fixed-source CI invitation account-switch timeout remains unconfirmed; three unchanged isolated checks and one complete frontend rerun passed. Native PostgreSQL, exact-image mocked SMTP/fallback, isolated provider staging, read-only live/offline parity, current recovery and strict hardening pass. The existing six-hour recovery warning and physical-phone/cold-offline Supervisor catalog limits remain. No real email or SMTP authentication was exercised.
+
+Retain fallback `geo-backend-report-pdf-fallback-20261021`, previous Hosting `4988eacbe73feaaf` in `rollback-report-pdf-20261021` until `2026-10-28T03:37:11.828213161Z`, and backup `br-holy-river-a7yrw273` until `2026-10-28T03:42:26Z`. Pause Scheduler and disable the worker before fallback. The fallback retains migration 0024 and outbox purge protection. Original 0023-only images reject the ledger. Never downgrade migrations, reset credentials/auth generations or clear device storage; reverify retained resources before use.
+
+[Release evidence](evidence/report-submit-pdf-release-20261021/release.json).
+
+### Historical invitation-email release - 2026-10-21 UTC
 
 Invitation emails are live from source `2f861c569949e5f91e29748d7ab47c672c7beef1`: backend `geo-backend-invite-20261020` serves 100% without tags, and exact Hosting `4988eacbe73feaaf` uses cache `leader-field-bcd13b256f32`. Additive `0023_worker_invitation_email` and its compatible backend preceded Hosting. Paused migration and final read-only inventories preserve all existing business rows and prior migration checksums. `PUBLIC_APP_URL` is `https://geo-attendance-system-db9ca.web.app`; SMTP secret version 1, other secret references and IAM are unchanged. Supervisors explicitly send once to the saved invitee email; Copy/Share remains. SMTP acceptance is not delivery. Public-registration email stays disabled; password recovery remains manual and PDFs remain downloads.
 

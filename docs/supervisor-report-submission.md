@@ -1,4 +1,10 @@
-# Supervisor Submit form — local preparation
+# Supervisor Submit form
+
+Deployed 2026-10-21 UTC. Supervisor Submit form and optional per-template PDF email are live from `80b4ea01a041a84bdcc0483f8e3d41a34d55f117`: backend `geo-backend-report-pdf-20261021` serves 100% without tags; Hosting `12a1d6dbf481ba3b` uses cache `leader-field-c878ffd1be3c`. Additive `0024_report_pdf_email` and the compatible backend preceded Hosting. Existing business rows and all prior migration checksums are preserved. Supervisors submit as themselves within their home Department. Every production Template remains off and the outbox is empty; no real Reports or emails were created by this release. The five-minute worker uses one task, batch 10, zero retries, the existing backend runtime and SMTP secret version 1. Only the standard Google Scheduler service-agent project role and the dedicated trigger's job-only invocation were added. Existing service/secret permissions and SMTP settings are preserved; public registration and web-process dispatch remain disabled. [Release evidence](evidence/report-submit-pdf-release-20261021/release.json).
+
+## Historical local preparation
+
+The preparation statements and release prerequisites below describe the pre-release checkpoint; the approved deployment above completed those infrastructure gates. Recipient activation still requires approval.
 
 Prepared locally, not committed or deployed. The previous optional PDF-email
 implementation remains in the working tree and is still awaiting release and

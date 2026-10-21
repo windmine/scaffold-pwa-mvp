@@ -1,0 +1,16 @@
+{
+  "run":39535326815,
+  "attempt":1,
+  "source":"80b4ea01a041a84bdcc0483f8e3d41a34d55f117",
+  "backend":"passed",
+  "frontendBrowserResult":"74/75 passed; one timeout",
+  "failedWorkflow":"Worker invitation late responses never expose a prior Supervisor private link",
+  "failureLocation":"scripts/check-browser-workflows.mjs:5707, waiting for the Worker view after same-document sign-in while the prior invitation response is held",
+  "cause":"UNCONFIRMED; no failure-state snapshot was captured by the existing harness",
+  "unchangedLocalRechecks":"3/3 passed using fresh isolated data, SMTP disabled",
+  "applicationOrTestChanges":false,
+  "assertionsOrTimeoutsRelaxed":false,
+  "nextAction":"One rerun of the failed complete frontend job; preserve this result regardless of rerun outcome",
+  "productionApplicationChanged":false,
+  "realEmail":false
+}
