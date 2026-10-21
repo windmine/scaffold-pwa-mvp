@@ -1,0 +1,105 @@
+{
+  "apiVersion": "run.googleapis.com/v1",
+  "kind": "Execution",
+  "metadata": {
+    "annotations": {
+      "run.googleapis.com/client-name": "gcloud",
+      "run.googleapis.com/client-version": "571.0.0",
+      "run.googleapis.com/creator": "hty2003ah@gmail.com",
+      "run.googleapis.com/execution-environment": "gen2",
+      "run.googleapis.com/lastModifier": "hty2003ah@gmail.com",
+      "run.googleapis.com/operation-id": "6eb8079e-f775-46c3-87ac-cab83115c771"
+    },
+    "creationTimestamp": "2026-10-20T23:44:34.296054Z",
+    "generation": 1,
+    "labels": {
+      "cloud.googleapis.com/location": "australia-southeast1",
+      "run.googleapis.com/job": "rf-invite-baseline-20261020",
+      "run.googleapis.com/jobGeneration": "1",
+      "run.googleapis.com/jobResourceVersion": "1792539870705830",
+      "run.googleapis.com/jobUid": "0f3299cf-ba7a-4397-b296-50ee957a0a2a",
+      "run.googleapis.com/satisfiesPzs": "true"
+    },
+    "name": "rf-invite-baseline-20261020-cdq4b",
+    "namespace": "794826041820",
+    "ownerReferences": [
+      {
+        "apiVersion": "serving.knative.dev/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "Job",
+        "name": "rf-invite-baseline-20261020",
+        "uid": "0f3299cf-ba7a-4397-b296-50ee957a0a2a"
+      }
+    ],
+    "resourceVersion": "AAZeTjZ0APY",
+    "selfLink": "/apis/run.googleapis.com/v1/namespaces/794826041820/executions/rf-invite-baseline-20261020-cdq4b",
+    "uid": "0a0fab1a-936c-420f-b24f-4f9bbc591175"
+  },
+  "spec": {
+    "parallelism": 1,
+    "taskCount": 1,
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "args": [
+              "-c",
+              "\"\"\"Run inside an exact release image. Emit only aggregate, credential-free proof.\"\"\"\nimport hashlib\nimport json\nimport os\nfrom pathlib import Path\nimport subprocess\nimport sys\nimport tempfile\nimport time\nfrom urllib.parse import urlsplit, urlunsplit\nfrom urllib.request import urlopen\nfrom datetime import datetime, timezone\nimport psycopg\nfrom psycopg import sql\n\nADDED = {\"email_status\", \"email_attempted_at\", \"email_accepted_at\"}\n\n\ndef digest(value):\n    return hashlib.sha256(json.dumps(value, sort_keys=True, default=str, separators=(\",\", \":\")).encode()).hexdigest()\n\n\ndef snapshot(url):\n    with psycopg.connect(url.replace(\"postgresql+psycopg://\", \"postgresql://\", 1), connect_timeout=20) as connection:\n        connection.read_only = True\n        with connection.cursor() as cursor:\n            cursor.execute(\"SET LOCAL statement_timeout = '30s'\")\n            cursor.execute(\"SET LOCAL lock_timeout = '5s'\")\n            cursor.execute(\"SHOW transaction_read_only\")\n            assert cursor.fetchone()[0] == \"on\"\n            cursor.execute(\"SELECT version, checksum FROM schema_migrations ORDER BY version\")\n            ledger = dict(cursor.fetchall())\n            bundled = {p.stem: hashlib.sha256(p.read_bytes()).hexdigest() for p in Path('/app/backend/migrations/versions').glob('[0-9]*.py')}\n            assert list(ledger) == sorted(bundled)[:len(ledger)] and all(bundled[k] == v for k, v in ledger.items())\n            cursor.execute(\"SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name\")\n            tables = [r[0] for r in cursor.fetchall()]\n            business = {}\n            for table in tables:\n                if table == \"schema_migrations\":\n                    continue\n                cursor.execute(\"SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=%s ORDER BY ordinal_position\", (table,))\n                columns = [r[0] for r in cursor.fetchall() if not (table == 'workerinvitation' and r[0] in ADDED)]\n                cursor.execute(sql.SQL('SELECT {} FROM {}').format(sql.SQL(',').join(map(sql.Identifier, columns)), sql.Identifier(table)))\n                rows = sorted(digest(row) for row in cursor.fetchall())\n                business[table] = {\"columns\": columns, \"rows\": len(rows), \"rowsSha256\": digest(rows)}\n            cursor.execute(\"SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='workerinvitation'\")\n            added = sorted(ADDED & {r[0] for r in cursor.fetchall()})\n            result = {\"migrationCount\": len(ledger), \"migrationHead\": list(ledger)[-1], \"migrationChecksums\": ledger,\n                      \"businessTables\": business, \"invitationEmailColumns\": added, \"transactionReadOnly\": True}\n            if len(added) == 3:\n                cursor.execute(\"SELECT count(*) FROM workerinvitation WHERE email_status <> 'not_sent' OR email_attempted_at IS NOT NULL OR email_accepted_at IS NOT NULL\")\n                result[\"emailAttemptRows\"] = cursor.fetchone()[0]\n            return result\n\n\ndef migrate(environment):\n    for args in [[], [\"--check\"]]:\n        result = subprocess.run([sys.executable, \"-m\", \"app.migrations\", *args], env=environment,\n                                capture_output=True, timeout=150)\n        assert result.returncode == 0, \"Migration CLI failed; detailed output deliberately withheld\"\n\n\ndef local_api(environment, *, smoke):\n    with tempfile.TemporaryDirectory(prefix=\"release-stage-\") as directory:\n        env = {**environment, \"APP_ENV\": \"development\", \"ENVIRONMENT\": \"development\", \"K_SERVICE\": \"\",\n               \"UPLOAD_STORAGE_BACKEND\": \"local\", \"UPLOAD_DIR\": directory, \"UPLOAD_BUCKET\": \"\",\n               \"AUTH_COOKIE_SECURE\": \"false\", \"RATE_LIMIT_ENABLED\": \"false\", \"ENABLE_DEV_SEED\": \"true\" if smoke else \"false\",\n               \"GEO_SECRET_KEY\": \"synthetic-release-stage-key-not-a-production-credential\",\n               \"SMTP_HOST\": \"\", \"SMTP_FROM_EMAIL\": \"\", \"SMTP_PASSWORD\": \"\", \"SMTP_USERNAME\": \"\",\n               \"REGISTRATION_EMAIL_ENABLED\": \"false\", \"API_BASE_URL\": \"http://127.0.0.1:8087\"}\n        process = subprocess.Popen([sys.executable, \"-m\", \"uvicorn\", \"app.main:app\", \"--host\", \"127.0.0.1\", \"--port\", \"8087\"],\n                                   env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n        try:\n            ready = None\n            for _ in range(150):\n                assert process.poll() is None, \"Stage API exited\"\n                try:\n                    with urlopen('http://127.0.0.1:8087/health/ready', timeout=3) as response:\n                        ready = json.load(response)\n                    if ready['status'] == 'ok':\n                        break\n                except Exception:\n                    pass\n                time.sleep(0.2)\n            assert ready and ready['status'] == 'ok'\n            result = {\"readiness\": ready, \"smtpDisabled\": True, \"uploads\": \"disposable-local-only\"}\n            if smoke:\n                checked = subprocess.run([sys.executable, \"/app/backend/smoke_test.py\"], env=env, capture_output=True, timeout=360)\n                # Failure output can contain fixture identities; retain only counts.\n                lines = checked.stdout.decode('utf-8', errors='replace').splitlines()\n                result.update(smokeExitCode=checked.returncode, passingChecks=sum(line.startswith('ok - ') for line in lines))\n                assert checked.returncode == 0, \"Provider smoke failed; output withheld\"\n            return result\n        finally:\n            process.terminate()\n            try:\n                process.wait(timeout=15)\n            except subprocess.TimeoutExpired:\n                process.kill()\n                process.wait(timeout=10)\n\n\ndef main():\n    mode = os.environ['PROBE_MODE']\n    assert mode in {'inventory', 'stage-inspect', 'stage-migrate', 'stage-check', 'stage-fallback', 'production-migrate'}\n    original = os.environ['DATABASE_URL']\n    parsed = urlsplit(original)\n    original_host = parsed.hostname.replace('-pooler.', '.')\n    assert hashlib.sha256(original_host.encode()).hexdigest() == os.environ['PRODUCTION_DB_HOST_SHA256']\n    assert parsed.username and parsed.password and parsed.path == '/neondb'\n    if mode.startswith('stage-'):\n        target = os.environ['STAGE_DB_HOST']\n        assert target.endswith('.ap-southeast-2.aws.neon.tech') and target != original_host\n        assert os.environ['STAGE_BRANCH_ID'] == 'br-gentle-sound-a7reig2b'\n        # Branches inherit the existing database role. Credentials stay inside\n        # the existing runtime binding; only the verified endpoint is changed.\n        userinfo = parsed.netloc.rsplit('@', 1)[0]\n        original = urlunsplit(parsed._replace(netloc=userinfo + '@' + target))\n    env = {**os.environ, 'DATABASE_URL': original, 'AUTO_MIGRATE': 'false', 'SQL_ECHO': 'false'}\n    before = snapshot(original)\n    proof = {'status': 'passed', 'mode': mode, 'atUtc': datetime.now(timezone.utc).isoformat(), 'before': before}\n    if mode in {'stage-migrate', 'production-migrate'}:\n        assert before['migrationCount'] == 22 and before['migrationHead'] == '0022_worker_password_recovery'\n        assert before['invitationEmailColumns'] == []\n        migrate(env)\n        after = snapshot(original)\n        assert after['migrationCount'] == 23 and after['migrationHead'] == '0023_worker_invitation_email'\n        assert set(after['invitationEmailColumns']) == ADDED and after['emailAttemptRows'] == 0\n        assert before['businessTables'] == after['businessTables']\n        assert all(after['migrationChecksums'][k] == v for k, v in before['migrationChecksums'].items())\n        proof.update(after=after, businessDataPreserved=True, applied=['0023_worker_invitation_email'])\n    if mode in {'stage-migrate', 'stage-check', 'stage-fallback'}:\n        if mode in {'stage-fallback', 'stage-check'}:\n            assert before['migrationCount'] == 23\n        proof['api'] = local_api(env, smoke=mode != 'stage-fallback')\n    print('REPORTFLOW_RELEASE_PROOF ' + json.dumps(proof, sort_keys=True))\n\n\nif __name__ == '__main__':\n    try:\n        main()\n    except BaseException as error:\n        print('REPORTFLOW_RELEASE_FAILURE ' + json.dumps({'status': 'failed', 'type': type(error).__name__,\n            'code': str(error) if isinstance(error, AssertionError) else 'detail-withheld', 'mode': os.environ.get('PROBE_MODE')}))\n        sys.exit(1)\n"
+            ],
+            "command": [
+              "python"
+            ],
+            "env": [
+              {
+                "name": "DATABASE_URL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "2",
+                    "name": "geo-backend-database-url"
+                  }
+                }
+              },
+              {
+                "name": "PROBE_MODE",
+                "value": "inventory"
+              },
+              {
+                "name": "PRODUCTION_DB_HOST_SHA256",
+                "value": "4ce9a0a1fae9ec9fa74a999640172fc06116b9fcf9ea1ff1236a3286b33624a0"
+              },
+              {
+                "name": "AUTO_MIGRATE",
+                "value": "false"
+              },
+              {
+                "name": "REGISTRATION_EMAIL_ENABLED",
+                "value": "false"
+              },
+              {
+                "name": "SMTP_HOST"
+              },
+              {
+                "name": "SMTP_FROM_EMAIL"
+              }
+            ],
+            "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:8801993c86edf7e9d7b49d9d3d1b4dbd77a5d97fdb6a26b747233fd90e9a6ef4",
+            "name": "geo-backend-1",
+            "resources": {
+              "limits": {
+                "cpu": "1",
+                "memory": "512Mi"
+              }
+            }
+          }
+        ],
+        "maxRetries": 0,
+        "serviceAccountName": "geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com",
+        "timeoutSeconds": "600"
+      }
+    }
+  },
+  "status": {
+    "logUri": "https://console.cloud.google.com/logs/viewer?project=geo-attendance-system-db9ca&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22rf-invite-baseline-20261020%22%0Aresource.labels.location%3D%22australia-southeast1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22rf-invite-baseline-20261020-cdq4b%22"
+  }
+}

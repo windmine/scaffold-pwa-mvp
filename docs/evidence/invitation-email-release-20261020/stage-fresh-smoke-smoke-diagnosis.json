@@ -1,0 +1,12 @@
+{
+  "passingChecks": 199,
+  "lastChecks": [
+    "export attendance csv filtered by date",
+    "reject reversed export date range",
+    "export task logs csv",
+    "export task logs csv filtered by date",
+    "export task logs html"
+  ],
+  "failureLabel": "export task logs html",
+  "statuses": null
+}

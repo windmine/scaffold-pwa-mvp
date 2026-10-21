@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "sourceCommit": "2f861c569949e5f91e29748d7ab47c672c7beef1",
+  "build": "npm run build",
+  "lint": "npm run lint",
+  "frozenFiles": 85,
+  "cacheVersion": "leader-field-bcd13b256f32",
+  "warning": "Existing main bundle exceeds500kB; no invitation release blocker",
+  "realEmailSent": false
+}

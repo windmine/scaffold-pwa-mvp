@@ -1,0 +1,38 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-21T00:13:58.244767+00:00",
+  "jobs": [
+    "rf-invite-backup-verified-20261020",
+    "rf-invite-baseline-20261020",
+    "rf-invite-baseline-verified-20261020",
+    "rf-invite-post-release-20261020",
+    "rf-invite-production-20261020",
+    "rf-invite-stage-fallback-20261020",
+    "rf-invite-stage-fresh-smoke-20261020",
+    "rf-invite-stage-inspect-20261020",
+    "rf-invite-stage-20261020",
+    "rf-invite-stage-provider-20261020",
+    "rf-invite-stage-smoke-20261020",
+    "rf-invite-stage-verified-20261020"
+  ],
+  "stageBranch": "br-gentle-sound-a7reig2b",
+  "retainedBackup": "br-damp-block-a7u7bbkl",
+  "deleted": [
+    "rf-invite-backup-verified-20261020",
+    "rf-invite-baseline-20261020",
+    "rf-invite-baseline-verified-20261020",
+    "rf-invite-post-release-20261020",
+    "rf-invite-production-20261020",
+    "rf-invite-stage-fallback-20261020",
+    "rf-invite-stage-fresh-smoke-20261020",
+    "rf-invite-stage-inspect-20261020",
+    "rf-invite-stage-20261020",
+    "rf-invite-stage-provider-20261020",
+    "rf-invite-stage-smoke-20261020",
+    "rf-invite-stage-verified-20261020",
+    "br-gentle-sound-a7reig2b"
+  ],
+  "verifiedAtUtc": "2026-10-21T00:15:18.348725+00:00",
+  "absenceVerified": true,
+  "productionAndBackupPreserved": true
+}

@@ -1,0 +1,9 @@
+{
+  "sourceCommit": "2f861c569949e5f91e29748d7ab47c672c7beef1",
+  "buildId": "04840382-49f1-49bb-8e4c-15a958822bae",
+  "images": {
+    "candidate": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:8801993c86edf7e9d7b49d9d3d1b4dbd77a5d97fdb6a26b747233fd90e9a6ef4",
+    "fallback": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:7b428e72bc02509b056d1fc82ff42e61cb731fcc066544de5a18b0a7c85697fa"
+  },
+  "mockedTestsPassed": true
+}

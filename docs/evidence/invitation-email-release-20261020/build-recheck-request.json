@@ -1,0 +1,4 @@
+{
+  "at": "2026-10-20T23:35:52.626018+00:00",
+  "reason": "Correct fallback verification harness to pass a Connection, not Engine; application/source packages unchanged"
+}

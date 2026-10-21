@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "status": "failed",
+  "strict": true,
+  "startedAtUtc": "2026-10-21T00:07:18.513265+00:00",
+  "command": [
+    "C:\\Users\\12273\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.EXE",
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    "scripts/check-production-hardening.ps1",
+    "-AlertDeliveryEvidence",
+    "docs/evidence/alert-delivery-diagnosis-2026-10-12.json",
+    "-NeonRecoveryEvidence",
+    "docs/evidence/invitation-email-release-20261020/neon-current.json",
+    "-UploadRecoveryEvidence",
+    "docs/evidence/report-fixes-release-20261012/upload-recovery.json",
+    "-BillingAccount",
+    "0123B1-051D70-935F73"
+  ],
+  "sourceCommit": "2f861c569949e5f91e29748d7ab47c672c7beef1",
+  "recoveryProofs": {
+    "AlertDeliveryEvidence": {
+      "path": "docs/evidence/alert-delivery-diagnosis-2026-10-12.json",
+      "sha256": "cea216100df344c9870006b07a6bc6dbc829a90c6c29f0babc3b7f254762eb28"
+    },
+    "NeonRecoveryEvidence": {
+      "path": "docs/evidence/invitation-email-release-20261020/neon-current.json",
+      "sha256": "71153bc9ede53dbcbd372c78a4d44f7de81088b49c6da2208bb86ea07d344962"
+    },
+    "UploadRecoveryEvidence": {
+      "path": "docs/evidence/report-fixes-release-20261012/upload-recovery.json",
+      "sha256": "ffea976b582a7d2561c35e02c9ea4346adf58e540661c4a78a47a682c40bb4b6"
+    }
+  },
+  "gateScriptSha256": "0b28612e4e692cce757d4aa8639a7b21d91b4cf9a19ccd3f7701224b764024ad",
+  "hostedWritesPerformed": false,
+  "exitCode": 1,
+  "checkedAtUtc": "2026-10-21T00:08:13.643649+00:00",
+  "failures": [
+    "not ok - hosted readiness has fewer than three recent passing checker-region results",
+    "not ok - Neon recovery evidence is not bound to this project, release phase, complete source/checksum ledger, artifact set, historical point, and exact cleanup contract"
+  ],
+  "warnings": [
+    "warn - Neon history retention is only 6 hours; choose a longer paid window or external logical backups before relying on it for production recovery"
+  ],
+  "passingChecks": [
+    "Cloud Run container startup leaves database migrations to the explicit release step",
+    "gcloud can read project geo-attendance-system-db9ca",
+    "Neon evidence will be bound to project plain-smoke-06194407, phase Current, and exact migration ledger through 0023_worker_invitation_email",
+    "project has no folder/organization ancestor IAM to expand",
+    "dedicated runtime service account is enabled",
+    "dedicated runtime service account has no direct impersonation bindings",
+    "Cloud Run service geo-backend is readable",
+    "Cloud Run uses dedicated runtime identity geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com",
+    "Cloud Run production traffic is 100% on geo-backend-invite-20261020",
+    "traffic-serving revision uses the dedicated runtime identity",
+    "traffic-serving revision uses explicit migrations plus the checked GCS and Secret resources",
+    "Neon-backed runtime identity has zero project-level IAM bindings",
+    "default Compute service account has exactly the source-build role",
+    "upload custom role is active at GA and limited to create/get/delete",
+    "geo-backend-database-url is available to the dedicated runtime identity only",
+    "geo-backend-jwt-secret is available to the dedicated runtime identity only",
+    "live database provider is Neon; legacy Cloud SQL checks are not used as production evidence",
+    "upload bucket IAM is not public",
+    "runtime bucket access is restricted to uploads/ with the custom role",
+    "default Compute identity has no upload-bucket binding",
+    "upload bucket public access prevention is enforced",
+    "upload bucket uses uniform bucket-level access",
+    "upload bucket soft delete retains deleted objects for 30 days",
+    "upload bucket Object Versioning is disabled as required by the recovery policy",
+    "upload bucket has no retention lock or hold that would break application cleanup",
+    "hosted readiness uptime check validates HTTPS 200 and status=ok through JSONPath",
+    "required alert policy is enabled: Geo Attendance: hosted readiness",
+    "required alert policy is enabled: Geo Attendance: Cloud Run 5xx",
+    "hosted readiness policy matches the configured failure threshold contract",
+    "Cloud Run 5xx policy matches the expected threshold contract",
+    "each required alert policy uses an enabled, verification-eligible channel with recent recipient-confirmed delivery evidence",
+    "Neon recovery evidence is current (2026-10-21T00:06:09Z)",
+    "current Neon project retains the same production branch and the exact proof branch is absent",
+    "Neon history window meets the configured 6-hour minimum",
+    "Upload recovery evidence is current (2026-10-11T23:41:48Z)",
+    "upload recovery proof restored the exact generation, matched content, and soft-deleted the cleanup generation",
+    "GCS independently confirms both exact soft-deleted generations and no live probe",
+    "billing budgets exist for 0123B1-051D70-935F73"
+  ],
+  "logSha256": "156fbfd17fdb2169b190efedea220c3ceb1959e73e0bddeca287d7066cb4615b"
+}

@@ -1,0 +1,144 @@
+{
+  "steps": [
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "id": "build-candidate",
+      "args": [
+        "build",
+        "-t",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-candidate-20261020-2f861c5",
+        "candidate"
+      ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "id": "candidate-registration-email-test.py",
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-candidate-20261020-2f861c5",
+        "/app/backend/registration_email_test.py"
+      ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "id": "candidate-invitation-email-test.py",
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-candidate-20261020-2f861c5",
+        "/app/backend/invitation_email_test.py"
+      ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "id": "build-fallback",
+      "args": [
+        "build",
+        "-t",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-fallback-20261020-2f861c5",
+        "fallback"
+      ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "id": "fallback-registration-email-test.py",
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-fallback-20261020-2f861c5",
+        "/app/backend/registration_email_test.py"
+      ]
+    },
+    {
+      "name": "gcr.io/cloud-builders/docker",
+      "id": "fallback-schema-compatibility",
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=256m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-fallback-20261020-2f861c5",
+        "-c",
+        "from sqlmodel import create_engine,Session,select; from app.migrations import run_migrations,verify_migrations; from app.models import User,WorkerInvitation; e=create_engine('sqlite:////tmp/fallback.db'); v=run_migrations(e); assert len(v)==23 and v[-1]=='0023_worker_invitation_email'; c=e.connect(); verify_migrations(c); c.close(); s=Session(e); s.exec(select(User)).all(); s.exec(select(WorkerInvitation)).all(); s.close(); print('Fallback exact 23-migration schema and previous models verified')"
+      ]
+    }
+  ],
+  "images": [
+    "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-candidate-20261020-2f861c5",
+    "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-fallback-20261020-2f861c5"
+  ],
+  "tags": [
+    "reportflow-invitation-20261020"
+  ],
+  "options": {
+    "logging": "CLOUD_LOGGING_ONLY"
+  },
+  "timeout": "1200s"
+}

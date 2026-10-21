@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "reviewed": [
+    "live-waiting-update-updated.png"
+  ],
+  "observations": [
+    "390px anonymous English dark ReportFlow sign-in fits viewport; controls and install link are visible",
+    "No authenticated production workflow or physical-phone claim"
+  ],
+  "sha256": "2be93fb73e2392956083470b62300d505b0e2b664d230336a1230610bc65cd15"
+}

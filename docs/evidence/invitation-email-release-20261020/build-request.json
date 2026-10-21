@@ -1,0 +1,10 @@
+{
+  "requestedAtUtc": "2026-10-20T23:31:02.703021+00:00",
+  "sourceCommit": "2f861c569949e5f91e29748d7ab47c672c7beef1",
+  "directory": "C:\\Users\\12273\\AppData\\Local\\Temp\\reportflow-invitation-build-weql7b56",
+  "images": {
+    "candidate": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-candidate-20261020-2f861c5",
+    "fallback": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-fallback-20261020-2f861c5"
+  },
+  "status": "requested"
+}

@@ -14,7 +14,17 @@ Continue to require the current release's database/image compatibility, exact ow
 
 ## Deployment Truth
 
-### Current Backend Release - SMTP configuration, 2026-10-20
+### Current invitation-email release - 2026-10-21 UTC
+
+Invitation emails are live from source `2f861c569949e5f91e29748d7ab47c672c7beef1`: backend `geo-backend-invite-20261020` serves 100% without tags, and exact Hosting `4988eacbe73feaaf` uses cache `leader-field-bcd13b256f32`. Additive `0023_worker_invitation_email` and its compatible backend preceded Hosting. Paused migration and final read-only inventories preserve all existing business rows and prior migration checksums. `PUBLIC_APP_URL` is `https://geo-attendance-system-db9ca.web.app`; SMTP secret version 1, other secret references and IAM are unchanged. Supervisors explicitly send once to the saved invitee email; Copy/Share remains. SMTP acceptance is not delivery. Public-registration email stays disabled; password recovery remains manual and PDFs remain downloads.
+
+Source CI passes both jobs, including all 73 real-backend browser workflows. Local 23 backend suites, 11 invitation tests, 10 mocked SMTP tests,12 invitation browser checks, native PostgreSQL 17.6/18.4 (82 each), provider 248, preview/live 85-file parity, 75 shell assets, seven installer artifacts and four waiting-update checks pass. Current recovery and strict hardening pass with the existing six-hour recovery-history warning. No real emails, SMTP authentication, production users/invitations, authenticated production fixtures or physical-phone checks were performed in this release.
+
+Retain compatible fallback `geo-backend-invite-fallback-20261020`, exact prior Hosting `61d90b34933c5079` in `rollback-invite-20261020` until `2026-10-27T23:48:55.278821867Z`, and backup `br-damp-block-a7u7bbkl` until `2026-10-28T00:01:52Z`. Reverify before use. Original 0022-only backend revisions reject the new ledger; never downgrade the ledger, reset credentials/auth generations or clear device storage for rollback.
+
+The initial build/probe/smoke harness failures and supplemental legacy-logo fixture are retained in the [release record](evidence/invitation-email-release-20261020/release.json). Temporary staging jobs and branch were deleted and absence verified. This release used mocked/local invitation coverage and anonymous hosted checks; no production application fixtures were authorized.
+
+### Historical Backend Release - SMTP configuration, 2026-10-20
 
 Strict infrastructure checks pass all 40 checks before and after promotion, retaining the existing six-hour recovery-history warning.
 

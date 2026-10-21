@@ -1,0 +1,113 @@
+{
+  "apiVersion": "run.googleapis.com/v1",
+  "kind": "Job",
+  "metadata": {
+    "annotations": {
+      "run.googleapis.com/client-name": "gcloud",
+      "run.googleapis.com/client-version": "571.0.0",
+      "run.googleapis.com/creator": "hty2003ah@gmail.com",
+      "run.googleapis.com/lastModifier": "hty2003ah@gmail.com",
+      "run.googleapis.com/operation-id": "1d8ec3f4-df34-4a4b-a5fe-4474547f72df"
+    },
+    "creationTimestamp": "2026-10-21T00:03:13.528391Z",
+    "generation": 1,
+    "labels": {
+      "cloud.googleapis.com/location": "australia-southeast1",
+      "run.googleapis.com/lastUpdatedTime": "2026-10-21T00:03:13.528391Z",
+      "run.googleapis.com/satisfiesPzs": "true"
+    },
+    "name": "rf-invite-production-20261020",
+    "namespace": "794826041820",
+    "resourceVersion": "AAZeTnkzb1w",
+    "selfLink": "/apis/run.googleapis.com/v1/namespaces/794826041820/jobs/rf-invite-production-20261020",
+    "uid": "a280caa1-0408-4454-aec4-30e70faa9256"
+  },
+  "spec": {
+    "template": {
+      "metadata": {
+        "annotations": {
+          "run.googleapis.com/client-name": "gcloud",
+          "run.googleapis.com/client-version": "571.0.0",
+          "run.googleapis.com/execution-environment": "gen2"
+        }
+      },
+      "spec": {
+        "parallelism": 1,
+        "taskCount": 1,
+        "template": {
+          "spec": {
+            "containers": [
+              {
+                "args": [
+                  "-c",
+                  "\"\"\"Run inside an exact release image. Emit only aggregate, credential-free proof.\"\"\"\nimport hashlib\nimport json\nimport os\nfrom pathlib import Path\nimport subprocess\nimport sys\nimport tempfile\nimport time\nfrom urllib.parse import urlsplit, urlunsplit\nfrom urllib.request import urlopen\nfrom datetime import datetime, timezone\nimport psycopg\nfrom psycopg import sql\nimport secrets\n\nADDED = {\"email_status\", \"email_attempted_at\", \"email_accepted_at\"}\n\n\ndef digest(value):\n    return hashlib.sha256(json.dumps(value, sort_keys=True, default=str, separators=(\",\", \":\")).encode()).hexdigest()\n\n\ndef snapshot(url):\n    with psycopg.connect(url.replace(\"postgresql+psycopg://\", \"postgresql://\", 1), connect_timeout=20) as connection:\n        connection.read_only = True\n        with connection.cursor() as cursor:\n            cursor.execute(\"SET LOCAL statement_timeout = '30s'\")\n            cursor.execute(\"SET LOCAL lock_timeout = '5s'\")\n            cursor.execute(\"SHOW transaction_read_only\")\n            assert cursor.fetchone()[0] == \"on\"\n            cursor.execute(\"SELECT version, checksum FROM schema_migrations ORDER BY version\")\n            ledger = dict(cursor.fetchall())\n            bundled = {p.stem: hashlib.sha256(p.read_bytes()).hexdigest() for p in Path('/app/backend/migrations/versions').glob('[0-9]*.py')}\n            assert list(ledger) == sorted(bundled)[:len(ledger)] and all(bundled[k] == v for k, v in ledger.items())\n            cursor.execute(\"SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name\")\n            tables = [r[0] for r in cursor.fetchall()]\n            business = {}\n            for table in tables:\n                if table == \"schema_migrations\":\n                    continue\n                cursor.execute(\"SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=%s ORDER BY ordinal_position\", (table,))\n                columns = [r[0] for r in cursor.fetchall() if not (table == 'workerinvitation' and r[0] in ADDED)]\n                cursor.execute(sql.SQL('SELECT {} FROM {}').format(sql.SQL(',').join(map(sql.Identifier, columns)), sql.Identifier(table)))\n                rows = sorted(digest(row) for row in cursor.fetchall())\n                business[table] = {\"columns\": columns, \"rows\": len(rows), \"rowsSha256\": digest(rows)}\n            cursor.execute(\"SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='workerinvitation'\")\n            added = sorted(ADDED & {r[0] for r in cursor.fetchall()})\n            result = {\"migrationCount\": len(ledger), \"migrationHead\": list(ledger)[-1], \"migrationChecksums\": ledger,\n                      \"businessTables\": business, \"invitationEmailColumns\": added, \"transactionReadOnly\": True}\n            if len(added) == 3:\n                cursor.execute(\"SELECT count(*) FROM workerinvitation WHERE email_status <> 'not_sent' OR email_attempted_at IS NOT NULL OR email_accepted_at IS NOT NULL\")\n                result[\"emailAttemptRows\"] = cursor.fetchone()[0]\n            return result\n\n\ndef migrate(environment):\n    for args in [[], [\"--check\"]]:\n        result = subprocess.run([sys.executable, \"-m\", \"app.migrations\", *args], env=environment,\n                                capture_output=True, timeout=150)\n        assert result.returncode == 0, \"Migration CLI failed; detailed output deliberately withheld\"\n\n\ndef local_api(environment, *, smoke):\n    with tempfile.TemporaryDirectory(prefix=\"release-stage-\") as directory:\n        env = {**environment, \"APP_ENV\": \"development\", \"ENVIRONMENT\": \"development\", \"K_SERVICE\": \"\",\n               \"UPLOAD_STORAGE_BACKEND\": \"local\", \"UPLOAD_DIR\": directory, \"UPLOAD_BUCKET\": \"\",\n               \"AUTH_COOKIE_SECURE\": \"false\", \"RATE_LIMIT_ENABLED\": \"false\", \"ENABLE_DEV_SEED\": \"true\" if smoke else \"false\",\n               \"GEO_SECRET_KEY\": \"synthetic-release-stage-key-not-a-production-credential\",\n               \"SMTP_HOST\": \"\", \"SMTP_FROM_EMAIL\": \"\", \"SMTP_PASSWORD\": \"\", \"SMTP_USERNAME\": \"\",\n               \"REGISTRATION_EMAIL_ENABLED\": \"false\", \"API_BASE_URL\": \"http://127.0.0.1:8087\"}\n        process = subprocess.Popen([sys.executable, \"-m\", \"uvicorn\", \"app.main:app\", \"--host\", \"127.0.0.1\", \"--port\", \"8087\"],\n                                   env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n        try:\n            ready = None\n            for _ in range(150):\n                assert process.poll() is None, \"Stage API exited\"\n                try:\n                    with urlopen('http://127.0.0.1:8087/health/ready', timeout=3) as response:\n                        ready = json.load(response)\n                    if ready['status'] == 'ok':\n                        break\n                except Exception:\n                    pass\n                time.sleep(0.2)\n            assert ready and ready['status'] == 'ok'\n            result = {\"readiness\": ready, \"smtpDisabled\": True, \"uploads\": \"disposable-local-only\"}\n            if smoke:\n                checked = subprocess.run([sys.executable, \"/app/backend/smoke_test.py\"], env=env, capture_output=True, timeout=360)\n                # Failure output can contain fixture identities; retain only counts.\n                lines = checked.stdout.decode('utf-8', errors='replace').splitlines()\n                result.update(smokeExitCode=checked.returncode, passingChecks=sum(line.startswith('ok - ') for line in lines))\n                if checked.returncode:\n                    # Only source-defined check labels; never emit response bodies/tokens.\n                    labels = [line[5:] for line in lines if line.startswith('ok - ')]\n                    failure_label = checked.stderr.decode('utf-8', errors='replace').split(':', 1)[0][:120]\n                    import re\n                    status = re.search(r'expected (\\d+), got (\\d+)', checked.stderr.decode('utf-8', errors='replace'))\n                    print('REPORTFLOW_SMOKE_DIAGNOSIS ' + json.dumps({'passingChecks': len(labels), 'lastChecks': labels[-5:], 'failureLabel': failure_label, 'statuses': status.groups() if status else None}))\n                    raise AssertionError('Provider smoke failed; response details withheld')\n            return result\n        finally:\n            process.terminate()\n            try:\n                process.wait(timeout=15)\n            except subprocess.TimeoutExpired:\n                process.kill()\n                process.wait(timeout=10)\n\n\ndef disposable_smoke(environment):\n    url = environment['DATABASE_URL']\n    assert os.environ['STAGE_BRANCH_ID'] == 'br-gentle-sound-a7reig2b'\n    parsed = urlsplit(url)\n    assert parsed.hostname == os.environ['STAGE_DB_HOST']\n    name = 'rf_invite_smoke_' + secrets.token_hex(8)\n    marker = 'owned-invitation-release:' + name\n    # The normal provider harness runs with repository assets. The runtime image\n    # packages the identical logo under report-logos, but legacy HTML looks in\n    # /app/assets/icons. Supply that existing test fixture in this ephemeral job\n    # only; retain the unchanged production-image packaging limitation explicitly.\n    logo = Path('/app/backend/app/assets/report-logos/leader.png').read_bytes()\n    assert hashlib.sha256(logo).hexdigest() == 'cd6ef60ecc607ee1f1730f63e74241ff93c67d29d2c1fceab53491a9fa7fdecc'\n    fixture = Path('/app/assets/icons/leader-logo-export.png')\n    assert not fixture.exists()\n    fixture.parent.mkdir(parents=True, exist_ok=True)\n    fixture.write_bytes(logo)\n    with psycopg.connect(url.replace('postgresql+psycopg://', 'postgresql://', 1), autocommit=True, connect_timeout=20) as control:\n        owner = control.execute('SELECT current_user').fetchone()[0]\n        assert not control.execute('SELECT 1 FROM pg_database WHERE datname=%s', (name,)).fetchall()\n        control.execute(sql.SQL('CREATE DATABASE {} OWNER {}').format(sql.Identifier(name), sql.Identifier(owner)))\n        control.execute(sql.SQL('COMMENT ON DATABASE {} IS {}').format(sql.Identifier(name), sql.Literal(marker)))\n        try:\n            isolated = {**environment, 'DATABASE_URL': urlunsplit(parsed._replace(path='/'+name))}\n            migrate(isolated)\n            result = local_api(isolated, smoke=True)\n        finally:\n            actual = control.execute('SELECT pg_get_userbyid(datdba), shobj_description(oid,\\'pg_database\\') FROM pg_database WHERE datname=%s', (name,)).fetchone()\n            assert actual == (owner, marker), 'Owned staging smoke database identity changed'\n            control.execute('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=%s AND pid<>pg_backend_pid()', (name,))\n            control.execute(sql.SQL('DROP DATABASE {}').format(sql.Identifier(name)))\n            assert not control.execute('SELECT 1 FROM pg_database WHERE datname=%s', (name,)).fetchall()\n        fixture.unlink()\n        return {**result, 'freshDisposableDatabase': True, 'cleanupComplete': True,\n                'supplementalRepositoryLogoFixture': True, 'productionImageUnchanged': True}\n\n\ndef main():\n    mode = os.environ['PROBE_MODE']\n    assert mode in {'inventory', 'stage-inspect', 'stage-migrate', 'stage-check', 'stage-fallback', 'stage-smoke', 'backup-verify', 'production-migrate'}\n    original = os.environ['DATABASE_URL']\n    parsed = urlsplit(original)\n    original_host = parsed.hostname.replace('-pooler.', '.')\n    assert digest(original_host) == os.environ['PRODUCTION_DB_HOST_SHA256'], 'Production host identity mismatch'\n    assert parsed.username and parsed.password and parsed.path == '/neondb', 'Unexpected database URI shape'\n    if mode.startswith('stage-'):\n        target = os.environ['STAGE_DB_HOST']\n        assert target.endswith('.ap-southeast-2.aws.neon.tech') and target != original_host\n        assert os.environ['STAGE_BRANCH_ID'] == 'br-gentle-sound-a7reig2b'\n        # Branches inherit the existing database role. Credentials stay inside\n        # the existing runtime binding; only the verified endpoint is changed.\n        userinfo = parsed.netloc.rsplit('@', 1)[0]\n        original = urlunsplit(parsed._replace(netloc=userinfo + '@' + target))\n    env = {**os.environ, 'DATABASE_URL': original, 'AUTO_MIGRATE': 'false', 'SQL_ECHO': 'false'}\n    before = snapshot(original)\n    if mode == 'production-migrate':\n        assert digest(before) == os.environ['EXPECTED_BEFORE_SHA256'], 'Paused production differs from verified backup'\n    proof = {'status': 'passed', 'mode': mode, 'atUtc': datetime.now(timezone.utc).isoformat(), 'before': before}\n    if mode == 'backup-verify':\n        target = os.environ['BACKUP_DB_HOST']\n        assert target.endswith('.ap-southeast-2.aws.neon.tech') and target != original_host\n        assert os.environ['BACKUP_BRANCH_ID'] not in ['br-snowy-tree-a7hfuph6', 'br-gentle-sound-a7reig2b']\n        backup_url = urlunsplit(parsed._replace(netloc=parsed.netloc.rsplit('@', 1)[0] + '@' + target))\n        saved = snapshot(backup_url)\n        assert before == saved and before['migrationCount'] == 22, 'Backup does not match paused production inventory'\n        proof.update(backup=saved, backupMatchesProduction=True, backupBranchId=os.environ['BACKUP_BRANCH_ID'])\n    if mode in {'stage-migrate', 'production-migrate'}:\n        assert before['migrationCount'] == 22 and before['migrationHead'] == '0022_worker_password_recovery'\n        assert before['invitationEmailColumns'] == []\n        migrate(env)\n        after = snapshot(original)\n        assert after['migrationCount'] == 23 and after['migrationHead'] == '0023_worker_invitation_email'\n        assert set(after['invitationEmailColumns']) == ADDED and after['emailAttemptRows'] == 0\n        assert before['businessTables'] == after['businessTables']\n        assert all(after['migrationChecksums'][k] == v for k, v in before['migrationChecksums'].items())\n        proof.update(after=after, businessDataPreserved=True, applied=['0023_worker_invitation_email'])\n        print('REPORTFLOW_RELEASE_MIGRATION ' + json.dumps(proof, sort_keys=True))\n    if mode == 'stage-smoke':\n        assert before['migrationCount'] == 23\n        proof['api'] = disposable_smoke(env)\n    if mode in {'stage-migrate', 'stage-check', 'stage-fallback'}:\n        if mode in {'stage-fallback', 'stage-check'}:\n            assert before['migrationCount'] == 23\n        proof['api'] = local_api(env, smoke=mode != 'stage-fallback')\n    print('REPORTFLOW_RELEASE_PROOF ' + json.dumps(proof, sort_keys=True))\n\n\nif __name__ == '__main__':\n    try:\n        main()\n    except BaseException as error:\n        import traceback\n        print('REPORTFLOW_RELEASE_FAILURE ' + json.dumps({'status': 'failed', 'type': type(error).__name__,\n            'code': str(error) if isinstance(error, AssertionError) else 'detail-withheld',\n            'lines': [frame.lineno for frame in traceback.extract_tb(error.__traceback__) if frame.filename == '<string>'],\n            'mode': os.environ.get('PROBE_MODE')}))\n        sys.exit(1)\n"
+                ],
+                "command": [
+                  "python"
+                ],
+                "env": [
+                  {
+                    "name": "DATABASE_URL",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "2",
+                        "name": "geo-backend-database-url"
+                      }
+                    }
+                  },
+                  {
+                    "name": "PROBE_MODE",
+                    "value": "production-migrate"
+                  },
+                  {
+                    "name": "PRODUCTION_DB_HOST_SHA256",
+                    "value": "4ce9a0a1fae9ec9fa74a999640172fc06116b9fcf9ea1ff1236a3286b33624a0"
+                  },
+                  {
+                    "name": "AUTO_MIGRATE",
+                    "value": "false"
+                  },
+                  {
+                    "name": "REGISTRATION_EMAIL_ENABLED",
+                    "value": "false"
+                  },
+                  {
+                    "name": "SMTP_HOST"
+                  },
+                  {
+                    "name": "SMTP_FROM_EMAIL"
+                  },
+                  {
+                    "name": "EXPECTED_BEFORE_SHA256",
+                    "value": "c7e9e5e1257f94fc23cd9c1de0a146c4606fffb7261e00270348e7836ccaafa8"
+                  }
+                ],
+                "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:8801993c86edf7e9d7b49d9d3d1b4dbd77a5d97fdb6a26b747233fd90e9a6ef4",
+                "name": "geo-backend-1",
+                "resources": {
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "512Mi"
+                  }
+                }
+              }
+            ],
+            "maxRetries": 0,
+            "serviceAccountName": "geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com",
+            "timeoutSeconds": "600"
+          }
+        }
+      }
+    }
+  },
+  "status": {
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-10-21T00:03:14.116013Z",
+        "status": "True",
+        "type": "Ready"
+      }
+    ],
+    "observedGeneration": 1
+  }
+}

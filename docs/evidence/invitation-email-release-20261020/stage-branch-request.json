@@ -1,0 +1,24 @@
+{
+  "requestedAtUtc": "2026-10-20T23:32:58.632723+00:00",
+  "arguments": [
+    "branches",
+    "create",
+    "--project-id",
+    "plain-smoke-06194407",
+    "--name",
+    "reportflow-invitation-stage-20261020",
+    "--parent",
+    "br-snowy-tree-a7hfuph6",
+    "--type",
+    "read_write",
+    "--suspend-timeout",
+    "300",
+    "--cu",
+    "0.25",
+    "--expires-at",
+    "2026-10-21T23:32:58Z",
+    "--no-analytics",
+    "-o",
+    "json"
+  ]
+}

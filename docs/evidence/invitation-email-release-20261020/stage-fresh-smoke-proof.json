@@ -1,0 +1,12 @@
+{
+  "status": "failed",
+  "type": "AssertionError",
+  "code": "Provider smoke failed; response details withheld",
+  "lines": [
+    178,
+    168,
+    126,
+    100
+  ],
+  "mode": "stage-smoke"
+}

@@ -1,0 +1,11 @@
+{
+  "passingChecks": 6,
+  "lastChecks": [
+    "readiness",
+    "seed demo data",
+    "worker login",
+    "supervisor login",
+    "super admin login"
+  ],
+  "failureLabel": "Supervisor creates Worker password-setup invitation"
+}

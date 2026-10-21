@@ -1,0 +1,20 @@
+{
+  "branch": {
+    "id": "br-gentle-sound-a7reig2b",
+    "name": "reportflow-invitation-stage-20261020",
+    "project_id": "plain-smoke-06194407",
+    "parent_id": "br-snowy-tree-a7hfuph6",
+    "created_at": "2026-10-20T23:33:00Z",
+    "expires_at": "2026-10-21T23:32:58Z",
+    "current_state": "init"
+  },
+  "endpoints": [
+    {
+      "id": "ep-little-haze-a7cl11eq",
+      "host": "ep-little-haze-a7cl11eq.ap-southeast-2.aws.neon.tech",
+      "branch_id": "br-gentle-sound-a7reig2b",
+      "type": "read_write",
+      "current_state": "init"
+    }
+  ]
+}
