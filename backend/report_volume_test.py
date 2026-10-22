@@ -34,7 +34,8 @@ MAX_PYTHON_PEAK_BYTES = 256 * 1024 * 1024
 MAX_PROBE_SECONDS = 120
 PROFILES = {"ci": (25, 100), "representative": (100, 1000)}
 MARKER = re.compile(r"VOLUME_REPORT_(\d{6})")
-FINAL_NOTE = "Synthetic final review note 处理完成／覆核完成"
+CORRECTION_TEXT = "Synthetic corrected inspection 处理完成／覆核完成"
+CORRECTION_MARKER = re.compile(r"CORRECTED_REPORT_\d{6}_REV_\d+")
 
 
 def require(value, message):
@@ -129,7 +130,9 @@ def seed_fixture(engine, count, *, large_images=False):
     from sqlmodel import Session
     from app import upload_storage
     from app.models import Site, User, WorkForm, WorkFormSubmission
+    from app.schemas import SupervisorWorkFormSubmissionUpdate
     from app.use_cases.common import work_form_definition_snapshot_json
+    from app.use_cases.supervisor_review import update_supervisor_form_submission
 
     fields = [
         {"id": "issue", "label": "Issue / 检查事项", "type": "text", "required": True},
@@ -181,8 +184,6 @@ def seed_fixture(engine, count, *, large_images=False):
                 fixture["upload_bytes"] += sum(map(len, contents))
                 fixture["upload_count"] += 4
                 marker = f"VOLUME_REPORT_{serial:06d}"
-                workflow = ("submitted", "in_review", "resolved")[index % 3]
-                review_at = now + timedelta(minutes=serial + 1)
                 record = WorkFormSubmission(
                     department_id=actor.department_id, form_id=form.id, worker_id=actor.id, site_id=row_site.id,
                     submission_purpose=form.template_purpose,
@@ -200,22 +201,24 @@ def seed_fixture(engine, count, *, large_images=False):
                 )
                 session.add(record)
                 session.flush()
-                # Real PostgreSQL boundaries require Reports to be inserted as
-                # Submitted, then progress forward without changing content.
-                if workflow != "submitted":
-                    record.workflow_status = "in_review"
-                    record.reviewing_supervisor_id = supervisor.id
-                    record.review_started_at = review_at
-                    session.add(record)
-                    session.flush()
-                if workflow == "resolved":
-                    record.workflow_status = "resolved"
-                    record.resolved_at = review_at + timedelta(minutes=1)
-                    record.supervisor_note = FINAL_NOTE
-                    session.add(record)
-                    session.flush()
+                # Exercise current persisted content across growing collections:
+                # unchanged, once-corrected and twice-corrected home Reports.
+                # The real correction boundary must retain every original photo
+                # and signature while advancing its revision and edit metadata.
+                correction_marker = None
+                if category in {"own", "peer"}:
+                    for revision in range(2, 2 + index % 3):
+                        correction_marker = f"CORRECTED_REPORT_{serial:06d}_REV_{revision}"
+                        answers = json.loads(record.answers_json)
+                        answers["observation"] = f"{CORRECTION_TEXT} {correction_marker}. " + "Synthetic inspection detail. " * 24
+                        changed = update_supervisor_form_submission(record.id,
+                            SupervisorWorkFormSubmissionUpdate(confirmed=True, expected_revision=revision - 1, answers=answers),
+                            supervisor, session)
+                        require(changed["revision"] == revision and changed["edited_by_supervisor_id"] == supervisor.id
+                                and changed["edited_at"], "Volume fixture correction metadata was not persisted")
                 fixture["expected"][category].append({"id": record.id, "marker": marker, "date": record.work_date,
-                                                         "workflow": workflow, "worker_id": actor.id})
+                    "worker_id": actor.id, "revision": record.revision, "correction_marker": correction_marker,
+                    "observation": json.loads(record.answers_json)["observation"]})
                 # Keep hashes, not original fixture bytes, outside the request probes.
                 fixture["evidence"][record.id] = [hashlib.sha256(content).hexdigest() for content in contents]
                 hashes = []
@@ -242,23 +245,32 @@ def immutable_inventory(engine):
 def validate_response(kind, content, expected, fixture):
     expected_ids = {item["id"] for item in expected}
     expected_markers = {item["marker"] for item in expected}
+    expected_corrections = {item["correction_marker"] for item in expected if item["correction_marker"]}
+    by_id = {item["id"]: item for item in expected}
     if kind == "history":
         rows = json.loads(content)
         require({row["id"] for row in rows} == expected_ids and len(rows) == len(expected_ids), "History lost or leaked Report identities")
         require(all(row["worker_id"] == fixture["worker_id"] and row["submission_purpose"] == "report" for row in rows), "History escaped Worker/purpose scope")
         require(all(len(row["photo_urls"]) == 2 and row["answers"]["signature"] and row["answers"]["crew"][0]["crew_signature"] for row in rows), "History evidence/answers were truncated")
-        return {"records": len(rows), "evidence_references_per_record": 4}
+        require(all(row["revision"] == by_id[row["id"]]["revision"]
+                    and row["answers"]["observation"] == by_id[row["id"]]["observation"] for row in rows), "History lost latest corrections")
+        require(all(row["status"] == row["workflow_status"] == "submitted" and row["supervisor_note"] is None for row in rows), "History exposed retired review state")
+        require(all(row["edited_at"] and row["edited_by_supervisor_id"] == fixture["supervisor_id"]
+                    for row in rows if row["revision"] > 1), "History lost correction metadata")
+        return {"records": len(rows), "evidence_references_per_record": 4, "corrected_records": len(expected_corrections)}
     if kind == "csv":
         rows = list(csv.DictReader(StringIO(content.decode())))
         require({int(row["id"]) for row in rows} == expected_ids and len(rows) == len(expected_ids), "CSV lost or leaked Report identities")
         require({row["answer_issue"] for row in rows} == expected_markers, "CSV answers changed")
-        require(all(row["submission_purpose"] == "report" and row["status"] == row["workflow_status"] for row in rows), "CSV purpose/workflow changed")
-        require(all(row["supervisor_note"] == FINAL_NOTE and row["reviewing_supervisor_id"] and row["review_started_at"] and row["resolved_at"] for row in rows if row["workflow_status"] == "resolved"), "CSV lost final review metadata")
-        return {"records": len(rows)}
+        require(all(row["submission_purpose"] == "report" and row["status"] == "submitted" for row in rows), "CSV purpose/submission state changed")
+        require(all(not {"workflow_status", "supervisor_note", "reviewing_supervisor_id", "review_started_at", "resolved_at"}.intersection(row) for row in rows), "CSV exposed retired review fields")
+        require(all(row["answer_observation"] == by_id[int(row["id"])]["observation"] for row in rows), "CSV lost latest corrections")
+        return {"records": len(rows), "corrected_records": len(expected_corrections)}
     if kind == "html":
         text = content.decode()
         markers = {"VOLUME_REPORT_" + value for value in MARKER.findall(text)}
         require(markers == expected_markers, "HTML lost or leaked Report answers")
+        require(set(CORRECTION_MARKER.findall(text)) == expected_corrections, "HTML lost or leaked latest corrections")
         embedded = {hashlib.sha256(base64.b64decode(value)).hexdigest()
                     for value in re.findall(r'data:image/[^;]+;base64,([^"\s<>]+)', text)}
         for record_id in expected_ids:
@@ -277,8 +289,9 @@ def validate_response(kind, content, expected, fixture):
     reader = PdfReader(BytesIO(content))
     text = "\n".join(page.extract_text() or "" for page in reader.pages)
     require({"VOLUME_REPORT_" + value for value in MARKER.findall(text)} == expected_markers, "PDF lost or leaked Report answers")
+    require(set(CORRECTION_MARKER.findall(text)) == expected_corrections, "PDF lost or leaked latest corrections")
     require(all(value in text for value in ("检查事项", "現場備註", "工人", "現場", "处理完成", "覆核完成")),
-            "PDF lost mixed Simplified/Traditional Chinese labels, identity or final review text")
+            "PDF lost mixed Simplified/Traditional Chinese labels, identity or corrected answers")
     image_dimensions = set()
     image_count = 0
     embedded_pixels = set()
@@ -430,7 +443,7 @@ def run_volume_checks(database, report, profile):
                       "stored_upload_count": fixture["upload_count"], "stored_upload_bytes": fixture["upload_bytes"],
                       "photos_per_report": 2, "direct_signatures_per_report": 1, "repeating_signatures_per_report": 1,
                       "photo_dimensions": [384, 256] if large else [64, 48], "signature_dimensions": [240, 90],
-                      "text_fixture": "English plus Simplified/Traditional Chinese field labels, Worker/Site names and final notes",
+                      "text_fixture": "English plus Simplified/Traditional Chinese field labels, Worker/Site names and corrected answers",
                       "all_observed_report_fields_unchanged": True, "probes": probes}
             report(f"Report volume {count}, {'larger' if large else 'small'} originals: scoped answers/evidence checks and unchanged records", detail)
             results.append(detail)
