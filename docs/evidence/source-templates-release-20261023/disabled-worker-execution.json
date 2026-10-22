@@ -1,0 +1,176 @@
+{
+  "apiVersion": "run.googleapis.com/v1",
+  "kind": "Execution",
+  "metadata": {
+    "annotations": {
+      "run.googleapis.com/client-name": "gcloud",
+      "run.googleapis.com/client-version": "571.0.0",
+      "run.googleapis.com/creator": "hty2003ah@gmail.com",
+      "run.googleapis.com/execution-environment": "gen2",
+      "run.googleapis.com/lastModifier": "hty2003ah@gmail.com",
+      "run.googleapis.com/operation-id": "323b51aa-d571-4d5e-a511-295429e7ff69"
+    },
+    "creationTimestamp": "2026-10-22T23:50:59.345575Z",
+    "generation": 1,
+    "labels": {
+      "client.knative.dev/nonce": "ned_tud_cuh",
+      "cloud.googleapis.com/location": "australia-southeast1",
+      "run.googleapis.com/job": "reportflow-pdf-email",
+      "run.googleapis.com/jobGeneration": "7",
+      "run.googleapis.com/jobResourceVersion": "1792712991452299",
+      "run.googleapis.com/jobUid": "79727046-6bda-4e84-a5bf-564ca330b196",
+      "run.googleapis.com/satisfiesPzs": "true"
+    },
+    "name": "reportflow-pdf-email-d8qk6",
+    "namespace": "794826041820",
+    "ownerReferences": [
+      {
+        "apiVersion": "serving.knative.dev/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "Job",
+        "name": "reportflow-pdf-email",
+        "uid": "79727046-6bda-4e84-a5bf-564ca330b196"
+      }
+    ],
+    "resourceVersion": "AAZedokWJKc",
+    "selfLink": "/apis/run.googleapis.com/v1/namespaces/794826041820/executions/reportflow-pdf-email-d8qk6",
+    "uid": "fcf892c9-1ea9-4187-a5cf-73b99a3d4f2c"
+  },
+  "spec": {
+    "parallelism": 1,
+    "taskCount": 1,
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "args": [
+              "-m",
+              "app.report_pdf_email_worker",
+              "--limit",
+              "10"
+            ],
+            "command": [
+              "python"
+            ],
+            "env": [
+              {
+                "name": "ACCESS_TOKEN_EXPIRE_MINUTES",
+                "valueSha256": "2ab4e55c7fdf332c78e4f36966a981f452ffb6758026085a4ad9df565a1df82d"
+              },
+              {
+                "name": "AUTO_MIGRATE",
+                "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+              },
+              {
+                "name": "BUSINESS_TIMEZONE",
+                "valueSha256": "d73daf5e9fd9586f0488724a668fe2fefe5a803c053dbecffd477e99a10d2d88"
+              },
+              {
+                "name": "CORS_ORIGINS",
+                "valueSha256": "a6877b178e9941fc32bc64bf2a5063e486c4dd61fc389da33e626ce778ad27e1"
+              },
+              {
+                "name": "DATABASE_URL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "2",
+                    "name": "geo-backend-database-url"
+                  }
+                }
+              },
+              {
+                "name": "GEO_SECRET_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "1",
+                    "name": "geo-backend-jwt-secret"
+                  }
+                }
+              },
+              {
+                "name": "MAX_UPLOAD_BYTES",
+                "valueSha256": "1e8c1c7e50e5595caef818da21aaf0f291666ae1ef07fa561763f8e859f8713a"
+              },
+              {
+                "name": "PUBLIC_APP_URL",
+                "valueSha256": "a6877b178e9941fc32bc64bf2a5063e486c4dd61fc389da33e626ce778ad27e1"
+              },
+              {
+                "name": "REGISTRATION_EMAIL_ENABLED",
+                "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+              },
+              {
+                "name": "REPORT_PDF_EMAIL_WORKER_ENABLED",
+                "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+              },
+              {
+                "name": "SMTP_FROM_EMAIL",
+                "valueSha256": "05bf0f8f3d7e56f3f196b1b6a5b2fb22afcdfc0e621f36d56a4a472909e0c2f5"
+              },
+              {
+                "name": "SMTP_HOST",
+                "valueSha256": "baf8948be444889e4c5309caa2da8bb3b3e14e4ebda34e5d87eaf4f5c44d22b2"
+              },
+              {
+                "name": "SMTP_PASSWORD",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "1",
+                    "name": "reportflow-smtp-password"
+                  }
+                }
+              },
+              {
+                "name": "SMTP_PORT",
+                "valueSha256": "82a93b152b275d4c8de67c3d05c9b00e92477eeb024f117c7632cdb26fd874aa"
+              },
+              {
+                "name": "SMTP_USERNAME",
+                "valueSha256": "05bf0f8f3d7e56f3f196b1b6a5b2fb22afcdfc0e621f36d56a4a472909e0c2f5"
+              },
+              {
+                "name": "SMTP_USE_SSL",
+                "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+              },
+              {
+                "name": "SMTP_USE_STARTTLS",
+                "valueSha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+              },
+              {
+                "name": "SQL_ECHO",
+                "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+              },
+              {
+                "name": "UPLOAD_BUCKET",
+                "valueSha256": "9a6404b9e0d1ca937d43e343e647f429806025eacce106cbac567bf36991ba67"
+              },
+              {
+                "name": "UPLOAD_OBJECT_PREFIX",
+                "valueSha256": "9ba88c4165381adc0eeae696d66c699577dd1d0e209d81c9644890bfe87546d8"
+              },
+              {
+                "name": "UPLOAD_STORAGE_BACKEND",
+                "valueSha256": "23e5fe687c517d15a2d337201eda012b130d6680d7231dba51969631ef5f18bc"
+              }
+            ],
+            "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:63cfaa981c9c243a53480ddb9d8cdd9d80ef1aab80a05dc876de67986dd16caf",
+            "name": "geo-backend-1",
+            "resources": {
+              "limits": {
+                "cpu": "1",
+                "memory": "512Mi"
+              }
+            }
+          }
+        ],
+        "maxRetries": 0,
+        "serviceAccountName": "geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com",
+        "timeoutSeconds": "600"
+      }
+    }
+  },
+  "status": {
+    "logUri": "https://console.cloud.google.com/logs/viewer?project=geo-attendance-system-db9ca&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22reportflow-pdf-email%22%0Aresource.labels.location%3D%22australia-southeast1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22reportflow-pdf-email-d8qk6%22"
+  }
+}

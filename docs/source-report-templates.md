@@ -1,5 +1,7 @@
 # Source report templates
 
+Support is deployed from source `f82d5860202c13df0967535b2f1d48d66019ab98` as backend `geo-backend-templates-20261023` and Hosting `e827de152baed084`. [Release evidence](evidence/source-templates-release-20261023/release.json). The five non-PPE templates have not been published: Ken Hu is verified active in Mutual, but this executor has no authenticated ReportFlow session. Use that normal authorized app workflow; do not impersonate a user or bypass it with direct database writes. PPE remains draft and emailing remains off.
+
 The blank definitions in `templates/mutual-source-templates.json` represent six distinct forms from eight supplied PDF examples. Their intended destination is the existing Mutual Department (ID 2). They contain no completed answers, photographs, signatures, locations or example personal details. Requiredness and full choice menus cannot be inferred from completed PDFs, so imported answer fields are optional and ambiguous results remain blank text. ReportFlow's Report Date remains required.
 
 | Template | Entries including headings | Publication |

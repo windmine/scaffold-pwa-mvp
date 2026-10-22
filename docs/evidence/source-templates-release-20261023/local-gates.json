@@ -1,0 +1,48 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-22T23:34:46.882057+00:00",
+  "sourceCommit": "f82d5860202c13df0967535b2f1d48d66019ab98",
+  "backendSuites": 27,
+  "newBackendTests": 7,
+  "browserWorkflows": 75,
+  "mobileGate": "completed in preserved prefix and resumed suffix; source CI runs entire gate",
+  "buildPassed": true,
+  "lintPassed": true,
+  "logs": {
+    "backend-checks-loopback.txt": {
+      "path": "output/report-template-preparation-20261022/backend-checks-loopback.txt",
+      "sha256": "573da7783a4b9da6a4057fc8d5f5479bc2e27b980a419da69c3cdd39efd209ec"
+    },
+    "mobile-checks-loopback.txt": {
+      "path": "output/report-template-preparation-20261022/mobile-checks-loopback.txt",
+      "sha256": "153e540b2021f8e6045c7157bf58b441a4eb82f1731dda19018580095b8883c6"
+    },
+    "mobile-resume.txt": {
+      "path": "output/report-template-preparation-20261022/mobile-resume.txt",
+      "sha256": "bee5c20254fb14b2970e1b19b456749b8ba1215c660f71acc59fc8b7464487f7"
+    },
+    "mobile-resume-final.txt": {
+      "path": "output/report-template-preparation-20261022/mobile-resume-final.txt",
+      "sha256": "e162b5f06b5e20fd1e88cdd5e278fb21f0288064d527df72396b353c49c9effd"
+    }
+  },
+  "preservedAttempts": [
+    "Initial sandbox backend loopback/cleanup failure; isolated escalated backend run passed.",
+    "Initial browser instrumentation expected prior photo-handler signature; exact test boundary updated.",
+    "First complete mobile process ended without terminal result during presentation checks; cause unconfirmed.",
+    "Resumed template library assertion omitted intended client feature marker; expectation updated and suffix passed."
+  ],
+  "visualReview": [
+    "Audit first/last synthetic PDF pages",
+    "Axon static instruction PDF page",
+    "Audit phone top/end",
+    "PPE separate signature contexts",
+    "Excavator phone photo/signature section"
+  ],
+  "limits": [
+    "No physical-phone pass",
+    "No real GPS capture",
+    "No real email",
+    "Original PDFs visually checked in parent extraction environment, not materialized on Windows"
+  ]
+}

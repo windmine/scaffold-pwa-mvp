@@ -1,0 +1,9 @@
+{
+  "requestedAtUtc": "2026-10-22T23:37:58.732321+00:00",
+  "sourceCommit": "f82d5860202c13df0967535b2f1d48d66019ab98",
+  "directory": "C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\output\\browser-checks\\report-source-templates-release\\build-cr1cj445",
+  "images": {
+    "candidate": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:source-templates-candidate-20261023-f82d586"
+  },
+  "status": "requested"
+}

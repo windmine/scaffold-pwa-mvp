@@ -1,14 +1,18 @@
 # ReportFlow
 
-## Prepared source-template support
+## Current source-template support release
 
-Report Templates support up to 128 entries, section instruction text, section-associated photo fields and explicit location capture. See [source-template behavior and publication boundaries](docs/source-report-templates.md). The six blank Mutual definitions include five pending publication and a PPE draft that must remain unpublished; automatic email is off. Validate with `npm run check:template-source-support` and the normal backend/mobile gates. Deploy the compatible backend and existing PDF worker before Hosting; no migration is required. This preparation note does not claim deployment or template creation.
+Report Templates support up to 128 entries, section instruction text, section-associated photo fields and explicit location capture. Source `f82d5860202c13df0967535b2f1d48d66019ab98` is live as backend `geo-backend-templates-20261023` and exact Hosting `e827de152baed084` (cache `leader-field-33552626f0ad`). The compatible backend and existing PDF worker preceded Hosting. No migration or app write pause was needed; existing records, all 25 migration checksums, runtime settings, IAM and secret references are preserved. The restored worker's first normal run found no work. [Release evidence](docs/evidence/source-templates-release-20261023/release.json).
+
+The six blank Mutual definitions include five pending publication through an authenticated Mutual Supervisor session and a PPE draft that must remain unpublished. Ken Hu's existing home Department is verified as Mutual (ID 2); no account or permission changes were performed. Automatic email routing remains off. See [source-template behavior and publication boundaries](docs/source-report-templates.md). Local 27 backend suites, seven new template tests, 75 real-backend browser workflows, build/lint, both source-CI jobs, 11 image test suites, preview/live parity and strict hardening pass. Physical phones and authenticated production form fixtures remain unverified.
 
 Company-neutral, mobile-first Report submission and correction MVP.
 
 The active product direction is intentionally narrow: every active Worker can submit a Supervisor-defined Report from a phone, including photos and handwritten signatures. Supervisors view submitted Reports and correct details directly in the app when needed, manage Report Templates, and manage Staff. Reports have no review or resolution process. The broader field-operation modules remain behind the reversible full-interface flag.
 
-## Local Report Corrections - 2026-10-23, Not Deployed
+## Historical Report Corrections preparation - subsequently released
+
+The following preparation checkpoint was superseded by the [verified corrections release](docs/evidence/report-corrections-release-20261023/release.json), retained in the current template-support release.
 
 The user confirmed removal of the Submitted / In review / Resolved process and authorized Supervisor edits in the app. This supersedes prior workflow and complete-content-immutability descriptions in dated release notes below. The active shell removes workflow filters, shortcuts, waiting-age order, and required final notes. Historical workflow fields, internal change/security audits, private note drafts, and prior release evidence remain stored.
 
@@ -16,7 +20,7 @@ Authorized Supervisors can correct Report Date, optional Site, answers, photos, 
 
 `PATCH /supervisor/form-submissions/{id}` accepts `expected_revision` and `confirmed`, and returns revision/editor/time metadata. Additive `0025_report_corrections` and its compatible backend must precede a future Hosting promotion. Corrections never enqueue or resend optional PDF email: pending emails retain their original submitted snapshot and protected evidence. No deployment, production data change, or real email is included in this local work. The October 21 release below remains live.
 
-## Current Version
+## Historical combined release
 
 Supervisor Submit form and optional per-template PDF email are live from `80b4ea01a041a84bdcc0483f8e3d41a34d55f117`: backend `geo-backend-report-pdf-20261021` serves 100% without tags; Hosting `12a1d6dbf481ba3b` uses cache `leader-field-c878ffd1be3c`. Additive `0024_report_pdf_email` and the compatible backend preceded Hosting. Existing business rows and all prior migration checksums are preserved. Supervisors submit as themselves within their home Department. Every production Template remains off and the outbox is empty; no real Reports or emails were created by this release. The five-minute worker uses one task, batch 10, zero retries, the existing backend runtime and SMTP secret version 1. Only the standard Google Scheduler service-agent project role and the dedicated trigger's job-only invocation were added. Existing service/secret permissions and SMTP settings are preserved; public registration and web-process dispatch remain disabled. [Release evidence](docs/evidence/report-submit-pdf-release-20261021/release.json).
 

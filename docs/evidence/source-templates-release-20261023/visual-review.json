@@ -1,0 +1,54 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-22T23:56:15.499730+00:00",
+  "directlyReviewed": [
+    {
+      "path": "preview-installer-english.png",
+      "sha256": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d"
+    },
+    {
+      "path": "preview-installer-chinese.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "preview-installer-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "live-waiting-update-waiting.png",
+      "sha256": "b0a6ddc449af3dab310fdf98a96326354f65c418c68ed9bf1058afa1870ff569"
+    },
+    {
+      "path": "live-waiting-update-updated.png",
+      "sha256": "b7c0a78b621446c70d68c47a08ce454a1982cef9790c083e5a3c2f664f40f4c8"
+    },
+    {
+      "path": "live-waiting-update-offline.png",
+      "sha256": "288aedc8f66fffcf5a6f0e7168f50d1d7f15c59656106619660a214d2f503982"
+    }
+  ],
+  "liveInstallerCopies": [
+    {
+      "label": "english",
+      "sha256": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d",
+      "matchesReviewedPreview": true
+    },
+    {
+      "label": "chinese",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+      "matchesReviewedPreview": true
+    },
+    {
+      "label": "offline",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+      "matchesReviewedPreview": true
+    }
+  ],
+  "findings": [
+    "Phone-width installer and sign-in controls fit without horizontal overflow.",
+    "The update notice is visible before activation and absent after reload.",
+    "Cold-offline screenshot is the anonymous header only; no offline login or authenticated content is claimed."
+  ],
+  "physicalPhoneTest": false,
+  "authenticatedProductionTest": false
+}

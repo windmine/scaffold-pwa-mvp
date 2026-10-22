@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "recordedAtUtc": "2026-10-22T23:56:23.295708+00:00",
+  "sourceCommit": "f82d5860202c13df0967535b2f1d48d66019ab98",
+  "sourceCiUrl": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39872588906",
+  "buildId": "4b703fc8-504d-447f-84af-5ed852adb545",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:63cfaa981c9c243a53480ddb9d8cdd9d80ef1aab80a05dc876de67986dd16caf",
+  "revision": "geo-backend-templates-20261023",
+  "traffic": [
+    {
+      "percent": 100,
+      "revisionName": "geo-backend-templates-20261023"
+    }
+  ],
+  "hostingVersion": "e827de152baed084",
+  "cacheVersion": "leader-field-33552626f0ad",
+  "scope": {
+    "longTemplates": 128,
+    "staticSectionInstructions": 500,
+    "sectionPhotos": true,
+    "explicitLocationCapture": true,
+    "migrationRequired": false,
+    "migrationHead": "0025_report_corrections",
+    "writePause": false,
+    "iamChanged": false,
+    "smtpSecretVersion": "1",
+    "publicRegistrationEmailEnabled": false,
+    "routingEnabled": false,
+    "productionTemplatesCreated": 0,
+    "ppePublished": false,
+    "realEmailsSentByRelease": false,
+    "realReportsCreated": false
+  },
+  "validation": {
+    "localBackendSuites": 27,
+    "newBackendTests": 7,
+    "browserWorkflows": 75,
+    "sourceCiBothJobsPassed": true,
+    "imageTestSuites": 11,
+    "frozenFiles": 88,
+    "strictHardeningChecks": 40,
+    "inventoryUnchanged": true,
+    "scheduledResults": [
+      {
+        "accepted": 0,
+        "failed": 0,
+        "skipped": 0,
+        "uncertain": 0
+      }
+    ],
+    "candidateErrorOr5xxCount": 0
+  },
+  "rollback": {
+    "previousBackend": "geo-backend-corrections-20261023",
+    "previousHosting": "54cd56ba20fff93a",
+    "retainedChannel": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/rollback-templates-20261023",
+    "expiresAt": "2026-10-29T23:36:17.534167278Z",
+    "constraint": "Prior renderer is a rollback only before extended templates are published. After publication preserve compatible backend/worker and prefer a forward fix. Never downgrade migrations or clear device/auth state."
+  },
+  "cleanup": {
+    "candidateTagRemoved": true,
+    "temporaryCloudJobsCreated": 0,
+    "temporaryDatabaseBranchesCreated": 0,
+    "existingSchedulerRestored": true
+  },
+  "publication": {
+    "departmentId": 2,
+    "department": "Mutual",
+    "verifiedSupervisorId": 28,
+    "verifiedSupervisorName": "Ken Hu",
+    "preparedNonPpeTemplates": 5,
+    "createdTemplateIds": [],
+    "blocker": "No authenticated ReportFlow application session is available to this executor; use the normal Mutual Supervisor workflow. No impersonation, direct database import or account changes performed."
+  },
+  "warnings": [
+    "warn - Neon history retention is only 6 hours; choose a longer paid window or external logical backups before relying on it for production recovery"
+  ],
+  "limits": [
+    "No physical-phone pass",
+    "No real GPS capture",
+    "No real email",
+    "Original PDFs visually checked in parent extraction environment, not materialized on Windows",
+    "Source result fields remain text because full choice menus were not recoverable.",
+    "Location maps are external links, not embedded tiles.",
+    "No authenticated production form fixture was created."
+  ],
+  "preservedAttempts": [
+    "Initial sandbox backend loopback/cleanup failure; isolated escalated backend run passed.",
+    "Initial browser instrumentation expected prior photo-handler signature; exact test boundary updated.",
+    "First complete mobile process ended without terminal result during presentation checks; cause unconfirmed.",
+    "Resumed template library assertion omitted intended client feature marker; expectation updated and suffix passed."
+  ]
+}
