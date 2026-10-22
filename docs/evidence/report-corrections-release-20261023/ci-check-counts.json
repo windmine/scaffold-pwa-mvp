@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "sourceCommit": "1d937414c1217d3f3461ce6074d09563a4962aa7",
+  "sourceVerifiedInBothExecutedJobLogs": true,
+  "runId": 39856281264,
+  "successfulRunAttempt": 2,
+  "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39856281264",
+  "frontend": {
+    "jobId": 120101226231,
+    "executedAttempt": 2,
+    "conclusion": "success",
+    "workflowSyntax": "passed",
+    "dependencyAudit": "passed",
+    "lint": "passed",
+    "completeMobileGate": "passed",
+    "realBackendBrowserWorkflowsPassed": 75,
+    "countMethod": "Count of individual 'ok -' lines in the real-backend browser workflow section, from its first Supervisor Submit form check through its last service-worker update check, followed by the suite success summary.",
+    "firstWorkflowLogLine": "2026-10-22T21:39:12.8946037Z ok - Supervisor Submit form keeps global review focus separate and rejects legacy queue types",
+    "lastWorkflowLogLine": "2026-10-22T21:42:32.7475170Z ok - report-only service worker update prompt posts SKIP_WAITING",
+    "suiteCompletionLogLine": "2026-10-22T21:42:32.7674732Z browser workflow checks passed",
+    "mobileCompletionLogLine": "2026-10-22T21:42:35.3026418Z mobile local checks passed; temporary default storage removed",
+    "reportCorrectionBrowserGroupsPassed": 9,
+    "reportPreferenceGroupsPassed": 11,
+    "installerChecksPassed": 11,
+    "nativeStartupAndQueueWaitGroupsPassed": 10,
+    "workerHistoryVolume": {
+      "datasetsPassed": 2,
+      "reportCounts": [
+        100,
+        1000
+      ],
+      "logLines": [
+        "2026-10-22T21:42:36.1832984Z ok - 100 Reports: first 13.4 ms, repeat 9.6 ms, search 4.4 ms; no eager images; evidence and scope checks passed",
+        "2026-10-22T21:42:36.8169222Z ok - 1000 Reports: first 67.2 ms, repeat 67.7 ms, search 19.7 ms; no eager images; evidence and scope checks passed"
+      ]
+    }
+  },
+  "backend": {
+    "executedJobId": 120095517886,
+    "executedAttempt": 1,
+    "carriedForwardSuccessfulJobId": 120101229300,
+    "conclusion": "success",
+    "disposableSuitesPassed": 26,
+    "nativeEnvironmentCheckpoints": 4,
+    "volume": {
+      "datasets": 2,
+      "reportCounts": [
+        25,
+        100
+      ],
+      "measurementsPassed": 24,
+      "cleanupComplete": true
+    },
+    "pdfEmailPostgresCheckpoints": 6,
+    "correctionPostgresCheckpoints": 14,
+    "disposableCleanupHarnessPassed": true,
+    "totalRunnerInvocationsPassed": 27,
+    "reportCorrectionTestsPassed": 9,
+    "pdfEmailTestsPassed": 18,
+    "supervisorSubmissionTestsPassed": 8,
+    "ownedPostgresClustersRemoved": true
+  },
+  "artifacts": [
+    {
+      "id": 12460558028,
+      "name": "frontend-growth-evidence",
+      "digest": "sha256:ec9ad2cd7d925d48cf352b49335ee99ae7823572a715cf4672ff02d64afd2c36",
+      "expiresAtUtc": "2026-10-29T21:42:36Z",
+      "sourceCommit": "1d937414c1217d3f3461ce6074d09563a4962aa7"
+    },
+    {
+      "id": 12460275716,
+      "name": "backend-growth-evidence",
+      "digest": "sha256:e82f97f98742cb04c44278bdb665ca5a4bdc8dfe4fe1e9df8406000ff1dc2490",
+      "expiresAtUtc": "2026-10-29T21:23:26Z",
+      "sourceCommit": "1d937414c1217d3f3461ce6074d09563a4962aa7"
+    }
+  ],
+  "earlierAttempts": [
+    {
+      "sourceCommit": "41a3f2f9fccf9fbee75450070362cd4cfeed5134",
+      "runId": 39855289104,
+      "evidence": "ci-first-source-check-counts.json",
+      "failureEvidence": "ci-volume-fixture-failure.json"
+    },
+    {
+      "sourceCommit": "1d937414c1217d3f3461ce6074d09563a4962aa7",
+      "runId": 39856281264,
+      "runAttempt": 1,
+      "evidence": "ci-playwright-install-cancelled.json",
+      "note": "Backend passed. Frontend was cancelled during slow Ubuntu package downloads before lint or application tests; only the unsuccessful frontend job was retried."
+    }
+  ],
+  "scope": "CI uses disposable local test data. This evidence does not claim authenticated production, hosted correction, physical-phone, real SMTP authentication or email-delivery validation."
+}
+

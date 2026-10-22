@@ -1,0 +1,1057 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "recordedAtUtc": "2026-10-22T22:24:41.751162+00:00",
+  "sourceCommit": "1d937414c1217d3f3461ce6074d09563a4962aa7",
+  "scope": "Release evidence assembled from completed recorded proofs; no live checks or mutations performed by this finalizer.",
+  "sourceCi": {
+    "id": 39856281264,
+    "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39856281264",
+    "jobsPassed": true,
+    "jobCount": 2,
+    "expectedRealBackendBrowserWorkflows": 75,
+    "observedRealBackendBrowserWorkflows": 75,
+    "successfulRunAttempt": 2,
+    "frontendExecutedAttempt": 2,
+    "backendExecutedAttempt": 1,
+    "countEvidence": {
+      "path": "docs/evidence/report-corrections-release-20261023/ci-check-counts.json",
+      "sha256": "18d792918b75dc8dd6795caa9b9be68cbce9e11fcc15f8b00cfddb4fd6d43678"
+    }
+  },
+  "imageBuild": {
+    "sourceCommit": "1d937414c1217d3f3461ce6074d09563a4962aa7",
+    "buildId": "55236526-4506-46d7-b9f9-fd9182bf6a07",
+    "images": {
+      "candidate": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:d1f524b0c612a4392dbb383b27d56d26da30c4dee49d76fd15e821dca7654c94",
+      "fallback": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:de7160bb7a160c40c5ce51859764050a0f0fdb550e4ba62f2bb0d416c242bccc"
+    },
+    "mockedTestsPassed": true
+  },
+  "backend": {
+    "status": "passed",
+    "atUtc": "2026-10-22T22:08:33.960373+00:00",
+    "revision": "geo-backend-corrections-20261023",
+    "traffic": [
+      {
+        "percent": 100,
+        "revisionName": "geo-backend-corrections-20261023"
+      }
+    ],
+    "health": [
+      {
+        "path": "/health",
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "message": "Geo backend is running"
+        }
+      },
+      {
+        "path": "/health/ready",
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "checks": {
+            "database": "ok",
+            "migrations": "ok",
+            "upload_storage": "ok"
+          },
+          "details": {
+            "upload_storage": {
+              "backend": "gcs"
+            }
+          }
+        }
+      },
+      {
+        "path": "/health",
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "message": "Geo backend is running"
+        }
+      },
+      {
+        "path": "/health/ready",
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "checks": {
+            "database": "ok",
+            "migrations": "ok",
+            "upload_storage": "ok"
+          },
+          "details": {
+            "upload_storage": {
+              "backend": "gcs"
+            }
+          }
+        }
+      }
+    ],
+    "runtime": {
+      "containerConcurrency": 80,
+      "containers": [
+        {
+          "env": [
+            {
+              "name": "ACCESS_TOKEN_EXPIRE_MINUTES",
+              "valueSha256": "2ab4e55c7fdf332c78e4f36966a981f452ffb6758026085a4ad9df565a1df82d"
+            },
+            {
+              "name": "AUTO_MIGRATE",
+              "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+            },
+            {
+              "name": "BUSINESS_TIMEZONE",
+              "valueSha256": "d73daf5e9fd9586f0488724a668fe2fefe5a803c053dbecffd477e99a10d2d88"
+            },
+            {
+              "name": "CORS_ORIGINS",
+              "valueSha256": "a6877b178e9941fc32bc64bf2a5063e486c4dd61fc389da33e626ce778ad27e1"
+            },
+            {
+              "name": "DATABASE_URL",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "2",
+                  "name": "geo-backend-database-url"
+                }
+              }
+            },
+            {
+              "name": "GEO_SECRET_KEY",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "1",
+                  "name": "geo-backend-jwt-secret"
+                }
+              }
+            },
+            {
+              "name": "MAX_UPLOAD_BYTES",
+              "valueSha256": "1e8c1c7e50e5595caef818da21aaf0f291666ae1ef07fa561763f8e859f8713a"
+            },
+            {
+              "name": "PUBLIC_APP_URL",
+              "valueSha256": "a6877b178e9941fc32bc64bf2a5063e486c4dd61fc389da33e626ce778ad27e1"
+            },
+            {
+              "name": "REGISTRATION_EMAIL_ENABLED",
+              "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+            },
+            {
+              "name": "REPORT_PDF_EMAIL_WORKER_ENABLED",
+              "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+            },
+            {
+              "name": "SMTP_FROM_EMAIL",
+              "valueSha256": "05bf0f8f3d7e56f3f196b1b6a5b2fb22afcdfc0e621f36d56a4a472909e0c2f5"
+            },
+            {
+              "name": "SMTP_HOST",
+              "valueSha256": "baf8948be444889e4c5309caa2da8bb3b3e14e4ebda34e5d87eaf4f5c44d22b2"
+            },
+            {
+              "name": "SMTP_PASSWORD",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "1",
+                  "name": "reportflow-smtp-password"
+                }
+              }
+            },
+            {
+              "name": "SMTP_PORT",
+              "valueSha256": "82a93b152b275d4c8de67c3d05c9b00e92477eeb024f117c7632cdb26fd874aa"
+            },
+            {
+              "name": "SMTP_USERNAME",
+              "valueSha256": "05bf0f8f3d7e56f3f196b1b6a5b2fb22afcdfc0e621f36d56a4a472909e0c2f5"
+            },
+            {
+              "name": "SMTP_USE_SSL",
+              "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+            },
+            {
+              "name": "SMTP_USE_STARTTLS",
+              "valueSha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+            },
+            {
+              "name": "SQL_ECHO",
+              "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+            },
+            {
+              "name": "UPLOAD_BUCKET",
+              "valueSha256": "9a6404b9e0d1ca937d43e343e647f429806025eacce106cbac567bf36991ba67"
+            },
+            {
+              "name": "UPLOAD_OBJECT_PREFIX",
+              "valueSha256": "9ba88c4165381adc0eeae696d66c699577dd1d0e209d81c9644890bfe87546d8"
+            },
+            {
+              "name": "UPLOAD_STORAGE_BACKEND",
+              "valueSha256": "23e5fe687c517d15a2d337201eda012b130d6680d7231dba51969631ef5f18bc"
+            }
+          ],
+          "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:d1f524b0c612a4392dbb383b27d56d26da30c4dee49d76fd15e821dca7654c94",
+          "name": "geo-backend-1",
+          "ports": [
+            {
+              "containerPort": 8080,
+              "name": "http1"
+            }
+          ],
+          "resources": {
+            "limits": {
+              "cpu": "1",
+              "memory": "512Mi"
+            }
+          },
+          "startupProbe": {
+            "failureThreshold": 1,
+            "periodSeconds": 240,
+            "tcpSocket": {
+              "port": 8080
+            },
+            "timeoutSeconds": 240
+          }
+        }
+      ],
+      "serviceAccountName": "geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com",
+      "timeoutSeconds": 300
+    },
+    "serviceAndSmtpSecretIamUnchanged": true,
+    "secretReferencesPreserved": true
+  },
+  "backendFinalVerification": {
+    "status": "passed",
+    "atUtc": "2026-10-22T22:16:05.239634+00:00",
+    "revision": "geo-backend-corrections-20261023",
+    "traffic": [
+      {
+        "percent": 100,
+        "revisionName": "geo-backend-corrections-20261023"
+      }
+    ],
+    "runtime": {
+      "containerConcurrency": 80,
+      "containers": [
+        {
+          "env": [
+            {
+              "name": "ACCESS_TOKEN_EXPIRE_MINUTES",
+              "valueSha256": "2ab4e55c7fdf332c78e4f36966a981f452ffb6758026085a4ad9df565a1df82d"
+            },
+            {
+              "name": "AUTO_MIGRATE",
+              "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+            },
+            {
+              "name": "BUSINESS_TIMEZONE",
+              "valueSha256": "d73daf5e9fd9586f0488724a668fe2fefe5a803c053dbecffd477e99a10d2d88"
+            },
+            {
+              "name": "CORS_ORIGINS",
+              "valueSha256": "a6877b178e9941fc32bc64bf2a5063e486c4dd61fc389da33e626ce778ad27e1"
+            },
+            {
+              "name": "DATABASE_URL",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "2",
+                  "name": "geo-backend-database-url"
+                }
+              }
+            },
+            {
+              "name": "GEO_SECRET_KEY",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "1",
+                  "name": "geo-backend-jwt-secret"
+                }
+              }
+            },
+            {
+              "name": "MAX_UPLOAD_BYTES",
+              "valueSha256": "1e8c1c7e50e5595caef818da21aaf0f291666ae1ef07fa561763f8e859f8713a"
+            },
+            {
+              "name": "PUBLIC_APP_URL",
+              "valueSha256": "a6877b178e9941fc32bc64bf2a5063e486c4dd61fc389da33e626ce778ad27e1"
+            },
+            {
+              "name": "REGISTRATION_EMAIL_ENABLED",
+              "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+            },
+            {
+              "name": "REPORT_PDF_EMAIL_WORKER_ENABLED",
+              "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+            },
+            {
+              "name": "SMTP_FROM_EMAIL",
+              "valueSha256": "05bf0f8f3d7e56f3f196b1b6a5b2fb22afcdfc0e621f36d56a4a472909e0c2f5"
+            },
+            {
+              "name": "SMTP_HOST",
+              "valueSha256": "baf8948be444889e4c5309caa2da8bb3b3e14e4ebda34e5d87eaf4f5c44d22b2"
+            },
+            {
+              "name": "SMTP_PASSWORD",
+              "valueFrom": {
+                "secretKeyRef": {
+                  "key": "1",
+                  "name": "reportflow-smtp-password"
+                }
+              }
+            },
+            {
+              "name": "SMTP_PORT",
+              "valueSha256": "82a93b152b275d4c8de67c3d05c9b00e92477eeb024f117c7632cdb26fd874aa"
+            },
+            {
+              "name": "SMTP_USERNAME",
+              "valueSha256": "05bf0f8f3d7e56f3f196b1b6a5b2fb22afcdfc0e621f36d56a4a472909e0c2f5"
+            },
+            {
+              "name": "SMTP_USE_SSL",
+              "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+            },
+            {
+              "name": "SMTP_USE_STARTTLS",
+              "valueSha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+            },
+            {
+              "name": "SQL_ECHO",
+              "valueSha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+            },
+            {
+              "name": "UPLOAD_BUCKET",
+              "valueSha256": "9a6404b9e0d1ca937d43e343e647f429806025eacce106cbac567bf36991ba67"
+            },
+            {
+              "name": "UPLOAD_OBJECT_PREFIX",
+              "valueSha256": "9ba88c4165381adc0eeae696d66c699577dd1d0e209d81c9644890bfe87546d8"
+            },
+            {
+              "name": "UPLOAD_STORAGE_BACKEND",
+              "valueSha256": "23e5fe687c517d15a2d337201eda012b130d6680d7231dba51969631ef5f18bc"
+            }
+          ],
+          "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:d1f524b0c612a4392dbb383b27d56d26da30c4dee49d76fd15e821dca7654c94",
+          "name": "geo-backend-1",
+          "ports": [
+            {
+              "containerPort": 8080,
+              "name": "http1"
+            }
+          ],
+          "resources": {
+            "limits": {
+              "cpu": "1",
+              "memory": "512Mi"
+            }
+          },
+          "startupProbe": {
+            "failureThreshold": 1,
+            "periodSeconds": 240,
+            "tcpSocket": {
+              "port": 8080
+            },
+            "timeoutSeconds": 240
+          }
+        }
+      ],
+      "serviceAccountName": "geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com",
+      "timeoutSeconds": 300
+    },
+    "checks": [
+      {
+        "path": "/health",
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "message": "Geo backend is running"
+        }
+      },
+      {
+        "path": "/health/ready",
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "checks": {
+            "database": "ok",
+            "migrations": "ok",
+            "upload_storage": "ok"
+          },
+          "details": {
+            "upload_storage": {
+              "backend": "gcs"
+            }
+          }
+        }
+      },
+      {
+        "path": "/health",
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "message": "Geo backend is running"
+        }
+      },
+      {
+        "path": "/health/ready",
+        "status": 200,
+        "body": {
+          "status": "ok",
+          "checks": {
+            "database": "ok",
+            "migrations": "ok",
+            "upload_storage": "ok"
+          },
+          "details": {
+            "upload_storage": {
+              "backend": "gcs"
+            }
+          }
+        }
+      },
+      {
+        "origin": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+        "path": "/auth/me",
+        "status": 401,
+        "body": {
+          "detail": "Authentication required"
+        }
+      },
+      {
+        "origin": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+        "path": "/supervisor/users",
+        "status": 401,
+        "body": {
+          "detail": "Authentication required"
+        }
+      },
+      {
+        "origin": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+        "path": "/supervisor/form-submissions?purpose=report",
+        "status": 401,
+        "body": {
+          "detail": "Authentication required"
+        }
+      },
+      {
+        "origin": "https://geo-attendance-system-db9ca.web.app/api",
+        "path": "/auth/me",
+        "status": 401,
+        "body": {
+          "detail": "Authentication required"
+        }
+      },
+      {
+        "origin": "https://geo-attendance-system-db9ca.web.app/api",
+        "path": "/supervisor/users",
+        "status": 401,
+        "body": {
+          "detail": "Authentication required"
+        }
+      },
+      {
+        "origin": "https://geo-attendance-system-db9ca.web.app/api",
+        "path": "/supervisor/form-submissions?purpose=report",
+        "status": 401,
+        "body": {
+          "detail": "Authentication required"
+        }
+      }
+    ],
+    "logCount": 160,
+    "errorOr5xxCount": 0,
+    "serviceAndSmtpSecretIamUnchanged": true,
+    "secretReferencesUnchanged": true,
+    "publicAppUrl": "https://geo-attendance-system-db9ca.web.app",
+    "smtpAuthenticationOrEmailAttempted": false
+  },
+  "frontend": {
+    "status": "passed",
+    "atUtc": "2026-10-22T22:14:01.710968+00:00",
+    "version": "54cd56ba20fff93a",
+    "previousVersion": "12a1d6dbf481ba3b",
+    "live": {
+      "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/live",
+      "url": "https://geo-attendance-system-db9ca.web.app",
+      "release": {
+        "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/live/releases/1792707231269000",
+        "version": {
+          "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/versions/54cd56ba20fff93a",
+          "status": "FINALIZED",
+          "config": {
+            "headers": [
+              {
+                "headers": {
+                  "Cache-Control": "no-cache"
+                },
+                "glob": "/sw.js"
+              },
+              {
+                "headers": {
+                  "Cache-Control": "no-cache"
+                },
+                "glob": "/offline.html"
+              },
+              {
+                "headers": {
+                  "Cache-Control": "no-cache"
+                },
+                "glob": "/install.html"
+              },
+              {
+                "headers": {
+                  "Cache-Control": "public,max-age=3600"
+                },
+                "glob": "/manifest.webmanifest"
+              }
+            ],
+            "rewrites": [
+              {
+                "glob": "/api/**",
+                "run": {
+                  "serviceId": "geo-backend",
+                  "region": "australia-southeast1"
+                }
+              },
+              {
+                "glob": "/uploads/**",
+                "run": {
+                  "serviceId": "geo-backend",
+                  "region": "australia-southeast1"
+                }
+              }
+            ]
+          },
+          "labels": {
+            "deployment-tool": "cli-firebase"
+          },
+          "createTime": "2026-10-22T22:11:42.936949Z",
+          "createUser": {
+            "email": "hty2003ah@gmail.com"
+          },
+          "finalizeTime": "2026-10-22T22:11:52.121734Z",
+          "finalizeUser": {
+            "email": "hty2003ah@gmail.com"
+          },
+          "fileCount": "89",
+          "versionBytes": "735314"
+        },
+        "type": "DEPLOY",
+        "releaseTime": "2026-10-22T22:13:51.269Z",
+        "releaseUser": {
+          "email": "hty2003ah@gmail.com"
+        }
+      },
+      "createTime": "2026-04-13T02:04:28.070291273Z",
+      "updateTime": "2026-10-22T22:13:51.269Z",
+      "retainedReleaseCount": 2147483647
+    }
+  },
+  "cacheVersion": "leader-field-88fa52deffff",
+  "migration": {
+    "head": "0025_report_corrections",
+    "count": 25,
+    "applied": [
+      "0025_report_corrections"
+    ],
+    "businessDataPreservedDuringMigration": true,
+    "priorMigrationChecksumsPreserved": 24,
+    "existingRoutingAndOutboxPreservedDuringMigration": true,
+    "correctionDefaultsVerified": true,
+    "before": {
+      "configuredTemplateRows": 0,
+      "outboxRows": 0,
+      "pendingOutboxRows": 0,
+      "outboxStatuses": {},
+      "correctedRows": null
+    },
+    "after": {
+      "configuredTemplateRows": 0,
+      "outboxRows": 0,
+      "pendingOutboxRows": 0,
+      "outboxStatuses": {},
+      "correctedRows": 0
+    },
+    "postResume": {
+      "configuredTemplateRows": 0,
+      "outboxRows": 0,
+      "pendingOutboxRows": 0,
+      "outboxStatuses": {},
+      "correctedRows": 0
+    },
+    "finalInventoryMatchesMigrationResult": true,
+    "postResumeChangedBusinessTables": [],
+    "postResumeAttribution": "No attribution inferred from aggregate hashes. Normal users and the restored scheduled worker may change data after service resumes.",
+    "evidence": [
+      {
+        "path": "docs/evidence/report-corrections-release-20261023/production-proof.json",
+        "sha256": "de95174ebcc314422f1d74edbb3b9293f96f68cc24a9f09b9533809107ee3ae9"
+      },
+      {
+        "path": "docs/evidence/report-corrections-release-20261023/post-release-proof.json",
+        "sha256": "1a646399e5676f0e0731014fb5700615e01c0c54ae3e675f03409a4ab2eec20d"
+      }
+    ]
+  },
+  "maintenance": {
+    "confirmedAtUtc": "2026-10-22T21:57:04.348484+00:00",
+    "drainSeconds": 300,
+    "resumeVerifiedAtUtc": "2026-10-22T22:08:33.960373+00:00",
+    "secondsUntilVerifiedResume": 689.6
+  },
+  "worker": {
+    "name": "reportflow-pdf-email",
+    "schedule": "*/5 * * * *",
+    "timeZone": "Etc/UTC",
+    "existingScheduleRestored": true,
+    "existingIamPreserved": true,
+    "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:d1f524b0c612a4392dbb383b27d56d26da30c4dee49d76fd15e821dca7654c94",
+    "taskCount": 1,
+    "parallelism": 1,
+    "maxRetries": 0,
+    "batchLimit": 10,
+    "disabledExecutionPerformedNoSmtp": true,
+    "schedulerEnabled": true,
+    "normalScheduledWorkProcessed": false,
+    "observedAggregateCounts": {
+      "accepted": 0,
+      "failed": 0,
+      "skipped": 0,
+      "uncertain": 0
+    },
+    "observedExecutionCount": 1,
+    "executions": [
+      {
+        "execution": "reportflow-pdf-email-8n6tn",
+        "result": {
+          "counts": {
+            "accepted": 0,
+            "failed": 0,
+            "skipped": 0,
+            "uncertain": 0
+          },
+          "status": "completed"
+        },
+        "completedAt": "2026-10-22T22:20:15.436999Z"
+      }
+    ],
+    "mailboxDeliveryVerified": false,
+    "dedicatedRealSmtpTestPerformed": false,
+    "scope": "Counts describe the recorded normal scheduled executions only. Accepted is SMTP acceptance; failed/uncertain/skipped counts do not establish whether authentication or delivery occurred.",
+    "verification": {
+      "path": "docs/evidence/report-corrections-release-20261023/scheduled-worker-verification.json",
+      "sha256": "bf465d0ce7048f72327607927ada85792c8e22074e92641378e93bf2e9d6bc50"
+    }
+  },
+  "iam": {
+    "existingServiceAndSmtpSecretIamPreserved": true,
+    "existingWorkerAndProjectIamPreserved": true,
+    "secretReferencesPreserved": true,
+    "newGrantsByThisRelease": false
+  },
+  "rollback": {
+    "compatibleBackendRevision": "geo-backend-corrections-fallback-20261023",
+    "compatibleImage": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:de7160bb7a160c40c5ce51859764050a0f0fdb550e4ba62f2bb0d416c242bccc",
+    "fallbackVerifiedAtUtc": "2026-10-22T22:06:43.610687+00:00",
+    "fallbackOverlayFiles": [
+      "backend/app/use_cases/report_corrections.py"
+    ],
+    "limitedService": "Report correction saves disabled; schema25, latest corrected reads/exports/evidence, submissions and frozen original outbox retained.",
+    "pauseSchedulerDisableWorkerAndDrainBeforeFallback": true,
+    "original0024OnlyImagesRejectLedger": true,
+    "hosting": {
+      "version": "12a1d6dbf481ba3b",
+      "channel": "rollback-corrections-20261023",
+      "url": "https://geo-attendance-system-db9ca--rollback-corrections-2026-yaxuodov.web.app",
+      "expiresAtUtc": "2026-10-29T21:13:05.583193640Z"
+    },
+    "databaseBackup": {
+      "id": "br-mute-fog-a7jvy0in",
+      "name": "reportflow-corrections-backup-20261023",
+      "parent_id": "br-snowy-tree-a7hfuph6",
+      "created_at": "2026-10-22T22:02:38Z",
+      "expires_at": "2026-10-29T22:02:34Z"
+    },
+    "backupInventoryMatchesPausedProduction": true,
+    "reverifyAvailabilityBeforeUse": true,
+    "neverDowngradeLedgerResetCredentialsAuthGenerationsClearDeviceStorageOrResetOutboxAttempts": true
+  },
+  "validation": {
+    "localBackendSuites": 26,
+    "localRealBackendBrowserWorkflows": 75,
+    "localNativePostgresFullChecks": 78,
+    "localNativePostgresFinalValidatorChecks": 14,
+    "providerSmokeChecks": 251,
+    "providerFreshOwnedDatabaseCleanup": true,
+    "providerSmokeEvidence": {
+      "path": "docs/evidence/report-corrections-release-20261023/stage-provider-verified-proof.json",
+      "sha256": "4f6828fcf17cc099592d46487ab0f2450a8abbdd1f2fa2bde4f9641570804145"
+    },
+    "fallbackLocalChecks": 4,
+    "previewAndLiveFileCount": 87,
+    "previewShellAssets": 77,
+    "liveShellAssets": 77,
+    "previewInstallerArtifacts": 7,
+    "liveInstallerArtifacts": 7,
+    "waitingUpdateChecks": 4,
+    "strictHardeningChecks": 40,
+    "genericHostedVerifierLocalChecks": 14,
+    "octoberVerifierLocalChecks": 13
+  },
+  "operationalScope": {
+    "productionTestFixturesCreated": false,
+    "existingUserCredentialsReset": false,
+    "deviceStorageCleared": false,
+    "manualRealTestEmailSent": false,
+    "normalScheduledEmailOutcomes": {
+      "accepted": 0,
+      "failed": 0,
+      "skipped": 0,
+      "uncertain": 0
+    },
+    "smtpPasswordPayloadRead": false,
+    "smtpSecretVersion": "reportflow-smtp-password:1",
+    "publicRegistrationEmailEnabled": false,
+    "webServicePdfWorkerEnabled": false,
+    "existingTemplateRoutingChangedByRelease": false
+  },
+  "earlierAttempts": [
+    {
+      "stage": "first source CI",
+      "runId": 39855289104,
+      "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39855289104",
+      "originalSourceCommit": "41a3f2f9fccf9fbee75450070362cd4cfeed5134",
+      "result": "failed",
+      "diagnosis": "Native PostgreSQL volume fixture still used the retired Report workflow; migration 0025 rejected it.",
+      "subsequentPassingSourceCi": 39856281264,
+      "evidence": {
+        "path": "docs/evidence/report-corrections-release-20261023/ci-volume-fixture-failure.json",
+        "sha256": "bdebb37f7a5096c604f0ff7d4cab4f0e2b4b56c2ae81ef4bd17a1a25e42d6c54"
+      }
+    },
+    {
+      "stage": "final-source frontend CI first attempt",
+      "result": "cancelled",
+      "sourceCommit": "1d937414c1217d3f3461ce6074d09563a4962aa7",
+      "runId": 39856281264,
+      "runAttempt": 1,
+      "jobId": 120095517251,
+      "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39856281264/job/120095517251",
+      "step": "Install the locked Playwright Chromium and system libraries",
+      "cancelledAtUtc": "2026-10-22T21:31:28.2000337Z",
+      "observed": "Ubuntu system-package downloads from azure.archive.ubuntu.com progressed slowly for over ten minutes; fonts-ipafont-gothic was retried. The job was cancelled while downloading dependencies, before lint or application tests.",
+      "diagnosis": "The logs establish a slow package-download stage. The underlying network or mirror cause is unconfirmed; this attempt is not an application-test failure or pass.",
+      "backendJob": {
+        "id": 120095517886,
+        "conclusion": "success",
+        "rerunRequired": false
+      },
+      "sourceChangedForRetry": false,
+      "evidence": {
+        "path": "docs/evidence/report-corrections-release-20261023/ci-playwright-install-cancelled.json",
+        "sha256": "676c73fc2eb82b19da2f4b669b4c430debe0296157955028646ab4e34b7eae9d"
+      }
+    },
+    {
+      "stage": "local hosted-verifier preparation",
+      "diagnosis": {
+        "failures": [
+          "The new action is labelled Edit, not Edit Report.",
+          "The synthetic harness included a hidden legacy historyTab alongside the actual tab.",
+          "Collapsed Worker cards intentionally omit answer content until expanded."
+        ],
+        "evidence": "The Worker API returned corrected answer and revision 2. The unopened card showed Submitted, seven photos and Show details; opening the uniquely owned card revealed the correction.",
+        "fix": "Updated verifier selectors and expanded the card before checking the corrected answer. No application change was needed.",
+        "final": "13 checkpoints passed; two owned Reports, one Template and one Worker cleaned up; no unexpected requests or page errors."
+      },
+      "evidence": {
+        "path": "docs/evidence/report-corrections-release-20261023/preparation-validation.json",
+        "sha256": "c9d67b549a884225e21782b0675e17b25976b9dfcaba1c67f3c3b35050471145"
+      }
+    },
+    {
+      "stage": "historical combined-release CI",
+      "result": "unconfirmed intermittent retained",
+      "detail": "The previous release's first fixed-source invitation account-switch timeout remains unexplained despite three isolated passes and a complete frontend rerun.",
+      "evidence": {
+        "path": "docs/evidence/report-submit-pdf-release-20261021/release.json",
+        "sha256": "622467470bd476d405fac15ffc34f03161d79d44f9574657187ec4edd6ee94e8"
+      }
+    },
+    {
+      "stage": "first isolated provider HTTP smoke",
+      "result": "failed",
+      "passingChecks": 0,
+      "diagnosis": "The unchanged runtime image lacked the smoke harness's test-only pypdf reader; the import failure occurred before HTTP checks. A distinct verified job reproduced the missing module, supplied a size/hash-pinned wheel only to the smoke subprocess, and verified disposable fixture cleanup without changing the image.",
+      "originalFailure": {
+        "path": "docs/evidence/report-corrections-release-20261023/stage-provider-proof.json",
+        "sha256": "05ce9277b2c147f2179ea2f26f8dfb81281baedf53e5d99772177c60e2e902d7"
+      },
+      "originalObservation": {
+        "path": "docs/evidence/report-corrections-release-20261023/stage-provider-smoke-diagnosis.json",
+        "sha256": "058618816d9d8eb64d2482e94a8506420035e9a50af86c72d428f645975c4028"
+      },
+      "confirmedDiagnosis": {
+        "path": "docs/evidence/report-corrections-release-20261023/stage-provider-verified-dependency-diagnosis.json",
+        "sha256": "13e5627852d2c862dc2c420029556c83211d0e7c92b68a88e09280b83567de69"
+      },
+      "subsequentVerifiedProof": {
+        "path": "docs/evidence/report-corrections-release-20261023/stage-provider-verified-proof.json",
+        "sha256": "4f6828fcf17cc099592d46487ab0f2450a8abbdd1f2fa2bde4f9641570804145"
+      },
+      "fixtureCleanup": {
+        "path": "docs/evidence/report-corrections-release-20261023/stage-provider-verified-fixture-cleanup.json",
+        "sha256": "ea714ab05b328a7f487a86e76763e9b354dfec5226e6f93d044d8ba94eeb6de7"
+      }
+    }
+  ],
+  "additionalAttemptEvidence": [
+    {
+      "path": "docs/evidence/report-corrections-release-20261023/ci-playwright-install-cancelled.json",
+      "sha256": "676c73fc2eb82b19da2f4b669b4c430debe0296157955028646ab4e34b7eae9d"
+    },
+    {
+      "path": "docs/evidence/report-corrections-release-20261023/ci-volume-fixture-failure.json",
+      "sha256": "bdebb37f7a5096c604f0ff7d4cab4f0e2b4b56c2ae81ef4bd17a1a25e42d6c54"
+    },
+    {
+      "path": "docs/evidence/report-corrections-release-20261023/stage-provider-smoke-diagnosis.json",
+      "sha256": "058618816d9d8eb64d2482e94a8506420035e9a50af86c72d428f645975c4028"
+    },
+    {
+      "path": "docs/evidence/report-corrections-release-20261023/stage-provider-verified-dependency-diagnosis.json",
+      "sha256": "13e5627852d2c862dc2c420029556c83211d0e7c92b68a88e09280b83567de69"
+    }
+  ],
+  "warnings": [
+    "warn - Neon history retention is only 6 hours; choose a longer paid window or external logical backups before relying on it for production recovery",
+    "Existing frontend main-bundle size advisory remains."
+  ],
+  "limitations": [
+    "No authenticated production fixture or physical iOS/Android test was performed for this release.",
+    "Hosted browser verification is anonymous shell/install/update/offline verification. Correction and evidence workflows were exercised locally and by isolated provider HTTP staging.",
+    "Report corrections require connectivity and have no persistent offline correction draft; invalid or missing original Definition snapshots block saving.",
+    "Supervisor cold-offline Template catalogs remain unchanged; an already opened form can queue offline.",
+    "Previously queued or emailed PDFs retain their original submission and recipient snapshots. Corrections do not resend them.",
+    "Normal scheduled work may send existing pending email. No dedicated real SMTP or mailbox-delivery test was run; accepted/uncertain attempts are never automatically retried.",
+    "The historical invitation account-switch CI timeout remains unconfirmed.",
+    "Legacy HTML logo packaging remains unchanged; isolated provider smoke supplies the existing repository-logo fixture in its disposable runtime.",
+    "Rollback identities and expiry values reflect recorded provider observations and must be reverified before use."
+  ],
+  "cleanup": {
+    "status": "passed",
+    "atUtc": "2026-10-22T22:22:24.522920+00:00",
+    "jobs": [
+      "rf-correct-backup-verified-20261023",
+      "rf-correct-baseline-verified-20261023",
+      "rf-correct-post-release-20261023",
+      "rf-correct-production-20261023",
+      "rf-correct-stage-fallback-20261023",
+      "rf-correct-stage-migrated-20261023",
+      "rf-correct-stage-provider-20261023",
+      "rf-correct-stage-provider-verified-20261023"
+    ],
+    "stageBranch": "br-little-night-a7e30udt",
+    "retainedBackup": "br-mute-fog-a7jvy0in",
+    "deleted": [
+      "rf-correct-backup-verified-20261023",
+      "rf-correct-baseline-verified-20261023",
+      "rf-correct-post-release-20261023",
+      "rf-correct-production-20261023",
+      "rf-correct-stage-fallback-20261023",
+      "rf-correct-stage-migrated-20261023",
+      "rf-correct-stage-provider-20261023",
+      "rf-correct-stage-provider-verified-20261023",
+      "br-little-night-a7e30udt"
+    ],
+    "verifiedAtUtc": "2026-10-22T22:23:24.396177+00:00",
+    "absenceVerified": true,
+    "productionAndBackupPreserved": true
+  },
+  "evidenceSha256": {
+    "docs/evidence/report-corrections-local-20261023/backend-gate-results.txt": "eb9ba79c70791af3047204d5c9eaffb297a80300dc01a02e7bdcf17880137626",
+    "docs/evidence/report-corrections-local-20261023/local-smoke.json": "493bf38006ecc87018f92bf0de4d217652fc1d19e1da4db4c167ccb6c3ed4568",
+    "docs/evidence/report-corrections-local-20261023/mobile-gate-results.txt": "58cca150f7ca4c286c5737a16458be4bed7b1f68c04af8cf75d96585121c557c",
+    "docs/evidence/report-corrections-local-20261023/postgres-final-validator.json": "ebf5c57920106ea6f55b5e1abd643af12b0da93894b6a016063643497a29c7e0",
+    "docs/evidence/report-corrections-local-20261023/postgres-full.json": "a6ebbb439926a53ecaa59ab6f1d57c910de8a4ae42a8e71626914f4644038cda",
+    "docs/evidence/report-corrections-local-20261023/validation.json": "14c53cb51f18bddf21f90f7f61d14f0ae64d5293cebb89dc199569fea73c5677",
+    "docs/evidence/report-corrections-release-20261023/backend-promotion-request.json": "20ba0e96b37b63f4e6a85ecfd22d8e48e56afb77caf4ecda5f15ec6032bdce7c",
+    "docs/evidence/report-corrections-release-20261023/backend-promotion.json": "19be0d2ec4173f6a8a7beeb8f6a57c02e87cea547047b823a3dd981a92e01265",
+    "docs/evidence/report-corrections-release-20261023/backup-created.json": "d1904b39e224123c55402a2630f84857a6f1913d5eebdeb1c2120ea364ef7df2",
+    "docs/evidence/report-corrections-release-20261023/backup-request.json": "caf64329fbd47c688b68dc6af839d584576c234ad3ec092795d00f5f766912e9",
+    "docs/evidence/report-corrections-release-20261023/backup-verified-execution-request.json": "09facfe847cf1fb77d9e73b5b31d3bf66be419f543f6d5118fecc2ef5997d8e5",
+    "docs/evidence/report-corrections-release-20261023/backup-verified-execution-status.json": "6ffd2fb2105808d479c865078f4c9b6c4913557b7802a6bb5536fa02ab694f71",
+    "docs/evidence/report-corrections-release-20261023/backup-verified-execution.json": "934d6bc6cf313a6391c4b5f52a7bf3b03579dc4266ca1edc71380565b17f4267",
+    "docs/evidence/report-corrections-release-20261023/backup-verified-job-created.json": "c09ab7a64cba0ecfa8ffb90b7ac2a466284b5fdb6c366f36102503d5ff15d7ff",
+    "docs/evidence/report-corrections-release-20261023/backup-verified-job-request.json": "d0ab96e7ba12a41eb03172c531e2b862663cc2c91753fc9533a047b824b03912",
+    "docs/evidence/report-corrections-release-20261023/backup-verified-proof.json": "5ff94d2ded165559de232bfd8fad6bf577af725d774de373d246d40db2e3bad9",
+    "docs/evidence/report-corrections-release-20261023/backup.json": "82491ea3da7363db5ed0832cde38eec4686c21207d20f1d2e72eb4c377db52e6",
+    "docs/evidence/report-corrections-release-20261023/baseline-service.json": "8cff5339d9f1bfa3302a5447b3fe24125eefa9da88a372944f9817c74f8e35c0",
+    "docs/evidence/report-corrections-release-20261023/baseline-verified-execution-request.json": "19067685433a0e7ba3ee5ea247faa9b21ddaef56f7d092b935df302a7499b3f7",
+    "docs/evidence/report-corrections-release-20261023/baseline-verified-execution-status.json": "3a895510eb396cdacbbab78b7a9453e5f594be990821911402a030c49c1acd67",
+    "docs/evidence/report-corrections-release-20261023/baseline-verified-execution.json": "2baf11f6738346a3c3aaee8079bc6bd86f1a17086c7a8cdf68c4a6e6e2672f20",
+    "docs/evidence/report-corrections-release-20261023/baseline-verified-job-created.json": "30e8813b5efef9c0a778d1f7373d6c81a29a86789d7c3e341213e4f1fa6aa3b3",
+    "docs/evidence/report-corrections-release-20261023/baseline-verified-job-request.json": "0c8699a0b82163c2a83b7b5cda247400354c8c82a64159eb8ec8fbfe1b082839",
+    "docs/evidence/report-corrections-release-20261023/baseline-verified-proof.json": "f616020b3023ea3060f614b63d28612c35f687849083af606f7f4e4eb97485b3",
+    "docs/evidence/report-corrections-release-20261023/build-configuration.json": "559123e1f3d05e99fdbe0dff3d5f441efa502d6d5412f91971b89d4dfb6be1ed",
+    "docs/evidence/report-corrections-release-20261023/build-final.json": "ef86848d011a0d497c2a2e481885ba638ac52cbf3e61a10250b470cd8501cdb3",
+    "docs/evidence/report-corrections-release-20261023/build-manifest.json": "f733bcce442c8ee5b73362cc65247152e822c432c3cf5db4a90ed72934365d76",
+    "docs/evidence/report-corrections-release-20261023/build-preparation-request.json": "64d4a9e62cd9459e1ce6cc12a8438f1f9e3191f2749f568a024c281d806cfe5a",
+    "docs/evidence/report-corrections-release-20261023/build-request.json": "a9494a7f82597eea24eb79db56ae98ac528b907f6cf588577f94787d37109b97",
+    "docs/evidence/report-corrections-release-20261023/build-source-ci.json": "d911c64f88f178567c270c448e53dadca24f3bec65977230c4dd1c3f7b9f69b9",
+    "docs/evidence/report-corrections-release-20261023/build-submission.json": "3344d900358a3f117c2055b16edf753fcdf6e1b1ac16064349e7c961e6dae006",
+    "docs/evidence/report-corrections-release-20261023/build_images.py": "41111e89ffccd9f6cc0b426ceaaef586ab1a60c45279a9323f303383d75a928d",
+    "docs/evidence/report-corrections-release-20261023/candidate-deployment-request.json": "783601230b6f8770bd4a8600779bf3c8ca4e497c980a15d7be6c43e4f4af7dbd",
+    "docs/evidence/report-corrections-release-20261023/candidate.json": "da842a511ba66faba771590d4c0b7b1b80ad894a036b1407ff6854c65da12b8f",
+    "docs/evidence/report-corrections-release-20261023/ci-check-counts.json": "18d792918b75dc8dd6795caa9b9be68cbce9e11fcc15f8b00cfddb4fd6d43678",
+    "docs/evidence/report-corrections-release-20261023/ci-first-source-check-counts.json": "1dd440a1d2593c73932c561cea6e26f672c44d3f892967ffc5b55733491e5301",
+    "docs/evidence/report-corrections-release-20261023/ci-playwright-install-cancelled.json": "676c73fc2eb82b19da2f4b669b4c430debe0296157955028646ab4e34b7eae9d",
+    "docs/evidence/report-corrections-release-20261023/ci-source.json": "43d314a8af8e4a31e3585ae6386373dd54690f1df6268d60aa500f764a7af484",
+    "docs/evidence/report-corrections-release-20261023/ci-volume-fixture-failure.json": "bdebb37f7a5096c604f0ff7d4cab4f0e2b4b56c2ae81ef4bd17a1a25e42d6c54",
+    "docs/evidence/report-corrections-release-20261023/cleanup-request.json": "0a49b57035a944c2040d27f61252ce91d650f5765b3623d8d93008e8fdf4c742",
+    "docs/evidence/report-corrections-release-20261023/cleanup.json": "e4cc99dba24c05628c5f64e9b4ba80c4d10eaf46882b5d2cb225c903a4dee144",
+    "docs/evidence/report-corrections-release-20261023/disabled-worker-execution-request.json": "6b47dfee3f3c6425214b9080b55b4309fa8e17d5793bbd4bdeff2d1050af22da",
+    "docs/evidence/report-corrections-release-20261023/disabled-worker-execution.json": "33b8021e387bd379094731c769343154e469502ebae2e3ee3dc924c428626dba",
+    "docs/evidence/report-corrections-release-20261023/disabled-worker-proof.json": "96dc9c4400a8817efe874dcda7353f4c21b7f3f4a4742362eb66b4314f454c04",
+    "docs/evidence/report-corrections-release-20261023/evidence-redaction.json": "ee2b129057dfe1d3694dd126b20cdb600717588f3d9750e19df7fc31e39d2091",
+    "docs/evidence/report-corrections-release-20261023/fallback-deployment-request.json": "f2fce86982602513e9f3cb77fb3b65c8f5b37fd3ee0684ef877a7fa1c785ca70",
+    "docs/evidence/report-corrections-release-20261023/fallback-local.json": "acd4f16b3e098f9192f24641988310ab8ad60f177fb8f3c777e4b38d70d1e0ad",
+    "docs/evidence/report-corrections-release-20261023/fallback-working-tree.json": "542a2b870feaffcf27bed44a9f250913606deceb594b15926bd37522d72941d6",
+    "docs/evidence/report-corrections-release-20261023/fallback.json": "7bb355d7531a26e5ba8ea7e3f89922c166974f708895ead8fdf711931501919e",
+    "docs/evidence/report-corrections-release-20261023/fallback_compatibility_test.py": "5e10dbf84000093de6f435de97c1f829771fe1e9e27a5ab1c572e138ddc55158",
+    "docs/evidence/report-corrections-release-20261023/fallback_local.py": "65e1e75464b824921169325b2accd664b7d9f82a56f0b1a90d53f85c4e80d260",
+    "docs/evidence/report-corrections-release-20261023/fallback_overlay.py": "2e160b82e75ddfcc891dc441e3665812616530c2f06774b6f4ca0ecdcaf0f801",
+    "docs/evidence/report-corrections-release-20261023/finalize.py": "55a10bd5480093eb3ae10914adb17f38e9e08fc2f49c52cd30546428a1af3fc5",
+    "docs/evidence/report-corrections-release-20261023/first-source-build-manifest.json": "5a46e2da0462df67c815b8adc1d89769ff7411c560d73e37071dce5f97032f99",
+    "docs/evidence/report-corrections-release-20261023/first-source-ci-id.json": "d77bde4ec9fa51fe71575a4d0255ca7878bf1543ad917f5cadc65fa1b08d4620",
+    "docs/evidence/report-corrections-release-20261023/frontend.py": "d2be4de63f5205f9f74666d40bd750950c5a26cf7667533595c35e42a72c17ec",
+    "docs/evidence/report-corrections-release-20261023/hardening-current-final-log.txt": "c36fcf0ee592d419aeb4efe38939f6d29b7d1ceaa481b5176b8854d9ebf42db9",
+    "docs/evidence/report-corrections-release-20261023/hardening-current-final.json": "ebaccb01c7a9056e1c0a434d7a88be0ef791916aa106f1177545657883563ef3",
+    "docs/evidence/report-corrections-release-20261023/hardening-pre-log.txt": "2d4dd3e7907a97cd8d630963495913a3535f4e2e005c914970b93dee0974e3eb",
+    "docs/evidence/report-corrections-release-20261023/hardening-pre.json": "be8d9bdb343c2504667a753d9c42c4150847013b109b827a51dcea418f00d5b1",
+    "docs/evidence/report-corrections-release-20261023/hardening.py": "500a5b32b03d979708edb1e282ac5f41c8e5533e153c3853f0309aaaf5a2ce95",
+    "docs/evidence/report-corrections-release-20261023/helper-build-pending-frontend-local.json": "d3f53116354b499f4dc0ad791d62dd22f3022b6554b62175c147d5a41b6165ed",
+    "docs/evidence/report-corrections-release-20261023/helper-contracts-local.json": "2c4c42a3593d158c55d4b509296a3bb8eba8f60011f7ff35041f8cad9f2bb63d",
+    "docs/evidence/report-corrections-release-20261023/helper-execution-guards-local.json": "8256070138ae163f95bacfbe5c7a2a5aa4da75b4b2e3ba001ab96d7d6205705c",
+    "docs/evidence/report-corrections-release-20261023/helper-finalizer-prerelease-schema-review.json": "8823b3bb851435fd9bf701dfb74936b7acb1b75bb870a9a3872f12da0da9f37e",
+    "docs/evidence/report-corrections-release-20261023/helper-finalizer-schema-review.json": "2b322974e7aa4a8c71551d68e678b4a1e019e48a976a26dd161622d041ad7b70",
+    "docs/evidence/report-corrections-release-20261023/helper-recovery-timing-local.json": "ea7415cb510c08e47feb1955cb05e6326645204bcf91f6a3cf73ae5274daf41a",
+    "docs/evidence/report-corrections-release-20261023/helper-smoke-reader-local.json": "4cf8c31ebd019696e6eee6d111596e5da60697c610064c8a1787155f07afe019",
+    "docs/evidence/report-corrections-release-20261023/hosting-baseline.json": "c13ba50990dd9cd9f1df920522c030fae92acfaa0351e80c5db47d17838d62fa",
+    "docs/evidence/report-corrections-release-20261023/hosting-initial.json": "346c0b63b4612431c023b2b9cd8e309797742fcd87f6abb8ec9f20e6778e26a8",
+    "docs/evidence/report-corrections-release-20261023/hosting-preview-request.json": "a9c99965b0daf144a9a91db622b1084096c9a2099797f802ade4f83d6ecd3b6d",
+    "docs/evidence/report-corrections-release-20261023/hosting-preview-result.json": "dd4a8f21d6e956dd2d44ba2d0dcf9dbf0758f4da34d8bb7191e35351e61bcb8f",
+    "docs/evidence/report-corrections-release-20261023/hosting-preview.json": "23e6c4ad6ddd01690cbef86751c35919c3301eefdef7c0d6096c55d3fa847714",
+    "docs/evidence/report-corrections-release-20261023/hosting-promotion-request.json": "75d65fa0cc9d829ddd81588a687e38148b4fb8579da10295222f0ea169e4f166",
+    "docs/evidence/report-corrections-release-20261023/hosting-promotion.json": "4936d414b3b3e3e2f28bbb7a08759fba559ce539bf0a37b0e6bdddd542703de1",
+    "docs/evidence/report-corrections-release-20261023/hosting-retention-channel.json": "312ac604d205c5eccb323deff5b07c070cd0a5ceb6e3625716367ec9eb408aca",
+    "docs/evidence/report-corrections-release-20261023/hosting-retention-request.json": "975f867fc98cde29a9aa1b8065ead51dd6e09e1132e60516f741e0b54ee2970a",
+    "docs/evidence/report-corrections-release-20261023/hosting-retention.json": "8f289ba73e6530e5906cc3a489e2fd87604a36854eccd2c8e873b7603aa9cf44",
+    "docs/evidence/report-corrections-release-20261023/images.json": "4b8b0fc2d6eded82a8416fc4c4510515541fe7bdcafc39913e5ef3bd02517539",
+    "docs/evidence/report-corrections-release-20261023/live-backend-verification.json": "8fb384e2c2b0455293af0bc7302034fb6b4b315332ee101bb94b074b6c004ddb",
+    "docs/evidence/report-corrections-release-20261023/live-full-parity.json": "dce3e479037ca163e75b236735ff94a4d21f1cb43af2afcf7725a1f849022a1f",
+    "docs/evidence/report-corrections-release-20261023/live-installer-chinese.png": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+    "docs/evidence/report-corrections-release-20261023/live-installer-english.png": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d",
+    "docs/evidence/report-corrections-release-20261023/live-installer-offline.png": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+    "docs/evidence/report-corrections-release-20261023/live-installer.json": "7c57e2852f20352dbefe8ac07dab511f8c2dcd9e6445b327a88e474e9dc40404",
+    "docs/evidence/report-corrections-release-20261023/live-shell.json": "bee56e86786c7f4d19c9dd1199b730ae133664f948ee9039e1aa41ed419d1337",
+    "docs/evidence/report-corrections-release-20261023/live-waiting-update-offline.png": "288aedc8f66fffcf5a6f0e7168f50d1d7f15c59656106619660a214d2f503982",
+    "docs/evidence/report-corrections-release-20261023/live-waiting-update-updated.png": "0077ee45cc4fa0d4d7a93a67f8d925bf9f96a96b0d9177d5849c919d9809bba7",
+    "docs/evidence/report-corrections-release-20261023/live-waiting-update-waiting.png": "b0a6ddc449af3dab310fdf98a96326354f65c418c68ed9bf1058afa1870ff569",
+    "docs/evidence/report-corrections-release-20261023/live-waiting-update.json": "93ae2aa899c3973ee7ccb132788eef40a2d8a209c79de3a57d0c2f05e936303b",
+    "docs/evidence/report-corrections-release-20261023/maintenance-deployment-request.json": "46f32593b40d5123442bb848dfff80ff64efa7a7bbd919121dd3305f0c456bf6",
+    "docs/evidence/report-corrections-release-20261023/maintenance.json": "5a51f26c84fb0405bfe2b98a1da9213f3cd8266c561488c821f9fbe3141db591",
+    "docs/evidence/report-corrections-release-20261023/neon-current-final-log.txt": "27c2a5ea59211c5eb79822253a7d894ae718cb47c8d6b7f08f4759f0822443d2",
+    "docs/evidence/report-corrections-release-20261023/neon-current-final-request.json": "af7b95fa63eac18779a28a66b34d9dfdbb32a5425d59acf43fd3cced20b07e19",
+    "docs/evidence/report-corrections-release-20261023/neon-current-final.json": "968e3f2c256c01dcfee61599994a8fc9307ff1d632e9baafd0031e548b7135e3",
+    "docs/evidence/report-corrections-release-20261023/neon-premigration-log.txt": "c1164226df114fda73307ffc2b3f1a07657fd476815d2464f680c0fe20e9a5d3",
+    "docs/evidence/report-corrections-release-20261023/neon-premigration-request.json": "af147422d932c910181ec60294801b59c839cf845b5c996a9962b9711b9eafa8",
+    "docs/evidence/report-corrections-release-20261023/neon-premigration.json": "395d7a419e9c0babc13582d677c2f56af80705f5e667e65e1f37463555906209",
+    "docs/evidence/report-corrections-release-20261023/pause-request.json": "ef81d44fd291f2913aceed96397b0da5615e54ac33455099b4f12331262d6080",
+    "docs/evidence/report-corrections-release-20261023/pause.json": "cb1780e161bcee1761b6bfc57dc54ef705a55e85ed83cb4c3c6905d6541f57a0",
+    "docs/evidence/report-corrections-release-20261023/post-release-execution-request.json": "230a2adf6a525fe8473e6cfaf742c6e538d3582f81bd81c7fc7b9cb4a89e6749",
+    "docs/evidence/report-corrections-release-20261023/post-release-execution-status.json": "401d570f26484547580fd6cbe162ce6e73f0d91dda672d2c72ac4d01dd1f50c7",
+    "docs/evidence/report-corrections-release-20261023/post-release-execution.json": "d74225189c90ee9d1b47269c20b3d008bec75f7fd520414d85a7b8f7e1116df9",
+    "docs/evidence/report-corrections-release-20261023/post-release-job-created.json": "cada1466bc79d709caad5ac4c1b4592113ed163c8e04df71e2d8e23c130f7d08",
+    "docs/evidence/report-corrections-release-20261023/post-release-job-request.json": "19915a916235edf0517e0990fefa1a5c1e245e6600147e6f9677d246683b95a0",
+    "docs/evidence/report-corrections-release-20261023/post-release-proof.json": "1a646399e5676f0e0731014fb5700615e01c0c54ae3e675f03409a4ab2eec20d",
+    "docs/evidence/report-corrections-release-20261023/postrelease-doc-plan.json": "9800423fc3fdb7487af617a22e41c4d28237ddbd04eadbb797511ec8fba72444",
+    "docs/evidence/report-corrections-release-20261023/preflight.json": "18f0dc6ec6e6c9ae97adb584f5104eae8619b2a70ffd0a1982f556069029d2a1",
+    "docs/evidence/report-corrections-release-20261023/preflight.py": "a70a50f7df619a7a7ce16ef715061baf97e7954bbddf22690f2cb1db9fea9c01",
+    "docs/evidence/report-corrections-release-20261023/preparation-validation.json": "c9d67b549a884225e21782b0675e17b25976b9dfcaba1c67f3c3b35050471145",
+    "docs/evidence/report-corrections-release-20261023/preview-full-parity.json": "efde539942988960f74d686c79032f0196bb4d90f3c7d942d8c510ed7d2062d1",
+    "docs/evidence/report-corrections-release-20261023/preview-installer-chinese.png": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+    "docs/evidence/report-corrections-release-20261023/preview-installer-english.png": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d",
+    "docs/evidence/report-corrections-release-20261023/preview-installer-offline.png": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+    "docs/evidence/report-corrections-release-20261023/preview-installer.json": "0d24e3edb48d363e82e26c066a98135af8f8a89ab89d9b0cb527d3715ba6b3dd",
+    "docs/evidence/report-corrections-release-20261023/preview-shell.json": "b405eeb24e2d07b160b0f39c16e2dda9c96106752c8ca157f9feee6f79de7220",
+    "docs/evidence/report-corrections-release-20261023/production-execution-request.json": "a203da65b7aac92f7a31f8e710c243cd4757a72e9eb3eef7bfab3877c230c474",
+    "docs/evidence/report-corrections-release-20261023/production-execution-status.json": "9ad1890cd0e491c583a265bc6331148a0b9e9976f55dcb74af9e1d06de41335f",
+    "docs/evidence/report-corrections-release-20261023/production-execution.json": "9c64572f27b8aff26cc16837bfb18af1421c88d7474c36fa39ec7b80db5e4ea4",
+    "docs/evidence/report-corrections-release-20261023/production-job-created.json": "7f8d3bfe04e5f44ccac18e95377e3a65816d3b70edd7176b551732d2d0634b78",
+    "docs/evidence/report-corrections-release-20261023/production-job-request.json": "87fbafd9d094d93bead7b2d985e52a9362d715038920276cd2f2ff26aa7a73c0",
+    "docs/evidence/report-corrections-release-20261023/production-migration-proof.json": "df4ea7cf25d83b7cbfcc4ef984ac344503338c7dfd485281db1541d86be19907",
+    "docs/evidence/report-corrections-release-20261023/production-proof.json": "de95174ebcc314422f1d74edbb3b9293f96f68cc24a9f09b9533809107ee3ae9",
+    "docs/evidence/report-corrections-release-20261023/recovery.py": "bc719b64fc963228af626fd4cb58aedf7a52ab82a228132c4eb80f822883cad3",
+    "docs/evidence/report-corrections-release-20261023/release_operator.py": "284146e7207c4e1eff59835f69b79fb489c815e89d0caa08d002e89f49a67746",
+    "docs/evidence/report-corrections-release-20261023/rollout.py": "8c40a00c116e989a3aa0894a51be0f59244c3fc328a360993dc06dacba38fed0",
+    "docs/evidence/report-corrections-release-20261023/runtime_probe.py": "b5b4fd1a549b45ed20ae8c0b1c4a88dda49a795e8ed3a5b0c38749309013c53c",
+    "docs/evidence/report-corrections-release-20261023/scheduled-worker-verification.json": "bf465d0ce7048f72327607927ada85792c8e22074e92641378e93bf2e9d6bc50",
+    "docs/evidence/report-corrections-release-20261023/scheduled_worker.py": "b8168109d3d62f97b25e2ef7e9801e5983d289998abb95e2f2b4fe2aa12230e4",
+    "docs/evidence/report-corrections-release-20261023/scheduler-activation-request.json": "4a3771a00ac585beb9b1f71d884dbfdc58448a328a07b9584c16adecad52c700",
+    "docs/evidence/report-corrections-release-20261023/scheduler-active.json": "547622067c4ab9ebe065e0bc01b5972cf4964112fbf0c7e22c45fb9eb12b4123",
+    "docs/evidence/report-corrections-release-20261023/source-ci-id.json": "d95b72bdee942ca8c620982495c50caae5143128007816dea6bc6d588206dd91",
+    "docs/evidence/report-corrections-release-20261023/source-packages.json": "16ac5360281ec997ed21118e77b2bb14ab4cd8ece7b969cf597c6ddee9aa5fb5",
+    "docs/evidence/report-corrections-release-20261023/stage-branch.json": "ed10a3ca38bfc7e891102492615d7772b5e2fe0835e0a058e4c468c7d48079c7",
+    "docs/evidence/report-corrections-release-20261023/stage-fallback-execution-request.json": "fc61ab1b04b5a9766e4236764e2ccec5f017abb7e5ffa9671745fa61ddaacf2f",
+    "docs/evidence/report-corrections-release-20261023/stage-fallback-execution-status.json": "a4a0461f57bfd16df91a211abbf40c1c219f4683886255f7922c31b53ff5bedc",
+    "docs/evidence/report-corrections-release-20261023/stage-fallback-execution.json": "873af6a7b1c11b3e19b2d6946f169e1d019f01f0774f11fb3f0042e760a3cb90",
+    "docs/evidence/report-corrections-release-20261023/stage-fallback-job-created.json": "23279e838cf48c86e0b905bdc49b9ab245f707184982a6734eadde3296f8ec34",
+    "docs/evidence/report-corrections-release-20261023/stage-fallback-job-request.json": "599513b5d38745f3610ddfc4f64c029b63300b1188393db70e0237e281866a61",
+    "docs/evidence/report-corrections-release-20261023/stage-fallback-proof.json": "ebd26928852d63ea45a2678a6919a6ffff4254bfa8a480b6099ccac5e840d8dd",
+    "docs/evidence/report-corrections-release-20261023/stage-migrated-execution-request.json": "f34598253c7e9715b193d655c6b8ab0e12535cecaebff069645bd15cb3eb1fab",
+    "docs/evidence/report-corrections-release-20261023/stage-migrated-execution-status.json": "3cf592179c7801241860d2f661fea729d5562501326c8adbea6db86c48d052c1",
+    "docs/evidence/report-corrections-release-20261023/stage-migrated-execution.json": "9c21985fb19ffb9d71d617a82c3940ee2e481637218567ebd319ee5429698911",
+    "docs/evidence/report-corrections-release-20261023/stage-migrated-job-created.json": "664481a38acb4446324120b31233a47f975acd3961928355cf6449a1daa85852",
+    "docs/evidence/report-corrections-release-20261023/stage-migrated-job-request.json": "4daf6ea2b96d74ce119c98aa31fa5abb499c7ffcda49fc2a76ec0d0b6557351e",
+    "docs/evidence/report-corrections-release-20261023/stage-migrated-migration-proof.json": "629791b72b0952d387d139d8246f6adbe19d65e5377e75380557412594abf647",
+    "docs/evidence/report-corrections-release-20261023/stage-migrated-proof.json": "12dd56f7e2d45dfe8c0ace1cd8b8e1af3327415a311d7d64026c2b65239cead0",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-execution-request.json": "415595750690fb2fe22819248619c30a63704e1262172485790335c434ff57d7",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-execution-status.json": "d90a6268a1300021fda6089475b2d45962cf5a82a91946421855c41a86c34a5f",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-execution.json": "4a8351bb8b4d8e6c437062c217f144763b22f50765aab355d5fc1feab3d18e16",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-job-created.json": "b696ca50681af32ff5c972da7675690846503909aa7d250af567894992ea87dd",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-job-request.json": "3ce214992abd03c8898f788ee9b8b32106a5b8b03304fb4032091e17684c6a54",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-proof.json": "05ce9277b2c147f2179ea2f26f8dfb81281baedf53e5d99772177c60e2e902d7",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-smoke-diagnosis.json": "058618816d9d8eb64d2482e94a8506420035e9a50af86c72d428f645975c4028",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-verified-dependency-diagnosis.json": "13e5627852d2c862dc2c420029556c83211d0e7c92b68a88e09280b83567de69",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-verified-execution-request.json": "40d7f74135d3f7673bb1a22f7f4b2a27820aef0617988409cf7c3a43648bd967",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-verified-execution-status.json": "36bf41e787c0b9ef6336b08286cfd4b6e235b73cbb699b8a59e86d18cb810c55",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-verified-execution.json": "7c26509825ce6b42391e02c77f8b90ed59ba458794054b94ad7424dd2c25b888",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-verified-fixture-cleanup.json": "ea714ab05b328a7f487a86e76763e9b354dfec5226e6f93d044d8ba94eeb6de7",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-verified-job-created.json": "df565089cd7a86c4a9c863ed35eda751e2a2fa9440117f3bd8791726e1b919b8",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-verified-job-request.json": "d70c645f961dd6ff74c1b5b66ee0fbf76056656c354c3a68a7fc67877cdf21ec",
+    "docs/evidence/report-corrections-release-20261023/stage-provider-verified-proof.json": "4f6828fcf17cc099592d46487ab0f2450a8abbdd1f2fa2bde4f9641570804145",
+    "docs/evidence/report-corrections-release-20261023/stage-request.json": "5eec2fa56c26b88ba7fe2c915b92cf564715dbcef668865d669cf59f8214f4e7",
+    "docs/evidence/report-corrections-release-20261023/stage.py": "ba39725af01255d5d391c60be34204a33bc35d5f39b07d137b52ae3a996dc10f",
+    "docs/evidence/report-corrections-release-20261023/verify_cleanup.py": "ca7f0bb8196203efab5a74b8a9ba87de9d2baa29ef6d50a8c30cee1e8f4a6329",
+    "docs/evidence/report-corrections-release-20261023/visual-review.json": "fbc8c21dc057aca3bf09eb2938bd5c0fb4d0ba3215146647617bb370f3f066b0",
+    "docs/evidence/report-corrections-release-20261023/waiting-update-visual-review.json": "3e483f9dad269491cc61a09596a18c094e064ee6b2c54b0d8ee3c63797867194",
+    "docs/evidence/report-corrections-release-20261023/worker-drain-observation.json": "243241127bfee431051b52b5ba75df532250a237a7c34b2e890958c8856e15aa",
+    "docs/evidence/report-corrections-release-20261023/worker-enable-request.json": "a42d7a90bde307ef494a730890595161c27b68d2f4c5e2d3b3f475dc42eaf7f9",
+    "docs/evidence/report-corrections-release-20261023/worker-enabled.json": "f6ebb6d4566cf0ce3602e3357b27703587750d32e5785bcf9faa18c8e89a6c6c",
+    "docs/evidence/report-corrections-release-20261023/worker-pause-request.json": "05e22bf1203eb2033400bd050093f8268c0fdfcd2ede395f4f3c4f4f0ca09db0",
+    "docs/evidence/report-corrections-release-20261023/worker-paused.json": "98fda0f5a43d68a3c803bfb0f92fc5bcfcdc23701d89330172d0be62e7590920",
+    "docs/evidence/report-corrections-release-20261023/worker-quiesced.json": "f26ea29d22b73b77528d41f4aa7e3611233dc6847a5838ece3f49064d655f994",
+    "docs/evidence/report-corrections-release-20261023/worker-update-request.json": "a65e3736bc2b5ff12fdcfad712a62f64721878e7522736ef35dc927f2b6448b7",
+    "docs/evidence/report-corrections-release-20261023/worker-updated.json": "6223ba2952e8550e8d05915eba8a4423afda769e3ac930ac50849441d463d43e"
+  }
+}

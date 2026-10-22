@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "checks": [
+    "existing worker runtime accepted with only candidate image and enabled flag changed",
+    "reject SMTP secret version",
+    "reject extra retry",
+    "reject runtime identity",
+    "reject task count",
+    "reject extra env",
+    "reject changed image",
+    "reject Scheduler target drift",
+    "two concurrent operation journals permit exactly one writer"
+  ],
+  "cloudActions": false,
+  "sourceCommitRequiredForRealActions": true
+}

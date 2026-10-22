@@ -1,0 +1,46 @@
+warn - PreMigration gate checks only deployed recovery baseline 0024_report_pdf_email, not migrated candidate approval; a fresh Current proof and gate are required after migration
+ok - Cloud Run container startup leaves database migrations to the explicit release step
+ok - gcloud can read project geo-attendance-system-db9ca
+ok - Neon evidence will be bound to project plain-smoke-06194407, phase PreMigration, and exact migration ledger through 0024_report_pdf_email
+ok - project has no folder/organization ancestor IAM to expand
+ok - dedicated runtime service account is enabled
+ok - dedicated runtime service account has no direct impersonation bindings
+ok - Cloud Run service geo-backend is readable
+ok - Cloud Run uses dedicated runtime identity geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com
+ok - Cloud Run production traffic is 100% on geo-backend-report-pdf-20261021
+ok - traffic-serving revision uses the dedicated runtime identity
+ok - traffic-serving revision uses explicit migrations plus the checked GCS and Secret resources
+ok - Neon-backed runtime identity has zero project-level IAM bindings
+ok - default Compute service account has exactly the source-build role
+ok - upload custom role is active at GA and limited to create/get/delete
+ok - geo-backend-database-url is available to the dedicated runtime identity only
+ok - geo-backend-jwt-secret is available to the dedicated runtime identity only
+ok - live database provider is Neon; legacy Cloud SQL checks are not used as production evidence
+ok - upload bucket IAM is not public
+ok - runtime bucket access is restricted to uploads/ with the custom role
+ok - default Compute identity has no upload-bucket binding
+ok - upload bucket public access prevention is enforced
+ok - upload bucket uses uniform bucket-level access
+ok - upload bucket soft delete retains deleted objects for 30 days
+ok - upload bucket Object Versioning is disabled as required by the recovery policy
+ok - upload bucket has no retention lock or hold that would break application cleanup
+ok - hosted readiness uptime check validates HTTPS 200 and status=ok through JSONPath
+ok - hosted readiness has recent passing observations from 6 checker regions
+ok - required alert policy is enabled: Geo Attendance: hosted readiness
+ok - required alert policy is enabled: Geo Attendance: Cloud Run 5xx
+ok - hosted readiness policy matches the configured failure threshold contract
+ok - Cloud Run 5xx policy matches the expected threshold contract
+ok - each required alert policy uses an enabled, verification-eligible channel with recent recipient-confirmed delivery evidence
+ok - Neon recovery evidence is current (2026-10-22T21:45:40Z)
+ok - Neon PITR proof is project-bound, historical, read-only, schema-verified, and cleaned up
+ok - current Neon project retains the same production branch and the exact proof branch is absent
+ok - Neon history window meets the configured 6-hour minimum
+warn - Neon history retention is only 6 hours; choose a longer paid window or external logical backups before relying on it for production recovery
+ok - Upload recovery evidence is current (2026-10-11T23:41:48Z)
+ok - upload recovery proof restored the exact generation, matched content, and soft-deleted the cleanup generation
+ok - GCS independently confirms both exact soft-deleted generations and no live probe
+ok - billing budgets exist for 0123B1-051D70-935F73
+
+2 warning(s) need review.
+
+pre-migration baseline hardening checks passed; this is not Current candidate recovery approval

@@ -9,3 +9,6 @@ backend/migrations/versions/*.py text eol=lf
 
 # Preserve this hash-bound recipient-confirmed release proof exactly.
 docs/evidence/alert-delivery-diagnosis-2026-10-12.json -text
+
+# Preserve captured line endings and trailing blank lines in the hash-bound journal.
+docs/evidence/report-corrections-release-20261023/** -text whitespace=blank-at-eol,-blank-at-eof,space-before-tab,cr-at-eol

@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "checks": [
+    "current rejects 129 seconds after migration before journal",
+    "current permits exact 130-second threshold",
+    "current permits later recovery",
+    "current rejects completion without timezone before journal",
+    "pre-migration proof does not require production migration"
+  ],
+  "cloudActions": false
+}

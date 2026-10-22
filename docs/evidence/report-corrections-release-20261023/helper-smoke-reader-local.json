@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "checks": [
+    "verified wheel imports only in smoke subprocess",
+    "wrong missing dependency rejects before download",
+    "changed wheel bytes reject before reader import",
+    "exact repository smoke source imports successfully with verified wheel and without executing its main",
+    "temporary reader fixture removed and original server environment unchanged",
+    "all adapted release helpers parse successfully"
+  ],
+  "cloudActions": false,
+  "officialPinnedWheelSha256": "f003fc2014814d264fe7dd3f9d435c158e23e1a85a2233f87a0a2d6d21c914ad",
+  "wheelBytes": 401710,
+  "exactImageMissingModuleConfirmation": "required in new isolated job; local Docker unavailable",
+  "candidateImageUnchanged": true,
+  "failedAttemptPreserved": "stage-provider-proof.json",
+  "newAttempt": "stage-provider-verified",
+  "fixtureSource": "fixed official PyPI wheel URL"
+}

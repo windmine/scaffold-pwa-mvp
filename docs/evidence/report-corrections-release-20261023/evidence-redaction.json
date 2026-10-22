@@ -1,0 +1,100 @@
+{
+  "status": "passed",
+  "recordedAtUtc": "2026-10-22T22:23:46.713151+00:00",
+  "file": "docs/evidence/report-corrections-release-20261023/disabled-worker-execution.json",
+  "beforeSha256": "58c62b3e57af14180e0296199e3d400610ca34a04f6abc05338b31babad6318e",
+  "afterSha256": "33b8021e387bd379094731c769343154e469502ebae2e3ee3dc924c428626dba",
+  "fieldCount": 18,
+  "fields": [
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[0].value",
+      "environmentName": "ACCESS_TOKEN_EXPIRE_MINUTES"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[1].value",
+      "environmentName": "AUTO_MIGRATE"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[2].value",
+      "environmentName": "BUSINESS_TIMEZONE"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[3].value",
+      "environmentName": "CORS_ORIGINS"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[6].value",
+      "environmentName": "MAX_UPLOAD_BYTES"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[7].value",
+      "environmentName": "PUBLIC_APP_URL"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[8].value",
+      "environmentName": "REGISTRATION_EMAIL_ENABLED"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[9].value",
+      "environmentName": "REPORT_PDF_EMAIL_WORKER_ENABLED"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[10].value",
+      "environmentName": "SMTP_FROM_EMAIL"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[11].value",
+      "environmentName": "SMTP_HOST"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[13].value",
+      "environmentName": "SMTP_PORT"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[14].value",
+      "environmentName": "SMTP_USERNAME"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[15].value",
+      "environmentName": "SMTP_USE_SSL"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[16].value",
+      "environmentName": "SMTP_USE_STARTTLS"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[17].value",
+      "environmentName": "SQL_ECHO"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[18].value",
+      "environmentName": "UPLOAD_BUCKET"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[19].value",
+      "environmentName": "UPLOAD_OBJECT_PREFIX"
+    },
+    {
+      "fieldPath": "$.spec.template.spec.containers[0].env[20].value",
+      "environmentName": "UPLOAD_STORAGE_BACKEND"
+    }
+  ],
+  "reason": "Remove raw worker runtime environment values from the release journal; retain SHA-256 evidence consistent with other runtime snapshots. No raw values are retained in this record.",
+  "preserved": [
+    "execution metadata and identity",
+    "execution status",
+    "environment names",
+    "secret references",
+    "all non-environment execution fields"
+  ],
+  "futureJournalSerializer": "scheduled_worker.py:safe_execution",
+  "localSerializerChecks": [
+    "synthetic nonempty and empty values hash correctly",
+    "secret references preserved",
+    "execution identity and status preserved",
+    "input object unchanged",
+    "repeat sanitization is idempotent"
+  ],
+  "cloudActions": false,
+  "productionRuntimeChanged": false
+}

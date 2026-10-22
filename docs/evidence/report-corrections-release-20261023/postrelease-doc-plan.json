@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "status": "prepared_not_applied",
+  "sourceCommit": "1d937414c1217d3f3461ce6074d09563a4962aa7",
+  "sourceCiRun": 39856281264,
+  "authorizationBoundary": "Untracked journal plan only. Apply tracked documentation only after root confirms release.json exists with status passed. No cloud actions, finalizer execution, frozen dist/source changes or data changes.",
+  "releaseRecord": "docs/evidence/report-corrections-release-20261023/release.json",
+  "valueSources": {
+    "source_commit": "release.sourceCommit",
+    "release_utc_date": "UTC date of release.frontend.atUtc",
+    "backend_revision": "release.backend.revision",
+    "backend_requested_at": "backend-promotion-request.json.atUtc",
+    "backend_verified_at": "release.backend.atUtc",
+    "hosting_version": "release.frontend.version",
+    "hosting_requested_at": "hosting-promotion-request.json.atUtc",
+    "hosting_verified_at": "release.frontend.atUtc",
+    "cache_version": "release.cacheVersion",
+    "build_id": "release.imageBuild.buildId",
+    "candidate_image": "release.imageBuild.images.candidate",
+    "fallback_image": "release.imageBuild.images.fallback",
+    "maintenance_started_at": "release.maintenance.confirmedAtUtc",
+    "maintenance_seconds": "release.maintenance.secondsUntilVerifiedResume",
+    "fallback_revision": "release.rollback.compatibleBackendRevision",
+    "rollback_hosting_version": "release.rollback.hosting.version",
+    "rollback_channel": "release.rollback.hosting.channel",
+    "rollback_hosting_expiry": "release.rollback.hosting.expiresAtUtc",
+    "backup_id": "release.rollback.databaseBackup.id",
+    "backup_expiry": "release.rollback.databaseBackup.expires_at",
+    "provider_checks": "release.validation.providerSmokeChecks",
+    "file_count": "release.validation.previewAndLiveFileCount",
+    "shell_assets": "Use equal previewShellAssets/liveShellAssets; otherwise spell out both.",
+    "installer_assets": "Use equal previewInstallerArtifacts/liveInstallerArtifacts; otherwise spell out both.",
+    "worker_counts": "Actual accepted/failed/uncertain/skipped release.worker.observedAggregateCounts; no mailbox-delivery inference.",
+    "warnings_summary": "Only actual release.warnings; preserve six-hour recovery warning if present.",
+    "visual_review_statement": "Positive inspection claim only from saved visual-review evidence for exact screenshots; otherwise retain any unperformed review."
+  },
+  "preconditions": [
+    "Verify passed release status and exact source.",
+    "Verify baseline hashes before replacement; rebase explicitly if docs changed.",
+    "Resolve every variable from final proofs; no placeholder may remain.",
+    "Use verified UTC date, not local journal suffix.",
+    "Preserve failed/cancelled CI and stage attempts.",
+    "Confirm stage diagnosis and distinct successful verified proof.",
+    "Report scheduled outcomes without a global no-email claim.",
+    "Separate local, provider HTTP, anonymous hosted browser and physical-device coverage."
+  ],
+  "baselineFiles": {
+    "AGENTS.md": {
+      "sha256": "326ea3de997a668a62314ef532a46c4c6664435e1a238b516c7c097982a5c637",
+      "editCount": 5
+    },
+    "CONTEXT.md": {
+      "sha256": "c3693367adcf9c1cd1fa6a9c36422927e6d504ed6a1a942da7d773f6aed53d0d",
+      "editCount": 12
+    },
+    "docs/production-db-runbook.md": {
+      "sha256": "d66949300a73357e5b4391676fc4a6b8f0af5ca7037c2cec1b7ce7a4d14be8ca",
+      "editCount": 4
+    },
+    "docs/mobile-browser-workflow-checks.md": {
+      "sha256": "a6780795980357d460ea59cdca212231a842612530cea1d50cd2e9f40c04d48c",
+      "editCount": 6
+    }
+  },
+  "edits": [
+    {
+      "file": "AGENTS.md",
+      "operation": "replace_unique",
+      "old": "- **Local 2026-10-23 Report simplification (not deployed)**: the user confirmed removal of the Submitted → In review → Resolved process and authorized Supervisor corrections in the app. The active product boundaries above supersede older immutability/workflow descriptions below. Additive `0025_report_corrections` and the compatible backend must precede any Hosting release. Existing workflow history, private note drafts, migrations, and release evidence are retained. This local work does not authorize deployment, production data changes, or real email. The October 21 release below remains live.",
+      "newTemplate": "- **Current Report corrections release ({{release_utc_date}} UTC; locally prepared 2026-10-23)**: Report review stages are removed. Authorized Supervisors can correct submitted Date, Site, answers, photos and handwritten signatures. Author, Department, Template identity, Definition snapshot, original submission time, Client Submission ID and purpose stay fixed. Workers see current corrected Reports and cannot edit durable Reports. Original optional PDF-email snapshots and their evidence remain retained; corrections do not resend email. Source {{source_commit}} is live as backend {{backend_revision}} at 100% without tags and exact Hosting {{hosting_version}}, cache {{cache_version}}. Migration 0025_report_corrections and the compatible backend preceded Hosting. During the paused migration, existing business rows, all prior 24 migration checksums, configured routing and outbox rows/statuses were preserved. The final read-only inventory after service resumed is recorded separately; aggregate changes are not attributed to a particular user or job. The existing five-minute PDF worker uses the candidate image, one task, batch 10 and zero retries. Existing service, worker, project and SMTP-secret IAM, worker limits and secret references were preserved, including SMTP secret version 1. Public-registration email and web-process dispatch remain disabled. Verified normal scheduled execution(s) reported {{worker_counts}}. These counts do not prove mailbox delivery or describe unobserved executions; this release enabled no new Template routing. Both source-CI jobs and 75 real-backend browser workflows pass, with the dependency-download cancellation and earlier native-volume fixture failure preserved. Isolated provider HTTP {{provider_checks}}, exact-image checks, preview/live {{file_count}}-file parity, {{shell_assets}} shell assets and {{installer_assets}} installer artifacts per origin, four waiting-update checks, current recovery and strict hardening pass. The first isolated provider smoke attempt failed before any HTTP checks because its test-only PDF reader was absent from the runtime image; the original failure is retained. A distinct verified job supplied the pinned reader only to its disposable test environment, without changing the candidate image. {{warnings_summary}} Corrections and evidence workflows were exercised locally and by isolated provider HTTP staging; hosted browser checks were anonymous shell, installer, update and offline checks. No authenticated production fixture or physical iOS/Android pass is claimed. Correction saving requires connectivity and has no persistent correction draft. Supervisor cold-offline Template downloads remain unchanged. No dedicated real SMTP or mailbox-delivery test was performed; normal scheduled work is reported separately. Retain compatible fallback {{fallback_revision}}, previous Hosting {{rollback_hosting_version}} in {{rollback_channel}} until {{rollback_hosting_expiry}}, and backup {{backup_id}} until {{backup_expiry}}. Pause Scheduler, disable the PDF worker and drain active executions before fallback. The fallback keeps schema 25, current corrected reads/exports/evidence, submissions and frozen original email snapshots while disabling correction saves. Original 0024-only images reject the ledger. Reverify availability before use; never downgrade migrations, reset credentials/auth generations or outbox attempts, or clear device storage. [Release evidence](docs/evidence/report-corrections-release-20261023/release.json).\n\n- **Historical local 2026-10-23 Report simplification (subsequently released above; original preparation checkpoint)**: the user confirmed removal of the Submitted → In review → Resolved process and authorized Supervisor corrections in the app. The active product boundaries above supersede older immutability/workflow descriptions below. Additive `0025_report_corrections` and the compatible backend must precede any Hosting release. Existing workflow history, private note drafts, migrations, and release evidence are retained. This local work does not authorize deployment, production data changes, or real email. The October 21 release below remains live.",
+      "reason": "Add current release; preserve the original local checkpoint."
+    },
+    {
+      "file": "AGENTS.md",
+      "operation": "replace_unique",
+      "old": "**Current combined release (2026-10-21 UTC)**",
+      "newTemplate": "**Historical combined release (2026-10-21 UTC; superseded by Report corrections above)**",
+      "reason": "Mark old live identities historical."
+    },
+    {
+      "file": "AGENTS.md",
+      "operation": "replace_unique",
+      "old": "**Local Supervisor Submit form preparation (not deployed)**",
+      "newTemplate": "**Historical local Supervisor Submit form preparation (released 2026-10-21 UTC; original preparation checkpoint)**",
+      "reason": "Scope old preparation-only limits."
+    },
+    {
+      "file": "AGENTS.md",
+      "operation": "replace_unique",
+      "old": "**Historical local optional PDF email preparation (released above)**",
+      "newTemplate": "**Historical local optional PDF email preparation (released 2026-10-21 UTC; original preparation checkpoint)**",
+      "reason": "Clarify original preparation chronology."
+    },
+    {
+      "file": "AGENTS.md",
+      "operation": "replace_unique",
+      "old": "The invitation release below remains the live state.",
+      "newTemplate": "At that preparation checkpoint, the invitation release below remained the live state.",
+      "reason": "Remove stale unqualified live claim."
+    },
+    {
+      "file": "CONTEXT.md",
+      "operation": "replace_unique",
+      "old": "Deployment truth was refreshed on 2026-10-21;",
+      "newTemplate": "Deployment truth was refreshed on {{release_utc_date}} UTC;",
+      "reason": "Use verified promotion UTC date."
+    },
+    {
+      "file": "CONTEXT.md",
+      "operation": "replace_unique",
+      "old": "**Current local product decision — 2026-10-23, not deployed**: Reports have no Submitted → In review → Resolved review process. Authorized Supervisors correct submitted Reports directly in the app when something is wrong. This supersedes older workflow and complete-content-immutability descriptions in dated release notes below. Existing workflow metadata, audits, private resolution-note drafts, and release evidence are retained; no history is deleted. The October 21 release remains live. The additive `0025_report_corrections` migration and compatible backend must precede a future Hosting promotion.",
+      "newTemplate": "**Current Report product decision — released {{release_utc_date}} UTC (locally prepared 2026-10-23)**: Report review stages are removed. Authorized Supervisors can correct submitted Date, Site, answers, photos and handwritten signatures. Author, Department, Template identity, Definition snapshot, original submission time, Client Submission ID and purpose stay fixed. Workers see current corrected Reports and cannot edit durable Reports. Original optional PDF-email snapshots and their evidence remain retained; corrections do not resend email. Existing workflow metadata, audits, private resolution-note drafts and dated release evidence remain stored. Reports have no review/resolution process or required final note. Additive migration 0025 and the compatible backend were deployed before Hosting. [Release evidence](docs/evidence/report-corrections-release-20261023/release.json).\n\n**Historical local product decision — 2026-10-23 preparation checkpoint, subsequently released above**: Reports have no Submitted → In review → Resolved review process. Authorized Supervisors correct submitted Reports directly in the app when something is wrong. This supersedes older workflow and complete-content-immutability descriptions in dated release notes below. Existing workflow metadata, audits, private resolution-note drafts, and release evidence are retained; no history is deleted. The October 21 release remains live. The additive `0025_report_corrections` migration and compatible backend must precede a future Hosting promotion.",
+      "reason": "Publish behavior without deleting the dated decision."
+    },
+    {
+      "file": "CONTEXT.md",
+      "operation": "replace_unique",
+      "old": "Supervisor Submit form and optional per-template PDF email are live from `80b4ea01a041a84bdcc0483f8e3d41a34d55f117`: backend `geo-backend-report-pdf-20261021` serves 100% without tags; Hosting `12a1d6dbf481ba3b` uses cache `leader-field-c878ffd1be3c`. Additive `0024_report_pdf_email` and the compatible backend preceded Hosting. Existing business rows and all prior migration checksums are preserved. Supervisors submit as themselves within their home Department. Every production Template remains off and the outbox is empty; no real Reports or emails were created by this release. The five-minute worker uses one task, batch 10, zero retries, the existing backend runtime and SMTP secret version 1. Only the standard Google Scheduler service-agent project role and the dedicated trigger's job-only invocation were added. Existing service/secret permissions and SMTP settings are preserved; public registration and web-process dispatch remain disabled. [Release evidence](docs/evidence/report-submit-pdf-release-20261021/release.json).",
+      "newTemplate": "**Historical combined release — 2026-10-21 UTC, superseded by corrections**: Supervisor Submit form and optional per-template PDF email are live from `80b4ea01a041a84bdcc0483f8e3d41a34d55f117`: backend `geo-backend-report-pdf-20261021` serves 100% without tags; Hosting `12a1d6dbf481ba3b` uses cache `leader-field-c878ffd1be3c`. Additive `0024_report_pdf_email` and the compatible backend preceded Hosting. Existing business rows and all prior migration checksums are preserved. Supervisors submit as themselves within their home Department. Every production Template remains off and the outbox is empty; no real Reports or emails were created by this release. The five-minute worker uses one task, batch 10, zero retries, the existing backend runtime and SMTP secret version 1. Only the standard Google Scheduler service-agent project role and the dedicated trigger's job-only invocation were added. Existing service/secret permissions and SMTP settings are preserved; public registration and web-process dispatch remain disabled. [Release evidence](docs/evidence/report-submit-pdf-release-20261021/release.json).",
+      "reason": "Scope old routing/outbox and serving identities to their release."
+    },
+    {
+      "file": "CONTEXT.md",
+      "operation": "replace_unique",
+      "old": "Production routing remains off until recipients are chosen. No real email or routing was enabled during\npreparation.",
+      "newTemplate": "Routing remains Supervisor-controlled and defaults off. The original October 21 preparation enabled no real email or routing; that dated observation does not describe current production routing.",
+      "reason": "Avoid unsupported current all-routing-off claim."
+    },
+    {
+      "file": "CONTEXT.md",
+      "operation": "replace_unique",
+      "old": "**Historical Oldest waiting** (released 2026-10-05; removed from the current local Report shell 2026-10-23):",
+      "newTemplate": "**Historical Oldest waiting** (released 2026-10-05; removed by the {{release_utc_date}} UTC release, locally prepared 2026-10-23):",
+      "reason": "Mark removal released."
+    },
+    {
+      "file": "CONTEXT.md",
+      "operation": "replace_unique",
+      "old": "Submitted Reports remain immutable.",
+      "newTemplate": "Workers cannot edit durable Reports. Authorized Supervisors may correct Date, Site, answers and evidence against the frozen Definition; submission identity remains fixed.",
+      "reason": "Correct unqualified content immutability."
+    },
+    {
+      "file": "CONTEXT.md",
+      "operation": "replace_unique",
+      "old": "**Report detail** (released 2026-10-12; prepared October 7):\nWorker cards keep Template, Report Date, optional Site, workflow and a final-note preview outside the evidence disclosure. Expanding reveals the full final note, answers, signatures and compact photo gallery without repeating that summary. Supervisor details likewise avoid repeating the surrounding Report title. **More details** contains submitted time, reviewer and review timestamps, not the final note. Queued/saved copies label their capture timestamp **Saved on this device**, never a server submission time. Failed queued Report recovery actions sit beside the full warning before evidence; Discard remains secondary inside expanded details. All actions retain the existing identity, Definition, durable-existence and queue-lock boundaries. This changes presentation only, not immutable Report content, workflow, exports or retained Daywork.",
+      "newTemplate": "**Report detail** (current behavior released {{release_utc_date}} UTC):\nWorker cards show Template, Report Date, optional Site, submission/sync state and photo count. Expanding shows current answers, signatures and the compact photo gallery. The active detail has no historical workflow or final-note display; those fields remain stored. Supervisor details avoid repeating the surrounding title and provide authorized correction through Edit. **More details** contains original submitted time. Queued/saved copies label capture time **Saved on this device**, never a server submission time. Failed queued recovery actions remain beside the full warning before evidence; Discard stays secondary inside expanded details. Existing identity, Definition, durable-existence and queue-lock boundaries remain. The API records edit revision/author/time metadata; this does not describe a visible edit-history panel.\n\n**Historical Report detail** (released 2026-10-12; prepared October 7; superseded by current behavior):\nWorker cards keep Template, Report Date, optional Site, workflow and a final-note preview outside the evidence disclosure. Expanding reveals the full final note, answers, signatures and compact photo gallery without repeating that summary. Supervisor details likewise avoid repeating the surrounding Report title. **More details** contains submitted time, reviewer and review timestamps, not the final note. Queued/saved copies label their capture timestamp **Saved on this device**, never a server submission time. Failed queued Report recovery actions sit beside the full warning before evidence; Discard remains secondary inside expanded details. All actions retain the existing identity, Definition, durable-existence and queue-lock boundaries. This changes presentation only, not immutable Report content, workflow, exports or retained Daywork.",
+      "reason": "Document current renderer and preserve former layout."
+    },
+    {
+      "file": "CONTEXT.md",
+      "operation": "replace_unique",
+      "old": "**Report correction** (local 2026-10-23):",
+      "newTemplate": "**Report correction** (released {{release_utc_date}} UTC; locally prepared 2026-10-23):",
+      "reason": "Mark correction behavior released."
+    },
+    {
+      "file": "CONTEXT.md",
+      "operation": "replace_unique",
+      "old": "**Historical resolution-note draft** (released 2026-10-05; no longer exposed by the current local Report shell):",
+      "newTemplate": "**Historical resolution-note draft** (released 2026-10-05; no longer exposed by the Report shell released {{release_utc_date}} UTC):",
+      "reason": "Mark retired note editor absent from released shell."
+    },
+    {
+      "file": "CONTEXT.md",
+      "operation": "replace_unique",
+      "old": "Idempotent replay of an already-durable Report still returns its immutable snapshot after Template edits or archival.",
+      "newTemplate": "Idempotent replay of an already-durable Report returns the existing Report, including its latest authorized corrections, after Template edits or archival. It preserves that content and the original submission identity/Definition instead of restoring queued originals over a correction.",
+      "reason": "Align replay with correction preservation."
+    },
+    {
+      "file": "CONTEXT.md",
+      "operation": "replace_unique",
+      "old": "**Current live deployment**:\nFirebase Hosting for the PWA, Cloud Run for FastAPI, Neon PostgreSQL supplied through Secret Manager, and a private Cloud Storage upload bucket. Browser traffic stays same-origin through `/api/**` and `/uploads/**` Hosting rewrites.",
+      "newTemplate": "**Current live deployment**:\nFirebase Hosting for the PWA, Cloud Run for FastAPI, Neon PostgreSQL supplied through Secret Manager, and a private Cloud Storage upload bucket. Browser traffic stays same-origin through `/api/**` and `/uploads/**` Hosting rewrites.\n\nSource {{source_commit}} is live as backend {{backend_revision}} at 100% without tags and exact Hosting {{hosting_version}}, cache {{cache_version}}. Migration 0025_report_corrections and the compatible backend preceded Hosting. During the paused migration, existing business rows, all prior 24 migration checksums, configured routing and outbox rows/statuses were preserved. The final read-only inventory after service resumed is recorded separately; aggregate changes are not attributed to a particular user or job. Backend promotion was requested at {{backend_requested_at}} and verified at {{backend_verified_at}}; Hosting promotion was requested at {{hosting_requested_at}} and verified at {{hosting_verified_at}}. Report review stages are removed. Authorized Supervisors can correct submitted Date, Site, answers, photos and handwritten signatures. Author, Department, Template identity, Definition snapshot, original submission time, Client Submission ID and purpose stay fixed. Workers see current corrected Reports and cannot edit durable Reports. Original optional PDF-email snapshots and their evidence remain retained; corrections do not resend email. [Release evidence](docs/evidence/report-corrections-release-20261023/release.json).\n\nThe existing five-minute PDF worker uses the candidate image, one task, batch 10 and zero retries. Existing service, worker, project and SMTP-secret IAM, worker limits and secret references were preserved, including SMTP secret version 1. Public-registration email and web-process dispatch remain disabled. Verified normal scheduled execution(s) reported {{worker_counts}}. These counts do not prove mailbox delivery or describe unobserved executions; this release enabled no new Template routing. Retain compatible fallback {{fallback_revision}}, previous Hosting {{rollback_hosting_version}} in {{rollback_channel}} until {{rollback_hosting_expiry}}, and backup {{backup_id}} until {{backup_expiry}}. Pause Scheduler, disable the PDF worker and drain active executions before fallback. The fallback keeps schema 25, current corrected reads/exports/evidence, submissions and frozen original email snapshots while disabling correction saves. Original 0024-only images reject the ledger. Reverify availability before use; never downgrade migrations, reset credentials/auth generations or outbox attempts, or clear device storage.\n\nBoth jobs in [source CI run 39856281264](https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39856281264) pass for source 1d937414c1217d3f3461ce6074d09563a4962aa7, including all 75 real-backend browser workflows. Backend CI executed successfully on attempt 1; only frontend CI was retried, passing on attempt 2 after cancellation during slow Ubuntu package downloads before lint or application tests. The underlying download cause remains unconfirmed. Earlier source CI failed an obsolete native-volume fixture that invoked the retired workflow; its test-only correction preserved the application boundary. The historical invitation account-switch timeout remains unconfirmed. Isolated provider HTTP {{provider_checks}}, exact-image checks, preview/live {{file_count}}-file parity, {{shell_assets}} shell assets and {{installer_assets}} installer artifacts per origin, four waiting-update checks, current recovery and strict hardening pass. The first isolated provider smoke attempt failed before any HTTP checks because its test-only PDF reader was absent from the runtime image; the original failure is retained. A distinct verified job supplied the pinned reader only to its disposable test environment, without changing the candidate image. {{warnings_summary}} Corrections and evidence workflows were exercised locally and by isolated provider HTTP staging; hosted browser checks were anonymous shell, installer, update and offline checks. No authenticated production fixture or physical iOS/Android pass is claimed. Correction saving requires connectivity and has no persistent correction draft. Supervisor cold-offline Template downloads remain unchanged. No dedicated real SMTP or mailbox-delivery test was performed; normal scheduled work is reported separately.\n\n**Historical backend release — SMTP configuration, 2026-10-20 (superseded)**:",
+      "reason": "Add authoritative live identities and put old SMTP record under history."
+    },
+    {
+      "file": "CONTEXT.md",
+      "operation": "replace_unique",
+      "old": "Source `8e5e123093fcbb3a734753c68fde5848dc0edcca` is live as exact Hosting `61d90b34933c5079`, promoted at `2026-10-14T22:46:45.530221+00:00` and verified at `2026-10-14T22:46:54.198610+00:00`. Production cache is `leader-field-a2a1fad2c3c4`. A single desktop Report-only grid rule aligns Clear with the full filter group instead of the first column. Clearing behavior, Report data and exports are unchanged. [Clear release evidence](docs/evidence/frontend-clear-release-20261014/release.json).",
+      "newTemplate": "**Historical frontend release — Clear alignment, 2026-10-14 (superseded)**: Source `8e5e123093fcbb3a734753c68fde5848dc0edcca` is live as exact Hosting `61d90b34933c5079`, promoted at `2026-10-14T22:46:45.530221+00:00` and verified at `2026-10-14T22:46:54.198610+00:00`. Production cache is `leader-field-a2a1fad2c3c4`. A single desktop Report-only grid rule aligns Clear with the full filter group instead of the first column. Clearing behavior, Report data and exports are unchanged. [Clear release evidence](docs/evidence/frontend-clear-release-20261014/release.json).",
+      "reason": "Scope old Hosting identity."
+    },
+    {
+      "file": "docs/production-db-runbook.md",
+      "operation": "replace_unique",
+      "old": "## Local Report corrections preparation — 2026-10-23 (not deployed)",
+      "newTemplate": "## Historical local Report corrections preparation — 2026-10-23 (subsequently released; original preparation checkpoint)",
+      "reason": "Preserve preparation restrictions as dated history."
+    },
+    {
+      "file": "docs/production-db-runbook.md",
+      "operation": "replace_unique",
+      "old": "## Deployment Truth",
+      "newTemplate": "## Deployment Truth\n\n### Current Report corrections release — {{release_utc_date}} UTC\n\nSource {{source_commit}} is live as backend {{backend_revision}} at 100% without tags and exact Hosting {{hosting_version}}, cache {{cache_version}}. Migration 0025_report_corrections and the compatible backend preceded Hosting. During the paused migration, existing business rows, all prior 24 migration checksums, configured routing and outbox rows/statuses were preserved. The final read-only inventory after service resumed is recorded separately; aggregate changes are not attributed to a particular user or job. Backend promotion was requested at {{backend_requested_at}} and verified at {{backend_verified_at}}; Hosting promotion was requested at {{hosting_requested_at}} and verified at {{hosting_verified_at}}. Report review stages are removed. Authorized Supervisors can correct submitted Date, Site, answers, photos and handwritten signatures. Author, Department, Template identity, Definition snapshot, original submission time, Client Submission ID and purpose stay fixed. Workers see current corrected Reports and cannot edit durable Reports. Original optional PDF-email snapshots and their evidence remain retained; corrections do not resend email.\n\nCloud Build {{build_id}} produced candidate {{candidate_image}} and compatible fallback {{fallback_image}}; exact-image mocked SMTP/correction/export/fallback checks passed. Maintenance was confirmed at {{maintenance_started_at}} and backend service was verified at {{backend_verified_at}} after {{maintenance_seconds}} seconds. A 300-second request drain and quiesced worker preceded migration. The verified read-only backup matches paused production. The final post-resume inventory remains separate and does not attribute subsequent activity.\n\nThe existing five-minute PDF worker uses the candidate image, one task, batch 10 and zero retries. Existing service, worker, project and SMTP-secret IAM, worker limits and secret references were preserved, including SMTP secret version 1. Public-registration email and web-process dispatch remain disabled. Verified normal scheduled execution(s) reported {{worker_counts}}. These counts do not prove mailbox delivery or describe unobserved executions; this release enabled no new Template routing.\n\nBoth jobs in [source CI run 39856281264](https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39856281264) pass for source 1d937414c1217d3f3461ce6074d09563a4962aa7, including all 75 real-backend browser workflows. Backend CI executed successfully on attempt 1; only frontend CI was retried, passing on attempt 2 after cancellation during slow Ubuntu package downloads before lint or application tests. The underlying download cause remains unconfirmed. Earlier source CI failed an obsolete native-volume fixture that invoked the retired workflow; its test-only correction preserved the application boundary. The historical invitation account-switch timeout remains unconfirmed. Isolated provider HTTP {{provider_checks}}, exact-image checks, preview/live {{file_count}}-file parity, {{shell_assets}} shell assets and {{installer_assets}} installer artifacts per origin, four waiting-update checks, current recovery and strict hardening pass. The first isolated provider smoke attempt failed before any HTTP checks because its test-only PDF reader was absent from the runtime image; the original failure is retained. A distinct verified job supplied the pinned reader only to its disposable test environment, without changing the candidate image. {{warnings_summary}} Owned temporary staging resources were removed and absence verified; production and the retained backup were preserved.\n\nCorrections and evidence workflows were exercised locally and by isolated provider HTTP staging; hosted browser checks were anonymous shell, installer, update and offline checks. No authenticated production fixture or physical iOS/Android pass is claimed. Correction saving requires connectivity and has no persistent correction draft. Supervisor cold-offline Template downloads remain unchanged. No dedicated real SMTP or mailbox-delivery test was performed; normal scheduled work is reported separately.\n\nRetain compatible fallback {{fallback_revision}}, previous Hosting {{rollback_hosting_version}} in {{rollback_channel}} until {{rollback_hosting_expiry}}, and backup {{backup_id}} until {{backup_expiry}}. Pause Scheduler, disable the PDF worker and drain active executions before fallback. The fallback keeps schema 25, current corrected reads/exports/evidence, submissions and frozen original email snapshots while disabling correction saves. Original 0024-only images reject the ledger. Reverify availability before use; never downgrade migrations, reset credentials/auth generations or outbox attempts, or clear device storage.\n\n[Release evidence](evidence/report-corrections-release-20261023/release.json).",
+      "reason": "Publish exact operational truth, validation and recovery prerequisites."
+    },
+    {
+      "file": "docs/production-db-runbook.md",
+      "operation": "replace_unique",
+      "old": "### Current combined release - 2026-10-21 UTC",
+      "newTemplate": "### Historical combined release - 2026-10-21 UTC (superseded by corrections)",
+      "reason": "Mark former release historical."
+    },
+    {
+      "file": "docs/production-db-runbook.md",
+      "operation": "replace_unique",
+      "old": "### Current Frontend Release - Clear alignment, 2026-10-14",
+      "newTemplate": "### Historical Frontend Release - Clear alignment, 2026-10-14",
+      "reason": "Remove stale current label."
+    },
+    {
+      "file": "docs/mobile-browser-workflow-checks.md",
+      "operation": "replace_unique",
+      "old": "## Local Report corrections — 2026-10-23 (not deployed)",
+      "newTemplate": "## Report corrections — released {{release_utc_date}} UTC (locally prepared 2026-10-23)\n\nSource {{source_commit}} is live as backend {{backend_revision}} at 100% without tags and exact Hosting {{hosting_version}}, cache {{cache_version}}. Migration 0025_report_corrections and the compatible backend preceded Hosting. During the paused migration, existing business rows, all prior 24 migration checksums, configured routing and outbox rows/statuses were preserved. The final read-only inventory after service resumed is recorded separately; aggregate changes are not attributed to a particular user or job. [Release evidence](evidence/report-corrections-release-20261023/release.json).\n\nBoth jobs in [source CI run 39856281264](https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39856281264) pass for source 1d937414c1217d3f3461ce6074d09563a4962aa7, including all 75 real-backend browser workflows. Backend CI executed successfully on attempt 1; only frontend CI was retried, passing on attempt 2 after cancellation during slow Ubuntu package downloads before lint or application tests. The underlying download cause remains unconfirmed. Earlier source CI failed an obsolete native-volume fixture that invoked the retired workflow; its test-only correction preserved the application boundary. The historical invitation account-switch timeout remains unconfirmed.\n\nLocal validation and CI pass 75 real-backend browser workflows, 26 backend suites, correction browser groups and existing ordinary submission/draft/replay checks. Native CI separately passed four environment checkpoints, 24 volume measurements at 25/100 Reports, six PDF-email checkpoints and 14 correction checkpoints. Isolated provider HTTP {{provider_checks}}, exact-image checks, preview/live {{file_count}}-file parity, {{shell_assets}} shell assets and {{installer_assets}} installer artifacts per origin, four waiting-update checks, current recovery and strict hardening pass. The first isolated provider smoke attempt failed before any HTTP checks because its test-only PDF reader was absent from the runtime image; the original failure is retained. A distinct verified job supplied the pinned reader only to its disposable test environment, without changing the candidate image. {{warnings_summary}} The live waiting-update probe records waiting, updated and cold-offline screenshots. {{visual_review_statement}}\n\nCorrections and evidence workflows were exercised locally and by isolated provider HTTP staging; hosted browser checks were anonymous shell, installer, update and offline checks. No authenticated production fixture or physical iOS/Android pass is claimed. Correction saving requires connectivity and has no persistent correction draft. Supervisor cold-offline Template downloads remain unchanged. No dedicated real SMTP or mailbox-delivery test was performed; normal scheduled work is reported separately. Normal scheduled worker outcomes: {{worker_counts}}.",
+      "reason": "Record actual CI/hosted proof with physical/authenticated-production limits."
+    },
+    {
+      "file": "docs/mobile-browser-workflow-checks.md",
+      "operation": "replace_unique",
+      "old": "Local validation passed the complete mobile gate with **75 real-backend browser workflows**, 11 installer checks, all 26 backend suites and native PostgreSQL 17.6 with 78 full checkpoints plus 14 final-validator checkpoints. Focused correction checks passed nine backend and nine browser groups. Final English/Chinese copy checks, build, static shell parity and lint pass. The phone conflict editor was visually reviewed. See the [local validation record](evidence/report-corrections-local-20261023/validation.json) for evidence and limits; no deployment, remote CI, production data or real email is included.",
+      "newTemplate": "**Historical local preparation checkpoint (before release):** Local validation passed the complete mobile gate with **75 real-backend browser workflows**, 11 installer checks, all 26 backend suites and native PostgreSQL 17.6 with 78 full checkpoints plus 14 final-validator checkpoints. Focused correction checks passed nine backend and nine browser groups. Final English/Chinese copy checks, build, static shell parity and lint pass. The phone conflict editor was visually reviewed. See the [local validation record](evidence/report-corrections-local-20261023/validation.json) for evidence and limits; no deployment, remote CI, production data or real email is included.",
+      "reason": "Keep local no-deployment observation historical."
+    },
+    {
+      "file": "docs/mobile-browser-workflow-checks.md",
+      "operation": "replace_unique",
+      "old": "For this coupled release, require both source-CI jobs to pass on the exact committed candidate. The backend job now runs `postgres_rehearsal.py --review-only` in a fresh loopback-only, non-superuser PostgreSQL cluster and retains `output/ci/report-corrections-postgres.json`; the inherited switch name now executes correction revision races, permission boundaries and audit rollback. Preserve the independent PDF-outbox and volume checks. The hosted UX verifier checks remembered Template/Worker/Date filters, private Find text, Refresh and absent workflow controls. Its local intercepted harness and guard tests do not establish a hosted pass; the generic Report verifier covers actual corrections.",
+      "newTemplate": "The released candidate passed both source-CI jobs on the exact committed source; continue to require this gate for later releases. The backend job now runs `postgres_rehearsal.py --review-only` in a fresh loopback-only, non-superuser PostgreSQL cluster and retains `output/ci/report-corrections-postgres.json`; the inherited switch name now executes correction revision races, permission boundaries and audit rollback. Preserve the independent PDF-outbox and volume checks. The hosted UX verifier checks remembered Template/Worker/Date filters, private Find text, Refresh and absent workflow controls. Its local intercepted harness and guard tests do not establish a hosted pass; the generic Report verifier covers actual corrections.",
+      "reason": "Record exact-source completion."
+    },
+    {
+      "file": "docs/mobile-browser-workflow-checks.md",
+      "operation": "replace_unique",
+      "old": "Record the release source commit and CI run/jobs, candidate/fallback image digests, migration `0025_report_corrections` identity and prior-checksum preservation, database inventories, backend traffic/readiness and runtime comparison before frontend promotion. Freeze the generated build and record every served file path/hash/size, source/built cache identities, exact preview/live Hosting versions, requested/verified UTC timestamps, and retained previous version/expiry. Run `check-hosted-release.mjs` and `check-hosted-installer.mjs` against preview and live; arm `check-hosted-waiting-update.mjs` on the old live shell before promotion. Save its four checks and visually inspect its waiting/updated/offline images. Keep authenticated correction evidence, anonymous shell checks, provider staging, physical-phone limits, unresolved earlier failures, real-email scope and rollback prerequisites explicit in the release record.",
+      "newTemplate": "For later releases, record the release source commit and CI run/jobs, candidate/fallback image digests, migration `0025_report_corrections` identity and prior-checksum preservation, database inventories, backend traffic/readiness and runtime comparison before frontend promotion. Freeze the generated build and record every served file path/hash/size, source/built cache identities, exact preview/live Hosting versions, requested/verified UTC timestamps, and retained previous version/expiry. Run `check-hosted-release.mjs` and `check-hosted-installer.mjs` against preview and live; arm `check-hosted-waiting-update.mjs` on the old live shell before promotion. Save its four checks and visually inspect its waiting/updated/offline images. Keep authenticated correction evidence, anonymous shell checks, provider staging, physical-phone limits, unresolved earlier failures, real-email scope and rollback prerequisites explicit in the release record.",
+      "reason": "Keep future-release checklist."
+    },
+    {
+      "file": "docs/mobile-browser-workflow-checks.md",
+      "operation": "replace_unique",
+      "old": "Before release, verify phone and desktop Edit/Cancel/Save, required fields, retained signatures, explicit photo/signature replacement, saved optional empty groups, a second Supervisor's conflicting correction, session expiry during upload, and unavailable/offline saving. Implicit navigation must retain an unfinished editor; explicit Cancel discards it. A failed save keeps the current edits in the page but does not create a persistent correction draft. Check current Worker history and CSV/HTML/PDF downloads, and confirm original email copies are not resent. Additive migration 0025 and the compatible backend must precede Hosting. This local change does not establish hosted or physical-phone validation.",
+      "newTemplate": "For subsequent changes and physical-phone testing, verify phone and desktop Edit/Cancel/Save, required fields, retained signatures, explicit photo/signature replacement, saved optional empty groups, a second Supervisor's conflicting correction, session expiry during upload, and unavailable/offline saving. Implicit navigation must retain an unfinished editor; explicit Cancel discards it. A failed save keeps the current edits in the page but does not create a persistent correction draft. Check current Worker history and CSV/HTML/PDF downloads, and confirm original email copies are not resent. Additive migration 0025 and the compatible backend must precede Hosting. The automated release evidence above does not establish physical-phone validation or authenticated production correction checks.",
+      "reason": "Retain functional checklist and unresolved limits."
+    },
+    {
+      "file": "docs/mobile-browser-workflow-checks.md",
+      "operation": "replace_unique",
+      "old": "## Supervisor filter Clear alignment — released 2026-10-14 UTC",
+      "newTemplate": "## Historical Supervisor filter Clear alignment — released 2026-10-14 UTC",
+      "reason": "Scope older live claims as history."
+    }
+  ],
+  "postApplyVerification": [
+    "No unresolved template values.",
+    "Review exact versions/dates/counts/rollback expiry against proof.",
+    "Search current sections for stale immutability/workflow/final-note/waiting-order claims.",
+    "Keep dated descriptions explicitly historical.",
+    "Run git diff --check and verify only four approved tracked docs changed.",
+    "Never rewrite release.json or frozen artifacts to accommodate docs."
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-22T22:15:10.350871+00:00",
+  "scope": "Visual review of anonymous 390px installer screenshots on exact preview and live release; not authenticated app or physical-phone testing.",
+  "review": "English, Chinese and offline pages have readable text, visible controls and QR codes, no clipped layout, and consistent branding.",
+  "images": [
+    {
+      "path": "docs/evidence/report-corrections-release-20261023/live-installer-chinese.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "docs/evidence/report-corrections-release-20261023/live-installer-english.png",
+      "sha256": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d"
+    },
+    {
+      "path": "docs/evidence/report-corrections-release-20261023/live-installer-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "docs/evidence/report-corrections-release-20261023/preview-installer-chinese.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "docs/evidence/report-corrections-release-20261023/preview-installer-english.png",
+      "sha256": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d"
+    },
+    {
+      "path": "docs/evidence/report-corrections-release-20261023/preview-installer-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    }
+  ]
+}

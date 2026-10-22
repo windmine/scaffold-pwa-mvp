@@ -1,0 +1,27 @@
+{
+  "status": "available_evidence_contracts_passed",
+  "checks": [
+    "Actual completed source CI matches exact source/run and both jobs succeeded",
+    "Actual candidate/fallback packages, image digests, build steps and local overlay agree",
+    "Actual nested CI counts resolve to 75 with frontend attempt 2 and backend executed attempt 1",
+    "Reject wrong source",
+    "Reject wrong run",
+    "Reject frontend incomplete",
+    "Reject backend failed",
+    "Reject wrong observed count",
+    "Reject unverified executed sources",
+    "All 27 planned replacements apply sequentially to unchanged tracked-document baselines in memory only"
+  ],
+  "checkCount": 10,
+  "finalizerExecuted": false,
+  "trackedDocsEdited": false,
+  "cloudActions": false,
+  "fullReleaseGateStillPending": true,
+  "pendingProviderProof": "stage-provider-verified-proof.json",
+  "providerSchemaReviewedAgainst": [
+    "runtime_probe.py",
+    "release_operator.py"
+  ],
+  "finalizerSha256": "55a10bd5480093eb3ae10914adb17f38e9e08fc2f49c52cd30546428a1af3fc5",
+  "planReplacements": 27
+}

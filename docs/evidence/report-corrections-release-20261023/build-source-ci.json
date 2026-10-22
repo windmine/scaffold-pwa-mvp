@@ -1,0 +1,297 @@
+{
+  "observedAtUtc": "2026-10-22T21:35:38.445179+00:00",
+  "sourceCommit": "1d937414c1217d3f3461ce6074d09563a4962aa7",
+  "runId": 39856281264,
+  "purpose": "image-artifact-build-and-tests-only",
+  "allowPendingFrontendRequested": true,
+  "fullCiPassed": false,
+  "gateDecision": "image_build_allowed",
+  "observedRun": {
+    "conclusion": "",
+    "databaseId": 39856281264,
+    "headSha": "1d937414c1217d3f3461ce6074d09563a4962aa7",
+    "jobs": [
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 120101226231,
+        "name": "Frontend, audit and mobile workflows",
+        "startedAt": "2026-10-22T21:32:08Z",
+        "status": "in_progress",
+        "steps": [
+          {
+            "completedAt": "2026-10-22T21:32:09Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-22T21:32:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:32:12Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-22T21:32:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:32:13Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+            "number": 3,
+            "startedAt": "2026-10-22T21:32:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:32:13Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 4,
+            "startedAt": "2026-10-22T21:32:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:32:13Z",
+            "conclusion": "success",
+            "name": "Validate workflow syntax and expressions",
+            "number": 5,
+            "startedAt": "2026-10-22T21:32:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:32:15Z",
+            "conclusion": "success",
+            "name": "Install locked JavaScript dependencies",
+            "number": 6,
+            "startedAt": "2026-10-22T21:32:13Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:32:16Z",
+            "conclusion": "success",
+            "name": "Audit all dependency severities",
+            "number": 7,
+            "startedAt": "2026-10-22T21:32:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:32:34Z",
+            "conclusion": "success",
+            "name": "Install Python runtime and test dependencies",
+            "number": 8,
+            "startedAt": "2026-10-22T21:32:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:32:34Z",
+            "conclusion": "success",
+            "name": "Check Python dependency compatibility",
+            "number": 9,
+            "startedAt": "2026-10-22T21:32:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:33:03Z",
+            "conclusion": "success",
+            "name": "Install the locked Playwright Chromium and system libraries",
+            "number": 10,
+            "startedAt": "2026-10-22T21:32:34Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:33:06Z",
+            "conclusion": "success",
+            "name": "Lint",
+            "number": 11,
+            "startedAt": "2026-10-22T21:33:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Build and run the complete disposable mobile gate",
+            "number": 12,
+            "startedAt": "2026-10-22T21:33:06Z",
+            "status": "in_progress"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Check Worker history at growing local data volumes",
+            "number": 13,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Retain aggregate growth evidence",
+            "number": 14,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 26,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+            "number": 27,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 28,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          }
+        ],
+        "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39856281264/job/120101226231"
+      },
+      {
+        "completedAt": "2026-10-22T21:23:29Z",
+        "conclusion": "success",
+        "databaseId": 120101229300,
+        "name": "Backend boundaries and native PostgreSQL volume",
+        "startedAt": "2026-10-22T21:19:58Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-22T21:20:01Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-22T21:19:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:20:05Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 2,
+            "startedAt": "2026-10-22T21:20:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:20:05Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 3,
+            "startedAt": "2026-10-22T21:20:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:20:22Z",
+            "conclusion": "success",
+            "name": "Install Python runtime and test dependencies",
+            "number": 4,
+            "startedAt": "2026-10-22T21:20:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:20:22Z",
+            "conclusion": "success",
+            "name": "Check Python dependency compatibility",
+            "number": 5,
+            "startedAt": "2026-10-22T21:20:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:22:18Z",
+            "conclusion": "success",
+            "name": "Run disposable backend regression suites",
+            "number": 6,
+            "startedAt": "2026-10-22T21:20:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:22:41Z",
+            "conclusion": "success",
+            "name": "Install PostgreSQL 17 from its official signed apt repository",
+            "number": 7,
+            "startedAt": "2026-10-22T21:22:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:22:43Z",
+            "conclusion": "success",
+            "name": "Verify native PostgreSQL environment isolation",
+            "number": 8,
+            "startedAt": "2026-10-22T21:22:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:23:20Z",
+            "conclusion": "success",
+            "name": "Check small native PostgreSQL volume with a new owned local cluster",
+            "number": 9,
+            "startedAt": "2026-10-22T21:22:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:23:24Z",
+            "conclusion": "success",
+            "name": "Check PDF email migration and outbox concurrency with mocked SMTP",
+            "number": 10,
+            "startedAt": "2026-10-22T21:23:20Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:23:26Z",
+            "conclusion": "success",
+            "name": "Check Report corrections and revision conflicts in an owned local PostgreSQL cluster",
+            "number": 11,
+            "startedAt": "2026-10-22T21:23:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:23:27Z",
+            "conclusion": "success",
+            "name": "Retain aggregate growth evidence",
+            "number": 12,
+            "startedAt": "2026-10-22T21:23:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:23:27Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "number": 23,
+            "startedAt": "2026-10-22T21:23:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:23:28Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "number": 24,
+            "startedAt": "2026-10-22T21:23:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-22T21:23:28Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 25,
+            "startedAt": "2026-10-22T21:23:28Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39856281264/job/120101229300"
+      }
+    ],
+    "status": "in_progress",
+    "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39856281264"
+  },
+  "mode": "backend_passed_frontend_pending"
+}

@@ -1,0 +1,25 @@
+{
+  "status": "reviewed",
+  "atUtc": "2026-10-22T22:18:35.715341+00:00",
+  "scope": "Read-only visual inspection of three anonymous 390px waiting-update screenshots; no authenticated or physical-phone interaction.",
+  "observations": {
+    "waiting": "Update banner, Update App control and sign-in form are legible with no visible clipping.",
+    "updated": "Update banner is absent and sign-in form remains legible with no visible clipping.",
+    "offline": "The captured cold-offline image shows the anonymous app header and offline status only; it does not demonstrate offline sign-in or authenticated content."
+  },
+  "images": [
+    {
+      "path": "docs/evidence/report-corrections-release-20261023/live-waiting-update-waiting.png",
+      "sha256": "b0a6ddc449af3dab310fdf98a96326354f65c418c68ed9bf1058afa1870ff569"
+    },
+    {
+      "path": "docs/evidence/report-corrections-release-20261023/live-waiting-update-updated.png",
+      "sha256": "0077ee45cc4fa0d4d7a93a67f8d925bf9f96a96b0d9177d5849c919d9809bba7"
+    },
+    {
+      "path": "docs/evidence/report-corrections-release-20261023/live-waiting-update-offline.png",
+      "sha256": "288aedc8f66fffcf5a6f0e7168f50d1d7f15c59656106619660a214d2f503982"
+    }
+  ],
+  "claimsRestrictedToCapturedScreenshots": true
+}

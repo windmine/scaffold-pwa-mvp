@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "checks": [
+    "passed log with Unknown execution pending",
+    "passed log with False execution reject",
+    "passed log with True execution passed",
+    "backup-verify rejects active-worker before job mutation",
+    "backup-verify rejects undrained before job mutation",
+    "backup-verify rejects not-maintenance before job mutation",
+    "production-migrate rejects active-worker before job mutation",
+    "production-migrate rejects undrained before job mutation",
+    "production-migrate rejects not-maintenance before job mutation"
+  ],
+  "cloudActions": false
+}

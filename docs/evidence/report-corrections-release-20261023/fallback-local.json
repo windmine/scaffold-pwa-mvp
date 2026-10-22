@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "checks": [
+    "pending: corrected reads/exports/evidence, editing/transition guards, frozen original outbox",
+    "accepted: corrected reads/exports/evidence, editing/transition guards, frozen original outbox",
+    "uncertain: corrected reads/exports/evidence, editing/transition guards, frozen original outbox",
+    "new submission and outbox enqueue; disabled worker performs no dispatch"
+  ],
+  "networkAllowed": false,
+  "smtpAttempted": false,
+  "atUtc": "2026-10-22T21:20:08.521889+00:00",
+  "sourceCommit": "1d937414c1217d3f3461ce6074d09563a4962aa7",
+  "overlay": {
+    "path": "backend/app/use_cases/report_corrections.py",
+    "beforeSha256": "46a14e45952dfee1c720562b214910d9052edde342f2132a7aa25645c41c6ddb",
+    "afterSha256": "ee6323f8f14de9ae00522098770937126544c49eb09a8b4953aa7d472bb765af",
+    "behavior": "Report corrections disabled; candidate schema25, reads, exports, evidence, submissions and frozen outbox compatibility retained",
+    "requiredRuntime": "Scheduler PAUSED and REPORT_PDF_EMAIL_WORKER_ENABLED=false; never reset outbox attempts"
+  },
+  "verifierSha256": "5e10dbf84000093de6f435de97c1f829771fe1e9e27a5ab1c572e138ddc55158",
+  "cloudActions": false,
+  "cleanupComplete": true
+}

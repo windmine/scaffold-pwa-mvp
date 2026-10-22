@@ -1,0 +1,14 @@
+{
+  "status": "failed",
+  "sourceCommit": "41a3f2f9fccf9fbee75450070362cd4cfeed5134",
+  "runId": 39855289104,
+  "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39855289104",
+  "job": "Backend boundaries and native PostgreSQL volume",
+  "step": "Check small native PostgreSQL volume with a new owned local cluster",
+  "failure": "The volume fixture attempted to transition a Report to in_review after applying migration 0025; the database correctly rejected the retired lifecycle mutation.",
+  "diagnosis": "Obsolete fixture setup and export assertions in backend/report_volume_test.py must follow the correction model.",
+  "disposableBackendSuitesPassed": 26,
+  "ownedClusterCleanupComplete": true,
+  "productionMutated": false,
+  "note": "This failed run remains evidence and is not a release gate pass. The prior Hosting version was retained separately without changing live traffic."
+}

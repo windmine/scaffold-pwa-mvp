@@ -1,0 +1,10 @@
+{
+  "requestedAtUtc": "2026-10-22T21:35:41.841199+00:00",
+  "sourceCommit": "1d937414c1217d3f3461ce6074d09563a4962aa7",
+  "directory": "C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\output\\browser-checks\\report-corrections-release\\build-opd97lsv",
+  "images": {
+    "candidate": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:corrections-candidate-20261023-1d93741",
+    "fallback": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:corrections-fallback-20261023-1d93741"
+  },
+  "status": "requested"
+}

@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "checks": [
+    "explicit active frontend accepted as partial CI",
+    "default gate rejects pending frontend",
+    "explicit queued frontend accepted as partial CI",
+    "default gate accepts complete CI",
+    "explicit option preserves full CI evidence when complete",
+    "wrong source rejected",
+    "wrong run rejected",
+    "backend failure rejected",
+    "backend in progress rejected",
+    "frontend failure rejected",
+    "frontend cancellation rejected",
+    "frontend skipped rejected",
+    "terminal failed run rejected",
+    "terminal cancelled run rejected",
+    "missing job rejected",
+    "duplicate job name rejected",
+    "unexpected extra job rejected",
+    "default main rejects before all journals and provider mutation",
+    "explicit main permits only mocked artifact build with separate partial evidence",
+    "strict downstream source CI calls remain in all release helpers"
+  ],
+  "cloudActions": false
+}

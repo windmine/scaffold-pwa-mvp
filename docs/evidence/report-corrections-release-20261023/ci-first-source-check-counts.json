@@ -1,0 +1,35 @@
+{
+  "status": "incomplete",
+  "sourceCommit": "41a3f2f9fccf9fbee75450070362cd4cfeed5134",
+  "runId": 39855289104,
+  "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39855289104",
+  "jobs": {
+    "frontend": {
+      "id": 120091803891,
+      "conclusion": "cancelled",
+      "cancelledAtUtc": "2026-10-22T21:19:52.5331147Z",
+      "workflowSyntax": "passed",
+      "dependencyAudit": "passed",
+      "lint": "passed",
+      "completeMobileGate": "cancelled",
+      "realBackendBrowserWorkflows": {
+        "passedBeforeCancellation": 24,
+        "completedTotal": null,
+        "completionSummaryPresent": false
+      },
+      "workerHistoryVolume": "skipped"
+    },
+    "backend": {
+      "id": 120091803366,
+      "conclusion": "failure",
+      "disposableBackendSuitesPassed": 26,
+      "nativePostgresVolume": "failed",
+      "pdfEmailPostgres": "skipped",
+      "reportCorrectionsPostgres": "skipped",
+      "failureEvidence": "ci-volume-fixture-failure.json"
+    }
+  },
+  "productionMutated": false,
+  "note": "The first-source run did not pass the release gate. The frontend log contains 24 individual real-backend workflow passes before cancellation and no completed workflow total. A later source run must provide the final successful CI evidence."
+}
+

@@ -1,0 +1,26 @@
+{
+  "status": "available_release_contracts_passed",
+  "atUtc": "2026-10-22T22:18:35.715997+00:00",
+  "checks": [
+    "Strict exact-source CI gate",
+    "All completed stage, baseline, backup and migration executions present",
+    "Exact image, package, manifest and fallback overlay bindings",
+    "Paused backup, migration preservation, 24 prior checksums and correction defaults",
+    "Verified provider 251-check proof, original failure, pinned reader and cleanup contracts",
+    "Live runtime/image/traffic, hosted parity/update, phase timing, recovery and hardening contracts",
+    "Quiesced migration ordering and disabled worker no-SMTP proof",
+    "Retained exact Hosting and backup identity/expiry contracts",
+    "All tracked documentation baselines unchanged",
+    "Six reviewed installer screenshots match recorded hashes"
+  ],
+  "checkCount": 10,
+  "missingProofs": [
+    "scheduled-worker-verification.json",
+    "cleanup.json"
+  ],
+  "postReleaseInventoryPresent": false,
+  "finalizerAssembleOrWriteExecuted": false,
+  "trackedDocsEdited": false,
+  "cloudActions": false,
+  "finalizerSha256": "55a10bd5480093eb3ae10914adb17f38e9e08fc2f49c52cd30546428a1af3fc5"
+}
