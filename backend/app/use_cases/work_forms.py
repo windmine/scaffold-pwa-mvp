@@ -20,6 +20,7 @@ from app.use_cases.common import (
     normalize_work_form_photo_metadata,
     normalize_work_form_photo_urls,
     require_confirmed,
+    require_template_features,
     require_leader,
     require_worker,
     select_work_form_submissions,
@@ -53,6 +54,8 @@ def list_work_forms(user: User, session: Session, purpose: str | None = None):
 
 
 def create_work_form(data, supervisor: User, session: Session):
+    normalized_fields = normalize_work_form_fields(data.fields)
+    require_template_features(normalized_fields, data.client_template_features)
     name = data.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Report Template name is required")
@@ -71,7 +74,7 @@ def create_work_form(data, supervisor: User, session: Session):
         department_id=department_id,
         name=name,
         description=data.description.strip() if data.description else None,
-        fields_json=json.dumps(normalize_work_form_fields(data.fields)),
+        fields_json=json.dumps(normalized_fields),
         definition_version=1,
         status="active",
         created_by=supervisor.id
@@ -134,6 +137,10 @@ def update_work_form(form_id: int, data, supervisor: User, session: Session):
         session.refresh(form)
     before = model_snapshot(form)
     definition_before = work_form_definition(form)
+    if has_definition_fields:
+        require_template_features(definition_before["fields"], data.client_template_features)
+        if data.fields is not None:
+            require_template_features(normalize_work_form_fields(data.fields), data.client_template_features)
     previous_status = form.status
 
     if "name" in fields and data.name is not None:
@@ -293,6 +300,7 @@ def create_work_form_submission(data, user: User, session: Session, include_repl
             ) from exc
 
     definition = work_form_definition(form)
+    require_template_features(definition["fields"], data.client_template_features)
     if submission_purpose == "report":
         expected_version = data.expected_definition_version
         # Older queues did not capture a version. They are safe only while the
@@ -319,7 +327,7 @@ def create_work_form_submission(data, user: User, session: Session, include_repl
     ensure_site_exists(session, data.site_id, user)
     answers = validate_work_form_answers(definition, data.answers)
     photo_urls = normalize_work_form_photo_urls(data.photo_urls, purpose=submission_purpose)
-    photo_metadata = normalize_work_form_photo_metadata(photo_urls, data.photo_metadata)
+    photo_metadata = normalize_work_form_photo_metadata(photo_urls, data.photo_metadata, definition["fields"])
     validate_owned_upload_references(
         work_form_upload_references(definition, answers, photo_urls),
         user,

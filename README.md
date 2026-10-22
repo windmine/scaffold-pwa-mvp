@@ -1,5 +1,9 @@
 # ReportFlow
 
+## Prepared source-template support
+
+Report Templates support up to 128 entries, section instruction text, section-associated photo fields and explicit location capture. See [source-template behavior and publication boundaries](docs/source-report-templates.md). The six blank Mutual definitions include five pending publication and a PPE draft that must remain unpublished; automatic email is off. Validate with `npm run check:template-source-support` and the normal backend/mobile gates. Deploy the compatible backend and existing PDF worker before Hosting; no migration is required. This preparation note does not claim deployment or template creation.
+
 Company-neutral, mobile-first Report submission and correction MVP.
 
 The active product direction is intentionally narrow: every active Worker can submit a Supervisor-defined Report from a phone, including photos and handwritten signatures. Supervisors view submitted Reports and correct details directly in the app when needed, manage Report Templates, and manage Staff. Reports have no review or resolution process. The broader field-operation modules remain behind the reversible full-interface flag.

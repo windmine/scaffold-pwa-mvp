@@ -6,6 +6,7 @@ import {
 } from './team-member-picker.js';
 import { setTranslatableText } from './i18n.js';
 import { escapeHtml } from './utils.js';
+import { evidenceFieldMarkup, locationText, setupEvidenceFields, showLocation } from './work-form-evidence-fields.js';
 
 const DEFAULT_FIELD_PREFIX = 'workFormField';
 const DEFAULT_REPEAT_MAX_ROWS = 12;
@@ -97,6 +98,7 @@ export function localAnswerImageSources(value) {
 }
 
 export function formatWorkFormAnswer(value, type = '') {
+  if (type === 'location') return locationText(value);
   if (isLocalAnswerImage(value)) return 'Signed';
   if (type === 'signature') return value ? 'Signed' : '';
   if (type === 'repeat' && Array.isArray(value)) {
@@ -350,6 +352,7 @@ function renderField(field, options = {}, rowContext = null) {
   const required = field.required ? ' required' : '';
   const label = `${field.label}${field.required ? ' *' : ''}`;
   const attrs = fieldDataAttributes(field, rowContext);
+  if (['photos', 'location'].includes(field.type)) return evidenceFieldMarkup(field, fieldInputId(field, idPrefix, rowContext), attrs);
 
   if (usesDayworkTeamMemberPicker(field, options, rowContext)) {
     return `
@@ -371,6 +374,7 @@ function renderField(field, options = {}, rowContext = null) {
       <section class="work-form-section" aria-label="${escapeHtml(field.label)}" ${attrs}>
         <p class="eyebrow">Subsection</p>
         <h3>${escapeHtml(field.label)}</h3>
+        ${field.description ? `<p class="work-form-static-instructions" style="white-space:pre-wrap">${escapeHtml(field.description)}</p>` : ''}
       </section>
     `;
   }
@@ -533,6 +537,7 @@ function setupWorkFormInteractions(container, form, options) {
   container._workFormController?.abort();
   const controller = new AbortController();
   container._workFormController = controller;
+  setupEvidenceFields(container, { signal: controller.signal, onPhotoChange: options.onPhotoChange });
 
   setupSignaturePads(container);
   setupDayworkTeamMemberPickers(container, options);
@@ -678,6 +683,10 @@ function inputValue(field, idPrefix, rowContext = null) {
 
   const input = document.getElementById(fieldInputId(field, idPrefix, rowContext));
   if (!input) return '';
+  if (field.type === 'location') {
+    try { return input.value ? JSON.parse(input.value) : ''; } catch { return ''; }
+  }
+  if (field.type === 'photos') return '';
   if (field.type === 'checkbox') return input.checked;
   return input.value;
 }
@@ -864,6 +873,17 @@ function collectSignatureAnswer(field, options = {}, rowContext = null) {
 function collectSingleField(field, options = {}, rowContext = null) {
   const validate = options.validate !== false;
   const idPrefix = options.idPrefix || DEFAULT_FIELD_PREFIX;
+  if (field.type === 'photos') {
+    const count = options.container?.querySelector(`[data-field-photo-count="${CSS.escape(field.id)}"]`)?.dataset.photoCount;
+    if (validate && field.required && !(Number(count) > 0)) {
+      throw workFormValidationError(`${field.label} requires a photo.`, fieldInputId(field, idPrefix, rowContext));
+    }
+    return '';
+  }
+  if (validate && field.type === 'location'
+    && document.getElementById(fieldInputId(field, idPrefix, rowContext))?.closest('[data-location-field]')?.dataset.locationPending) {
+    throw workFormValidationError('Wait for location capture or clear it before continuing.', fieldInputId(field, idPrefix, rowContext));
+  }
 
   if (field.type === 'time_range') {
     const value = inputValue(field, idPrefix, rowContext);
@@ -1069,6 +1089,11 @@ function populateSignatureAnswer(field, value, idPrefix, rowContext = null, opti
 
 function populateField(field, value, idPrefix, rowContext = null, options = {}) {
   if (value == null) return;
+  if (field.type === 'location') {
+    showLocation(document.getElementById(fieldInputId(field, idPrefix, rowContext)), value);
+    return;
+  }
+  if (field.type === 'photos') return;
 
   if (field.type === 'time_range') {
     const startInput = document.getElementById(fieldTimeInputId(field, 'start', idPrefix, rowContext));
@@ -1197,6 +1222,7 @@ export function parseWorkFormFieldsInput(value) {
       }
 
       if (metadata.show_if) field.show_if = metadata.show_if;
+      if (metadata.description) field.description = decodeURIComponent(metadata.description);
       if (metadata.repeat && !field.repeat) field.repeat = metadata.repeat;
       if (metadata.formula && type !== 'formula') field.formula = metadata.formula;
 
@@ -1210,6 +1236,7 @@ export function parseWorkFormFieldsInput(value) {
 function metadataParts(field) {
   const parts = field.id ? [`id=${field.id}`] : [];
   if (field.show_if || field.showIf) parts.push(`show_if=${field.show_if || field.showIf}`);
+  if (field.description) parts.push(`description=${encodeURIComponent(field.description)}`);
   if (field.type === 'repeat') {
     if (field.min_rows != null || field.minRows != null) parts.push(`min=${field.min_rows ?? field.minRows}`);
     if (field.max_rows != null || field.maxRows != null) parts.push(`max=${field.max_rows ?? field.maxRows}`);

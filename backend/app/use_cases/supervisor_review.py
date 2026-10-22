@@ -457,6 +457,8 @@ def render_form_answer_rows(item):
     for label, field_type, value, field in entries:
         if field_type == "section":
             rows.append(f"<h3 class=\"form-subtitle\">{h(label)}</h3>")
+            if field.get("description"):
+                rows.append(f"<p style=\"white-space:pre-wrap\">{h(field['description'])}</p>")
             continue
 
         if field_type == "repeat":

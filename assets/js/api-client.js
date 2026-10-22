@@ -486,14 +486,14 @@ export async function getWorkForms(purpose = "") {
 export async function createWorkForm(form) {
   return await apiFetch("/supervisor/work-forms", {
     method: "POST",
-    body: JSON.stringify(form)
+    body: JSON.stringify({ ...form, client_template_features: 2 })
   });
 }
 
 export async function updateWorkForm(formId, form) {
   return await apiFetch(`/supervisor/work-forms/${formId}`, {
     method: "PATCH",
-    body: JSON.stringify({ ...form, confirmed: true })
+    body: JSON.stringify({ ...form, confirmed: true, client_template_features: 2 })
   });
 }
 
@@ -501,7 +501,7 @@ export async function createFormSubmission(submission, recoveryScope = null) {
   return await apiFetch(recoveryScope?.role === "supervisor" ? "/supervisor/my-report-submissions" : "/form-submissions", {
     method: "POST",
     headers: reportRecoveryHeaders(recoveryScope),
-    body: JSON.stringify(submission)
+    body: JSON.stringify({ ...submission, client_template_features: 2 })
   });
 }
 
@@ -685,7 +685,7 @@ export async function updateSupervisorFormSubmission(submissionId, submission, s
   return await apiFetch(`/supervisor/form-submissions/${submissionId}`, {
     method: "PATCH",
     headers: reportRecoveryHeaders(scope),
-    body: JSON.stringify({ ...submission, confirmed: true })
+    body: JSON.stringify({ ...submission, confirmed: true, client_template_features: 2 })
   });
 }
 

@@ -61,6 +61,7 @@ export const appShell = Object.freeze([
   '/assets/js/worker-sites.js',
   '/assets/js/work-form-builder.js',
   '/assets/js/work-form-fields.js',
+  '/assets/js/work-form-evidence-fields.js',
   '/assets/icons/reportflow-icon.svg',
   '/assets/icons/reportflow-install-qr.svg',
   '/assets/icons/reportflow-192.png',

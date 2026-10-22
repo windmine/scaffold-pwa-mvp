@@ -3,6 +3,7 @@ import { get, put, remove } from './db.js';
 const SNAPSHOT_SCHEMA_VERSION = 1;
 const SNAPSHOT_KEY_PREFIX = 'worker-report-template-snapshot';
 const FIELD_TYPES = new Set([
+  'photos', 'location',
   'text', 'textarea', 'number', 'date', 'select', 'checkbox', 'signature',
   'section', 'time_range', 'formula', 'repeat'
 ]);

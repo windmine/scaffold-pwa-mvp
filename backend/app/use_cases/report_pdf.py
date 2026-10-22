@@ -158,7 +158,7 @@ def _image(value, image_loader, max_height, *, lossless=False, strict=False):
         return None
 
 
-def _answer_rows(fields, answers, styles, image_loader, *, strict=False):
+def _answer_rows(fields, answers, styles, image_loader, *, strict=False, photos=()):
     children = {}
     for field in fields:
         if field.get("repeat"):
@@ -176,7 +176,7 @@ def _answer_rows(fields, answers, styles, image_loader, *, strict=False):
             other = second if kinds[0] == "signature" else first
             if (
                 kinds.count("signature") == 1
-                and other.get("type") not in ("section", "repeat")
+                and other.get("type") not in ("section", "repeat", "photos")
                 and len(text_value(values.get(other.get("id")))) < 200
                 and len(text_value(other.get("label"))) < 200
             ):
@@ -191,6 +191,8 @@ def _answer_rows(fields, answers, styles, image_loader, *, strict=False):
             value = values.get(field_id)
             if kind == "section":
                 result.append(_paragraph(label, styles["section"]))
+                if field.get("description"):
+                    result.append(_paragraph(field["description"], styles["body"]))
             elif kind == "repeat":
                 result.append(_paragraph(label, styles["section"]))
                 rows = value if isinstance(value, list) else []
@@ -209,6 +211,19 @@ def _answer_rows(fields, answers, styles, image_loader, *, strict=False):
                 block = _row(label, content, styles, minimum_height=104 if value else 72)
                 block.keepWithNext = index in pair_starts
                 result.append(block)
+            elif kind == "photos":
+                result.append(_paragraph(label, styles["section"]))
+                attached = [photo for photo in photos if photo[2].get("field_id") == field_id]
+                for photo_index, url, metadata in attached:
+                    result.append(_photo_row(photo_index, url, metadata, styles, image_loader, strict=strict))
+                if not attached:
+                    result.append(_row(label, "No photos attached.", styles))
+            elif kind == "location" and isinstance(value, dict) and "latitude" in value and "longitude" in value:
+                result.append(_row(label, text_value(value), styles))
+                lat, lon = value["latitude"], value["longitude"]
+                if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
+                    url = f"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}#map=18/{lat}/{lon}"
+                    result.append(Paragraph(f'<link href="{h(url)}">View captured location on map (internet required)</link>', styles["body"]))
             else:
                 block = _row(label, text_value(value), styles)
                 block.keepWithNext = index in pair_starts
@@ -216,6 +231,14 @@ def _answer_rows(fields, answers, styles, image_loader, *, strict=False):
         return result
 
     return render([field for field in fields if not field.get("repeat")], answers)
+
+
+def _photo_row(index, url, metadata, styles, image_loader, *, strict=False):
+    evidence = _image(url, image_loader, 215, strict=strict)
+    cell = [evidence] if evidence else [_paragraph("Photo unavailable.", styles["muted"])]
+    caption = photo_caption(1, [metadata]).replace("Photo 1", f"Photo {index}", 1)
+    cell.extend([Spacer(1, 5), _paragraph(caption, styles["muted"])])
+    return _row(f"Photo {index}", cell, styles)
 
 
 def _report_story(item, styles, image_loader, *, strict=False):
@@ -237,19 +260,20 @@ def _report_story(item, styles, image_loader, *, strict=False):
         fields = [{"id": key, "label": label_from_id(key)} for key in answers]
     if not fields or fields[0].get("type") != "section":
         story.append(_paragraph("Report answers", styles["section"]))
-    story.extend(_answer_rows(fields, answers, styles, image_loader, strict=strict) or [
+    urls = item.get("photo_urls") or []
+    metadata = item.get("photo_metadata") or []
+    photos = [(index, url, metadata[index - 1] if index <= len(metadata) else {}) for index, url in enumerate(urls, start=1)]
+    story.extend(_answer_rows(fields, answers, styles, image_loader, strict=strict, photos=photos) or [
         _row("Answers", "No answers provided.", styles),
     ])
 
-    story.append(_paragraph("Photos", styles["section"]))
-    urls = item.get("photo_urls") or []
-    metadata = item.get("photo_metadata") or []
-    for index, url in enumerate(urls, start=1):
-        evidence = _image(url, image_loader, 215, strict=strict)
-        cell = [evidence] if evidence else [_paragraph("Photo unavailable.", styles["muted"])]
-        cell.extend([Spacer(1, 5), _paragraph(photo_caption(index, metadata), styles["muted"])])
-        story.append(_row(f"Photo {index}", cell, styles))
-    if not urls:
+    photo_fields = {field.get("id") for field in fields if field.get("type") == "photos" and not field.get("repeat")}
+    unassigned = [photo for photo in photos if photo[2].get("field_id") not in photo_fields]
+    if unassigned or not photo_fields:
+        story.append(_paragraph("Photos", styles["section"]))
+    for index, url, photo_metadata in unassigned:
+        story.append(_photo_row(index, url, photo_metadata, styles, image_loader, strict=strict))
+    if not urls and not photo_fields:
         story.append(_row("Photos", "No photos attached.", styles))
 
     return story

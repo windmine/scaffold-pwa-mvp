@@ -3,7 +3,7 @@ import math
 import ast
 import operator
 import re
-from datetime import timezone
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import HTTPException
@@ -47,12 +47,14 @@ VALID_WORK_FORM_FIELD_TYPES = {
     "select",
     "checkbox",
     "signature",
+    "photos",
+    "location",
     "section",
     "time_range",
     "formula",
     "repeat",
 }
-MAX_WORK_FORM_FIELDS = 30
+MAX_WORK_FORM_FIELDS = 128
 MAX_WORK_FORM_PHOTOS = 8
 MAX_REPORT_PHOTOS = 50
 MAX_REPEAT_ROWS = 50
@@ -966,6 +968,13 @@ def normalize_work_form_fields(fields):
             "options": options,
         }
 
+        # Static instructions belong to the Definition, never to an answer.
+        # Omit absent descriptions so existing Definition fingerprints stay stable.
+        if field.description:
+            if field_type != "section":
+                raise HTTPException(status_code=400, detail="Static instructions require a section heading")
+            normalized["description"] = field.description
+
         if field_type in {"section", "formula"}:
             normalized["required"] = False
 
@@ -974,6 +983,8 @@ def normalize_work_form_fields(fields):
             normalized["show_if"] = show_if
 
         repeat = safe_field_id(field.repeat) if field.repeat else None
+        if field_type in {"photos", "location"} and (repeat or show_if):
+            raise HTTPException(status_code=400, detail="Photo and location fields must be unconditional top-level fields")
         if repeat:
             normalized["repeat"] = repeat
 
@@ -1001,6 +1012,14 @@ def normalize_work_form_fields(fields):
 
     validate_work_form_field_dependencies(normalized_fields)
     return normalized_fields
+
+
+def require_template_features(fields, client_version):
+    if client_version < 2 and (len(fields) > 30 or any(
+        field.get("description") or field.get("type") in {"photos", "location"} for field in fields
+    )):
+        raise HTTPException(status_code=409, detail={"code": "report_template_update_required",
+            "message": "Update ReportFlow before saving this Template or Report. Existing data has not changed."})
 
 
 def validate_work_form_field_dependencies(fields: list[dict]):
@@ -1168,6 +1187,14 @@ def normalize_work_form_answer(field: dict, raw_value):
     field_type = field.get("type")
     required = bool(field.get("required"))
 
+    if field_type == "photos":
+        # Photos use the shared upload collection; requiredness is checked there.
+        if raw_value not in (None, ""):
+            raise HTTPException(status_code=400, detail=f"{field_label} must use photo attachments")
+        return ""
+    if field_type == "location":
+        return normalize_location_answer(field_label, raw_value, required)
+
     if field_type == "checkbox":
         value = bool(raw_value)
     elif field_type == "time_range":
@@ -1197,6 +1224,30 @@ def normalize_work_form_answer(field: dict, raw_value):
             raise HTTPException(status_code=400, detail=f"{field_label} has an invalid option")
 
     return value
+
+
+def normalize_location_answer(label, raw, required=False):
+    if raw in (None, "", {}):
+        if required:
+            raise HTTPException(status_code=400, detail=f"{label} is required")
+        return ""
+    error = HTTPException(status_code=400, detail=f"{label} must contain a captured location")
+    if not isinstance(raw, dict):
+        raise error
+    values = {}
+    for key, low, high in (("latitude", -90, 90), ("longitude", -180, 180), ("accuracy", 0, 1000000)):
+        value = raw.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= high:
+            raise error
+        values[key] = value
+    try:
+        captured_at = datetime.fromisoformat(str(raw.get("captured_at", "")).replace("Z", "+00:00"))
+        if captured_at.tzinfo is None:
+            raise ValueError()
+    except (ValueError, TypeError):
+        raise error from None
+    values["captured_at"] = format_datetime(captured_at)
+    return values
 
 
 def normalize_time_range_answer(field_label: str, raw_value, required: bool):
@@ -1265,8 +1316,16 @@ def normalize_work_form_photo_urls(photo_urls: list[str], *, purpose: str = "day
     return urls
 
 
-def normalize_work_form_photo_metadata(photo_urls: list[str], photo_metadata: list[dict]):
+def normalize_work_form_photo_metadata(photo_urls: list[str], photo_metadata: list[dict], fields=()):
     metadata = []
+    photo_fields = {field["id"]: field for field in fields if field.get("type") == "photos" and not field.get("repeat")}
+    photo_labels = {}
+    section_label = ""
+    for field in fields:
+        if field.get("type") == "section" and not field.get("repeat"):
+            section_label = field["label"]
+        if field.get("id") in photo_fields:
+            photo_labels[field["id"]] = f"{section_label}: {field['label']}" if section_label else field["label"]
     metadata_by_url = {
         item.get("url"): item
         for item in (photo_metadata or [])
@@ -1290,6 +1349,17 @@ def normalize_work_form_photo_metadata(photo_urls: list[str], photo_metadata: li
             "size": raw.get("size") if isinstance(raw.get("size"), int) else None,
             "type": str(raw.get("type") or "")[:120],
         })
+
+        field_id = raw.get("field_id")
+        if field_id:
+            if not isinstance(field_id, str) or field_id not in photo_fields:
+                raise HTTPException(status_code=400, detail="Photo belongs to an unknown Template photo field")
+            metadata[-1]["field_id"] = field_id
+            metadata[-1]["field_label"] = photo_labels[field_id]
+
+    for field_id, field in photo_fields.items():
+        if field.get("required") and not any(item.get("field_id") == field_id for item in metadata):
+            raise HTTPException(status_code=400, detail=f"{field['label']} requires a photo")
 
     return metadata
 

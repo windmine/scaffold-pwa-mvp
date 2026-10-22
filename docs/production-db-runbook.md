@@ -1,5 +1,11 @@
 # Production Database And Deployment Runbook
 
+## Source-template support release
+
+The longer definitions, static section instructions, associated photographs and structured location answers use existing JSON columns; the migration head remains `0025_report_corrections`. Deploy the tested backend and existing PDF worker image before the frontend, preserving all runtime configuration, IAM, secret versions and worker limits. Verify the existing routing remains off and no actionable outbox exists; do not send an email as a deployment check. No write pause or migration is needed for this change.
+
+Retain the current corrections image and exact Hosting version before promotion. Before any extended Template is published, that release remains a rollback option. After publication, use a compatible renderer/forward fix: older code cannot faithfully render the new static text/photo associations. Keep all migration, authentication, device-storage and frozen-email protections. Publishing templates is a separate authenticated normal workflow under Mutual, never a direct database write or account reassignment. See [source templates](source-report-templates.md).
+
 Use this runbook for managed PostgreSQL migrations, Cloud Run releases, durable uploads, verification, and rollback. Local SQLite and `backend/uploads/` are development-only.
 
 ## Historical local Report corrections preparation — 2026-10-23 (subsequently released; original preparation checkpoint)

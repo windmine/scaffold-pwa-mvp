@@ -264,6 +264,8 @@ def photo_caption(index, metadata):
     taken_at = item.get("taken_at") or item.get("last_modified_iso") if isinstance(item, dict) else ""
     name = item.get("name") if isinstance(item, dict) else ""
     parts = [f"Photo {index}"]
+    if isinstance(item, dict) and item.get("field_label"):
+        parts.append(item["field_label"])
     if taken_at:
         parts.append(f"Taken {taken_at}")
     if name:

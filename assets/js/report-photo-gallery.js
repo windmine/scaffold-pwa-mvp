@@ -49,6 +49,12 @@ export function mountReportPhotoGallery(container, { sources, metadata = [], tit
     });
     image.src = source;
     button.append(image, unavailable);
+    if (metadata[index]?.field_label) {
+      const label = document.createElement('span');
+      label.className = 'photo-field-label';
+      label.textContent = metadata[index].field_label;
+      button.append(label);
+    }
     const takenAt = metadata[index]?.taken_at || metadata[index]?.last_modified_iso;
     if (takenAt) {
       const time = document.createElement('span');

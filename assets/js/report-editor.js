@@ -1,6 +1,7 @@
 import { updateSupervisorFormSubmission, uploadPhoto } from './api-client.js';
 import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
 import { dataUrlToBlob, photoMetadataFromFile, uploadImageValidationError } from './utils.js';
+import { photoFieldLabel, refreshPhotoFieldCounts } from './work-form-evidence-fields.js';
 
 // Edits belong to one authenticated session and the captured server revision.
 // Conflicts leave the editor intact; a failed/uncertain save is never replayed.
@@ -121,6 +122,7 @@ export function createReportEditor({ state, showEditPanel, closeEditPanel, captu
   }
 
   function renderPhotos(entry) {
+    refreshPhotoFieldCounts(entry.fieldOptions.container, entry.photos.map((photo) => photo.metadata));
     const list = entry.container.querySelector('[data-report-edit-photos]');
     list.replaceChildren();
     entry.photos.forEach((photo, index) => {
@@ -141,6 +143,11 @@ export function createReportEditor({ state, showEditPanel, closeEditPanel, captu
         renderPhotos(entry);
       });
       item.append(image, remove);
+      if (photo.metadata.field_label) {
+        const label = document.createElement('p');
+        label.textContent = photo.metadata.field_label;
+        item.prepend(label);
+      }
       list.append(item);
     });
     entry.container.querySelector('[data-report-edit-photo-count]').textContent = `${entry.photos.length} / 50 photos`;
@@ -189,12 +196,15 @@ export function createReportEditor({ state, showEditPanel, closeEditPanel, captu
     entry.feedback = entry.container.querySelector('[data-report-edit-feedback]');
     entry.container.querySelector('#editReportDate').required = true;
     entry.fieldOptions = { idPrefix: 'reportCorrectionField', container: document.getElementById('reportEditAnswers'),
-      preserveUploadedSignatures: true, preserveEmptyRepeats: true };
+      preserveUploadedSignatures: true, preserveEmptyRepeats: true, onPhotoChange: addPhotos };
     renderWorkFormFields(entry.fieldOptions.container, entry.form, entry.fieldOptions);
     populateWorkFormAnswers(entry.form, record.answers || {}, entry.fieldOptions);
     renderPhotos(entry);
-    entry.container.querySelector('[data-report-edit-add]').addEventListener('change', (event) => {
+    function addPhotos(event) {
       if (!current(entry) || entry.busy) return;
+      const fieldId = event.target.dataset.fieldPhotos;
+      const field = fieldId ? entry.form.fields.find((item) => item.id === fieldId && item.type === 'photos') : null;
+      if (fieldId && !field) return;
       const files = [...event.target.files];
       event.target.value = '';
       const error = files.map(uploadImageValidationError).find(Boolean);
@@ -202,10 +212,13 @@ export function createReportEditor({ state, showEditPanel, closeEditPanel, captu
         message(entry, error || 'A Report can include up to 50 photos.', true);
         return;
       }
-      entry.photos.push(...files.map((file) => ({ file, preview: URL.createObjectURL(file), metadata: photoMetadataFromFile(file) })));
+      entry.photos.push(...files.map((file) => ({ file, preview: URL.createObjectURL(file), metadata: {
+        ...photoMetadataFromFile(file), ...(field ? { field_id: field.id, field_label: photoFieldLabel(field, entry.form.fields) } : {})
+      } })));
       message(entry, '');
       renderPhotos(entry);
-    });
+    }
+    entry.container.querySelector('[data-report-edit-add]').addEventListener('change', addPhotos);
     focus();
   }
 

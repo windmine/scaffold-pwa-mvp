@@ -1,5 +1,9 @@
 # Mobile and Browser Workflow Checks
 
+## Source-template support checks
+
+Run `npm run check:template-source-support` with isolated storage and mocked SMTP/geolocation, then the normal backend and complete mobile gates. Verify all 117 Audit entries on a 390px screen, blank defaults, readonly instruction text, separate signatures, section photo counts and captions, shared upload limits, location capture/clear/denial/late callback handling, and every source label/instruction in generated PDF/HTML. Check replay, corrections, frozen email evidence and old-client update requirements. Do not capture a real location or send real email during validation. Map links require connectivity and do not embed map tiles. Physical phone testing remains separate. PPE is a local draft; routing remains disabled.
+
 Use this checklist before calling the MVP ready for phone testing or production use. Local automation, hosted automation, and a hosted real-phone pass are separate gates.
 
 ## Report corrections — released 2026-10-22 UTC (locally prepared 2026-10-23)

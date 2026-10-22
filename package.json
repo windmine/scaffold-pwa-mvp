@@ -27,7 +27,7 @@
     "check:presentation": "node scripts/presentation-density-test.mjs",
     "check:onboarding": "node scripts/worker-invitation-email-test.mjs && node scripts/worker-invitation-sharing-test.mjs && node scripts/setup-continuation-test.mjs",
     "check:offline-report-templates": "node scripts/offline-report-template-snapshot-test.mjs && node scripts/offline-report-template-worker-test.mjs && node scripts/worker-form-submit-render-test.mjs",
-    "check:report-template-drafts": "node scripts/report-template-drafts-test.mjs && node scripts/work-form-builder-test.mjs && python backend/template_edit_test.py && npm run check:template-library",
+    "check:report-template-drafts": "node scripts/report-template-drafts-test.mjs && node scripts/work-form-builder-test.mjs && python backend/template_edit_test.py && npm run check:template-library && npm run check:template-source-support",
     "check:template-library": "node scripts/template-library-test.mjs",
     "check:install": "npm run build && node scripts/check-install-page.mjs",
     "check:departments": "node scripts/department-defaults-test.mjs",
@@ -45,7 +45,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "preview:phone": "vite preview --host 0.0.0.0 --port 4173",
-    "check:report-corrections": "python backend/report_corrections_test.py && node scripts/report-editor-test.mjs"
+    "check:report-corrections": "python backend/report_corrections_test.py && node scripts/report-editor-test.mjs",
+    "check:template-source-support": "python backend/template_source_support_test.py && node scripts/template-source-support-test.mjs"
   },
   "dependencies": {
     "leaflet": "^1.9.4"

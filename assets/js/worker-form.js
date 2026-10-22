@@ -3,6 +3,7 @@ import { getDraft, getDraftEntries, saveDraft } from './mock-api.js';
 import { isReportDraftForWorker, reportDraftKeyForWorker, summarizeReportDrafts } from './report-drafts.js';
 import { createPhotoPreviewSources, reportPhotoSources, restoreReportPhotoEvidence } from './report-photo-evidence.js';
 import { renderReportSubmitReview } from './report-submit-review.js';
+import { photoFieldLabel, refreshPhotoFieldCounts } from './work-form-evidence-fields.js';
 import { mountReportPhotoGallery } from './report-photo-gallery.js';
 import { estimateReportPhotoStorage, isStorageQuotaError } from './report-storage-budget.js';
 import {
@@ -683,6 +684,7 @@ export function createWorkerFormModule({
   }
 
   function renderEditablePhotoPreviews(sources = currentPhotoSources(), metadata = state.workFormPhotoMetadata) {
+    refreshPhotoFieldCounts(els.workFormFields, metadata);
     renderPhotoPreviews(
       sources,
       metadata
@@ -878,7 +880,7 @@ export function createWorkerFormModule({
 
     const form = selectedWorkForm(requestedFormId);
     resetDraftSurface();
-    renderWorkFormFields(els.workFormFields, form, { container: els.workFormFields });
+    renderWorkFormFields(els.workFormFields, form, { container: els.workFormFields, onPhotoChange: handlePhotoChange });
     renderedWorkForm = form || null;
     renderedAuthorRole = state.user?.role;
     renderedDraftKey = form ? requestedDraftKey : '';
@@ -1193,7 +1195,7 @@ export function createWorkerFormModule({
     return true;
   }
 
-  async function processPhotoChange(selectedFiles, token, draftState, scope) {
+  async function processPhotoChange(selectedFiles, token, draftState, scope, photoField) {
     const sameSavedIdentity = () => {
       try {
         const current = getSession();
@@ -1298,7 +1300,7 @@ export function createWorkerFormModule({
         : [];
       const nextMetadata = [
         ...currentPhotoSources().map((_, index) => state.workFormPhotoMetadata[index] || {}),
-        ...files.map(photoMetadataFromFile)
+        ...files.map((file) => ({ ...photoMetadataFromFile(file), ...(photoField ? { field_id: photoField.id, field_label: photoFieldLabel(photoField, renderedWorkForm.fields) } : {}) }))
       ];
       const nextDataUrls = [...state.workFormPhotoDataUrls, ...dataUrls];
       const nextBlobs = useBlobs ? [...state.workFormPhotoBlobs, ...files] : [];
@@ -1332,6 +1334,9 @@ export function createWorkerFormModule({
   function handlePhotoChange(event) {
     if (conflictingDraft || reloadLocked || state.submittingWorkForm) return;
     const draftState = activeDraftState();
+    const fieldId = event.target.dataset.fieldPhotos;
+    const photoField = fieldId ? renderedWorkForm?.fields?.find((field) => field.id === fieldId && field.type === 'photos' && !field.repeat) : null;
+    if (fieldId && !photoField) return;
     const files = Array.from(event.target.files || []);
     event.target.value = '';
     if (!draftState || !files.length) return;
@@ -1343,7 +1348,7 @@ export function createWorkerFormModule({
     if (reportPhotos) photoStoragePending += 1;
     // Complete selections in order. A second picker event must not cancel an
     // earlier read, and both belong to the same guarded Worker/Template surface.
-    const promise = photoProcessing.promise.catch(() => {}).then(() => processPhotoChange(files, token, draftState, scope));
+    const promise = photoProcessing.promise.catch(() => {}).then(() => processPhotoChange(files, token, draftState, scope, photoField));
     photoProcessing = {
       key: draftState?.key || '',
       pending: true,

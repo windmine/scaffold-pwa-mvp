@@ -200,6 +200,7 @@ class WorkFormField(BaseModel):
     label: str = Field(min_length=1, max_length=160)
     type: str = Field(max_length=40)
     required: bool = False
+    description: Optional[str] = Field(default=None, max_length=500)
     options: list[str] = Field(default_factory=list)
     show_if: Optional[str] = Field(default=None, max_length=240)
     formula: Optional[str] = Field(default=None, max_length=500)
@@ -209,12 +210,14 @@ class WorkFormField(BaseModel):
 
 
 class WorkFormCreate(BaseModel):
+    client_template_features: int = Field(default=1, ge=1, le=2)
     name: str = Field(min_length=1, max_length=160)
     description: Optional[str] = Field(default=None, max_length=500)
     fields: list[WorkFormField] = Field(min_length=1, max_length=MAX_WORK_FORM_FIELDS)
 
 
 class WorkFormUpdate(BaseModel):
+    client_template_features: int = Field(default=1, ge=1, le=2)
     name: Optional[str] = Field(default=None, min_length=1, max_length=160)
     description: Optional[str] = Field(default=None, max_length=500)
     fields: Optional[list[WorkFormField]] = Field(default=None, min_length=1, max_length=MAX_WORK_FORM_FIELDS)
@@ -231,6 +234,7 @@ class WorkFormEmailSettings(BaseModel):
 
 
 class WorkFormSubmissionCreate(BaseModel):
+    client_template_features: int = Field(default=1, ge=1, le=2)
     form_id: int = Field(ge=1)
     expected_definition_version: Optional[int] = Field(default=None, ge=1)
     site_id: Optional[int] = Field(default=None, ge=1)
@@ -251,6 +255,7 @@ class SupervisorWorkFormSubmissionCreate(BaseModel):
 
 
 class SupervisorWorkFormSubmissionUpdate(BaseModel):
+    client_template_features: int = Field(default=1, ge=1, le=2)
     expected_revision: Optional[int] = Field(default=None, ge=1)
     site_id: Optional[int] = Field(default=None, ge=1)
     work_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")

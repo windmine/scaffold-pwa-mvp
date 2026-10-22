@@ -1,0 +1,1819 @@
+{
+  "schema": "reportflow-source-templates-v1",
+  "department": {
+    "id": 2,
+    "name": "Mutual"
+  },
+  "defaults": "All answers blank. No source answers, dates, photos, signatures or coordinates are defaults.",
+  "templates": [
+    {
+      "id": "fm15",
+      "publish": true,
+      "department_id": 2,
+      "source_library_ids": [
+        "libfile_66765fc0318c81918699388a2e896cd4",
+        "libfile_70be135be0c08191a5e60ad3284b9288"
+      ],
+      "email_enabled": false,
+      "email_recipient": null,
+      "requiredness": "Unknown in completed PDF; all fields optional.",
+      "choices": "Blank text: complete source choice menus are not available.",
+      "payload": {
+        "name": "FM-15 Site Health Safety & Environment Audit",
+        "description": "Blank reusable template transcribed from supplied example reports.",
+        "fields": [
+          {
+            "id": "fm15_001",
+            "label": "Section 1",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_002",
+            "label": "Site",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_003",
+            "label": "Date/Time",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_004",
+            "label": "Client",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_005",
+            "label": "Supervisor",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_006",
+            "label": "Auditor",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_007",
+            "label": "ELECTRICAL EQUIPMENT",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_008",
+            "label": "Lifeguards tested and with a current tag?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_009",
+            "label": "Leads in good condition with current tags?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_010",
+            "label": "Plant tested with current tags?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_011",
+            "label": "Leads safely placed?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_012",
+            "label": "Photos",
+            "type": "photos",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_013",
+            "label": "Comments",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_014",
+            "label": "ENVIRONMENTAL",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_015",
+            "label": "Spill control in place?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_016",
+            "label": "Dust control in place?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_017",
+            "label": "Waste correctly segregated?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_018",
+            "label": "Resource recovery undertaken?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_019",
+            "label": "Roadways Clean?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_020",
+            "label": "Photos",
+            "type": "photos",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_021",
+            "label": "Comments",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_022",
+            "label": "ELEVATED WORK PLATFORMS (EWP)",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_023",
+            "label": "In good working order?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_024",
+            "label": "Pre start checks completed?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_025",
+            "label": "Operator is Licensed?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_026",
+            "label": "EWP has a valid inspection?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_027",
+            "label": "Clean and tidy work platform?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_028",
+            "label": "Photos",
+            "type": "photos",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_029",
+            "label": "Comments",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_030",
+            "label": "EMERGENCY",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_031",
+            "label": "First aid kit available?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_032",
+            "label": "Accident register updated?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_033",
+            "label": "Fire extinguishers available and within date?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_034",
+            "label": "Emergency plan in place?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_035",
+            "label": "Photos",
+            "type": "photos",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_036",
+            "label": "Comments",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_037",
+            "label": "HAZARDOUS SUBSTANCES",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_038",
+            "label": "Site register in place?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_039",
+            "label": "Safety Data Sheets (SDS) are available?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_040",
+            "label": "Correctly stored?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_041",
+            "label": "Correct PPE being worn?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_042",
+            "label": "Photos",
+            "type": "photos",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_043",
+            "label": "Comments",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_044",
+            "label": "LADDERS",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_045",
+            "label": "Are in good working order?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_046",
+            "label": "Properly secured?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_047",
+            "label": "Worker no higher than third step down?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_048",
+            "label": "Locks in place?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_049",
+            "label": "Photos",
+            "type": "photos",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_050",
+            "label": "Comments",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_051",
+            "label": "Pesonnal Protective Equipment (PPE)",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_052",
+            "label": "Standard PPE in use ?(Hi-Viz/Hard Hat/Safety Shoes)",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_053",
+            "label": "Hearing protection being used?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_054",
+            "label": "Eye protection being worn?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_055",
+            "label": "Respirators (including P2) in use?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_056",
+            "label": "Gauntlets/gloves used for sharp objects/glass",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_057",
+            "label": "Photos",
+            "type": "photos",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_058",
+            "label": "Comments",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_059",
+            "label": "SCAFFOLDING",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_060",
+            "label": "Current \"ScafTag''?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_061",
+            "label": "Hand rails in place?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_062",
+            "label": "Kick boards in place?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_063",
+            "label": "Platforms secured?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_064",
+            "label": "Work platforms are clear?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_065",
+            "label": "Ties and bracing are adequate?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_066",
+            "label": "Clear headroom?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_067",
+            "label": "Photos",
+            "type": "photos",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_068",
+            "label": "Comments",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_069",
+            "label": "SITE CONTROL",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_070",
+            "label": "Facilities are clean and tidy?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_071",
+            "label": "Hazard board/up-to-date?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_072",
+            "label": "Tool box Talk completed?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_073",
+            "label": "Daily Pre-start completed?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_074",
+            "label": "Task Analysis completed and signed?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_075",
+            "label": "Safety inductions completed?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_076",
+            "label": "Hoarding and signage in place?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_077",
+            "label": "Photos",
+            "type": "photos",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_078",
+            "label": "Comments",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_079",
+            "label": "TOOLS",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_080",
+            "label": "Tools are fit for use?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_081",
+            "label": "Workers trained in Powder Actuated Tools (PAT's)",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_082",
+            "label": "Photos",
+            "type": "photos",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_083",
+            "label": "Comments",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_084",
+            "label": "WORKING AT HEIGHTS (WAH)",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_085",
+            "label": "Edge protection in place?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_086",
+            "label": "Penetrations are covered?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_087",
+            "label": "Workers trained in WAH?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_088",
+            "label": "Harnesses being worn?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_089",
+            "label": "Photos",
+            "type": "photos",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_090",
+            "label": "Comments",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_091",
+            "label": "OTHER",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_092",
+            "label": "Item 1",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_093",
+            "label": "Item 2",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_094",
+            "label": "Item 3",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_095",
+            "label": "Section 6",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_096",
+            "label": "Corrective Action No.1",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_097",
+            "label": "Completion Date",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_098",
+            "label": "Owner",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_099",
+            "label": "Corrective Action No.2",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_100",
+            "label": "Completion Date",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_101",
+            "label": "Owner",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_102",
+            "label": "Corrective Action No.3",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_103",
+            "label": "Completion Date",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_104",
+            "label": "Owner",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_105",
+            "label": "Corrective Action No.4",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_106",
+            "label": "Completion Date",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_107",
+            "label": "Owner",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_108",
+            "label": "Corrective Action No.5",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_109",
+            "label": "Completion Date",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_110",
+            "label": "Owner",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_111",
+            "label": "Rating",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_112",
+            "label": "Auditee Signature?",
+            "type": "signature",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_113",
+            "label": "Auditor Signature?",
+            "type": "signature",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_114",
+            "label": "Completion Date",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_115",
+            "label": "Review of corrective actions",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_116",
+            "label": "Review date",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "fm15_117",
+            "label": "Can the audit be closed off?",
+            "type": "text",
+            "required": false,
+            "options": []
+          }
+        ],
+        "client_template_features": 2
+      }
+    },
+    {
+      "id": "harness",
+      "publish": true,
+      "department_id": 2,
+      "source_library_ids": [
+        "libfile_af16f4abb2c88191becd58f62a80d1b5",
+        "libfile_3a8ac261721081918460c42a59901860"
+      ],
+      "email_enabled": false,
+      "email_recipient": null,
+      "requiredness": "Unknown in completed PDF; all fields optional.",
+      "choices": "Blank text: complete source choice menus are not available.",
+      "payload": {
+        "name": "Report of Thorough Examination -Fall Arrest Lanyard / harness",
+        "description": "Blank reusable template transcribed from supplied example reports.",
+        "fields": [
+          {
+            "id": "harness_001",
+            "label": "Section 1",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_002",
+            "label": "Owner of the equipment",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_003",
+            "label": "Report Number",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_004",
+            "label": "Description of Equipment",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_005",
+            "label": "Equipment Location",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_006",
+            "label": "Manufacturer's Serial Number",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_007",
+            "label": "Type of Examination: Thorough Examination",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_008",
+            "label": "Date of Manufacture",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_009",
+            "label": "Remove from Service Date (If Applicable)",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_010",
+            "label": "Date of Test",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_011",
+            "label": "Next Inspection Due:",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_012",
+            "label": "Components Examined: Pass of Fail",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_013",
+            "label": "Type of Examination-Thorough",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_014",
+            "label": "Label and Manufacturer Information",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_015",
+            "label": "Within Life Period--Max 10 years ASNZS 1891.1 Max 5 years EN 361.02",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_016",
+            "label": "Shock absorber (no partial deployment)",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_017",
+            "label": "Lanyard Webbing (cuts, tears, abrasion, fraying, burns, chemical, UV)",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_018",
+            "label": "Stitching (Stretching, broken threads, cut threads)",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_019",
+            "label": "Hooks (double action, selft-closing, locking, operation)",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_020",
+            "label": "Photos (optional)",
+            "type": "photos",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_021",
+            "label": "Comments",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_022",
+            "label": "Name of the person making this report:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_023",
+            "label": "Date of Report",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_024",
+            "label": "Signature",
+            "type": "signature",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_025",
+            "label": "Comments",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "harness_026",
+            "label": "This examination has been carried out in accorgance with AS/NZS 1891:4 2009",
+            "type": "section",
+            "required": false,
+            "options": []
+          }
+        ],
+        "client_template_features": 2
+      }
+    },
+    {
+      "id": "axon",
+      "publish": true,
+      "department_id": 2,
+      "source_library_ids": [
+        "libfile_59a76847af488191855077d8dcca5c2d"
+      ],
+      "email_enabled": false,
+      "email_recipient": null,
+      "requiredness": "Unknown in completed PDF; all fields optional.",
+      "choices": "Blank text: complete source choice menus are not available.",
+      "payload": {
+        "name": "QA – James Hardies Axon",
+        "description": "Blank reusable template transcribed from supplied example reports.",
+        "fields": [
+          {
+            "id": "axon_001",
+            "label": "Design",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_002",
+            "label": "Project:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_003",
+            "label": "Quality Assurance & Control",
+            "type": "section",
+            "required": false,
+            "options": [],
+            "description": "This Quality Assurance & Control (QAC) form shall be completed for each timber framed floor, to ensure conformance with approved standard NZS 3604:2011. The form shall be stored electronically in the project folder, and as a hard copy in the site QAC folder."
+          },
+          {
+            "id": "axon_004",
+            "label": "Drawing Ref:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_005",
+            "label": "Specification Ref:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_006",
+            "label": "Inspection Ref:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_007",
+            "label": "Installation",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_008",
+            "label": "Is the site wind zone confirmed as suitable for direct fix (generally up to Extra High per James Hardie specification)?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_009",
+            "label": "Is framing straight, plumb, dry, and compliant with NZS 3604 tolerances?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_010",
+            "label": "Is approved flexible wall underlay installed correctly with proper laps, fixing, and penetrations sealed?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_011",
+            "label": "Are studs spaced correctly (typically max 600mm centres unless engineering specifies otherwise)?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_012",
+            "label": "Is minimum 150mm clearance to finished ground and 50mm to paved surfaces maintained?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_013",
+            "label": "Are specified corrosion-resistant nails or screws used (correct class for exposure zone)?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_014",
+            "label": "Are fasteners installed at correct centres to studs and sheet edges per wind zone requirement?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_015",
+            "label": "Are vertical joints (PVC/aluminium jointers or expressed detail) installed correctly and aligned?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_016",
+            "label": "Are head flashings, sill flashings, meter boxes, pipes, and other penetrations flashed and sealed per specification?",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_017",
+            "label": "Comments",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_018",
+            "label": "Completed By:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_019",
+            "label": "Date Completed:",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_020",
+            "label": "Attachments",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "axon_021",
+            "label": "Multi Photo",
+            "type": "photos",
+            "required": false,
+            "options": []
+          }
+        ],
+        "client_template_features": 2
+      }
+    },
+    {
+      "id": "ecoply",
+      "publish": true,
+      "department_id": 2,
+      "source_library_ids": [
+        "libfile_3a67cd3212088191b2dc8b654927f81f"
+      ],
+      "email_enabled": false,
+      "email_recipient": null,
+      "requiredness": "Unknown in completed PDF; all fields optional.",
+      "choices": "Blank text: complete source choice menus are not available.",
+      "payload": {
+        "name": "QA SVS Ecoply+Cavity",
+        "description": "Blank reusable template transcribed from supplied example reports.",
+        "fields": [
+          {
+            "id": "ecoply_001",
+            "label": "1",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_002",
+            "label": "Date/Time",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_003",
+            "label": "Site:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_004",
+            "label": "Drawing Ref:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_005",
+            "label": "Location:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_006",
+            "label": "Ecoply",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_007",
+            "label": "Correct Ecoply Barrier installed with coated face facing outward. Panels undamaged and dry.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_008",
+            "label": "Panels fixed with approved fasteners. Edge fixings max. 150 mm centres, intermediate fixings max. 300 mm centres (or as specified for wind zone/bracing).",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_009",
+            "label": "All sheet edges fully supported by framing. Vertical sheet joints have 2–3 mm expansion gap.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_010",
+            "label": "Bottom sheet overhangs bottom plate 25–40 mm and required ground clearances maintained.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_011",
+            "label": "Vertical joints, internal/external corners and window/door jambs taped with approved Ecoply sealing tape.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_012",
+            "label": "Horizontal sheet joints protected with approved Z flashing or specified sealing tape.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_013",
+            "label": "Window and door sill flashing tape installed correctly.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_014",
+            "label": "Service penetrations sealed with approved flexible tape. No unsealed holes or gaps.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_015",
+            "label": "Cavity Battens",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_016",
+            "label": "Correct cavity batten type and thickness installed to specification (typically minimum 18 mm cavity where required).",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_017",
+            "label": "Battens straight, plumb and securely fixed into framing only.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_018",
+            "label": "Fasteners penetrate framing adequately and do not damage Ecoply Barrier.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_019",
+            "label": "Battens positioned to maintain continuous drainage path from top to bottom.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_020",
+            "label": "Vermin closer/base closure installed where specified.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_021",
+            "label": "Battens correctly terminated around windows, doors and flashings without blocking drainage.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_022",
+            "label": "Flashings remain unobstructed and water can discharge freely over flashings.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_023",
+            "label": "No crushed, split or loose battens. Damaged battens replaced.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_024",
+            "label": "Ventilation openings at top and bottom of cavity remain clear.",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_025",
+            "label": "ATTACHMENTS",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ecoply_026",
+            "label": "Multi Photo",
+            "type": "photos",
+            "required": false,
+            "options": []
+          }
+        ],
+        "client_template_features": 2
+      },
+      "adaptations": [
+        "Site and Drawing Ref are blank entries; example fixed site/drawing references are not defaults."
+      ]
+    },
+    {
+      "id": "excavator",
+      "publish": true,
+      "department_id": 2,
+      "source_library_ids": [
+        "libfile_e50aad1c09f48191b4f16b51b2550453"
+      ],
+      "email_enabled": false,
+      "email_recipient": null,
+      "requiredness": "Unknown in completed PDF; all fields optional.",
+      "choices": "Blank text: complete source choice menus are not available.",
+      "payload": {
+        "name": "Excavator Pre-start Checklist",
+        "description": "Blank reusable template transcribed from supplied example reports.",
+        "fields": [
+          {
+            "id": "excavator_001",
+            "label": "Checklist",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_002",
+            "label": "Operator:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_003",
+            "label": "Site:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_004",
+            "label": "Location",
+            "type": "location",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_005",
+            "label": "Date:",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_006",
+            "label": "Model:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_007",
+            "label": "KM's",
+            "type": "number",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_008",
+            "label": "CHECK THE FOLLOWING:",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_009",
+            "label": "Lights & Indicators and mirrors:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_010",
+            "label": "Reversing beepers & horns:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_011",
+            "label": "Boom lift, bucket, pins & brushes:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_012",
+            "label": "Hydraulics (check for leaks):",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_013",
+            "label": "Track train & plates:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_014",
+            "label": "Guards secure:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_015",
+            "label": "Water, oil and coolant at required levels:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_016",
+            "label": "Seatbelt, mirrors and windscreen wipers working:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_017",
+            "label": "Grease points well lubricated:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_018",
+            "label": "Foot pedals and steering operate correctly:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_019",
+            "label": "FOPS, side mesh and safety bar:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_020",
+            "label": "Fire extinguisher and first aid kit:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_021",
+            "label": "List any failings below:",
+            "type": "textarea",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_022",
+            "label": "Add photos:",
+            "type": "photos",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_023",
+            "label": "Signature",
+            "type": "signature",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "excavator_024",
+            "label": "Name:",
+            "type": "text",
+            "required": false,
+            "options": []
+          }
+        ],
+        "client_template_features": 2
+      },
+      "adaptations": [
+        "Explicit device location capture with coordinates, accuracy and timestamp. Form/PDF map link needs internet; no map tiles embedded in PDF.",
+        "Source KM's and brushes labels retained."
+      ]
+    },
+    {
+      "id": "ppe",
+      "publish": false,
+      "department_id": 2,
+      "source_library_ids": [
+        "libfile_147dc3b9b2d481919cc6d27ba9abae32"
+      ],
+      "email_enabled": false,
+      "email_recipient": null,
+      "requiredness": "Unknown in completed PDF; all fields optional.",
+      "choices": "Blank text: complete source choice menus are not available.",
+      "payload": {
+        "name": "PPE ISSUE/ TOOL DEDUCTION FORM",
+        "description": "Blank reusable template transcribed from supplied example reports.",
+        "fields": [
+          {
+            "id": "ppe_001",
+            "label": "Section 1",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_002",
+            "label": "Employee name:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_003",
+            "label": "Date:",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_004",
+            "label": "Tools/ PPE",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_005",
+            "label": "Description of Equipment",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_006",
+            "label": "Manufacturer's Serial Number:",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_007",
+            "label": "Date of Manufacture",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_008",
+            "label": "Date of Test:",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_009",
+            "label": "Next Inspection Due:",
+            "type": "date",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_010",
+            "label": "Quantity:",
+            "type": "number",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_011",
+            "label": "Price",
+            "type": "number",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_012",
+            "label": "Tools/ PPE",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_013",
+            "label": "Quantity:",
+            "type": "number",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_014",
+            "label": "Price",
+            "type": "number",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_015",
+            "label": "Acknowledgment",
+            "type": "section",
+            "required": false,
+            "options": [],
+            "description": "I have received the above Tools/ PPE issued to me\n\nThank You"
+          },
+          {
+            "id": "ppe_016",
+            "label": "Sign by Employee:",
+            "type": "signature",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_017",
+            "label": "AUTHORITY TO DEDUCT FROM WAGES",
+            "type": "section",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_018",
+            "label": "Multi Photo",
+            "type": "photos",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_019",
+            "label": "Acknowledgment",
+            "type": "section",
+            "required": false,
+            "options": [],
+            "description": "I hereby authorize and direct you to deduct from my salary the amount of:\n\nThank You"
+          },
+          {
+            "id": "ppe_020",
+            "label": "Amount: $",
+            "type": "number",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_021",
+            "label": "For: PPE/ RENT/ Others",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_022",
+            "label": "Weekly/ Fortightly",
+            "type": "text",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_023",
+            "label": "Over _____ Instalments",
+            "type": "number",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_024",
+            "label": "Acknowledgment",
+            "type": "section",
+            "required": false,
+            "options": [],
+            "description": "Deductions are to commence from the first pay period after acceptance by you of this authority and are to continue until, or otherwise until revoked or varied by me in writing\n\nThank You"
+          },
+          {
+            "id": "ppe_025",
+            "label": "Signature",
+            "type": "signature",
+            "required": false,
+            "options": []
+          },
+          {
+            "id": "ppe_026",
+            "label": "Date",
+            "type": "date",
+            "required": false,
+            "options": []
+          }
+        ],
+        "client_template_features": 2
+      },
+      "hold_reason": "Draft only. Source deduction wording is incomplete and awaits owner review. Receipt and deduction signatures are independent; neither is required."
+    }
+  ]
+}
+

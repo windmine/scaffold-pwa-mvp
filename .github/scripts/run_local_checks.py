@@ -34,6 +34,7 @@ BACKEND_SUITES = (
     "report_pdf_unicode_test.py",
     "report_pdf_volume_test.py",
     "template_edit_test.py",
+    "template_source_support_test.py",
     "invitation_test.py",
     "password_recovery_test.py",
     "report_upload_recovery_test.py",

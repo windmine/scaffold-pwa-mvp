@@ -6,7 +6,7 @@ import {
 } from './i18n.js';
 import { escapeHtml } from './utils.js';
 
-const MAX_FIELDS = 30;
+const MAX_FIELDS = 128;
 const MAX_REPEAT_ROWS = 50;
 const CONDITION_OPERATORS = ['!=', '>=', '<=', '=', '>', '<'];
 const FIELD_ID_PATTERN = /^[a-z0-9_]+$/;
@@ -20,6 +20,8 @@ export const WORK_FORM_FIELD_TYPES = Object.freeze([
   { value: 'select', label: 'Choice' },
   { value: 'checkbox', label: 'Yes / No' },
   { value: 'signature', label: 'Signature' },
+  { value: 'photos', label: 'Photos' },
+  { value: 'location', label: 'Captured location' },
   { value: 'section', label: 'Section heading' },
   { value: 'time_range', label: 'Time range' },
   { value: 'formula', label: 'Calculated value' },
@@ -174,6 +176,10 @@ export function validateWorkFormBuilderFields(inputFields = []) {
       addFieldError(result, field.id, `${field.label || 'Field'} has an unsupported type.`);
     }
 
+    if (field.description && (field.type !== 'section' || typeof field.description !== 'string' || field.description.length > 500)) {
+      addFieldError(result, field.id, 'Static instructions need a section heading and may contain up to 500 characters.');
+    }
+
     if (field.type === 'select') {
       if (!field.options.length) {
         addFieldError(result, field.id, `${field.label || 'Choice'} needs at least one option.`);
@@ -184,6 +190,9 @@ export function validateWorkFormBuilderFields(inputFields = []) {
 
     if (field.repeat && !repeatIds.has(field.repeat)) {
       addFieldError(result, field.id, `${field.label || 'Field'} belongs to a missing repeating group.`);
+    }
+    if (['photos', 'location'].includes(field.type) && (field.repeat || field.show_if)) {
+      addFieldError(result, field.id, 'Photo and location fields must be unconditional top-level fields.');
     }
     if (field.type === 'repeat' && field.repeat) {
       addFieldError(result, field.id, 'Repeating groups cannot be nested.');
@@ -368,6 +377,10 @@ function renderConditionControls(field, fields) {
 }
 
 function renderTypeSpecificControls(field) {
+  if (field.type === 'section') {
+    return `<label>Static instructions <span class="muted">(optional, shown in the form and PDF)</span>
+      <textarea rows="5" maxlength="500" data-field-property="description">${escapeHtml(field.description || '')}</textarea></label>`;
+  }
   if (field.type === 'select') {
     return `
       <label class="work-form-options-control">
@@ -717,6 +730,7 @@ export function createWorkFormBuilder(root, {
     const generation = editorGeneration;
     const children = field.type === 'repeat' ? fields.filter((item) => item.repeat === field.id) : [];
     const losesData = (field.type === 'select' && field.options.length)
+      || Boolean(field.description)
       || (field.type === 'formula' && field.formula)
       || children.length;
     const accepted = !losesData || await confirmAction({
@@ -734,6 +748,7 @@ export function createWorkFormBuilder(root, {
     if (children.length) fields = fields.filter((item) => item.repeat !== field.id);
     if (field.type === 'select') field.options = [];
     if (field.type === 'formula') field.formula = '';
+    if (field.type === 'section') delete field.description;
     field.type = nextType;
     if (nextType === 'section' || nextType === 'formula') field.required = false;
     if (nextType === 'select') field.options = [];
@@ -766,6 +781,9 @@ export function createWorkFormBuilder(root, {
       );
     } else if (property === 'options') {
       field.options = target.value.split(/\r?\n/).map((option) => option.trim()).filter(Boolean);
+    } else if (property === 'description') {
+      if (target.value) field.description = target.value;
+      else delete field.description;
     } else if (property === 'formula') {
       field.formula = target.value.trim();
     } else if (property === 'min-rows') {
@@ -878,7 +896,15 @@ export function createWorkFormBuilder(root, {
 
   function applyRaw() {
     const lineErrors = rawLineErrors(rawInput.value);
-    const parsed = parseWorkFormFieldsInput(rawInput.value);
+    let parsed;
+    try {
+      parsed = parseWorkFormFieldsInput(rawInput.value);
+    } catch {
+      setRawFeedback('Static instructions contain invalid encoded text. Check the description metadata.', 'error');
+      rawInput.setAttribute('aria-invalid', 'true');
+      rawInput.focus();
+      return false;
+    }
     const validation = validateWorkFormBuilderFields(parsed);
     const errors = [...lineErrors, ...validation.errors];
     if (errors.length) {

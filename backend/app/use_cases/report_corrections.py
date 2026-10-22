@@ -12,6 +12,7 @@ from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
     ensure_site_exists, normalize_work_form_fields, normalize_work_form_photo_metadata, normalize_work_form_photo_urls,
     parse_json_list, validate_owned_upload_references, validate_work_form_answers,
+    require_template_features,
     work_form_submission_definition, work_form_submission_response, work_form_upload_references,
 )
 
@@ -40,6 +41,7 @@ def correct_report(submission, data, supervisor, session):
     except (ValueError, TypeError, HTTPException):
         raise HTTPException(status_code=409, detail={"code": "report_definition_unavailable",
             "message": "This Report's original Definition is unavailable. Its saved content cannot be edited."}) from None
+    require_template_features(snapshot["fields"], data.client_template_features)
     fields = data.model_fields_set
     if "status" in fields:
         raise HTTPException(status_code=409, detail="Reports no longer use review states. Refresh Reports.")
@@ -93,7 +95,8 @@ def correct_report(submission, data, supervisor, session):
         metadata = (data.photo_metadata if "photo_metadata" in fields else
                     [item for item in parse_json_list(submission.photo_metadata) if item.get("url") in urls])
         by_url = {item.get("url"): item for item in (metadata or []) if isinstance(item, dict)}
-        normalized = normalize_work_form_photo_metadata(urls, [by_url.get(url, {"url": url}) for url in urls])
+        normalized = normalize_work_form_photo_metadata(urls, [by_url.get(url, {"url": url}) for url in urls],
+                                                       work_form_submission_definition(submission, session)["fields"])
         values["photo_urls"] = json.dumps(urls) if urls else None
         values["photo_metadata"] = json.dumps(normalized) if normalized else None
     changed = any(getattr(submission, key) != value for key, value in values.items())

@@ -204,8 +204,8 @@ export function createPhotoViewer({
       const metadata = state.reportGallery ? state.photoMetadata[index] : null;
       const takenAt = metadata?.taken_at || metadata?.last_modified_iso;
       const validTime = takenAt && Number.isFinite(new Date(takenAt).getTime());
-      timestamp.hidden = !validTime;
-      timestamp.textContent = validTime ? formatDateTime(takenAt) : '';
+      timestamp.hidden = !validTime && !metadata?.field_label;
+      timestamp.textContent = [metadata?.field_label, validTime ? formatDateTime(takenAt) : ''].filter(Boolean).join(' · ');
     }
     previousButton.disabled = count < 2;
     nextButton.disabled = count < 2;
@@ -346,6 +346,7 @@ export function createPhotoViewer({
           <img ${index >= 8 ? 'loading="lazy" ' : ''}decoding="async" ${lightweight ? 'hidden' : `src="${escapeHtml(dataUrl)}"`} alt="${escapeHtml(`${alt} ${index + 1}`)}" />
           ${lightweight ? '<span class="photo-thumb-placeholder"></span>' : ''}
           ${metadata[index]?.takenAtLabel ? `<span class="photo-time">${escapeHtml(metadata[index].takenAtLabel)}</span>` : ''}
+          ${metadata[index]?.field_label ? `<span class="photo-field-label">${escapeHtml(metadata[index].field_label)}</span>` : ''}
         </button>
       `)
       .join('');
@@ -356,7 +357,7 @@ export function createPhotoViewer({
         button.querySelector('.photo-thumb-placeholder').id = `report-photo-preview-description-${++nextPreviewDescriptionId}`;
       }
       button.addEventListener('click', () => {
-        open(urls, Number(button.dataset.photoIndex || 0), alt);
+        open(urls, Number(button.dataset.photoIndex || 0), alt, { reportGallery: lightweight, photoMetadata: metadata });
       });
     });
 

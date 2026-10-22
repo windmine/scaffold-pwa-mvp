@@ -281,7 +281,7 @@ try {
     await assertCards(page, [templates[2].name]);
     await page.locator('#workFormStatusFilter').selectOption('active');
     await assertCards(page, [templates[0].name]);
-    assert.deepEqual(basic.mutations.map(({ body }) => body), [{ status: 'archived', confirmed: true }, { status: 'active', confirmed: true }]);
+    assert.deepEqual(basic.mutations.map(({ body }) => body), [{ status: 'archived', confirmed: true, client_template_features: 2 }, { status: 'active', confirmed: true, client_template_features: 2 }]);
     assert.equal(basic.mutations[0].headers['x-csrf-token'], 'TemplateLibraryFixture');
     console.log('ok - archive/reactivate immediately respect the current status filter and preserve the search, with existing CSRF transport');
   } finally { await basic.close(); }
