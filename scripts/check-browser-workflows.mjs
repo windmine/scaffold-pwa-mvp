@@ -1464,7 +1464,7 @@ async function checkSharedDeviceWorkerReportPrivacy(browser, {
     await failedHistory;
     await delay(250);
     await openReportTools(page, '#historyFilters');
-    await page.locator('#historyStatusFilter').selectOption('resolved');
+    await page.locator('#historyStatusFilter').selectOption('submitted');
     await openReportTools(page, '#historyFilters');
     await page.locator('#historyStatusFilter').selectOption('');
     await assertPrivateDataCleared('replacement Worker history failed and filters rerendered');
@@ -1522,7 +1522,7 @@ async function checkSharedDeviceSupervisorReportPrivacy(browser) {
     const card = page.locator('#reviewQueueList .record-form').filter({ hasText: privateAnswer }).first();
     await card.waitFor({ state: 'visible', timeout: 20000 });
     await card.click();
-    await page.locator('#reviewQueueActions').getByRole('button', { name: 'Start review' }).waitFor();
+    await page.locator('#reviewQueueActions').getByRole('button', { name: 'Edit', exact: true }).waitFor();
 
     const assertDepartmentDataCleared = async (phase) => {
       const leaked = await page.evaluate((answer) => ({
@@ -1561,7 +1561,7 @@ async function checkSharedDeviceSupervisorReportPrivacy(browser) {
     await oldQueueSeen;
     // Keep the private detail open during the delayed refresh/account switch.
     await card.click();
-    await page.locator('#reviewQueueActions').getByRole('button', { name: 'Start review' }).waitFor();
+    await page.locator('#reviewQueueActions').getByRole('button', { name: 'Edit', exact: true }).waitFor();
     await logout(page);
     await assertDepartmentDataCleared('Supervisor logged out');
     // Preserve the document and its module state through the account handoff.
@@ -1985,7 +1985,7 @@ async function checkReportRestoredPhotosAppendAndSubmit(browser) {
     if (JSON.stringify(photoColors) !== JSON.stringify([[220, 38, 38], [37, 99, 235]])) {
       throw new Error(`restored and appended Report photo uploads changed content or order: ${JSON.stringify(photoColors)}`);
     }
-    await page.locator('#workFormFeedback').getByText('Inspection form submitted for review').waitFor({ state: 'visible' });
+    await page.locator('#workFormFeedback').getByText('Inspection form submitted.').waitFor({ state: 'visible' });
     await openMyReportsAfterDraftRead(page);
     if ((await page.locator('#reportDraftsList').textContent()).trim()
       || await page.locator('#reportDraftsPanel').isVisible()) {
@@ -2414,7 +2414,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
       || workerShell.siteRequired
       || workerShell.horizontalOverflow > 1
       || workerShell.smallestPrimaryActionHeight < 44
-      || JSON.stringify(workerShell.statusOptions) !== JSON.stringify(['', 'submitted', 'in_review', 'resolved', 'queued'])
+      || JSON.stringify(workerShell.statusOptions) !== JSON.stringify(['', 'submitted', 'queued'])
       || workerShell.submitLabel !== 'Review & submit'
     ) {
       throw new Error(`normal Worker report-only shell was incorrect: ${JSON.stringify(workerShell)}`);
@@ -2473,7 +2473,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     if (submissionPayload.work_date !== '2026-09-01' || submissionPayload.site_id !== null) {
       throw new Error(`Report Date or optional Site payload was incorrect: ${JSON.stringify(submissionPayload)}`);
     }
-    await page.locator('#workFormFeedback').getByText('Inspection form submitted for review').waitFor({ timeout: 20000 });
+    await page.locator('#workFormFeedback').getByText('Inspection form submitted.').waitFor({ timeout: 20000 });
 
     await page.locator('.tab[data-tab-target="historyTab"]').click();
     await page.locator('#historyTab').waitFor({ state: 'visible', timeout: 10000 });
@@ -2540,8 +2540,8 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
       || supervisorShell.type !== 'form'
       || supervisorShell.typeVisible
       || supervisorShell.status !== ''
-      || !supervisorShell.statusVisible
-      || JSON.stringify(supervisorShell.statusOptions) !== JSON.stringify(['', 'submitted', 'in_review', 'resolved'])
+      || supervisorShell.statusVisible
+      || JSON.stringify(supervisorShell.statusOptions) !== JSON.stringify([''])
       || !supervisorShell.templateVisible
       || !supervisorShell.workerVisible
       || !supervisorShell.reportCsvVisible
@@ -2574,13 +2574,12 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
       const url = new URL(response.url());
       return response.request().method() === 'GET'
         && url.pathname === '/api/supervisor/review-queue'
-        && url.searchParams.get('workflow_status') === 'submitted'
+        && !url.searchParams.has('workflow_status')
         && url.searchParams.get('form_id') === String(submittedReport.form_id)
         && url.searchParams.get('worker_id') === String(submittedReport.worker_id)
         && url.searchParams.get('record_date') === '2026-09-01';
     });
     await openReportTools(page, '#reportReviewFilters');
-    await page.locator('#supervisorStatusFilter').selectOption('submitted');
     await openReportTools(page, '#reportReviewFilters');
     await page.locator('#supervisorTemplateFilter').selectOption({ label: 'Inspection form' });
     await openReportTools(page, '#reportReviewFilters');
@@ -2606,106 +2605,53 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     await supervisorReport.click();
 
     const submittedActions = page.locator('#reviewQueueActions');
-    const startReviewButton = submittedActions.getByRole('button', { name: 'Start review' });
-    await startReviewButton.waitFor({ timeout: 10000 });
-    if (
-      await submittedActions.getByRole('button', { name: 'Approve', exact: true }).count()
-      || await submittedActions.getByRole('button', { name: 'Reject', exact: true }).count()
-      || await submittedActions.getByRole('button', { name: 'Edit', exact: true }).count()
-      || await submittedActions.getByRole('button', { name: 'Move to bin', exact: true }).count()
-      || await startReviewButton.evaluate((button) => button.getBoundingClientRect().height < 44)
-    ) {
-      throw new Error('report-only Review Queue exposed legacy Approve, Reject, Edit, or rubbish-bin controls');
+    const editButton = submittedActions.getByRole('button', { name: 'Edit', exact: true });
+    await editButton.waitFor({ timeout: 10000 });
+    for (const name of ['Start review', 'Resolve report', 'Approve', 'Reject', 'Move to bin']) {
+      if (await submittedActions.getByRole('button', { name, exact: true }).count()) {
+        throw new Error(`Report exposed retired or legacy action ${name}`);
+      }
     }
-
-    const startReviewResponse = page.waitForResponse((response) => (
-      response.request().method() === 'POST'
-      && new URL(response.url()).pathname === `/api/supervisor/form-submissions/${submittedReport.id}/transition`
+    if (await editButton.evaluate((button) => button.getBoundingClientRect().height < 44)) {
+      throw new Error('Report Edit action must retain a phone-sized touch target');
+    }
+    await editButton.click();
+    const correctedAnswer = 'Replacement safety glasses issued and details corrected.';
+    await page.locator('#reportCorrectionField_issues_found').fill(correctedAnswer);
+    await page.locator('#editReportDate').fill('2026-09-02');
+    const correctionResponse = page.waitForResponse((response) => (
+      response.request().method() === 'PATCH'
+      && new URL(response.url()).pathname === `/api/supervisor/form-submissions/${submittedReport.id}`
     ));
-    await startReviewButton.click();
-    const startReviewResult = await startReviewResponse;
-    const startReviewPayload = startReviewResult.request().postDataJSON();
-    if (!startReviewResult.ok() || startReviewPayload.status !== 'in_review') {
-      throw new Error(`Start review transition was incomplete: ${JSON.stringify(startReviewPayload)}`);
+    await page.locator('#editPanelForm button[type="submit"]').click();
+    const correctionResult = await correctionResponse;
+    const correctionPayload = correctionResult.request().postDataJSON();
+    const correctedReport = await correctionResult.json();
+    if (!correctionResult.ok() || correctionPayload.expected_revision !== submittedReport.revision
+      || !correctionPayload.confirmed || correctedReport.revision !== submittedReport.revision + 1
+      || correctedReport.answers.issues_found !== correctedAnswer || correctedReport.work_date !== '2026-09-02'
+      || correctedReport.worker_id !== submittedReport.worker_id || correctedReport.form_id !== submittedReport.form_id
+      || correctedReport.client_submission_id !== submittedReport.client_submission_id) {
+      throw new Error(`Supervisor correction changed identity or failed: ${JSON.stringify(correctedReport)}`);
     }
-    await page.locator('#reviewQueueList .empty-state').waitFor({ state: 'visible', timeout: 10000 });
-
+    await page.locator('#supervisorEditPanel').waitFor({ state: 'hidden' });
+    // A stale real-backend correction cannot overwrite the newly saved revision.
+    const staleStatus = await page.evaluate(async ({ id, revision }) => {
+      const { getSession, updateSupervisorFormSubmission } = await import('/assets/js/api-client.js');
+      const user = getSession();
+      try { await updateSupervisorFormSubmission(id, { expected_revision: revision, work_date: '2026-09-03' },
+        { workerId: user.id, departmentId: user.departmentId, role: user.role }); return 200; }
+      catch (error) { return error.status; }
+    }, { id: submittedReport.id, revision: submittedReport.revision });
+    if (staleStatus !== 409) throw new Error(`Stale Report correction must conflict, received ${staleStatus}`);
     await openReportTools(page, '#reportReviewFilters');
-
-    await page.locator('#supervisorStatusFilter').selectOption('in_review');
-    const inReviewReport = page.locator('#reviewQueueList .record-form').filter({ hasText: reportMarker }).first();
-    await inReviewReport.waitFor({ state: 'visible', timeout: 20000 });
-    await inReviewReport.click();
-    const resolveButton = page.locator('#reviewQueueActions').getByRole('button', { name: 'Resolve report' });
-    await resolveButton.click();
-    const resolutionNote = page.locator('#reportResolutionNote');
-    await resolutionNote.waitFor({ state: 'visible', timeout: 10000 });
-    // Visibility precedes the private IndexedDB read; focus is applied only
-    // after the saved note has loaded and the field is safe to edit.
-    await page.waitForFunction(() => {
-      const field = document.querySelector('#reportResolutionNote');
-      return Boolean(field && !field.disabled);
-    }, null, { timeout: 10000 });
-    const resolutionPhoneLayout = await page.evaluate(() => ({
-      horizontalOverflow: document.documentElement.scrollWidth - window.innerWidth,
-      submitHeight: document.querySelector('#reportNoteForm button[type="submit"]')?.getBoundingClientRect().height || 0,
-      focusedField: document.activeElement?.id || ''
-    }));
-    if (
-      resolutionPhoneLayout.horizontalOverflow > 1
-      || resolutionPhoneLayout.submitHeight < 44
-      || resolutionPhoneLayout.focusedField !== 'reportResolutionNote'
-    ) {
-      throw new Error(`Report resolution panel was not phone-ready: ${JSON.stringify(resolutionPhoneLayout)}`);
-    }
-    if ((await resolutionNote.getAttribute('required')) === null) {
-      throw new Error('Resolution note was not required');
-    }
-    await page.locator('#reportNoteForm button[type="submit"]').click();
-    if (!(await resolutionNote.evaluate((field) => field.matches(':invalid') && document.activeElement === field))) {
-      throw new Error('empty resolution note was not blocked and focused');
-    }
-    await resolutionNote.fill('Replacement safety glasses issued.');
-    const resolveResponse = page.waitForResponse((response) => (
-      response.request().method() === 'POST'
-      && new URL(response.url()).pathname === `/api/supervisor/form-submissions/${submittedReport.id}/transition`
-    ));
-    await page.locator('#reportNoteForm button[type="submit"]').click();
-    const resolvedResponse = await resolveResponse;
-    const resolveRequestPayload = resolvedResponse.request().postDataJSON();
-    const resolvedPayload = await resolvedResponse.json();
-    if (
-      resolveRequestPayload.status !== 'resolved'
-      || resolveRequestPayload.supervisor_note !== 'Replacement safety glasses issued.'
-      || resolvedPayload.workflow_status !== 'resolved'
-      || resolvedPayload.supervisor_note !== 'Replacement safety glasses issued.'
-    ) {
-      throw new Error(`Resolve report transition was incomplete: ${JSON.stringify(resolvedPayload)}`);
-    }
-    // The in-review filter removes the resolved Report and restores the inbox.
-    await page.locator('#reviewQueueList .empty-state').waitFor({ state: 'visible', timeout: 10000 });
-    await openReportTools(page, '#reportReviewFilters');
-    await page.locator('#supervisorStatusFilter').selectOption('resolved');
-    const resolvedSupervisorReport = page.locator('#reviewQueueList .record-form').filter({ hasText: reportMarker }).first();
-    await resolvedSupervisorReport.waitFor({ state: 'visible', timeout: 20000 });
-    await resolvedSupervisorReport.click();
-    await page.locator('#reviewQueueDetail .report-supervisor-note').waitFor({ state: 'visible' });
-    if (!(await page.locator('#reviewQueueDetailTitle').innerText()).includes('Inspection form')
-      || await page.locator('#reviewQueueDetail .record-title').count()) {
-      throw new Error('Supervisor Report title must remain in its surrounding heading without a repeated inner title');
-    }
-    await page.locator('#reviewQueueDetail .record-report-more-details summary').click();
-    const resolvedSupervisorText = await page.locator('#reviewQueueDetail').innerText();
-    if (
-      !resolvedSupervisorText.includes('Resolved')
-      || !resolvedSupervisorText.includes('Reviewing supervisor:')
-      || !resolvedSupervisorText.includes('Review started:')
-      || !resolvedSupervisorText.includes('Resolved:')
-      || !resolvedSupervisorText.includes('Final supervisor note:')
-      || !resolvedSupervisorText.includes('Replacement safety glasses issued.')
-      || await page.locator('#reviewQueueActions').getByRole('button', { name: 'Resolve report' }).count()
-    ) {
-      throw new Error(`resolved Supervisor Report detail was incomplete: ${resolvedSupervisorText}`);
+    await page.locator('#clearSupervisorFiltersButton').click();
+    await supervisorReport.waitFor({ state: 'visible', timeout: 20000 });
+    await supervisorReport.click();
+    const correctedSupervisorText = await page.locator('#reviewQueueDetail').innerText();
+    if (!correctedSupervisorText.includes(correctedAnswer) || !correctedSupervisorText.includes('2026-09-02')
+      || /Final supervisor note:|Review started:|Resolved:/.test(correctedSupervisorText)) {
+      throw new Error(`Corrected Supervisor Report detail was incomplete: ${correctedSupervisorText}`);
     }
 
     await openAdminWorkspace(page, 'forms');
@@ -2739,31 +2685,17 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     await page.locator('.tab[data-tab-target="historyTab"]').click();
     await page.locator('#historyList > .record-report-compact').first().waitFor({ state: 'visible' });
     await page.locator('#historyList > .record-report-compact .record-disclosure-button').first().click();
-    const resolvedHistoryRecord = page.locator('#historyList .record-form').filter({ hasText: reportMarker }).first();
-    await resolvedHistoryRecord.waitFor({ state: 'visible', timeout: 20000 });
-    if (!(await resolvedHistoryRecord.innerText()).includes('Replacement safety glasses issued.')) {
-      throw new Error('Final Supervisor note must be visible before opening secondary Report details');
-    }
-    await resolvedHistoryRecord.locator('.record-report-more-details summary').click();
-    const resolvedHistoryText = await resolvedHistoryRecord.innerText();
-    if (
-      !resolvedHistoryText.includes('Resolved')
-      || !resolvedHistoryText.includes('Reviewing supervisor:')
-      || !resolvedHistoryText.includes('Review started:')
-      || !resolvedHistoryText.includes('Resolved:')
-      || !resolvedHistoryText.includes('Final supervisor note:')
-      || !resolvedHistoryText.includes('Replacement safety glasses issued.')
-    ) {
-      throw new Error(`resolved Report history omitted its final Supervisor note: ${resolvedHistoryText}`);
+    const correctedHistoryRecord = page.locator('#historyList .record-form').filter({ hasText: reportMarker }).first();
+    await correctedHistoryRecord.waitFor({ state: 'visible', timeout: 20000 });
+    const correctedHistoryText = await correctedHistoryRecord.innerText();
+    if (!correctedHistoryText.includes(correctedAnswer) || !correctedHistoryText.includes('2026-09-02')
+      || /Final supervisor note:|Review started:|Resolved:/.test(correctedHistoryText)
+      || await correctedHistoryRecord.getByRole('button', { name: 'Edit', exact: true }).count()) {
+      throw new Error(`Worker did not receive the current read-only corrected Report: ${correctedHistoryText}`);
     }
     await openReportTools(page, '#historyFilters');
     await page.locator('#historyStatusFilter').selectOption('submitted');
-    await page.locator('#historyList .empty-state').waitFor({ state: 'visible', timeout: 10000 });
-    await openReportTools(page, '#historyFilters');
-    await page.locator('#historyStatusFilter').selectOption('resolved');
     await page.locator('#historyList > .record-report-compact').first().waitFor({ state: 'visible' });
-    await page.locator('#historyList > .record-report-compact .record-disclosure-button').first().click();
-    await resolvedHistoryRecord.waitFor({ state: 'visible', timeout: 10000 });
   } finally {
     await context.close();
   }
@@ -3278,7 +3210,7 @@ async function checkOfflineReportTemplateChange(browser) {
         recoveredAnswers: recoveredReport.answers, expectedAnswer: `Reviewed replacement ${stamp}`
       })}`);
     }
-    await page.locator('#workFormFeedback').getByText(`${formName} submitted for review`).waitFor({ timeout: 20000 });
+    await page.locator('#workFormFeedback').getByText(`${formName} submitted.`).waitFor({ timeout: 20000 });
     await waitForQueueCount(page, 1);
     const preservedOriginal = await page.evaluate(async (recordId) => {
       const { get } = await import('/assets/js/db.js');
@@ -3965,7 +3897,7 @@ async function checkReportOnlyExcludesDaywork(browser) {
     await page.locator('#workFormField_inspection_area').fill(reportMarker);
     await page.locator('#workFormField_inspection_result').selectOption('Pass');
     await reviewAndSubmitReport(page);
-    await page.locator('#workFormFeedback').getByText('Inspection form submitted for review').waitFor({ timeout: 20000 });
+    await page.locator('#workFormFeedback').getByText('Inspection form submitted.').waitFor({ timeout: 20000 });
 
     await page.locator('.tab[data-tab-target="historyTab"]').click();
     await openReportTools(page, '#historyFilters');
@@ -4179,7 +4111,7 @@ async function checkExplicitReportPurposeOverridesDayworkName(browser) {
     await page.locator('#workFormDate').fill('2026-09-01');
     await page.locator('#workFormField_issue').fill(answerMarker);
     await reviewAndSubmitReport(page);
-    await page.locator('#workFormFeedback').getByText(`${templateName} submitted for review`).waitFor({ timeout: 20000 });
+    await page.locator('#workFormFeedback').getByText(`${templateName} submitted.`).waitFor({ timeout: 20000 });
 
     await page.locator('.tab[data-tab-target="historyTab"]').click();
     const compactReport = page.locator('#historyList > .record-report-compact').filter({ hasText: templateName }).first();
@@ -5808,7 +5740,7 @@ async function checkRememberedSupervisorReportFilters(browser) {
     await page.locator('#supervisorWorkerFilter').selectOption({ index: 1 });
     const saved = {
       departmentId: await page.locator('#supervisorDepartmentFilter').inputValue(),
-      status: 'submitted',
+      status: '',
       formId: await page.locator('#supervisorTemplateFilter').inputValue(),
       workerId: await page.locator('#supervisorWorkerFilter').inputValue(),
       date: '2026-09-08',
@@ -5816,7 +5748,6 @@ async function checkRememberedSupervisorReportFilters(browser) {
     };
     await changeAndCheckQueue({ ...saved, search: privateSearch }, async () => {
       await openReportTools(page, '#reportReviewFilters');
-      await page.locator('#supervisorStatusFilter').selectOption(saved.status);
       await openReportTools(page, '#reportReviewFilters');
       await page.locator('#supervisorDateFilter').fill(saved.date);
       await openReportTools(page, '#reportReviewFilters');
@@ -5830,21 +5761,19 @@ async function checkRememberedSupervisorReportFilters(browser) {
     if (await page.locator('#reportReviewFilters').evaluate((element) => element.open)) {
       throw new Error('Remembered filters unexpectedly opened the phone filter disclosure');
     }
-    const submitted = page.locator('[data-report-workflow-shortcut="submitted"]');
-    const inReview = page.locator('[data-report-workflow-shortcut="in_review"]');
-    for (const shortcut of [submitted, inReview]) {
-      if (!await shortcut.isVisible() || await shortcut.evaluate((button) => button.getBoundingClientRect().height < 44)) {
-        throw new Error('Report workflow shortcuts must remain visible with a 44px target outside collapsed filters');
+    if (await page.locator('#supervisorStatusFilter').isVisible()
+      || await page.locator('[data-report-workflow-shortcut]').count()
+      || await page.locator('#supervisorSortOrder').count()) {
+      throw new Error('Report review controls must be absent');
+    }
+    await page.evaluate(() => {
+      for (const key of Object.keys(localStorage).filter((key) => key.startsWith('report-review-preferences:'))) {
+        const saved = JSON.parse(localStorage.getItem(key));
+        saved.filters.status = 'resolved'; saved.filters.sortOrder = 'oldest_waiting';
+        localStorage.setItem(key, JSON.stringify(saved));
       }
-    }
-    if (await submitted.getAttribute('aria-pressed') !== 'true' || await inReview.getAttribute('aria-pressed') !== 'false') {
-      throw new Error('Workflow shortcut pressed state did not reflect the restored Submitted filter');
-    }
-    await changeAndCheckQueue({ ...saved, status: 'in_review' }, () => inReview.click());
-    if (await inReview.getAttribute('aria-pressed') !== 'true' || await submitted.getAttribute('aria-pressed') !== 'false') {
-      throw new Error('Workflow shortcut pressed state did not follow In review');
-    }
-    await changeAndCheckQueue(saved, () => submitted.click());
+    });
+    await reloadAndCheckFirstQueue(saved);
 
     await logout(page);
     await changeAndCheckQueue({ ...empty, departmentId: '' }, () => loginAs(page, 'admin@example.com', 'supervisor'));
@@ -5854,32 +5783,31 @@ async function checkRememberedSupervisorReportFilters(browser) {
     if (!mutualId || mutualId === saved.departmentId) throw new Error('Scope regression needs separate seeded Leader and Mutual Departments');
     // Same Department, different Supervisor: never inherit the first account's selections.
     await switchDepartment(saved.departmentId, empty);
-    const leaderPreference = { ...empty, status: 'in_review', date: '2026-09-09' };
+    const leaderPreference = { ...empty, status: '', date: '2026-09-09' };
     await openFilters();
     await changeAndCheckQueue({ ...leaderPreference, departmentId: saved.departmentId, search: privateSearch }, async () => {
-      await inReview.click();
       await openReportTools(page, '#reportReviewFilters');
       await page.locator('#supervisorDateFilter').fill(leaderPreference.date);
       await openReportTools(page, '#reportReviewFilters');
       await page.locator('#supervisorSearchInput').fill(privateSearch);
     });
     await switchDepartment(mutualId, empty);
-    const mutualPreference = { ...empty, status: 'submitted', date: '2026-09-10' };
+    const mutualPreference = { ...empty, status: '', date: '2026-09-10' };
     await changeAndCheckQueue({ ...mutualPreference, departmentId: mutualId }, async () => {
-      await submitted.click();
       await openReportTools(page, '#reportReviewFilters');
       await page.locator('#supervisorDateFilter').fill(mutualPreference.date);
     });
     await switchDepartment(saved.departmentId, leaderPreference);
     await switchDepartment('', empty);
-    await changeAndCheckQueue({ ...empty, status: 'resolved', departmentId: '' }, () => (
-      page.locator('#supervisorStatusFilter').selectOption('resolved')
+    await openFilters();
+    await changeAndCheckQueue({ ...empty, date: '2026-09-11', departmentId: '' }, () => (
+      page.locator('#supervisorDateFilter').fill('2026-09-11')
     ));
     await switchDepartment(mutualId, mutualPreference);
     await clearFilters(mutualId);
     await switchDepartment(saved.departmentId, leaderPreference);
     await clearFilters(saved.departmentId);
-    await switchDepartment('', { ...empty, status: 'resolved' });
+    await switchDepartment('', { ...empty, date: '2026-09-11' });
     await clearFilters('');
     await switchDepartment(mutualId, empty);
 
@@ -9188,7 +9116,7 @@ async function main() {
     await runCheck('browser geolocation grant enables attendance capture', () => checkLoginAndGrantedGeolocation(browser));
     await runCheck('attendance presents one contextual action with a secondary correction path', () => checkContextualAttendanceAction(browser));
     await runCheck('normal Worker guide compacts and Site priority follows attendance context', () => checkNormalWorkerAttendanceShortcuts(browser));
-    await runCheck('normal Workers submit active Work Forms and see their own history', () => checkNormalWorkerWorkFormSubmission(browser));
+    await runCheck('normal Workers submit Reports and see authorized Supervisor corrections', () => checkNormalWorkerWorkFormSubmission(browser));
     await runCheck('Report photo selection appends without replacing earlier photos', () => checkReportPhotoSelectionAppends(browser));
     await runCheck('Report photo selection rejects invalid files without clearing earlier photos', () => checkReportRejectedPhotoSelectionPreserves(browser));
     await runCheck('Report photo removal keeps other photos and persists in the draft', () => checkReportPhotoRemovalPersists(browser));

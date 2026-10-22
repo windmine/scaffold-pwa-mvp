@@ -82,7 +82,7 @@ def test_simplified_traditional_and_mixed_content_survives_export():
     text = compact("".join(page.extract_text() or "" for page in reader.pages))
     expected = [item[key] for key in (
         "form_name", "form_description", "department_name", "worker_name",
-        "site_name", "reviewing_supervisor_name", "supervisor_note",
+        "site_name",
     )]
     expected += [field["label"] for field in item["fields"]]
     expected += [item["answers"]["finding"], item["answers"]["name"]]
@@ -107,22 +107,23 @@ def test_long_unspaced_chinese_content_splits_without_loss():
     )
     reader = read([item, chinese_fixture(id=4102, form_name="第二份報告 / Second Report")])
     text = compact("".join(page.extract_text() or "" for page in reader.pages))
-    for alphabet, value in (("甲乙丙丁", label), ("戊己庚辛壬癸", answer), ("子丑寅卯辰巳午未申酉戌亥", note)):
+    for alphabet, value in (("甲乙丙丁", label), ("戊己庚辛壬癸", answer)):
         for character in alphabet:
             assert text.count(character) == value.count(character), f"PDF lost/repeated {character}"
-    for value in ("标签结尾標籤結尾", "答案结尾答案結尾", "批注结尾批註結尾", "第二份報告 / Second Report"):
+    for value in ("标签结尾標籤結尾", "答案结尾答案結尾", "第二份報告 / Second Report"):
         assert compact(value) in text, f"PDF lost long Chinese text: {value!r}"
+    assert compact("批注结尾批註結尾") not in text
     assert len(reader.pages) >= 5, len(reader.pages)
     assert_page_numbers(reader)
-    print("ok - long unspaced Chinese labels, answers and notes span collection pages without lost tails")
+    print("ok - long unspaced Chinese labels and answers span collection pages without historical review notes")
 
 
 def test_supplementary_han_names_keep_valid_unicode_mapping():
-    item = chinese_fixture(worker_name="𠮷明 / 𠀋华", supervisor_note="𠮟字检查完成。")
+    item = chinese_fixture(worker_name="𠮷明 / 𠀋华", answers={"finding": "𠮟字检查完成。"})
     reader = read([item])
     text = compact("".join(page.extract_text() or "" for page in reader.pages))
     assert compact(item["worker_name"]) in text, "Rare Chinese name lost in PDF Unicode mapping"
-    assert compact(item["supervisor_note"]) in text, "Supplementary Han note lost in PDF"
+    assert compact(item["answers"]["finding"]) in text, "Supplementary Han answer lost in PDF"
     for page in reader.pages:
         for font in page["/Resources"]["/Font"].values():
             font = font.get_object()

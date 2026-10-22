@@ -226,7 +226,8 @@ whole = ' '.join(texts)
 compact = ''.join(whole.split())
 assert set(int(value) for value in re.findall(r'Report\s*#\s*(\d+)', whole)) == {expected['reportId']}
 assert ''.join(expected['marker'].split()) in compact
-assert ''.join(expected['finalNote'].split()) in compact
+for legacy in ['Workflow', 'Final supervisor note', 'Review started', 'Resolved at']:
+    assert legacy.lower() not in whole.lower()
 assert 'unavailable' not in whole.lower()
 names = expected['photoNames']
 positions = [compact.index(name) for name in names]
@@ -303,22 +304,19 @@ export async function browserApiRequest({ path, method = 'GET', body, timeoutMs 
   return { status: response.status, ok: response.ok, body: await response.json().catch(() => null) };
 }
 
-export function resolutionNoteLocator(container, note) {
-  return container.locator('.report-supervisor-note').filter({ hasText: note });
-}
-
-export async function readyReportResolutionNote(page) {
-  const panel = page.locator('#reportNotePanel');
-  const note = panel.locator('#reportResolutionNote');
-  const submit = panel.locator('#reportNoteForm #resolveReportNoteButton');
-  await note.waitFor({ state: 'visible' });
+export async function readyReportCorrection(page, fieldId = 'issue_detail') {
+  const panel = page.locator('#editPanelForm');
+  const date = panel.locator('#editReportDate');
+  const answer = panel.locator(`#reportCorrectionField_${fieldId}`);
+  const submit = panel.getByRole('button', { name: 'Save Report', exact: true });
+  await date.waitFor({ state: 'visible' });
   await page.waitForFunction(() => {
-    const field = document.querySelector('#reportNoteForm #reportResolutionNote');
-    const button = document.querySelector('#reportNoteForm #resolveReportNoteButton');
+    const field = document.querySelector('#editPanelForm #editReportDate');
+    const button = document.querySelector('#editPanelForm button[type="submit"]');
     return field && !field.disabled && !field.readOnly && !field.closest('[inert]')
       && button && !button.disabled;
   }, null, { timeout: 45000 });
-  return { note, submit };
+  return { date, answer, submit };
 }
 
 export async function expandWorkerReport(card) {
@@ -509,7 +507,7 @@ async function main() {
   const nonce = randomUUID();
   const templateName = `TEST ONLY Report ${config.runId} ${nonce}`;
   const marker = `Synthetic PPE evidence ${nonce}`;
-  const finalNote = `TEST ONLY replacement PPE issued ${nonce}`;
+  const correctedMarker = `Corrected synthetic PPE evidence ${nonce}`;
   const reportDate = new Date().toISOString().slice(0, 10);
   const evidence = {
     schemaVersion: 1, runId: config.runId, nonce, origin: config.baseURL,
@@ -536,6 +534,7 @@ async function main() {
   let workerContext;
   let identities;
   let submitted;
+  let corrected;
   let capturedPost;
   let originalPhotoHashes = [];
   let originalPhotoNames = [];
@@ -555,7 +554,7 @@ async function main() {
     console.log(`ok - ${label}`);
   };
   const ownedReport = (report) => report?.form_id === evidence.owned.templateId
-    && report.worker_id === identities?.worker.id && report.answers?.issue_detail === marker
+    && report.worker_id === identities?.worker.id && [marker, correctedMarker].includes(report.answers?.issue_detail)
     && (!evidence.owned.clientSubmissionId
       || report.client_submission_id === evidence.owned.clientSubmissionId);
   const assertPreservedWorkerHistory = (reports, workerId) => {
@@ -829,23 +828,25 @@ async function main() {
         'second_worker_evidence_leaked');
       return { deniedUploadStatuses: statuses };
     });
-    await step('supervisor_phone_filters_and_starts_review', async () => {
+    await step('supervisor_phone_filters_and_opens_report', async () => {
       await supervisorPage.reload({ waitUntil: 'domcontentloaded' });
       await supervisorPage.locator('#supervisorView').waitFor({ state: 'visible' });
       await showSupervisorFilters(supervisorPage);
       const filteredResponse = supervisorPage.waitForResponse((response) => {
         const url = new URL(response.url());
         return response.request().method() === 'GET' && url.pathname === '/api/supervisor/review-queue'
-          && url.searchParams.get('workflow_status') === 'submitted'
+          && !url.searchParams.has('workflow_status')
           && url.searchParams.get('form_id') === String(evidence.owned.templateId)
           && url.searchParams.get('worker_id') === String(identities.worker.id)
           && url.searchParams.get('record_date') === reportDate;
       });
       await supervisorPage.locator('#supervisorTemplateFilter').selectOption(String(evidence.owned.templateId));
       await supervisorPage.locator('#supervisorWorkerFilter').selectOption(String(identities.worker.id));
-      await supervisorPage.locator('#supervisorStatusFilter').selectOption('submitted');
       await supervisorPage.locator('#supervisorDateFilter').fill(reportDate);
       requireCondition((await filteredResponse).ok(), 'combined_supervisor_filters_failed');
+      requireCondition(!await supervisorPage.locator('#supervisorStatusFilter').isVisible()
+        && await supervisorPage.locator('[data-report-workflow-shortcut]').count() === 0,
+      'removed_report_workflow_controls_visible');
       const card = supervisorPage.locator('#reviewQueueList .record-form').filter({ hasText: marker });
       await card.waitFor({ state: 'visible' });
       await card.click();
@@ -854,61 +855,55 @@ async function main() {
       const images = await verifyImages(supervisorPage, evidence.owned.uploadPaths);
       requireCondition(images.every((item) => item.status === 200 && item.width > 0),
         'supervisor_authenticated_upload_streaming_failed');
-      const responsePromise = supervisorPage.waitForResponse((response) => response.request().method() === 'POST'
-        && new URL(response.url()).pathname === `/api/supervisor/form-submissions/${submitted.id}/transition`);
-      await supervisorPage.locator('#reviewQueueActions').getByRole('button', { name: 'Start review', exact: true }).click();
-      const response = await responsePromise;
-      requireCondition(response.ok() && (await response.json()).workflow_status === 'in_review',
-        'start_review_transition_failed');
+      requireCondition(await supervisorPage.locator('#reviewQueueActions').getByRole('button',
+        { name: /^(Start review|Resolve report|Continue note)$/ }).count() === 0,
+      'removed_report_workflow_actions_visible');
     });
-    await step('supervisor_requires_note_and_resolves_report', async () => {
-      await showSupervisorFilters(supervisorPage);
-      await supervisorPage.locator('#supervisorStatusFilter').selectOption('in_review');
-      const card = supervisorPage.locator('#reviewQueueList .record-form').filter({ hasText: marker });
-      await card.waitFor({ state: 'visible' });
-      await card.click();
-      await supervisorPage.locator('#reviewQueueActions').getByRole('button', { name: 'Resolve report', exact: true }).click();
-      const { note, submit } = await readyReportResolutionNote(supervisorPage);
+    await step('supervisor_requires_date_and_corrects_report', async () => {
+      await supervisorPage.locator('#reviewQueueActions').getByRole('button', { name: 'Edit', exact: true }).click();
+      const { date, answer, submit } = await readyReportCorrection(supervisorPage);
+      await date.fill('');
       await submit.click();
-      requireCondition(await note.evaluate((field) => field.required && field.matches(':invalid')
-        && document.activeElement === field), 'resolution_note_not_required');
-      await note.fill(finalNote);
-      const responsePromise = supervisorPage.waitForResponse((response) => response.request().method() === 'POST'
-        && new URL(response.url()).pathname === `/api/supervisor/form-submissions/${submitted.id}/transition`);
+      requireCondition(await date.evaluate((field) => field.required && field.matches(':invalid')
+        && document.activeElement === field), 'correction_report_date_not_required');
+      await date.fill(reportDate);
+      await answer.fill(correctedMarker);
+      const responsePromise = supervisorPage.waitForResponse((response) => response.request().method() === 'PATCH'
+        && new URL(response.url()).pathname === `/api/supervisor/form-submissions/${submitted.id}`);
       await submit.click();
       const response = await responsePromise;
-      const resolved = await response.json();
-      requireCondition(response.ok() && resolved.workflow_status === 'resolved'
-        && resolved.supervisor_note === finalNote && resolved.reviewing_supervisor_id === identities.supervisor.id
-        && resolved.review_started_at && resolved.resolved_at
-        && immutableContent(resolved) === immutableContent(submitted), 'resolved_report_or_immutable_content_mismatch');
+      corrected = await response.json();
+      requireCondition(response.ok() && corrected.revision === submitted.revision + 1
+        && corrected.edited_by_supervisor_id === identities.supervisor.id && corrected.edited_at
+        && immutableContent(corrected) === immutableContent({ ...submitted,
+          answers: { ...submitted.answers, issue_detail: correctedMarker } }), 'corrected_report_content_mismatch');
+      await supervisorPage.locator('#editReportDate').waitFor({ state: 'hidden' });
+      const card = supervisorPage.locator('#reviewQueueList .record-form').filter({ hasText: correctedMarker });
       await showSupervisorFilters(supervisorPage);
-      await supervisorPage.locator('#supervisorStatusFilter').selectOption('resolved');
       await card.waitFor({ state: 'visible' });
       await card.click();
-      await resolutionNoteLocator(supervisorPage.locator('#reviewQueueDetail'), finalNote).waitFor();
+      await supervisorPage.locator('#reviewQueueDetail').getByText(correctedMarker, { exact: true }).waitFor();
       await assertPhoneLayout(supervisorPage);
       // Scope the screenshot to our detail; never capture another Worker's queue cards.
-      await supervisorPage.locator('#reviewQueueDetail').screenshot({ path: join(config.evidenceDir, 'supervisor-resolved.png') });
+      await supervisorPage.locator('#reviewQueueDetail').screenshot({ path: join(config.evidenceDir, 'supervisor-corrected.png') });
     });
-    await step('worker_sees_final_note_and_idempotent_replay_keeps_original', async () => {
+    await step('worker_sees_correction_and_idempotent_replay_keeps_latest', async () => {
       await workerPage.reload({ waitUntil: 'domcontentloaded' });
       await workerPage.locator('#workerView').waitFor({ state: 'visible' });
       await workerPage.locator('.tab[data-tab-target="historyTab"]').click();
       const card = workerPage.locator('#historyList > .record-form').filter({ hasText: templateName });
       await card.waitFor({ state: 'visible' });
       const text = await card.innerText();
-      requireCondition(text.includes('Resolved') && text.includes(finalNote) && text.includes(reportDate),
-        'worker_final_report_note_missing');
+      requireCondition(text.includes(reportDate) && !/In review|Resolved|Final supervisor note/.test(text),
+        'worker_report_date_missing_or_legacy_workflow_visible');
       await expandWorkerReport(card);
-      requireCondition((await card.innerText()).includes(marker), 'expanded_durable_answers_missing');
+      requireCondition((await card.innerText()).includes(correctedMarker), 'expanded_corrected_answers_missing');
       await assertRenderedEvidence(card, config.photoCount + 1);
       await assertPhoneLayout(workerPage);
-      await card.screenshot({ path: join(config.evidenceDir, 'worker-resolved.png') });
+      await card.screenshot({ path: join(config.evidenceDir, 'worker-corrected.png') });
       const replay = await api(workerPage, '/api/form-submissions', 'POST', capturedPost);
-      requireCondition(replay.ok && replay.body.id === submitted.id && replay.body.workflow_status === 'resolved'
-        && replay.body.supervisor_note === finalNote
-        && immutableContent(replay.body) === immutableContent(submitted), 'durable_idempotent_replay_changed_report');
+      requireCondition(replay.ok && replay.body.id === submitted.id && replay.body.revision === corrected.revision
+        && immutableContent(replay.body) === immutableContent(corrected), 'durable_idempotent_replay_changed_correction');
       const history = await api(workerPage, '/api/my-form-submissions?purpose=report');
       requireCondition(history.ok && history.body.filter(ownedReport).length === 1, 'replay_created_duplicate_report');
       assertPreservedWorkerHistory(history.body, identities.worker.id);
@@ -918,7 +913,7 @@ async function main() {
     await step('owned_single_default_and_filtered_collection_pdf_downloads', async () => {
       const signature = uploadedEvidenceImages.find((item) => item.path === submitted.answers.report_signature);
       requireCondition(signature?.width > 32 && signature.height > 32, 'signature_export_dimensions_missing');
-      const expected = { reportId: submitted.id, marker, finalNote, photoNames: originalPhotoNames,
+      const expected = { reportId: submitted.id, marker: correctedMarker, photoNames: originalPhotoNames,
         signatureDimensions: [signature.width, signature.height] };
       const downloadPdf = async (button, kind) => {
         const next = supervisorPage.waitForEvent('download');
@@ -941,7 +936,7 @@ async function main() {
       requireCondition(await supervisorPage.locator('#supervisorTemplateFilter').inputValue() === String(evidence.owned.templateId)
         && await supervisorPage.locator('#supervisorWorkerFilter').inputValue() === String(identities.worker.id)
         && await supervisorPage.locator('#supervisorDateFilter').inputValue() === reportDate
-        && await supervisorPage.locator('#supervisorStatusFilter').inputValue() === 'resolved'
+        && !await supervisorPage.locator('#supervisorStatusFilter').isVisible()
         && await supervisorPage.locator('#reviewQueueList .record-form').count() === 1,
       'owned_collection_export_filters_not_exact');
       const collection = await downloadPdf(supervisorPage.locator('#exportReportsPdfButton'), 'collection');

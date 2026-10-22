@@ -19,7 +19,7 @@ def run_pdf_email_checks(database, report):
     from report_pdf_email_migration_checks import check_additive_migration
     with database("report_pdf_email_upgrade") as engine:
         check_additive_migration(engine)
-        report("PostgreSQL 0023-to-0024 upgrade preserves existing Report rows and all prior checksums; routing off, no outbox backfill")
+        report("PostgreSQL 0023-to-0025 upgrade preserves existing Report data and all prior checksums; routing off, no outbox backfill")
     with database("report_pdf_email") as engine:
         run_migrations(engine)
         supervisors = seed_supervisors(engine)

@@ -134,18 +134,18 @@ def test_metadata_workflow_and_snapshot_footer():
     text = " ".join(page_texts(reader))
     for value in (
         "Mutual", item["form_name"], item["worker_name"], item["worker_email"],
-        item["site_name"], str(item["id"]), "resolved", item["created_at"],
-        item["reviewing_supervisor_name"], item["review_started_at"],
-        item["resolved_at"], item["supervisor_note"], item["answers"]["discussion"],
+        item["site_name"], str(item["id"]), item["created_at"], item["answers"]["discussion"],
     ):
         assert value.casefold() in text.casefold(), (value, text)
-    assert "pending" not in text.casefold(), "Report must use its workflow, not retained outcome status"
+    for value in ("pending", "resolved", "Report review", "Review started", item["reviewing_supervisor_name"],
+                  item["review_started_at"], item["resolved_at"], item["supervisor_note"]):
+        assert value.casefold() not in text.casefold(), value
     for page in page_texts(reader):
         assert "Version 7" in page, page
         assert re.search(r"Report Date\s*:?\s*2026-09-16", page), page
         assert "Issue Date Feb2022" not in page
     assert_page_numbers(reader)
-    print("ok - Report metadata, workflow, review evidence and actual Definition/date footer survive export")
+    print("ok - Report metadata and actual Definition/date footer survive export without historical review details")
 
 
 def test_collection_headers_follow_each_report_on_continuations():
@@ -192,14 +192,13 @@ def test_long_answers_labels_and_review_notes_split_without_loss():
     )
     reader = read_pdf([item])
     text = " ".join(page_texts(reader))
-    for marker in ("label000", "label449", "LABEL_END", "ANSWER_END", "REVIEW_END"):
+    for marker in ("label000", "label449", "LABEL_END", "ANSWER_END"):
         assert marker in text, marker
     for index in range(185):
         assert f"Answer line {index:03d}" in text, index
-    for index in range(160):
-        assert f"Review line {index:03d}" in text, index
+    assert "REVIEW_END" not in text and "Review line" not in text
     assert_page_numbers(reader)
-    print("ok - oversized labels, answers and final notes split across A4 pages without lost tails")
+    print("ok - oversized labels and answers split without lost tails; historical final notes stay out of exports")
 
 
 def test_signatures_remain_inline_with_names_and_repeat_rows():
@@ -378,8 +377,9 @@ def test_markup_is_literal_text_not_pdf_links_or_images():
     )
     reader = read_pdf([item])
     text = " ".join(page_texts(reader))
-    for value in (item["form_name"], "Section <literal>", "Label <b>literal</b>", unsafe, item["supervisor_note"]):
+    for value in (item["form_name"], "Section <literal>", "Label <b>literal</b>", unsafe):
         assert value in text, (value, text)
+    assert item["supervisor_note"] not in text
     for page in reader.pages:
         assert not page.get("/Annots"), "Report field markup must not become active PDF annotations"
     print("ok - HTML-looking field content remains literal printable text")

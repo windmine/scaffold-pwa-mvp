@@ -533,7 +533,7 @@ function bindEvents() {
   workerForm.bindEvents();
   workerSites.bindEvents();
   teamWorkLogModule.bindEvents();
-  els.cancelWorkerEditButton.addEventListener('click', () => closeEditPanel('worker'));
+  els.cancelWorkerEditButton.addEventListener('click', () => closeEditPanel('worker', { reason: 'cancel' }));
   historyModule.bindEvents();
   supervisorReviewModule.bindEvents();
   supervisorMapModule.bindEvents();
@@ -635,6 +635,7 @@ function applyReportOnlyInterface() {
   if (REPORT_ONLY_MODE) {
     els.historyTypeFilter.value = 'form';
     els.supervisorTypeFilter.value = 'form';
+    els.supervisorStatusFilter.value = '';
   }
   const dayworkPdfOption = els.exportDocumentSelect?.querySelector('option[value="daywork-pdf"]');
   if (dayworkPdfOption) {
@@ -691,7 +692,7 @@ function activateAdminWorkspace(workspaceId, options = {}) {
 
   if (state.adminWorkspace !== workspace) staffSitesModule?.clearPrivateLinks?.();
   if (state.adminWorkspace !== workspace && !els.supervisorEditPanel.classList.contains('hidden')) {
-    closeEditPanel();
+    if (!closeEditPanel()) return;
   }
 
   const activeElementWillHide = panels.some((panel) => (
@@ -946,8 +947,8 @@ function clearSessionViewState() {
   state.sitesLoadError = '';
   state.departmentFocusId = '';
   photoViewer.close({ restoreFocus: false });
-  closeEditPanel('worker');
-  closeEditPanel();
+  closeEditPanel('worker', { force: true });
+  closeEditPanel('supervisor', { force: true });
   clearWorkerSessionState();
   historyModule.resetSession();
   supervisorReviewModule.resetSession();
@@ -1449,6 +1450,8 @@ function isBackendSessionError(error) {
   return error?.status === 401 || error?.status === 403;
 }
 
+const editPanelLifecycle = new WeakMap();
+
 function getEditPanel(scope = 'supervisor') {
   if (scope === 'worker') {
     return {
@@ -1465,16 +1468,26 @@ function getEditPanel(scope = 'supervisor') {
   };
 }
 
-function closeEditPanel(scope = 'supervisor') {
+function closeEditPanel(scope = 'supervisor', { force = false, reason = '' } = {}) {
+  // The shared Cancel button also calls this as a DOM event listener.
+  if (scope && typeof scope === 'object' && scope.type === 'click') reason = 'cancel';
+  scope = scope === 'worker' ? 'worker' : 'supervisor';
   const target = getEditPanel(scope);
+  const lifecycle = editPanelLifecycle.get(target.panel);
+  if (!force && lifecycle?.closeGuard?.(reason) === false) return false;
+  editPanelLifecycle.delete(target.panel);
+  lifecycle?.onClose?.();
   target.panel.classList.add('hidden');
   target.form.innerHTML = '';
   target.form.onsubmit = null;
   target.title.textContent = '';
+  return true;
 }
 
-function showEditPanel(title, fields, submitLabel, onSubmit, scope = 'supervisor') {
+function showEditPanel(title, fields, submitLabel, onSubmit, scope = 'supervisor', options = {}) {
   const target = getEditPanel(scope);
+  if (!target.panel.classList.contains('hidden') && !closeEditPanel(scope)) return false;
+  editPanelLifecycle.set(target.panel, { closeGuard: options.closeGuard, onClose: options.onClose });
   let submitInFlight = false;
   target.title.textContent = title;
   target.form.innerHTML = fields.map((field) => {
@@ -1509,7 +1522,7 @@ function showEditPanel(title, fields, submitLabel, onSubmit, scope = 'supervisor
       </label>
     `;
   }).join('') + `
-    <div class="edit-warning">Review the fields before saving. This changes backend records.</div>
+    <div class="edit-warning">${escapeHtml(options.warning || 'Review the fields before saving. This changes backend records.')}</div>
     <div class="split-actions">
       <button type="submit">${escapeHtml(submitLabel)}</button>
       <button id="${scope}SecondaryCancelEditButton" type="button" class="ghost">Cancel</button>
@@ -1528,7 +1541,8 @@ function showEditPanel(title, fields, submitLabel, onSubmit, scope = 'supervisor
       submitInFlight = false;
     }
   };
-  document.getElementById(`${scope}SecondaryCancelEditButton`).addEventListener('click', () => closeEditPanel(scope));
+  document.getElementById(`${scope}SecondaryCancelEditButton`).addEventListener('click', () => closeEditPanel(scope, { reason: 'cancel' }));
+  return true;
 }
 
 function editValue(id) {

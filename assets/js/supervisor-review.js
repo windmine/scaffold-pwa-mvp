@@ -8,7 +8,6 @@ import {
   getSupervisorReviewQueuePage as getBackendSupervisorReviewQueuePage,
   moveSupervisorRecordToTrash as moveBackendSupervisorRecordToTrash,
   restoreSupervisorRecord as restoreBackendSupervisorRecord,
-  transitionReportSubmission as transitionBackendReportSubmission,
   updateDefaultDepartment as updateBackendDefaultDepartment,
   updateSupervisorFormSubmission as updateBackendSupervisorFormSubmission,
   updateSupervisorRecord as updateBackendSupervisorRecord,
@@ -16,8 +15,7 @@ import {
   updateSupervisorTaskLog as updateBackendSupervisorTaskLog
 } from './api-client.js';
 import { setDateInputValue } from './date-inputs.js';
-import { createReportNoteEditor } from './report-note-editor.js';
-import { reportNoteContext, reportNoteDraftKey } from './report-note-drafts.js';
+import { createReportEditor } from './report-editor.js';
 import {
   readReportReviewPreferences,
   reportReviewPreferenceKey,
@@ -71,7 +69,6 @@ export function createSupervisorReviewModule({
   editNumber,
   siteSelectOptions,
   reportOnly = false,
-  revealReportNote = () => {},
   confirmAction = async () => false
 }) {
   let filterRefreshTimer = null;
@@ -102,20 +99,9 @@ export function createSupervisorReviewModule({
   const reviewQueueBackButton = els.reviewQueueDetails.querySelector('#reviewQueueBackButton');
   const reportPreferenceNotice = els.reviewQueueDetails.querySelector('#reportReviewPreferenceNotice');
   const workflowShortcuts = [...els.reviewQueueDetails.querySelectorAll('[data-report-workflow-shortcut]')];
-  const noteEditor = createReportNoteEditor({
-    state,
-    enabled: reportOnly,
-    confirmAction,
-    validateReport: validateNoteReport,
-    resolveReport: resolveNoteReport,
-    onResolved: async () => {
-      const session = captureSession();
-      renderStatusBanner('Report resolved.', false, { local: els.reviewQueueFeedback, tone: 'success' });
-      await renderPanel();
-      if (isCurrentSession(session) && isNarrowReportReview()) showReviewInbox({ restoreFocus: true });
-    },
-    revealWorkspace: revealReportNote,
-    canResolve: (record) => !reportOrderChanged && navigator.onLine && record?.durability === 'durable' && !record.readOnly
+  const reportEditor = createReportEditor({
+    state, showEditPanel, closeEditPanel, captureSession, isCurrentSession, handleSessionExpired,
+    onSaved: renderPanel, notify: renderStatusBanner
   });
 
   function isNarrowReportReview() {
@@ -209,7 +195,7 @@ export function createSupervisorReviewModule({
 
   function resetSession() {
     // A new login is a new session even when the same account signs in again.
-    noteEditor.resetSession();
+    reportEditor.resetSession();
     sessionEpoch += 1;
     reviewQueueRequestId += 1;
     reviewOverviewRequestId += 1;
@@ -320,11 +306,11 @@ export function createSupervisorReviewModule({
       department: state.departmentFocusId,
       fallbackDepartment: state.user?.departmentId,
       type: reportOnly ? 'form' : els.supervisorTypeFilter.value,
-      status: els.supervisorStatusFilter.value,
+      status: reportOnly ? '' : els.supervisorStatusFilter.value,
       reportWorkflow: reportOnly,
       formId: reportOnly ? els.supervisorTemplateFilter.value : '',
       workerId: reportOnly ? els.supervisorWorkerFilter.value : '',
-      sortOrder: reportOnly ? supervisorSortOrder.value : '',
+      sortOrder: reportOnly ? 'newest' : '',
       date: els.supervisorDateFilter.value
     };
   }
@@ -395,7 +381,7 @@ export function createSupervisorReviewModule({
     });
     els.supervisorTemplateFilter.disabled = reportCatalogLoading || !reportCatalogReady.templates;
     els.supervisorWorkerFilter.disabled = reportCatalogLoading || !reportCatalogReady.workers;
-    supervisorSortOrder.disabled = reportCatalogLoading || reportQueueLoading;
+    if (supervisorSortOrder) supervisorSortOrder.disabled = reportCatalogLoading || reportQueueLoading;
     if (reportPreferenceNotice) {
       const messages = [];
       if (reportOrderChanged) messages.push(REPORT_ORDER_CHANGED_MESSAGE);
@@ -419,11 +405,11 @@ export function createSupervisorReviewModule({
     if (!reportOnly || reportCatalogLoading || !reportPreferenceScope
       || reportPreferenceScope !== currentReportPreferenceScope()) return;
     desiredReportFilters = {
-      status: els.supervisorStatusFilter.value,
+      status: reportOnly ? '' : els.supervisorStatusFilter.value,
       formId: reportCatalogReady.templates ? els.supervisorTemplateFilter.value : desiredReportFilters.formId,
       workerId: reportCatalogReady.workers ? els.supervisorWorkerFilter.value : desiredReportFilters.workerId,
       date: els.supervisorDateFilter.value,
-      sortOrder: supervisorSortOrder.value
+      sortOrder: 'newest'
     };
     reportPreferenceAvailable = writeReportReviewPreferences(state.user, state.departmentFocusId, desiredReportFilters);
     updateReportFilterControls();
@@ -480,7 +466,7 @@ export function createSupervisorReviewModule({
     reportCatalogLoading = true;
     els.supervisorTypeFilter.value = 'form';
     els.supervisorStatusFilter.value = desiredReportFilters.status;
-    supervisorSortOrder.value = desiredReportFilters.sortOrder;
+    if (supervisorSortOrder) supervisorSortOrder.value = 'newest';
     setDateInputValue(els.supervisorDateFilter, desiredReportFilters.date);
     // No stale options from another scope, including while the catalog requests are pending.
     if (changedScope) {
@@ -554,7 +540,6 @@ export function createSupervisorReviewModule({
   }
 
   function renderReviewDetail(record) {
-    noteEditor.setSelection(record);
     const readOnly = reviewQueueIsReadOnly();
     const selectedIndex = record
       ? visibleReviewRecords.findIndex((item) => reviewRecordKey(item) === reviewRecordKey(record))
@@ -574,7 +559,7 @@ export function createSupervisorReviewModule({
       els.reviewQueueDetail.innerHTML = `
         <div class="empty-state review-detail-empty">
           ${visibleReviewRecords.length
-            ? 'Choose a record from the inbox to see its full details and review actions.'
+            ? 'Choose a record from the list to see its details.'
             : 'No records match the current filters.'}
         </div>
       `;
@@ -588,7 +573,7 @@ export function createSupervisorReviewModule({
     }
     historyModule.renderRecordsList(els.reviewQueueDetail, [record], {
       showDecisionActions: !readOnly && !reportOnly,
-      showEditActions: !readOnly && !reportOnly,
+      showEditActions: !readOnly,
       showExportActions: !readOnly,
       showTrashActions: !readOnly && !reportOnly
     });
@@ -600,129 +585,9 @@ export function createSupervisorReviewModule({
     }
     const actions = detailCard?.querySelector('.record-actions');
     if (actions) actions.id = 'reviewQueueActions';
-    renderReportTransitionActions(record, actions, readOnly);
     if (reportOnly && actions) {
       actions.classList.add('report-review-actions');
       detailCard.prepend(actions);
-    }
-  }
-
-  function renderReportTransitionActions(record, actions, readOnly) {
-    if (!reportOnly || !actions || record.type !== 'form') return;
-    const workflowStatus = record.workflowStatus || 'submitted';
-    if (!['submitted', 'in_review', 'resolved'].includes(workflowStatus)) return;
-    if (workflowStatus === 'submitted' && readOnly) return;
-
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = workflowStatus === 'submitted' ? 'Start review' : 'Resolve report';
-    button.dataset.noteReadOnly = String(readOnly);
-    button.hidden = workflowStatus === 'resolved' || readOnly;
-    button.addEventListener('click', () => {
-      if (workflowStatus === 'submitted') {
-        void transitionReport(record, 'in_review', '', button);
-        return;
-      }
-      void noteEditor.open(record);
-    });
-    actions.classList.remove('hidden');
-    actions.prepend(button);
-    if (workflowStatus !== 'submitted') noteEditor.decorateAction(button, record);
-  }
-
-  async function validateNoteReport(record) {
-    const session = captureSession();
-    const context = reportNoteContext(state.user, record, state.departmentFocusId);
-    if (!isCurrentSession(session) || !context) throw new Error('This note does not belong to the current Report scope.');
-    const key = reportNoteDraftKey(context);
-    let cursor = '';
-    const seen = new Set();
-    try {
-      // Check the immutable Report identity independently of inbox filters. An absent
-      // filtered row never proves that a Report was deleted or that its note is safe to erase.
-      for (let pageNumber = 0; pageNumber < 20; pageNumber += 1) {
-        const page = await getBackendSupervisorReviewQueuePage({
-          purpose: 'report', kind: 'form', departmentId: context.departmentId,
-          formId: record.formId || '', workerId: record.userId || '',
-          recordDate: record.workDate || '', pageSize: REVIEW_QUEUE_PAGE_SIZE, cursor
-        });
-        const currentContext = reportNoteContext(state.user, record, state.departmentFocusId);
-        if (!isCurrentSession(session) || !currentContext || reportNoteDraftKey(currentContext) !== key) {
-          throw new Error('This note does not belong to the current Report scope.');
-        }
-        const current = recordsFromPage(page).find((item) => {
-          const candidate = reportNoteContext(state.user, item, state.departmentFocusId);
-          return candidate && reportNoteDraftKey(candidate) === key;
-        });
-        if (current) return current;
-        if (!page.has_more || !page.next_cursor || seen.has(page.next_cursor)) break;
-        seen.add(page.next_cursor);
-        cursor = page.next_cursor;
-      }
-      throw new Error('This Report is unavailable. Your note has been kept on this device.');
-    } catch (error) {
-      if (isCurrentSession(session) && [401, 403].includes(error.status)) handleSessionExpired();
-      throw error;
-    }
-  }
-
-  async function resolveNoteReport(record, note) {
-    if (reportOrderChanged) throw new Error(REPORT_ORDER_CHANGED_MESSAGE);
-    const session = captureSession();
-    const context = reportNoteContext(state.user, record, state.departmentFocusId);
-    if (!isCurrentSession(session) || !context || record.workflowStatus !== 'in_review'
-      || record.readOnly || !navigator.onLine || decisionInProgress) {
-      throw new Error('Refresh the Report before resolving it. Your note has been kept.');
-    }
-    decisionInProgress = true;
-    try {
-      return await transitionBackendReportSubmission(record.backendRecordId, {
-        status: 'resolved', supervisor_note: note
-      });
-    } catch (error) {
-      if (isCurrentSession(session) && [401, 403].includes(error.status)) handleSessionExpired();
-      throw error;
-    } finally {
-      if (isCurrentSessionEpoch(session)) decisionInProgress = false;
-    }
-  }
-
-  async function transitionReport(record, status, supervisorNote = '', button = null) {
-    if (!requireDurableWritableRecord(record, status === 'resolved' ? 'resolving' : 'reviewing')) return false;
-    if (decisionInProgress) return false;
-    const session = captureSession();
-    decisionInProgress = true;
-    feedback.clearLocal(els.reviewQueueFeedback);
-    feedback.setButtonBusy(button, true, status === 'resolved' ? 'Resolving...' : 'Starting review...');
-    try {
-      await transitionBackendReportSubmission(record.backendRecordId, {
-        status,
-        supervisor_note: supervisorNote || null
-      });
-      if (!isCurrentSession(session)) return false;
-      if (status === 'resolved') closeEditPanel();
-      renderStatusBanner(status === 'resolved' ? 'Report resolved.' : 'Report review started.', false, {
-        local: els.reviewQueueFeedback,
-        tone: 'success'
-      });
-      await renderPanel();
-      if (isCurrentSession(session) && isNarrowReportReview() && els.reviewQueueDetails.getClientRects().length) {
-        if (mobileDetailOpen) focusReviewDetail();
-        else showReviewInbox({ restoreFocus: true });
-      }
-      return true;
-    } catch (error) {
-      if (!isCurrentSession(session)) return false;
-      renderStatusBanner(error.message || 'Could not update the Report workflow.', true, {
-        local: els.reviewQueueFeedback,
-        tone: 'error'
-      });
-      return false;
-    } finally {
-      if (isCurrentSessionEpoch(session)) {
-        feedback.setButtonBusy(button, false);
-        decisionInProgress = false;
-      }
     }
   }
 
@@ -1401,7 +1266,6 @@ export function createSupervisorReviewModule({
 
   function renderFilteredLists() {
     const { reviewRecords } = state.supervisorRecords;
-    noteEditor.updateRecords(reviewRecords);
     const focusedRecords = departmentFocusedRecords(reviewRecords);
     const filteredRecords = historyModule.filterRecords(reviewRecords, getFilters());
 
@@ -1615,15 +1479,15 @@ export function createSupervisorReviewModule({
     const session = captureSession();
     if (!isCurrentSession(session)) return;
     const nextFocus = els.supervisorDepartmentFilter.value;
-    const readiness = await noteEditor.prepareForNavigation();
-    if (!isCurrentSession(session)) { noteEditor.cancelNavigationPreparation(); return; }
+    const readiness = await reportEditor.prepareForNavigation();
+    if (!isCurrentSession(session)) return;
     if (!readiness.safe) {
       els.supervisorDepartmentFilter.value = state.departmentFocusId;
-      noteEditor.focusNoteEditor();
+      reportEditor.focus();
       renderStatusBanner(readiness.message, true);
       return;
     }
-    noteEditor.resetSession();
+    reportEditor.resetSession();
     state.departmentFocusId = nextFocus;
     renderDepartmentFilter();
     if (reportOnly) {
@@ -2127,6 +1991,10 @@ export function createSupervisorReviewModule({
 
   async function handleEditRecord(record) {
     if (!requireDurableWritableRecord(record, 'editing')) return;
+    if (record.type === 'form' && record.submissionPurpose === 'report') {
+      reportEditor.open(record, itemsForRecordDepartment(state.sites, record));
+      return;
+    }
 
     if (record.type === 'form') {
       const form = {
@@ -2313,7 +2181,6 @@ export function createSupervisorReviewModule({
   }
 
   function bindEvents() {
-    noteEditor.bindEvents();
     els.reviewQueueDetails.classList.toggle('report-review-layout', reportOnly);
     if (reportReviewFilters) reportReviewFilters.open = !reportOnly;
     if (reportOnly) {
@@ -2321,7 +2188,7 @@ export function createSupervisorReviewModule({
       shortcuts?.append(els.refreshSupervisorButton);
       const exports = document.getElementById('reportExportOptions');
       if (exports) els.reviewQueueDetails.querySelector('.review-desk')?.after(exports);
-      supervisorSortOrder.addEventListener('change', scheduleReviewQueueRefresh);
+      supervisorSortOrder?.addEventListener('change', scheduleReviewQueueRefresh);
       workflowShortcuts.forEach((button) => button.addEventListener('click', () => {
         void selectWorkflowShortcut(button.dataset.reportWorkflowShortcut);
       }));
@@ -2379,11 +2246,11 @@ export function createSupervisorReviewModule({
 
   return {
     bindEvents,
-    flushNoteDraft: noteEditor.flushNoteDraft,
-    prepareForNavigation: noteEditor.prepareForNavigation,
-    cancelNavigationPreparation: noteEditor.cancelNavigationPreparation,
-    focusNoteEditor: noteEditor.focusNoteEditor,
-    hasActiveNote: noteEditor.hasActiveNote,
+    flushNoteDraft: async () => {},
+    prepareForNavigation: reportEditor.prepareForNavigation,
+    cancelNavigationPreparation: () => {},
+    focusNoteEditor: reportEditor.focus,
+    hasActiveNote: reportEditor.hasActive,
     handleDecision,
     handleEditRecord,
     handleExportRecord,

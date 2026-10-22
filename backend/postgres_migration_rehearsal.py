@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from app.migrations import MIGRATIONS_DIR, MigrationError, run_migrations, verify_migrations
 
 
-RELEASE_HEAD = "0024_report_pdf_email"
+RELEASE_HEAD = "0025_report_corrections"
 REPORT_FIELDS = [
     {"id": "issue", "label": "Issue", "type": "text"},
     {"id": "worker_signature", "label": "Signature", "type": "signature"},
@@ -84,7 +84,7 @@ def reject_statement(engine, label, statement, parameters=None, sqlstate="23514"
 
 def manifest_versions():
     versions = sorted(path.stem for path in MIGRATIONS_DIR.glob("*.py") if path.name != "__init__.py")
-    require(len(versions) == 24 and versions[-1] == RELEASE_HEAD, "Update rehearsal expectations for a changed migration manifest")
+    require(len(versions) == 25 and versions[-1] == RELEASE_HEAD, "Update rehearsal expectations for a changed migration manifest")
     return versions
 
 
@@ -268,7 +268,7 @@ def check_report_boundaries(engine, report):
     reject_statement(engine, "legacy Report rejection", "UPDATE workformsubmission SET status = 'rejected' WHERE id = 200")
     reject_statement(engine, "historical Report under Daywork parent edit", "UPDATE workformsubmission SET answers_json = '{}' WHERE id = 206")
     reject_statement(engine, "invalid Report workflow", "UPDATE workformsubmission SET workflow_status = 'approved' WHERE id = 200")
-    reject_statement(engine, "null Report workflow", "UPDATE workformsubmission SET workflow_status = NULL WHERE id = 200", sqlstate="23502")
+    reject_statement(engine, "null Report workflow", "UPDATE workformsubmission SET workflow_status = NULL WHERE id = 200")
     reject_statement(engine, "invalid template purpose", "UPDATE workform SET template_purpose = 'attendance' WHERE id = 100")
     require(evidence(engine) == before, "Rejected PostgreSQL legacy updates changed Report evidence")
     report("PostgreSQL native triggers reject legacy Report edits/approval/rejection, purpose changes, and invalid workflow values",

@@ -653,7 +653,7 @@
                 </div>
                 <section id="workFormReviewPanel" class="report-submit-review" aria-labelledby="workFormReviewHeading" hidden>
                   <h3 id="workFormReviewHeading" tabindex="-1">Review &amp; submit</h3>
-                  <p class="muted">Check the details below. Submitted Reports cannot be edited.</p>
+                  <p class="muted">Check the details below. A Supervisor can correct a submitted Report if needed.</p>
                   <div id="workFormReviewSummary"></div>
                   <p id="workFormReviewPhotoWarning" class="report-review-warning" hidden>Some selected files were not added. Go back to see details.</p>
                   <div class="report-review-actions">
@@ -718,8 +718,6 @@
                   <select id="historyStatusFilter">
                     <option value="">All</option>
                     <option value="submitted" data-report-only-option hidden>Submitted</option>
-                    <option value="in_review" data-report-only-option hidden>In review</option>
-                    <option value="resolved" data-report-only-option hidden>Resolved</option>
                     <option value="pending" data-full-mode-option>Pending</option>
                     <option value="approved" data-full-mode-option>Approved</option>
                     <option value="rejected" data-full-mode-option>Rejected</option>
@@ -755,7 +753,7 @@
             </div>
             <div class="admin-workspace-nav-list">
               <a href="#adminOverview" data-admin-workspace-target="overview" aria-current="page" data-report-only-hidden><strong>Overview</strong><small>Live status and scope</small></a>
-              <a href="#adminReviewWorkspace" data-admin-workspace-target="review"><strong data-full-text="Review" data-report-only-text="Reports">Reports</strong><small data-full-text="Queues, maps and corrections" data-report-only-text="Review submitted reports">Review submitted reports</small></a>
+              <a href="#adminReviewWorkspace" data-admin-workspace-target="review"><strong data-full-text="Review" data-report-only-text="Reports">Reports</strong><small data-full-text="Queues, maps and corrections" data-report-only-text="View submitted reports">View submitted reports</small></a>
               <a href="#adminReportsWorkspace" data-admin-workspace-target="reports" data-report-only-hidden><strong>Reports</strong><small>Analytics and exports</small></a>
               <a href="#adminSubmitWorkspace" data-admin-workspace-target="submit" data-report-only-visible><strong>Submit form</strong><small>Submit a report as yourself</small></a>
               <a href="#adminFormsWorkspace" data-admin-workspace-target="forms"><strong data-full-text="Report Templates" data-report-only-text="Report Templates">Report Templates</strong><small data-full-text="Create and manage templates" data-report-only-text="Create and manage templates">Create and manage templates</small></a>
@@ -782,7 +780,7 @@
             </div>
             <nav class="admin-drawer-nav" aria-label="Supervisor workspaces">
               <a href="#adminOverview" data-admin-workspace-target="overview" aria-current="page" data-report-only-hidden><strong>Overview</strong><small>Live status and scope</small></a>
-              <a href="#adminReviewWorkspace" data-admin-workspace-target="review"><strong data-full-text="Review" data-report-only-text="Reports">Reports</strong><small data-full-text="Queues, maps and corrections" data-report-only-text="Review submitted reports">Review submitted reports</small></a>
+              <a href="#adminReviewWorkspace" data-admin-workspace-target="review"><strong data-full-text="Review" data-report-only-text="Reports">Reports</strong><small data-full-text="Queues, maps and corrections" data-report-only-text="View submitted reports">View submitted reports</small></a>
               <a href="#adminReportsWorkspace" data-admin-workspace-target="reports" data-report-only-hidden><strong>Reports</strong><small>Analytics and exports</small></a>
               <a href="#adminSubmitWorkspace" data-admin-workspace-target="submit" data-report-only-visible><strong>Submit form</strong><small>Submit a report as yourself</small></a>
               <a href="#adminFormsWorkspace" data-admin-workspace-target="forms"><strong data-full-text="Report Templates" data-report-only-text="Report Templates">Report Templates</strong><small data-full-text="Create and manage templates" data-report-only-text="Create and manage templates">Create and manage templates</small></a>
@@ -941,8 +939,8 @@
               <header class="card admin-workspace-header">
                 <div>
                   <p class="eyebrow" data-full-text="Review" data-report-only-text="Reports">Reports</p>
-                  <h2 id="adminReviewWorkspaceTitle" tabindex="-1" data-full-text="Review records and corrections" data-report-only-text="Review submitted reports">Review submitted reports</h2>
-                  <p class="muted" data-report-only-hidden data-full-text="Validate field evidence, inspect attendance locations, and add approved corrections when records are missing." data-report-only-text="Review submitted report answers and evidence, then start review or resolve with a final note.">Review submitted report answers and evidence, then start review or resolve with a final note.</p>
+                  <h2 id="adminReviewWorkspaceTitle" tabindex="-1" data-full-text="Review records and corrections" data-report-only-text="Submitted reports">Submitted reports</h2>
+                  <p class="muted" data-report-only-hidden data-full-text="Validate field evidence, inspect attendance locations, and add approved corrections when records are missing." data-report-only-text="View submitted Reports and correct their details when needed.">View submitted Reports and correct their details when needed.</p>
                 </div>
               </header>
               <div class="admin-review-layout">
@@ -954,9 +952,9 @@
             <div class="fold-content">
               <div class="section-heading review-desk-heading">
                 <div>
-                  <p class="eyebrow" data-full-text="Review desk" data-report-only-text="Report review">Report review</p>
-                  <h2 data-full-text="Validate field records" data-report-only-text="Validate submitted reports">Validate submitted reports</h2>
-                  <p class="muted" data-full-text="Choose a record from the inbox, review its evidence, then decide or adjust it without losing your place." data-report-only-text="Choose a report, review its answers and evidence, then move it through the report workflow.">Choose a report, review its answers and evidence, then move it through the report workflow.</p>
+                  <p class="eyebrow" data-full-text="Review desk" data-report-only-text="Reports">Reports</p>
+                  <h2 data-full-text="Validate field records" data-report-only-text="View submitted reports">View submitted reports</h2>
+                  <p class="muted" data-full-text="Choose a record from the inbox, review its evidence, then decide or adjust it without losing your place." data-report-only-text="Choose a Report to see its answers and evidence, or edit details that need correcting.">Choose a Report to see its answers and evidence, or edit details that need correcting.</p>
                 </div>
                 <div class="review-heading-actions">
                   <button id="refreshSupervisorButton" type="button" class="ghost">Refresh</button>
@@ -970,11 +968,6 @@
                   <button id="exportReportsCsvButton" type="button" class="ghost">Export Reports CSV</button>
                 </div>
               </details>
-              <div class="report-workflow-shortcuts" role="group" aria-label="Report workflow shortcuts" data-report-only-visible>
-                <button type="button" class="ghost" data-report-workflow-shortcut="" aria-label="All workflows" aria-pressed="true">All</button>
-                <button type="button" class="ghost" data-report-workflow-shortcut="submitted" aria-pressed="false">Submitted</button>
-                <button type="button" class="ghost" data-report-workflow-shortcut="in_review" aria-pressed="false">In review</button>
-              </div>
               <details id="reportReviewFilters" class="report-review-filters" open>
                 <summary data-report-only-visible>
                   <span>Filters</span>
@@ -995,13 +988,10 @@
                     <option value="form">Forms</option>
                   </select>
                 </label>
-                <label>
+                <label data-report-only-hidden>
                   Status
                   <select id="supervisorStatusFilter">
                     <option value="">All</option>
-                    <option value="submitted" data-report-only-option hidden>Submitted</option>
-                    <option value="in_review" data-report-only-option hidden>In review</option>
-                    <option value="resolved" data-report-only-option hidden>Resolved</option>
                     <option value="pending" data-full-mode-option selected>Pending</option>
                     <option value="approved" data-full-mode-option>Approved</option>
                     <option value="rejected" data-full-mode-option>Rejected</option>
@@ -1023,16 +1013,8 @@
                   Date
                   <input id="supervisorDateFilter" type="date" />
                 </label>
-                <label class="report-sort-order-field" data-report-only-visible>
-                  Sort order
-                  <select id="supervisorSortOrder" aria-describedby="supervisorSortOrderHelp">
-                    <option value="newest">Newest first</option>
-                    <option value="oldest_waiting">Oldest waiting</option>
-                  </select>
-                </label>
                 <button id="clearSupervisorFiltersButton" type="button" class="ghost">Clear</button>
               </form>
-              <p id="supervisorSortOrderHelp" class="muted report-sort-order-hint" data-report-only-visible hidden>Submitted first, then In review and Resolved; oldest submission first within each workflow.</p>
               <p class="muted report-filter-memory-hint" data-report-only-visible>Filters are remembered on this device for your account and Department. Find text is not saved.</p>
               </details>
               <p id="reportReviewPreferenceNotice" class="muted report-filter-preference-notice" role="status" aria-live="polite" data-report-only-visible hidden></p>
@@ -1045,7 +1027,7 @@
                       <p class="eyebrow">Inbox</p>
                       <h2 id="reviewInboxTitle">Matching records</h2>
                     </div>
-                    <span class="review-pane-hint">Select to review</span>
+                    <span class="review-pane-hint" data-full-text="Select to review" data-report-only-text="Select to view">Select to view</span>
                   </div>
                   <div id="reviewQueueList" class="records-list review-queue-list" role="listbox" aria-label="Review records"></div>
                   <div id="reviewQueuePagination" class="review-queue-pagination"></div>
@@ -1074,7 +1056,7 @@
             </div>
           </details>
 
-          <section id="reportNotePanel" class="card report-note-panel" aria-labelledby="reportNoteTitle" hidden>
+          <section id="reportNotePanel" class="card report-note-panel" aria-labelledby="reportNoteTitle" data-report-only-hidden hidden>
             <div class="section-heading">
               <div>
                 <h2 id="reportNoteTitle">Resolution note</h2>

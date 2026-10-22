@@ -393,75 +393,7 @@ def transition_report(submission_id: int, data, supervisor: User, session: Sessi
             detail="Submission is not a Report",
         )
 
-    current_status = submission.workflow_status or (
-        "resolved"
-        if (submission.status or "pending") in {"approved", "rejected"}
-        else "submitted"
-    )
-    expected_status = "submitted" if target_status == "in_review" else "in_review"
-    if current_status != expected_status:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                f"Report must be {expected_status} before it can become {target_status}; "
-                "refresh Reports"
-            ),
-        )
-
-    normalized_note = " ".join(str(data.supervisor_note or "").split()) or None
-    if target_status == "resolved" and not normalized_note:
-        raise HTTPException(
-            status_code=400,
-            detail="A Supervisor note is required to resolve a Report",
-        )
-
-    before = model_snapshot(submission)
-    now = datetime.now(timezone.utc)
-    update_values = {
-        "workflow_status": target_status,
-        "supervisor_note": normalized_note,
-    }
-    if target_status == "in_review":
-        update_values.update(
-            reviewing_supervisor_id=supervisor.id,
-            review_started_at=now,
-            resolved_at=None,
-        )
-    else:
-        update_values["resolved_at"] = now
-
-    result = session.exec(
-        update(WorkFormSubmission)
-        .where(
-            WorkFormSubmission.id == submission.id,
-            WorkFormSubmission.deleted_at.is_(None),
-            WorkFormSubmission.workflow_status == expected_status,
-        )
-        .values(**update_values)
-    )
-    if result.rowcount != 1:
-        session.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="Report was transitioned by another Supervisor; refresh Reports",
-        )
-
-    session.expire(submission)
-    session.refresh(submission)
-    add_audit_event(
-        session=session,
-        actor=supervisor,
-        action="report_transition",
-        entity_type="form",
-        entity_id=submission.id,
-        before=before,
-        after=model_snapshot(submission),
-        summary=f"Transitioned Report #{submission.id} from {expected_status} to {target_status}",
-        department_id=submission.department_id,
-    )
-    session.commit()
-    session.refresh(submission)
-    return work_form_submission_response(submission, session)
+    raise HTTPException(status_code=409, detail="Reports no longer require review. Refresh Reports to view or edit them.")
 
 
 def find_my_report_submission_by_client_id(

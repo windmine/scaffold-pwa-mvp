@@ -1,0 +1,669 @@
+Running check_test_server_cleanup.py
+Three real disposable backend lifecycles passed with strict cleanup
+Running database_test.py
+ok - stale pooled connection is recycled before the route query
+database test passed
+Running maintenance_test.py
+ok - database-free maintenance liveness and nine fail-closed route checks
+Running migration_test.py
+ok - postgres statement adaptation
+ok - outdated production startup fails before storage readiness or purge
+ok - current production startup verifies safely and rejects automatic migration
+ok - real FastAPI lifespan refuses invalid history and cancels/clears its periodic purge task
+ok - lifespan regressions detect removed hooks, missing verification, early side effects, and leaked tasks
+ok - read-only migration verification rejects missing, changed, future, and absent migration manifests
+ok - migration --check CLI succeeds only for current history without writing
+ok - migration CLI process missing history: correct exit and unchanged database/uploads
+ok - migration CLI process pending history: correct exit and unchanged database/uploads
+ok - migration CLI process checksum history: correct exit and unchanged database/uploads
+ok - migration CLI process future history: correct exit and unchanged database/uploads
+ok - migration CLI process malformed history: correct exit and unchanged database/uploads
+ok - migration CLI process current history: correct exit and unchanged database/uploads
+ok - migration runner rejects unknown and changed history before pending upgrades
+ok - fresh database migration
+ok - legacy database migration
+ok - invitation migration preserves existing passwords/access and creates no invitations
+ok - recovery migration preserves passwords, sessions and invitation rows; issues no recovery links
+ok - report review workflow status backfill
+ok - Report and Daywork purpose backfill preserves evidence
+ok - global admin access requires the Supervisor role
+ok - client submission unique indexes
+ok - client submission duplicate precheck
+ok - rubbish bin 30-day purge
+ok - 0017 upgrade corrects proven historical Daywork without changing submitted evidence
+ok - 0019 upgrade corrects proven historical Daywork without changing submitted evidence
+ok - Correction refuses unknown_answers with full migration-batch rollback
+ok - Correction refuses changed_parent with full migration-batch rollback
+ok - Correction refuses changed_version with full migration-batch rollback
+ok - Correction refuses orphan with full migration-batch rollback
+ok - Correction refuses bad_date with full migration-batch rollback
+ok - Correction refuses report_transition and preserves existing-0019 guards/evidence
+ok - Correction refuses resolution_note and preserves existing-0019 guards/evidence
+ok - Correction refuses review_state and preserves existing-0019 guards/evidence
+ok - Correction refuses parent_edit and preserves existing-0019 guards/evidence
+ok - Correction refuses historical_parent_report and preserves existing-0019 guards/evidence
+ok - Correction refuses conflicting_definition and preserves existing-0019 guards/evidence
+ok - Legacy approvals/rejections/reviewer timestamps remain intact; explicit empty and positively evidenced Reports remain immutable Reports
+ok - 0017 correction provenance failure rolls back data, provenance and guards; retry succeeds
+ok - 0017 correction ledger failure rolls back data, provenance and guards; retry succeeds
+ok - 0019 correction provenance failure rolls back data, provenance and guards; retry succeeds
+ok - 0019 correction ledger failure rolls back data, provenance and guards; retry succeeds
+ok - Fresh schema receives0020 and remains exact-ledger/idempotence compatible
+migration test passed
+Running security_test.py
+ok - original Department reads submitted photo
+ok - other Department cannot read submitted photo
+ok - other Department cannot read submitted photo: route conceals evidence
+ok - other Department cannot read submitted photo: denial is never shared
+ok - original Department reads submitted signature
+ok - other Department cannot read submitted signature
+ok - other Department cannot read submitted signature: route conceals evidence
+ok - other Department cannot read submitted signature: denial is never shared
+ok - original Department reads submitted repeating signature
+ok - other Department cannot read submitted repeating signature
+ok - other Department cannot read submitted repeating signature: route conceals evidence
+ok - other Department cannot read submitted repeating signature: denial is never shared
+ok - Worker transfer never grants new Department old photo
+ok - Worker transfer never grants new Department old photo: route conceals evidence
+ok - Worker transfer never grants new Department old photo: denial is never shared
+ok - original Department keeps old photo after transfer
+ok - transferred owner keeps their photo
+ok - global Supervisor keeps access to photo
+ok - Worker transfer never grants new Department old signature
+ok - Worker transfer never grants new Department old signature: route conceals evidence
+ok - Worker transfer never grants new Department old signature: denial is never shared
+ok - original Department keeps old signature after transfer
+ok - transferred owner keeps their signature
+ok - global Supervisor keeps access to signature
+ok - Worker transfer never grants new Department old repeating signature
+ok - Worker transfer never grants new Department old repeating signature: route conceals evidence
+ok - Worker transfer never grants new Department old repeating signature: denial is never shared
+ok - original Department keeps old repeating signature after transfer
+ok - transferred owner keeps their repeating signature
+ok - global Supervisor keeps access to repeating signature
+ok - transfer leaves Report evidence and owning Department unchanged
+ok - trash keeps original Department signature access from frozen Definition
+ok - trash does not grant new Department signature access
+ok - trash does not grant new Department signature access: route conceals evidence
+ok - trash does not grant new Department signature access: denial is never shared
+ok - foreign URL in text answer cannot authorize Worker
+ok - foreign URL in text answer cannot authorize Worker: route conceals evidence
+ok - foreign URL in text answer cannot authorize Worker: denial is never shared
+ok - foreign URL in text answer cannot authorize Department Supervisor
+ok - foreign URL in text answer cannot authorize Department Supervisor: route conceals evidence
+ok - foreign URL in text answer cannot authorize Department Supervisor: denial is never shared
+ok - foreign URL in nested text answer cannot authorize Worker
+ok - foreign URL in nested text answer cannot authorize Worker: route conceals evidence
+ok - foreign URL in nested text answer cannot authorize Worker: denial is never shared
+ok - foreign URL in nested text answer cannot authorize Department Supervisor
+ok - foreign URL in nested text answer cannot authorize Department Supervisor: route conceals evidence
+ok - foreign URL in nested text answer cannot authorize Department Supervisor: denial is never shared
+ok - retained edit cannot launder ordinary URL text into photo
+ok - rejected photo edit preserves answers
+ok - rejected photo edit attaches no photos
+ok - retained edit cannot launder ordinary URL text into direct signature
+ok - rejected direct signature edit preserves answers
+ok - rejected direct signature edit attaches no photos
+ok - retained edit cannot launder ordinary URL text into repeating signature
+ok - rejected repeating signature edit preserves answers
+ok - rejected repeating signature edit attaches no photos
+ok - rejected retained edits never grant foreign photo access
+ok - rejected retained edits never grant foreign photo access: route conceals evidence
+ok - rejected retained edits never grant foreign photo access: denial is never shared
+ok - rejected retained edits never grant foreign signature access
+ok - rejected retained edits never grant foreign signature access: route conceals evidence
+ok - rejected retained edits never grant foreign signature access: denial is never shared
+ok - retained Supervisor correction keeps true Worker-owned photo
+ok - retained Supervisor correction keeps true frozen signature
+ok - unsubmitted Worker upload is private from current Department Supervisor
+ok - unsubmitted Worker upload is private from current Department Supervisor: route conceals evidence
+ok - unsubmitted Worker upload is private from current Department Supervisor: denial is never shared
+ok - unsubmitted Worker upload is private from former Department Supervisor
+ok - unsubmitted Worker upload is private from former Department Supervisor: route conceals evidence
+ok - unsubmitted Worker upload is private from former Department Supervisor: denial is never shared
+ok - unsubmitted upload remains available to owner
+ok - global Supervisor retains explicit orphan access
+ok - Supervisor can read their own unsubmitted upload
+ok - new Department gains access only after its own real attachment
+ok - shared evidence remains available to original Department
+ok - new Department gains access only after its own real attachment
+ok - shared evidence remains available to original Department
+ok - missing frozen Definition cannot authorize a signature from mutable Template
+ok - missing frozen Definition cannot authorize a signature from mutable Template: route conceals evidence
+ok - missing frozen Definition cannot authorize a signature from mutable Template: denial is never shared
+ok - malformed or untyped frozen Definition cannot authorize signature
+ok - malformed or untyped frozen Definition cannot authorize signature: route conceals evidence
+ok - malformed or untyped frozen Definition cannot authorize signature: denial is never shared
+ok - malformed or untyped frozen Definition cannot authorize signature
+ok - malformed or untyped frozen Definition cannot authorize signature: route conceals evidence
+ok - malformed or untyped frozen Definition cannot authorize signature: denial is never shared
+ok - malformed or untyped frozen Definition cannot authorize signature
+ok - malformed or untyped frozen Definition cannot authorize signature: route conceals evidence
+ok - malformed or untyped frozen Definition cannot authorize signature: denial is never shared
+ok - malformed or untyped frozen Definition cannot authorize signature
+ok - malformed or untyped frozen Definition cannot authorize signature: route conceals evidence
+ok - malformed or untyped frozen Definition cannot authorize signature: denial is never shared
+ok - legacy typed signature with no owner metadata remains Department accessible
+ok - legacy typed signature remains accessible to its record Worker
+ok - legacy signature remains hidden across Departments
+ok - legacy signature remains hidden across Departments: route conceals evidence
+ok - legacy signature remains hidden across Departments: denial is never shared
+ok - Supervisor without Department cannot obtain unscoped evidence
+ok - Supervisor without Department cannot obtain unscoped evidence: route conceals evidence
+ok - Supervisor without Department cannot obtain unscoped evidence: denial is never shared
+ok - malformed repeating answers fail closed without an upload error
+ok - malformed repeating answers fail closed without an upload error: route conceals evidence
+ok - malformed repeating answers fail closed without an upload error: denial is never shared
+ok - malformed repeat does not hide valid frozen direct signature
+ok - retained AttendanceRecord follows record Department
+ok - retained AttendanceRecord ignores uploader's new Department
+ok - retained AttendanceRecord ignores uploader's new Department: route conceals evidence
+ok - retained AttendanceRecord ignores uploader's new Department: denial is never shared
+ok - retained TaskLog follows record Department
+ok - retained TaskLog ignores uploader's new Department
+ok - retained TaskLog ignores uploader's new Department: route conceals evidence
+ok - retained TaskLog ignores uploader's new Department: denial is never shared
+ok - ambiguous old signature is retained by cleanup
+ok - guarded login rejects existing credentials without switching browser identity
+ok - guarded login rejects existing credentials without switching browser identity
+ok - guarded login rejects existing credentials without switching browser identity
+ok - guarded login rejects existing credentials without switching browser identity
+ok - guarded login rejects existing credentials without switching browser identity
+ok - guarded login rejects existing credentials without switching browser identity
+ok - guarded login is opt-in and rejects coercible non-boolean options
+ok - missing CSRF fails write validation without invalidating the authentication cookie
+ok - expired cookie cannot confirm a saved session
+ok - malformed cookie cannot confirm a saved session
+ok - resigned account cookie cannot confirm a saved session
+ok - invitation auth bucket allows its first request
+ok - invitation endpoint shares the strict auth bucket
+ok - invitation auth bucket allows its first request
+ok - invitation endpoint shares the strict auth bucket
+ok - invitation auth bucket allows its first request
+ok - invitation endpoint shares the strict auth bucket
+ok - invitation auth bucket allows its first request
+ok - invitation endpoint shares the strict auth bucket
+ok - invitation success, validation, authorization and rate-limit errors remain private
+ok - development default retains automatic migrations: configuration loads
+ok - development default retains automatic migrations
+ok - production default disables automatic migrations: configuration loads
+ok - production default disables automatic migrations
+ok - prod alias disables automatic migrations: configuration loads
+ok - prod alias disables automatic migrations
+ok - Cloud Run detection disables automatic migrations: configuration loads
+ok - Cloud Run detection disables automatic migrations
+ok - ENVIRONMENT fallback disables production automatic migrations: configuration loads
+ok - ENVIRONMENT fallback disables production automatic migrations
+ok - explicit development false disables automatic migrations: configuration loads
+ok - explicit development false disables automatic migrations
+ok - explicit production false remains disabled: configuration loads
+ok - explicit production false remains disabled
+ok - explicit production true remains detectable for startup rejection: configuration loads
+ok - explicit production true remains detectable for startup rejection
+ok - production startup explains the forbidden automatic migration setting
+ok - production startup rejects automatic migrations before migration, storage, or purge
+ok - rejected production startup does not create database tables
+ok - readiness leaves schema and row contents unchanged
+ok - current migration ledger is ready
+ok - readiness leaves schema and row contents unchanged
+ok - tampered migration ledger fails readiness even while SELECT 1 works
+ok - migration readiness failures do not expose ledger or SQL diagnostics
+ok - readiness leaves schema and row contents unchanged
+ok - readiness observes a repaired migration ledger without restart
+ok - readiness leaves schema and row contents unchanged
+ok - missing migration ledger fails readiness without recreating it
+ok - migration readiness failures do not expose ledger or SQL diagnostics
+ok - Worker global-admin flags do not grant effective global access
+ok - Supervisor global-admin flags grant cross-department access
+ok - global admin access requires the Supervisor role
+ok - PyJWT access tokens preserve the CSRF claim
+ok - tampered PyJWT access tokens are rejected
+ok - health is rate-limit exempt
+ok - api prefix is normalized for auth limits
+ok - auth limit returns 429
+ok - general request 1 is allowed
+ok - general request 2 is allowed
+ok - general limit returns 429
+ok - x-forwarded-for client ip is used
+ok - isolated HTTP readiness verifies the migrated database
+ok - HTTP readiness rejects pending migration history with sanitized 503 while the database remains reachable
+ok - pending migration readiness failure preserves liveness and never repairs the ledger
+ok - HTTP readiness recovers from pending history after restoring the exact original ledger without restart
+ok - HTTP readiness rejects unknown migration history with sanitized 503 while the database remains reachable
+ok - unknown migration readiness failure preserves liveness and never repairs the ledger
+ok - HTTP readiness recovers from unknown history after restoring the exact original ledger without restart
+ok - HTTP readiness rejects malformed migration history with sanitized 503 while the database remains reachable
+ok - malformed migration readiness failure preserves liveness and never repairs the ledger
+ok - HTTP readiness recovers from malformed history after restoring the exact original ledger without restart
+ok - anonymous upload request is denied
+ok - anonymous upload denial bypasses shared edge caches
+ok - upload request is rate limited
+ok - rate-limited upload denial bypasses shared edge caches
+ok - anonymous photo upload is denied
+ok - photo upload uses its dedicated rate limit
+ok - photo upload Retry-After matches its response delay
+ok - disallowed upload preflight is rejected
+ok - CORS upload denial bypasses shared edge caches
+ok - active SVG content is rejected even with a raster filename
+ok - external upload URLs cannot claim a local object
+ok - spreadsheet formula and control prefixes are neutralized
+ok - task CSV export applies spreadsheet-safe encoding to user text
+security test passed
+Running registration_email_test.py
+test_disabled_development_retains_no_send_code_flow (__main__.RegistrationEmailTests.test_disabled_development_retains_no_send_code_flow) ... ok
+test_disabled_production_rejects_before_database_or_smtp (__main__.RegistrationEmailTests.test_disabled_production_rejects_before_database_or_smtp) ... ok
+test_implicit_tls_also_verifies_certificate (__main__.RegistrationEmailTests.test_implicit_tls_also_verifies_certificate) ... ok
+test_implicit_tls_certificate_failure_never_falls_back (__main__.RegistrationEmailTests.test_implicit_tls_certificate_failure_never_falls_back) ... ok
+test_missing_sender_configuration_never_connects (__main__.RegistrationEmailTests.test_missing_sender_configuration_never_connects) ... ok
+test_plaintext_configuration_rejected_before_database_or_authentication (__main__.RegistrationEmailTests.test_plaintext_configuration_rejected_before_database_or_authentication) ... ok
+test_public_http_registration_stays_disabled_with_credentials_configured (__main__.RegistrationEmailTests.test_public_http_registration_stays_disabled_with_credentials_configured) ... ok
+test_registration_email_defaults_off_in_all_environments (__main__.RegistrationEmailTests.test_registration_email_defaults_off_in_all_environments) ... ok
+test_starttls_failure_never_falls_back_to_authentication_or_send (__main__.RegistrationEmailTests.test_starttls_failure_never_falls_back_to_authentication_or_send) ... ok
+test_starttls_verifies_certificate_before_authentication_and_send (__main__.RegistrationEmailTests.test_starttls_verifies_certificate_before_authentication_and_send) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.123s
+
+OK
+Running invitation_email_test.py
+test_close_failure_does_not_erase_acknowledged_acceptance (__main__.InvitationEmailTests.test_close_failure_does_not_erase_acknowledged_acceptance) ... ok
+test_configuration_failure_leaves_invitation_unclaimed_and_manual_link_valid (__main__.InvitationEmailTests.test_configuration_failure_leaves_invitation_unclaimed_and_manual_link_valid) ... ok
+test_email_does_not_change_single_use_acceptance_or_replacement (__main__.InvitationEmailTests.test_email_does_not_change_single_use_acceptance_or_replacement) ... ok
+test_explicit_send_uses_saved_recipient_verified_tls_and_private_canonical_link (__main__.InvitationEmailTests.test_explicit_send_uses_saved_recipient_verified_tls_and_private_canonical_link) ... ok
+test_failed_result_commit_cannot_cause_duplicate_on_replay (__main__.InvitationEmailTests.test_failed_result_commit_cannot_cause_duplicate_on_replay) ... ok
+test_global_supervisor_can_send_across_departments (__main__.InvitationEmailTests.test_global_supervisor_can_send_across_departments) ... ok
+test_http_auth_csrf_redaction_cache_and_fixed_recipient_contract (__main__.InvitationEmailTests.test_http_auth_csrf_redaction_cache_and_fixed_recipient_contract) ... ok
+test_in_progress_claim_blocks_concurrent_send (__main__.InvitationEmailTests.test_in_progress_claim_blocks_concurrent_send) ... ok
+test_rejected_recipient_is_failed_but_lost_data_response_is_unknown (__main__.InvitationEmailTests.test_rejected_recipient_is_failed_but_lost_data_response_is_unknown) ... ok
+test_scope_role_status_expiry_generation_and_token_must_match (__main__.InvitationEmailTests.test_scope_role_status_expiry_generation_and_token_must_match) ... ok
+test_tls_failure_is_sanitized_and_durable_without_plaintext_fallback (__main__.InvitationEmailTests.test_tls_failure_is_sanitized_and_durable_without_plaintext_fallback) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 6.305s
+
+OK
+Running report_pdf_email_test.py
+........C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\backend\app\main.py:335: DeprecationWarning:
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+
+  @app.on_event("startup")
+C:\Users\12273\AppData\Roaming\Python\Python314\site-packages\fastapi\applications.py:4598: DeprecationWarning:
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+
+  return self.router.on_event(event_type)  # ty: ignore[deprecated]
+C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\backend\app\main.py:353: DeprecationWarning:
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+
+  @app.on_event("shutdown")
+..........
+----------------------------------------------------------------------
+Ran 18 tests in 10.633s
+
+OK
+Running report_corrections_test.py
+......C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\backend\app\main.py:335: DeprecationWarning:
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+
+  @app.on_event("startup")
+C:\Users\12273\AppData\Roaming\Python\Python314\site-packages\fastapi\applications.py:4598: DeprecationWarning:
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+
+  return self.router.on_event(event_type)  # ty: ignore[deprecated]
+C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\backend\app\main.py:353: DeprecationWarning:
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+
+  @app.on_event("shutdown")
+...
+----------------------------------------------------------------------
+Ran 9 tests in 5.225s
+
+OK
+Running supervisor_report_submission_test.py
+........
+----------------------------------------------------------------------
+Ran 8 tests in 4.310s
+
+OK
+Running upload_storage_test.py
+ok - original Department reads submitted photo
+ok - other Department cannot read submitted photo
+ok - other Department cannot read submitted photo: route conceals evidence
+ok - other Department cannot read submitted photo: denial is never shared
+ok - original Department reads submitted signature
+ok - other Department cannot read submitted signature
+ok - other Department cannot read submitted signature: route conceals evidence
+ok - other Department cannot read submitted signature: denial is never shared
+ok - original Department reads submitted repeating signature
+ok - other Department cannot read submitted repeating signature
+ok - other Department cannot read submitted repeating signature: route conceals evidence
+ok - other Department cannot read submitted repeating signature: denial is never shared
+ok - Worker transfer never grants new Department old photo
+ok - Worker transfer never grants new Department old photo: route conceals evidence
+ok - Worker transfer never grants new Department old photo: denial is never shared
+ok - original Department keeps old photo after transfer
+ok - transferred owner keeps their photo
+ok - global Supervisor keeps access to photo
+ok - Worker transfer never grants new Department old signature
+ok - Worker transfer never grants new Department old signature: route conceals evidence
+ok - Worker transfer never grants new Department old signature: denial is never shared
+ok - original Department keeps old signature after transfer
+ok - transferred owner keeps their signature
+ok - global Supervisor keeps access to signature
+ok - Worker transfer never grants new Department old repeating signature
+ok - Worker transfer never grants new Department old repeating signature: route conceals evidence
+ok - Worker transfer never grants new Department old repeating signature: denial is never shared
+ok - original Department keeps old repeating signature after transfer
+ok - transferred owner keeps their repeating signature
+ok - global Supervisor keeps access to repeating signature
+ok - transfer leaves Report evidence and owning Department unchanged
+ok - trash keeps original Department signature access from frozen Definition
+ok - trash does not grant new Department signature access
+ok - trash does not grant new Department signature access: route conceals evidence
+ok - trash does not grant new Department signature access: denial is never shared
+ok - foreign URL in text answer cannot authorize Worker
+ok - foreign URL in text answer cannot authorize Worker: route conceals evidence
+ok - foreign URL in text answer cannot authorize Worker: denial is never shared
+ok - foreign URL in text answer cannot authorize Department Supervisor
+ok - foreign URL in text answer cannot authorize Department Supervisor: route conceals evidence
+ok - foreign URL in text answer cannot authorize Department Supervisor: denial is never shared
+ok - foreign URL in nested text answer cannot authorize Worker
+ok - foreign URL in nested text answer cannot authorize Worker: route conceals evidence
+ok - foreign URL in nested text answer cannot authorize Worker: denial is never shared
+ok - foreign URL in nested text answer cannot authorize Department Supervisor
+ok - foreign URL in nested text answer cannot authorize Department Supervisor: route conceals evidence
+ok - foreign URL in nested text answer cannot authorize Department Supervisor: denial is never shared
+ok - retained edit cannot launder ordinary URL text into photo
+ok - rejected photo edit preserves answers
+ok - rejected photo edit attaches no photos
+ok - retained edit cannot launder ordinary URL text into direct signature
+ok - rejected direct signature edit preserves answers
+ok - rejected direct signature edit attaches no photos
+ok - retained edit cannot launder ordinary URL text into repeating signature
+ok - rejected repeating signature edit preserves answers
+ok - rejected repeating signature edit attaches no photos
+ok - rejected retained edits never grant foreign photo access
+ok - rejected retained edits never grant foreign photo access: route conceals evidence
+ok - rejected retained edits never grant foreign photo access: denial is never shared
+ok - rejected retained edits never grant foreign signature access
+ok - rejected retained edits never grant foreign signature access: route conceals evidence
+ok - rejected retained edits never grant foreign signature access: denial is never shared
+ok - retained Supervisor correction keeps true Worker-owned photo
+ok - retained Supervisor correction keeps true frozen signature
+ok - unsubmitted Worker upload is private from current Department Supervisor
+ok - unsubmitted Worker upload is private from current Department Supervisor: route conceals evidence
+ok - unsubmitted Worker upload is private from current Department Supervisor: denial is never shared
+ok - unsubmitted Worker upload is private from former Department Supervisor
+ok - unsubmitted Worker upload is private from former Department Supervisor: route conceals evidence
+ok - unsubmitted Worker upload is private from former Department Supervisor: denial is never shared
+ok - unsubmitted upload remains available to owner
+ok - global Supervisor retains explicit orphan access
+ok - Supervisor can read their own unsubmitted upload
+ok - new Department gains access only after its own real attachment
+ok - shared evidence remains available to original Department
+ok - new Department gains access only after its own real attachment
+ok - shared evidence remains available to original Department
+ok - missing frozen Definition cannot authorize a signature from mutable Template
+ok - missing frozen Definition cannot authorize a signature from mutable Template: route conceals evidence
+ok - missing frozen Definition cannot authorize a signature from mutable Template: denial is never shared
+ok - malformed or untyped frozen Definition cannot authorize signature
+ok - malformed or untyped frozen Definition cannot authorize signature: route conceals evidence
+ok - malformed or untyped frozen Definition cannot authorize signature: denial is never shared
+ok - malformed or untyped frozen Definition cannot authorize signature
+ok - malformed or untyped frozen Definition cannot authorize signature: route conceals evidence
+ok - malformed or untyped frozen Definition cannot authorize signature: denial is never shared
+ok - malformed or untyped frozen Definition cannot authorize signature
+ok - malformed or untyped frozen Definition cannot authorize signature: route conceals evidence
+ok - malformed or untyped frozen Definition cannot authorize signature: denial is never shared
+ok - malformed or untyped frozen Definition cannot authorize signature
+ok - malformed or untyped frozen Definition cannot authorize signature: route conceals evidence
+ok - malformed or untyped frozen Definition cannot authorize signature: denial is never shared
+ok - legacy typed signature with no owner metadata remains Department accessible
+ok - legacy typed signature remains accessible to its record Worker
+ok - legacy signature remains hidden across Departments
+ok - legacy signature remains hidden across Departments: route conceals evidence
+ok - legacy signature remains hidden across Departments: denial is never shared
+ok - Supervisor without Department cannot obtain unscoped evidence
+ok - Supervisor without Department cannot obtain unscoped evidence: route conceals evidence
+ok - Supervisor without Department cannot obtain unscoped evidence: denial is never shared
+ok - malformed repeating answers fail closed without an upload error
+ok - malformed repeating answers fail closed without an upload error: route conceals evidence
+ok - malformed repeating answers fail closed without an upload error: denial is never shared
+ok - malformed repeat does not hide valid frozen direct signature
+ok - retained AttendanceRecord follows record Department
+ok - retained AttendanceRecord ignores uploader's new Department
+ok - retained AttendanceRecord ignores uploader's new Department: route conceals evidence
+ok - retained AttendanceRecord ignores uploader's new Department: denial is never shared
+ok - retained TaskLog follows record Department
+ok - retained TaskLog ignores uploader's new Department
+ok - retained TaskLog ignores uploader's new Department: route conceals evidence
+ok - retained TaskLog ignores uploader's new Department: denial is never shared
+ok - ambiguous old signature is retained by cleanup
+ok - local readiness backend
+ok - local readiness probe is removed
+ok - JPEG canonical suffix
+ok - JPEG canonical content type
+ok - JPEG owner metadata
+ok - JPEG trailing payload stripped
+ok - JPEG dimensions
+ok - PNG canonical suffix
+ok - PNG canonical content type
+ok - PNG owner metadata
+ok - PNG trailing payload stripped
+ok - PNG dimensions
+ok - WEBP canonical suffix
+ok - WEBP canonical content type
+ok - WEBP owner metadata
+ok - WEBP trailing payload stripped
+ok - WEBP dimensions
+ok - PNG transparency is preserved
+ok - reject SVG renamed as raster
+ok - reject corrupt raster
+ok - reject nominal HEIC without verified decoder
+ok - reject upload byte limit
+ok - upload url format
+ok - reject nested upload filename
+ok - reject local upload metadata sidecar
+ok - reject unknown storage backend
+ok - require GCS bucket
+ok - explicit local backend does not silently switch
+ok - reject production local storage
+ok - GCS readiness backend
+ok - GCS readiness verifies readable objects
+ok - GCS readiness keeps only its stable marker
+ok - GCS live readiness is non-destructive
+ok - GCS stored content type
+ok - GCS stored owner
+ok - GCS stream returns verified raster
+ok - GCS delete removes object
+ok - GCS delete is idempotent
+ok - upload 401 cannot be shared by an edge cache
+ok - upload 403 cannot be shared by an edge cache
+ok - upload 404 cannot be shared by an edge cache
+ok - unrelated response cache policy is untouched
+ok - submission rejects a missing upload reference
+ok - submission rejects another user's upload
+ok - submission accepts nested uploads owned by its authenticated uploader
+ok - attendance rejects a nonexistent photo object
+ok - task log rejects a photo owned by another Worker
+ok - nested Work Form signature rejects another Worker's object
+ok - Work Form rejects a missing top-level photo object
+ok - submitted Worker signature remains attached as immutable evidence
+ok - ordinary Work Form text is not mistaken for upload evidence
+ok - uploader can stream own asset
+ok - unrelated worker is denied before stream opens
+ok - denied upload route stays concealed
+ok - denied upload response cannot be shared by an edge cache
+ok - same-department supervisor receives the private upload stream
+ok - cross-department supervisor is denied
+ok - global supervisor can stream
+ok - malformed Worker global-admin flag cannot bypass upload scope
+ok - nested signature reference authorizes its Worker
+ok - referenced upload is retained
+ok - orphan upload is deleted
+ok - orphan content is gone
+ok - detached upload is deleted
+ok - detached metadata is deleted
+ok - expired attendance is permanently purged
+ok - purge removes its unreferenced upload
+ok - attendance lifecycle URL extraction
+ok - task lifecycle URL extraction
+upload storage test passed
+Running work_form_definition_test.py
+ok - server-derived work form answers
+ok - immutable work form definition snapshot
+work form definition test passed
+Running review_queue_test.py
+ok - paged Review Record query
+ok - Review Record decision policy
+ok - business timezone Review Queue and export dates
+ok - cross-Department Site and target audit integrity
+review queue test passed
+Running report_workflow_test.py
+ok - retired transitions and unversioned edits reject without changing Report content or history
+ok - normal Worker Report is private, Site-optional, and idempotent
+ok - queued Report rejects a changed Template without losing captured answers
+ok - Report version compatibility, explicit conflict recovery, and post-edit idempotent replay
+ok - impossible calendar Report Dates are rejected without persisting Reports
+ok - leap days and calendar boundaries remain valid; duplicate replay preserves original Report Date
+ok - archived Report Template rejects new Reports
+ok - Report version conflicts do not change retained Daywork replay
+ok - Supervisor Report visibility is Department-scoped
+report submission and retired-workflow boundary tests passed
+Running report_purpose_test.py
+ok - Supervisor-created templates default to report
+ok - Report Template list separates Daywork
+ok - submission durably copies template purpose
+ok - Report Date is required only for Reports
+ok - every Worker can report while Daywork remains Leader-only
+ok - My Reports filter excludes Daywork and retained mode stays compatible
+ok - Supervisor Reports queue excludes Daywork
+ok - Supervisor Report submission list excludes Daywork
+ok - Report transition rejects Daywork
+ok - both legacy decision facades block Reports and retain Daywork
+ok - Supervisor manual creation blocks Reports and retains Daywork
+ok - retained Daywork submissions remain editable by Supervisors
+ok - collection CSV export filters Reports from Daywork
+ok - Report CSV exports submission details without historical review
+ok - Report HTML exports submission details without historical review
+ok - Report PDF exports submission details without historical review
+ok - collection HTML/PDF exports filter Reports from Daywork
+ok - omitted-purpose PDF collections retain Daywork outcomes and omit historical Report review
+ok - Daywork exports follow durable purpose after a Template rename
+ok - Daywork collection exports retain labels and filenames
+report purpose test passed
+Running report_export_test.py
+ok - Report CSV Find matches the inbox
+ok - Report HTML/PDF Find matches the inbox
+ok - CSV/HTML/PDF export all 51 matches across two inbox pages
+ok - Report exports preserve structured filters, Department authority, global focus, and Daywork isolation
+ok - Find shares case/whitespace normalization, literal wildcards, searchable fields, length validation, and empty results
+ok - current Report exports hide historical review while retaining answers, submission time and Daywork semantics
+ok - single and collection CSV/HTML/PDF export corrected content against the original Definition
+Running report_export_evidence_test.py
+ok - missing/malformed frozen Definitions refuse unauthorized images in Report/Daywork single/collection HTML/PDF
+ok - frozen ordinary URL answers remain literal in all exports after a Template edit
+ok - genuine saved photos/direct/repeating signatures remain accessible through scoped exports
+ok - legacy Daywork signature-name heuristic cannot bypass frozen evidence authority
+ok - exact frozen inline raster signatures survive and missing stored objects keep unavailable placeholders
+ok - owner/global direct-read exceptions cannot invent record evidence; export refusal stays private/no-store
+Running report_photo_limit_test.py
+test_daywork_submit_and_supervisor_edit_remain_eight_photos (__main__.ReportPhotoLimitTests.test_daywork_submit_and_supervisor_edit_remain_eight_photos) ... ok
+test_fiftieth_photo_ownership_is_checked (__main__.ReportPhotoLimitTests.test_fiftieth_photo_ownership_is_checked) ... ok
+test_fifty_first_photo_rejected_without_insert (__main__.ReportPhotoLimitTests.test_fifty_first_photo_rejected_without_insert) ... ok
+test_fifty_photos_preserve_order_metadata_signature_snapshot_and_replay (__main__.ReportPhotoLimitTests.test_fifty_photos_preserve_order_metadata_signature_snapshot_and_replay) ... ok
+test_signature_ownership_still_checked_after_fifty_photos (__main__.ReportPhotoLimitTests.test_signature_ownership_still_checked_after_fifty_photos) ... ok
+test_task_logs_remain_eight_photos (__main__.ReportPhotoLimitTests.test_task_logs_remain_eight_photos) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 2.239s
+
+OK
+Running report_pdf_branding_test.py
+Report PDF branding checks passed: six packaged logos, name normalization, neutral fallback, missing assets.
+Running report_pdf_layout_test.py
+ok - empty Report collection is a readable, numbered A4 PDF
+ok - Report metadata and actual Definition/date footer survive export without historical review details
+ok - collection pages repeat their own department, title, submitter and snapshot footer
+ok - oversized labels and answers split without lost tails; historical final notes stay out of exports
+ok - inline signature images precede their matching names, including repeat rows and optional blanks
+ok - 2100-character labels and 3500-character unbroken answers wrap without character loss
+ok - 16 flat/repeated signature-name pairs stay together in either Definition field order
+ok - oversized repeated-header metadata remains complete in the body fallback
+ok - missing and undecodable photo/signature evidence is explicitly unavailable
+ok - HTML-looking field content remains literal printable text
+Running report_pdf_unicode_test.py
+ok - concurrent first-use exports register fonts safely and keep document subsets separate
+ok - Simplified/Traditional Chinese and mixed English survive every Report text location
+ok - long unspaced Chinese labels and answers span collection pages without historical review notes
+ok - supplementary Han names use valid UTF-16 PDF Unicode mappings
+ok - licensed packaged regular/bold fonts contain and embed Chinese glyphs
+Running report_pdf_volume_test.py
+ok - small photo/signature source bytes and dimensions are unchanged
+ok - camera orientation, alpha and lossless signature strokes survive export-only resizing
+ok - 50 distinct 6 MP photos: {"maxRasterHeight": 597, "maxRasterWidth": 918, "pages": 26, "pdfBytes": 3743001, "photos": 50, "renderSeconds": 3.57, "signatures": 1, "sourceBytes": 96438819, "sourceEvidenceUnchanged": true}
+Running template_edit_test.py
+ok - stale Template edits conflict without changing newer content or audit
+ok - current, no-op, legacy and status-only edits preserve Definition version semantics
+ok - concurrent version-checked Template edits produce one winner and one audit update
+ok - legacy and checked edits serialize without losing successful Definition changes
+template edit tests passed
+Running invitation_test.py
+ok - invited Worker chooses a password then signs in normally
+ok - guarded setup continuation signs in only without credentials and preserves normal sign-in
+ok - reissue replaces the old link and revoke prevents acceptance
+ok - pending accounts cannot authenticate or receive a Supervisor-chosen password
+ok - restored email/status never revives revoked links; pending Workers cannot be promoted
+ok - invitation responses are no-store and credentials never enter Staff or audit responses
+ok - invitation actions enforce Worker, Department and new-account boundaries
+ok - expiry, UTF-8 password limits and one-time acceptance preserve the chosen password
+ok - concurrent acceptance has one winner; concurrent reissue leaves one valid invitation
+ok - invitation expiry is rechecked after waiting for the storage claim
+worker invitation tests passed
+Running password_recovery_test.py
+ok - cookie-free reset revokes legacy, bearer, cookie and refreshed sessions; new password signs in
+ok - only scoped Supervisors recover active established Workers; pending, resigned and Supervisor targets rejected
+ok - reissue/revoke/expiry invalidate links without changing passwords; invitation and recovery credentials isolated
+ok - Staff edits and resign/reactivate invalidate recovery; direct password edits revoke prior sessions
+ok - recovery responses/errors are no-store/no-referrer/cookie-free; 422 redacts secrets, CSRF enforced, audit/storage hide tokens
+ok - simultaneous recovery has one successful reset, one audit, one session-generation increment
+ok - recycled email addresses never inherit a previous identity's legacy or uid-bound session
+ok - recovery inspect, acceptance, issue and revoke paths share the strict authentication rate bucket
+Private password recovery checks passed; disposable backend removed.
+Running report_upload_recovery_test.py
+ok - explicit uncached absence check is read-only
+ok - exact Worker key lookup finds durable and trashed Reports without exposing another Worker's Report
+ok - exact lookup validates Report purpose and stable key; auth, role and validation errors cannot cache
+ok - an exact Daywork key collision cannot authorize Report recovery or expose Daywork content
+ok - retained trash evidence blocks purged Report recovery and same-key recreation without blocking other Workers
+ok - POST identifies the existing immutable winner without persisting replay metadata or requiring an active Template
+ok - concurrent old/recovered payloads with the same key create one Report and identify the winning snapshot
+ok - retained Daywork keeps its existing replay and post-purge policy while Report recovery rejects its key
+ok - retained before snapshots prevent recreation; ambiguous historical purpose cannot authorize Report recovery
+ok - recovered POST binds actual cookie Worker and Department before creating or returning an idempotent Report
+ok - recovered photo/signature upload binds actual cookie identity before storage; unscoped uploads remain compatible
+Running report_review_order_test.py
+ok - newest pagination binds Department/Template/Worker/Date/search filters
+ok - ordering validation, Report-only purpose, authentication and Supervisor role boundaries hold
+ok - local Supervisor scope, Global admin focus and Department-bound cursors remain enforced
+ok - newest/default/retained Daywork behavior and historical cursors remain unchanged; deleted Reports stay excluded
+ok - current page-query path compiles with PostgreSQL cursor, snapshot, filter and ordering predicates (no runtime claim)
+Report newest pagination and retired review filter tests passed (four HTTP groups + PostgreSQL compilation)
+backend local checks passed; temporary default storage removed

@@ -137,6 +137,25 @@ export async function searchTemplateLibrary(page, templateId, search) {
   return card;
 }
 
+export async function assertRestoredReportFilters(page, { templateId, workerId, reportDate, marker }) {
+  const filters = await page.evaluate(() => Object.fromEntries(['supervisorTemplateFilter', 'supervisorWorkerFilter',
+    'supervisorDateFilter', 'supervisorStatusFilter', 'supervisorSearchInput'].map((id) => [id, document.getElementById(id).value])));
+  requireCondition(filters.supervisorTemplateFilter === String(templateId) && filters.supervisorWorkerFilter === String(workerId)
+    && filters.supervisorDateFilter === reportDate && filters.supervisorStatusFilter === ''
+    && filters.supervisorSearchInput === '', 'structured_filters_not_restored_or_search_persisted');
+  requireCondition(!await page.locator('#supervisorStatusFilter').isVisible()
+    && await page.locator('#supervisorSortOrder, [data-report-workflow-shortcut]').count() === 0,
+  'retired_report_workflow_controls_present');
+  const stored = await page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('report-review-preferences:'))
+    .map((key) => JSON.parse(localStorage.getItem(key))));
+  requireCondition(stored.length > 0 && !JSON.stringify(stored).includes(marker)
+    && stored.every((entry) => Object.keys(entry.filters).every((key) => ['status', 'formId', 'workerId', 'date', 'sortOrder'].includes(key))),
+  'private_search_or_unstructured_values_persisted');
+  requireCondition(stored.some((entry) => entry.filters.formId === String(templateId)
+    && entry.filters.workerId === String(workerId) && entry.filters.date === reportDate
+    && entry.filters.status === '' && entry.filters.sortOrder === 'newest'), 'current_report_filters_not_persisted');
+}
+
 export async function runUxRelease(config) {
   const nonce = randomUUID();
   const scope = { ...config, workerId: null, templateId: null, reportId: null, clientId: null,
@@ -401,7 +420,7 @@ export async function runUxRelease(config) {
       evidence.owned.reportId = report.id;
       requireCondition(writes.photos === 1 && writes.reports === 1 && report.photo_urls.length === 1, 'confirmation_not_exactly_once');
     });
-    await step('structured_review_filters_reload_and_workflow_shortcuts', async () => {
+    await step('structured_report_filters_reload_and_refresh_without_workflow', async () => {
       await supervisor.reload({ waitUntil: 'domcontentloaded' });
       await supervisor.locator('#supervisorView').waitFor({ state: 'visible' });
       await openWorkspace(supervisor, 'review');
@@ -409,33 +428,19 @@ export async function runUxRelease(config) {
       await supervisor.locator('#supervisorTemplateFilter').selectOption(String(scope.templateId));
       await supervisor.locator('#supervisorWorkerFilter').selectOption(String(scope.workerId));
       await supervisor.locator('#supervisorDateFilter').fill(scope.reportDate);
-      await supervisor.locator('[data-report-workflow-shortcut="submitted"]').click();
       await supervisor.locator('#supervisorSearchInput').fill(scope.marker);
       await poll(async () => await supervisor.locator('#reviewQueueList .record-form').count() === 1, 'owned_filtered_report_missing');
       await supervisor.reload({ waitUntil: 'domcontentloaded' });
       await supervisor.locator('#supervisorView').waitFor({ state: 'visible' });
       await openWorkspace(supervisor, 'review');
       await poll(() => supervisor.locator('#supervisorTemplateFilter').isEnabled(), 'review_filter_catalog_not_ready');
-      const filters = await supervisor.evaluate(() => Object.fromEntries(['supervisorTemplateFilter', 'supervisorWorkerFilter',
-        'supervisorDateFilter', 'supervisorStatusFilter', 'supervisorSearchInput', 'supervisorSortOrder'].map((id) => [id, document.getElementById(id).value])));
-      requireCondition(filters.supervisorTemplateFilter === String(scope.templateId) && filters.supervisorWorkerFilter === String(scope.workerId)
-        && filters.supervisorDateFilter === scope.reportDate && filters.supervisorStatusFilter === 'submitted'
-        && filters.supervisorSearchInput === '' && filters.supervisorSortOrder === 'newest', 'structured_filters_not_restored_or_search_persisted');
-      const stored = await supervisor.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('report-review-preferences:'))
-        .map((key) => JSON.parse(localStorage.getItem(key))));
-      requireCondition(stored.length > 0 && !JSON.stringify(stored).includes(scope.marker)
-        && stored.every((entry) => Object.keys(entry.filters).every((key) => ['status', 'formId', 'workerId', 'date', 'sortOrder'].includes(key))
-          && (entry.filters.sortOrder === undefined || ['newest', 'oldest_waiting'].includes(entry.filters.sortOrder))),
-      'private_search_or_unstructured_values_persisted');
-      requireCondition(stored.some((entry) => entry.filters.formId === String(scope.templateId)
-        && entry.filters.workerId === String(scope.workerId) && entry.filters.date === scope.reportDate
-        && entry.filters.status === 'submitted' && entry.filters.sortOrder === 'newest'), 'current_review_sort_not_persisted');
-      await supervisor.locator('[data-report-workflow-shortcut="in_review"]').click();
-      await poll(async () => await supervisor.locator('#reviewQueueList .record-form').count() === 0, 'in_review_shortcut_not_applied');
-      requireCondition(await supervisor.locator('#supervisorTemplateFilter').inputValue() === String(scope.templateId)
-        && await supervisor.locator('#supervisorWorkerFilter').inputValue() === String(scope.workerId), 'shortcut_cleared_other_filters');
-      await supervisor.locator('[data-report-workflow-shortcut="submitted"]').click();
-      await poll(async () => await supervisor.locator('#reviewQueueList .record-form').count() === 1, 'submitted_shortcut_not_restored');
+      await showSupervisorFilters(supervisor);
+      await assertRestoredReportFilters(supervisor, scope);
+      const refresh = await responseTo(supervisor, '/api/supervisor/review-queue', 'GET',
+        () => supervisor.locator('#refreshSupervisorButton').click());
+      requireCondition(refresh.ok(), 'filtered_report_refresh_failed');
+      await poll(async () => await supervisor.locator('#reviewQueueList .record-form').count() === 1, 'refreshed_owned_report_missing');
+      await assertRestoredReportFilters(supervisor, scope);
     });
     await step('private_recovery_replace_revoke_and_expiry', async () => {
       await supervisor.reload({ waitUntil: 'domcontentloaded' });

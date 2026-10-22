@@ -83,6 +83,10 @@ def normalize_review_record_query(
             detail="workflow_status must be submitted, in_review, or resolved",
         )
     normalized_purpose = normalize_work_form_purpose(purpose)
+    if normalized_purpose == "report" and normalized_workflow_status:
+        if normalized_workflow_status != "submitted":
+            raise HTTPException(status_code=400, detail="Reports no longer use review filters. Refresh Reports.")
+        normalized_workflow_status = None
     normalized_kind = normalize_approval_record_type(kind) if kind else None
 
     if form_id is not None and form_id < 1:
@@ -346,6 +350,8 @@ def list_review_record_page(
     sort_order = "newest" if sort_order is None else str(sort_order).strip().lower()
     if sort_order not in REVIEW_SORT_ORDERS:
         raise HTTPException(status_code=400, detail="sort_order must be newest or oldest_waiting")
+    if sort_order == "oldest_waiting" and query.purpose == "report":
+        raise HTTPException(status_code=400, detail="Reports no longer have a waiting order. Refresh Reports.")
     if sort_order == "oldest_waiting" and query.purpose != "report":
         raise HTTPException(status_code=400, detail="oldest_waiting requires purpose=report")
     filter_hash = query.fingerprint(sort_order)

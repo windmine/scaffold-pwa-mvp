@@ -22,7 +22,7 @@ from app.config import (
     UPLOAD_OBJECT_PREFIX,
     UPLOAD_STORAGE_BACKEND,
 )
-from app.models import AttendanceRecord, TaskLog, User, WorkFormSubmission
+from app.models import AttendanceRecord, ReportPdfEmail, TaskLog, User, WorkFormSubmission
 
 
 STREAM_CHUNK_BYTES = 64 * 1024
@@ -475,6 +475,12 @@ def record_upload_urls(record):
     return {f"/uploads/{filename}" for filename in filenames}
 
 
+def report_email_upload_urls(row):
+    """Conservative retention only; a queued PDF never grants media access."""
+    snapshot = _json_value(row.snapshot_json, {})
+    return {f"/uploads/{filename}" for filename in _upload_filenames_in(snapshot)}
+
+
 def validate_submission_upload_references(
     values,
     user: User,
@@ -577,6 +583,16 @@ def _upload_is_referenced(filename: str, session: Session, worker_id: Optional[i
                 filenames = (_authorized_record_upload_filenames(record) if evidence_only
                              else _upload_filenames_in(record_upload_urls(record)))
                 if filename in filenames:
+                    return True
+        finally:
+            rows.close()
+    if not evidence_only and worker_id is None and department_id is None:
+        # Corrections may detach original photos or signatures. The outbox must
+        # still be able to deliver its submitted version, until Report purge.
+        rows = session.exec(select(ReportPdfEmail).execution_options(yield_per=100))
+        try:
+            for row in rows:
+                if f"/uploads/{filename}" in report_email_upload_urls(row):
                     return True
         finally:
             rows.close()

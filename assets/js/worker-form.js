@@ -1594,7 +1594,7 @@ export function createWorkerFormModule({
       await syncQueueIfPossible(!result.offline);
       if (!isCurrentSubmission()) return;
       const submissionMessage = reportOnly
-        ? result.message.replace(/ submitted for approval\.$/, ' submitted for review.')
+        ? result.message.replace(/ submitted for approval\.$/, ' submitted.')
         : result.message;
       const resultMessage = result.draftCleanupFailed
         ? `${submissionMessage} The submitted draft could not be cleared from this device; do not submit it again after reloading.`

@@ -310,16 +310,16 @@ try {
     assert.doesNotMatch(text, /Type:\s*Report|Sync:\s*synced|Report Template:/);
     assert.equal(text.split('Site inspection <safe>').length - 1, 1, `${surface}: Template title is not repeated`);
     assert.equal(text.split('Report Date: 2026-10-07').length - 1, 1, `${surface}: Report Date is not repeated`);
-    assert.equal(text.split('Pass <script>unsafe()</script>').length - 1, 1, `${surface}: final note appears once`);
+    assert.equal(text.split('Pass <script>unsafe()</script>').length - 1, 0, `${surface}: historical final note is hidden`);
     assert.equal(await container.locator('script').count(), 0);
     assert.match(await container.innerText(), /The access route is clear\./);
-    assert.match(await container.innerText(), /Pass <script>unsafe\(\)<\/script>/);
+    assert.doesNotMatch(await container.innerText(), /Pass <script>unsafe\(\)<\/script>/);
     const metadata = container.locator('details.record-report-more-details');
     const summary = metadata.locator('summary');
     assert.equal(await metadata.getAttribute('open'), null);
     assert.equal(await summary.textContent(), 'More details');
-    assert.match(await metadata.textContent(), /Reviewing supervisor:.*Review supervisor/s);
-    assert.match(await metadata.textContent(), /Submitted:.*Review started:.*Resolved:/s);
+    assert.doesNotMatch(await metadata.textContent(), /Reviewing supervisor:|Review supervisor|Review started:|Resolved:/);
+    assert.match(await metadata.textContent(), /Submitted:/);
     assert.equal((await container.innerText()).includes('Submitted:'), false,
       'The former always-visible timestamp assertion must fail while More details is closed');
     assert.doesNotMatch(await container.innerText(), /Review supervisor|Review started:/);
@@ -328,53 +328,43 @@ try {
     assert.equal(await metadata.getAttribute('open'), '');
     assert.match(await container.innerText(), /Submitted:/,
       'The same rendered Report retains its submitted timestamp after opening More details');
-    assert.match(await container.innerText(), /Review supervisor/);
+    assert.doesNotMatch(await container.innerText(), /Review supervisor/);
     await page.keyboard.press('Space');
     assert.equal(await metadata.getAttribute('open'), null);
     assert.equal(await summary.evaluate((node) => node === document.activeElement), true);
   }
-  // The missing-note fallback is system text; the identical words saved by a
-  // Supervisor are user content and must not be translated or reinterpreted.
+  // Historical review content stays hidden in both languages; author names remain literal.
   const fallback = 'No supervisor note was recorded.';
   await page.evaluate(() => { window.fixture.language = 'zh'; });
   for (const surface of ['worker', 'supervisor']) {
     for (const savedLiteral of [false, true]) {
       const container = await render({ surface, override: { supervisorNote: savedLiteral ? fallback : '', reviewingSupervisorName: 'Pass', userName: 'Pass' } });
       if (surface === 'worker') await disclosure.click();
-      const value = surface === 'worker'
-        ? container.locator('.record-report-cue > span').nth(1)
-        : container.locator('.report-supervisor-note [data-report-final-note]');
-      assert.equal(await value.textContent(), savedLiteral ? fallback : '未记录主管备注。');
-      assert.equal(await value.getAttribute('data-no-i18n'), savedLiteral ? '' : null);
-      assert.equal((await container.textContent()).split(savedLiteral ? fallback : '未记录主管备注。').length - 1, 1);
+      assert.equal(await container.locator('.record-report-cue, .report-supervisor-note').count(), 0);
+      assert.equal((await container.textContent()).includes(fallback), false);
       if (surface === 'supervisor') assert.equal(await container.locator('.record-meta [data-no-i18n]').textContent(), 'Pass');
       await container.locator('.record-report-more-details summary').click();
-      assert.equal(await container.locator('.record-report-metadata [data-no-i18n]').textContent(), 'Pass');
+      assert.equal(await container.locator('.record-report-metadata [data-no-i18n]').count(), 0);
       await page.evaluate(async () => (await import('/assets/js/i18n.js')).setLanguage('en'));
-      assert.equal(await value.textContent(), fallback);
+      assert.equal((await container.textContent()).includes(fallback), false);
       await page.evaluate(async () => (await import('/assets/js/i18n.js')).setLanguage('zh'));
-      assert.equal(await value.textContent(), savedLiteral ? fallback : '未记录主管备注。');
+      assert.equal(await container.locator('.report-supervisor-note').count(), 0);
     }
   }
   await render({ surface: 'supervisor', override: { workDate: '' } });
   assert.equal(await details.locator('.record-report-date').textContent(), '未设置');
   assert.match(await details.locator('.record-meta').textContent(), /报告日期：/);
   await page.evaluate(() => { window.fixture.language = 'en'; });
-  console.log('ok - Worker/Supervisor details deduplicate title/date/note, retain keyboard-accessible metadata, translate missing-note fallbacks and preserve literal notes/reviewer names');
+  console.log('ok - Worker/Supervisor details retain keyboard-accessible submission metadata without historical review details');
 
   await render({ override: { supervisorNote: 'Keep the route clear and inspect every connection before the next shift. '.repeat(24) } });
-  const cue = history.locator('.record-report-cue');
-  const collapsedHeight = await cue.evaluate((node) => node.getBoundingClientRect().height);
-  assert.equal(await cue.evaluate((node) => getComputedStyle(node).webkitLineClamp), '3');
-  assert.equal(await cue.evaluate((node) => node.scrollHeight > node.clientHeight), true);
+  assert.equal(await history.locator('.record-report-cue').count(), 0);
   await disclosure.click();
-  assert.notEqual(await cue.evaluate((node) => getComputedStyle(node).webkitLineClamp), '3');
-  assert.ok((await cue.evaluate((node) => node.getBoundingClientRect().height)) > collapsedHeight * 2);
-  assert.equal(await cue.evaluate((node) => node.scrollHeight <= node.clientHeight + 1), true);
+  assert.equal(await history.locator('.report-supervisor-note').count(), 0);
+  assert.doesNotMatch(await history.textContent(), /Keep the route clear/);
   await disclosure.click();
-  assert.equal(await cue.evaluate((node) => getComputedStyle(node).webkitLineClamp), '3');
-  assert.ok(Math.abs((await cue.evaluate((node) => node.getBoundingClientRect().height)) - collapsedHeight) <= 1);
-  console.log('ok - a long final note is compact when closed, fully readable when expanded, and compact again after collapse');
+  assert.equal(await history.locator('.record-report-cue').count(), 0);
+  console.log('ok - historical final notes remain hidden through expansion and collapse');
 
   await render({ surface: 'supervisor', purpose: 'daywork' });
   assert.equal(await details.locator('.record-report-more-details').count(), 0);
@@ -409,8 +399,7 @@ try {
         const summary = container.locator('.record-report-more-details summary');
         await assertTouchTarget(summary, `${width}/${language}: More details`);
         if (language === 'zh') assert.doesNotMatch(await summary.innerText(), /More details/);
-        // User-entered notes must remain literal while the chrome translates.
-        assert.ok((await container.innerText()).includes(screenshotNote));
+        assert.equal((await container.innerText()).includes(screenshotNote), false);
         await container.locator('img').evaluateAll((images) => Promise.all(images.map((image) => image.decode())));
         if (surface === 'supervisor') {
           const date = container.locator('.record-report-date');

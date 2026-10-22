@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { searchTemplateLibrary } from './check-hosted-report-ux-release.mjs';
+import { assertRestoredReportFilters, searchTemplateLibrary } from './check-hosted-report-ux-release.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const origin = 'http://127.0.0.1:59974'; // Every request intercepted below.
@@ -121,5 +121,42 @@ try {
     assert.equal(await ready.page.locator('#workFormSearchInput').inputValue(), marker);
     console.log('ok - hosted helper waits at the catalog barrier before exact search without retyping/retries');
   } finally { await ready.close(); }
+
+  const filters = await fixture(browser);
+  try {
+    const expected = { templateId: 81, workerId: 101, reportDate: '2026-10-22', marker: 'private-report-answer' };
+    await filters.page.evaluate(async (expected) => {
+      document.querySelectorAll('[data-admin-workspace-panel]').forEach((panel) => { panel.hidden = panel.id !== 'adminReviewWorkspace'; });
+      document.getElementById('reportReviewFilters').open = true;
+      for (const [id, value] of [['supervisorTemplateFilter', expected.templateId], ['supervisorWorkerFilter', expected.workerId]]) {
+        const select = document.getElementById(id);
+        select.add(new Option(String(value), String(value))); select.value = String(value);
+      }
+      document.getElementById('supervisorDateFilter').value = expected.reportDate;
+      document.getElementById('supervisorStatusFilter').value = '';
+      const preferences = await import('/assets/js/report-review-preferences.js');
+      preferences.writeReportReviewPreferences(window.fixture.state.user, '2', {
+        formId: expected.templateId, workerId: expected.workerId, date: expected.reportDate,
+        status: 'in_review', sortOrder: 'oldest_waiting'
+      });
+    }, expected);
+    await assertRestoredReportFilters(filters.page, expected);
+    await filters.page.locator('#supervisorSearchInput').fill(expected.marker);
+    await assert.rejects(assertRestoredReportFilters(filters.page, expected), /structured_filters_not_restored_or_search_persisted/);
+    await filters.page.locator('#supervisorSearchInput').fill('');
+    await filters.page.evaluate(() => {
+      const button = document.createElement('button'); button.dataset.reportWorkflowShortcut = 'in_review';
+      document.body.append(button);
+    });
+    await assert.rejects(assertRestoredReportFilters(filters.page, expected), /retired_report_workflow_controls_present/);
+    await filters.page.locator('[data-report-workflow-shortcut]').evaluate((node) => node.remove());
+    await filters.page.evaluate((marker) => {
+      const key = Object.keys(localStorage).find((name) => name.startsWith('report-review-preferences:'));
+      const value = JSON.parse(localStorage.getItem(key)); value.filters.search = marker;
+      localStorage.setItem(key, JSON.stringify(value));
+    }, expected.marker);
+    await assert.rejects(assertRestoredReportFilters(filters.page, expected), /private_search_or_unstructured_values_persisted/);
+    console.log('ok - hosted filter assertion accepts current HTML/preferences and rejects restored Find text, retired controls and private persisted content');
+  } finally { await filters.close(); }
 } finally { await browser.close(); }
 console.log('PASS - hosted UX harness readiness regression checks');

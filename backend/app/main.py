@@ -26,7 +26,7 @@ from app.config import (
 )
 from app.database import migrate_database, get_session, verify_database_migrations
 from app.migrations import MigrationError, verify_migrations
-from app.models import Department, User, Site, WorkForm
+from app.models import Department, User, Site, WorkForm, WorkFormSubmission
 from app.rate_limit import InMemoryRateLimiter, RateLimitRule
 from app.schemas import (
     ApprovalRequest,
@@ -1524,9 +1524,15 @@ def transition_report(
 def update_supervisor_form_submission(
     submission_id: int,
     data: SupervisorWorkFormSubmissionUpdate,
+    request: Request,
     supervisor: User = Depends(require_supervisor),
     session: Session = Depends(get_session)
 ):
+    record = session.get(WorkFormSubmission, submission_id)
+    if (record and record.deleted_at is None
+            and supervisor_review_use_cases.can_access_department(supervisor, record.department_id)
+            and (record.submission_purpose or "report") == "report"):
+        require_report_recovery_identity(request, supervisor, allow_supervisor=True, required=True)
     return supervisor_review_use_cases.update_supervisor_form_submission(submission_id, data, supervisor, session)
 
 

@@ -173,7 +173,24 @@ check('Chinese catalogue fully translates high-value UI labels instead of mixed 
   isCompleteChineseTranslation(i18nTestApi, source, forbiddenEnglish)
 )));
 
-check('Chinese catalogue covers report-only shell, history, and workflow terminology', () => [
+check('Chinese catalogue fully translates Report correction controls and dynamic feedback', () => [
+  ['Edit Report: PPE check', /\b(?:Edit|Report)\b/i],
+  ['Save Report', /\b(?:Save|Report)\b/i],
+  ['Report updated.', /\b(?:Report|updated)\b/i],
+  ['2 / 50 photos', /\bphotos\b/i],
+  ['Remove photo', /\b(?:Remove|photo)\b/i],
+  ['Remove photo 2', /\b(?:Remove|photo)\b/i],
+  ['Add photos', /\b(?:Add|photos)\b/i],
+  ['A Report can include up to 50 photos.', /\b(?:Report|can|include|up|to|photos)\b/i],
+  ['The Report editing session changed.', /\b(?:The|Report|editing|session|changed)\b/i],
+  ['Check your corrections before saving.', /\b(?:Check|your|corrections|before|saving)\b/i],
+  ['Saved signature retained. Clear it only to replace the signature.', /\b(?:Saved|signature|retained|Clear|only|replace)\b/i],
+  ['Connect to the internet before saving Report changes.', /\b(?:Connect|internet|before|saving|Report|changes)\b/i],
+  ['Save your Report changes or cancel editing before leaving or updating.', /\b(?:Save|Report|changes|cancel|editing|before|leaving|updating)\b/i],
+  ['This Report changed since you opened it. Your edits are still here. Copy any changes you need, then cancel and reopen the latest Report.', /\b(?:Report|changed|opened|edits|Copy|changes|cancel|reopen|latest)\b/i]
+].every(([source, forbiddenEnglish]) => isCompleteChineseTranslation(i18nTestApi, source, forbiddenEnglish)));
+
+check('Chinese catalogue covers report-only shell, history, and retained terminology', () => [
   ['Keep draft and start new report', /\b(?:Keep|draft|start|report)\b/i],
   ['Saved draft is read-only because the Report Template changed.', /\b(?:Saved|draft|Report|Template|changed)\b/i],
   ['Report Template changed. Keep this draft in My Reports before starting a new report. Nothing will be submitted automatically.', /\b(?:Report|Template|Keep|draft|automatically)\b/i],
@@ -788,7 +805,7 @@ check('report product language replaces Work Form copy without renaming internal
   ])
   && sourceWorkerForm.includes("'Could not load Report Templates.'")
   && sourceWorkerForm.includes("'Could not submit Report.'")
-  && sourceWorkerForm.includes("result.message.replace(/ submitted for approval\\.$/, ' submitted for review.')")
+  && sourceWorkerForm.includes("result.message.replace(/ submitted for approval\\.$/, ' submitted.')")
   && sourceStaffSites.includes("'Report Template created.'")
   && sourceSupervisorReview.includes("label: 'Report Date'")
   && !/\bWork Forms?\b/i.test([
@@ -802,7 +819,7 @@ check('report product language replaces Work Form copy without renaming internal
   && sourceWorkFormsUseCase.includes('WorkFormSubmission')
 ));
 
-check('worker Reports retain the submission engine and expose the report workflow', () => (
+check('worker Reports retain the submission engine and submitted history', () => (
   sourceIndex.includes('Site (optional)')
   && sourceIndex.includes('id="workFormDate" type="date" required')
   && sourceWorkerForm.includes("renderStatusBanner('Report Date is required.'")
@@ -812,41 +829,35 @@ check('worker Reports retain the submission engine and expose the report workflo
   && sourceWorkerForm.includes('draftStateFor(form)')
   && sourceWorkerForm.includes('photoDataUrls: [...state.workFormPhotoDataUrls]')
   && read('assets/js/history.js').includes('workflowStatus: record.workflow_status')
-  && read('assets/js/history.js').includes('Final supervisor note:')
+  && read('assets/js/history.js').includes('revision: record.revision')
   && read('assets/js/history.js').includes('Submitted: ${formatReportSubmissionTime(record.createdAt)}')
   && read('assets/js/history.js').includes('try { return formatDateTime(value); } catch')
   && sourceWorkFormsUseCase.includes('detail="Report Date is required"')
 ));
 
-check('Supervisor Reports use report transitions, durable filters, and Report exports', () => (
+check('Supervisor Reports use direct corrections, durable filters, and Report exports', () => (
   includesAll(sourceIndex, [
-    'id="supervisorStatusFilter"',
-    'value="submitted" data-report-only-option',
-    'value="in_review" data-report-only-option',
-    'value="resolved" data-report-only-option',
-    'id="supervisorTemplateFilter"',
-    'id="supervisorWorkerFilter"',
-    'id="supervisorDateFilter"',
-    'id="exportReportsCsvButton"',
-    'id="exportReportsPdfButton"'
+    'id="supervisorStatusFilter"', 'id="supervisorTemplateFilter"', 'id="supervisorWorkerFilter"',
+    'id="supervisorDateFilter"', 'id="exportReportsCsvButton"', 'id="exportReportsPdfButton"'
   ])
-  && sourceSupervisorReview.includes("button.textContent = workflowStatus === 'submitted' ? 'Start review' : 'Resolve report'")
-  && read('assets/js/report-note-editor.js').includes('A resolution note is required.')
-  && sourceIndex.includes('id="reportResolutionNote" rows="4" maxlength="1000" required')
-  && sourceSupervisorReview.includes('transitionBackendReportSubmission(record.backendRecordId')
+  && !sourceIndex.includes('data-report-workflow-shortcut')
+  && !sourceIndex.includes('id="supervisorSortOrder"')
+  && !sourceIndex.includes('value="in_review" data-report-only-option')
+  && !sourceIndex.includes('value="resolved" data-report-only-option')
+  && sourceSupervisorReview.includes('reportEditor.open(record,')
+  && !sourceSupervisorReview.includes('transitionBackendReportSubmission(record.backendRecordId')
+  && read('assets/js/report-editor.js').includes('expected_revision: entry.record.revision')
+  && read('assets/js/report-editor.js').includes('preserveUploadedSignatures: true')
   && sourceSupervisorReview.includes("handleReportCollectionExport('form-submissions-csv'")
   && sourceSupervisorReview.includes("handleReportCollectionExport('form-submissions-pdf'")
-  && sourceApiClient.includes('workflow_status')
   && sourceApiClient.includes('form_id')
   && sourceApiClient.includes('worker_id')
-  && read('backend/app/use_cases/review_queue.py').includes('workflow_status=query.workflow_status')
   && sourceStyles.includes('body:not(.report-only-mode) [data-report-only-visible]')
 ));
 
-check('Report details and downloads use lifecycle and Report language', () => (
-  read('assets/js/history.js').includes('<strong>Review started:</strong>')
-  && read('assets/js/history.js').includes('<strong>Resolved:</strong>')
-  && read('assets/js/history.js').includes('<strong>Final supervisor note:</strong>')
+check('Report details and downloads use correction and Report language', () => (
+  read('assets/js/history.js').includes('editedAt: record.edited_at')
+  && read('assets/js/history.js').includes('revision: record.revision')
   && sourceReviewExportAdapters.includes('leader-reports-')
   && sourceReviewExportAdapters.includes("const purpose = isDayworkRecord(record) ? 'daywork' : 'report'")
   && sourceReviewExportAdapters.includes('`leader-${purpose}-${record.backendRecordId}')
@@ -1688,17 +1699,12 @@ check('failed Report recovery has offline shell coverage and translated safety c
   && !/Draft restored/.test(i18nTestApi.translateText('Saved at 10:30. Draft restored on this device.', 'zh'))
 ));
 
-check('Report oldest-waiting order has offline shell coverage and translated labels', () => (
-  pwaShellCopies('/assets/js/report-review-age.js')
-  && read('package.json').includes('check:report-review-order')
-  && [
-    'Sort order', 'Newest first', 'Oldest waiting', 'Waiting less than 1 minute',
-    'Waiting 1 minute', 'Waiting 23 hours', 'Waiting 2 days',
-    'Time since submission, not Report Date.',
-    'Submitted first, then In review and Resolved; oldest submission first within each workflow.',
-    'Oldest waiting is not supported by this server. Choose Newest first.',
-    'Reports changed while loading. Refresh to continue in the selected order.'
-  ].every((source) => isCompleteChineseTranslation(i18nTestApi, source, /\b(?:Sort|Newest|Oldest|Waiting|Report|Submitted|review|Resolved|submission|workflow|server)\b/i))
+check('Report corrections have offline shell coverage without retired review controls', () => (
+  pwaShellCopies('/assets/js/report-editor.js')
+  && !sourceIndex.includes('id="supervisorSortOrder"')
+  && !sourceIndex.includes('data-report-workflow-shortcut')
+  && read('assets/js/report-review-preferences.js').includes("sortOrder: 'newest'")
+  && read('assets/js/report-editor.js').includes('Connect to the internet before saving Report changes.')
 ));
 
 check('Report storage warnings have offline shell coverage and translated recovery guidance', () => (

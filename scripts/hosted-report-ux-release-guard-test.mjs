@@ -62,6 +62,10 @@ refused(request('/api/photo-uploads', 'POST', {}, { bytes: multipart }), { allow
 refused(request('/api/photo-uploads', 'POST', {}, { bytes: Buffer.from('not owned') }));
 console.log('ok - uploads/Report submission require confirmation, owned original bytes, exact Template/answers and owned upload paths');
 
+refused(request('/api/supervisor/form-submissions/103/transition', 'POST', { action: 'start_review', expected_status: 'submitted' }));
+refused(request('/api/supervisor/form-submissions/103', 'PATCH', { confirmed: true, expected_revision: 1, answers: { ux_detail: 'changed' } }));
+console.log('ok - the filter/photo UX runner cannot invoke retired review transitions or unrelated Report correction writes');
+
 allowed(request('/api/supervisor/trash/form/103', 'POST', { confirmed: true, reason: scope.cleanupReason }));
 refused(request('/api/supervisor/trash/form/103', 'POST', { confirmed: true, reason: scope.cleanupReason }), { cleanupReportVerified: false });
 refused(request('/api/supervisor/trash/form/5', 'POST', { confirmed: true, reason: scope.cleanupReason }));

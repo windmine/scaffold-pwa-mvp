@@ -810,6 +810,19 @@ def test_collection_csv_export_filters_reports_from_daywork():
     print("ok - collection CSV export filters Reports from Daywork")
 
 
+def preserve_historical_export_review(session, report_id, supervisor, note):
+    from datetime import datetime, timezone
+    from app.models import WorkFormSubmission
+    record = session.get(WorkFormSubmission, report_id)
+    record.workflow_status = "resolved"
+    record.supervisor_note = note
+    record.reviewing_supervisor_id = supervisor.id
+    record.review_started_at = datetime(2026, 9, 1, 10, tzinfo=timezone.utc)
+    record.resolved_at = datetime(2026, 9, 1, 11, tzinfo=timezone.utc)
+    session.add(record)
+    session.commit()
+
+
 def test_report_csv_exports_workflow_lifecycle_details():
     engine, session, supervisor = make_session()
     try:
@@ -840,43 +853,25 @@ def test_report_csv_exports_workflow_lifecycle_details():
             worker,
             session,
         )
-        transition_report(
-            report["id"],
-            ReportTransitionRequest(status="in_review"),
-            supervisor,
-            session,
-        )
-        transition_report(
-            report["id"],
-            ReportTransitionRequest(
-                status="resolved",
-                supervisor_note="Replacement helmet issued",
-            ),
-            supervisor,
-            session,
-        )
+        preserve_historical_export_review(session, report["id"], supervisor, "Replacement helmet issued")
 
         response = export_form_submission_csv(report["id"], session, supervisor)
         row = next(csv.DictReader(StringIO(response.body.decode("utf-8-sig"))))
-        expected = {
-            "status": "resolved",
-            "workflow_status": "resolved",
-            "supervisor_note": "Replacement helmet issued",
-            "reviewing_supervisor_id": str(supervisor.id),
-            "reviewing_supervisor_name": supervisor.name,
-        }
+        expected = {"status": "submitted", "work_date": "2026-09-01"}
         for key, value in expected.items():
             if row.get(key) != value:
                 raise AssertionError(
                     f"Report CSV {key}: expected {value!r}, got {row.get(key)!r}"
                 )
-        if not row.get("review_started_at") or not row.get("resolved_at"):
-            raise AssertionError("Report CSV must include both lifecycle timestamps")
+        for key in ("workflow_status", "supervisor_note", "reviewing_supervisor_id",
+                    "reviewing_supervisor_name", "review_started_at", "resolved_at"):
+            assert key not in row, key
+        assert row.get("created_at"), "Report CSV retains the original submission timestamp"
     finally:
         session.close()
         engine.dispose()
 
-    print("ok - Report CSV exports workflow lifecycle details")
+    print("ok - Report CSV exports submission details without historical review")
 
 
 def test_report_html_exports_workflow_lifecycle_details():
@@ -909,43 +904,20 @@ def test_report_html_exports_workflow_lifecycle_details():
             worker,
             session,
         )
-        transition_report(
-            report["id"],
-            ReportTransitionRequest(status="in_review"),
-            supervisor,
-            session,
-        )
-        transition_report(
-            report["id"],
-            ReportTransitionRequest(
-                status="resolved",
-                supervisor_note="Guard rail replaced",
-            ),
-            supervisor,
-            session,
-        )
+        preserve_historical_export_review(session, report["id"], supervisor, "Guard rail replaced")
 
         response = export_form_submission_html(report["id"], session, supervisor)
         body = response.body.decode("utf-8")
-        for expected in (
-            "Status",
-            "resolved",
-            "Supervisor note",
-            "Guard rail replaced",
-            "Reviewing Supervisor",
-            supervisor.name,
-            "Review started",
-            "Resolved",
-        ):
-            if expected not in body:
-                raise AssertionError(f"Report HTML missing lifecycle detail {expected!r}")
-        if "pending" in body:
-            raise AssertionError("Report HTML must not display legacy pending as its status")
+        for expected in ("submitted", "Submitted", "2026-09-01", "HTML Export Worker"):
+            assert expected in body, expected
+        for excluded in ("resolved", "Supervisor note", "Guard rail replaced", "Reviewing Supervisor",
+                         supervisor.name, "Review started", "Resolved", "pending"):
+            assert excluded not in body, excluded
     finally:
         session.close()
         engine.dispose()
 
-    print("ok - Report HTML exports workflow lifecycle details")
+    print("ok - Report HTML exports submission details without historical review")
 
 
 def test_report_pdf_exports_workflow_lifecycle_details():
@@ -978,21 +950,7 @@ def test_report_pdf_exports_workflow_lifecycle_details():
             worker,
             session,
         )
-        transition_report(
-            report["id"],
-            ReportTransitionRequest(status="in_review"),
-            supervisor,
-            session,
-        )
-        transition_report(
-            report["id"],
-            ReportTransitionRequest(
-                status="resolved",
-                supervisor_note="Safe access restored",
-            ),
-            supervisor,
-            session,
-        )
+        preserve_historical_export_review(session, report["id"], supervisor, "Safe access restored")
 
         response = export_form_submission_pdf(
             report["id"],
@@ -1003,28 +961,16 @@ def test_report_pdf_exports_workflow_lifecycle_details():
             page.extract_text() or ""
             for page in PdfReader(BytesIO(response.body)).pages
         )
-        for expected in (
-            "Status",
-            "resolved",
-            "Report review",
-            "Supervisor note",
-            "Safe access restored",
-            "Reviewing Supervisor",
-            supervisor.name,
-            "Review started",
-            "Resolved",
-        ):
-            if expected not in text:
-                raise AssertionError(
-                    f"Report PDF missing lifecycle detail {expected!r}: {text!r}"
-                )
-        if "pending" in text:
-            raise AssertionError("Report PDF must not display legacy pending as its status")
+        for expected in ("Submitted", "2026-09-01", "PDF Export Worker"):
+            assert expected in text, expected
+        for excluded in ("resolved", "Report review", "Supervisor note", "Safe access restored",
+                         "Reviewing Supervisor", supervisor.name, "Review started", "Resolved", "pending"):
+            assert excluded not in text, excluded
     finally:
         session.close()
         engine.dispose()
 
-    print("ok - Report PDF exports workflow lifecycle details")
+    print("ok - Report PDF exports submission details without historical review")
 
 
 def test_collection_document_exports_filter_reports_from_daywork():
@@ -1139,15 +1085,7 @@ def test_omitted_purpose_pdf_preserves_mixed_record_lifecycles():
                 worker,
                 session,
             ))
-        transition_report(
-            reports[0]["id"], ReportTransitionRequest(status="in_review"),
-            supervisor, session,
-        )
-        transition_report(
-            reports[0]["id"],
-            ReportTransitionRequest(status="resolved", supervisor_note="Mixed export final note"),
-            supervisor, session,
-        )
+        preserve_historical_export_review(session, reports[0]["id"], supervisor, "Mixed export final note")
         for record, outcome in zip(reports[1:], ("approved", "rejected")):
             decide_review_record(
                 "form", record["id"], ApprovalRequest(status=outcome),
@@ -1167,8 +1105,8 @@ def test_omitted_purpose_pdf_preserves_mixed_record_lifecycles():
         matched_reports = [page for page in pages if report_form.name in page]
         assert len(matched_reports) == 1, pages
         report_text = matched_reports[0].lower()
-        for expected in ("resolved", "report review", "mixed export final note", supervisor.name.lower()):
-            assert expected in report_text, (expected, report_text)
+        for excluded in ("resolved", "report review", "mixed export final note", supervisor.name.lower()):
+            assert excluded not in report_text, (excluded, report_text)
         assert "pending" not in report_text, report_text
 
         # A form-filtered retained request also omits purpose, even though its
@@ -1185,13 +1123,13 @@ def test_omitted_purpose_pdf_preserves_mixed_record_lifecycles():
             page.extract_text() or "" for page in PdfReader(BytesIO(report_only.body)).pages
         )
         assert "Version 1" in report_only_text and "Page 1 of 1" in report_only_text, report_only_text
-        assert "Mixed export final note" in report_only_text, report_only_text
+        assert "Mixed export final note" not in report_only_text, report_only_text
         assert all(form.name not in report_only_text for form in daywork_forms), report_only_text
     finally:
         session.close()
         engine.dispose()
 
-    print("ok - omitted-purpose PDF collections retain Daywork outcomes and Report lifecycle details")
+    print("ok - omitted-purpose PDF collections retain Daywork outcomes and omit historical Report review")
 
 
 def test_daywork_exports_use_durable_purpose_after_template_rename():

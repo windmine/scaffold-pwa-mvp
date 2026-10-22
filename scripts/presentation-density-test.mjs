@@ -375,11 +375,9 @@ try {
     for (const width of [1280, 390]) for (const language of ['en', 'zh']) {
       await desktop.page.setViewportSize({ width, height: 844 });
       await setPresentation(desktop.page, language, 'light');
-      await desktop.page.locator('#supervisorStatusFilter').selectOption('submitted');
       await desktop.page.locator('#supervisorTemplateFilter').selectOption(String(template.id));
       await desktop.page.locator('#supervisorWorkerFilter').selectOption(String(worker.id));
       await desktop.page.locator('#supervisorDateFilter').fill('2026-10-14');
-      await desktop.page.locator('#supervisorSortOrder').selectOption('oldest_waiting');
       const filtered = desktop.page.waitForResponse((response) => {
         const url = new URL(response.url());
         return url.pathname === '/api/supervisor/review-queue' && url.searchParams.get('search') === 'Clear position check';
@@ -387,9 +385,12 @@ try {
       await desktop.page.locator('#supervisorSearchInput').fill('Clear position check');
       await filtered;
       await desktop.page.waitForFunction(() => !document.querySelector('#clearSupervisorFiltersButton').disabled);
-      await desktop.page.locator('#supervisorSortOrder').focus();
-      await desktop.page.keyboard.press('Tab');
-      assert.equal(await desktop.page.locator('#clearSupervisorFiltersButton').evaluate((node) => document.activeElement === node), true, 'Clear follows Sort order in keyboard navigation');
+      await desktop.page.locator('#supervisorDateFilter').focus();
+      // Native date inputs may expose multiple keyboard segments before the next control.
+      for (let step = 0; step < 5 && !await desktop.page.locator('#clearSupervisorFiltersButton').evaluate((node) => document.activeElement === node); step++) {
+        await desktop.page.keyboard.press('Tab');
+      }
+      assert.equal(await desktop.page.locator('#clearSupervisorFiltersButton').evaluate((node) => document.activeElement === node), true, 'Clear follows Report Date in keyboard navigation');
       const cleared = desktop.page.waitForResponse((response) => {
         const url = new URL(response.url());
         return url.pathname === '/api/supervisor/review-queue' && url.searchParams.get('purpose') === 'report'
@@ -401,7 +402,8 @@ try {
       for (const selector of ['#supervisorSearchInput', '#supervisorStatusFilter', '#supervisorTemplateFilter', '#supervisorWorkerFilter', '#supervisorDateFilter']) {
         assert.equal(await desktop.page.locator(selector).inputValue(), '', `${width}/${language}: Clear resets ${selector}`);
       }
-      assert.equal(await desktop.page.locator('#supervisorSortOrder').inputValue(), 'newest');
+      assert.equal(await desktop.page.locator('#supervisorSortOrder').count(), 0);
+      assert.equal(await desktop.page.locator('#supervisorStatusFilter').isVisible(), false);
       assert.equal(await desktop.page.locator('#reportReviewFilters').evaluate((node) => node.open), true, 'Clear keeps the filters open');
     }
     console.log('ok - Supervisor Clear aligns with the complete filter group across 32 layouts and resets the Report query by keyboard on desktop/mobile in English/Chinese');

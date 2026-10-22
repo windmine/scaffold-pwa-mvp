@@ -502,24 +502,10 @@ def render_form_submission_page(item):
     answer_rows, signatures = render_form_answer_rows(item)
     title = item["form_name"] or f"Report {item['id']}"
     is_report = (item.get("submission_purpose") or "report") == "report"
-    displayed_status = item["workflow_status"] if is_report else item["status"]
+    displayed_status = "submitted" if is_report else item["status"]
     date_label = "Report Date" if is_report else "Work date"
     record_label = "Report" if is_report else "Submission"
     answer_heading = "Report answers" if is_report else "Daywork details"
-    review_section = ""
-    if is_report:
-        review_section = (
-            "<section><h2>Report review</h2>"
-            + render_meta_grid([
-                ("Reviewing Supervisor", item.get("reviewing_supervisor_name") or "-"),
-                ("Review started", item.get("review_started_at") or "-"),
-                ("Resolved", item.get("resolved_at") or "-"),
-            ])
-            + "<div class=\"field-row\">"
-            + "<span class=\"field-label\">Supervisor note</span>"
-            + f"<div class=\"field-value\">{h(item.get('supervisor_note') or '-')}</div>"
-            + "</div></section>"
-        )
     body = [
         f"<article class=\"export-page\"><h1 class=\"document-title\">{h(title)}</h1>",
         render_meta_grid([
@@ -537,7 +523,6 @@ def render_form_submission_page(item):
         "<section><h2>Photos</h2>",
         render_photo_grid(item["photo_urls"], metadata=item.get("photo_metadata") or []),
         "</section>",
-        review_section,
         f"<footer class=\"footer\">Submitted by {h(item['worker_name'])} | {h(title)} #{h(item['id'])}</footer>",
         "</article>",
     ]
@@ -1321,7 +1306,7 @@ def pdf_form_submission_flowables(item, styles, template):
         not is_daywork
         and (item.get("submission_purpose") or "report") == "report"
     )
-    displayed_status = item["workflow_status"] if is_report else item["status"]
+    displayed_status = "submitted" if is_report else item["status"]
     title = (
         f"Daywork Log - {item['site_name'] or 'Unassigned site'}"
         if is_daywork
@@ -1347,22 +1332,6 @@ def pdf_form_submission_flowables(item, styles, template):
     if signatures:
         flowables.extend(pdf_signature_flowables(signatures, styles))
     flowables.extend(pdf_photo_flowables(item, styles))
-    if is_report:
-        flowables.extend([
-            Spacer(1, 8),
-            Paragraph("Report review", styles["section"]),
-            pdf_meta_table([
-                ("Reviewing Supervisor", item.get("reviewing_supervisor_name") or "-"),
-                ("Review started", item.get("review_started_at") or "-"),
-                ("Resolved", item.get("resolved_at") or "-"),
-            ], styles),
-            Spacer(1, 6),
-            pdf_field_block(
-                "Supervisor note",
-                item.get("supervisor_note") or "-",
-                styles,
-            ),
-        ])
     flowables.append(Spacer(1, 10))
     flowables.append(Paragraph(
         f"Submitted by {h(item['worker_name'])} | {h(title)} #{h(item['id'])}",
@@ -2294,7 +2263,7 @@ def csv_answer_value(value):
     return text_value(value)
 
 
-def form_submissions_csv_response(items, filename: str):
+def form_submissions_csv_response(items, filename: str, *, include_legacy_review=None):
     all_columns = []
     seen = set()
 
@@ -2307,6 +2276,12 @@ def form_submissions_csv_response(items, filename: str):
 
     output = StringIO()
     writer = csv.writer(output)
+    if include_legacy_review is None:
+        include_legacy_review = any(is_daywork_submission(item) for item in items)
+    legacy_review_columns = [
+        "workflow_status", "supervisor_note", "reviewing_supervisor_id",
+        "reviewing_supervisor_name", "review_started_at", "resolved_at",
+    ] if include_legacy_review else []
     write_spreadsheet_safe_csv_row(writer, [
         "id",
         "form_id",
@@ -2318,12 +2293,7 @@ def form_submissions_csv_response(items, filename: str):
         "work_date",
         "submission_purpose",
         "status",
-        "workflow_status",
-        "supervisor_note",
-        "reviewing_supervisor_id",
-        "reviewing_supervisor_name",
-        "review_started_at",
-        "resolved_at",
+        *legacy_review_columns,
         "created_at",
         *[header for _, header in all_columns],
         "photo_urls",
@@ -2342,13 +2312,8 @@ def form_submissions_csv_response(items, filename: str):
             item["site_name"],
             item["work_date"],
             item.get("submission_purpose") or "report",
-            item["workflow_status"] if is_report else item["status"],
-            item["workflow_status"],
-            item.get("supervisor_note"),
-            item.get("reviewing_supervisor_id"),
-            item.get("reviewing_supervisor_name"),
-            item.get("review_started_at"),
-            item.get("resolved_at"),
+            "submitted" if is_report else item["status"],
+            *[(None if is_report else item.get(column)) for column in legacy_review_columns],
             item["created_at"],
             *[csv_answer_value(answers.get(field_id)) for field_id, _ in all_columns],
             "; ".join(item["photo_urls"]),
@@ -2387,7 +2352,12 @@ def export_form_submissions_csv(
         else "reports"
     )
     filename = f"{filename_prefix}.csv" if not status else f"{filename_prefix}-{status}.csv"
-    return form_submissions_csv_response(items, filename)
+    return form_submissions_csv_response(
+        items, filename,
+        include_legacy_review=(normalized_purpose != "report" and (
+            normalized_purpose == "daywork" or any(is_daywork_submission(item) for item in items)
+        )),
+    )
 
 
 def export_form_submission_csv(submission_id: int, session: Session, supervisor: User):
@@ -2424,17 +2394,8 @@ def update_supervisor_form_submission(submission_id: int, data, supervisor: User
 
     fields = data.model_fields_set
     if (submission.submission_purpose or "report") == "report":
-        immutable_fields = {"site_id", "work_date", "answers", "photo_urls"}
-        if fields & immutable_fields:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Submitted Report content is immutable; Site, Report Date, answers, "
-                    "photos, and signatures cannot be edited"
-                ),
-            )
-        enforce_review_status_unchanged(submission, data.status, fields)
-        return work_form_submission_response(submission, session)
+        from app.use_cases.report_corrections import correct_report
+        return correct_report(submission, data, supervisor, session)
 
     definition = work_form_submission_definition(submission, session)
     previous_upload_urls = record_upload_urls(submission)

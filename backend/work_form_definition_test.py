@@ -279,18 +279,14 @@ def test_submission_definition_snapshot():
         if retry["definition_version"] != 1:
             raise AssertionError("historical response: expected original definition version")
 
-        assert_http_400(
-            "submitted Report answers are immutable",
-            lambda: update_supervisor_form_submission(
-                submission["id"],
-                SupervisorWorkFormSubmissionUpdate(
-                    answers={"original_answer": "Supervisor correction"},
-                    confirmed=True,
-                ),
-                supervisor,
-                session,
-            ),
+        corrected = update_supervisor_form_submission(
+            submission["id"],
+            SupervisorWorkFormSubmissionUpdate(
+                answers={"original_answer": "Supervisor correction"},
+                expected_revision=submission["revision"], confirmed=True,
+            ), supervisor, session,
         )
+        assert corrected["definition_version"] == 1
         unchanged = create_work_form_submission(
             WorkFormSubmissionCreate(
                 form_id=created["id"],
@@ -300,8 +296,8 @@ def test_submission_definition_snapshot():
             worker,
             session,
         )
-        if unchanged["answers"]["original_answer"] != "Captured value":
-            raise AssertionError("immutable Report: original submitted answer must remain unchanged")
+        if unchanged["answers"]["original_answer"] != "Supervisor correction":
+            raise AssertionError("Report replay must retain the current Supervisor correction")
         if unchanged["form_name"] != "Original form":
             raise AssertionError("immutable Report: definition snapshot must remain unchanged")
 

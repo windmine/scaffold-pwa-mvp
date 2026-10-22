@@ -1,4 +1,4 @@
-"""Report review checks for the runner's disposable, non-superuser PostgreSQL DB.
+"""Report correction checks for the runner's disposable, non-superuser PostgreSQL DB.
 
 No connection URL is read here. ``database(label)`` supplies an owned Engine;
 ``report(label, details=None)`` records sanitized rehearsal evidence.
@@ -16,19 +16,20 @@ from sqlmodel import Session, select
 
 from app.migrations import run_migrations, verify_migrations
 from app.models import AuditEvent, Department, Site, User, WorkForm, WorkFormSubmission
-from app.schemas import ReportTransitionRequest
+from app.schemas import ReportTransitionRequest, SupervisorWorkFormSubmissionUpdate
 from app.use_cases.common import work_form_definition_snapshot_json
 from app.use_cases.work_forms import transition_report
+from app.use_cases.supervisor_review import update_supervisor_form_submission
 
 
 IMMUTABLE_FIELDS = (
-    "department_id", "form_id", "worker_id", "site_id", "work_date", "answers_json",
+    "department_id", "form_id", "worker_id", "site_id", "answers_json",
     "form_definition_version", "definition_snapshot_json", "photo_urls", "photo_metadata",
     "client_submission_id", "submission_purpose", "created_at", "status",
 )
 REVIEW_FIELDS = (
     "workflow_status", "supervisor_note", "reviewing_supervisor_id",
-    "review_started_at", "resolved_at",
+    "review_started_at", "resolved_at", "work_date", "revision", "edited_at", "edited_by_supervisor_id",
 )
 
 
@@ -101,7 +102,7 @@ def state_and_audits(engine, record_id):
         state = {field: getattr(record, field) for field in (*IMMUTABLE_FIELDS, *REVIEW_FIELDS)}
         audits = session.exec(select(AuditEvent).where(
             AuditEvent.entity_type == "form", AuditEvent.entity_id == record_id,
-            AuditEvent.action == "report_transition",
+            AuditEvent.action == "form_submission_update",
         ).order_by(AuditEvent.id)).all()
         return state, [{"actor_id": row.actor_id, "before": json.loads(row.before_json),
                         "after": json.loads(row.after_json)} for row in audits]
@@ -113,24 +114,29 @@ def transition(engine, record_id, actor_id, target, note=None):
                                  session.get(User, actor_id), session)
 
 
-def overlapping_transition(engine, record_id, reviewers, target, round_number):
+def overlapping_correction(engine, record_id, reviewers, revision, round_number):
     """Hold the winning UPDATE open until PostgreSQL proves the loser is blocked."""
     token = object()
-    preferred_actor = reviewers[(round_number + (target == "resolved")) % len(reviewers)]
+    preferred_actor = reviewers[(round_number + revision) % len(reviewers)]
     arrivals = threading.Barrier(2, timeout=10)
     winner_updated, release_winner = threading.Event(), threading.Event()
     lock = threading.Lock()
     participants, winner = {}, {}
 
     def before_update(connection, _cursor, statement, _parameters, context, _many):
-        if connection.info.get("review_rehearsal_token") is token and is_statement(context, "update", "workformsubmission"):
-            require("workflow_status" in statement, "race did not reach the conditional workflow UPDATE")
+        if (connection.info.get("review_rehearsal_token") is token
+                and not connection.info.get("correction_claim_seen")
+                and is_statement(context, "update", "workformsubmission")):
+            require("revision" in statement, "race did not reach the conditional revision UPDATE")
+            connection.info["correction_claim_seen"] = True
+            connection.info["correction_claim_pending"] = True
             arrivals.wait()
             if connection.info["review_rehearsal_actor"] != preferred_actor:
                 require(winner_updated.wait(12), "preferred contender did not reach its PostgreSQL UPDATE")
 
     def after_update(connection, cursor, _statement, _parameters, context, _many):
         if (connection.info.get("review_rehearsal_token") is token
+                and connection.info.pop("correction_claim_pending", False)
                 and is_statement(context, "update", "workformsubmission") and cursor.rowcount == 1):
             with lock:
                 winner.update(pid=connection.info["review_rehearsal_pid"])
@@ -147,10 +153,10 @@ def overlapping_transition(engine, record_id, reviewers, target, round_number):
             info.update(review_rehearsal_token=token, review_rehearsal_pid=pid, review_rehearsal_actor=actor_id)
             with lock:
                 participants[actor_id] = {"pid": pid, "transaction_id": transaction_id}
-            note = f"{target} round {round_number} by Supervisor {actor_id}"
+            note = f"2026-10-{21 + reviewers.index(actor_id):02d}"
             try:
-                response = transition_report(
-                    record_id, ReportTransitionRequest(status=target, supervisor_note=note),
+                response = update_supervisor_form_submission(
+                    record_id, SupervisorWorkFormSubmissionUpdate(confirmed=True, expected_revision=revision, work_date=note),
                     session.get(User, actor_id), session,
                 )
                 return {"status": 200, "actor": actor_id, "note": note, "response": response}
@@ -158,6 +164,8 @@ def overlapping_transition(engine, record_id, reviewers, target, round_number):
                 session.rollback()
                 return {"status": error.status_code, "actor": actor_id, "note": note, "detail": error.detail}
             finally:
+                info.pop("correction_claim_seen", None)
+                info.pop("correction_claim_pending", None)
                 info.pop("review_rehearsal_token", None)
                 info.pop("review_rehearsal_pid", None)
                 info.pop("review_rehearsal_actor", None)
@@ -187,15 +195,15 @@ def overlapping_transition(engine, record_id, reviewers, target, round_number):
                     blocked_proof = {"winner_pid": winner_pid, "blocked_pid": loser_pid, "observer_pid": observer_pid}
                     break
                 time.sleep(0.02)
-        require(blocked_proof is not None, "PostgreSQL never observed simultaneous conflicting review UPDATEs")
+        require(blocked_proof is not None, "PostgreSQL never observed simultaneous conflicting correction UPDATEs")
         release_winner.set()
         outcomes = [future.result(timeout=15) for future in futures]
         require(sorted(row["status"] for row in outcomes) == [200, 409],
-                f"concurrent {target} produced unexpected outcomes: {outcomes}")
+                f"concurrent correction produced unexpected outcomes: {outcomes}")
         success = next(row for row in outcomes if row["status"] == 200)
         rejected = next(row for row in outcomes if row["status"] == 409)
         require(success["actor"] == preferred_actor, "preferred winner was not established before the competing UPDATE")
-        require("another Supervisor" in rejected.get("detail", ""), "loser was not rejected at the conditional database UPDATE")
+        require(rejected.get("detail", {}).get("code") == "report_revision_conflict", "loser was not rejected at the conditional database UPDATE")
         return success, {"backend_transactions": list(snapshot.values()), "lock_contention": blocked_proof,
                          "winning_supervisor_id": success["actor"], "conflicting_supervisor_id": rejected["actor"]}
     finally:
@@ -222,16 +230,23 @@ def check_rejections_and_immutability(engine, fixture, report):
             raise AssertionError("Report accepted an unauthorized or invalid transition")
     state, audits = state_and_audits(engine, record_id)
     require(state["workflow_status"] == "submitted" and not audits, "failed transitions changed workflow or wrote audits")
-    transition(engine, record_id, fixture["reviewers"][0], "in_review")
-    before, audits_before = state_and_audits(engine, record_id)
     try:
-        transition(engine, record_id, fixture["reviewers"][1], "resolved", " \n\t ")
+        transition(engine, record_id, fixture["reviewers"][0], "in_review")
     except HTTPException as error:
-        require(error.status_code == 400 and "note is required" in error.detail, "blank resolution note failed for the wrong reason")
+        require(error.status_code == 409, "retired review must reject old clients")
     else:
-        raise AssertionError("Report resolved without a Supervisor note")
-    require(state_and_audits(engine, record_id) == (before, audits_before), "missing-note rejection changed durable state")
-    report("PostgreSQL Report authorization, forward-only transitions and mandatory resolution note remain enforced")
+        raise AssertionError("Retired Report workflow remained available")
+    before, audits_before = state_and_audits(engine, record_id)
+    for actor, expected in ((fixture["worker"], 403), (fixture["outside"], 404)):
+        with Session(engine) as session:
+            try:
+                update_supervisor_form_submission(record_id, SupervisorWorkFormSubmissionUpdate(
+                    confirmed=True, expected_revision=1, work_date="2026-10-22"), session.get(User, actor), session)
+            except HTTPException as error:
+                require(error.status_code == expected, "correction authorization crossed role or Department")
+            else:
+                raise AssertionError("Unauthorized correction succeeded")
+    report("PostgreSQL Supervisor correction permissions and retired review transitions remain enforced")
     for field, value in {"site_id": None, "work_date": "2026-10-11", "answers_json": "{}",
                          "photo_urls": "[]", "definition_snapshot_json": "{}", "submission_purpose": "daywork"}.items():
         try:
@@ -242,40 +257,41 @@ def check_rejections_and_immutability(engine, fixture, report):
         else:
             raise AssertionError(f"PostgreSQL allowed immutable Report {field} to change")
     require(state_and_audits(engine, record_id) == (before, audits_before), "rejected content mutations changed original evidence")
-    report("PostgreSQL database guards reject Report Site/date/answers/photos/Definition/purpose edits")
+    report("PostgreSQL database guards reject unversioned content edits and all identity/Definition/purpose changes")
 
 
 def check_audit_rollback(engine, fixture, report):
-    for target in ("in_review", "resolved"):
-        record_id = new_report(engine, fixture, f"audit-rollback-{target}")
-        if target == "resolved":
-            transition(engine, record_id, fixture["reviewers"][0], "in_review")
-        before = state_and_audits(engine, record_id)
-        updated = []
+    record_id = new_report(engine, fixture, "audit-rollback")
+    before = state_and_audits(engine, record_id)
+    updated = []
 
-        def observe_update(_connection, cursor, _statement, _parameters, context, _many):
-            if is_statement(context, "update", "workformsubmission") and cursor.rowcount == 1:
-                updated.append(True)
+    def observe_update(_connection, cursor, _statement, _parameters, context, _many):
+        if is_statement(context, "update", "workformsubmission") and cursor.rowcount == 1:
+            updated.append(True)
 
-        def fail_audit(_connection, _cursor, _statement, _parameters, context, _many):
-            if is_statement(context, "insert", "auditevent"):
-                raise RuntimeError("isolated audit INSERT failure")
+    def fail_audit(_connection, _cursor, _statement, _parameters, context, _many):
+        if is_statement(context, "insert", "auditevent"):
+            raise RuntimeError("isolated audit INSERT failure")
 
-        event.listen(engine, "after_cursor_execute", observe_update)
-        event.listen(engine, "before_cursor_execute", fail_audit)
-        try:
+    event.listen(engine, "after_cursor_execute", observe_update)
+    event.listen(engine, "before_cursor_execute", fail_audit)
+    try:
+        with Session(engine) as session:
             try:
-                transition(engine, record_id, fixture["reviewers"][1], target, "Resolution must roll back")
+                update_supervisor_form_submission(record_id, SupervisorWorkFormSubmissionUpdate(
+                    confirmed=True, expected_revision=1, work_date="2026-10-22"),
+                    session.get(User, fixture["reviewers"][0]), session)
             except RuntimeError as error:
+                session.rollback()
                 require(str(error) == "isolated audit INSERT failure", "audit rollback failed for an unrelated reason")
             else:
-                raise AssertionError("transition succeeded despite the forced audit INSERT failure")
-        finally:
-            event.remove(engine, "after_cursor_execute", observe_update)
-            event.remove(engine, "before_cursor_execute", fail_audit)
-        require(updated == [True], "audit failure was not injected after a real PostgreSQL workflow UPDATE")
-        require(state_and_audits(engine, record_id) == before, "failed audit INSERT did not roll back workflow and note atomically")
-    report("PostgreSQL review start and resolution roll back atomically when audit INSERT fails")
+                raise AssertionError("correction succeeded despite forced audit INSERT failure")
+    finally:
+        event.remove(engine, "after_cursor_execute", observe_update)
+        event.remove(engine, "before_cursor_execute", fail_audit)
+    require(len(updated) == 2, "audit failure did not follow both the revision claim and actual content update")
+    require(state_and_audits(engine, record_id) == before, "audit failure did not roll back content/revision atomically")
+    report("PostgreSQL Report correction and revision roll back atomically when audit INSERT fails")
 
 
 def run_review_checks(database, report):
@@ -290,29 +306,21 @@ def run_review_checks(database, report):
         run_migrations(engine)
         with engine.connect() as connection:
             verify_migrations(connection)
-        report("PostgreSQL Report review fixture bootstrapped through actual migrations as a non-superuser owner")
+        report("PostgreSQL Report correction fixture bootstrapped through actual migrations as a non-superuser owner")
         fixture = seed_fixture(engine)
-        for round_number in range(1, 11):
+        for round_number in range(1, 6):
             record_id = new_report(engine, fixture, f"race-{round_number}")
             original, _ = state_and_audits(engine, record_id)
-            start_winner = None
-            for target, expected_audits in (("in_review", 1), ("resolved", 2)):
-                winner, proof = overlapping_transition(engine, record_id, fixture["reviewers"], target, round_number)
+            for revision in (1, 2):
+                winner, proof = overlapping_correction(engine, record_id, fixture["reviewers"], revision, round_number)
                 current, audits = state_and_audits(engine, record_id)
-                require(all(current[field] == original[field] for field in IMMUTABLE_FIELDS), "concurrent review changed original Report evidence")
-                require(current["workflow_status"] == target and current["supervisor_note"] == winner["note"], "losing Supervisor overwrote the winning workflow or note")
-                require(len(audits) == expected_audits and audits[-1]["actor_id"] == winner["actor"], "concurrent transition did not record exactly one winning audit")
-                expected_before = "submitted" if target == "in_review" else "in_review"
-                require(audits[-1]["before"]["workflow_status"] == expected_before
-                        and audits[-1]["after"]["workflow_status"] == target
-                        and audits[-1]["after"]["supervisor_note"] == winner["note"], "winning audit snapshots do not match the atomic transition")
-                if target == "in_review":
-                    start_winner = winner["actor"]
-                    require(current["review_started_at"] is not None and current["resolved_at"] is None, "review-start timestamps are wrong")
-                else:
-                    require(current["resolved_at"] >= current["review_started_at"], "resolution timestamp precedes review start")
-                    require(winner["actor"] != start_winner, "rehearsal must resolve with a different Supervisor than the review starter")
-                require(current["reviewing_supervisor_id"] == start_winner, "reviewing Supervisor identity was overwritten")
-                report(f"PostgreSQL concurrent {target}: one success, one conflict, one audit (round {round_number})", proof)
+                require(all(current[field] == original[field] for field in IMMUTABLE_FIELDS), "date correction changed unrelated evidence or identity")
+                require(current["revision"] == revision + 1 and current["work_date"] == winner["note"], "stale correction overwrote winner")
+                require(current["edited_by_supervisor_id"] == winner["actor"] and current["edited_at"] is not None, "editor attribution incorrect")
+                require(current["workflow_status"] == "submitted", "correction resumed the retired workflow")
+                require(len(audits) == revision and audits[-1]["actor_id"] == winner["actor"], "correction did not record exactly one winning audit")
+                require(audits[-1]["before"]["revision"] == revision and audits[-1]["after"]["revision"] == revision + 1,
+                        "audit revision snapshots do not match atomic correction")
+                report(f"PostgreSQL concurrent correction: one success, one conflict, one audit (round {round_number}, revision {revision})", proof)
         check_rejections_and_immutability(engine, fixture, report)
         check_audit_rollback(engine, fixture, report)

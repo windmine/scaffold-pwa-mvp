@@ -65,6 +65,7 @@ EXPECTED_VERSIONS = [
     "0022_worker_password_recovery",
     "0023_worker_invitation_email",
     "0024_report_pdf_email",
+    "0025_report_corrections",
 ]
 
 
@@ -1043,6 +1044,7 @@ def test_report_review_workflow_migration():
             "0022_worker_password_recovery",
             "0023_worker_invitation_email",
             "0024_report_pdf_email",
+    "0025_report_corrections",
         ]:
             raise AssertionError(f"report workflow migration: unexpected versions {applied}")
 
@@ -1458,18 +1460,9 @@ def test_report_daywork_purpose_migration():
             "UPDATE workformsubmission SET submission_purpose = 'report' WHERE id = 27",
         )
 
+        assert_statement_rejected(engine, "retired Report workflow cannot resume",
+            "UPDATE workformsubmission SET workflow_status = 'resolved', supervisor_note = 'Old client' WHERE id = 21")
         with engine.begin() as connection:
-            connection.exec_driver_sql(
-                """
-                UPDATE workformsubmission
-                SET workflow_status = 'resolved',
-                    supervisor_note = 'Replacement PPE issued',
-                    reviewing_supervisor_id = 902,
-                    review_started_at = '2026-08-03T03:00:00Z',
-                    resolved_at = '2026-08-05T11:00:00Z'
-                WHERE id = 21
-                """
-            )
             connection.exec_driver_sql(
                 """
                 UPDATE workformsubmission
@@ -1523,17 +1516,17 @@ def test_report_daywork_purpose_migration():
             ).one()
 
         if trashed_report != (
-            "resolved",
-            "Replacement PPE issued",
-            902,
+            "in_review",
+            "Investigating",
+            901,
             "2026-08-03T03:00:00Z",
-            "2026-08-05T11:00:00Z",
+            None,
             "2026-08-05T12:00:00Z",
             902,
             "Temporary cleanup",
         ):
             raise AssertionError(
-                f"Report boundary blocked valid review/trash metadata: {trashed_report}"
+                f"Report boundary changed historical workflow or blocked trash metadata: {trashed_report}"
             )
         if restored_trash != (None, None, None):
             raise AssertionError(
@@ -1680,6 +1673,7 @@ def test_global_admin_supervisor_invariant_migration():
             "0022_worker_password_recovery",
             "0023_worker_invitation_email",
             "0024_report_pdf_email",
+    "0025_report_corrections",
         ]:
             raise AssertionError(f"global admin invariant migration: unexpected versions {applied}")
 
@@ -1961,7 +1955,7 @@ def test_worker_invitation_upgrade_preserves_existing_accounts():
                     INSERT INTO "user" (email, name, password_hash, role, status, department_id)
                     VALUES ('legacy-invitation-test@example.com', 'Existing Worker', 'unchanged-test-hash', 'worker', 'active', 1)
                 ''')
-            if run_migrations(engine) != ["0021_worker_invitations", "0022_worker_password_recovery", "0023_worker_invitation_email", "0024_report_pdf_email"]:
+            if run_migrations(engine) != ["0021_worker_invitations", "0022_worker_password_recovery", "0023_worker_invitation_email", "0024_report_pdf_email", "0025_report_corrections"]:
                 raise AssertionError("Invitation upgrade applied an unexpected migration")
             with engine.connect() as connection:
                 row = connection.exec_driver_sql('''
@@ -2002,7 +1996,7 @@ def test_password_recovery_upgrade_preserves_accounts_and_invitations():
                     (worker_id, department_id, email, generation, token_hash, issued_by, expires_at, created_at)
                     VALUES (1, 1, 'invited@recovery.invalid', 7, 'preserved-invitation-hash', 2, '2030-01-01', '2026-01-01')''')
                 before = connection.exec_driver_sql('SELECT id, worker_id, department_id, email, generation, token_hash, issued_by, expires_at, consumed_at, revoked_at, created_at FROM workerinvitation').all()
-            assert run_migrations(engine) == ["0022_worker_password_recovery", "0023_worker_invitation_email", "0024_report_pdf_email"]
+            assert run_migrations(engine) == ["0022_worker_password_recovery", "0023_worker_invitation_email", "0024_report_pdf_email", "0025_report_corrections"]
             with engine.connect() as connection:
                 assert tuple(connection.exec_driver_sql('''SELECT password_hash, password_setup_required,
                     invitation_generation, password_recovery_generation, auth_generation, legacy_auth_allowed FROM "user"

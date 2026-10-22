@@ -6,10 +6,13 @@ import process from 'node:process';
 import { chromium } from 'playwright';
 import { selectWorkFormWhenReady } from './browser-work-form-ready.mjs';
 import { approvedOrigin, evidenceDirectory, forwardWithoutRedirects, safeFailure } from './check-hosted-onboarding-release.mjs';
-import { browserApiRequest, showSupervisorFilters } from './check-hosted-report-workflow.mjs';
+import { browserApiRequest, expandWorkerReport, readyReportCorrection, showSupervisorFilters } from './check-hosted-report-workflow.mjs';
 import { ownedWorker, ownedTemplate } from './check-hosted-report-ux-release.mjs';
 
 export { ownedWorker, ownedTemplate };
+// Historical fixture identities are intentionally retained. This runner is for
+// isolated staging rehearsals with those fixtures, never recreation of removed
+// production demo accounts. The generic hosted runner accepts dedicated accounts.
 const scriptPath = fileURLToPath(import.meta.url);
 const demoEmail = 'demo-20260916-supervisor@example.invalid';
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
@@ -35,7 +38,8 @@ export function ownedReport(row, scope) {
   return Boolean(row && Number.isInteger(row.id) && row.id > 21 && row.form_id === scope.templateId
     && row.worker_id === scope.workerId && row.submission_purpose === 'report' && row.work_date === scope.reportDate
     && scope.reportPlans.some((plan) => plan.clientId && row.client_submission_id === plan.clientId
-      && row.answers?.ux_detail === plan.marker && (!plan.id || row.id === plan.id)));
+      && [plan.marker, plan.correctedMarker].filter(Boolean).includes(row.answers?.ux_detail)
+      && (!plan.id || row.id === plan.id)));
 }
 
 export function assertMutationAllowed({ url, method, body = {}, bytes, headers = {} }, scope) {
@@ -91,16 +95,18 @@ export function assertMutationAllowed({ url, method, body = {}, bytes, headers =
     && new Set(body.photo_urls).size === plan.photoCount && body.photo_urls.every((path) => scope.uploadPaths.has(path))
     && exactKeys(body, ['form_id', 'site_id', 'work_date', 'answers', 'photo_urls', 'photo_metadata',
       'client_submission_id', 'expected_definition_version']);
-  const transition = post && scope.transitionReportId && scope.verifiedReportIds.has(scope.transitionReportId)
-    && path === `/api/supervisor/form-submissions/${scope.transitionReportId}/transition`
-    && ((body.status === 'in_review' && exactKeys(body, ['status']))
-      || (body.status === 'resolved' && body.supervisor_note === scope.finalNote && exactKeys(body, ['status', 'supervisor_note'])));
+  const correction = method === 'PATCH' && scope.correctionReportId && scope.correctionPayload
+    && scope.verifiedReportIds.has(scope.correctionReportId)
+    && path === `/api/supervisor/form-submissions/${scope.correctionReportId}`
+    && headers['x-report-recovery-worker'] === '16' && headers['x-report-recovery-department'] === '2'
+    && headers['x-report-recovery-role'] === 'supervisor'
+    && JSON.stringify(body) === JSON.stringify(scope.correctionPayload);
   const trash = post && scope.cleanupReportId && scope.verifiedReportIds.has(scope.cleanupReportId)
     && path === `/api/supervisor/trash/form/${scope.cleanupReportId}`
     && body.confirmed === true && body.reason === scope.cleanupReason && exactKeys(body, ['confirmed', 'reason']);
   const resign = post && ownWorker && scope.cleanupWorkerVerified && path === `/api/supervisor/users/${scope.workerId}/status`
     && body.status === 'resigned' && body.confirmed === true && exactKeys(body, ['status', 'confirmed']);
-  requireCondition(session || login || invite || invitation || template || archive || photo || report || probe || transition || trash || resign,
+  requireCondition(session || login || invite || invitation || template || archive || photo || report || probe || correction || trash || resign,
     'mutation_outside_owned_fixture_boundary');
 }
 
@@ -125,7 +131,8 @@ async function openWorkspace(page, workspace) {
 
 export async function runOctoberRelease(config) {
   const nonce = randomUUID();
-  const first = { marker: `Recovered October evidence ${nonce}`, photoCount: 7, recovery: true, clientId: null, id: null };
+  const first = { marker: `Recovered October evidence ${nonce}`, correctedMarker: `Corrected October evidence ${nonce}`,
+    photoCount: 7, recovery: true, clientId: null, id: null };
   const second = { marker: `Second October evidence ${nonce}`, photoCount: 0, recovery: false, clientId: null, id: null };
   const scope = { ...config, workerId: null, templateId: null,
     worker: { name: `TEST ONLY OCT ${config.runId} ${nonce}`, email: `oct-${config.runId}-${nonce}@example.invalid`,
@@ -133,7 +140,7 @@ export async function runOctoberRelease(config) {
     templateName: `TEST ONLY OCT ${config.runId} ${nonce}`, templateDescription: `Owned October release ${nonce}`,
     fields: [{ id: 'ux_detail', label: 'Site observation', type: 'textarea', required: true }],
     originalMarker: `Original October evidence ${nonce}`, reportDate: '2026-10-05',
-    finalNote: `Verified synthetic October report ${nonce}`, cleanupReason: `Completed owned October release ${nonce}`,
+    cleanupReason: `Completed owned October release ${nonce}`,
     reportPlans: [first, second], photos: [], uploadPaths: new Set(), verifiedReportIds: new Set(),
     inviteAttempted: false, templateAttempted: false, allowSubmit: false, uploadPhase: 'none', currentPlan: null };
   requireCondition(scope.worker.name.length <= 120 && scope.templateName.length <= 160, 'fixture_name_too_long');
@@ -141,7 +148,7 @@ export async function runOctoberRelease(config) {
     startedAtUtc: new Date().toISOString(), status: 'running', checks: [], owned: { departmentId: 2, reportIds: [] },
     scope: 'Real Firebase-proxy Chromium at 390px. Two new nonce-owned Reports. Not physical-phone or maximum-size-photo certification.',
     injectedFaults: ['Browser storage estimate reports low headroom only during photo selection; native writes are unchanged.',
-      'Original first photo upload receives an intercepted HTTP 415 before reaching the host. Recovered uploads and all lookup/submission/review requests reach the real backend.'],
+      'Original first photo upload receives an intercepted HTTP 415 before reaching the host. Recovered uploads and all lookup/submission/correction requests reach the real backend.'],
     scriptSha256: createHash('sha256').update(readFileSync(scriptPath)).digest('hex'),
     cleanup: { reportsTrashed: [], templateArchived: false, workerResigned: false, failures: [] } };
   evidenceDirectory(config.evidenceDir);
@@ -157,7 +164,7 @@ export async function runOctoberRelease(config) {
   save();
   let browser, supervisor, worker, workerContext, sourceId, recoveryKey, stage = 'start', pageErrors = 0;
   const contexts = [], boundaryFailures = new Set();
-  const writes = { rejectedUploads: 0, realUploads: 0, reports: 0, transitions: 0, endpointProbes: 0 };
+  const writes = { rejectedUploads: 0, realUploads: 0, reports: 0, corrections: 0, endpointProbes: 0 };
   const lookupResults = [], submittedKeys = new Set();
   const api = async (page, path, method = 'GET', body) => {
     requireCondition(new URL(page.url()).origin === config.baseURL && /^\/api\/[a-z0-9/?=&_.%-]+$/i.test(path), 'api_path_outside_boundary');
@@ -177,10 +184,12 @@ export async function runOctoberRelease(config) {
         const body = ['GET', 'HEAD'].includes(request.method()) || path === '/api/photo-uploads'
           ? undefined : request.postDataJSON() || {};
         assertMutationAllowed({ url: request.url(), method: request.method(), body, bytes, headers }, scope);
+        if (request.method() === 'PATCH' && path === `/api/supervisor/form-submissions/${scope.correctionReportId}`) {
+          writes.corrections += 1;
+        }
         if (request.method() === 'POST') {
           if (path === '/api/supervisor/worker-invitations') scope.inviteAttempted = true;
           if (path === '/api/supervisor/work-forms') scope.templateAttempted = true;
-          if (path.endsWith('/transition')) writes.transitions += 1;
           if (path === '/api/form-submissions') {
             if (scope.endpointProbe) writes.endpointProbes += 1;
             else {
@@ -310,14 +319,10 @@ export async function runOctoberRelease(config) {
     }
     await card.click();
   };
-  const openNote = async () => {
+  const openCorrection = async () => {
     await selectReport(first.id);
-    await supervisor.locator('#reviewQueueActions').getByRole('button', { name: /^(Resolve report|Continue note)$/ }).first().click();
-    await supervisor.locator('#reportNotePanel').waitFor({ state: 'visible' });
-    await supervisor.waitForFunction(() => {
-      const field = document.querySelector('#reportResolutionNote');
-      return field && !field.disabled && !field.readOnly && !field.closest('[inert]');
-    });
+    await supervisor.locator('#reviewQueueActions').getByRole('button', { name: 'Edit', exact: true }).click();
+    return readyReportCorrection(supervisor, 'ux_detail');
   };
   const gallery = async (page, container) => {
     const photos = container.locator('.report-photo-gallery');
@@ -523,91 +528,92 @@ export async function runOctoberRelease(config) {
       'real_exact_key_lookup_or_replay_metadata_failed');
       return { immutableWinnerReplayed: true, identityRejections: 2, exactSubmittedLookup: true, createdReportsUnchanged: 2 };
     });
-    await step('oldest_waiting_real_backend_order_preference_and_shortcuts', async () => {
+    await step('report_filters_newest_pagination_and_removed_workflow', async () => {
       await supervisor.reload({ waitUntil: 'domcontentloaded' });
       await supervisor.locator('#supervisorView').waitFor({ state: 'visible' });
       await openWorkspace(supervisor, 'review'); await showSupervisorFilters(supervisor);
       await supervisor.locator('#supervisorTemplateFilter').selectOption(String(scope.templateId));
       await supervisor.locator('#supervisorWorkerFilter').selectOption(String(scope.workerId));
       await supervisor.locator('#supervisorDateFilter').fill(scope.reportDate);
-      await supervisor.locator('[data-report-workflow-shortcut=""]').click();
-      await supervisor.locator('#supervisorSortOrder').selectOption('oldest_waiting');
-      const queue = await api(supervisor, `/api/supervisor/review-queue?purpose=report&form_id=${scope.templateId}&worker_id=${scope.workerId}&sort_order=oldest_waiting`);
-      requireCondition(queue.ok && queue.body.sort_order === 'oldest_waiting' && queue.body.items?.length === 2
-        && JSON.stringify(queue.body.items.map((row) => row.id)) === JSON.stringify([first.id, second.id]), 'backend_oldest_order_not_exact');
-      const pagePath = `/api/supervisor/review-queue?purpose=report&form_id=${scope.templateId}&worker_id=${scope.workerId}&sort_order=oldest_waiting&page_size=1`;
+      requireCondition(!await supervisor.locator('#supervisorStatusFilter').isVisible()
+        && await supervisor.locator('#supervisorSortOrder').count() === 0
+        && await supervisor.locator('[data-report-workflow-shortcut]').count() === 0, 'legacy_workflow_controls_visible');
+      const pagePath = `/api/supervisor/review-queue?purpose=report&form_id=${scope.templateId}&worker_id=${scope.workerId}&page_size=1`;
       const page1 = await api(supervisor, pagePath);
-      requireCondition(page1.ok && page1.body.items.length === 1 && page1.body.items[0].id === first.id
-        && page1.body.has_more && typeof page1.body.next_cursor === 'string', 'real_oldest_first_page_failed');
+      requireCondition(page1.ok && page1.body.items.length === 1 && page1.body.items[0].id === second.id
+        && page1.body.has_more && typeof page1.body.next_cursor === 'string', 'real_newest_first_page_failed');
       const page2 = await api(supervisor, `${pagePath}&cursor=${encodeURIComponent(page1.body.next_cursor)}`);
-      requireCondition(page2.ok && page2.body.items.length === 1 && page2.body.items[0].id === second.id
+      requireCondition(page2.ok && page2.body.items.length === 1 && page2.body.items[0].id === first.id
         && !page2.body.has_more && page2.body.next_cursor === null && page2.body.snapshot_at === page1.body.snapshot_at
-        && JSON.stringify(page2.body.counts) === JSON.stringify(page1.body.counts), 'real_oldest_second_page_failed');
-      const mismatch = await api(supervisor, `${pagePath}&workflow_status=submitted&cursor=${encodeURIComponent(page1.body.next_cursor)}`);
-      requireCondition(mismatch.status === 400, 'oldest_cursor_filter_mismatch_not_rejected');
+        && JSON.stringify(page2.body.counts) === JSON.stringify(page1.body.counts), 'real_newest_second_page_failed');
+      const mismatch = await api(supervisor, `${pagePath}&record_date=2026-10-04&cursor=${encodeURIComponent(page1.body.next_cursor)}`);
+      requireCondition(mismatch.status === 400, 'cursor_filter_mismatch_not_rejected');
+      const obsoleteOrder = await api(supervisor, `${pagePath}&sort_order=oldest_waiting`);
+      requireCondition(obsoleteOrder.status === 400, 'removed_report_workflow_order_not_rejected');
       const order = () => supervisor.locator('#reviewQueueList [data-record-key]').evaluateAll((cards) => cards.map((card) => card.dataset.recordKey));
-      await poll(async () => JSON.stringify(await order()) === JSON.stringify([`form:${first.id}`, `form:${second.id}`]), 'ui_oldest_order_not_exact');
+      await poll(async () => JSON.stringify(await order()) === JSON.stringify([`form:${second.id}`, `form:${first.id}`]), 'ui_newest_order_not_exact');
       await supervisor.reload({ waitUntil: 'domcontentloaded' });
       await supervisor.locator('#supervisorView').waitFor({ state: 'visible' }); await openWorkspace(supervisor, 'review');
-      await poll(async () => await supervisor.locator('#supervisorSortOrder').inputValue() === 'oldest_waiting'
-        && JSON.stringify(await order()) === JSON.stringify([`form:${first.id}`, `form:${second.id}`]), 'oldest_preference_not_restored');
-      await supervisor.locator('[data-report-workflow-shortcut="submitted"]').click();
-      requireCondition(await supervisor.locator('#supervisorSortOrder').inputValue() === 'oldest_waiting'
-        && await supervisor.locator('#supervisorTemplateFilter').inputValue() === String(scope.templateId)
-        && await supervisor.locator('#supervisorWorkerFilter').inputValue() === String(scope.workerId), 'shortcut_lost_order_or_owned_filters');
-      await supervisor.locator('[data-report-workflow-shortcut=""]').click();
-      return { sortOrder: 'oldest_waiting', reportIdsInOrder: [first.id, second.id], reloadPreference: true,
-        realPages: 2, pageSize: 1, filterCursorMismatchStatus: 400 };
+      await poll(async () => JSON.stringify(await order()) === JSON.stringify([`form:${second.id}`, `form:${first.id}`]),
+        'newest_order_or_filters_not_restored');
+      requireCondition(await supervisor.locator('#supervisorTemplateFilter').inputValue() === String(scope.templateId)
+        && await supervisor.locator('#supervisorWorkerFilter').inputValue() === String(scope.workerId)
+        && await supervisor.locator('#supervisorDateFilter').inputValue() === scope.reportDate, 'owned_filters_not_restored');
+      return { sortOrder: 'newest', reportIdsInOrder: [second.id, first.id], reloadPreference: true,
+        realPages: 2, pageSize: 1, filterCursorMismatchStatus: 400, obsoleteOrderStatus: 400 };
     });
-    await step('supervisor_compact_gallery_and_real_start_review', async () => {
+    await step('supervisor_compact_gallery_without_review_actions', async () => {
       await selectReport(first.id);
       await gallery(supervisor, supervisor.locator('#reviewQueueDetails'));
-      await verifyReports(); scope.transitionReportId = first.id;
-      const response = await api(supervisor, `/api/supervisor/form-submissions/${first.id}/transition`, 'POST', { status: 'in_review' });
-      requireCondition(response.ok, 'owned_start_review_failed');
-      await supervisor.reload({ waitUntil: 'domcontentloaded' });
-      await supervisor.locator('#supervisorView').waitFor({ state: 'visible' }); await openWorkspace(supervisor, 'review');
-      await poll(async () => JSON.stringify(await supervisor.locator('#reviewQueueList [data-record-key]').evaluateAll(
-        (cards) => cards.map((card) => card.dataset.recordKey))) === JSON.stringify([`form:${second.id}`, `form:${first.id}`]),
-      'workflow_rank_not_prioritized_over_age');
-      return { realWorkflow: 'in_review', submittedBeforeInReview: true };
+      requireCondition(await supervisor.locator('#reviewQueueActions').getByRole('button',
+        { name: /^(Start review|Resolve report|Continue note)$/ }).count() === 0, 'removed_report_actions_visible');
+      return { compactPhotos: 6, accessibleOriginals: 7, workflowActionsRemoved: true };
     });
-    await step('private_supervisor_note_close_reload_and_explicit_real_resolution', async () => {
-      const snapshotPath = `/api/supervisor/review-queue?purpose=report&form_id=${scope.templateId}&worker_id=${scope.workerId}&sort_order=oldest_waiting&page_size=1`;
+    await step('cancelled_correction_preserves_original_then_explicit_save_updates_author', async () => {
+      const before = (await verifyReports()).find((row) => row.id === first.id);
+      requireCondition(Number.isInteger(before?.revision) && before.revision >= 1, 'correction_revision_missing');
+      let editor = await openCorrection();
+      await editor.answer.fill(first.correctedMarker);
+      await supervisor.locator('#editPanelForm').getByRole('button', { name: 'Cancel', exact: true }).click();
+      requireCondition(writes.corrections === 0
+        && (await verifyReports()).find((row) => row.id === first.id)?.answers.ux_detail === first.marker,
+      'cancelled_correction_reached_server');
+      const snapshotPath = `/api/supervisor/review-queue?purpose=report&form_id=${scope.templateId}&worker_id=${scope.workerId}&page_size=1`;
       const snapshot = await api(supervisor, snapshotPath);
       requireCondition(snapshot.ok && snapshot.body.items[0]?.id === second.id && snapshot.body.next_cursor,
-        'transition_snapshot_first_page_failed');
-      const unfinished = `  Unfinished synthetic note ${nonce}\nKeep this device-local until explicit resolution.  `;
-      await openNote();
-      await supervisor.locator('#reportResolutionNote').fill(unfinished);
-      await supervisor.locator('#closeReportNoteButton').click();
-      await supervisor.locator('#reportNotePanel').waitFor({ state: 'hidden' });
-      await poll(() => supervisor.evaluate(async (text) => (await (await import('/assets/js/db.js')).getAll('drafts'))
-        .some((row) => String(row.key).startsWith('report-resolution-note:v1:') && !row.deleted
-          && (row.value?.text === text || row.text === text)), unfinished), 'private_note_not_saved');
-      await openNote();
-      requireCondition(await supervisor.locator('#reportResolutionNote').inputValue() === unfinished, 'closed_note_not_restored');
-      await supervisor.locator('#closeReportNoteButton').click();
-      await supervisor.reload({ waitUntil: 'domcontentloaded' });
-      await supervisor.locator('#supervisorView').waitFor({ state: 'visible' }); await openWorkspace(supervisor, 'review');
-      await openNote();
-      requireCondition(await supervisor.locator('#reportResolutionNote').inputValue() === unfinished && writes.transitions === 1,
-        'reloaded_note_lost_or_submitted_early');
-      await supervisor.locator('#reportResolutionNote').fill(scope.finalNote);
-      await supervisor.locator('#resolveReportNoteButton').click();
-      const report = await poll(async () => (await verifyReports()).find((row) => row.id === first.id && row.workflow_status === 'resolved'),
-        'explicit_resolution_not_durable');
-      requireCondition(report.supervisor_note === scope.finalNote && writes.transitions === 2, 'final_note_not_exact_or_resolution_duplicated');
-      const afterTransition = await api(supervisor, `${snapshotPath}&cursor=${encodeURIComponent(snapshot.body.next_cursor)}`);
-      requireCondition(afterTransition.ok && afterTransition.body.items.length === 1 && afterTransition.body.items[0].id === first.id
-        && afterTransition.body.items[0].workflow_status === 'resolved' && !afterTransition.body.has_more
-        && afterTransition.body.snapshot_at === snapshot.body.snapshot_at
-        && JSON.stringify(afterTransition.body.counts) === JSON.stringify(snapshot.body.counts),
-      'legal_transition_did_not_preserve_snapshot_traversal');
-      scope.transitionReportId = null;
-      return { closeRestored: true, reloadRestored: true, draftTransitions: 0, explicitResolutions: 1,
-        realTransitionBetweenPagesPreservedSnapshot: true, serializedWorkflowIsCurrent: true,
-        limitation: 'Does not induce a database transaction timestamped before the snapshot but committed later.' };
+        'correction_snapshot_first_page_failed');
+      editor = await openCorrection();
+      requireCondition(await editor.answer.inputValue() === first.marker, 'cancelled_correction_not_discarded');
+      await editor.answer.fill(first.correctedMarker);
+      scope.correctionReportId = first.id;
+      scope.correctionPayload = { expected_revision: before.revision, site_id: before.site_id ?? null,
+        work_date: before.work_date, answers: { ux_detail: first.correctedMarker },
+        photo_urls: before.photo_urls, photo_metadata: before.photo_metadata, confirmed: true };
+      await editor.submit.click();
+      const report = await poll(async () => (await verifyReports()).find((row) => row.id === first.id
+        && row.answers.ux_detail === first.correctedMarker), 'explicit_correction_not_durable');
+      requireCondition(report.revision === before.revision + 1 && report.edited_by_supervisor_id === 16
+        && report.edited_at && writes.corrections === 1
+        && report.work_date === before.work_date && report.site_id === before.site_id
+        && report.client_submission_id === before.client_submission_id
+        && JSON.stringify(report.photo_urls) === JSON.stringify(before.photo_urls)
+        && JSON.stringify(report.photo_metadata) === JSON.stringify(before.photo_metadata), 'correction_changed_unedited_content');
+      scope.correctionReportId = null; scope.correctionPayload = null;
+      const afterCorrection = await api(supervisor, `${snapshotPath}&cursor=${encodeURIComponent(snapshot.body.next_cursor)}`);
+      requireCondition(afterCorrection.ok && afterCorrection.body.items.length === 1 && afterCorrection.body.items[0].id === first.id
+        && afterCorrection.body.items[0].answers.ux_detail === first.correctedMarker && !afterCorrection.body.has_more
+        && afterCorrection.body.snapshot_at === snapshot.body.snapshot_at, 'correction_changed_newest_snapshot_traversal');
+      await worker.reload({ waitUntil: 'domcontentloaded' });
+      await worker.locator('#workerView').waitFor({ state: 'visible' });
+      await worker.locator('.tab[data-tab-target="historyTab"]').click();
+      const card = worker.locator('#historyList .record-form').filter({ hasText: scope.templateName })
+        .filter({ hasText: '7 photos' }).filter({ hasText: 'Submitted' });
+      await card.waitFor({ state: 'visible' });
+      await expandWorkerReport(card);
+      requireCondition((await card.innerText()).includes(first.correctedMarker), 'worker_correction_not_visible');
+      requireCondition(!/In review|Resolved|Final supervisor note/.test(await card.innerText()), 'worker_legacy_workflow_visible');
+      return { cancelWrites: 0, explicitCorrections: 1, authorSeesLatest: true,
+        untouchedOriginalPhotosPreserved: true, newestSnapshotSerializedLatest: true };
     });
     await step('phone_layout_and_clean_browser_errors', async () => {
       for (const page of [supervisor, worker]) requireCondition(await page.evaluate(() => document.documentElement.scrollWidth
@@ -621,7 +627,7 @@ export async function runOctoberRelease(config) {
     // Stop browser retries before exact reconciliation. A sent-but-unknown request
     // is not a rollback; every forwarded submission key must resolve durably.
     if (workerContext) await workerContext.close().catch(() => {});
-    scope.allowSubmit = false; scope.currentPlan = null; scope.transitionReportId = null;
+    scope.allowSubmit = false; scope.currentPlan = null; scope.correctionReportId = null; scope.correctionPayload = null;
     const cleanup = async (name, action) => {
       try { await action(); } catch (error) { evidence.cleanup.failures.push({ name, code: safeFailure(error) }); }
       save();
@@ -630,36 +636,10 @@ export async function runOctoberRelease(config) {
       const template = await verifyTemplate(), reports = await verifyReports();
       requireCondition([...submittedKeys].every((key) => reports.some((row) => row.client_submission_id === key)),
         'submission_outcome_unknown_requires_operator');
-      const snapshotPath = `/api/supervisor/review-queue?purpose=report&form_id=${scope.templateId}&worker_id=${scope.workerId}&sort_order=oldest_waiting&page_size=1`;
-      let snapshot;
-      if (reports.length === 2) {
-        try {
-          snapshot = await api(supervisor, snapshotPath);
-          requireCondition(snapshot.ok && snapshot.body.items?.length === 1 && snapshot.body.counts?.total === 2
-            && snapshot.body.has_more && snapshot.body.next_cursor, 'cleanup_snapshot_first_page_failed');
-        } catch (error) {
-          evidence.cleanup.failures.push({ name: 'oldest_cursor_cleanup_probe', code: safeFailure(error) });
-        }
-      }
-      let staleCursorChecked = false;
       for (const report of reports) {
         scope.cleanupReportId = report.id;
         const trashed = await api(supervisor, `/api/supervisor/trash/form/${report.id}`, 'POST', { confirmed: true, reason: scope.cleanupReason });
         requireCondition(trashed.ok, 'owned_report_soft_delete_failed'); evidence.cleanup.reportsTrashed.push(report.id);
-        if (!staleCursorChecked && snapshot?.ok && snapshot.body.next_cursor) {
-          staleCursorChecked = true;
-          try {
-            const stale = await api(supervisor, `${snapshotPath}&cursor=${encodeURIComponent(snapshot.body.next_cursor)}`);
-            requireCondition(stale.status === 409 && stale.body.detail?.code === 'report_review_order_changed',
-              'owned_trash_did_not_invalidate_oldest_cursor');
-            evidence.checks.push({ name: 'real_owned_soft_trash_invalidates_oldest_snapshot', status: 'passed',
-              details: { status: 409, code: 'report_review_order_changed',
-                limitation: 'Real matching-set removal, not the locally controlled pre-snapshot late-commit transition race.' } });
-          } catch (error) {
-            // A failed verification must not interrupt disposal of owned fixtures.
-            evidence.cleanup.failures.push({ name: 'oldest_cursor_cleanup_probe', code: safeFailure(error) });
-          }
-        }
       }
       scope.cleanupReportId = null;
       requireCondition((await verifyReports()).length === 0, 'owned_report_still_visible');

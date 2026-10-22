@@ -681,9 +681,10 @@ export async function exportSupervisorFormSubmissionPdf(submissionId, template =
   return await apiBlob(`/supervisor/form-submissions/${submissionId}/export.pdf?${params.toString()}`, "Report PDF export failed.");
 }
 
-export async function updateSupervisorFormSubmission(submissionId, submission) {
+export async function updateSupervisorFormSubmission(submissionId, submission, scope = null) {
   return await apiFetch(`/supervisor/form-submissions/${submissionId}`, {
     method: "PATCH",
+    headers: reportRecoveryHeaders(scope),
     body: JSON.stringify({ ...submission, confirmed: true })
   });
 }

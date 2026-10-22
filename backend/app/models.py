@@ -237,7 +237,10 @@ class WorkFormSubmission(SQLModel, table=True):
     photo_metadata: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     client_submission_id: Optional[str] = Field(default=None, index=True)
     submission_purpose: str = Field(default="report", index=True)
-    # Forward-only Report workflow: submitted -> in_review -> resolved.
+    revision: int = Field(default=1)
+    edited_at: Optional[datetime] = None
+    edited_by_supervisor_id: Optional[int] = None
+    # Historical review data is retained, but Reports no longer transition.
     workflow_status: str = Field(default="submitted", index=True)
     supervisor_note: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     reviewing_supervisor_id: Optional[int] = Field(default=None, index=True)

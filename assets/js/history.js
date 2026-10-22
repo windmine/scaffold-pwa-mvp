@@ -15,7 +15,6 @@ import { setDateInputValue } from './date-inputs.js';
 import { setTranslatableText } from './i18n.js';
 import { createPhotoPreviewSources, reportPhotoSources } from './report-photo-evidence.js';
 import { mountReportPhotoGallery } from './report-photo-gallery.js';
-import { reportWaitingAgeLabel } from './report-review-age.js';
 import { reportPdfEmailStatus } from './report-pdf-email.js';
 
 function getBackendSiteId(siteId) {
@@ -51,6 +50,7 @@ function recordDisplayStatus(record) {
   if (record.isDraftRecovery) return 'saved_draft';
   if (record.type === 'form') {
     if (['queued', 'syncing'].includes(record.syncStatus)) return record.syncStatus;
+    if (recordSubmissionPurpose(record) === 'report') return 'submitted';
     return reportWorkflowStatus(record);
   }
   return record.status || record.syncStatus || 'record';
@@ -172,11 +172,12 @@ function recordSubmissionPurpose(record) {
 }
 
 function recordSearchText(record) {
+  const isReport = record.type === 'form' && recordSubmissionPurpose(record) === 'report';
   return [
     record.type,
     record.action,
-    record.status,
-    record.workflowStatus,
+    isReport ? recordDisplayStatus(record) : record.status,
+    isReport ? '' : record.workflowStatus,
     record.syncStatus,
     record.syncError,
     record.entrySource,
@@ -187,8 +188,8 @@ function recordSearchText(record) {
     record.userName,
     record.siteName,
     record.formName,
-    record.supervisorNote,
-    record.reviewingSupervisorName,
+    isReport ? '' : record.supervisorNote,
+    isReport ? '' : record.reviewingSupervisorName,
     record.notes,
     record.summary,
     record.safetyNotes,
@@ -528,6 +529,10 @@ export function createHistoryModule({
       ),
       supervisorNote: record.supervisor_note || '',
       pdfEmail: record.pdf_email || null,
+      revision: record.revision,
+      editedAt: record.edited_at || '',
+      editedBySupervisorId: record.edited_by_supervisor_id,
+      editedBySupervisorName: record.edited_by_supervisor_name || '',
       reviewingSupervisorId: record.reviewing_supervisor_id,
       reviewingSupervisorName: record.reviewing_supervisor_name || '',
       reviewStartedAt: record.review_started_at || '',
@@ -891,9 +896,6 @@ export function createHistoryModule({
       <summary>More details</summary>
       <div class="record-report-metadata">
         <p><strong>${submitted ? 'Submitted:' : 'Saved on this device:'}</strong> ${escapeHtml(formatReportSubmissionTime(record.createdAt))}</p>
-        ${record.reviewingSupervisorName ? `<p><strong>Reviewing supervisor:</strong> <span data-no-i18n>${escapeHtml(record.reviewingSupervisorName)}</span></p>` : ''}
-        ${record.reviewStartedAt ? `<p><strong>Review started:</strong> ${escapeHtml(formatDateTime(record.reviewStartedAt))}</p>` : ''}
-        ${record.resolvedAt ? `<p><strong>Resolved:</strong> ${escapeHtml(formatDateTime(record.resolvedAt))}</p>` : ''}
       </div>
     </details>`;
   }
@@ -928,17 +930,14 @@ export function createHistoryModule({
           : record.syncStatus === 'syncing'
             ? 'Uploading your report.'
             : '';
-    const hasFinalNote = reportWorkflowStatus(record) === 'resolved' && !record.isDraftRecovery
-      && !['queued', 'syncing'].includes(record.syncStatus);
-    if (record.syncError || cueText || hasFinalNote) {
+    if (record.syncError || cueText) {
       const cue = document.createElement('div');
       cue.className = `record-report-cue${record.syncError && !record.isDraftRecovery ? ' is-warning' : ''}`;
-      if (record.syncError || hasFinalNote) {
+      if (record.syncError) {
         const label = document.createElement('span');
-        setTranslatableText(label, record.isDraftRecovery ? 'Saved copy.' : record.syncError ? 'Sync needs attention.' : 'Final supervisor note:');
+        setTranslatableText(label, record.isDraftRecovery ? 'Saved copy.' : 'Sync needs attention.');
         const value = document.createElement('span');
-        if (!record.syncError && record.supervisorNote) value.setAttribute('data-no-i18n', '');
-        value.textContent = record.syncError || record.supervisorNote || 'No supervisor note was recorded.';
+        value.textContent = record.syncError;
         cue.append(label, document.createTextNode(' '), value);
       } else {
         setTranslatableText(cue, cueText);
@@ -1018,7 +1017,6 @@ export function createHistoryModule({
     const onRecordFocus = typeof options?.onRecordFocus === 'function' ? options.onRecordFocus : null;
     const selectedRecordKey = String(options?.selectedRecordKey || '');
     const renderedRecords = new WeakMap();
-    const waitingLabels = [];
     clearRecordsList(container);
     if (!records.length) {
       container.innerHTML = '<div class="empty-state">No records found yet.</div>';
@@ -1069,7 +1067,7 @@ export function createHistoryModule({
       node.querySelector('.record-detail').textContent = detail;
 
       const badge = node.querySelector('.badge');
-      const badgeStatus = record.type === 'form' && !reportOnly && !record.isDraftRecovery
+      const badgeStatus = record.type === 'form' && recordSubmissionPurpose(record) !== 'report' && !reportOnly && !record.isDraftRecovery
         ? record.status || record.syncStatus || 'record'
         : recordDisplayStatus(record);
       badge.textContent = statusLabel(badgeStatus);
@@ -1077,18 +1075,6 @@ export function createHistoryModule({
       badge.title = record.type === 'form'
         ? `Report status: ${statusLabel(badgeStatus)}`
         : record.syncStatus ? `Sync: ${record.syncStatus}` : '';
-
-      const waitingAge = reportOnly && state.user?.role === 'supervisor' ? reportWaitingAgeLabel(record) : '';
-      if (waitingAge) {
-        const age = document.createElement('span');
-        age.className = 'report-waiting-age';
-        age.id = `report-waiting-age-${++reportDisclosureId}`;
-        age.title = 'Time since submission, not Report Date.';
-        setTranslatableText(age, waitingAge);
-        node.querySelector('.record-header')?.insertAdjacentElement('afterend', age);
-        if (summaryOnly) node.setAttribute('aria-describedby', age.id);
-        waitingLabels.push({ age, record });
-      }
 
       if (summaryOnly) {
         renderedRecords.set(node, record);
@@ -1099,7 +1085,7 @@ export function createHistoryModule({
         node.dataset.recordKey = recordKey;
         node.setAttribute('role', 'option');
         node.setAttribute('aria-selected', String(isSelected));
-        node.setAttribute('aria-label', `Review ${title}`);
+        node.setAttribute('aria-label', `${record.type === 'form' && recordSubmissionPurpose(record) === 'report' ? 'View' : 'Review'} ${title}`);
         node.tabIndex = isSelected ? 0 : -1;
 
         const signals = document.createElement('div');
@@ -1171,7 +1157,7 @@ export function createHistoryModule({
         photoPreviews.dispose();
       });
       const hasSiteDistance = record.type === 'attendance' && record.distanceFromSiteM != null;
-      const finalSupervisorNote = record.type === 'form' && reportWorkflowStatus(record) === 'resolved'
+      const finalSupervisorNote = record.type === 'form' && recordSubmissionPurpose(record) !== 'report' && reportWorkflowStatus(record) === 'resolved'
         && (!simplifyReport || (!options.reportSummaryVisible && !record.isDraftRecovery && !['queued', 'syncing'].includes(record.syncStatus)))
         ? record.supervisorNote || 'No supervisor note was recorded.'
         : '';
@@ -1184,9 +1170,9 @@ export function createHistoryModule({
         ${hasSiteDistance ? `<p><strong>Site radius:</strong> <span class="${record.withinSiteRadius ? 'site-inside' : 'site-outside'}">${record.withinSiteRadius ? 'Inside' : 'Outside'} - ${escapeHtml(record.distanceFromSiteM)}m from site</span></p>` : ''}
         ${record.hoursWorked ? `<p><strong>Hours:</strong> ${escapeHtml(record.hoursWorked)}</p>` : ''}
         ${record.type === 'form' && !simplifyReport ? `<p><strong>Report Template:</strong> ${escapeHtml(record.formName)}</p>` : ''}
-        ${record.type === 'form' && !simplifyReport && record.reviewingSupervisorName ? `<p><strong>Reviewing supervisor:</strong> ${escapeHtml(record.reviewingSupervisorName)}</p>` : ''}
-        ${record.type === 'form' && !simplifyReport && record.reviewStartedAt ? `<p><strong>Review started:</strong> ${escapeHtml(formatDateTime(record.reviewStartedAt))}</p>` : ''}
-        ${record.type === 'form' && !simplifyReport && record.resolvedAt ? `<p><strong>Resolved:</strong> ${escapeHtml(formatDateTime(record.resolvedAt))}</p>` : ''}
+        ${record.type === 'form' && recordSubmissionPurpose(record) !== 'report' && record.reviewingSupervisorName ? `<p><strong>Reviewing supervisor:</strong> ${escapeHtml(record.reviewingSupervisorName)}</p>` : ''}
+        ${record.type === 'form' && recordSubmissionPurpose(record) !== 'report' && record.reviewStartedAt ? `<p><strong>Review started:</strong> ${escapeHtml(formatDateTime(record.reviewStartedAt))}</p>` : ''}
+        ${record.type === 'form' && recordSubmissionPurpose(record) !== 'report' && record.resolvedAt ? `<p><strong>Resolved:</strong> ${escapeHtml(formatDateTime(record.resolvedAt))}</p>` : ''}
         ${finalSupervisorNote ? `<p class="report-supervisor-note"><strong>Final supervisor note:</strong> <span data-report-final-note>${escapeHtml(finalSupervisorNote)}</span></p>` : ''}
         ${record.type === 'team_log' ? `<div class="team-log-entry-summary">${record.entries.map((entry) => `
           <div>
@@ -1257,7 +1243,8 @@ export function createHistoryModule({
         && record.backendRecordId
         && ['attendance', 'task', 'form', 'team_log'].includes(record.type)
       );
-      const canShowDecision = showDecisionActions && record.status === 'pending';
+      const canShowDecision = showDecisionActions && record.status === 'pending'
+        && !(record.type === 'form' && recordSubmissionPurpose(record) === 'report');
       const canShowQueuedActions = showWorkerActions && record.syncStatus === 'queued' && !record.backendRecordId;
       const exportOptions = exportOptionsForRecord(record);
       const canShowExport = showExportActions && record.backendRecordId && exportOptions.length > 0;
@@ -1391,25 +1378,6 @@ export function createHistoryModule({
 
       container.appendChild(node);
     });
-    if (waitingLabels.length) {
-      const generation = sessionGeneration;
-      const refreshAges = () => {
-        if (generation !== sessionGeneration || state.user?.role !== 'supervisor') return;
-        const now = Date.now();
-        waitingLabels.forEach(({ age, record }) => {
-          if (age.isConnected) setTranslatableText(age, reportWaitingAgeLabel(record, now));
-        });
-      };
-      // Update text only: preserve keyboard focus, evidence and an unfinished note.
-      const timer = window.setInterval(refreshAges, 60_000);
-      window.addEventListener('focus', refreshAges);
-      document.addEventListener('visibilitychange', refreshAges);
-      registerRecordCleanup(container, () => {
-        window.clearInterval(timer);
-        window.removeEventListener('focus', refreshAges);
-        document.removeEventListener('visibilitychange', refreshAges);
-      });
-    }
   }
 
   function bindEvents() {

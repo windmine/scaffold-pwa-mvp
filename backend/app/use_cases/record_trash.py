@@ -15,7 +15,7 @@ from app.use_cases.common import (
     review_record_response,
     scope_statement_to_user_department,
 )
-from app.upload_storage import cleanup_unreferenced_uploads, record_upload_urls
+from app.upload_storage import cleanup_unreferenced_uploads, record_upload_urls, report_email_upload_urls
 
 
 TRASH_RETENTION_DAYS = 30
@@ -45,6 +45,10 @@ def purge_expired_deleted_records(session: Session, now: datetime | None = None)
             upload_urls.update(record_upload_urls(record))
 
         if record_type == "form" and expired_records:
+            for row in session.exec(select(ReportPdfEmail).where(
+                ReportPdfEmail.submission_id.in_([record.id for record in expired_records]),
+            )):
+                upload_urls.update(report_email_upload_urls(row))
             session.exec(delete(ReportPdfEmail).where(
                 ReportPdfEmail.submission_id.in_([record.id for record in expired_records]),
             ).execution_options(synchronize_session=False))

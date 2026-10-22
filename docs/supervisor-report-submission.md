@@ -25,11 +25,12 @@ ownership from the authenticated Supervisor. This does not expose the legacy
 on-behalf-of-Worker submission flow or allow Supervisor Daywork/attendance capture.
 
 Required Report Date, answer/formula validation, photos, handwritten signatures,
-review-before-submit, immutable Definition snapshots and Report workflow are
-shared with the existing Report flow. New Reports start Submitted; existing
-Department review permissions apply, including a Supervisor's ability to review
-any Report in their authorized scope. No separate self-review prohibition was
-introduced.
+review-before-submit and immutable Definition snapshots are shared with the
+existing Report flow. The current local 2026-10-23 product removes the Supervisor
+review/resolution process: authorized Supervisors may correct submitted Reports
+directly, including their own, using the same Department permissions and revision
+checks. This local correction change is not deployed; the October 21 release
+above remains live.
 
 Private drafts and queued Reports preserve the Supervisor role, account and home
 Department. Supervisor ordinary/recovery draft keys are separate from Worker

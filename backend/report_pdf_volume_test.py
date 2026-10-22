@@ -169,7 +169,7 @@ def test_fifty_camera_resolution_photos(output=None):
         assert_page_numbers(reader)
         complete_text = " ".join(texts)
         assert "unavailable" not in complete_text.lower()
-        assert item["supervisor_note"] in complete_text
+        assert item["supervisor_note"] not in complete_text
         assert re.findall(r"VOLUME-CAPTION-(\d{2})\.jpg", complete_text) == [f"{index:02d}" for index in range(1, 51)]
         all_rasters = {}
         painted_photo_hashes = []

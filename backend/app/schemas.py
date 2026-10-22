@@ -251,10 +251,12 @@ class SupervisorWorkFormSubmissionCreate(BaseModel):
 
 
 class SupervisorWorkFormSubmissionUpdate(BaseModel):
+    expected_revision: Optional[int] = Field(default=None, ge=1)
     site_id: Optional[int] = Field(default=None, ge=1)
     work_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     answers: Optional[dict] = None
     photo_urls: Optional[list[str]] = None
+    photo_metadata: Optional[list[dict]] = None
     status: Optional[str] = Field(default=None, max_length=40)
     confirmed: bool = False
 

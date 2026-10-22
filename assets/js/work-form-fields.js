@@ -141,6 +141,9 @@ function announceSignatureStatus(canvas, message) {
 }
 
 function resetSignatureCanvas(canvas, { announce = false } = {}) {
+  delete canvas.dataset.existingSignature;
+  canvas.parentElement?.querySelector('[data-existing-signature]')?.remove();
+  canvas.hidden = false;
   const context = canvas.getContext('2d');
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.fillStyle = '#ffffff';
@@ -493,10 +496,10 @@ function renderRepeatRow(parent, children, rowKey, options = {}) {
 
 function renderRepeatField(parent, children, options = {}) {
   const idPrefix = options.idPrefix || DEFAULT_FIELD_PREFIX;
-  const initialRows = Math.max(minRows(parent), 1);
+  const initialRows = Math.max(minRows(parent), options.preserveEmptyRepeats ? 0 : 1);
   const rows = Array.from({ length: initialRows }, (_, index) => renderRepeatRow(parent, children, index, { ...options, idPrefix })).join('');
   return `
-    <section class="repeat-section" data-repeat-section="${escapeHtml(parent.id)}" data-repeat-min="${minRows(parent)}" data-repeat-max="${maxRows(parent)}" ${fieldDataAttributes(parent)}>
+    <section class="repeat-section" data-repeat-section="${escapeHtml(parent.id)}" data-repeat-min="${minRows(parent)}" data-repeat-max="${maxRows(parent)}" data-repeat-floor="${options.preserveEmptyRepeats ? 0 : 1}" ${fieldDataAttributes(parent)}>
       <div class="repeat-section-header">
         <div>
           <p class="eyebrow">Repeatable section</p>
@@ -631,7 +634,7 @@ function removeRepeatRow(container, form, button, options = {}) {
 
   const min = Number(section.dataset.repeatMin || 0);
   const rows = section.querySelectorAll(`[data-repeat-row="${CSS.escape(repeatId)}"]`);
-  if (rows.length <= Math.max(min, 1)) return;
+  if (rows.length <= Math.max(min, Number(section.dataset.repeatFloor ?? 1))) return;
 
   row.remove();
   updateRepeatButtons(container);
@@ -649,7 +652,7 @@ function updateRepeatButtons(container) {
     if (addButton) addButton.disabled = rows.length >= max;
 
     section.querySelectorAll(`[data-repeat-remove="${CSS.escape(repeatId)}"]`).forEach((button) => {
-      button.disabled = rows.length <= Math.max(min, 1);
+      button.disabled = rows.length <= Math.max(min, Number(section.dataset.repeatFloor ?? 1));
     });
   });
 }
@@ -835,6 +838,9 @@ function workFormValidationError(message, fieldId) {
 function collectSignatureAnswer(field, options = {}, rowContext = null) {
   const validate = options.validate !== false;
   const canvas = document.getElementById(fieldInputId(field, options.idPrefix, rowContext));
+  if (options.preserveUploadedSignatures && canvas?.dataset.existingSignature) {
+    return canvas.dataset.existingSignature;
+  }
   if (!canvas || canvas.dataset.signed !== 'true') {
     if (field.required && validate) {
       canvas?.setAttribute('aria-invalid', 'true');
@@ -1026,8 +1032,22 @@ export function summarizeWorkFormAnswers(form, capturedAnswers = {}) {
   return { entries, hasCalculatedValues };
 }
 
-function populateSignatureAnswer(field, value, idPrefix, rowContext = null) {
+function populateSignatureAnswer(field, value, idPrefix, rowContext = null, options = {}) {
   const canvas = document.getElementById(fieldInputId(field, idPrefix, rowContext));
+  if (canvas && options.preserveUploadedSignatures && typeof value === 'string'
+    && (value.startsWith('/uploads/') || value.startsWith('/api/uploads/'))) {
+    canvas.dataset.existingSignature = value;
+    canvas.dataset.signed = 'true';
+    canvas.hidden = true;
+    const preview = document.createElement('img');
+    preview.dataset.existingSignature = '';
+    preview.className = 'report-edit-signature';
+    preview.src = value;
+    preview.alt = field.label || 'Saved signature';
+    canvas.before(preview);
+    announceSignatureStatus(canvas, 'Saved signature retained. Clear it only to replace the signature.');
+    return;
+  }
   if (!canvas || typeof value !== 'string' || !value.startsWith('data:image/')) return;
 
   const restoreToken = `${Date.now()}-${Math.random()}`;
@@ -1047,7 +1067,7 @@ function populateSignatureAnswer(field, value, idPrefix, rowContext = null) {
   image.src = value;
 }
 
-function populateField(field, value, idPrefix, rowContext = null) {
+function populateField(field, value, idPrefix, rowContext = null, options = {}) {
   if (value == null) return;
 
   if (field.type === 'time_range') {
@@ -1059,7 +1079,7 @@ function populateField(field, value, idPrefix, rowContext = null) {
   }
 
   if (field.type === 'signature') {
-    populateSignatureAnswer(field, value, idPrefix, rowContext);
+    populateSignatureAnswer(field, value, idPrefix, rowContext, options);
     return;
   }
 
@@ -1080,7 +1100,7 @@ function populateRepeatRow(row, parent, children, values, options = {}) {
   const rowContext = { parentId: parent.id, rowKey: row.dataset.repeatRowKey };
   for (const child of children) {
     if (child.type === 'section') continue;
-    populateField(child, values?.[child.id], idPrefix, rowContext);
+    populateField(child, values?.[child.id], idPrefix, rowContext, options);
   }
 }
 
@@ -1097,7 +1117,9 @@ export function populateWorkFormAnswers(form, answers = {}, options = {}) {
       const children = repeatChildren(fields, field.id);
       const values = Array.isArray(answers[field.id]) ? answers[field.id] : [];
       const existingRows = rowsContainer ? Array.from(rowsContainer.querySelectorAll(`[data-repeat-row="${CSS.escape(field.id)}"]`)) : [];
-      for (let index = existingRows.length; index < Math.max(values.length, minRows(field), 1); index += 1) {
+      const targetRows = Math.max(values.length, minRows(field), options.preserveEmptyRepeats ? 0 : 1);
+      if (options.preserveEmptyRepeats) existingRows.slice(targetRows).forEach((row) => row.remove());
+      for (let index = existingRows.length; index < targetRows; index += 1) {
         addRepeatRow(rowsContainer.closest('.dynamic-fields') || document, { ...form, fields }, field.id, options, {});
       }
       const rows = rowsContainer ? Array.from(rowsContainer.querySelectorAll(`[data-repeat-row="${CSS.escape(field.id)}"]`)) : [];
@@ -1105,10 +1127,13 @@ export function populateWorkFormAnswers(form, answers = {}, options = {}) {
       continue;
     }
 
-    populateField(field, answers[field.id], idPrefix);
+    populateField(field, answers[field.id], idPrefix, null, options);
   }
 
-  if (options.container) updateDynamicState(options.container, { ...form, fields }, options);
+  if (options.container) {
+    updateRepeatButtons(options.container);
+    updateDynamicState(options.container, { ...form, fields }, options);
+  }
 }
 
 function parseMetadataParts(parts = []) {

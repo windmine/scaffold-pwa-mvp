@@ -228,7 +228,6 @@ def _report_story(item, styles, image_loader, *, strict=False):
         ("Site", item.get("site_name") or "Unassigned site"),
         ("Worker", item.get("worker_name")),
         ("Submitted", item.get("created_at")),
-        ("Status", item.get("workflow_status") or "submitted"),
     ):
         story.append(_row(label, value, styles))
 
@@ -253,14 +252,6 @@ def _report_story(item, styles, image_loader, *, strict=False):
     if not urls:
         story.append(_row("Photos", "No photos attached.", styles))
 
-    story.append(_paragraph("Report review", styles["section"]))
-    for label, value in (
-        ("Reviewing Supervisor", item.get("reviewing_supervisor_name")),
-        ("Review started", item.get("review_started_at")),
-        ("Resolved", item.get("resolved_at")),
-        ("Supervisor note", item.get("supervisor_note")),
-    ):
-        story.append(_row(label, value or "-", styles))
     return story
 
 

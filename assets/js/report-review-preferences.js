@@ -1,8 +1,6 @@
 const SCHEMA_VERSION = 1;
 const MAX_STORED_LENGTH = 1024;
 const FILTER_KEYS = new Set(['status', 'formId', 'workerId', 'date', 'sortOrder']);
-const WORKFLOW_STATES = new Set(['', 'submitted', 'in_review', 'resolved']);
-const SORT_ORDERS = new Set(['newest', 'oldest_waiting']);
 
 function emptyFilters() {
   return { status: '', formId: '', workerId: '', date: '', sortOrder: 'newest' };
@@ -32,11 +30,13 @@ function sanitizeFilters(filters) {
   if (!isRecord(filters)) return emptyFilters();
   // Deliberately copy only structured values. Search text and Report content never persist.
   return {
-    status: WORKFLOW_STATES.has(filters.status) ? filters.status : '',
+    // Accept the existing schema but retire its workflow and waiting-order choices.
+    // Otherwise an old saved filter could silently hide submitted Reports.
+    status: '',
     formId: identifier(filters.formId),
     workerId: identifier(filters.workerId),
     date: calendarDate(filters.date),
-    sortOrder: SORT_ORDERS.has(filters.sortOrder) ? filters.sortOrder : 'newest'
+    sortOrder: 'newest'
   };
 }
 

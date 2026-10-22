@@ -1,14 +1,16 @@
 import base64
+import csv
 import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
 from http.cookies import SimpleCookie
-from io import BytesIO
+from io import BytesIO, StringIO
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from PIL import Image
+from pypdf import PdfReader
 
 
 BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
@@ -19,7 +21,7 @@ SMOKE_IMAGE_BYTES = base64.b64decode(
 )
 
 
-def request(method, path, payload=None, token=None):
+def request(method, path, payload=None, token=None, headers=None):
     body = json.dumps(payload).encode("utf-8") if payload is not None else None
     request_obj = Request(f"{BASE_URL}{path}", data=body, method=method)
     request_obj.add_header("Accept", "application/json")
@@ -28,6 +30,8 @@ def request(method, path, payload=None, token=None):
         request_obj.add_header("Content-Type", "application/json")
     if token:
         request_obj.add_header("Authorization", f"Bearer {token}")
+    for name, value in (headers or {}).items():
+        request_obj.add_header(name, value)
 
     try:
         with urlopen(request_obj, timeout=10) as response:
@@ -1663,8 +1667,8 @@ def main():
             raise AssertionError("submit work form: expected recalculated repeat row formula")
         if not form_submission["photo_metadata"] or form_submission["photo_metadata"][0]["taken_at_source"] != "smoke_test":
             raise AssertionError("submit work form: expected saved photo metadata")
-        if form_submission["status"] != "pending":
-            raise AssertionError("submit work form: expected pending approval status")
+        if form_submission["status"] != "submitted" or form_submission.get("revision") != 1:
+            raise AssertionError("submit work form: expected submitted Report revision 1")
         if form_submission["workflow_status"] != "submitted":
             raise AssertionError("submit work form: expected submitted report workflow status")
         if any(
@@ -1757,8 +1761,8 @@ def main():
             ),
             400,
         )
-        in_review_form_submission = assert_status(
-            "supervisor starts report review",
+        assert_status(
+            "Report start-review endpoint is retired",
             request(
                 "POST",
                 f"/supervisor/form-submissions/{form_submission['id']}/transition",
@@ -1768,87 +1772,78 @@ def main():
                 },
                 supervisor_token,
             ),
-            200,
-        )
-        if in_review_form_submission["workflow_status"] != "in_review":
-            raise AssertionError("supervisor starts report review: expected in_review status")
-        if (
-            not in_review_form_submission["reviewing_supervisor_id"]
-            or not in_review_form_submission["review_started_at"]
-            or in_review_form_submission["resolved_at"] is not None
-        ):
-            raise AssertionError("supervisor starts report review: expected reviewer and start time")
-        assert_status(
-            "report resolution requires Supervisor note",
-            request(
-                "POST",
-                f"/supervisor/form-submissions/{form_submission['id']}/transition",
-                {"status": "resolved", "supervisor_note": "   "},
-                supervisor_token,
-            ),
-            400,
-        )
-        resolved_form_submission = assert_status(
-            "supervisor resolves report",
-            request(
-                "POST",
-                f"/supervisor/form-submissions/{form_submission['id']}/transition",
-                {"status": "resolved", "supervisor_note": "PPE details verified"},
-                supervisor_token,
-            ),
-            200,
-        )
-        if (
-            resolved_form_submission["workflow_status"] != "resolved"
-            or resolved_form_submission["status"] != "pending"
-            or resolved_form_submission["supervisor_note"] != "PPE details verified"
-            or not resolved_form_submission["review_started_at"]
-            or not resolved_form_submission["resolved_at"]
-        ):
-            raise AssertionError("supervisor resolves report: expected resolved report metadata")
-        assert_status(
-            "resolved report cannot transition again",
-            request(
-                "POST",
-                f"/supervisor/form-submissions/{form_submission['id']}/transition",
-                {"status": "resolved", "supervisor_note": "Duplicate resolution"},
-                supervisor_token,
-            ),
             409,
         )
-        updated_form_answers = {
-            **resolved_form_submission["answers"],
-            "notes": "Supervisor corrected notes",
+        correction_headers = {
+            "X-Report-Recovery-Worker": str(supervisor_login["user"]["id"]),
+            "X-Report-Recovery-Department": str(supervisor_login["user"]["department_id"]),
+            "X-Report-Recovery-Role": "supervisor",
         }
+        correction = {
+            "expected_revision": form_submission["revision"],
+            "site_id": site["id"], "work_date": now.date().isoformat(),
+            "answers": {**form_submission["answers"], "notes": "Supervisor corrected notes"},
+            "photo_urls": form_submission["photo_urls"],
+            "photo_metadata": form_submission["photo_metadata"],
+            "confirmed": True,
+        }
+        correction_path = f"/supervisor/form-submissions/{form_submission['id']}"
         assert_status(
-            "supervisor cannot edit submitted report content",
-            request(
-                "PATCH",
-                f"/supervisor/form-submissions/{form_submission['id']}",
-                {
-                    "site_id": site["id"],
-                    "work_date": now.date().isoformat(),
-                    "answers": updated_form_answers,
-                    "confirmed": True,
-                },
-                supervisor_token,
-            ),
-            400,
+            "Report correction requires captured Supervisor identity",
+            request("PATCH", correction_path, correction, supervisor_token), 409,
         )
-        immutable_form_records = assert_status(
-            "list immutable report after rejected edit",
+        assert_status(
+            "Report correction rejects a changed captured identity",
+            request("PATCH", correction_path, correction, supervisor_token,
+                    headers={**correction_headers, "X-Report-Recovery-Worker": str(worker_login["user"]["id"])}), 409,
+        )
+        assert_status(
+            "Worker cannot correct a submitted Report",
+            request("PATCH", correction_path, correction, worker_token, headers=correction_headers), 403,
+        )
+        assert_status(
+            "other Department Supervisor cannot correct Report",
+            request("PATCH", correction_path, correction, mutual_supervisor_token, headers=correction_headers), 404,
+        )
+        corrected_form_submission = assert_status(
+            "Supervisor corrects submitted Report",
+            request("PATCH", correction_path, correction, supervisor_token, headers=correction_headers), 200,
+        )
+        if (corrected_form_submission["revision"] != 2
+                or corrected_form_submission["status"] != "submitted"
+                or corrected_form_submission["edited_by_supervisor_id"] != supervisor_login["user"]["id"]
+                or not corrected_form_submission["edited_at"]):
+            raise AssertionError("Report correction: expected submitted revision 2 with editor attribution")
+        for key in ("worker_id", "form_id", "department_id", "created_at", "client_submission_id", "fields", "definition_version"):
+            if corrected_form_submission[key] != form_submission[key]:
+                raise AssertionError(f"Report correction changed original identity/Definition: {key}")
+        conflict = assert_status(
+            "stale Report correction cannot overwrite newer changes",
+            request("PATCH", correction_path, correction, supervisor_token, headers=correction_headers), 409,
+        )
+        if conflict.get("detail", {}).get("code") != "report_revision_conflict":
+            raise AssertionError("Report correction: expected explicit revision conflict")
+        assert_status(
+            "Report correction cannot remove required Report Date",
+            request("PATCH", correction_path, {"expected_revision": 2, "work_date": None, "confirmed": True},
+                    supervisor_token, headers=correction_headers), 400,
+        )
+        corrected_form_records = assert_status(
+            "list corrected Report after rejected stale edit",
             request("GET", "/supervisor/form-submissions", token=supervisor_token),
             200,
         )
-        immutable_form_submission = next(
-            item for item in immutable_form_records if item["id"] == form_submission["id"]
+        current_form_submission = next(
+            item for item in corrected_form_records if item["id"] == form_submission["id"]
         )
-        if immutable_form_submission["answers"]["notes"] != "All clear":
-            raise AssertionError("immutable report: original submitted answers were changed")
-        if immutable_form_submission["answers"]["worker_signature"] != signature_smoke_url:
-            raise AssertionError("immutable report: original submitted signature was changed")
+        if current_form_submission["answers"]["notes"] != "Supervisor corrected notes":
+            raise AssertionError("Report correction: expected current corrected answers")
+        if current_form_submission["answers"]["worker_signature"] != signature_smoke_url:
+            raise AssertionError("Report correction: unchanged signature must remain intact")
+        if current_form_submission["photo_urls"] != form_submission["photo_urls"] or current_form_submission["photo_metadata"] != form_submission["photo_metadata"]:
+            raise AssertionError("Report correction: unchanged photos and capture metadata must remain intact")
         rejected_form_submission = assert_status(
-            "submit rejectable work form",
+            "submit second Report with failed inspection result",
             request(
                 "POST",
                 "/form-submissions",
@@ -1874,44 +1869,29 @@ def main():
             200,
         )
         rejected_form_submission = assert_status(
-            "supervisor starts second report review",
+            "Supervisor corrects second Report without review",
             request(
-                "POST",
-                f"/supervisor/form-submissions/{rejected_form_submission['id']}/transition",
-                {"status": "in_review"},
+                "PATCH",
+                f"/supervisor/form-submissions/{rejected_form_submission['id']}",
+                {"expected_revision": rejected_form_submission["revision"], "confirmed": True,
+                 "answers": {**rejected_form_submission["answers"], "notes": "Replacement brace requested"}},
                 supervisor_token,
+                headers=correction_headers,
             ),
             200,
         )
-        rejected_form_submission = assert_status(
-            "supervisor resolves second report",
-            request(
-                "POST",
-                f"/supervisor/form-submissions/{rejected_form_submission['id']}/transition",
-                {"status": "resolved", "supervisor_note": "Replacement brace requested"},
-                supervisor_token,
-            ),
-            200,
-        )
-        if (
-            rejected_form_submission["workflow_status"] != "resolved"
-            or rejected_form_submission["status"] != "pending"
-            or not rejected_form_submission["review_started_at"]
-            or not rejected_form_submission["resolved_at"]
-        ):
-            raise AssertionError("supervisor resolves second report: expected resolved metadata")
         worker_form_submissions = assert_status(
-            "worker sees resolved report",
+            "Worker sees corrected Reports without review metadata",
             request("GET", "/my-form-submissions", token=worker_token),
             200,
         )
-        if not any(
-            item["id"] == rejected_form_submission["id"]
-            and item["workflow_status"] == "resolved"
-            and item["supervisor_note"] == "Replacement brace requested"
-            for item in worker_form_submissions
-        ):
-            raise AssertionError("worker sees resolved report: expected resolution metadata")
+        for report_id, note in ((form_submission["id"], "Supervisor corrected notes"),
+                                (rejected_form_submission["id"], "Replacement brace requested")):
+            current = next(item for item in worker_form_submissions if item["id"] == report_id)
+            if current["status"] != "submitted" or current["revision"] != 2 or current["answers"]["notes"] != note:
+                raise AssertionError("Worker history: missing current corrected Report")
+            if any(current[key] is not None for key in ("supervisor_note", "reviewing_supervisor_id", "review_started_at", "resolved_at")):
+                raise AssertionError("Worker history: Report review metadata must stay hidden")
         assert_status(
             "reject required form answer missing",
             request(
@@ -2829,6 +2809,20 @@ def main():
             raise AssertionError("export form submissions html: expected section subtitle")
         if "answer_pre_start" in form_html:
             raise AssertionError("export form submissions html: section should not export as an answer")
+        if "Supervisor corrected notes" not in form_html or "Report review" in form_html:
+            raise AssertionError("collection HTML must export current Report corrections without review sections")
+        report_csv = assert_status(
+            "export current corrected Report collection CSV",
+            request("GET", "/supervisor/form-submissions/export.csv?purpose=report", token=supervisor_token), 200,
+        )
+        report_rows = list(csv.DictReader(StringIO(report_csv)))
+        for report_id, notes in ((form_submission["id"], "Supervisor corrected notes"),
+                                 (rejected_form_submission["id"], "Replacement brace requested")):
+            exported = next(row for row in report_rows if row["id"] == str(report_id))
+            if exported["answer_notes"] != notes or exported["status"] != "submitted":
+                raise AssertionError("collection CSV must export current corrected Report answers")
+            if any(key in exported for key in ("workflow_status", "supervisor_note", "reviewing_supervisor_id", "review_started_at", "resolved_at")):
+                raise AssertionError("Report collection CSV must omit review fields")
         filtered_form_html = assert_status(
             "export form submissions html filtered by date and form type",
             request(
@@ -2852,10 +2846,13 @@ def main():
             request("GET", "/supervisor/form-submissions/export.html?form_id=999999", token=supervisor_token),
             404,
         )
-        assert_pdf_status(
+        form_collection_pdf = assert_pdf_status(
             "export submitted forms pdf",
             request_bytes("GET", "/supervisor/form-submissions/export.pdf?template=submitted-form", token=supervisor_token),
         )
+        collection_pdf_text = "\n".join(page.extract_text() or "" for page in PdfReader(BytesIO(form_collection_pdf)).pages)
+        if "Supervisor corrected notes" not in collection_pdf_text or "Report review" in collection_pdf_text:
+            raise AssertionError("collection PDF must export current Report corrections without review sections")
         assert_pdf_status(
             "export daywork pdf",
             request_bytes("GET", "/supervisor/form-submissions/export.pdf?template=daywork", token=supervisor_token),
@@ -2896,6 +2893,11 @@ def main():
             raise AssertionError("export single form submission csv: missing expected form answer content")
         if "answer_pre_start" in single_form_csv_body:
             raise AssertionError("export single form submission csv: section should not export as an answer")
+        exported_report = next(csv.DictReader(StringIO(single_form_csv_body)))
+        if exported_report["answer_notes"] != "Supervisor corrected notes" or exported_report["status"] != "submitted":
+            raise AssertionError("single Report CSV must export the current correction")
+        if "workflow_status" in exported_report or "supervisor_note" in exported_report:
+            raise AssertionError("single Report CSV must omit review columns")
         single_form_html = assert_status(
             "export single form submission html",
             request("GET", f"/supervisor/form-submissions/{form_submission['id']}/export.html", token=supervisor_token),
@@ -2905,10 +2907,15 @@ def main():
             raise AssertionError("export single form submission html: missing expected single-record content")
         if '<h3 class="form-subtitle">Pre-start checks</h3>' not in single_form_html:
             raise AssertionError("export single form submission html: expected section subtitle")
-        assert_pdf_status(
+        if "Supervisor corrected notes" not in single_form_html or "Report review" in single_form_html:
+            raise AssertionError("single Report HTML must export current corrections without review sections")
+        single_form_pdf = assert_pdf_status(
             "export single form submission pdf",
             request_bytes("GET", f"/supervisor/form-submissions/{form_submission['id']}/export.pdf?template=submitted-form", token=supervisor_token),
         )
+        single_pdf_text = "\n".join(page.extract_text() or "" for page in PdfReader(BytesIO(single_form_pdf)).pages)
+        if "Supervisor corrected notes" not in single_pdf_text or "Report review" in single_pdf_text:
+            raise AssertionError("single Report PDF must export current corrections without review sections")
         assert_pdf_status(
             "export single daywork pdf",
             request_bytes("GET", f"/supervisor/form-submissions/{daywork_submission['id']}/export.pdf?template=daywork", token=supervisor_token),
@@ -2936,7 +2943,7 @@ def main():
             "team_log_update",
             "task_trash",
             "task_restore",
-            "report_transition",
+            "form_submission_update",
             "form_trash",
             "form_restore",
             "team_log_trash",
@@ -2952,15 +2959,19 @@ def main():
             for event in audit_events
         ):
             raise AssertionError("list supervisor audit events: expected attendance audit event")
-        report_transition_events = [
+        report_correction_events = [
             event
             for event in audit_events
-            if event["action"] == "report_transition"
+            if event["action"] == "form_submission_update"
             and event["entity_type"] == "form"
             and event["entity_id"] in {form_submission["id"], rejected_form_submission["id"]}
         ]
-        if len(report_transition_events) != 4:
-            raise AssertionError("list supervisor audit events: expected every Report transition")
+        if len(report_correction_events) != 2:
+            raise AssertionError("list supervisor audit events: expected both successful Report corrections")
+        if any(event["action"] == "report_transition" and event["entity_type"] == "form"
+               and event["entity_id"] in {form_submission["id"], rejected_form_submission["id"]}
+               for event in audit_events):
+            raise AssertionError("retired transition attempts must not produce Report transition audit events")
         supervisor_audit_event = next(
             (event for event in audit_events if event.get("actor_name") == "Demo Supervisor"),
             None,

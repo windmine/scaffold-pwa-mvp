@@ -44,7 +44,11 @@ The outbox freezes recipient, routing version, original display labels, answers,
 Definition, Date, Site, photos, signatures and Submitted workflow. The worker
 revalidates actual record scope, existence and exact frozen evidence before loading
 media, then checks again after rendering. Subsequent review notes and Template or
-Worker name changes do not rewrite the submitted version. Deleted/unavailable
+Worker name changes do not rewrite the submitted version. The local 2026-10-23
+Supervisor correction feature also preserves this original snapshot and never
+queues or resends an email. Original photo/signature files referenced by the
+outbox remain private and protected from correction cleanup until Report purge,
+even when the current Report no longer includes them. Deleted/unavailable
 Reports and unverifiable or missing evidence fail safely without sending.
 Deletion after the final check cannot recall an email already entering SMTP.
 

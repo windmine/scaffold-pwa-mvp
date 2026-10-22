@@ -1,0 +1,42 @@
+{
+  "status": "local_validation_passed_not_deployed",
+  "local_date": "2026-10-23",
+  "timezone": "Pacific/Auckland",
+  "scope": "Remove Report review stages and allow authorized Supervisors to correct submitted Reports in the app.",
+  "behavior": {
+    "editable": ["Report Date", "Site", "answers", "photos", "handwritten signatures"],
+    "preserved": ["author", "Department", "Template", "Definition snapshot", "submission time", "submission purpose", "client submission identity", "historical review metadata", "internal audit records"],
+    "workers": "See current corrected Reports; cannot edit submitted Reports.",
+    "concurrency": "Expected revision is required. A stale save is rejected and browser edits remain available until explicit Cancel.",
+    "exports": "CSV, HTML and PDF downloads reflect the current Report without retired workflow columns.",
+    "email": "Original queued email snapshots, recipients and evidence remain frozen. Corrections do not resend email.",
+    "legacy": "Retained Daywork approval and editing behavior remains separate."
+  },
+  "validation": {
+    "mobile_gate": {"passed": true, "real_backend_browser_workflows": 75, "installer_checks": 11, "evidence": "mobile-gate-results.txt"},
+    "backend_gate": {"passed": true, "suites": 26, "owned_process_cleanup_check": true, "evidence": "backend-gate-results.txt"},
+    "disposable_http_smoke": {"passed": true, "checks": 251, "provider_executed": false, "evidence": "local-smoke.json"},
+    "native_postgresql": {"passed": true, "version": "17.6", "full_checkpoints": 78, "final_definition_validator_followup_checkpoints": 14, "owned_clusters_removed": true, "evidence": ["postgres-full.json", "postgres-final-validator.json"]},
+    "focused_corrections": {"backend_groups": 9, "browser_groups": 9, "passed": true},
+    "final_copy_checks": {"english_chinese_cases": 13, "passed": true},
+    "final_build": true,
+    "final_static_shell": true,
+    "final_lint": true,
+    "phone_conflict_editor_screenshot_reviewed": true,
+    "sequence": "The full mobile gate passed. Final copy-only translations/sidebar wording and operational documentation were followed by a fresh build, shell parity check and lint. The stricter frozen-Definition validator also passed a final native PostgreSQL correction follow-up."
+  },
+  "cache": {"source": "leader-field-7b75ffaa0e48", "built": "leader-field-88fa52deffff"},
+  "release_requirements": [
+    "Deploy additive 0025_report_corrections and its compatible backend before this Hosting shell.",
+    "Rehearse the complete release and preserve a 0025-compatible fallback; do not downgrade the migration ledger.",
+    "Preserve existing accounts, authentication generations and device storage."
+  ],
+  "limits": [
+    "No commit, push, remote CI, deployment, hosted application fixture, production data change, IAM change or real email was performed.",
+    "No physical iOS/Android validation or new hosted/offline-update validation is claimed.",
+    "This initial local checkpoint preceded release preparation. Historical hosted verifiers were subsequently adapted and rehearsed locally; their authenticated hosted execution remains a separate release check.",
+    "Report corrections require connectivity and have no persistent offline correction draft.",
+    "Missing or invalid original Definition snapshots block correction without changing saved content.",
+    "The existing build chunk-size advisory remains."
+  ]
+}

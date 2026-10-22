@@ -25,7 +25,7 @@ const markup = `<!doctype html><html lang="en" data-theme="light"><head>
   </div>
   <section id="workFormReviewPanel" class="report-submit-review" hidden aria-labelledby="workFormReviewHeading">
     <h3 id="workFormReviewHeading" tabindex="-1">Review &amp; submit</h3>
-    <p class="muted">Check the details below. Submitted Reports cannot be edited.</p>
+    <p class="muted">Check the details below. A Supervisor can correct a submitted Report if needed.</p>
     <div id="workFormReviewSummary"></div>
     <p id="workFormReviewPhotoWarning" class="report-review-warning" hidden>Some selected files were not added. Go back to see details.</p>
     <div class="report-review-actions"><button id="workFormReviewBackButton" type="button" class="ghost">Back to edit</button>

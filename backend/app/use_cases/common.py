@@ -312,6 +312,8 @@ def work_form_submission_response(submission: WorkFormSubmission, session: Sessi
         else None
     )
     outcome_status = submission.status or "pending"
+    is_report = (submission.submission_purpose or "report") == "report"
+    editor = session.get(User, submission.edited_by_supervisor_id) if submission.edited_by_supervisor_id else None
     workflow_status = submission.workflow_status or (
         "resolved" if outcome_status in {"approved", "rejected"} else "submitted"
     )
@@ -337,17 +339,21 @@ def work_form_submission_response(submission: WorkFormSubmission, session: Sessi
         "photo_metadata": parse_json_list(submission.photo_metadata),
         "client_submission_id": submission.client_submission_id,
         "submission_purpose": submission.submission_purpose or "report",
-        "workflow_status": workflow_status,
-        "supervisor_note": submission.supervisor_note,
-        "reviewing_supervisor_id": submission.reviewing_supervisor_id,
-        "reviewing_supervisor_name": reviewing_supervisor.name if reviewing_supervisor else None,
+        "revision": submission.revision,
+        "edited_at": format_datetime(submission.edited_at) if submission.edited_at else None,
+        "edited_by_supervisor_id": submission.edited_by_supervisor_id,
+        "edited_by_supervisor_name": editor.name if editor else None,
+        "workflow_status": "submitted" if is_report else workflow_status,
+        "supervisor_note": None if is_report else submission.supervisor_note,
+        "reviewing_supervisor_id": None if is_report else submission.reviewing_supervisor_id,
+        "reviewing_supervisor_name": reviewing_supervisor.name if reviewing_supervisor and not is_report else None,
         "review_started_at": (
             format_datetime(submission.review_started_at)
-            if submission.review_started_at
+            if submission.review_started_at and not is_report
             else None
         ),
-        "resolved_at": format_datetime(submission.resolved_at) if submission.resolved_at else None,
-        "status": outcome_status,
+        "resolved_at": format_datetime(submission.resolved_at) if submission.resolved_at and not is_report else None,
+        "status": "submitted" if is_report else outcome_status,
         "deleted_at": format_datetime(submission.deleted_at) if submission.deleted_at else None,
         "deleted_by_supervisor_id": submission.deleted_by_supervisor_id,
         "deleted_by_supervisor_name": deleted_by_supervisor.name if deleted_by_supervisor else None,
@@ -1374,12 +1380,18 @@ def select_work_form_submissions(
     purpose: Optional[str] = None,
 ):
     statement = select(WorkFormSubmission).where(WorkFormSubmission.deleted_at.is_(None))
+    normalized_purpose = normalize_work_form_purpose(purpose)
 
     if status:
         status = validate_review_status(status)
         statement = statement.where(WorkFormSubmission.status == status)
     if workflow_status:
         workflow_status = workflow_status.strip().lower()
+        if normalized_purpose == "report":
+            if workflow_status != "submitted":
+                raise HTTPException(status_code=400, detail="Reports no longer use review filters. Refresh Reports.")
+            workflow_status = None
+    if workflow_status:
         if workflow_status not in VALID_REPORT_WORKFLOW_STATUSES:
             raise HTTPException(
                 status_code=400,
@@ -1390,7 +1402,6 @@ def select_work_form_submissions(
         statement = statement.where(WorkFormSubmission.form_id == form_id)
     if worker_id is not None:
         statement = statement.where(WorkFormSubmission.worker_id == worker_id)
-    normalized_purpose = normalize_work_form_purpose(purpose)
     if normalized_purpose:
         statement = statement.where(
             WorkFormSubmission.submission_purpose == normalized_purpose

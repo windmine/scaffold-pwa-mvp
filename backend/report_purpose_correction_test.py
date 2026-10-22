@@ -228,6 +228,7 @@ def test_legacy_resolution_and_true_reports_are_preserved(database, report):
         after = query(engine, "SELECT * FROM workformsubmission ORDER BY id")
         for original, corrected in zip(before, after):
             expected = dict(original)
+            expected.update(revision=1, edited_at=None, edited_by_supervisor_id=None)
             if original["id"] in {200, 201}:
                 expected["submission_purpose"] = "daywork"
             require(dict(corrected) == expected, "Correction changed legacy outcome/reviewer/evidence or a genuine Report")

@@ -17,7 +17,7 @@ try {
   const baseURL = 'https://geo-attendance-system-db9ca.web.app';
   const supervisorEmail = 'demo-20260916-supervisor@example.invalid';
   const worker = { email: 'nonce-owned@example.invalid', name: 'TEST ONLY OCT synthetic', password: 'synthetic-worker-password' };
-  const first = { id: 103, marker: 'Recovered owned marker', photoCount: 7, recovery: true,
+  const first = { id: 103, marker: 'Recovered owned marker', correctedMarker: 'Corrected owned marker', photoCount: 7, recovery: true,
     clientId: '00000000-0000-4000-8000-000000000001' };
   const second = { id: 104, marker: 'Second owned marker', photoCount: 0, recovery: false,
     clientId: '00000000-0000-4000-8000-000000000002' };
@@ -29,7 +29,7 @@ try {
     fields: [{ id: 'ux_detail', label: 'Observation', type: 'textarea', required: true }], reportDate: '2026-10-05',
     reportPlans: [first, second], photos, uploadPaths: new Set(urls), verifiedReportIds: new Set([103, 104]),
     allowSubmit: true, uploadPhase: 'recovered', currentPlan: first,
-    finalNote: 'Exact final synthetic note', cleanupReason: 'Exact owned cleanup',
+    cleanupReason: 'Exact owned cleanup',
     cleanupTemplateVerified: true, cleanupWorkerVerified: true };
   const recoveryHeaders = { 'x-report-recovery-worker': '101', 'x-report-recovery-department': '2' };
   const request = (path, method = 'POST', body = {}, overrides = {}) => ({ url: new URL(path, baseURL).href, method, body, ...overrides });
@@ -168,16 +168,26 @@ try {
     }
   });
 
-  check('workflow changes and cleanup require exact verified Report/Worker/Template identities', () => {
-    const start = request('/api/supervisor/form-submissions/103/transition', 'POST', { status: 'in_review' });
-    const resolved = altered(start, { status: 'resolved', supervisor_note: scope.finalNote });
-    allowed(start, { transitionReportId: first.id });
-    allowed(resolved, { transitionReportId: first.id });
-    refused(start);
-    refused(start, { transitionReportId: first.id, verifiedReportIds: new Set() });
-    for (const body of [{ status: 'approved' }, { status: 'rejected' }, { confirmed: true }]) refused(altered(start, body), { transitionReportId: first.id });
-    refused(altered(resolved, { supervisor_note: 'foreign note' }), { transitionReportId: first.id });
-    refused({ ...start, url: `${baseURL}/api/supervisor/form-submissions/5/transition` }, { transitionReportId: first.id });
+  check('corrections and cleanup require exact configured payloads and verified identities', () => {
+    const payload = { expected_revision: 1, site_id: null, work_date: scope.reportDate,
+      answers: { ux_detail: first.correctedMarker }, photo_urls: urls, photo_metadata: [], confirmed: true };
+    const headers = { 'x-report-recovery-worker': '16', 'x-report-recovery-department': '2',
+      'x-report-recovery-role': 'supervisor' };
+    const correction = request('/api/supervisor/form-submissions/103', 'PATCH', payload, { headers });
+    const changes = { correctionReportId: first.id, correctionPayload: payload };
+    allowed(correction, changes);
+    refused(correction);
+    refused(correction, { ...changes, verifiedReportIds: new Set() });
+    for (const body of [{ expected_revision: 2 }, { answers: { ux_detail: 'foreign correction' } },
+      { confirmed: false }, { site_id: 5 }, { photo_urls: [] }, { status: 'approved' }]) {
+      refused(altered(correction, body), changes);
+    }
+    for (const invalid of [{}, { ...headers, 'x-report-recovery-worker': '101' },
+      { ...headers, 'x-report-recovery-department': '1' }, { ...headers, 'x-report-recovery-role': 'worker' }]) {
+      refused({ ...correction, headers: invalid }, changes);
+    }
+    refused({ ...correction, url: `${baseURL}/api/supervisor/form-submissions/5` }, changes);
+    refused(request('/api/supervisor/form-submissions/103/transition', 'POST', { status: 'in_review' }), changes);
     const trash = request('/api/supervisor/trash/form/103', 'POST', { confirmed: true, reason: scope.cleanupReason });
     allowed(trash, { cleanupReportId: first.id });
     refused(trash);
@@ -227,6 +237,7 @@ try {
     const ownedRow = { id: 103, form_id: 102, worker_id: 101, submission_purpose: 'report', work_date: scope.reportDate,
       answers: { ux_detail: first.marker }, client_submission_id: first.clientId };
     assert.equal(ownedReport(ownedRow, scope), true);
+    assert.equal(ownedReport({ ...ownedRow, answers: { ux_detail: first.correctedMarker } }, scope), true);
     for (const changes of [{ id: 21 }, { id: 105 }, { form_id: 7 }, { worker_id: 13 },
       { submission_purpose: 'daywork' }, { work_date: '2026-10-04' }, { answers: { ux_detail: second.marker } },
       { client_submission_id: second.clientId }]) assert.equal(ownedReport({ ...ownedRow, ...changes }, scope), false);

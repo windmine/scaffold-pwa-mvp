@@ -2,27 +2,22 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
-import { browserApiRequest, resolutionNoteLocator } from './check-hosted-report-workflow.mjs';
+import { browserApiRequest } from './check-hosted-report-workflow.mjs';
 import * as runner from './check-hosted-report-workflow.mjs';
 
 // This test never starts the hosted runner or accesses a real origin/account.
-const historySource = readFileSync(new URL('../assets/js/history.js', import.meta.url), 'utf8');
 const appMarkup = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const notePanelMarkup = appMarkup.match(/<section id="reportNotePanel"[\s\S]*?<\/section>/)?.[0];
-assert.ok(notePanelMarkup, 'Production Report note panel must be located rather than duplicated');
+assert.match(appMarkup, /<form id="editPanelForm"/);
 const hostedSource = readFileSync(new URL('./check-hosted-report-workflow.mjs', import.meta.url), 'utf8');
-const resolutionStart = hostedSource.indexOf("await step('supervisor_requires_note_and_resolves_report'");
-const openNoteStart = hostedSource.indexOf("      await supervisorPage.locator('#reviewQueueActions')", resolutionStart);
-const emptyValidationStart = hostedSource.indexOf('\n', openNoteStart) + 1;
-const emptyValidationEnd = hostedSource.indexOf('      await note.fill(finalNote);', emptyValidationStart);
-assert.ok(resolutionStart > 0 && openNoteStart > resolutionStart && emptyValidationEnd > emptyValidationStart);
-const checkHostedEmptyNote = new Function('supervisorPage', 'readyReportResolutionNote', 'requireCondition', `return (async () => {
+const correctionStart = hostedSource.indexOf("await step('supervisor_requires_date_and_corrects_report'");
+const emptyValidationStart = hostedSource.indexOf('      const { date, answer, submit }', correctionStart);
+const emptyValidationEnd = hostedSource.indexOf('      await date.fill(reportDate);', emptyValidationStart);
+assert.ok(correctionStart > 0 && emptyValidationStart > correctionStart && emptyValidationEnd > emptyValidationStart);
+const checkHostedEmptyDate = new Function('supervisorPage', 'readyReportCorrection', 'requireCondition', `return (async () => {
   ${hostedSource.slice(emptyValidationStart, emptyValidationEnd)}
 })();`);
-const paragraph = historySource.match(/finalSupervisorNote \? `(<p class="report-supervisor-note">[^`]+<\/p>)`/);
-assert.ok(paragraph, 'Production resolution-note markup must be located rather than duplicated');
-const note = 'TEST ONLY resolution-note selector regression';
-const markup = paragraph[1].replace('${escapeHtml(finalSupervisorNote)}', note);
+assert.doesNotMatch(hostedSource, /\/transition[`'"]|\.selectOption\('(submitted|in_review|resolved)'\)/);
+assert.match(hostedSource, /replay\.body\.revision === corrected\.revision/);
 assert.equal(runner.hostedPhotoCount(''), 1);
 assert.equal(runner.hostedPhotoCount('1'), 1);
 assert.equal(runner.hostedPhotoCount('50'), 50);
@@ -132,14 +127,14 @@ signature = io.BytesIO()
 signature_size = [960, 360] if count == 50 else [80, 40]
 Image.new('RGBA', tuple(signature_size), (20, 30, 40, 160)).save(signature, format='PNG')
 images['/uploads/signature.png'] = signature.getvalue()
-expected = {'reportId': 9001, 'marker': 'Unit fixture marker', 'finalNote': 'Unit final note',
+expected = {'reportId': 9001, 'marker': 'Unit corrected fixture marker',
     'photoNames': names, 'signatureDimensions': signature_size}
 item = report_fixture(id=9001, fields=[
     {'id': 'issue_detail', 'label': 'PPE issue', 'type': 'textarea'},
     {'id': 'report_signature', 'label': 'Worker signature', 'type': 'signature'}],
     answers={'issue_detail': expected['marker'], 'report_signature': '/uploads/signature.png'},
     photo_urls=['/uploads/' + name for name in names], photo_metadata=[{'name': name} for name in names],
-    supervisor_note=expected['finalNote'])
+    supervisor_note='Retained old workflow note must stay absent', workflow_status='resolved')
 pdf = build_report_pdf([item], image_loader=images.get)
 print(json.dumps({'pdf': base64.b64encode(pdf).decode(), 'expected': expected}))
 `;
@@ -225,56 +220,43 @@ try {
   });
   const page = await context.newPage();
   await page.goto('https://hosted-runner-test.invalid/');
-  await page.setContent(`${notePanelMarkup}<section hidden><form id="editPanelForm"></form></section>`);
+  await page.setContent(`<form id="editPanelForm"><input id="editReportDate" type="date" required value="2026-10-23">
+    <textarea id="reportCorrectionField_issue_detail"></textarea><button type="submit">Save Report</button></form>
+    <section hidden><form id="reportNoteForm"><button type="submit">Resolve report</button></form></section>`);
   await page.evaluate(() => {
-    document.querySelector('#reportNotePanel').hidden = false;
-    document.querySelector('#reportResolutionNote').disabled = true;
-    document.querySelector('#resolveReportNoteButton').disabled = true;
-    window.noteSubmitCounts = { report: 0, legacy: 0 };
-    for (const [id, key] of [['reportNoteForm', 'report'], ['editPanelForm', 'legacy']]) {
+    document.querySelector('#editReportDate').disabled = true;
+    document.querySelector('#editPanelForm button').disabled = true;
+    window.correctionSubmitCounts = { correction: 0, legacy: 0 };
+    for (const [id, key] of [['editPanelForm', 'correction'], ['reportNoteForm', 'legacy']]) {
       document.getElementById(id).addEventListener('submit', (event) => {
         event.preventDefault();
-        window.noteSubmitCounts[key] += 1;
+        window.correctionSubmitCounts[key] += 1;
       });
     }
   });
-  assert.equal(await page.locator('#reportResolutionNote').isVisible(), true);
-  assert.equal(await page.locator('#editPanelForm button[type="submit"]').count(), 0,
-    'The retained edit form has no Report submit button');
+  assert.equal(await page.locator('#editReportDate').isVisible(), true);
   page.setDefaultTimeout(1000);
-  let noteCheckSettled = false;
-  const emptyNoteCheck = checkHostedEmptyNote(page, runner.readyReportResolutionNote,
-    (condition, code) => assert.ok(condition, code)).finally(() => { noteCheckSettled = true; });
+  let dateCheckSettled = false;
+  const emptyDateCheck = checkHostedEmptyDate(page, runner.readyReportCorrection,
+    (condition, code) => assert.ok(condition, code)).finally(() => { dateCheckSettled = true; });
   try {
     await new Promise((resolve) => setTimeout(resolve, 150));
-    assert.equal(noteCheckSettled, false, 'Visible but loading notes must not satisfy hosted readiness');
+    assert.equal(dateCheckSettled, false, 'Visible but loading correction controls must not satisfy hosted readiness');
   } finally {
     await page.evaluate(() => {
-      document.querySelector('#reportResolutionNote').disabled = false;
-      document.querySelector('#resolveReportNoteButton').disabled = false;
+      document.querySelector('#editReportDate').disabled = false;
+      document.querySelector('#editPanelForm button').disabled = false;
     });
   }
-  await emptyNoteCheck;
-  assert.deepEqual(await page.evaluate(() => window.noteSubmitCounts), { report: 0, legacy: 0 });
-  const readyNote = await runner.readyReportResolutionNote(page);
-  await readyNote.note.fill('Isolated hosted note regression');
-  await readyNote.submit.click();
-  assert.deepEqual(await page.evaluate(() => window.noteSubmitCounts), { report: 1, legacy: 0 });
+  await emptyDateCheck;
+  assert.deepEqual(await page.evaluate(() => window.correctionSubmitCounts), { correction: 0, legacy: 0 });
+  const editor = await runner.readyReportCorrection(page);
+  await editor.date.fill('2026-10-23');
+  await editor.answer.fill('Isolated correction regression');
+  await editor.submit.click();
+  assert.deepEqual(await page.evaluate(() => window.correctionSubmitCounts), { correction: 1, legacy: 0 });
   page.setDefaultTimeout(30000);
-  console.log('ok - hosted resolution waits for the actual Report note form and preserves native required/focus validation');
-  // Keep the historical selector failure reproducible even though current UI
-  // wraps literal Supervisor text separately so language changes cannot alter it.
-  const historicalMarkup = `<p class="report-supervisor-note"><strong>Final supervisor note:</strong> ${note}</p>`;
-  await page.setContent(`<section id="reviewQueueDetail">${historicalMarkup}</section>`);
-  const detail = page.locator('#reviewQueueDetail');
-  assert.equal(await detail.getByText(note, { exact: true }).count(), 0,
-    'Old exact-note selector must reproduce its mismatch against historical labelled markup');
-  await page.setContent(`<section id="reviewQueueDetail">${markup}</section>`);
-  const scopedNote = resolutionNoteLocator(detail, note);
-  assert.equal(await scopedNote.count(), 1);
-  assert.equal(await scopedNote.innerText(), `Final supervisor note: ${note}`);
-  assert.equal(await resolutionNoteLocator(detail, 'unrelated note').count(), 0);
-  console.log('ok - resolved-note locator matches actual labelled markup and rejects unrelated notes');
+  console.log('ok - hosted correction waits for enabled controls and preserves native required/date focus validation');
 
   await page.setContent(`<details id="reportReviewFilters"><summary>Filters</summary><input></details>
     <button id="reviewQueueBackButton" hidden>Back to Reports</button>
@@ -383,7 +365,7 @@ try {
   } });
   assert.equal(requestCount, 1, 'Only the locally fulfilled fake document request is allowed');
   console.log('ok - bounded API wrapper preserves same-origin session, CSRF, and JSON payload');
-  console.log('15 hosted runner checks passed; no network requests reached a server');
+  console.log('14 hosted runner checks passed; no network requests reached a server');
 } finally {
   await browser.close();
 }

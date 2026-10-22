@@ -17,7 +17,6 @@ const supervisor = { id: 16, email: 'demo-20260916-supervisor@example.invalid', 
   is_global_admin: false, status: 'active' };
 const reports = [], uploads = new Map(), cursors = new Map(), unexpected = [];
 let worker, template, deletionVersion = 0;
-const rank = { submitted: 0, in_review: 1, resolved: 2 };
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url, 'http://127.0.0.1'), pathname = url.pathname;
@@ -67,7 +66,7 @@ const server = createServer(async (request, response) => {
       if (!record) {
         record = { ...body, id: 103 + reports.length, department_id: 2, worker_id: 101, worker_name: worker.name,
           form_name: template.name, fields: template.fields, definition_version: 1, submission_purpose: 'report',
-          status: 'pending', workflow_status: 'submitted', created_at: new Date().toISOString(),
+          status: 'pending', workflow_status: 'submitted', revision: 1, created_at: new Date().toISOString(),
           photo_urls: body.photo_urls || [], photo_metadata: body.photo_metadata || [] };
         reports.push(record);
       }
@@ -81,6 +80,7 @@ const server = createServer(async (request, response) => {
     if (['/api/my-form-submissions', '/api/supervisor/form-submissions'].includes(pathname)) return json(visible());
     if (pathname === '/api/supervisor/review-queue') {
       const q = Object.fromEntries(url.searchParams), signature = JSON.stringify({ ...q, cursor: undefined });
+      if (q.sort_order === 'oldest_waiting') return json({ detail: 'Report workflow ordering has been removed' }, 400);
       const size = Number(q.page_size || 50);
       let snapshot;
       if (q.cursor) {
@@ -91,7 +91,7 @@ const server = createServer(async (request, response) => {
         const matching = visible().filter((row) => (!q.form_id || String(row.form_id) === q.form_id)
           && (!q.worker_id || String(row.worker_id) === q.worker_id) && (!q.workflow_status || row.workflow_status === q.workflow_status)
           && (!q.record_date || row.work_date === q.record_date));
-        matching.sort((a, b) => q.sort_order === 'oldest_waiting' ? rank[a.workflow_status] - rank[b.workflow_status] || a.id - b.id : b.id - a.id);
+        matching.sort((a, b) => b.id - a.id);
         snapshot = { signature, ids: matching.map((row) => row.id), offset: 0, deletionVersion, at: new Date().toISOString() };
       }
       const ids = snapshot.ids.slice(snapshot.offset, snapshot.offset + size), hasMore = snapshot.offset + size < snapshot.ids.length;
@@ -101,12 +101,16 @@ const server = createServer(async (request, response) => {
       return json({ items, counts: { total: snapshot.ids.length }, summary_counts: { total: visible().length },
         page_size: size, sort_order: q.sort_order || 'newest', has_more: hasMore, next_cursor: cursor, snapshot_at: snapshot.at });
     }
-    const transition = pathname.match(/^\/api\/supervisor\/form-submissions\/(\d+)\/transition$/);
-    if (transition) {
-      const row = reports.find((row) => row.id === Number(transition[1]));
-      row.workflow_status = body.status; row.supervisor_note = body.supervisor_note;
-      row.review_started_at ||= new Date().toISOString();
-      if (body.status === 'resolved') row.resolved_at = new Date().toISOString();
+    const correction = pathname.match(/^\/api\/supervisor\/form-submissions\/(\d+)$/);
+    if (correction && request.method === 'PATCH') {
+      assert.equal(actor?.role, 'supervisor');
+      assert.equal(request.headers['x-report-recovery-worker'], '16');
+      assert.equal(request.headers['x-report-recovery-department'], '2');
+      assert.equal(request.headers['x-report-recovery-role'], 'supervisor');
+      const row = reports.find((row) => row.id === Number(correction[1]));
+      if (body.expected_revision !== row.revision) return json({ detail: { code: 'report_revision_conflict' } }, 409);
+      for (const field of ['answers', 'work_date', 'site_id', 'photo_urls', 'photo_metadata']) row[field] = body[field];
+      row.revision += 1; row.edited_at = new Date().toISOString(); row.edited_by_supervisor_id = actor.id;
       return json(row);
     }
     const trash = pathname.match(/^\/api\/supervisor\/trash\/form\/(\d+)$/);
@@ -134,6 +138,7 @@ try {
     failure: result.failure, cleanup: result.cleanup, unexpected }));
   assert.equal(result.status, 'passed'); assert.deepEqual(unexpected, []);
   assert.equal(reports.length, 2); assert.ok(reports.every((row) => row.deleted));
+  assert.deepEqual(reports.map((row) => row.revision), [2, 1]);
   assert.equal(template.status, 'archived'); assert.equal(worker.status, 'resigned');
   console.log('PASS - October verifier whole-run local mock rehearsal; no cloud requests');
 } finally {

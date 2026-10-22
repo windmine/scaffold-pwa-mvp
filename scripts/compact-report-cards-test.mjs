@@ -91,10 +91,11 @@ try {
   assert.equal(await page.locator('#historyList .record-title').textContent(), 'Inspection <unsafe>');
   assert.match(await page.locator('#historyList .record-meta').textContent(), /Report Date: 2026-09-18.*Site <img/);
   assert.equal(await page.locator('#historyList .record-report-summary').textContent(), '50 photos');
-  assert.match(await page.locator('#historyList .record-report-cue').textContent(), /Final supervisor note: Resolved <script>/);
+  assert.equal(await page.locator('#historyList .record-report-cue').count(), 0);
+  assert.equal(await page.locator('#historyList .badge').textContent(), 'Submitted');
   assert.equal(await page.locator('#historyList script').count(), 0);
   assert.equal(await page.locator('#historyList').textContent().then((text) => text.includes('Secret full answer')), false);
-  console.log('ok - compact 50-photo Report has summary/status/date/site/note and no eager evidence or unsafe HTML');
+  console.log('ok - compact 50-photo Report has summary/submitted/date/site without review metadata, eager evidence or unsafe HTML');
 
   await page.locator('#historySearchInput').fill('Secret full answer');
   await page.locator('.record-disclosure-button').click();
@@ -114,12 +115,12 @@ try {
     const { base, filterRecords } = window.fixture;
     return [
       filterRecords([base], { query: 'secret full answer', reportWorkflow: true }).length,
-      filterRecords([base], { query: 'resolved <script>', status: 'resolved', reportWorkflow: true }).length,
+      filterRecords([base], { query: 'resolved <script>', status: 'submitted', reportWorkflow: true }).length,
       filterRecords([base], { query: 'secret full answer', status: 'in_review', reportWorkflow: true }).length
     ];
   });
-  assert.deepEqual(filterChecks, [1, 1, 0]);
-  console.log('ok - collapsed Reports retain full-answer/final-note search and workflow filtering');
+  assert.deepEqual(filterChecks, [1, 0, 0]);
+  console.log('ok - collapsed Reports retain full-answer search and do not search historical review metadata');
 
   await page.evaluate(() => {
     const fixture = window.fixture;
@@ -271,14 +272,14 @@ try {
     const error = document.querySelector('.record-report-cue').textContent;
     fixture.render({ ...fixture.base, supervisorNote: 'Pass' });
     setLanguage('zh');
-    const literalNote = document.querySelector('.record-report-cue [data-no-i18n]').textContent;
+    const hiddenNote = document.querySelector('.record-report-cue') === null;
     setLanguage('en');
-    return { error, literalNote };
+    return { error, hiddenNote };
   });
   assert.doesNotMatch(translatedCues.error, /Sync needs attention|Report Template changed/);
   assert.match(translatedCues.error, /模板/);
-  assert.equal(translatedCues.literalNote, 'Pass');
-  console.log('ok - compact system-error cues translate independently and Supervisor-written final notes remain literal');
+  assert.equal(translatedCues.hiddenNote, true);
+  console.log('ok - compact system-error cues translate independently while historical review notes stay hidden');
 
   const viewerChecks = await page.evaluate(async () => {
     const { createPhotoViewer } = await import('/assets/js/photo-viewer.js');

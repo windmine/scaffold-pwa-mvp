@@ -228,6 +228,7 @@ def main():
         for path in sorted([*BACKEND.glob("postgres*_rehearsal.py"), BACKEND / "app" / "migrations.py",
                             BACKEND / "app" / "models.py", BACKEND / "app" / "schemas.py",
                             BACKEND / "app" / "use_cases" / "work_forms.py",
+                            BACKEND / "app" / "use_cases" / "report_corrections.py",
                             BACKEND / "app" / "use_cases" / "report_pdf_email.py",
                             BACKEND / "app" / "email_transport.py",
                             BACKEND / "app" / "report_pdf_email_worker.py",

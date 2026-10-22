@@ -12,11 +12,11 @@ from sqlalchemy import update
 from sqlmodel import Session, select
 
 from app import email_transport
-from app.models import ReportPdfEmail, WorkForm, WorkFormSubmission
+from app.models import ReportPdfEmail, User, WorkForm, WorkFormSubmission
 from app.use_cases.audit import add_audit_event
 from app.use_cases.common import (
     can_access_department, format_datetime, require_confirmed,
-    work_form_response, work_form_submission_response,
+    work_form_response, work_form_submission_response, validate_owned_upload_references,
 )
 
 
@@ -96,13 +96,27 @@ def _snapshot_for_delivery(row, session):
         raise ValueError("Report unavailable")
     item = json.loads(row.snapshot_json)
     current = work_form_submission_response(record, session)
-    # Freeze display labels and the original Submitted workflow, while refusing
-    # evidence that no longer matches the actual immutable record and scope.
-    for key in ("id", "department_id", "form_id", "worker_id", "site_id", "work_date",
-                "definition_version", "fields", "answers", "photo_urls", "photo_metadata", "submission_purpose"):
+    # The committed outbox remains the original submission after corrections.
+    # Identity and frozen Definition must still match the current Report.
+    for key in ("id", "department_id", "form_id", "worker_id",
+                "definition_version", "fields", "submission_purpose"):
         if item.get(key) != current.get(key):
             raise ValueError("Report snapshot mismatch")
-    validate_form_record_evidence(item, record)
+    original = WorkFormSubmission(
+        department_id=record.department_id, form_id=record.form_id, worker_id=record.worker_id,
+        answers_json=json.dumps(item.get("answers", {})),
+        photo_urls=json.dumps(item.get("photo_urls", [])),
+        definition_snapshot_json=record.definition_snapshot_json,
+    )
+    validate_form_record_evidence(item, original)
+    # Every queued email originates in authenticated self-submission. Independently
+    # verify original attachment ownership; the snapshot cannot authorize itself
+    # to load another person's media even if stored data is corrupt.
+    from app.upload_storage import record_evidence_upload_urls
+    author = session.get(User, record.worker_id)
+    if not author:
+        raise ValueError("Report author unavailable")
+    validate_owned_upload_references(record_evidence_upload_urls(original), author, session)
     return item
 
 

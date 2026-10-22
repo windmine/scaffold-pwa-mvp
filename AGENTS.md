@@ -16,7 +16,7 @@ Single-context repository: root `CONTEXT.md`, with architecture decisions under 
 
 ## Final Aim For Codex
 
-Build and release a mobile-first report-only MVP. Every active Worker can submit a Supervisor-defined Report with a required Report Date, optional Site, answers, photos, and handwritten signatures; Workers see only their own Reports. Supervisors review Department-scoped Reports through **Submitted → In review → Resolved**, resolve with a required final note, manage Report Templates, and manage Staff.
+Build and release a mobile-first report-only MVP. Every active Worker can submit a Supervisor-defined Report with a required Report Date, optional Site, answers, photos, and handwritten signatures; Workers see only their own Reports. Supervisors view Department-scoped Reports, correct submitted details directly in the app when needed, manage Report Templates, and manage Staff. Reports have no Supervisor review or resolution process.
 
 The broader geo-attendance, Daywork, weekly-log, map, analytics, unrelated export, audit, and recovery implementation remains in the repository behind a reversible full-interface test override. Do not expose it in the production-default report-only shell or mix its approve/reject lifecycle into Reports.
 
@@ -30,15 +30,14 @@ Create a practical report-submission product for two active user groups. Account
    - Submit a Report with a required Report Date and optional Site.
    - Complete required answers and attach photos when needed.
    - Complete handwritten signature fields when a form requires them.
-   - View only their own queued and durable Reports, workflow state, evidence, and final Supervisor note.
+   - View only their own queued and durable Reports, submission state, current details, and evidence.
    - Use a simple interface that works well on mobile screens.
 
 2. **Supervisors / admin users**
    - Log in securely.
    - View Department-scoped Reports, answers, photos, and handwritten signatures.
-   - Start review on Submitted Reports.
-   - Resolve In-review Reports with a required final note.
-   - Filter and export Reports by workflow, Template, Worker, and Report Date.
+   - Correct submitted Reports directly in the app with concurrent-edit protection.
+   - Filter and export Reports by Template, Worker, Report Date, and Find text. The Worker picker excludes Supervisor authors; use Find to locate their Reports.
    - Manage staff users, including resigned/reactivated workers.
    - Create, edit, archive, and reactivate reusable Report Templates.
    - Use a focused **Reports / Submit form / Report Templates / Staff** interface on phone or desktop.
@@ -51,13 +50,16 @@ Create a practical report-submission product for two active user groups. Account
 
 - `WorkForm` and `WorkFormSubmission` remain internal names. `template_purpose` and `submission_purpose` distinguish `report` from retained `daywork` records.
 - Report-only frontend calls must request `purpose=report`; Legacy Daywork must not appear in New Report, My Reports, Supervisor Reports, or Report collection exports.
-- Legacy approve/reject endpoints must reject Reports without changing the shared attendance/task/team-log decision policy. Reports transition only through their dedicated endpoint.
+- Legacy approve/reject endpoints must reject Reports without changing the shared attendance/task/team-log decision policy. The former Report transition endpoint rejects new review/resolution actions.
 - Supervisor-created legacy form submissions must not create or impersonate Worker Reports.
-- Submitted Report Site, Report Date, answers, photos, signatures, Definition snapshot, and purpose are immutable.
-- Report exports use the Report workflow state and include the final note, reviewer, review-started timestamp, and resolved timestamp.
+- Authorized Supervisors may correct submitted Site, Report Date, answers, photos, and signatures against the original Definition snapshot. Author, Department, Template identity, Definition snapshot, original submission time, Client Submission ID, and purpose remain immutable. Workers cannot edit durable Reports.
+- Report exports reflect current corrected content. The active Report shell has no Workflow filter, review actions, waiting-age order, or required final note. Historical workflow fields and security/change audits remain stored; the user's removal request concerns the review process, not history deletion.
+- Corrections use an expected revision and explicit confirmation; stale edits must not overwrite newer content. They neither enqueue nor resend optional PDF email, whose original submitted snapshot and evidence remain preserved.
 - Deploy the coupled backend/migration before any report-only Hosting promotion. A Firebase preview is not live approval.
 
 ## Current Implementation Notes
+
+- **Local 2026-10-23 Report simplification (not deployed)**: the user confirmed removal of the Submitted → In review → Resolved process and authorized Supervisor corrections in the app. The active product boundaries above supersede older immutability/workflow descriptions below. Additive `0025_report_corrections` and the compatible backend must precede any Hosting release. Existing workflow history, private note drafts, migrations, and release evidence are retained. This local work does not authorize deployment, production data changes, or real email. The October 21 release below remains live.
 
 - **Current combined release (2026-10-21 UTC)**: Supervisor Submit form and optional per-template PDF email are live from `80b4ea01a041a84bdcc0483f8e3d41a34d55f117`: backend `geo-backend-report-pdf-20261021` serves 100% without tags; Hosting `12a1d6dbf481ba3b` uses cache `leader-field-c878ffd1be3c`. Additive `0024_report_pdf_email` and the compatible backend preceded Hosting. Existing business rows and all prior migration checksums are preserved. Supervisors submit as themselves within their home Department. Every production Template remains off and the outbox is empty; no real Reports or emails were created by this release. The five-minute worker uses one task, batch 10, zero retries, the existing backend runtime and SMTP secret version 1. Only the standard Google Scheduler service-agent project role and the dedicated trigger's job-only invocation were added. Existing service/secret permissions and SMTP settings are preserved; public registration and web-process dispatch remain disabled. Source CI passes both jobs and all 75 real-backend browser workflows. The export query regression was fixed without raising limits. The first fixed-source CI invitation account-switch timeout remains unconfirmed; three unchanged isolated checks and one complete frontend rerun passed. Native PostgreSQL, exact-image mocked SMTP/fallback, isolated provider staging, read-only live/offline parity, current recovery and strict hardening pass. The existing six-hour recovery warning and physical-phone/cold-offline Supervisor catalog limits remain. No real email or SMTP authentication was exercised. Retain fallback `geo-backend-report-pdf-fallback-20261021`, previous Hosting `4988eacbe73feaaf` in `rollback-report-pdf-20261021` until `2026-10-28T03:37:11.828213161Z`, and backup `br-holy-river-a7yrw273` until `2026-10-28T03:42:26Z`. Pause Scheduler and disable the worker before fallback. The fallback retains migration 0024 and outbox purge protection. Original 0023-only images reject the ledger. Never downgrade migrations, reset credentials/auth generations or clear device storage; reverify retained resources before use. [Release evidence](docs/evidence/report-submit-pdf-release-20261021/release.json).
 

@@ -11,9 +11,14 @@ from pypdf import PdfReader
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.main import app, get_session, require_supervisor
-from app.models import Department, User, WorkForm
-from app.schemas import ReportTransitionRequest, WorkFormSubmissionCreate
-from app.use_cases.work_forms import create_work_form_submission, transition_report
+from app.models import Department, User, WorkForm, WorkFormSubmission
+from app.schemas import SupervisorWorkFormSubmissionUpdate, WorkFormSubmissionCreate
+from app.use_cases.work_forms import create_work_form_submission
+from app.use_cases.supervisor_review import (
+    form_submissions_csv_response, render_form_submission_page, update_supervisor_form_submission,
+)
+from app.use_cases.report_pdf import build_report_pdf
+from report_pdf_layout_test import report_fixture as exported_report_fixture
 
 
 async def request(path, params=None):
@@ -147,8 +152,11 @@ def test_export_filter_and_department_boundaries():
         other_date = submit(session, worker, form, "needle other date", work_date="2026-09-14")
         other_worker = submit(session, colleague, form, "needle other worker")
         other_template = submit(session, worker, other_form, "needle other template")
-        other_status = submit(session, worker, form, "needle other workflow")
-        transition_report(other_status["id"], ReportTransitionRequest(status="in_review"), supervisor, session)
+        other_status = submit(session, worker, form, "needle historical workflow")
+        historical = session.get(WorkFormSubmission, other_status["id"])
+        historical.workflow_status = "in_review"
+        session.add(historical)
+        session.commit()
         foreign = submit(session, foreign_worker, foreign_form, "needle foreign secret")
         submit(session, worker, daywork, "needle retained daywork")
         base = {"purpose": "report", "search": "needle"}
@@ -157,10 +165,9 @@ def test_export_filter_and_department_boundaries():
             ({}, expected_all),
             ({"form_id": form.id}, expected_all - {other_template["id"]}),
             ({"worker_id": worker.id}, expected_all - {other_worker["id"]}),
-            ({"workflow_status": "submitted"}, expected_all - {other_status["id"]}),
             ({"record_date": "2026-09-15"}, expected_all - {other_date["id"]}),
             ({"department_id": supervisor.department_id}, expected_all),
-            ({"form_id": form.id, "worker_id": worker.id, "workflow_status": "submitted", "record_date": "2026-09-15"}, {wanted["id"]}),
+            ({"form_id": form.id, "worker_id": worker.id, "record_date": "2026-09-15"}, {wanted["id"], other_status["id"]}),
         ]
         for filters, expected in cases:
             params = {**base, **filters}
@@ -173,7 +180,7 @@ def test_export_filter_and_department_boundaries():
             assert status == 200 and {int(row["id"]) for row in csv.DictReader(StringIO(body.decode()))} == expected, filters
         combined = {
             **base, "form_id": form.id, "worker_id": worker.id,
-            "workflow_status": "submitted", "department_id": supervisor.department_id,
+            "department_id": supervisor.department_id,
             "date_from": "2026-09-15", "date_to": "2026-09-15",
         }
         for extension in ("html", "pdf"):
@@ -183,6 +190,7 @@ def test_export_filter_and_department_boundaries():
                 if extension == "pdf" else body.decode()
             )
             assert status == 200 and "needle target" in content, extension
+            assert "needle historical workflow" in content, extension
             assert not any(marker in content for marker in ("needle other", "needle foreign", "needle retained")), extension
         for extension in ("csv", "html", "pdf"):
             status, _ = asyncio.run(request(f"/supervisor/form-submissions/export.{extension}", {**base, "department_id": foreign_department.id}))
@@ -195,6 +203,57 @@ def test_export_filter_and_department_boundaries():
             status, body = asyncio.run(request("/supervisor/form-submissions/export.csv", params))
             assert status == 200 and {int(row["id"]) for row in csv.DictReader(StringIO(body.decode()))} == expected, department_id
     print("ok - Report exports preserve structured filters, Department authority, global focus, and Daywork isolation")
+
+
+def test_current_exports_omit_historical_review_and_preserve_daywork():
+    item = exported_report_fixture()
+    csv_text = form_submissions_csv_response([item], "reports.csv").body.decode()
+    row = list(csv.DictReader(StringIO(csv_text)))[0]
+    assert row["status"] == "submitted"
+    for field in ("workflow_status", "supervisor_note", "reviewing_supervisor_id",
+                  "reviewing_supervisor_name", "review_started_at", "resolved_at"):
+        assert field not in row, field
+    assert row["created_at"] == item["created_at"] and row["answer_discussion"] == item["answers"]["discussion"]
+    html_text = render_form_submission_page(item)
+    pdf_text = " ".join(page.extract_text() or "" for page in PdfReader(BytesIO(build_report_pdf([item]))).pages)
+    for content in (html_text, pdf_text):
+        assert item["answers"]["discussion"] in content and item["created_at"] in content
+        for value in ("Report review", "Reviewing Supervisor", "Review started", "Supervisor note",
+                      item["reviewing_supervisor_name"], item["supervisor_note"], item["resolved_at"]):
+            assert value not in content, value
+    daywork = {**item, "submission_purpose": "daywork", "status": "approved"}
+    daywork_row = list(csv.DictReader(StringIO(form_submissions_csv_response([daywork], "daywork.csv").body.decode())))[0]
+    assert daywork_row["status"] == "approved" and daywork_row["workflow_status"] == "resolved"
+    assert daywork_row["supervisor_note"] == item["supervisor_note"]
+    assert "approved" in render_form_submission_page(daywork)
+    mixed_rows = list(csv.DictReader(StringIO(form_submissions_csv_response([item, daywork], "forms.csv").body.decode())))
+    assert mixed_rows[0]["supervisor_note"] == "" and mixed_rows[1]["supervisor_note"] == item["supervisor_note"]
+    print("ok - current Report exports hide historical review while retaining answers, submission time and Daywork semantics")
+
+
+def test_exports_use_corrected_report_and_original_definition():
+    with report_fixture() as (session, supervisor, worker, form):
+        original = submit(session, worker, form, "Original observation")
+        # Later Template changes must not reinterpret a saved Report's fields.
+        form.fields_json = json.dumps([{"id": "unrelated", "label": "New Template field", "type": "text"}])
+        session.add(form)
+        session.commit()
+        corrected = update_supervisor_form_submission(original["id"], SupervisorWorkFormSubmissionUpdate(
+            confirmed=True, expected_revision=original["revision"], work_date="2026-10-22",
+            answers={"issue": "Corrected observation"},
+        ), supervisor, session)
+        assert corrected["revision"] == original["revision"] + 1
+        assert corrected["created_at"] == original["created_at"]
+        for extension in ("csv", "html", "pdf"):
+            for path in (f"/supervisor/form-submissions/export.{extension}",
+                         f"/supervisor/form-submissions/{original['id']}/export.{extension}"):
+                params = {"purpose": "report", "search": "Corrected observation"} if path == f"/supervisor/form-submissions/export.{extension}" else {}
+                status, body = asyncio.run(request(path, params))
+                assert status == 200, (extension, path, status, body)
+                content = " ".join(page.extract_text() or "" for page in PdfReader(BytesIO(body)).pages) if extension == "pdf" else body.decode()
+                assert "Corrected observation" in content and "2026-10-22" in content, (extension, path)
+                assert "Original observation" not in content and "New Template field" not in content, (extension, path)
+    print("ok - single and collection CSV/HTML/PDF export corrected content against the original Definition")
 
 
 def test_find_normalization_and_literal_characters():
@@ -232,3 +291,5 @@ if __name__ == "__main__":
     test_exports_include_all_matching_pages()
     test_export_filter_and_department_boundaries()
     test_find_normalization_and_literal_characters()
+    test_current_exports_omit_historical_review_and_preserve_daywork()
+    test_exports_use_corrected_report_and_original_definition()
