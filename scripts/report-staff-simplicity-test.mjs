@@ -57,13 +57,13 @@ async function fixture(browser, { user = admin, reportOnly = true } = {}) {
       delete current.confirmed;
       return json(current);
     }
-    if (['/api/supervisor/worker-invitations', '/api/supervisor/users'].includes(url.pathname) && request.method() === 'POST') {
+    if (['/api/supervisor/worker-invitations', '/api/supervisor/staff-invitations', '/api/supervisor/users'].includes(url.pathname) && request.method() === 'POST') {
       const payload = request.postDataJSON();
       mutations.push({ path: url.pathname, payload });
-      const isInvitation = url.pathname.endsWith('worker-invitations');
+      const isInvitation = url.pathname.endsWith('-invitations');
       const created = { ...baseUser, ...payload, id: 400 + mutations.length,
         department_name: departments.find((entry) => entry.id === payload.department_id)?.name,
-        ...(isInvitation ? { role: 'worker', password_setup_required: true, invitation_status: 'pending',
+        ...(isInvitation ? { role: payload.role || 'worker', password_setup_required: true, invitation_status: 'pending',
           invitation_id: 700 + mutations.length, invitation_email_status: 'not_sent' } : {}) };
       users.push(created);
       return json(isInvitation ? { user: created, token: 'isolated_fixture_token_123456789012345678901234567890', expires_at: '2026-12-01T12:00:00Z' } : created);
@@ -239,7 +239,10 @@ try {
     assert.equal(await page.locator('#staffGlobalAdminInput').isDisabled(), true);
     await page.locator('#staffRoleSelect').selectOption('supervisor');
     assert.equal(await page.locator('#staffGlobalAdminInput').isDisabled(), false);
+    assert.equal(await page.locator('#staffPasswordInput').isVisible(), false);
+    await page.locator('#staffSetupMethodSelect').selectOption('direct');
     assert.equal(await page.locator('#staffPasswordInput').isVisible(), true);
+    await page.locator('#staffSetupMethodSelect').selectOption('invitation');
     await page.locator('#staffGlobalAdminInput').focus();
     await page.keyboard.press('Space');
     assert.equal(await page.locator('#staffGlobalAdminInput').isChecked(), true);
@@ -389,6 +392,63 @@ try {
     assert.equal((await saveEdit(retained)).worker_class, 'leader');
     pass('Retained full interface still displays, creates and edits Worker classes');
   } finally { await retained.close(); }
+
+  for (const actor of [supervisor, admin]) {
+    const f = await fixture(browser, { user: actor });
+    try {
+      const { page } = f;
+      await page.setViewportSize({ width: 390, height: 844 });
+      for (const globalAdmin of actor.is_global_admin ? [false, true] : [false]) {
+        await page.locator('#addStaffUserButton').click();
+        await page.locator('#staffRoleSelect').selectOption('supervisor');
+        assert.equal(await page.locator('#staffSetupMethodSelect').inputValue(), 'invitation');
+        assert.equal(await page.locator('#staffPasswordInput').isVisible(), false);
+        const email = `invited-${actor.id}-${globalAdmin}@example.invalid`;
+        await page.locator('#staffNameInput').fill('Synthetic invited Supervisor');
+        await page.locator('#staffEmailInput').fill(email);
+        if (globalAdmin) {
+          await page.locator('#staffGlobalAdminInput').focus();
+          await page.keyboard.press('Space');
+        }
+        const before = f.mutations.length;
+        await page.locator('#staffUserSubmitButton').click();
+        await page.locator('#workerInvitationDialog[open]').waitFor();
+        assert.equal(f.mutations.length, before + 1, 'Create never sends email automatically');
+        assert.deepEqual(f.mutations.at(-1), { path: '/api/supervisor/staff-invitations', payload: {
+          name: 'Synthetic invited Supervisor', email, worker_class: 'normal', department_id: 2,
+          role: 'supervisor', is_global_admin: globalAdmin
+        } });
+        assert.ok((await page.locator('#workerInvitationIdentity').innerText()).includes(globalAdmin ? 'Global admin' : 'Supervisor'));
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+        await page.screenshot({ path: path.join(output, `staff-invite-${actor.id}-${globalAdmin}.png`), animations: 'disabled' });
+        await page.locator('#sendWorkerInvitationEmailButton').click();
+        await page.locator('#workerInvitationEmailStatus').filter({ hasText: 'Delivery is not confirmed.' }).waitFor();
+        assert.equal(await page.locator('#sendWorkerInvitationEmailButton').isDisabled(), true);
+        assert.equal(f.mutations.length, before + 2);
+        await page.locator('#closeWorkerInvitationButton').click();
+        await edit(page, { email });
+        assert.equal(await page.locator('#editUserRole').isDisabled(), true);
+        assert.equal(await page.locator('#editUserPassword').count(), 0);
+        if (actor.is_global_admin) assert.equal(await page.locator('#editUserGlobalAdmin').isDisabled(), true);
+        await page.locator('#supervisorSecondaryCancelEditButton').click();
+      }
+      await page.locator('#addStaffUserButton').click();
+      await page.locator('#staffRoleSelect').selectOption('supervisor');
+      await page.locator('#staffSetupMethodSelect').selectOption('direct');
+      assert.equal(await page.locator('#staffPasswordInput').isVisible(), true);
+      await page.locator('#staffNameInput').fill('Synthetic immediate Supervisor');
+      await page.locator('#staffEmailInput').fill(`immediate-${actor.id}@example.invalid`);
+      await page.locator('#staffPasswordInput').fill('SyntheticChosenPassword!');
+      const before = f.mutations.length;
+      await page.locator('#staffUserSubmitButton').click();
+      await page.locator('#staffUserCreatePanel').waitFor({ state: 'hidden' });
+      assert.equal(f.mutations.length, before + 1);
+      assert.equal(f.mutations.at(-1).path, '/api/supervisor/users');
+      assert.equal(await page.locator('#workerInvitationDialog').isVisible(), false);
+      await page.getByText('Staff user created. No invitation email was sent.', { exact: true }).first().waitFor();
+      pass(`${actor.is_global_admin ? 'Global admin' : 'Department Supervisor'} mobile invitation and explicit immediate creation keep role scope and send status`);
+    } finally { await f.close(); }
+  }
 
   for (const reportOnly of [true, false]) {
     const worker = await fixture(browser, { user: { ...leader, department_id: 1, department_name: 'Leader' }, reportOnly });

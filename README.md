@@ -1,5 +1,10 @@
 # ReportFlow
 
+## Local staff invitation extension (not deployed)
+
+Supervisor/global-admin invitations are prepared locally with an explicit invitation/direct-creation choice and unchanged role/Department grant authority. Sending remains a separate action; pending accounts cannot sign in. Release needs additive migration `0026_staff_invitations` and compatible backend/worker before Hosting, plus separate release approval. Existing accounts and SMTP/IAM settings are unchanged. See [behavior and release boundaries](docs/staff-invitations.md).
+
+
 ## Current source-template support release
 
 Report Templates support up to 128 entries, section instruction text, section-associated photo fields and explicit location capture. Source `f82d5860202c13df0967535b2f1d48d66019ab98` is live as backend `geo-backend-templates-20261023` and exact Hosting `e827de152baed084` (cache `leader-field-33552626f0ad`). The compatible backend and existing PDF worker preceded Hosting. No migration or app write pause was needed; existing records, all 25 migration checksums, runtime settings, IAM and secret references are preserved. The restored worker's first normal run found no work. [Release evidence](docs/evidence/source-templates-release-20261023/release.json).

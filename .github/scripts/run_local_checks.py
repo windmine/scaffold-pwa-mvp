@@ -36,6 +36,7 @@ BACKEND_SUITES = (
     "template_edit_test.py",
     "template_source_support_test.py",
     "invitation_test.py",
+    "staff_invitation_test.py",
     "password_recovery_test.py",
     "report_upload_recovery_test.py",
     "report_review_order_test.py",

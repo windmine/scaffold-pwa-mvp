@@ -2,6 +2,7 @@ import {
   createSite as createBackendSite,
   createUser as createBackendUser,
   createWorkerInvitation,
+  createStaffInvitation,
   emailWorkerInvitation,
   reissueWorkerInvitation,
   revokeWorkerInvitation,
@@ -420,7 +421,9 @@ export function createStaffSitesModule({
 
   function syncStaffCreateRoleControls() {
     const isWorker = els.staffRoleSelect.value === 'worker';
-    const usesInvitation = reportOnly && isWorker;
+    const usesInvitation = reportOnly && (isWorker || els.staffSetupMethodSelect.value === 'invitation');
+    els.staffSetupMethodSelect.closest('label').classList.toggle('hidden', !reportOnly || isWorker);
+    els.staffSetupMethodSelect.disabled = !reportOnly || isWorker;
     const canAssignGlobalAdmin = Boolean(state.user?.isGlobalAdmin && !isWorker);
     const globalAdminLabel = els.staffGlobalAdminInput.closest('label');
 
@@ -777,7 +780,7 @@ export function createStaffSitesModule({
       const isGlobalAdmin = Boolean(user.is_global_admin || user.isGlobalAdmin);
       const workerClass = user.worker_class || user.workerClass || 'normal';
       const workerRoleLabel = reportOnly ? 'Worker' : workerClass;
-      const needsSetup = user.role === 'worker' && user.password_setup_required === true;
+      const needsSetup = user.password_setup_required === true;
       const invitationStatus = {
         pending: 'Awaiting password setup', expired: 'Invitation expired', revoked: 'Invitation revoked'
       }[user.invitation_status] || 'No active invitation';
@@ -798,7 +801,7 @@ export function createStaffSitesModule({
           </div>
           <span class="badge ${status === 'active' ? 'synced' : 'rejected'}">${escapeHtml(status === 'active' ? needsSetup ? 'Password setup required' : `${user.role === 'worker' ? workerRoleLabel : user.role}${isGlobalAdmin ? ' global' : ''}` : 'resigned worker')}</span>
         </div>
-        ${needsSetup ? `<p class="record-meta"><span>${invitationStatus}</span>${user.invitation_status === 'pending' && user.invitation_expires_at ? ` · <span>Expires</span>: <span data-no-i18n>${escapeHtml(formatDateTime(user.invitation_expires_at))}</span>` : ''}</p>` : ''}
+        ${needsSetup ? `<p class="record-meta"><span>${user.role === 'supervisor' ? isGlobalAdmin ? 'Global admin (Supervisor only)' : 'Supervisor' : 'Worker'}</span> · <span>${invitationStatus}</span>${user.invitation_status === 'pending' && user.invitation_expires_at ? ` · <span>Expires</span>: <span data-no-i18n>${escapeHtml(formatDateTime(user.invitation_expires_at))}</span>` : ''}</p>` : ''}
         ${!needsSetup && user.role === 'worker' && recoveryStatus ? `<p class="record-meta"><span>${recoveryStatus}</span>${user.password_recovery_status === 'pending' && user.password_recovery_expires_at ? ` · <span>Expires</span>: <span data-no-i18n>${escapeHtml(formatDateTime(user.password_recovery_expires_at))}</span>` : ''}</p>` : ''}
         <div class="record-actions"></div>
       `;
@@ -1638,7 +1641,7 @@ export function createStaffSitesModule({
       editRoleSelect.disabled = isSelf || user.password_setup_required === true;
       if (!editGlobalAdminSelect) return;
       if (isWorker) editGlobalAdminSelect.value = 'false';
-      editGlobalAdminSelect.disabled = isSelf || isWorker;
+      editGlobalAdminSelect.disabled = isSelf || isWorker || user.password_setup_required === true;
     };
     editRoleSelect.addEventListener('change', syncStaffEditRoleControls);
     syncStaffEditRoleControls();
@@ -1694,8 +1697,8 @@ export function createStaffSitesModule({
     if (!await confirmAction({
       title: reissue ? 'Replace setup link?' : 'Revoke setup link?',
       message: reissue
-        ? 'The previous link will stop working. Share the new link privately with this Worker.'
-        : 'This Worker cannot finish password setup with the old link. You can create a new link later.',
+        ? 'The previous link will stop working. Share the new link privately with this person.'
+        : 'This person cannot finish password setup with the old link. You can create a new link later.',
       confirmLabel: reissue ? 'Create new setup link' : 'Revoke setup link'
     }) || !isCurrent()) return;
     setButtonBusy(button, true);
@@ -1794,14 +1797,17 @@ export function createStaffSitesModule({
 
     try {
       const role = els.staffRoleSelect.value;
-      const usesInvitation = reportOnly && role === 'worker';
+      const usesInvitation = reportOnly && (role === 'worker' || els.staffSetupMethodSelect.value === 'invitation');
       const worker = {
         name: els.staffNameInput.value.trim(),
         email: els.staffEmailInput.value.trim(),
         worker_class: reportOnly ? 'normal' : els.staffWorkerClassSelect.value,
         department_id: staffCreateDepartmentId()
       };
-      const result = usesInvitation ? await createWorkerInvitation(worker) : await createBackendUser({
+      const isGlobalAdmin = Boolean(state.user?.isGlobalAdmin && role === 'supervisor' && els.staffGlobalAdminInput.checked);
+      const result = usesInvitation
+        ? role === 'worker' ? await createWorkerInvitation(worker) : await createStaffInvitation({ ...worker, role, is_global_admin: isGlobalAdmin })
+        : await createBackendUser({
         ...worker,
         password: els.staffPasswordInput.value,
         role,
@@ -1826,7 +1832,7 @@ export function createStaffSitesModule({
       );
       els.addStaffUserButton.disabled = true;
       if (usesInvitation) invitationDialog.show(result, els.addStaffUserButton, { isCurrent });
-      renderStatusBanner(usesInvitation ? 'Worker invitation created. Share the setup link privately.' : 'Staff user created.');
+      renderStatusBanner(usesInvitation ? 'Staff invitation created. Choose Send invitation email or share the link privately.' : 'Staff user created. No invitation email was sent.');
       const staffUsersRefreshed = await renderStaffUsers({
         preserveOnError: true,
         reportError: false
@@ -1864,6 +1870,7 @@ export function createStaffSitesModule({
 
   function bindEvents() {
     renderStaffCreateControls();
+    els.staffSetupMethodSelect.addEventListener('change', syncStaffCreateRoleControls);
     els.addStaffUserButton.addEventListener('click', openStaffUserCreate);
     els.cancelStaffUserCreateButton.addEventListener('click', cancelStaffUserCreate);
     els.staffUserForm.addEventListener('submit', handleStaffUserCreate);

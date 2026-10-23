@@ -165,7 +165,7 @@ def get_current_user(
         )
 
     if user.password_setup_required:
-        raise HTTPException(status_code=403, detail="Complete your Worker invitation to set a password before signing in")
+        raise HTTPException(status_code=403, detail="Complete your invitation to set a password before signing in")
 
     # Subject-only tokens survive the migration only on their original,
     # unchanged identity. Never let a recycled email inherit a legacy session.

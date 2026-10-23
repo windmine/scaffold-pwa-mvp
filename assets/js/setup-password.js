@@ -1,4 +1,4 @@
-import { initLanguageToggle, setTranslatableText } from './i18n.js';
+import { initLanguageToggle, setTranslatableText, translateText } from './i18n.js';
 
 // A fragment never reaches the server. Keep its capability in memory only and
 // remove it before making any API request or changing the page's content.
@@ -90,7 +90,7 @@ async function inspectInvitation() {
     const invitation = await invitationRequest('inspect', { token });
     if (currentGeneration !== generation) return;
     invitationEmail = invitation.email;
-    identity.textContent = `${invitation.name} — ${invitation.email} — ${invitation.department_name}`;
+    identity.textContent = `${invitation.name} — ${invitation.email} — ${invitation.department_name} — ${translateText(invitation.is_global_admin ? "Global admin (Supervisor only)" : invitation.role === "supervisor" ? "Supervisor" : "Worker")}`;
     form.hidden = false;
     showStatus('Your supervisor will not see your password.');
     if (!canContinueOnThisBrowser()) explainContinuation('This browser may already have an account or saved work. Password setup will not switch accounts.');

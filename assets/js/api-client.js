@@ -265,6 +265,10 @@ export async function getDepartments() {
   return await apiFetch("/departments");
 }
 
+export async function createStaffInvitation(staff) {
+  return apiFetch('/supervisor/staff-invitations', { method: 'POST', body: JSON.stringify(staff) });
+}
+
 export async function createWorkerInvitation(worker) {
   return apiFetch('/supervisor/worker-invitations', { method: 'POST', body: JSON.stringify(worker) });
 }

@@ -231,14 +231,14 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
 
     fields = data.model_fields_set
     if user.password_setup_required and "password" in fields and data.password:
-        raise HTTPException(status_code=409, detail="This Worker must set their own password using an invitation")
+        raise HTTPException(status_code=409, detail="This user must set their own password using an invitation")
     next_role = user.role
     if "role" in fields and data.role is not None:
         next_role = data.role.strip().lower()
         if next_role not in VALID_ROLES:
             raise HTTPException(status_code=400, detail="Role must be worker or supervisor")
-        if user.password_setup_required and next_role != "worker":
-            raise HTTPException(status_code=409, detail="This Worker must complete password setup before changing role")
+        if user.password_setup_required and next_role != user.role:
+            raise HTTPException(status_code=409, detail="This user must complete password setup before changing role")
         if user.id == supervisor.id and next_role != "supervisor":
             raise HTTPException(status_code=400, detail="You cannot remove your own supervisor role")
 
@@ -252,6 +252,9 @@ def update_user(user_id: int, data, supervisor: User, session: Session):
         next_is_global_admin = data.is_global_admin
 
     validate_global_admin_role(next_role, next_is_global_admin)
+
+    if user.password_setup_required and next_is_global_admin != user.is_global_admin:
+        raise HTTPException(status_code=409, detail="This user must complete password setup before changing global admin access")
 
     next_department_id = user.department_id
     if "department_id" in fields and data.department_id is not None:

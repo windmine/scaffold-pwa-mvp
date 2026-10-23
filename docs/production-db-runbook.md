@@ -1,5 +1,9 @@
 # Production Database And Deployment Runbook
 
+## Pending staff invitation extension — local only
+
+See [staff invitations](staff-invitations.md). This change is not deployed. Release requires separate approval and additive `0026_staff_invitations` before the compatible backend, PDF worker and Hosting. Preserve all Users, current grants/passwords, existing invitations/send attempts and prior migration checksums; verify backup/recovery and inventory before applying. No new resources, IAM or credentials are required. Keep existing SMTP secret references and public-registration/PDF email settings unchanged; use only isolated fixtures/mock SMTP for release tests. Old 0025-only images reject schema 0026, so prepare a compatible fallback or forward fix; never downgrade the ledger or reset auth/device state. Existing account 29 must not be deleted, converted, reset or emailed by this release.
+
 ## Source-template support release
 
 Verified release: backend `geo-backend-templates-20261023`, worker image from the same source `f82d5860202c13df0967535b2f1d48d66019ab98`, then exact Hosting `e827de152baed084`. No migration or app write pause was needed; existing service, worker, identities and IAM were reused. Release artifacts and Hosting preview/rollback channels were added. Final inventories preserve all observed business fingerprints and 25 checksums; restored scheduled work returned zero in every count. Retain prior backend `geo-backend-corrections-20261023` and Hosting `54cd56ba20fff93a` in `rollback-templates-20261023` through `2026-10-29T23:36:17.534167278Z`; reverify availability and the publication boundary below before rollback. [Evidence](evidence/source-templates-release-20261023/release.json).

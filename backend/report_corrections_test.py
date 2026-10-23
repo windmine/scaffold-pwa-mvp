@@ -226,7 +226,7 @@ class ReportCorrectionsMigrationTests(unittest.TestCase):
                     connection.execute(text("INSERT INTO workformsubmission (id, form_id, worker_id, answers_json, submission_purpose, created_at) VALUES (100,100,1,'{}','report','2026-10-01')"))
                     connection.execute(text("UPDATE workformsubmission SET workflow_status='resolved', supervisor_note='Historical note' WHERE id=100"))
                     before = connection.execute(text("SELECT version, checksum FROM schema_migrations ORDER BY version")).all()
-                self.assertEqual(run_migrations(engine), ["0025_report_corrections"])
+                self.assertEqual(run_migrations(engine), ["0025_report_corrections", "0026_staff_invitations"])
                 self.assertEqual(run_migrations(engine), [])
                 with engine.connect() as connection:
                     self.assertEqual(connection.execute(text("SELECT version, checksum FROM schema_migrations WHERE version < '0025' ORDER BY version")).all(), before)

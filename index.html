@@ -1515,7 +1515,7 @@
                   <h3 id="staffUserCreateTitle">Add staff user</h3>
                 </div>
                 <form id="staffUserForm" class="form-grid">
-                <p id="staffInvitationHelp" class="muted full-width" hidden>Workers set their own password using a private, expiring setup link. No email is sent automatically.</p>
+                <p id="staffInvitationHelp" class="muted full-width" hidden>The recipient sets their own password using a private, expiring link. Create the invitation, then choose Send invitation email or Copy/Share. No email is sent automatically.</p>
                 <label>
                   Name
                   <input id="staffNameInput" type="text" autocomplete="name" required />
@@ -1533,6 +1533,13 @@
                   <select id="staffRoleSelect">
                     <option value="worker">Worker</option>
                     <option value="supervisor">Supervisor</option>
+                  </select>
+                </label>
+                <label class="hidden">
+                  Account setup
+                  <select id="staffSetupMethodSelect">
+                    <option value="invitation">Invitation — recipient sets password</option>
+                    <option value="direct">Create immediately — no invitation email</option>
                   </select>
                 </label>
                 <label>
@@ -1585,9 +1592,9 @@
 
     <dialog id="workerInvitationDialog" class="confirmation-dialog" aria-labelledby="workerInvitationTitle" aria-describedby="workerInvitationHelp">
       <div class="confirmation-dialog-content">
-        <h2 id="workerInvitationTitle">Worker invitation ready</h2>
+        <h2 id="workerInvitationTitle">Staff invitation ready</h2>
         <p id="workerInvitationIdentity" data-no-i18n></p>
-        <p id="workerInvitationHelp">Send an invitation email to the Worker shown above, or share this link privately. Anyone with it can set this account's password.</p>
+        <p id="workerInvitationHelp">Send an invitation email to the person shown above, or share this link privately. Anyone with it can set this account's password.</p>
         <p><span>Expires</span>: <span id="workerInvitationExpiry" data-no-i18n></span></p>
         <label><span id="workerInvitationLinkLabel">Private setup link</span><input id="workerInvitationLink" type="text" readonly autocomplete="off" spellcheck="false" data-no-i18n /></label>
         <p id="workerInvitationLinkNotice" class="muted">The link is shown only now. Closing this window hides it; create a new link from Staff if needed.</p>

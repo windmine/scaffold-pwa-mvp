@@ -29,7 +29,7 @@ def check_additive_migration(engine):
         reports_before = connection.execute(text("SELECT * FROM workformsubmission ORDER BY id")).mappings().all()
         before = connection.execute(text("SELECT version, checksum FROM schema_migrations ORDER BY version")).all()
         form_before = connection.execute(text("SELECT id, fields_json, definition_version FROM workform ORDER BY id")).all()
-    assert run_migrations(engine) == ["0024_report_pdf_email", "0025_report_corrections"]
+    assert run_migrations(engine) == ["0024_report_pdf_email", "0025_report_corrections", "0026_staff_invitations"]
     assert not run_migrations(engine)
     with engine.connect() as connection:
         assert connection.execute(text("SELECT version, checksum FROM schema_migrations WHERE version < '0024' ORDER BY version")).all() == before

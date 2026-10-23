@@ -1,0 +1,123 @@
+{
+  "status": "passed",
+  "backendSuites": 28,
+  "browserWorkflows": 75,
+  "staffBrowserGroups": 13,
+  "mockedInvitationEmailTests": 14,
+  "nativePostgres": "17: 74 checkpoints before obsolete schema assertion; failed PDF phase corrected and separately passed 6 checkpoints",
+  "build": "passed",
+  "lint": "passed",
+  "httpSmoke": "passed",
+  "guide": {
+    "status": "passed",
+    "pages": 1,
+    "bytes": 39243,
+    "sha256": "cf15c24ccb283f8411abae8ac301a9d02fd9263334e85c5c92bf99416d573e4e",
+    "decodedQr": [
+      "https://geo-attendance-system-db9ca.web.app"
+    ],
+    "visualReview": "one page, all text and QR visible; no overlaps",
+    "mockEmailTests": 14
+  },
+  "preservedFailures": [
+    "Restricted-runner readiness/hang; owned stalled processes stopped; checks passed outside sandbox",
+    "New role assertion expected409 but API correctly400; test corrected",
+    "Backend/native PDF assertions expected old migration25; updated26 and failed phases passed",
+    "Worker-sharing expected identity lacked role suffix; expectation corrected",
+    "Initial full browser 74/75: retained Daywork submit-feedback timeout cause unconfirmed; unchanged isolated check and full75 rerun passed",
+    "Guide test initially compared reissued link to old invitation expiry; corrected to latest stored invitation; 14 passed"
+  ],
+  "productionChanged": false,
+  "realEmailsSent": false,
+  "testLogs": {
+    "backend-remaining.exit": {
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "bytes": 3
+    },
+    "backend-remaining.txt": {
+      "sha256": "e50387c29b37dc03e985fdca3a80591c8b8a639dad1c9dc5d3f57a93d84bfc61",
+      "bytes": 37357
+    },
+    "backend.exit": {
+      "sha256": "f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04",
+      "bytes": 3
+    },
+    "backend.txt": {
+      "sha256": "3484e9edcd0223290fbf2486346967b4bb1430d7b00a504110d499ee09c1f275",
+      "bytes": 25144
+    },
+    "browser-final.exit": {
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "bytes": 3
+    },
+    "browser-final.txt": {
+      "sha256": "b8a39bc7c92cd74587613d94984a7e7d8045ea2dea5759f003fa133f1bd3ef8d",
+      "bytes": 5921
+    },
+    "daywork-recheck.exit": {
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "bytes": 3
+    },
+    "daywork-recheck.txt": {
+      "sha256": "867e6c500fa53774fbbe41e0159cf04985f7a18088614d5b99eba871f7921df9",
+      "bytes": 86
+    },
+    "guide-email-tests-final.txt": {
+      "sha256": "560dd0a2c8dc0f0ac136f717c1c290c23db03b97f312ac83564e44cb0fad5191",
+      "bytes": 2424
+    },
+    "guide-email-tests.txt": {
+      "sha256": "82625540468fc9623ae1329b29516032c109666ecdd9bd5ce5a07b1975628540",
+      "bytes": 6902
+    },
+    "guide-proof.json": {
+      "sha256": "1e9b7d09b66f57d8a47c6b8cf15d16d7959c136150af60e64c38bec729d97295",
+      "bytes": 310
+    },
+    "mobile-remaining.exit": {
+      "sha256": "f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04",
+      "bytes": 3
+    },
+    "mobile-remaining.txt": {
+      "sha256": "c90b65d277ac9ef1d41bee7bef9e4e5e2443084487bdf972fd0e9730b56966c5",
+      "bytes": 42195
+    },
+    "mobile.exit": {
+      "sha256": "f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04",
+      "bytes": 3
+    },
+    "mobile.txt": {
+      "sha256": "323102f52369c26d2919e678dac778707331d8f8a0182f46c3ae3defc8199de6",
+      "bytes": 33209
+    },
+    "postgres17-pdf-recheck.exit": {
+      "sha256": "13bf7b3039c63bf5a50491fa3cfd8eb4e699d1ba1436315aef9cbe5711530354",
+      "bytes": 3
+    },
+    "postgres17-pdf-recheck.json": {
+      "sha256": "376a37126b45a6a10bb6211d128f9e3000931b35cb7e81c14c7e810b86e74208",
+      "bytes": 7388
+    },
+    "postgres17-pdf-recheck.txt": {
+      "sha256": "2fa492ea5191a199ea30fba58d4deadded6e80f96a5952bd38dfba8b96c62f0f",
+      "bytes": 753
+    },
+    "postgres17.exit": {
+      "sha256": "f1b2f662800122bed0ff255693df89c4487fbdcf453d3524a42d4ec20c3d9c04",
+      "bytes": 3
+    },
+    "postgres17.json": {
+      "sha256": "2e53902906293de40e35489b801f44742af87a476f109d8eba8548d4082f0f83",
+      "bytes": 38993
+    },
+    "postgres17.txt": {
+      "sha256": "c32a29db8392b4ad8d08afe3da23ee62e54ae16f9e0d48d79f5550a2f2629e85",
+      "bytes": 46714
+    }
+  },
+  "limitations": [
+    "No physical-phone or real SMTP test",
+    "No authenticated production fixture",
+    "Existing six-hour recovery-history and bundle-size warnings remain"
+  ]
+}

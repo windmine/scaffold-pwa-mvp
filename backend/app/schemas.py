@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, StrictBool
 
@@ -39,10 +39,16 @@ class UserCreateRequest(BaseModel):
 
 
 class WorkerInvitationCreateRequest(BaseModel):
+    model_config = {"extra": "forbid"}
     email: str = Field(min_length=3, max_length=320)
     name: str = Field(min_length=1, max_length=120)
     worker_class: str = Field(default="normal", max_length=40)
     department_id: Optional[int] = Field(default=None, ge=1)
+
+
+class StaffInvitationCreateRequest(WorkerInvitationCreateRequest):
+    role: Literal["worker", "supervisor"] = "worker"
+    is_global_admin: StrictBool = False
 
 
 class WorkerInvitationTokenRequest(BaseModel):
@@ -54,6 +60,7 @@ class WorkerInvitationEmailRequest(WorkerInvitationTokenRequest):
 
 
 class WorkerInvitationAcceptRequest(WorkerInvitationTokenRequest):
+    model_config = {"extra": "forbid"}
     password: str = Field(min_length=8, max_length=72)
 
 

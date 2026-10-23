@@ -2,6 +2,7 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,7 @@ from tempfile import TemporaryDirectory
 from threading import Event
 import unittest
 from unittest.mock import patch
+from pypdf import PdfReader
 
 _environment = TemporaryDirectory(prefix="invitation-email-config-")
 os.environ.update({
@@ -31,6 +33,7 @@ from app.models import AuditEvent, Department, User, WorkerInvitation
 from app.schemas import WorkerInvitationEmailRequest, WorkerInvitationAcceptRequest
 from app.use_cases import worker_invitation_email as delivery, worker_invitations as invitations
 from app.use_cases.registration import secret_hash
+from app.use_cases import invitation_guide
 
 
 class InvitationEmailTests(unittest.TestCase):
@@ -86,8 +89,9 @@ class InvitationEmailTests(unittest.TestCase):
         self.assertEqual(message["To"], self.worker.email)
         self.assertEqual(message["From"], "sender@example.invalid")
         self.assertEqual(message["Subject"], "Your ReportFlow invitation")
-        self.assertIn("https://reports.example.invalid/setup-password.html#token=" + self.token, message.get_content())
-        self.assertFalse(message.is_multipart())
+        self.assertIn("https://reports.example.invalid/setup-password.html#token=" + self.token, message.get_body(preferencelist=('plain',)).get_content())
+        self.assertTrue(message.is_multipart())
+        self.assert_guide(message)
         for event in self.session.exec(select(AuditEvent)).all():
             self.assertNotIn(self.token, event.model_dump_json())
             self.assertNotIn("synthetic-password", event.model_dump_json())
@@ -95,6 +99,90 @@ class InvitationEmailTests(unittest.TestCase):
         self.assertEqual(self.session.get(User, 2).password_hash, "unchanged")
         self.assertEqual(self.send(), result)
         self.client.send_message.assert_called_once()
+
+    def test_supervisor_and_global_admin_sends_keep_tls_scope_and_one_attempt(self):
+        for global_admin in (False, True):
+            with self.subTest(global_admin=global_admin):
+                self.worker.role = "supervisor"
+                self.worker.is_global_admin = global_admin
+                self.supervisor.is_global_admin = global_admin
+                self.session.add_all([self.worker, self.supervisor])
+                self.session.commit()
+                for error, expected in ((None, "accepted"),
+                        (smtplib.SMTPRecipientsRefused({self.worker.email: (550, b"no")}), "failed"),
+                        (smtplib.SMTPServerDisconnected("lost acknowledgment"), "unknown")):
+                    issued = invitations.reissue_worker_invitation(2, self.supervisor, self.session)
+                    self.client.send_message.side_effect = error
+                    calls = self.client.send_message.call_count
+                    result = self.send(token=issued["token"])
+                    self.assertEqual(result["email_status"], expected)
+                    self.assertEqual(self.send(token=issued["token"]), result)
+                    self.assertEqual(self.client.send_message.call_count, calls + 1)
+                    message = self.client.send_message.call_args.args[0]
+                    self.assertEqual(message["To"], self.worker.email)
+                    self.assertIn("Supervisor / global admin" if global_admin else "Supervisor", message.get_body(preferencelist=('plain',)).get_content())
+                    self.assert_guide(message)
+                    context = self.client.starttls.call_args.kwargs["context"]
+                    self.assertTrue(context.check_hostname)
+                    self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+                if global_admin:
+                    self.supervisor.is_global_admin = False
+                    self.session.add(self.supervisor)
+                    self.session.commit()
+                    with self.assertRaises(HTTPException) as caught:
+                        self.send(token=issued["token"])
+                    self.assertEqual(caught.exception.status_code, 403)
+
+    def assert_guide(self, message):
+        attachments = list(message.iter_attachments())
+        self.assertEqual(len(attachments), 1)
+        self.assertEqual(attachments[0].get_content_type(), "application/pdf")
+        self.assertEqual(attachments[0].get_filename(), "ReportFlow-Getting-Started.pdf")
+        payload = attachments[0].get_payload(decode=True)
+        self.assertEqual(payload, invitation_guide.getting_started_pdf())
+        self.assertLess(len(payload), invitation_guide.MAX_GUIDE_BYTES)
+        self.assertLess(len(message.as_bytes()), email_transport.MAX_EMAIL_BYTES)
+        reader = PdfReader(BytesIO(payload))
+        self.assertEqual(len(reader.pages), 1)
+        text = reader.pages[0].extract_text()
+        for expected in (invitation_guide.PUBLIC_APP_URL, "Safari", "Chrome", "expires", "My Reports", "queued", "password"):
+            self.assertIn(expected, text)
+        for private in (self.token, self.worker.email, self.worker.name, "setup-password.html#token=", "synthetic-password"):
+            self.assertNotIn(private, text)
+        plain = message.get_body(preferencelist=('plain',)).get_content()
+        self.assertIn("Getting started:", plain)
+        self.assertIn(invitation_guide.PUBLIC_APP_URL, plain)
+        latest = self.session.exec(select(WorkerInvitation).where(WorkerInvitation.worker_id == self.worker.id)
+                                   .order_by(WorkerInvitation.id.desc())).first()
+        self.assertIn(latest.expires_at.isoformat(), plain)
+
+    def test_guide_failure_leaves_no_attempt_and_private_link_usable(self):
+        with patch.object(invitation_guide, "getting_started_pdf", side_effect=OSError("private local path")):
+            with self.assertRaises(HTTPException) as caught:
+                self.send()
+        self.assertEqual(caught.exception.status_code, 503)
+        self.assertNotIn("private local path", str(caught.exception.detail))
+        self.session.refresh(self.invitation)
+        self.assertIsNone(self.invitation.email_attempted_at)
+        self.smtp.assert_not_called()
+        invitations._valid_invitation(self.token, self.session)
+
+    def test_changed_invited_permissions_fail_before_smtp(self):
+        self.worker.role = "supervisor"
+        self.session.add(self.worker)
+        self.session.commit()
+        # Existing Worker link cannot silently become a Supervisor link.
+        with self.assertRaises(HTTPException):
+            self.send()
+        self.smtp.assert_not_called()
+        issued = invitations.reissue_worker_invitation(2, self.supervisor, self.session)
+        self.worker.is_global_admin = True
+        self.supervisor.is_global_admin = True
+        self.session.add_all([self.worker, self.supervisor])
+        self.session.commit()
+        with self.assertRaises(HTTPException):
+            self.send(token=issued["token"])
+        self.smtp.assert_not_called()
 
     def test_tls_failure_is_sanitized_and_durable_without_plaintext_fallback(self):
         self.client.starttls.side_effect = ssl.SSLCertVerificationError("private server text " + self.token)
@@ -228,7 +316,13 @@ class InvitationEmailTests(unittest.TestCase):
         async def request():
             messages = []
             body = json.dumps(payload or {"token": self.token}).encode()
+            body_sent = False
             async def receive():
+                nonlocal body_sent
+                if body_sent:
+                    await asyncio.Event().wait()  # No disconnect while the response is in flight.
+                body_sent = True
+                await asyncio.sleep(0)
                 return {"type": "http.request", "more_body": False, "body": body}
             async def send(message):
                 messages.append(message)

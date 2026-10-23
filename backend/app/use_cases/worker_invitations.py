@@ -1,4 +1,4 @@
-"""New-Worker password setup; explicit private delivery, never account recovery."""
+"""Staff password setup; legacy Worker names/URLs remain compatible."""
 from datetime import datetime, timedelta, timezone
 import secrets
 
@@ -41,7 +41,9 @@ def invitation_metadata(user, session):
     if not invitation:
         return {"invitation_status": "none", "invitation_expires_at": None, **email}
     expires_at = normalized_datetime(invitation.expires_at)
-    status = "revoked" if invitation.revoked_at or invitation.generation != user.invitation_generation else (
+    status = "revoked" if invitation.revoked_at or invitation.generation != user.invitation_generation or (
+        invitation.invited_role != user.role or invitation.invited_is_global_admin != user.is_global_admin
+    ) else (
         "expired" if expires_at <= utc_now() else "pending"
     )
     return {"invitation_status": status, "invitation_expires_at": expires_at.isoformat(),
@@ -56,6 +58,7 @@ def _new_invitation(user, supervisor, session):
     now = utc_now()
     invitation = WorkerInvitation(
         worker_id=user.id, department_id=user.department_id, email=user.email,
+        invited_role=user.role, invited_is_global_admin=user.is_global_admin,
         generation=user.invitation_generation, token_hash=secret_hash("worker-invitation", token),
         issued_by=supervisor.id, created_at=now,
         expires_at=now + timedelta(hours=WORKER_INVITATION_TTL_HOURS),
@@ -65,7 +68,7 @@ def _new_invitation(user, supervisor, session):
     add_audit_event(
         session, supervisor, "worker_invitation_issue", "user", user.id,
         after={"invitation_id": invitation.id, "expires_at": invitation.expires_at.isoformat(), "delivery_method": "manual"},
-        summary="Issued a Worker password-setup invitation for private handoff",
+        summary="Issued a staff password-setup invitation for private handoff",
         department_id=user.department_id,
     )
     session.commit()
@@ -77,21 +80,33 @@ def _new_invitation(user, supervisor, session):
 
 
 def create_worker_invitation(data, supervisor: User, session: Session):
+    # This legacy route remains Worker-only, even for old clients.
+    return _create_invitation(data, supervisor, session, role="worker", is_global_admin=False)
+
+
+def create_staff_invitation(data, supervisor: User, session: Session):
+    return _create_invitation(data, supervisor, session, role=data.role, is_global_admin=data.is_global_admin)
+
+
+def _create_invitation(data, supervisor, session, *, role, is_global_admin):
+    if is_global_admin and not user_is_global_admin(supervisor):
+        raise HTTPException(status_code=403, detail="Only global admins can grant global admin access")
     department_id = department_id_for_new_record(supervisor, session)
     if data.department_id and not user_is_global_admin(supervisor) and data.department_id != department_id:
         raise HTTPException(status_code=403, detail="Only global admins can choose another department")
     department_id = data.department_id if user_is_global_admin(supervisor) and data.department_id else department_id
     try:
         user = create_user_account(
-            session, data.email, data.name, secrets.token_urlsafe(32), "worker",
+            session, data.email, data.name, secrets.token_urlsafe(32), role,
             worker_class=data.worker_class, department_id=department_id, commit=False,
+            is_global_admin=is_global_admin,
         )
         user.password_setup_required = True
         user.invitation_generation = 1
         session.add(user)
         session.flush()
         add_audit_event(session, supervisor, "user_create", "user", user.id,
-                        after=model_snapshot(user), summary="Created Worker awaiting password setup",
+                        after=model_snapshot(user), summary="Created staff user awaiting password setup",
                         department_id=user.department_id)
         return _new_invitation(user, supervisor, session)
     except IntegrityError as error:
@@ -102,9 +117,11 @@ def create_worker_invitation(data, supervisor: User, session: Session):
 def _pending_worker(user_id, supervisor, session, *, require_active=True):
     user = session.get(User, user_id)
     if not user or not can_access_department(supervisor, user.department_id):
-        raise HTTPException(status_code=404, detail="Worker not found")
-    if user.role != "worker" or not user.password_setup_required or (require_active and user.status != "active"):
-        raise HTTPException(status_code=409, detail="Invitations are only available for active Workers awaiting password setup")
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.is_global_admin and not user_is_global_admin(supervisor):
+        raise HTTPException(status_code=403, detail="Only global admins can manage global admin invitations")
+    if user.role not in {"worker", "supervisor"} or not user.password_setup_required or (require_active and user.status != "active"):
+        raise HTTPException(status_code=409, detail="Invitations are only available for active users awaiting password setup")
     return user
 
 
@@ -127,12 +144,13 @@ def reissue_worker_invitation(user_id, supervisor, session):
     ensure_department_exists(session, user.department_id)
     changed = session.execute(update(User).where(
         User.id == user.id, User.password_setup_required == True,  # noqa: E712
-        User.status == "active", User.role == "worker", User.department_id == user.department_id,
+        User.status == "active", User.role == user.role, User.is_global_admin == user.is_global_admin,
+        User.department_id == user.department_id,
         User.email == user.email, User.invitation_generation == user.invitation_generation,
     ).values(invitation_generation=User.invitation_generation + 1).execution_options(synchronize_session=False))
     if changed.rowcount != 1:
         session.rollback()
-        raise HTTPException(status_code=409, detail="Worker changed. Refresh Staff and try again.")
+        raise HTTPException(status_code=409, detail="User changed. Refresh Staff and try again.")
     session.execute(update(WorkerInvitation).where(
         WorkerInvitation.worker_id == user.id, WorkerInvitation.consumed_at.is_(None),
         WorkerInvitation.revoked_at.is_(None),
@@ -145,21 +163,21 @@ def revoke_worker_invitation(user_id, supervisor, session):
     user = _pending_worker(user_id, supervisor, session, require_active=False)
     changed = session.execute(update(User).where(
         User.id == user.id, User.password_setup_required == True,  # noqa: E712
-        User.role == "worker", User.department_id == user.department_id,
+        User.role == user.role, User.is_global_admin == user.is_global_admin, User.department_id == user.department_id,
         User.email == user.email, User.invitation_generation == user.invitation_generation,
     ).values(invitation_generation=User.invitation_generation + 1).execution_options(synchronize_session=False))
     if changed.rowcount != 1:
         session.rollback()
-        raise HTTPException(status_code=409, detail="Worker changed. Refresh Staff and try again.")
+        raise HTTPException(status_code=409, detail="User changed. Refresh Staff and try again.")
     session.execute(update(WorkerInvitation).where(
         WorkerInvitation.worker_id == user.id, WorkerInvitation.consumed_at.is_(None),
         WorkerInvitation.revoked_at.is_(None),
     ).values(revoked_at=utc_now()).execution_options(synchronize_session=False))
     add_audit_event(session, supervisor, "worker_invitation_revoke", "user", user.id,
-                    summary="Revoked Worker password-setup invitations", department_id=user.department_id)
+                    summary="Revoked staff password-setup invitations", department_id=user.department_id)
     session.commit()
     session.refresh(user)
-    return {"user": user_response(user, session), "message": "Invitation revoked. This Worker still needs to set a password."}
+    return {"user": user_response(user, session), "message": "Invitation revoked. This user still needs to set a password."}
 
 
 def _valid_invitation(token, session):
@@ -169,9 +187,11 @@ def _valid_invitation(token, session):
     if not invitation or invitation.consumed_at or invitation.revoked_at or normalized_datetime(invitation.expires_at) <= utc_now():
         raise _invalid()
     user = session.get(User, invitation.worker_id)
-    if not user or not user.password_setup_required or user.role != "worker" or user.status != "active" or (
+    if not user or not user.password_setup_required or user.role not in {"worker", "supervisor"} or user.status != "active" or (
         user.email != invitation.email or user.department_id != invitation.department_id
         or user.invitation_generation != invitation.generation
+        or user.role != invitation.invited_role or user.is_global_admin != invitation.invited_is_global_admin
+        or (user.is_global_admin and user.role != "supervisor")
     ):
         raise _invalid()
     department = session.get(Department, user.department_id)
@@ -183,19 +203,21 @@ def _valid_invitation(token, session):
 def inspect_worker_invitation(data, session: Session):
     invitation, user, department = _valid_invitation(data.token, session)
     return {"name": user.name, "email": user.email, "department_name": department.name,
+            "role": invitation.invited_role, "is_global_admin": invitation.invited_is_global_admin,
             "expires_at": normalized_datetime(invitation.expires_at).isoformat()}
 
 
 def accept_worker_invitation(data, session: Session):
     invitation, user, _ = _valid_invitation(data.token, session)
-    validate_user_input(user.email, user.name, data.password, "worker")
+    validate_user_input(user.email, user.name, data.password, invitation.invited_role)
     password_hash = hash_password(data.password)
     # The conditional user update serializes accept/reissue/revoke on SQLite and
     # PostgreSQL without relying on a read-then-write single-use check.
     claimed = session.execute(update(User).where(
         User.id == user.id, User.password_setup_required == True,  # noqa: E712
         User.invitation_generation == invitation.generation,
-        User.status == "active", User.role == "worker",
+        User.status == "active", User.role == invitation.invited_role,
+        User.is_global_admin == invitation.invited_is_global_admin,
         User.email == invitation.email, User.department_id == invitation.department_id,
         User.department_id.in_(select(Department.id).where(Department.status == "active")),
     ).values(password_hash=password_hash, password_setup_required=False,
@@ -212,6 +234,6 @@ def accept_worker_invitation(data, session: Session):
         raise _invalid()
     add_audit_event(session, user, "worker_invitation_accept", "user", user.id,
                     after={"invitation_id": invitation.id, "password_setup_required": False},
-                    summary="Worker completed password setup", department_id=invitation.department_id)
+                    summary="Staff user completed password setup", department_id=invitation.department_id)
     session.commit()
     return {"message": "Password set. Sign in with your email and new password."}

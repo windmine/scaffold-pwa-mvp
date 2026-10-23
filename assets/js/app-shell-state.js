@@ -337,6 +337,7 @@ export const els = {
   staffEmailInput: document.getElementById('staffEmailInput'),
   staffPasswordInput: document.getElementById('staffPasswordInput'),
   staffInvitationHelp: document.getElementById('staffInvitationHelp'),
+    staffSetupMethodSelect: document.getElementById('staffSetupMethodSelect'),
   workerInvitationDialog: document.getElementById('workerInvitationDialog'),
   workerInvitationTitle: document.getElementById('workerInvitationTitle'),
   workerInvitationHelp: document.getElementById('workerInvitationHelp'),

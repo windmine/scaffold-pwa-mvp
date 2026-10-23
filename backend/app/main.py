@@ -60,6 +60,7 @@ from app.schemas import (
     WorkFormUpdate,
     WorkFormEmailSettings,
     WorkerInvitationCreateRequest,
+    StaffInvitationCreateRequest,
     WorkerInvitationEmailRequest,
     WorkerInvitationTokenRequest,
     WorkerInvitationAcceptRequest,
@@ -132,6 +133,7 @@ rate_limiter = InMemoryRateLimiter(
                 "/auth/worker-invitations",
                 "/auth/worker-password-recovery",
                 "/supervisor/worker-invitations",
+                "/supervisor/staff-invitations",
                 "/auth/refresh",
             ),
         ),
@@ -170,7 +172,7 @@ def apply_upload_cache_policy(request_path: str, response: Response):
         response.headers["Cache-Control"] = "private, no-store"
     if normalized_path.startswith("/uploads/") and response.status_code >= 400:
         response.headers["Cache-Control"] = "private, no-store"
-    if normalized_path == "/auth/login/after-setup" or normalized_path.startswith(("/auth/worker-invitations", "/auth/worker-password-recovery", "/supervisor/worker-invitations")) or (
+    if normalized_path == "/auth/login/after-setup" or normalized_path.startswith(("/auth/worker-invitations", "/auth/worker-password-recovery", "/supervisor/worker-invitations", "/supervisor/staff-invitations")) or (
         normalized_path.startswith("/supervisor/users/") and normalized_path.endswith(("/invitation", "/invitation/email", "/password-recovery"))
     ):
         response.headers["Cache-Control"] = "private, no-store"
@@ -181,6 +183,8 @@ def apply_upload_cache_policy(request_path: str, response: Response):
 @app.exception_handler(RequestValidationError)
 async def redact_recovery_validation(request: Request, exc: RequestValidationError):
     path = request.url.path.removeprefix("/api")
+    if path.startswith(("/auth/worker-invitations", "/supervisor/worker-invitations", "/supervisor/staff-invitations")):
+        return JSONResponse(status_code=422, content={"detail": "Check the invitation details and password requirements."})
     if path.startswith("/supervisor/users/") and path.endswith("/invitation/email"):
         return JSONResponse(status_code=422, content={"detail": "Check the invitation and try again."})
     if path.startswith("/auth/worker-password-recovery") or (
@@ -722,7 +726,7 @@ def login(
         raise HTTPException(status_code=403, detail="This account is resigned and cannot sign in")
 
     if user.password_setup_required:
-        raise HTTPException(status_code=403, detail="Complete your Worker invitation to set a password before signing in")
+        raise HTTPException(status_code=403, detail="Complete your invitation to set a password before signing in")
 
     csrf_token = create_csrf_token()
     token = create_access_token({
@@ -858,6 +862,14 @@ def create_user(
     session: Session = Depends(get_session)
 ):
     return staff_site_admin_use_cases.create_staff_user(data, supervisor, session)
+
+
+@app.post("/supervisor/staff-invitations")
+def create_staff_invitation(
+    data: StaffInvitationCreateRequest,
+    supervisor: User = Depends(require_supervisor), session: Session = Depends(get_session),
+):
+    return worker_invitation_use_cases.create_staff_invitation(data, supervisor, session)
 
 
 @app.post("/supervisor/worker-invitations")

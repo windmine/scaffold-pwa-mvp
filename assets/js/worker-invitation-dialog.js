@@ -5,7 +5,7 @@ export function invitationEmailStatusText(status) {
   return {
     accepted: 'Invitation email accepted by the mail server. Delivery is not confirmed.',
     failed: 'Email was not sent. Copy or share this link privately, or create a new link in Staff to try email again.',
-    unknown: 'Email acceptance is unconfirmed. Do not send again. Check with the Worker or share the same link privately.'
+    unknown: 'Email acceptance is unconfirmed. Do not send again. Check with the recipient or share the same link privately.'
   }[status] || '';
 }
 
@@ -28,10 +28,10 @@ export function createWorkerInvitationDialog(els, { sendInvitationEmail } = {}) 
   function setDialogCopy(nextMode) {
     const recovery = nextMode === 'recovery';
     const copy = {
-      workerInvitationTitle: recovery ? 'Worker recovery link ready' : 'Worker invitation ready',
+      workerInvitationTitle: recovery ? 'Worker recovery link ready' : 'Staff invitation ready',
       workerInvitationHelp: recovery
         ? 'Verify this Worker’s identity before sharing privately. Anyone with this link can choose a new password for this account. No email has been sent.'
-        : "Send an invitation email to the Worker shown above, or share this link privately. Anyone with it can set this account's password.",
+        : "Send an invitation email to the person shown above, or share this link privately. Anyone with it can set this account's password.",
       workerInvitationLinkLabel: recovery ? 'Private recovery link' : 'Private setup link',
       workerInvitationLinkNotice: recovery
         ? 'The current password stays unchanged until this link is used. The link is shown only now; closing this window hides it.'
@@ -88,7 +88,7 @@ export function createWorkerInvitationDialog(els, { sendInvitationEmail } = {}) 
     const url = new URL(recovery ? '/recover-password.html' : '/setup-password.html', window.location.origin);
     url.hash = `token=${result.token}`;
     els.workerInvitationLink.value = url.href;
-    els.workerInvitationIdentity.textContent = `${result.user.name} — ${result.user.email}`;
+    els.workerInvitationIdentity.textContent = `${result.user.name} — ${result.user.email}${recovery ? "" : ` — ${translateText(result.user.is_global_admin ? "Global admin (Supervisor only)" : result.user.role === "supervisor" ? "Supervisor" : "Worker")}`}`;
     shareIdentity = `${result.user.name} (${result.user.email})`;
     els.workerInvitationExpiry.textContent = formatDateTime(result.expires_at);
     const validId = (value) => Number.isSafeInteger(value) && value > 0;

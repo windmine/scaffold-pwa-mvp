@@ -246,6 +246,36 @@ def check_worker_invitation_onboarding(supervisor_token):
     ), 200)
 
 
+def check_staff_invitation_onboarding(supervisor_token, admin_token, worker_token):
+    for role_admin, actor in ((False, supervisor_token), (True, admin_token)):
+        payload = {"name": "Synthetic invited Supervisor", "email": f"smoke-staff-{role_admin}@example.invalid",
+                   "role": "supervisor", "is_global_admin": role_admin}
+        assert_status("Worker cannot invite privileged staff", request("POST", "/supervisor/staff-invitations", payload, worker_token), 403)
+        if role_admin:
+            assert_status("Department Supervisor cannot grant global admin", request("POST", "/supervisor/staff-invitations", payload, supervisor_token), 403)
+        invitation = assert_status("Authorized actor creates pending staff invitation", request("POST", "/supervisor/staff-invitations", payload, actor), 200)
+        user = invitation["user"]
+        if not user["password_setup_required"] or user["role"] != "supervisor" or user["is_global_admin"] != role_admin or user["invitation_email_status"] != "not_sent":
+            raise AssertionError("Pending staff invitation did not preserve its authorized role or explicit-send boundary")
+        assert_status("Acceptance cannot change invited permissions", request("POST", "/auth/worker-invitations/accept", {
+            "token": invitation["token"], "password": "SyntheticStaffSmokePass!", "is_global_admin": True,
+        }), 422)
+        assert_status("Staff recipient chooses their password", request("POST", "/auth/worker-invitations/accept", {
+            "token": invitation["token"], "password": "SyntheticStaffSmokePass!",
+        }), 200)
+        assert_status("Privileged invitation remains single-use", request("POST", "/auth/worker-invitations/accept", {
+            "token": invitation["token"], "password": "NeverReplacePassword!",
+        }), 400)
+        signed_in = assert_status("Staff signs in after setup", request("POST", "/auth/login", {
+            "email": payload["email"], "password": "SyntheticStaffSmokePass!",
+        }), 200)
+        if signed_in["user"]["role"] != "supervisor" or signed_in["user"]["is_global_admin"] != role_admin:
+            raise AssertionError("Setup changed the authorized staff grant")
+        assert_status("Retire owned synthetic staff fixture", request("POST", f'/supervisor/users/{user["id"]}/status', {
+            "status": "resigned", "confirmed": True,
+        }, admin_token), 200)
+
+
 def check_department_evidence_scope(
     admin_token, source_supervisor_token, destination_supervisor_token,
     source_department_id, destination_department_id,
@@ -398,6 +428,7 @@ def main():
         supervisor_token = supervisor_login["access_token"]
         admin_token = admin_login["access_token"]
         check_worker_invitation_onboarding(supervisor_token)
+        check_staff_invitation_onboarding(supervisor_token, admin_token, worker_token)
         assert_status(
             "reject disguised SVG upload",
             upload_test_file(

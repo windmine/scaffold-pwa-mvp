@@ -63,7 +63,7 @@ async function fixture(browser, options = {}) {
       if (inspectFailure) return json({ detail: 'This invitation is invalid or expired.' }, inspectFailure);
       return json({ name: body.token === replacementToken ? 'Replacement Worker' : worker.name,
         email: body.token === replacementToken ? 'replacement@example.invalid' : worker.email,
-        department_name: worker.department_name });
+        department_name: worker.department_name, role: options.invitedRole || 'worker', is_global_admin: Boolean(options.invitedGlobalAdmin) });
     }
     if (url.pathname === '/api/auth/worker-invitations/accept') {
       requests.accept.push(request.postDataJSON());
@@ -374,6 +374,25 @@ async function checkRecoveryAndPhoneLayouts(browser) {
   } finally { await f.close(); }
 }
 
+async function checkPrivilegedSetup(browser) {
+  for (const globalAdmin of [false, true]) {
+    const identity = JSON.stringify(otherUser);
+    const f = await fixture(browser, { invitedRole: 'supervisor', invitedGlobalAdmin: globalAdmin, existingIdentity: identity });
+    try {
+      await f.open();
+      assert.ok((await f.page.locator('#setupInvitationIdentity').innerText()).includes(globalAdmin ? 'Global admin' : 'Supervisor'));
+      assert.equal(await f.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await f.page.screenshot({ path: path.join(output, `setup-supervisor-${globalAdmin}.png`), animations: 'disabled' });
+      await fillAndSubmit(f.page);
+      await assertFinishedWithoutContinuation(f);
+      assert.deepEqual(f.requests.accept, [{ token, password }], 'Recipient cannot submit an alternative role or grant');
+      assert.equal(f.requests.login.length, 0);
+      assert.equal(await f.page.evaluate(() => localStorage.getItem('geo_user')), identity);
+    } finally { await f.close(); }
+  }
+  console.log('ok - Supervisor/global-admin setup shows the intended grant and preserves an existing browser identity');
+}
+
 const browser = await chromium.launch({ headless: true });
 try {
   await mkdir(output, { recursive: true });
@@ -383,5 +402,6 @@ try {
   await checkAcceptanceFailure(browser);
   await checkLateResponsePrivacy(browser);
   await checkRecoveryAndPhoneLayouts(browser);
+  await checkPrivilegedSetup(browser);
   console.log('Setup continuation checks passed (isolated Chromium; mocked transport, no live email/account changes).');
 } finally { await browser.close(); }

@@ -34,7 +34,7 @@
     "check:mobile:static": "npm run build && node scripts/check-mobile-browser-workflows.mjs",
     "check:browser": "npm run build && node scripts/check-browser-workflows.mjs",
     "check:review-queue": "node scripts/review-queue-module-test.mjs && node scripts/report-export-api-test.mjs && python backend/review_queue_test.py && python backend/report_workflow_test.py && python backend/report_purpose_test.py && python backend/report_export_test.py && python backend/report_export_evidence_test.py && npm run check:report-pdf",
-    "check:invitations": "python backend/invitation_test.py && python backend/invitation_email_test.py",
+    "check:invitations": "python backend/invitation_test.py && python backend/staff_invitation_test.py && python backend/invitation_email_test.py",
     "check:password-recovery": "python backend/password_recovery_test.py && node scripts/password-recovery-page-test.mjs && node scripts/worker-password-recovery-staff-test.mjs",
     "check:report-pdf": "python backend/report_pdf_branding_test.py && python backend/report_pdf_layout_test.py && python backend/report_pdf_unicode_test.py && python backend/report_pdf_volume_test.py",
     "check:report-volume": "python backend/report_volume_test.py --profile ci",

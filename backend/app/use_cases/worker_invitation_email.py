@@ -1,4 +1,4 @@
-"""Explicit Supervisor delivery of one existing Worker invitation."""
+"""Explicit authorized delivery of one existing staff invitation."""
 from urllib.parse import quote, urlsplit
 
 from fastapi import HTTPException
@@ -11,6 +11,7 @@ from app.config import PRODUCTION_LIKE, PUBLIC_APP_URL
 from app.models import Department, User, WorkerInvitation
 from app.use_cases.audit import add_audit_event
 from app.use_cases.registration import normalized_datetime
+from app.use_cases import invitation_guide
 from app.use_cases.worker_invitations import _invalid, _pending_worker, _valid_invitation, utc_now
 
 
@@ -60,17 +61,35 @@ def send_worker_invitation_email(user_id, data, supervisor, session):
             "code": "INVITATION_EMAIL_UNAVAILABLE",
             "message": "Invitation email is unavailable. Copy or share the private link.",
         }) from None
+    try:
+        guide = invitation_guide.getting_started_pdf()
+    except Exception:
+        # No claim or SMTP attempt if the public attachment cannot be prepared.
+        raise HTTPException(status_code=503, detail={
+            "code": "INVITATION_EMAIL_UNAVAILABLE",
+            "message": "Invitation email is unavailable. Copy or share the private link.",
+        }) from None
     recipient = invitation.email
-    body = (f"Hello {user.name},\n\nYour Supervisor has invited you to ReportFlow.\n\n"
+    role_label = "Supervisor / global admin" if invitation.invited_is_global_admin else invitation.invited_role.title()
+    body = (f"Hello {user.name},\n\nYou have been invited to ReportFlow as {role_label}.\n\n"
             f"Set your password using this private link:\n{link}\n\n"
             f"The link expires at {normalized_datetime(invitation.expires_at).isoformat()} and can be used once.\n"
-            "Do not forward it. If you were not expecting this invitation, contact your Supervisor.\n")
+            "Do not forward it. If you were not expecting this invitation, contact the person who invited you.\n\n"
+            "Getting started:\n1. Accept the invitation above and set your password first.\n"
+            f"2. Open {invitation_guide.PUBLIC_APP_URL} and sign in with this email address and your new password.\n"
+            "3. ReportFlow is a web app: add it to your Home Screen in Safari on iPhone, or install it from Chrome on Android. "
+            "You can also use it directly in your browser.\n"
+            "4. Choose New Report (Supervisors: Submit form > New Report), select a template, complete it, and submit. "
+            "Check My Reports for its submission status. First setup requires internet.\n\n"
+            "The attached Getting Started PDF includes installation steps and a public app QR code. "
+            "The QR does not contain your private invitation link.\n")
     # Acquire the same User lock/order as acceptance, reissue and revocation.
     # The no-op conditional update also works on SQLite, unlike SELECT FOR UPDATE.
     locked = session.execute(update(User).where(
         User.id == user.id, User.password_setup_required == True,  # noqa: E712
         User.invitation_generation == invitation.generation,
-        User.status == "active", User.role == "worker", User.email == invitation.email,
+        User.status == "active", User.role == invitation.invited_role, User.email == invitation.email,
+        User.is_global_admin == invitation.invited_is_global_admin,
         User.department_id == invitation.department_id,
         User.department_id.in_(select(Department.id).where(Department.status == "active")),
     ).values(invitation_generation=User.invitation_generation).execution_options(synchronize_session=False))
@@ -91,7 +110,7 @@ def send_worker_invitation_email(user_id, data, supervisor, session):
         raise _invalid()
     add_audit_event(session, supervisor, "worker_invitation_email_request", "user", user.id,
                     after={"invitation_id": invitation.id, "email_status": "requested"},
-                    summary="Requested a Worker invitation email", department_id=invitation.department_id)
+                    summary="Requested a staff invitation email", department_id=invitation.department_id)
     # Commit before any SMTP activity. A crash, timeout or failed result commit
     # leaves a durable claim and cannot cause a duplicate email on replay.
     session.commit()
@@ -99,7 +118,8 @@ def send_worker_invitation_email(user_id, data, supervisor, session):
     status = "accepted"
     try:
         _valid_invitation(data.token, session)
-        email_transport.send_email(recipient, "Your ReportFlow invitation", body)
+        email_transport.send_email(recipient, "Your ReportFlow invitation", body,
+                                   pdf_attachment=guide, filename=invitation_guide.GUIDE_FILENAME)
     except HTTPException:
         status = "failed"
     except email_transport.EmailSendError as error:
@@ -111,7 +131,7 @@ def send_worker_invitation_email(user_id, data, supervisor, session):
         ).execution_options(synchronize_session=False))
         add_audit_event(session, supervisor, "worker_invitation_email_result", "user", user_id,
                         after={"invitation_id": invitation_id, "email_status": status},
-                        summary="Recorded Worker invitation SMTP outcome; inbox delivery unverified",
+                        summary="Recorded staff invitation SMTP outcome; inbox delivery unverified",
                         department_id=invitation.department_id)
         session.commit()
     except SQLAlchemyError:

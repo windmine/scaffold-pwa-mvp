@@ -66,6 +66,7 @@ EXPECTED_VERSIONS = [
     "0023_worker_invitation_email",
     "0024_report_pdf_email",
     "0025_report_corrections",
+    "0026_staff_invitations",
 ]
 
 
@@ -1045,6 +1046,7 @@ def test_report_review_workflow_migration():
             "0023_worker_invitation_email",
             "0024_report_pdf_email",
     "0025_report_corrections",
+    "0026_staff_invitations",
         ]:
             raise AssertionError(f"report workflow migration: unexpected versions {applied}")
 
@@ -1674,6 +1676,7 @@ def test_global_admin_supervisor_invariant_migration():
             "0023_worker_invitation_email",
             "0024_report_pdf_email",
     "0025_report_corrections",
+    "0026_staff_invitations",
         ]:
             raise AssertionError(f"global admin invariant migration: unexpected versions {applied}")
 
@@ -1955,7 +1958,7 @@ def test_worker_invitation_upgrade_preserves_existing_accounts():
                     INSERT INTO "user" (email, name, password_hash, role, status, department_id)
                     VALUES ('legacy-invitation-test@example.com', 'Existing Worker', 'unchanged-test-hash', 'worker', 'active', 1)
                 ''')
-            if run_migrations(engine) != ["0021_worker_invitations", "0022_worker_password_recovery", "0023_worker_invitation_email", "0024_report_pdf_email", "0025_report_corrections"]:
+            if run_migrations(engine) != ["0021_worker_invitations", "0022_worker_password_recovery", "0023_worker_invitation_email", "0024_report_pdf_email", "0025_report_corrections", "0026_staff_invitations"]:
                 raise AssertionError("Invitation upgrade applied an unexpected migration")
             with engine.connect() as connection:
                 row = connection.exec_driver_sql('''
@@ -1996,7 +1999,7 @@ def test_password_recovery_upgrade_preserves_accounts_and_invitations():
                     (worker_id, department_id, email, generation, token_hash, issued_by, expires_at, created_at)
                     VALUES (1, 1, 'invited@recovery.invalid', 7, 'preserved-invitation-hash', 2, '2030-01-01', '2026-01-01')''')
                 before = connection.exec_driver_sql('SELECT id, worker_id, department_id, email, generation, token_hash, issued_by, expires_at, consumed_at, revoked_at, created_at FROM workerinvitation').all()
-            assert run_migrations(engine) == ["0022_worker_password_recovery", "0023_worker_invitation_email", "0024_report_pdf_email", "0025_report_corrections"]
+            assert run_migrations(engine) == ["0022_worker_password_recovery", "0023_worker_invitation_email", "0024_report_pdf_email", "0025_report_corrections", "0026_staff_invitations"]
             with engine.connect() as connection:
                 assert tuple(connection.exec_driver_sql('''SELECT password_hash, password_setup_required,
                     invitation_generation, password_recovery_generation, auth_generation, legacy_auth_allowed FROM "user"
@@ -2008,6 +2011,40 @@ def test_password_recovery_upgrade_preserves_accounts_and_invitations():
         finally:
             engine.dispose()
     print("ok - recovery migration preserves passwords, sessions and invitation rows; issues no recovery links")
+
+
+def test_staff_invitation_upgrade_preserves_existing_grants():
+    with tempfile.TemporaryDirectory(prefix="staff-invitation-migration-") as directory:
+        root = Path(directory)
+        old_manifest = root / "before-staff-invitations"
+        old_manifest.mkdir()
+        for migration in (Path(__file__).parent / "migrations" / "versions").glob("*.py"):
+            if migration.name != "__init__.py" and migration.stem < "0026":
+                shutil.copy2(migration, old_manifest / migration.name)
+        engine = make_engine(root / "upgrade.db")
+        try:
+            run_migrations(engine, old_manifest)
+            with engine.begin() as connection:
+                connection.exec_driver_sql('''INSERT INTO "user" (email, name, password_hash, role, status,
+                    department_id, is_global_admin, password_setup_required, invitation_generation)
+                    VALUES ('existing@staff.invalid', 'Existing admin', 'preserved-hash', 'supervisor', 'active', 1, 1, 0, 0)''')
+                connection.exec_driver_sql('''INSERT INTO workerinvitation (worker_id, department_id, email, generation,
+                    token_hash, issued_by, expires_at, created_at, email_status, email_attempted_at)
+                    VALUES (2, 1, 'pending@staff.invalid', 3, 'preserved-link-hash', 1, '2030-01-01', '2026-01-01', 'unknown', '2026-01-02')''')
+                users = connection.exec_driver_sql('SELECT * FROM "user"').all()
+                invitations = connection.exec_driver_sql('SELECT * FROM workerinvitation').all()
+                ledger = connection.exec_driver_sql('SELECT * FROM schema_migrations ORDER BY version').all()
+            assert run_migrations(engine) == ["0026_staff_invitations"]
+            with engine.connect() as connection:
+                assert connection.exec_driver_sql('SELECT * FROM "user"').all() == users
+                after = connection.exec_driver_sql('SELECT * FROM workerinvitation').all()
+                assert [tuple(row[:-2]) for row in after] == [tuple(row) for row in invitations]
+                assert tuple(after[0][-2:]) == ("worker", 0)
+                assert connection.exec_driver_sql('SELECT * FROM schema_migrations ORDER BY version').all()[:-1] == ledger
+            assert not run_migrations(engine)
+        finally:
+            engine.dispose()
+    print("ok - staff invitation migration preserves accounts, existing links/send attempts and prior checksums")
 
 
 def main():
@@ -2025,6 +2062,7 @@ def main():
     test_legacy_database()
     test_worker_invitation_upgrade_preserves_existing_accounts()
     test_password_recovery_upgrade_preserves_accounts_and_invitations()
+    test_staff_invitation_upgrade_preserves_existing_grants()
     test_report_review_workflow_migration()
     test_report_daywork_purpose_migration()
     test_global_admin_supervisor_invariant_migration()

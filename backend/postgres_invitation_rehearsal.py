@@ -12,11 +12,11 @@ from sqlmodel import Session, select
 from app.auth import verify_password
 from app.migrations import run_migrations, verify_migrations
 from app.models import User, WorkerInvitation
-from app.schemas import UserStatusRequest, WorkerInvitationAcceptRequest, WorkerInvitationCreateRequest, WorkerInvitationTokenRequest
+from app.schemas import UserStatusRequest, WorkerInvitationAcceptRequest, WorkerInvitationCreateRequest, WorkerInvitationTokenRequest, StaffInvitationCreateRequest
 from app.use_cases.audit import list_audit_events
 from app.use_cases.staff_site_admin import list_users, update_user_status
 from app.use_cases.worker_invitations import (
-    accept_worker_invitation, create_worker_invitation, inspect_worker_invitation,
+    accept_worker_invitation, create_worker_invitation, create_staff_invitation, inspect_worker_invitation,
     reissue_worker_invitation, revoke_worker_invitation,
 )
 from postgres_review_rehearsal import is_statement, require
@@ -262,6 +262,46 @@ def check_reissue_race(engine, supervisors, report):
     report("PostgreSQL simultaneous invitation reissue: one replacement, one conflict, one new audit, old link invalid", proof)
 
 
+def check_privileged_acceptance_races(engine, supervisors, report):
+    with Session(engine) as session:
+        actor = session.get(User, supervisors[0])
+        actor.is_global_admin = True
+        session.add(actor)
+        session.commit()
+    for global_admin in (False, True):
+        with Session(engine) as session:
+            issued = create_staff_invitation(StaffInvitationCreateRequest(
+                name="Synthetic invited Supervisor", email=f"staff-{global_admin}@rehearsal.invalid",
+                role="supervisor", is_global_admin=global_admin,
+            ), session.get(User, supervisors[0]), session)
+        user_id, token = issued["user"]["id"], issued["token"]
+        operations = {
+            "accept": lambda session: accept_worker_invitation(WorkerInvitationAcceptRequest(
+                token=token, password="Synthetic self-chosen password!"), session),
+            "revoke": lambda session: revoke_worker_invitation(user_id, session.get(User, supervisors[0]), session),
+        }
+        outcomes, proof = overlapping_operations(engine, "user", operations, "revoke")
+        require(outcomes["revoke"]["status"] == 200 and outcomes["accept"]["status"] == 400,
+                "revoked privileged invitation won a concurrent acceptance")
+        with Session(engine) as session:
+            pending = session.get(User, user_id)
+            require(pending.password_setup_required and pending.role == "supervisor" and pending.is_global_admin == global_admin,
+                    "revocation changed the intended privilege or enabled pending access")
+            replacement = reissue_worker_invitation(user_id, session.get(User, supervisors[0]), session)
+        token = replacement["token"]
+        operations = {label: (lambda session: accept_worker_invitation(WorkerInvitationAcceptRequest(
+            token=token, password="Synthetic self-chosen password!"), session)) for label in ("first", "second")}
+        outcomes, acceptance_proof = overlapping_operations(engine, "user", operations, "first")
+        require(outcomes["first"]["status"] == 200 and outcomes["second"]["status"] == 400,
+                "privileged setup did not have exactly one acceptance")
+        with Session(engine) as session:
+            accepted = session.get(User, user_id)
+            require(not accepted.password_setup_required and accepted.role == "supervisor" and accepted.is_global_admin == global_admin,
+                    "acceptance changed the invited privilege")
+        report(f"PostgreSQL staff invitation global_admin={global_admin}: revoke beats acceptance, then one replacement acceptance",
+               {"revocation": proof, "acceptance": acceptance_proof})
+
+
 def run_invitation_checks(database, report):
     with database("worker_invitations") as engine:
         require(engine.dialect.name == "postgresql", "invitation rehearsal requires native PostgreSQL")
@@ -274,3 +314,4 @@ def run_invitation_checks(database, report):
             for preferred in (action, "accept"):
                 check_acceptance_against_staff_action(engine, supervisors, action, preferred, report)
         check_reissue_race(engine, supervisors, report)
+        check_privileged_acceptance_races(engine, supervisors, report)

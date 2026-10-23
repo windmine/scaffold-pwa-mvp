@@ -68,6 +68,8 @@ class WorkerInvitation(SQLModel, table=True):
     worker_id: int = Field(index=True)
     department_id: int = Field(index=True)
     email: str
+    invited_role: str = Field(default="worker")
+    invited_is_global_admin: bool = Field(default=False)
     generation: int
     token_hash: str = Field(index=True, unique=True)
     issued_by: int

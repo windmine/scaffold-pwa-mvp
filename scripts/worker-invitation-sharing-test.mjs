@@ -168,7 +168,7 @@ try {
     }, completion);
     await page.waitForFunction(() => !window.fixture.els.shareWorkerInvitationButton.disabled);
     assert.equal(await status.textContent(), '', 'Old result does not appear on the replacement invitation');
-    assert.equal(await page.locator('#workerInvitationIdentity').textContent(), 'Replacement Worker — replacement@example.com');
+    assert.equal(await page.locator('#workerInvitationIdentity').textContent(), 'Replacement Worker — replacement@example.com — Worker');
     assert.match(await page.locator('#workerInvitationLink').inputValue(), /ReplacementPrivateFixtureToken_123456$/);
   }
   console.log('ok - late Share success/failure cannot restore secrets or update a replacement invitation');
