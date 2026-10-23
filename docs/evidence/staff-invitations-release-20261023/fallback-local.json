@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "checks": [
+    "new staff creation guard makes no account",
+    "existing pending Supervisor/admin single-use acceptance preserved",
+    "legacy Worker invitation creation preserved without send"
+  ],
+  "networkAllowed": false,
+  "smtpAttempted": false,
+  "atUtc": "2026-10-23T03:05:48.358786+00:00",
+  "sourceCommit": "fc9e17b4f0814587a4cf0f471d607f361f109adc",
+  "overlay": {
+    "path": "backend/app/use_cases/worker_invitations.py",
+    "beforeSha256": "973e8cbdc49434312275dfde88498e9a83e08ae965cbd872ebea471b5f8735ce",
+    "afterSha256": "d6cd2da40bcec4ad8c823213187ee390aaf7b221574b6ceaed7a50f65504f2a5",
+    "behavior": "New staff invitation creation disabled; schema26, pending role guards/acceptance, extended templates, corrections, exports and frozen outbox retained",
+    "requiredRuntime": "Scheduler PAUSED and REPORT_PDF_EMAIL_WORKER_ENABLED=false during fallback; never reset invitations or outbox attempts"
+  },
+  "verifierSha256": "0d4d4ba97ace0307909571b4647de13fe30710dab77f069e97be474b240c26ba",
+  "cloudActions": false,
+  "cleanupComplete": true
+}

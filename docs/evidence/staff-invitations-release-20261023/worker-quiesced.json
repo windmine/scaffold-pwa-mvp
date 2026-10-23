@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-23T03:23:34.224600+00:00",
+  "firstEmptyAtUtc": "2026-10-23T03:22:36.234904+00:00",
+  "schedulerPaused": true,
+  "workerDisabled": true,
+  "activeExecutions": [],
+  "executionsCancelled": false
+}

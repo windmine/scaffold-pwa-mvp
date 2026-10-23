@@ -1,0 +1,30 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-23T03:57:28.907812+00:00",
+  "jobs": [
+    "rf-staff-invite-backup-verified-20261023",
+    "rf-staff-invite-baseline-verified-20261023",
+    "rf-staff-invite-post-release-20261023",
+    "rf-staff-invite-pre-worker-verified-20261023",
+    "rf-staff-invite-production-20261023",
+    "rf-staff-invite-stage-fallback-20261023",
+    "rf-staff-invite-stage-migrated-20261023",
+    "rf-staff-invite-stage-provider-verified-20261023"
+  ],
+  "stageBranch": "br-restless-silence-a7sfabc1",
+  "retainedBackup": "br-dark-sky-a7cebfa2",
+  "deleted": [
+    "rf-staff-invite-backup-verified-20261023",
+    "rf-staff-invite-baseline-verified-20261023",
+    "rf-staff-invite-post-release-20261023",
+    "rf-staff-invite-pre-worker-verified-20261023",
+    "rf-staff-invite-production-20261023",
+    "rf-staff-invite-stage-fallback-20261023",
+    "rf-staff-invite-stage-migrated-20261023",
+    "rf-staff-invite-stage-provider-verified-20261023",
+    "br-restless-silence-a7sfabc1"
+  ],
+  "verifiedAtUtc": "2026-10-23T03:58:24.122738+00:00",
+  "absenceVerified": true,
+  "productionAndBackupPreserved": true
+}

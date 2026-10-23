@@ -1,0 +1,46 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-23T03:47:46.540239+00:00",
+  "commands": [
+    {
+      "command": [
+        "C:\\Python314\\python.exe",
+        "C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\docs\\evidence\\staff-invitations-release-20261023\\frontend.py",
+        "parity",
+        "live"
+      ],
+      "exitCode": 0,
+      "output": "{\"operation\": \"parity\", \"phase\": \"live\", \"status\": \"passed\", \"files\": 88}\n"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/check-hosted-release.mjs",
+        "https://geo-attendance-system-db9ca.web.app",
+        "C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\docs\\evidence\\staff-invitations-release-20261023\\live-shell.json"
+      ],
+      "exitCode": 0,
+      "output": "ok - 78 exact generated shell assets and cache headers\nok - five database/migration/GCS probes and anonymous isolation\nok - anonymous phone-width report shell and cold-offline service-worker launch\n"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/check-hosted-installer.mjs",
+        "https://geo-attendance-system-db9ca.web.app",
+        "C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\docs\\evidence\\staff-invitations-release-20261023\\live-installer.json",
+        "--screenshots"
+      ],
+      "exitCode": 0,
+      "output": "ok - seven installer artifacts match frozen local SHA-256 and MIME, including PDF and no-cache HTML\nok - anonymous English and Chinese installer, shared manifest identity, images, and phone layout verified\nok - shared service worker serves the exact installer and cached logo/QR after every prior page closes\n\nHosted installer checks passed; evidence: C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\docs\\evidence\\staff-invitations-release-20261023\\live-installer.json\n"
+    },
+    {
+      "command": [
+        "C:\\Python314\\python.exe",
+        "C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\docs\\evidence\\staff-invitations-release-20261023\\verify_cleanup.py",
+        "verify"
+      ],
+      "exitCode": 0,
+      "output": "{\"operation\": \"verify\", \"status\": \"passed\", \"checks\": 10, \"logs\": 93, \"errorOr5xx\": 0}\n"
+    }
+  ]
+}

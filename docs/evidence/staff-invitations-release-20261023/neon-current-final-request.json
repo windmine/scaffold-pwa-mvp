@@ -1,0 +1,17 @@
+{
+  "atUtc": "2026-10-23T03:44:38.828909+00:00",
+  "phase": "current",
+  "command": [
+    "C:\\Users\\12273\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\native\\powershell\\pwsh.EXE",
+    "-NoProfile",
+    "-File",
+    "scripts/prove-neon-recovery.ps1",
+    "-RestoreOffsetMinutes",
+    "2",
+    "-PythonCommand",
+    "C:\\Python314\\python.exe",
+    "-EvidencePath",
+    "C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\docs\\evidence\\staff-invitations-release-20261023\\neon-current-final.json"
+  ],
+  "smtpSecretAccess": false
+}

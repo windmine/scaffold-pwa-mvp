@@ -1,0 +1,82 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-23T03:16:43.370294+00:00",
+  "version": "35a126d8e9de6e5b",
+  "url": "https://geo-attendance-system-db9ca--release-staff-invite-2026-q89y2hk4.web.app",
+  "channel": {
+    "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/release-staff-invite-20261023",
+    "url": "https://geo-attendance-system-db9ca--release-staff-invite-2026-q89y2hk4.web.app",
+    "release": {
+      "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/release-staff-invite-20261023/releases/1792725392538000",
+      "version": {
+        "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/versions/35a126d8e9de6e5b",
+        "status": "FINALIZED",
+        "config": {
+          "headers": [
+            {
+              "headers": {
+                "Cache-Control": "no-cache"
+              },
+              "glob": "/sw.js"
+            },
+            {
+              "headers": {
+                "Cache-Control": "no-cache"
+              },
+              "glob": "/offline.html"
+            },
+            {
+              "headers": {
+                "Cache-Control": "no-cache"
+              },
+              "glob": "/install.html"
+            },
+            {
+              "headers": {
+                "Cache-Control": "public,max-age=3600"
+              },
+              "glob": "/manifest.webmanifest"
+            }
+          ],
+          "rewrites": [
+            {
+              "glob": "/api/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            },
+            {
+              "glob": "/uploads/**",
+              "run": {
+                "serviceId": "geo-backend",
+                "region": "australia-southeast1"
+              }
+            }
+          ]
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase"
+        },
+        "createTime": "2026-10-23T03:16:26.111509Z",
+        "createUser": {
+          "email": "hty2003ah@gmail.com"
+        },
+        "finalizeTime": "2026-10-23T03:16:32.382614Z",
+        "finalizeUser": {
+          "email": "hty2003ah@gmail.com"
+        }
+      },
+      "type": "DEPLOY",
+      "releaseTime": "2026-10-23T03:16:32.538Z",
+      "releaseUser": {
+        "email": "hty2003ah@gmail.com"
+      }
+    },
+    "createTime": "2026-10-23T03:16:24.527217738Z",
+    "updateTime": "2026-10-23T03:16:32.538Z",
+    "retainedReleaseCount": 10,
+    "expireTime": "2026-10-30T03:16:24.527217738Z"
+  },
+  "authDomainsChanged": false
+}

@@ -1,4 +1,4 @@
-# Staff invitations — local preparation
+# Staff invitations
 
 The Report-only Staff form now invites Workers and Supervisors, including global admins when the actor already has permission to grant that access. A Department Supervisor may invite a Supervisor only in their own Department, matching existing direct creation. Only global admins may grant global-admin access or select another Department. Existing active accounts cannot be invited or converted by this flow.
 
@@ -10,13 +10,15 @@ Inspection, sending and acceptance require the saved role/grant, Department, ema
 
 Sending retains the existing durable one-attempt claim, fixed recipient, certificate-verified SMTP and uncertain-result protections. No retry occurs for accepted or uncertain attempts. Public-registration email, Worker password recovery, PDF routing and existing SMTP configuration are unchanged. This feature introduces no cloud resources, IAM grants or new persistent credentials.
 
-## Release boundary
+## Released behavior and recovery
 
-This preparation is local only. It does not authorize a deployment or any real invitation/email/account change. Production account 29 (`admin@mutualconstruction.co.nz`) is unchanged and is not a migration target.
+Source `fc9e17b4f0814587a4cf0f471d607f361f109adc` is live as backend `geo-backend-staff-invitations-20261023` at 100% without tags and exact Hosting `35a126d8e9de6e5b`, cache `leader-field-191c9f7044f0`. Additive `0026_staff_invitations` and its compatible backend/worker preceded Hosting. Worker, Supervisor and authorized global-admin invitations preserve existing role/Department grant authority. Pending accounts cannot sign in before single-use expiring password setup. Creating an invitation and sending its email are separate explicit actions; immediate account creation is clearly labelled. Every invitation email includes the public Getting Started PDF, whose QR contains only the canonical app URL. The private activation link remains separately in the email body. SMTP acceptance is not mailbox delivery.
 
-After separate release approval: verify current recovery/backup prerequisites, preserve inventory and all prior checksums, apply additive migration 0026, deploy its compatible backend (and keep the existing PDF worker compatible with the new ledger), then promote Hosting. Preserve existing runtime identities, secrets/settings, public-registration disablement and template email settings. Test with isolated synthetic fixtures; do not send a real invitation as a release check.
+The paused backup/migration and final inventory preserve all existing business fingerprints and all 25 prior migration checksums, including existing account 29. No production account/invitation/report or real email was created by this release. All 13 templates retain disabled email routing; the outbox is empty. The existing five-minute worker is restored with one task, batch 10 and zero retries; its observed normal run returned zero accepted/failed/uncertain/skipped. Existing IAM, runtime settings and secret references, including SMTP version 1, are preserved. Public-registration email and web-process PDF dispatch remain disabled.
 
-An older image whose manifest ends at 0025 rejects the new ledger. Use a migration-compatible fallback or forward fix; never remove the new ledger entry, reset credentials/auth generations, change a pending role/grant to make a link work, or clear device storage. Existing accounts stay as they are; this feature is onboarding, not password recovery for an existing Supervisor/admin.
+Retain compatible fallback `geo-backend-staff-invitations-fallback-20261023`, previous Hosting `e827de152baed084` in `rollback-staff-invite-20261023` until `2026-10-30T03:15:03.744746275Z`, and backup `br-dark-sky-a7cebfa2` until `2026-10-30T03:37:18Z`. Pause Scheduler, disable the worker and drain executions before fallback. The fallback retains schema 26, pending-role protections, existing Worker invitations and acceptance, Report corrections, extended template rendering/exports and frozen PDF outbox behavior, while disabling new staff-invitation creation. Old 0025-only images reject the ledger. Prefer a forward fix; never downgrade migrations, reset credentials/auth generations or invitation attempts, or clear device storage. Reverify retained resources before use.
+
+Existing accounts are not invitation/reset targets. Account 29 remains unchanged. [Verified release](evidence/staff-invitations-release-20261023/release.json).
 
 ## Invitation getting-started guide
 
@@ -26,4 +28,4 @@ The guide explains invitation acceptance, signing in, PWA installation, first su
 
 ## Validation coverage
 
-Focused coverage is in `backend/staff_invitation_test.py`, `backend/invitation_email_test.py`, `backend/migration_test.py`, `backend/postgres_invitation_rehearsal.py`, `backend/security_test.py`, `backend/smoke_test.py`, and `scripts/report-staff-simplicity-test.mjs`. These use disposable local data and mocked SMTP. Final validation outcomes are recorded separately after the complete gates finish.
+Focused coverage is in `backend/staff_invitation_test.py`, `backend/invitation_email_test.py`, `backend/migration_test.py`, `backend/postgres_invitation_rehearsal.py`, `backend/security_test.py`, `backend/smoke_test.py`, and `scripts/report-staff-simplicity-test.mjs`. These use disposable local data and mocked SMTP. Validation passed: 28 local backend suites, 75 real-backend browser workflows, 14 mocked invitation-email tests, build/lint, both source-CI jobs, 20 exact-image suites, 266 isolated provider HTTP checks, preview/live 88-file parity, 78 shell-asset and seven installer checks per origin, four waiting-update checks, current recovery and 40 strict hardening checks. The guide was rendered and its QR decoded locally. Historical failed test attempts and the maintenance-tag length rejection remain recorded; the rejected operation created no revision, and one corrected attempt passed. Existing six-hour recovery-history and bundle-size warnings remain. No physical-phone, real SMTP or authenticated production-fixture test is claimed.

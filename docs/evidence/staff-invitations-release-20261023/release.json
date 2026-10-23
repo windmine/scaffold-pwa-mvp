@@ -1,0 +1,119 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-23T03:58:33.014098+00:00",
+  "sourceCommit": "fc9e17b4f0814587a4cf0f471d607f361f109adc",
+  "sourceCiUrl": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39892790775",
+  "revision": "geo-backend-staff-invitations-20261023",
+  "hostingVersion": "35a126d8e9de6e5b",
+  "cacheVersion": "leader-field-191c9f7044f0",
+  "buildId": "9f014ee4-9b37-473e-a6a5-9158a8d3aad8",
+  "images": {
+    "candidate": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:afbe1609b5f50177e42cf7b450daa979cf379d7ed6d4aadd2d1d6c528defce88",
+    "fallback": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:ca913694ccc425e6bd114122662939f207d942ec5cbebd64975da4355aaca453"
+  },
+  "traffic": [
+    {
+      "percent": 100,
+      "revisionName": "geo-backend-staff-invitations-20261023"
+    }
+  ],
+  "scope": {
+    "staffRoleInvitations": true,
+    "existingRoleGrantAuthorityPreserved": true,
+    "pendingAccessBlockedUntilAcceptance": true,
+    "migration": "0026_staff_invitations",
+    "existingBusinessRowsPreserved": true,
+    "priorMigrationChecksumsPreserved": true,
+    "guideLibraryId": "libfile_860858c4be908191868c0ba124cc0dc7",
+    "guideQr": [
+      "https://geo-attendance-system-db9ca.web.app"
+    ],
+    "productionAccountsCreatedOrChanged": false,
+    "productionInvitationsCreated": false,
+    "realEmailsSentByRelease": false,
+    "iamChanged": false,
+    "secretReferencesChanged": false,
+    "publicRegistrationEmailEnabled": false,
+    "templateEmailRoutingEnabled": false
+  },
+  "maintenance": {
+    "started": "2026-10-23T03:31:56.252644+00:00",
+    "normalServiceRestored": "2026-10-23T03:43:04.040029+00:00"
+  },
+  "validation": {
+    "localBackendSuites": 28,
+    "browserWorkflows": 75,
+    "mockedEmailTests": 14,
+    "sourceCiBothJobsPassed": true,
+    "imageSuites": 20,
+    "providerHttpChecks": 266,
+    "frozenFiles": 88,
+    "strictHardeningChecks": 40,
+    "scheduledCounts": [
+      {
+        "accepted": 0,
+        "failed": 0,
+        "skipped": 0,
+        "uncertain": 0
+      }
+    ]
+  },
+  "rollback": {
+    "compatibleRevision": "geo-backend-staff-invitations-fallback-20261023",
+    "previousHosting": "e827de152baed084",
+    "hostingChannel": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/rollback-staff-invite-20261023",
+    "hostingExpiresAt": "2026-10-30T03:15:03.744746275Z",
+    "backupBranch": "br-dark-sky-a7cebfa2",
+    "backupExpiresAt": "2026-10-30T03:37:18Z",
+    "rules": "Pause/drain worker before fallback. Retain schema26 and pending role guards; no ledger downgrade, credential/auth-generation reset, invitation retry reset or device-storage clearing. Prefer forward fixes."
+  },
+  "cleanup": {
+    "status": "passed",
+    "atUtc": "2026-10-23T03:57:28.907812+00:00",
+    "jobs": [
+      "rf-staff-invite-backup-verified-20261023",
+      "rf-staff-invite-baseline-verified-20261023",
+      "rf-staff-invite-post-release-20261023",
+      "rf-staff-invite-pre-worker-verified-20261023",
+      "rf-staff-invite-production-20261023",
+      "rf-staff-invite-stage-fallback-20261023",
+      "rf-staff-invite-stage-migrated-20261023",
+      "rf-staff-invite-stage-provider-verified-20261023"
+    ],
+    "stageBranch": "br-restless-silence-a7sfabc1",
+    "retainedBackup": "br-dark-sky-a7cebfa2",
+    "deleted": [
+      "rf-staff-invite-backup-verified-20261023",
+      "rf-staff-invite-baseline-verified-20261023",
+      "rf-staff-invite-post-release-20261023",
+      "rf-staff-invite-pre-worker-verified-20261023",
+      "rf-staff-invite-production-20261023",
+      "rf-staff-invite-stage-fallback-20261023",
+      "rf-staff-invite-stage-migrated-20261023",
+      "rf-staff-invite-stage-provider-verified-20261023",
+      "br-restless-silence-a7sfabc1"
+    ],
+    "verifiedAtUtc": "2026-10-23T03:58:24.122738+00:00",
+    "absenceVerified": true,
+    "productionAndBackupPreserved": true
+  },
+  "warnings": [
+    "warn - Neon history retention is only 6 hours; choose a longer paid window or external logical backups before relying on it for production recovery"
+  ],
+  "limits": [
+    "No physical-phone or real SMTP test",
+    "No authenticated production fixture",
+    "Existing six-hour recovery-history and bundle-size warnings remain"
+  ],
+  "preservedFailures": [
+    "Restricted-runner readiness/hang; owned stalled processes stopped; checks passed outside sandbox",
+    "New role assertion expected409 but API correctly400; test corrected",
+    "Backend/native PDF assertions expected old migration25; updated26 and failed phases passed",
+    "Worker-sharing expected identity lacked role suffix; expectation corrected",
+    "Initial full browser 74/75: retained Daywork submit-feedback timeout cause unconfirmed; unchanged isolated check and full75 rerun passed",
+    "Guide test initially compared reissued link to old invitation expiry; corrected to latest stored invitation; 14 passed",
+    "First local fallback fixture collided with seeded Department1; switched synthetic fixture to9901; final proof passed",
+    "Initial maintenance deployment was rejected with HTTP400 because traffic tag plus service name exceeded46 characters. Revision absence and unchanged service verified before one corrected short-tag attempt; original journal and diagnosis retained.",
+    "Candidate tag length was then stopped by the new local guard before a request; candidate tag shortened and only candidate deployment resumed. Migration and fallback were not repeated."
+  ]
+}

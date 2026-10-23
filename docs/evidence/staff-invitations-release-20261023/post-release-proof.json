@@ -1,0 +1,353 @@
+{
+  "atUtc": "2026-10-23T03:56:21.407338+00:00",
+  "before": {
+    "businessTables": {
+      "attendancerecord": {
+        "columns": [
+          "id",
+          "worker_id",
+          "site_id",
+          "record_type",
+          "latitude",
+          "longitude",
+          "accuracy",
+          "distance_from_site_m",
+          "within_site_radius",
+          "note",
+          "photo_url",
+          "client_submission_id",
+          "status",
+          "created_at",
+          "department_id",
+          "entry_source",
+          "created_by_supervisor_id",
+          "deleted_at",
+          "deleted_by_supervisor_id",
+          "deletion_reason"
+        ],
+        "rows": 0,
+        "rowsSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "auditevent": {
+        "columns": [
+          "id",
+          "actor_id",
+          "action",
+          "entity_type",
+          "entity_id",
+          "summary",
+          "before_json",
+          "after_json",
+          "created_at",
+          "department_id"
+        ],
+        "rows": 237,
+        "rowsSha256": "81682464e1d6557be6843002c567783c18c415107bc7bcde51521fd0f28abedd"
+      },
+      "department": {
+        "columns": [
+          "id",
+          "name",
+          "status",
+          "created_at"
+        ],
+        "rows": 5,
+        "rowsSha256": "ef1408eea165bc07ede90203606b61d4f683d9a8ef283277e5668af35147ebb9"
+      },
+      "playing_with_neon": {
+        "columns": [
+          "id",
+          "name",
+          "value"
+        ],
+        "rows": 10,
+        "rowsSha256": "e0561139ab602a623127ce03f9cd6f3607911c79bf6fb67f66656cc2ec10fc48"
+      },
+      "registrationverification": {
+        "columns": [
+          "id",
+          "email",
+          "name",
+          "code_hash",
+          "token_hash",
+          "attempts",
+          "expires_at",
+          "verified_at",
+          "consumed_at",
+          "created_at"
+        ],
+        "rows": 0,
+        "rowsSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "reportpdfemail": {
+        "columns": [
+          "id",
+          "submission_id",
+          "department_id",
+          "recipient",
+          "template_email_version",
+          "snapshot_json",
+          "status",
+          "failure_code",
+          "message_id",
+          "attempted_at",
+          "accepted_at",
+          "created_at"
+        ],
+        "rows": 0,
+        "rowsSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "site": {
+        "columns": [
+          "id",
+          "name",
+          "address",
+          "latitude",
+          "longitude",
+          "allowed_radius_m",
+          "department_id"
+        ],
+        "rows": 4,
+        "rowsSha256": "0338b980b2bc47afc93cce6bc46b081f4bff02ae0596ca36ce4fd28ad2397b78"
+      },
+      "tasklog": {
+        "columns": [
+          "id",
+          "worker_id",
+          "site_id",
+          "description",
+          "work_date",
+          "hours_worked",
+          "safety_notes",
+          "photo_url",
+          "photo_urls",
+          "client_submission_id",
+          "status",
+          "created_at",
+          "department_id",
+          "deleted_at",
+          "deleted_by_supervisor_id",
+          "deletion_reason",
+          "entry_source",
+          "created_by_supervisor_id"
+        ],
+        "rows": 0,
+        "rowsSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "tasktemplate": {
+        "columns": [
+          "id",
+          "worker_id",
+          "site_id",
+          "name",
+          "description",
+          "hours_worked",
+          "safety_notes",
+          "created_at",
+          "department_id"
+        ],
+        "rows": 0,
+        "rowsSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "teamworklog": {
+        "columns": [
+          "id",
+          "department_id",
+          "leader_id",
+          "week_start",
+          "notes",
+          "client_submission_id",
+          "status",
+          "created_at",
+          "deleted_at",
+          "deleted_by_supervisor_id",
+          "deletion_reason"
+        ],
+        "rows": 0,
+        "rowsSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "teamworklogentry": {
+        "columns": [
+          "id",
+          "team_work_log_id",
+          "worker_id",
+          "site_id",
+          "work_date",
+          "start_time",
+          "end_time",
+          "break_minutes",
+          "hours_worked",
+          "work_description"
+        ],
+        "rows": 0,
+        "rowsSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "user": {
+        "columns": [
+          "id",
+          "email",
+          "name",
+          "password_hash",
+          "role",
+          "status",
+          "department_id",
+          "is_global_admin",
+          "dashboard_department_id",
+          "worker_class",
+          "password_setup_required",
+          "invitation_generation",
+          "password_recovery_generation",
+          "auth_generation",
+          "legacy_auth_allowed"
+        ],
+        "rows": 3,
+        "rowsSha256": "bcb95aea7fadd55194b49f430bf8566a312cd496738f3fa57ec751a214104353"
+      },
+      "workerinvitation": {
+        "columns": [
+          "id",
+          "worker_id",
+          "department_id",
+          "email",
+          "generation",
+          "token_hash",
+          "issued_by",
+          "expires_at",
+          "consumed_at",
+          "revoked_at",
+          "created_at",
+          "email_status",
+          "email_attempted_at",
+          "email_accepted_at"
+        ],
+        "rows": 0,
+        "rowsSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "workerpasswordrecovery": {
+        "columns": [
+          "id",
+          "worker_id",
+          "department_id",
+          "email",
+          "generation",
+          "token_hash",
+          "issued_by",
+          "expires_at",
+          "consumed_at",
+          "revoked_at",
+          "created_at"
+        ],
+        "rows": 0,
+        "rowsSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "workform": {
+        "columns": [
+          "id",
+          "name",
+          "description",
+          "fields_json",
+          "status",
+          "created_by",
+          "created_at",
+          "department_id",
+          "definition_version",
+          "template_purpose",
+          "pdf_email_enabled",
+          "pdf_email_recipient",
+          "pdf_email_version"
+        ],
+        "rows": 13,
+        "rowsSha256": "1478aa9291f90ac4c953866fde4a5c8d9718f2401b58c04943f94c47a2a15df8"
+      },
+      "workformsubmission": {
+        "columns": [
+          "id",
+          "form_id",
+          "worker_id",
+          "site_id",
+          "work_date",
+          "answers_json",
+          "photo_urls",
+          "client_submission_id",
+          "status",
+          "created_at",
+          "photo_metadata",
+          "department_id",
+          "deleted_at",
+          "deleted_by_supervisor_id",
+          "deletion_reason",
+          "form_definition_version",
+          "definition_snapshot_json",
+          "workflow_status",
+          "supervisor_note",
+          "reviewing_supervisor_id",
+          "review_started_at",
+          "resolved_at",
+          "submission_purpose",
+          "revision",
+          "edited_at",
+          "edited_by_supervisor_id"
+        ],
+        "rows": 1,
+        "rowsSha256": "3a5a2e5262c839f429850add47c7a724fa9b52a3caa61ffff395fe3f7c1d6e23"
+      },
+      "workformsubmission_purpose_correction": {
+        "columns": [
+          "submission_id",
+          "migration_version",
+          "previous_purpose",
+          "corrected_purpose",
+          "evidence_kind",
+          "evidence_sha256",
+          "corrected_at"
+        ],
+        "rows": 0,
+        "rowsSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "configuredTemplateRows": 0,
+    "invitationColumns": [
+      "invited_is_global_admin",
+      "invited_role"
+    ],
+    "migrationChecksums": {
+      "0001_initial_schema": "ca680312c20261896afd57ee8e3fa77fabd7e43547546e8b3234cd00d96a0598",
+      "0002_work_form_photo_metadata": "53beedb98b3f626671de343613d48f5c9692c952c21264b2141f3ef2b6e2acaf",
+      "0003_departments": "efaf3cbc645cf72c2b89439ee2f2936c70084bcc4b6d299cb17dca0030535aec",
+      "0004_registration_verification": "cc6b9a22bee6c96b319e00e38c0ca508b312e53bd6464f22d5663d451b5b9e5e",
+      "0005_dashboard_department_preference": "16a27e1990ec07b60b5c2b7dc31f56b1a32af5447e3e7d4f41e2cbf970d7f9ca",
+      "0006_manual_attendance_entries": "f843a3ead5678a779e0affed06b8695edcf0e2eb801518d5906c8fcdc33f9608",
+      "0007_record_rubbish_bin": "238a66040a3ce4873b2c51838b907de5f91bb6522e40d7ab4a277f36eeb79a50",
+      "0008_manual_task_logs": "760e26aab15969ac8e2784e40c348fa60410e6d8e2201be2f4ef12c56f2387e3",
+      "0009_worker_classes_and_team_logs": "ff685e351f255bb1c049d1ec8e1f6bdb1629c7a9c7de522c6bb6ddc078ba463e",
+      "0010_pdf_daywork_form_template": "d8c51b0a395a931bd03bebf8eec78ae035edb5d91d5d34e4d9592a81d82e106c",
+      "0011_multi_team_daywork_form": "408df2694d00aa0f71086bf42874d04d6e6c68bba3786f4f77500f681777ae7b",
+      "0012_form_and_team_log_rubbish_bin": "3ff6be84f747b9b65284333ce1014c24eaad1d1f984ae9f97460218a4f0a7d4a",
+      "0013_daywork_team_break_options": "a4be942d39791da59cc7ef6594a0f63fcfb097b4756db7c42cca88d5c4afcb35",
+      "0014_client_submission_unique_indexes": "8057dc963d8169d6efda2d6f7b16b4bd34d06f4026fbfa9f4bbcb4f520300fea",
+      "0015_work_form_definition_snapshots": "3f2c89faa22b8c8bc6b5b9269f56c2c010383b04c504d23e598b7ac95a472e20",
+      "0016_review_queue_indexes": "1f08daac75297fdcfe3871ba261834b14707a426cc1253920e5cc4c2bdf0f4a7",
+      "0017_global_admin_supervisor_invariant": "3f5cfdc6cf1fb0a652d302a2cc4257d449816a5266c58790777b279311855424",
+      "0018_report_review_workflow": "5ebdbf80b5a6e7fb5e984125eb888d3b5daf02b949051479458c98663f9e0785",
+      "0019_report_daywork_purpose": "51324596555f46d6b12cf3cb98ce6c6e5e3d33bcaf1c62ce8ef9220b1adf6487",
+      "0020_missing_snapshot_daywork_correction": "42039acf7600a876ef1ef5d1f65dd7bf7df47a8749158b453fb54ff3029e5112",
+      "0021_worker_invitations": "313800ca901d913e7ba1ec09c586e671607f5bdfc1643322a512c6eb4bb769ad",
+      "0022_worker_password_recovery": "178f7bcbdf92ab060d433d37b62d77dafc62590a675edb91fe50d6d02f11cfb8",
+      "0023_worker_invitation_email": "140c97cf7224a380b66c3a4edc588399d1fdfb461e0a206f04df66969ad857c8",
+      "0024_report_pdf_email": "6450a46e6dc735164d3994decb53d5b15bdeec42aae850420227d3d508711b8f",
+      "0025_report_corrections": "308858c2decae562f256723625bda32a5743d7acd8e5af81ddc4a3f0a7281d7b",
+      "0026_staff_invitations": "167c58cf7218a7ae166bcfab3d907f042febfe0bc1b9460a526063a407eb207b"
+    },
+    "migrationCount": 26,
+    "migrationHead": "0026_staff_invitations",
+    "nonWorkerInvitationRows": 0,
+    "outboxRows": 0,
+    "outboxStatuses": {},
+    "pendingOutboxRows": 0,
+    "transactionReadOnly": true
+  },
+  "mode": "inventory",
+  "status": "passed",
+  "execution": "rf-staff-invite-post-release-20261023-nzvmv",
+  "executionCompletedAtUtc": "2026-10-23T03:56:23.854939Z"
+}

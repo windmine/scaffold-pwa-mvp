@@ -1,0 +1,8 @@
+{
+  "exception": "ModuleNotFoundError",
+  "importOnlyNoApiRequests": true,
+  "missingModule": "pypdf",
+  "originalImageUnchanged": true,
+  "smokeSourceSha256": "70450317cd9d08c6b785db83f933b880ce6ae543ac7be4e9cc0947fbe3faf701",
+  "status": "confirmed"
+}

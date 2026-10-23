@@ -1,11 +1,16 @@
 # ReportFlow
 
-## Local staff invitation extension (not deployed)
+## Current staff invitation release
 
-Supervisor/global-admin invitations are prepared locally with an explicit invitation/direct-creation choice and unchanged role/Department grant authority. Sending remains a separate action; pending accounts cannot sign in. Release needs additive migration `0026_staff_invitations` and compatible backend/worker before Hosting, plus separate release approval. Existing accounts and SMTP/IAM settings are unchanged. See [behavior and release boundaries](docs/staff-invitations.md).
+Source `fc9e17b4f0814587a4cf0f471d607f361f109adc` is live as backend `geo-backend-staff-invitations-20261023` at 100% without tags and exact Hosting `35a126d8e9de6e5b`, cache `leader-field-191c9f7044f0`. Additive `0026_staff_invitations` and its compatible backend/worker preceded Hosting. Worker, Supervisor and authorized global-admin invitations preserve existing role/Department grant authority. Pending accounts cannot sign in before single-use expiring password setup. Creating an invitation and sending its email are separate explicit actions; immediate account creation is clearly labelled. Every invitation email includes the public Getting Started PDF, whose QR contains only the canonical app URL. The private activation link remains separately in the email body. SMTP acceptance is not mailbox delivery.
 
+The paused backup/migration and final inventory preserve all existing business fingerprints and all 25 prior migration checksums, including existing account 29. No production account/invitation/report or real email was created by this release. All 13 templates retain disabled email routing; the outbox is empty. The existing five-minute worker is restored with one task, batch 10 and zero retries; its observed normal run returned zero accepted/failed/uncertain/skipped. Existing IAM, runtime settings and secret references, including SMTP version 1, are preserved. Public-registration email and web-process PDF dispatch remain disabled.
 
-## Current source-template support release
+Validation passed: 28 local backend suites, 75 real-backend browser workflows, 14 mocked invitation-email tests, build/lint, both source-CI jobs, 20 exact-image suites, 266 isolated provider HTTP checks, preview/live 88-file parity, 78 shell-asset and seven installer checks per origin, four waiting-update checks, current recovery and 40 strict hardening checks. The guide was rendered and its QR decoded locally. Historical failed test attempts and the maintenance-tag length rejection remain recorded; the rejected operation created no revision, and one corrected attempt passed. Existing six-hour recovery-history and bundle-size warnings remain. No physical-phone, real SMTP or authenticated production-fixture test is claimed.
+
+[Behavior](docs/staff-invitations.md). [Release evidence](docs/evidence/staff-invitations-release-20261023/release.json).
+
+## Earlier source-template support release
 
 Report Templates support up to 128 entries, section instruction text, section-associated photo fields and explicit location capture. Source `f82d5860202c13df0967535b2f1d48d66019ab98` is live as backend `geo-backend-templates-20261023` and exact Hosting `e827de152baed084` (cache `leader-field-33552626f0ad`). The compatible backend and existing PDF worker preceded Hosting. No migration or app write pause was needed; existing records, all 25 migration checksums, runtime settings, IAM and secret references are preserved. The restored worker's first normal run found no work. [Release evidence](docs/evidence/source-templates-release-20261023/release.json).
 

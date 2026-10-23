@@ -1,0 +1,40 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-23T03:37:22.228463+00:00",
+  "branch": {
+    "id": "br-dark-sky-a7cebfa2",
+    "project_id": "plain-smoke-06194407",
+    "parent_id": "br-snowy-tree-a7hfuph6",
+    "parent_lsn": "0/6E5F0D8",
+    "name": "reportflow-staff-invitations-backup-20261023",
+    "slug": "br-dark-sky-a7cebfa2",
+    "project_slug": "plain-smoke-06194407",
+    "current_state": "init",
+    "pending_state": "ready",
+    "state_changed_at": "2026-10-23T03:37:21Z",
+    "creation_source": "console",
+    "primary": false,
+    "default": false,
+    "protected": false,
+    "cpu_used_sec": 0,
+    "compute_time_seconds": 0,
+    "active_time_seconds": 0,
+    "written_data_bytes": 0,
+    "data_transfer_bytes": 0,
+    "created_at": "2026-10-23T03:37:21Z",
+    "updated_at": "2026-10-23T03:37:21Z",
+    "ttl_interval_seconds": 604797,
+    "expires_at": "2026-10-30T03:37:18Z",
+    "created_by": {
+      "name": "",
+      "image": "https://avatars.githubusercontent.com/u/126423331?v=4"
+    },
+    "init_source": "parent-data"
+  },
+  "readOnlyMetadataVerified": true,
+  "restorabilityProof": "neon-premigration.json",
+  "verificationEndpointReadOnly": true,
+  "noDataRestorePerformed": true,
+  "inventoryVerifiedAtUtc": "2026-10-23T03:38:33.325365+00:00",
+  "backupMatchesProduction": true
+}

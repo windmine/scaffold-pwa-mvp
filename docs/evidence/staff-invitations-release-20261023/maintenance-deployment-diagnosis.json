@@ -1,0 +1,10 @@
+{
+  "atUtc": "2026-10-23T03:29:50.070373+00:00",
+  "outcome": "rejected_before_revision_creation",
+  "reason": "traffic_tag_service_combined_length_exceeds_46",
+  "providerStatus": 400,
+  "providerMessage": "spec.traffic.tag: traffic tag 'staff-invitations-maintenance-20261023' and service name 'geo-backend' together are too long. Combined traffic tag and service name cannot exceed 46 characters.",
+  "serviceUnchangedProof": "maintenance-unconfirmed-observation.json",
+  "newTag": "staff-invite-maint-20261023",
+  "retryPolicy": "One corrected attempt after confirmed rejection; original journal retained."
+}

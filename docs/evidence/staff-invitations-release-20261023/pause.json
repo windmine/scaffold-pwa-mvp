@@ -1,0 +1,56 @@
+{
+  "status": "passed",
+  "maintenanceConfirmedAtUtc": "2026-10-23T03:31:56.252644+00:00",
+  "drainUntilUtc": "2026-10-23T03:36:56.252644+00:00",
+  "drainSeconds": 300,
+  "checks": [
+    {
+      "origin": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+      "path": "/health",
+      "status": 200,
+      "body": {
+        "status": "maintenance"
+      }
+    },
+    {
+      "origin": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+      "path": "/health/ready",
+      "status": 503,
+      "body": {
+        "detail": "Service update in progress. Please keep your draft and try again shortly."
+      }
+    },
+    {
+      "origin": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+      "path": "/auth/me",
+      "status": 503,
+      "body": {
+        "detail": "Service update in progress. Please keep your draft and try again shortly."
+      }
+    },
+    {
+      "origin": "https://geo-attendance-system-db9ca.web.app/api",
+      "path": "/health",
+      "status": 200,
+      "body": {
+        "status": "maintenance"
+      }
+    },
+    {
+      "origin": "https://geo-attendance-system-db9ca.web.app/api",
+      "path": "/health/ready",
+      "status": 503,
+      "body": {
+        "detail": "Service update in progress. Please keep your draft and try again shortly."
+      }
+    },
+    {
+      "origin": "https://geo-attendance-system-db9ca.web.app/api",
+      "path": "/auth/me",
+      "status": 503,
+      "body": {
+        "detail": "Service update in progress. Please keep your draft and try again shortly."
+      }
+    }
+  ]
+}

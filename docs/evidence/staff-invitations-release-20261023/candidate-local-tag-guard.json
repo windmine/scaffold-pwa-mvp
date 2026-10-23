@@ -1,0 +1,7 @@
+{
+  "atUtc": "2026-10-23T03:41:22.759067+00:00",
+  "outcome": "local_validation_stopped_before_request",
+  "reason": "Candidate tag also exceeded combined46 limit; local guard prevented provider call",
+  "correction": "staff-invite-candidate-20261023",
+  "migrationReexecuted": false
+}

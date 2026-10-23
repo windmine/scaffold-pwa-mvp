@@ -1,0 +1,10 @@
+{
+  "requestedAtUtc": "2026-10-23T03:06:54.621813+00:00",
+  "sourceCommit": "fc9e17b4f0814587a4cf0f471d607f361f109adc",
+  "directory": "C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\output\\browser-checks\\staff-invitations-release\\build-vbw5duqx",
+  "images": {
+    "candidate": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:staff-invitations-candidate-20261023-fc9e17b",
+    "fallback": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:staff-invitations-fallback-20261023-fc9e17b"
+  },
+  "status": "requested"
+}
