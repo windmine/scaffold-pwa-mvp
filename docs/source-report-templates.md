@@ -1,16 +1,16 @@
 # Source report templates
 
-Support is deployed from source `f82d5860202c13df0967535b2f1d48d66019ab98` as backend `geo-backend-templates-20261023` and Hosting `e827de152baed084`. [Release evidence](evidence/source-templates-release-20261023/release.json). The five non-PPE templates have not been published: Ken Hu is verified active in Mutual, but this executor has no authenticated ReportFlow session. Use that normal authorized app workflow; do not impersonate a user or bypass it with direct database writes. PPE remains draft and emailing remains off.
+Support is deployed from source `f82d5860202c13df0967535b2f1d48d66019ab98` as backend `geo-backend-templates-20261023` and Hosting `e827de152baed084`. [Release evidence](evidence/source-templates-release-20261023/release.json). The user signed in as Ken Hu (active Supervisor 28, home Department Mutual 2), and the normal Report Templates editor published the five non-PPE definitions once each. Authenticated rereads verified all fields and default-off email settings with no recipient. No Reports or emails were created; no credentials were exported. The temporary browser was closed. [Publication evidence](evidence/source-templates-release-20261023/template-import.json). PPE remains a local draft.
 
 The blank definitions in `templates/mutual-source-templates.json` represent six distinct forms from eight supplied PDF examples. Their intended destination is the existing Mutual Department (ID 2). They contain no completed answers, photographs, signatures, locations or example personal details. Requiredness and full choice menus cannot be inferred from completed PDFs, so imported answer fields are optional and ambiguous results remain blank text. ReportFlow's Report Date remains required.
 
 | Template | Entries including headings | Publication |
 | --- | ---: | --- |
-| FM-15 Site Health Safety & Environment Audit | 117 | Pending normal authorized Mutual workflow |
-| Fall Arrest Lanyard / harness examination | 26 | Pending normal authorized Mutual workflow |
-| QA – James Hardies Axon | 21 | Pending normal authorized Mutual workflow |
-| QA SVS Ecoply+Cavity | 26 | Pending normal authorized Mutual workflow |
-| Excavator Pre-start Checklist | 24 | Pending normal authorized Mutual workflow |
+| FM-15 Site Health Safety & Environment Audit | 117 | Active in Mutual, ID 27; email off |
+| Fall Arrest Lanyard / harness examination | 26 | Active in Mutual, ID 28; email off |
+| QA – James Hardies Axon | 21 | Active in Mutual, ID 29; email off |
+| QA SVS Ecoply+Cavity | 26 | Active in Mutual, ID 30; email off |
+| Excavator Pre-start Checklist | 24 | Active in Mutual, ID 31; email off |
 | PPE ISSUE/ TOOL DEDUCTION FORM | 26 | Local draft only |
 
 PPE retains the supplied incomplete deduction wording without repairing it or asserting legal validity. Equipment receipt and deduction authority have separate optional signatures. Publishing this form awaits the owner's complete approved wording. Every definition has automatic email disabled and no recipient.

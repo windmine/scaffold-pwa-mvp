@@ -1,0 +1,105 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-23T00:11:37.963Z",
+  "sourceCommit": "f82d5860202c13df0967535b2f1d48d66019ab98",
+  "sourceCatalogSha256": "bd1c10381e1fab62a92c9e3c91dda7236d512818366b30d6f1a099926e039109",
+  "actor": {
+    "id": 28,
+    "name": "Ken Hu",
+    "role": "supervisor",
+    "department_id": 2,
+    "status": "active"
+  },
+  "departmentId": 2,
+  "results": [
+    {
+      "key": "fm15",
+      "id": 27,
+      "name": "FM-15 Site Health Safety & Environment Audit",
+      "fields": 117,
+      "created_by": 28,
+      "outcome": "created_and_verified",
+      "emailEnabled": false
+    },
+    {
+      "key": "harness",
+      "id": 28,
+      "name": "Report of Thorough Examination -Fall Arrest Lanyard / harness",
+      "fields": 26,
+      "created_by": 28,
+      "outcome": "created_and_verified",
+      "emailEnabled": false
+    },
+    {
+      "key": "axon",
+      "id": 29,
+      "name": "QA – James Hardies Axon",
+      "fields": 21,
+      "created_by": 28,
+      "outcome": "created_and_verified",
+      "emailEnabled": false
+    },
+    {
+      "key": "ecoply",
+      "id": 30,
+      "name": "QA SVS Ecoply+Cavity",
+      "fields": 26,
+      "created_by": 28,
+      "outcome": "created_and_verified",
+      "emailEnabled": false
+    },
+    {
+      "key": "excavator",
+      "id": 31,
+      "name": "Excavator Pre-start Checklist",
+      "fields": 24,
+      "created_by": 28,
+      "outcome": "created_and_verified",
+      "emailEnabled": false
+    }
+  ],
+  "createdCount": 5,
+  "ppePublished": false,
+  "emailRoutingEnabled": false,
+  "reportsCreated": false,
+  "credentialsExported": false,
+  "existingTemplatesPreserved": true,
+  "workflow": "User signed in manually to a fresh temporary Chromium window; normal Report Templates UI, with existing app cookie/CSRF handling.",
+  "verification": [
+    "Authenticated active Supervisor 28 in home Department 2 before and between creates.",
+    "Case-insensitive duplicate-name check before each create.",
+    "One POST per template, successful response and subsequent authenticated reread.",
+    "Name, description, ordered field IDs/types/labels/options/requiredness/static descriptions match the committed definitions.",
+    "Each template is active, purpose report, created_by 28; PDF email disabled and recipient null.",
+    "Existing Mutual template IDs retained; PPE publication count unchanged."
+  ],
+  "browserCleanup": "Temporary browser context and browser closed after all five durable records were verified; no credentials exported.",
+  "deploymentChangedByImport": false,
+  "releaseRecordCi": {
+    "conclusion": "success",
+    "createdAt": "2026-10-22T23:59:11Z",
+    "databaseId": 39875282308,
+    "headSha": "014d474bc78b7f776b707224df528b31bce292ce",
+    "jobs": [
+      {
+        "completedAt": "2026-10-23T00:09:39Z",
+        "conclusion": "success",
+        "name": "Frontend, audit and mobile workflows",
+        "startedAt": "2026-10-22T23:59:14Z",
+        "status": "completed",
+        "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39875282308/job/120159277066"
+      },
+      {
+        "completedAt": "2026-10-23T00:02:37Z",
+        "conclusion": "success",
+        "name": "Backend boundaries and native PostgreSQL volume",
+        "startedAt": "2026-10-22T23:59:14Z",
+        "status": "completed",
+        "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39875282308/job/120159277821"
+      }
+    ],
+    "status": "completed",
+    "updatedAt": "2026-10-23T00:09:40Z",
+    "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/39875282308"
+  }
+}
