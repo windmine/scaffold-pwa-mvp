@@ -107,6 +107,19 @@ try {
   await mkdir(output, { recursive: true });
   {
     const f = await fixture(browser);
+    await f.page.evaluate(() => { window.closeEditor('supervisor', { reason: 'cancel' }); window.openReport({ siteId: null, siteName: 'Typed before', manualSiteName: 'Typed before' }); });
+    assert.equal(await f.page.locator('#editReportSite').inputValue(), '__manual__');
+    assert.equal(await f.page.locator('#editReportManualSite').inputValue(), 'Typed before');
+    await f.page.locator('#editReportManualSite').fill('Corrected typed site');
+    await f.page.getByRole('button', { name: 'Save Report', exact: true }).click();
+    await f.page.waitForFunction(() => window.saved === 1);
+    assert.equal(f.patches[0].body.manual_site_name, 'Corrected typed site');
+    assert.equal(f.patches[0].body.site_id, null);
+    assert.equal(f.patches[0].body.client_template_features, 3);
+    await f.close(); console.log(`ok ${++count} - manual site correction restores and sends the label with no Site ID`);
+  }
+  {
+    const f = await fixture(browser);
     assert.equal(await f.page.locator('img[data-existing-signature]').count(), 3);
     await f.page.locator('#reportCorrectionField_notes').fill('Corrected answer');
     await f.page.locator('#editReportDate').fill('2026-10-23');

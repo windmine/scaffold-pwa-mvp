@@ -15,7 +15,7 @@ const markup = `<!doctype html><html lang="en" data-theme="light"><head>
   <div id="workFormEditor" class="form-grid">
     <label>Report Template<select id="workFormSelect"></select></label>
     <div class="report-context-fields form-grid"><label>Report Date<input id="workFormDate" type="date"></label>
-    <label>Site (optional)<select id="workFormSite"><option value="">Unassigned site</option><option value="9">Harbour Site</option></select></label></div>
+    <label>Site (optional)<select id="workFormSite"><option value="">Unassigned site</option><option value="9">Harbour Site</option><option value="__manual__">Type a site name</option></select></label><label class="report-manual-site" hidden>Site name<input id="workFormManualSite" type="text" maxlength="200"><small>Saved on this Report only; does not add a shared site.</small></label></div>
     <div id="workFormFields" class="dynamic-fields"></div>
     <label class="report-photo-field">Photos<input id="workFormPhotos" type="file" multiple>
       <small>JPEG, PNG, or WebP; maximum 5 MB each.</small><small id="workFormPhotoLimit"></small></label>
@@ -70,12 +70,13 @@ async function fixture(browser, options = {}) {
       traffic.uploads.push(route.request().postDataBuffer());
       return route.fulfill({ json: { url: `/uploads/review-evidence-${traffic.uploads.length}.png` } });
     }
-    if (url.pathname === '/api/form-submissions') {
+    if (['/api/form-submissions', '/api/supervisor/my-report-submissions'].includes(url.pathname)) {
       const body = route.request().postDataJSON();
       traffic.posts.push(body);
+      traffic.lastPath = url.pathname;
       if (traffic.hold) await new Promise((resolve) => { traffic.release = resolve; });
       return route.fulfill({ json: { id: 701, worker_id: 12, form_id: 51, status: 'submitted', submission_purpose: 'report',
-        photo_urls: body.photo_urls, answers: body.answers, work_date: body.work_date } });
+        photo_urls: body.photo_urls, answers: body.answers, work_date: body.work_date, site_id: body.site_id, manual_site_name: body.manual_site_name, site_name: body.manual_site_name } });
     }
     if (!/^\/assets\/js\/[a-z\d-]+\.js$/.test(url.pathname)) {
       unexpected.push(`${route.request().method()} ${url.pathname}`);
@@ -103,12 +104,12 @@ async function fixture(browser, options = {}) {
   const page = await context.newPage();
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(origin);
-  await page.evaluate(async ({ selectedFields, requireSignature }) => {
+  const boot = async ({ selectedFields, requireSignature, role, restored }) => {
     const { createWorkerFormModule } = await import('/assets/js/worker-form.js');
     const { createPhotoViewer } = await import('/assets/js/photo-viewer.js');
     const api = await import('/assets/js/api-client.js');
     const db = await import('/assets/js/db.js');
-    const user = { id: 12, departmentId: 3, role: 'worker', status: 'active', fullName: 'Test Worker' };
+    const user = { id: 12, departmentId: 3, role: role || 'worker', status: 'active', fullName: 'Test Author' };
     api.saveSession(user);
     const els = Object.fromEntries([...document.querySelectorAll('[id]')].map((element) => [element.id, element]));
     const state = { user, workForms: [], workFormPhotoFiles: [], workFormPhotoBlobs: [], workFormPhotoDataUrls: [], workFormPhotoMetadata: [] };
@@ -137,8 +138,10 @@ async function fixture(browser, options = {}) {
     await form.refreshWorkForms();
     els.workFormSelect.value = '51';
     await form.renderSelectedWorkForm();
-    els.workFormDate.value = '2026-09-29';
-    els.workFormSite.value = '9';
+    if (!restored) {
+      els.workFormDate.value = '2026-09-29';
+      els.workFormSite.value = '9';
+    }
     window.addPhoto = async () => {
       const canvas = document.createElement('canvas');
       canvas.width = 1024; canvas.height = 768;
@@ -163,8 +166,12 @@ async function fixture(browser, options = {}) {
       // Most test groups use complete evidence; validation gets its own blank-pad group.
       window.sign();
     }
-  }, { selectedFields: fields, requireSignature: Boolean(options.blankSignature) });
-  return { context, page, traffic, async close() {
+  };
+  const bootOptions = { selectedFields: fields, requireSignature: Boolean(options.blankSignature), role: options.role };
+  await page.evaluate(boot, bootOptions);
+  return { context, page, traffic,
+    async reload() { await page.reload(); await page.evaluate(boot, { ...bootOptions, restored: true }); },
+    async close() {
     traffic.release?.();
     await context.close();
     assert.deepEqual(errors, [], 'No unhandled browser errors');
@@ -205,6 +212,50 @@ async function assertUnsubmitted(fixtureToCheck) {
 const browser = await chromium.launch({ headless: true });
 try {
   await mkdir(output, { recursive: true });
+  for (const role of ['worker', 'supervisor']) {
+    const f = await fixture(browser, { role });
+    try {
+      if (role === 'supervisor') await f.page.setViewportSize({ width: 1280, height: 900 });
+      await fill(f.page);
+      await f.page.locator('#workFormSite').focus();
+      await f.page.locator('#workFormSite').press('End');
+      await f.page.locator('#workFormSite').press('Enter');
+      // Native keyboard selection must reveal and focus the associated text input.
+      await f.page.locator('#workFormManualSite').waitFor({ state: 'visible' });
+      await f.page.locator('#workFormManualSite').fill('  Synthetic manual site <West>  ');
+      await f.page.evaluate(() => window.fixture.form.flushPendingDrafts());
+      await f.reload();
+      assert.equal(await f.page.locator('#workFormSite').inputValue(), '__manual__');
+      assert.equal(await f.page.locator('#workFormManualSite').inputValue(), '  Synthetic manual site <West>  ');
+      assert.equal(await f.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await f.page.screenshot({ path: path.join(output, `manual-site-${role}.png`), fullPage: true });
+      await review(f.page);
+      assert.ok((await f.page.locator('#workFormReviewSummary').textContent()).includes('Synthetic manual site <West>'));
+      await f.page.locator('#workFormReviewBackButton').click();
+      await f.context.setOffline(true);
+      await f.page.waitForFunction(() => !navigator.onLine);
+      await review(f.page);
+      await f.page.locator('#confirmWorkFormSubmitButton').click();
+      await f.page.waitForFunction(async () => (await window.fixture.db.getAll('queue')).length === 1);
+      const saved = await storage(f.page);
+      assert.equal(saved.records[0].manualSiteName, 'Synthetic manual site <West>');
+      assert.equal(saved.records[0].siteId, null);
+      assert.equal(saved.records[0].siteName, 'Synthetic manual site <West>');
+      assert.equal(f.traffic.posts.length, 0);
+      await f.context.setOffline(false);
+      await f.page.waitForFunction(() => navigator.onLine);
+      await f.page.evaluate(async () => (await import('/assets/js/offline-submissions.js')).syncQueuedSubmissions());
+      assert.equal(f.traffic.posts.length, 1);
+      assert.equal(f.traffic.posts[0].manual_site_name, 'Synthetic manual site <West>');
+      assert.equal(f.traffic.posts[0].site_id, null);
+      assert.equal(f.traffic.posts[0].client_template_features, 3, 'Older APIs reject manual Site payloads instead of ignoring them');
+      assert.equal(f.traffic.lastPath, role === 'worker' ? '/api/form-submissions' : '/api/supervisor/my-report-submissions');
+      await f.page.evaluate(async () => (await import('/assets/js/offline-submissions.js')).syncQueuedSubmissions());
+      assert.equal(f.traffic.posts.length, 1);
+      assert.equal((await storage(f.page)).queue.length, 0);
+      console.log(`ok - ${role} manual Site keyboard entry, draft reload, safe review and offline replay without duplicate submission`);
+    } finally { await f.close(); }
+  }
   const validation = await fixture(browser, { blankSignature: true });
   try {
     await validation.page.locator('#workFormDate').fill('');

@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "checks": [
+    "schema27 stored labels readable",
+    "new manual submissions and corrections fail closed",
+    "idempotent replay, old-client corrections and PDF labels preserved",
+    "linked and blank Site submissions retained without email"
+  ],
+  "networkAllowed": false,
+  "smtpAttempted": false,
+  "atUtc": "2026-10-26T21:37:40.864887+00:00",
+  "sourceCommit": "working-tree",
+  "overlay": {
+    "path": "backend/app/use_cases/common.py",
+    "beforeSha256": "91aac98cbb17253ceac0b37c6acafcbd8a64d3a35879c7849935a9467c76debc",
+    "afterSha256": "42e5750d46436834f1d0e57a8d4e718ee17e4a5b55ea9c9a146a845d554adfae",
+    "behavior": "Block nonempty manual Site writes, preserve schema27, stored labels, existing-ID/no-Site submissions, replay, corrections without a supplied manual name, exports and frozen outbox",
+    "requiredRuntime": "Pause Scheduler, disable and drain worker before fallback; preserve ledger, attempts and device storage"
+  },
+  "verifierSha256": "02eec983a9774d1cdafcca81d138cd0c833c36cf1131bb59b9770e37cc1d6e56",
+  "cloudActions": false,
+  "cleanupComplete": true
+}

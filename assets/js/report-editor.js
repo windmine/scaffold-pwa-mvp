@@ -1,3 +1,4 @@
+import { MANUAL_SITE, readReportSite, restoreReportSite, syncReportSiteInput, validateReportSite } from './report-site.js';
 import { updateSupervisorFormSubmission, uploadPhoto } from './api-client.js';
 import { collectWorkFormAnswers, populateWorkFormAnswers, renderWorkFormFields } from './work-form-fields.js';
 import { dataUrlToBlob, photoMetadataFromFile, uploadImageValidationError } from './utils.js';
@@ -78,7 +79,9 @@ export function createReportEditor({ state, showEditPanel, closeEditPanel, captu
       document.getElementById(error.fieldId)?.focus();
       return;
     }
-    const site = entry.container.querySelector('#editReportSite').value;
+    const site = readReportSite(entry.container.querySelector('#editReportSite'), entry.container.querySelector('#editReportManualSite'));
+    const siteError = validateReportSite(site);
+    if (siteError) return message(entry, siteError, true);
     entry.busy = true;
     const controls = [...entry.container.querySelectorAll('input, textarea, select, button')];
     const disabled = controls.map((control) => control.disabled);
@@ -94,7 +97,8 @@ export function createReportEditor({ state, showEditPanel, closeEditPanel, captu
       if (!current(entry)) return;
       await updateSupervisorFormSubmission(entry.record.backendRecordId, {
         expected_revision: entry.record.revision,
-        site_id: site ? Number(site) : null, work_date: date, answers,
+        site_id: site.siteId ? Number(site.siteId) : null,
+        manual_site_name: site.manualSiteName.trim() || null, work_date: date, answers,
         photo_urls: entry.photos.map((photo) => photo.url),
         photo_metadata: entry.photos.map((photo) => ({ ...photo.metadata, url: photo.url }))
       }, entry.scope);
@@ -171,11 +175,12 @@ export function createReportEditor({ state, showEditPanel, closeEditPanel, captu
     if (record.siteId && !choices.some((site) => String(site.value) === String(record.siteId))) {
       choices.push({ value: record.siteId, label: record.siteName || 'Current site' });
     }
+    choices.push({ value: MANUAL_SITE, label: 'Type a site name' });
     const opened = showEditPanel(`Edit Report: ${record.formName || 'Report'}`, [
       { type: 'custom', html: '<p>Changes update this Report for its author and Supervisors. Previously emailed PDFs keep the original submission.</p>' },
       { id: 'editReportDate', label: 'Report Date', type: 'date', value: record.workDate },
       { id: 'editReportSite', label: 'Site', type: 'select', value: record.siteId || '', options: choices },
-      { type: 'custom', html: `<div id="reportEditAnswers" class="dynamic-fields"></div>
+      { type: 'custom', html: `<label hidden>Site name<input id="editReportManualSite" type="text" maxlength="200" autocomplete="off" aria-describedby="editReportManualSiteHelp"><small id="editReportManualSiteHelp">Saved on this Report only; does not add a shared site.</small></label><div id="reportEditAnswers" class="dynamic-fields"></div>
         <section class="report-edit-evidence"><h3>Photos</h3><p data-report-edit-photo-count></p>
         <div class="report-edit-photos" data-report-edit-photos></div>
         <label>Add photos<input data-report-edit-add type="file" multiple accept="image/jpeg,image/png,image/webp"></label>
@@ -194,6 +199,13 @@ export function createReportEditor({ state, showEditPanel, closeEditPanel, captu
     if (opened === false) { dispose(); return; }
     entry.container = document.getElementById('reportEditAnswers')?.closest('form');
     entry.feedback = entry.container.querySelector('[data-report-edit-feedback]');
+    const siteSelect = entry.container.querySelector('#editReportSite');
+    const siteInput = entry.container.querySelector('#editReportManualSite');
+    restoreReportSite(siteSelect, siteInput, record);
+    siteSelect.addEventListener('change', () => {
+      syncReportSiteInput(siteSelect, siteInput);
+      if (siteSelect.value === MANUAL_SITE) siteInput.focus();
+    });
     entry.container.querySelector('#editReportDate').required = true;
     entry.fieldOptions = { idPrefix: 'reportCorrectionField', container: document.getElementById('reportEditAnswers'),
       preserveUploadedSignatures: true, preserveEmptyRepeats: true, onPhotoChange: addPhotos };

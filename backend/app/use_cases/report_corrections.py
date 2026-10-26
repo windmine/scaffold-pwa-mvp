@@ -12,7 +12,7 @@ from app.use_cases.audit import add_audit_event, model_snapshot
 from app.use_cases.common import (
     ensure_site_exists, normalize_work_form_fields, normalize_work_form_photo_metadata, normalize_work_form_photo_urls,
     parse_json_list, validate_owned_upload_references, validate_work_form_answers,
-    require_template_features,
+    require_template_features, normalize_report_site_name,
     work_form_submission_definition, work_form_submission_response, work_form_upload_references,
 )
 
@@ -68,6 +68,13 @@ def correct_report(submission, data, supervisor, session):
         if site and site.department_id != submission.department_id:
             raise HTTPException(status_code=400, detail="Site must belong to the Report Department")
         values["site_id"] = data.site_id
+    if "manual_site_name" in fields:
+        values["manual_site_name"] = normalize_report_site_name(
+            data.manual_site_name, values.get("site_id", submission.site_id))
+    elif values.get("site_id") is not None:
+        values["manual_site_name"] = None
+    # An older editor sends site_id=null even when it cannot display a manual
+    # name. Preserve that name unless the new explicit field is supplied.
     if "work_date" in fields:
         if not data.work_date:
             raise HTTPException(status_code=400, detail="Report Date is required")

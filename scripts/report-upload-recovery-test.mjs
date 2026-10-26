@@ -296,6 +296,21 @@ async function check(name, run) {
 
 const browser = await chromium.launch({ headless: true });
 try {
+  await check('manual Site survives failed-upload recovery without acquiring a shared Site ID', async () => {
+    const f = await fixture(browser, { extra: { siteId: null, manualSiteName: 'Synthetic recovery site', siteName: 'Synthetic recovery site' } });
+    try {
+      await openFailedReport(f);
+      await recoverButton(f.page).click();
+      await waitForRecovery(f.page);
+      const saved = await snapshot(f.page);
+      assert.equal(saved.recovery.manualSiteName, 'Synthetic recovery site');
+      assert.equal(saved.recovery.siteId, '');
+      await openRecoveredEditor(f.page);
+      assert.equal(await f.page.locator('#workFormSite').inputValue(), '__manual__');
+      assert.equal(await f.page.locator('#workFormManualSite').inputValue(), 'Synthetic recovery site');
+      assert.equal(f.traffic.posts.length, 0);
+    } finally { await f.close(); }
+  });
   await check('verified recovery preserves answers and valid evidence without overwriting an ordinary draft', async () => {
   const f = await fixture(browser, { existingDraft: true });
   try {

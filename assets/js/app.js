@@ -864,6 +864,7 @@ function handleThemeToggle() {
 }
 
 function fillSiteSelects() {
+  const manualSiteSelected = els.workFormSite.value === '__manual__';
   const emptyLabel = state.sitesLoadError
     ? 'Sites unavailable - reconnect and try again'
     : state.sites.length
@@ -884,6 +885,11 @@ function fillSiteSelects() {
       String(site.department_id ?? site.departmentId ?? '') === String(state.user.departmentId || ''))
       .map((site) => `<option value="${site.id}">${escapeHtml(site.name)} - ${escapeHtml(site.address)}</option>`).join('')
     : options;
+  if (REPORT_ONLY_MODE) {
+    els.workFormSite.options[0].textContent = state.sitesLoadError ? 'No site (saved sites unavailable)' : 'No site';
+    els.workFormSite.add(new Option('Type a site name', '__manual__'));
+    if (manualSiteSelected) els.workFormSite.value = '__manual__';
+  }
 }
 
 async function refreshSitesAfterReconnect() {

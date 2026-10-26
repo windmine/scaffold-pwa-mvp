@@ -2455,6 +2455,8 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
       throw new Error(`Report Date was not enforced before submission: ${JSON.stringify(missingDateState)}`);
     }
     await page.locator('#workFormDate').fill('2026-09-01');
+    await page.locator('#workFormSite').selectOption('__manual__');
+    await page.locator('#workFormManualSite').fill('Synthetic Worker manual site');
     await page.locator('#workFormField_inspection_area').fill(reportMarker);
     await page.locator('#workFormField_inspection_result').selectOption({ label: 'Needs action' });
     await page.locator('#workFormField_issues_found').fill('Damaged safety glasses need replacement.');
@@ -2473,6 +2475,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
     if (submissionPayload.work_date !== '2026-09-01' || submissionPayload.site_id !== null) {
       throw new Error(`Report Date or optional Site payload was incorrect: ${JSON.stringify(submissionPayload)}`);
     }
+    if (submissionPayload.manual_site_name !== 'Synthetic Worker manual site' || submittedReport.site_name !== 'Synthetic Worker manual site' || submittedReport.site_id !== null) throw new Error('Worker manual site was not retained by the real backend');
     await page.locator('#workFormFeedback').getByText('Inspection form submitted.').waitFor({ timeout: 20000 });
 
     await page.locator('.tab[data-tab-target="historyTab"]').click();
@@ -8952,6 +8955,8 @@ async function checkSupervisorSelfSubmission(browser) {
     await openAdminWorkspace(page, 'submit');
     await selectWorkFormWhenReady(page, { label: fixture.form.name });
     await page.locator('#workFormField_details').fill(answer);
+    await page.locator('#workFormSite').selectOption('__manual__');
+    await page.locator('#workFormManualSite').fill('Synthetic Supervisor manual site');
     const signature = page.locator('#workFormField_signature');
     await signature.focus();
     await page.keyboard.press('Space');
@@ -8968,6 +8973,7 @@ async function checkSupervisorSelfSubmission(browser) {
       const { getDraft } = await import('/assets/js/mock-api.js');
       return await getDraft(`work-form-draft:supervisor:${user.id}:${form.id}`);
     }, fixture);
+    if (draft?.manualSiteName !== 'Synthetic Supervisor manual site' || draft.siteId) throw new Error('Supervisor manual Site draft lost its label');
     if (draft?.ownerRole !== 'supervisor' || draft.answers.details !== answer || draft.photoBlobs.length !== 1
       || !draft.answers.signature?.startsWith('data:image/')) throw new Error('Supervisor draft did not preserve identity and evidence');
     const screenshotRoot = String(process.env.BROWSER_WORKFLOW_SCREENSHOT_DIR || '').trim();
@@ -8987,6 +8993,7 @@ async function checkSupervisorSelfSubmission(browser) {
     await selectWorkFormWhenReady(page, { label: fixture.form.name });
     await page.waitForFunction((expected) => document.querySelector('#workFormField_details')?.value === expected, answer);
     await page.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+    if (await page.locator('#workFormManualSite').inputValue() !== 'Synthetic Supervisor manual site') throw new Error('Supervisor reload lost manual Site');
     await context.setOffline(true);
     await reviewAndSubmitReport(page);
     await waitForQueueCount(page, 1, { atLeast: true });
@@ -9003,6 +9010,7 @@ async function checkSupervisorSelfSubmission(browser) {
     const response = await responsePromise;
     if (!response.ok()) throw new Error(`self submission failed ${response.status()}: ${await response.text()}`);
     const report = await response.json();
+    if (report.manual_site_name !== 'Synthetic Supervisor manual site' || report.site_name !== 'Synthetic Supervisor manual site' || report.site_id !== null) throw new Error('Supervisor manual Site was not retained through real offline replay');
     if (report.worker_id !== fixture.user.id || report.department_id !== fixture.user.departmentId
       || report.answers.details !== answer || report.photo_urls.length !== 1 || !report.answers.signature.startsWith('/uploads/')
       || report.submission_purpose !== 'report' || report.workflow_status !== 'submitted') throw new Error('submitted Supervisor Report changed ownership/content');

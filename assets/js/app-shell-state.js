@@ -210,6 +210,7 @@ export const els = {
   confirmWorkFormSubmitButton: document.getElementById('confirmWorkFormSubmitButton'),
   workFormSelect: document.getElementById('workFormSelect'),
   workFormSite: document.getElementById('workFormSite'),
+  workFormManualSite: document.getElementById('workFormManualSite'),
   workFormDate: document.getElementById('workFormDate'),
   workFormFields: document.getElementById('workFormFields'),
   workFormPhotos: document.getElementById('workFormPhotos'),

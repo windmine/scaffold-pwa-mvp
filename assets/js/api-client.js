@@ -505,7 +505,7 @@ export async function createFormSubmission(submission, recoveryScope = null) {
   return await apiFetch(recoveryScope?.role === "supervisor" ? "/supervisor/my-report-submissions" : "/form-submissions", {
     method: "POST",
     headers: reportRecoveryHeaders(recoveryScope),
-    body: JSON.stringify({ ...submission, client_template_features: 2 })
+    body: JSON.stringify({ ...submission, client_template_features: submission.manual_site_name != null ? 3 : 2 })
   });
 }
 
@@ -689,7 +689,7 @@ export async function updateSupervisorFormSubmission(submissionId, submission, s
   return await apiFetch(`/supervisor/form-submissions/${submissionId}`, {
     method: "PATCH",
     headers: reportRecoveryHeaders(scope),
-    body: JSON.stringify({ ...submission, confirmed: true, client_template_features: 2 })
+    body: JSON.stringify({ ...submission, confirmed: true, client_template_features: submission.manual_site_name != null ? 3 : 2 })
   });
 }
 

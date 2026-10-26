@@ -67,6 +67,7 @@ EXPECTED_VERSIONS = [
     "0024_report_pdf_email",
     "0025_report_corrections",
     "0026_staff_invitations",
+    "0027_report_manual_site",
 ]
 
 
@@ -1047,6 +1048,7 @@ def test_report_review_workflow_migration():
             "0024_report_pdf_email",
     "0025_report_corrections",
     "0026_staff_invitations",
+    "0027_report_manual_site",
         ]:
             raise AssertionError(f"report workflow migration: unexpected versions {applied}")
 
@@ -1677,6 +1679,7 @@ def test_global_admin_supervisor_invariant_migration():
             "0024_report_pdf_email",
     "0025_report_corrections",
     "0026_staff_invitations",
+    "0027_report_manual_site",
         ]:
             raise AssertionError(f"global admin invariant migration: unexpected versions {applied}")
 
@@ -1958,7 +1961,7 @@ def test_worker_invitation_upgrade_preserves_existing_accounts():
                     INSERT INTO "user" (email, name, password_hash, role, status, department_id)
                     VALUES ('legacy-invitation-test@example.com', 'Existing Worker', 'unchanged-test-hash', 'worker', 'active', 1)
                 ''')
-            if run_migrations(engine) != ["0021_worker_invitations", "0022_worker_password_recovery", "0023_worker_invitation_email", "0024_report_pdf_email", "0025_report_corrections", "0026_staff_invitations"]:
+            if run_migrations(engine) != ["0021_worker_invitations", "0022_worker_password_recovery", "0023_worker_invitation_email", "0024_report_pdf_email", "0025_report_corrections", "0026_staff_invitations", "0027_report_manual_site"]:
                 raise AssertionError("Invitation upgrade applied an unexpected migration")
             with engine.connect() as connection:
                 row = connection.exec_driver_sql('''
@@ -1999,7 +2002,7 @@ def test_password_recovery_upgrade_preserves_accounts_and_invitations():
                     (worker_id, department_id, email, generation, token_hash, issued_by, expires_at, created_at)
                     VALUES (1, 1, 'invited@recovery.invalid', 7, 'preserved-invitation-hash', 2, '2030-01-01', '2026-01-01')''')
                 before = connection.exec_driver_sql('SELECT id, worker_id, department_id, email, generation, token_hash, issued_by, expires_at, consumed_at, revoked_at, created_at FROM workerinvitation').all()
-            assert run_migrations(engine) == ["0022_worker_password_recovery", "0023_worker_invitation_email", "0024_report_pdf_email", "0025_report_corrections", "0026_staff_invitations"]
+            assert run_migrations(engine) == ["0022_worker_password_recovery", "0023_worker_invitation_email", "0024_report_pdf_email", "0025_report_corrections", "0026_staff_invitations", "0027_report_manual_site"]
             with engine.connect() as connection:
                 assert tuple(connection.exec_driver_sql('''SELECT password_hash, password_setup_required,
                     invitation_generation, password_recovery_generation, auth_generation, legacy_auth_allowed FROM "user"
@@ -2034,13 +2037,13 @@ def test_staff_invitation_upgrade_preserves_existing_grants():
                 users = connection.exec_driver_sql('SELECT * FROM "user"').all()
                 invitations = connection.exec_driver_sql('SELECT * FROM workerinvitation').all()
                 ledger = connection.exec_driver_sql('SELECT * FROM schema_migrations ORDER BY version').all()
-            assert run_migrations(engine) == ["0026_staff_invitations"]
+            assert run_migrations(engine) == ["0026_staff_invitations", "0027_report_manual_site"]
             with engine.connect() as connection:
                 assert connection.exec_driver_sql('SELECT * FROM "user"').all() == users
                 after = connection.exec_driver_sql('SELECT * FROM workerinvitation').all()
                 assert [tuple(row[:-2]) for row in after] == [tuple(row) for row in invitations]
                 assert tuple(after[0][-2:]) == ("worker", 0)
-                assert connection.exec_driver_sql('SELECT * FROM schema_migrations ORDER BY version').all()[:-1] == ledger
+                assert connection.exec_driver_sql('SELECT * FROM schema_migrations ORDER BY version').all()[:-2] == ledger
             assert not run_migrations(engine)
         finally:
             engine.dispose()

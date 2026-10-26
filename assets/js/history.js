@@ -508,6 +508,7 @@ export function createHistoryModule({
       userId: record.worker_id,
       userName: record.worker_name || `Worker ${record.worker_id}`,
       siteId: record.site_id,
+      manualSiteName: record.manual_site_name || '',
       siteName: record.site_name || site?.name || (record.site_id ? `Site ${record.site_id}` : 'Unassigned site'),
       workDate: record.work_date || '',
       summary: '',

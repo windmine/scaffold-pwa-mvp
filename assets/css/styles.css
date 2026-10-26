@@ -6368,6 +6368,10 @@ body.report-only-mode .topbar-actions button,
   min-width: 0;
 }
 
+.report-context-fields > .report-manual-site {
+  grid-column: 1 / -1;
+}
+
 .report-only-mode #historyTab .section-heading {
   flex-direction: row;
   align-items: center;

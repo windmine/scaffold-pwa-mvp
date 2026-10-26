@@ -15,6 +15,7 @@ from app.use_cases.common import (
     department_id_for_new_record,
     ensure_site_exists,
     normalize_client_submission_id,
+    normalize_report_site_name,
     normalize_work_form_purpose,
     normalize_work_form_fields,
     normalize_work_form_photo_metadata,
@@ -324,6 +325,7 @@ def create_work_form_submission(data, user: User, session: Session, include_repl
         site = session.get(Site, data.site_id)
         if not site or site.department_id != user.department_id:
             raise HTTPException(status_code=404, detail="Home Department Site not found")
+    manual_site_name = normalize_report_site_name(data.manual_site_name, data.site_id, submission_purpose)
     ensure_site_exists(session, data.site_id, user)
     answers = validate_work_form_answers(definition, data.answers)
     photo_urls = normalize_work_form_photo_urls(data.photo_urls, purpose=submission_purpose)
@@ -339,6 +341,7 @@ def create_work_form_submission(data, user: User, session: Session, include_repl
         form_id=form.id,
         worker_id=user.id,
         site_id=data.site_id,
+        manual_site_name=manual_site_name,
         work_date=data.work_date,
         answers_json=json.dumps(answers),
         form_definition_version=definition["version"],

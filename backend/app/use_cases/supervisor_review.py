@@ -2399,6 +2399,9 @@ def update_supervisor_form_submission(submission_id: int, data, supervisor: User
         from app.use_cases.report_corrections import correct_report
         return correct_report(submission, data, supervisor, session)
 
+    if data.manual_site_name is not None:
+        raise HTTPException(status_code=400, detail="Manual site names are supported for Reports only")
+
     definition = work_form_submission_definition(submission, session)
     previous_upload_urls = record_upload_urls(submission)
     previously_attached_evidence = record_evidence_upload_urls(submission)

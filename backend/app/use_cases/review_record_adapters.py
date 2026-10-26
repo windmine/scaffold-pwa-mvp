@@ -131,6 +131,8 @@ class ReviewRecordAdapter:
                     Site.name.ilike(pattern, escape="\\"),
                 ).exists()
             )
+        if model is WorkFormSubmission:
+            predicates.append(WorkFormSubmission.manual_site_name.ilike(pattern, escape="\\"))
         if self.form_id_field:
             form_id = getattr(model, self.form_id_field)
             predicates.append(

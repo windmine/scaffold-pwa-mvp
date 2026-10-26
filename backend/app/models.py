@@ -230,6 +230,7 @@ class WorkFormSubmission(SQLModel, table=True):
     form_id: int = Field(index=True)
     worker_id: int = Field(index=True)
     site_id: Optional[int] = Field(default=None, index=True)
+    manual_site_name: Optional[str] = Field(default=None, max_length=200)
 
     work_date: Optional[str] = None
     answers_json: str

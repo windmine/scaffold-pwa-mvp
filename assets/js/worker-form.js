@@ -1,3 +1,4 @@
+import { MANUAL_SITE, readReportSite, restoreReportSite, syncReportSiteInput, validateReportSite } from './report-site.js';
 import { getWorkForms as getBackendWorkForms, getSession } from './api-client.js';
 import { getDraft, getDraftEntries, saveDraft } from './mock-api.js';
 import { isReportDraftForWorker, reportDraftKeyForWorker, summarizeReportDrafts } from './report-drafts.js';
@@ -263,7 +264,7 @@ export function createWorkerFormModule({
       formName: form.name,
       definitionVersion: definitionVersion(form),
       fields: JSON.parse(JSON.stringify(form.fields || [])),
-      siteId: els.workFormSite.value || '',
+      ...readReportSite(els.workFormSite, els.workFormManualSite),
       workDate: els.workFormDate.value || '',
       answers: collectWorkFormAnswers(form, {
         container: els.workFormFields,
@@ -288,6 +289,8 @@ export function createWorkerFormModule({
   function sameDraftContent(left, right) {
     if (!left || !right) return false;
     return String(left.siteId || '') === String(right.siteId || '')
+      && String(left.manualSiteName || '') === String(right.manualSiteName || '')
+      && String(left.siteMode || 'existing') === String(right.siteMode || 'existing')
       && String(left.workDate || '') === String(right.workDate || '')
       && JSON.stringify(left.answers || {}) === JSON.stringify(right.answers || {})
       && JSON.stringify(left.photoMetadata || []) === JSON.stringify(right.photoMetadata || [])
@@ -470,7 +473,7 @@ export function createWorkerFormModule({
   function setDraftConflict(draft) {
     clearSubmissionReview();
     conflictingDraft = draft;
-    [els.workFormSite, els.workFormDate, els.workFormPhotos].forEach((control) => {
+    [els.workFormSite, els.workFormManualSite, els.workFormDate, els.workFormPhotos].filter(Boolean).forEach((control) => {
       control.disabled = Boolean(draft);
     });
     els.submitWorkFormButton.type = draft ? 'button' : 'submit';
@@ -514,7 +517,7 @@ export function createWorkerFormModule({
       form: review.form,
       answers: review.snapshot.answers,
       workDate: review.snapshot.workDate,
-      siteName: review.site?.name || '',
+      siteName: review.site?.name || review.snapshot.manualSiteName?.trim() || '',
       photoCount: review.snapshot.photoBlobs.length || review.snapshot.photoDataUrls.length
     });
     submissionReview = review;
@@ -565,7 +568,7 @@ export function createWorkerFormModule({
     setDraftConflict(draft);
     draftState.snapshot = draft;
     draftState.savedAt = draft.savedAt || '';
-    els.workFormSite.value = draft.siteId || '';
+    restoreReportSite(els.workFormSite, els.workFormManualSite, draft);
     setDateInputValue(els.workFormDate, draft.workDate || '');
     els.workFormFields.innerHTML = '';
     // Render captured values as text, not editable controls based on a new schema.
@@ -596,7 +599,7 @@ export function createWorkerFormModule({
     if (storageWarning) storageWarning.hidden = true;
     photoSelectionToken += 1;
     setDraftConflict(null);
-    els.workFormSite.value = '';
+    restoreReportSite(els.workFormSite, els.workFormManualSite);
     setDateInputValue(els.workFormDate, todayDateInput());
     els.workFormPhotos.value = '';
     state.workFormPhotoFiles = [];
@@ -748,9 +751,7 @@ export function createWorkerFormModule({
   function applyDraftToSurface(form, draftState, draft) {
     restoringDraft = true;
     try {
-      if (draft.siteId && [...els.workFormSite.options].some((option) => String(option.value) === String(draft.siteId))) {
-        els.workFormSite.value = String(draft.siteId);
-      }
+      restoreReportSite(els.workFormSite, els.workFormManualSite, draft);
       setDateInputValue(els.workFormDate, draft.workDate || todayDateInput());
       populateWorkFormAnswers(form, draft.answers || {}, { container: els.workFormFields });
       state.workFormPhotoFiles = [];
@@ -1446,8 +1447,14 @@ export function createWorkerFormModule({
       return;
     }
 
-    const site = els.workFormSite.value ? findSiteByFormValue(els.workFormSite.value) : null;
-    if (els.workFormSite.value && !site) {
+    const siteValue = readReportSite(els.workFormSite, els.workFormManualSite);
+    const siteError = validateReportSite(siteValue);
+    if (siteError) {
+      renderStatusBanner(siteError, true, { local: els.workFormFeedback, field: els.workFormManualSite, tone: 'error' });
+      return;
+    }
+    const site = siteValue.siteId ? findSiteByFormValue(siteValue.siteId) : null;
+    if (siteValue.siteId && !site) {
       renderStatusBanner('Please select a valid site first.', true, {
         local: els.workFormFeedback,
         field: els.workFormSite,
@@ -1521,6 +1528,12 @@ export function createWorkerFormModule({
             return;
           }
         }
+        const manualSiteError = validateReportSite(snapshot);
+        if (manualSiteError) {
+          const error = new Error(manualSiteError);
+          error.fieldId = 'workFormManualSite';
+          throw error;
+        }
         const reviewSite = snapshot.siteId ? findSiteByFormValue(snapshot.siteId) : null;
         if (snapshot.siteId && !reviewSite) {
           const error = new Error('Please select a valid site first.');
@@ -1560,7 +1573,8 @@ export function createWorkerFormModule({
           clientSubmissionId: submittedDraft.snapshot.uploadRecovery.clientSubmissionId
         } : {}),
         siteId: (reviewed ? reviewed.site : site)?.id || null,
-        siteName: (reviewed ? reviewed.site : site)?.name || 'Unassigned site',
+        manualSiteName: (evidence?.manualSiteName ?? siteValue.manualSiteName).trim(),
+        siteName: (reviewed ? reviewed.site : site)?.name || (evidence?.manualSiteName ?? siteValue.manualSiteName).trim() || 'Unassigned site',
         workDate: evidence?.workDate || els.workFormDate.value,
         answers: evidence?.answers || answers,
         photoDataUrls: [...(evidence?.photoDataUrls || state.workFormPhotoDataUrls)],
@@ -1668,7 +1682,8 @@ export function createWorkerFormModule({
         fields: draft.fields || [],
         answers: draft.answers || {},
         siteId: draft.siteId || null,
-        siteName: draft.siteId ? findSiteByFormValue(draft.siteId)?.name || String(draft.siteId) : 'Unassigned site',
+        manualSiteName: draft.manualSiteName || '',
+        siteName: draft.siteId ? findSiteByFormValue(draft.siteId)?.name || String(draft.siteId) : draft.manualSiteName?.trim() || 'Unassigned site',
         workDate: draft.workDate || '',
         photoDataUrls: draft.photoDataUrls || [],
         photoBlobs: draft.photoBlobs || [],
@@ -1698,6 +1713,10 @@ export function createWorkerFormModule({
   }
 
   function bindEvents() {
+    els.workFormSite.addEventListener('change', () => {
+      syncReportSiteInput(els.workFormSite, els.workFormManualSite);
+      if (els.workFormSite.value === MANUAL_SITE) els.workFormManualSite?.focus();
+    });
     storageRetry?.addEventListener('click', async () => {
       if (storageRetry.disabled || reloadLocked || state.submittingWorkForm || photoProcessing.pending || conflictingDraft) return;
       const draft = activeDraftState();

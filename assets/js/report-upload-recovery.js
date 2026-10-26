@@ -315,6 +315,7 @@ export async function prepareReportRecoveryDraft(record, worker, { assertCurrent
     ...(worker.role === 'supervisor' ? { ownerRole: 'supervisor' } : {}),
     templatePurpose: 'report', formId: record.formId, formName: record.formName || 'Report',
     definitionVersion: record.definitionVersion ?? null, fields, siteId: record.siteId == null ? '' : String(record.siteId),
+    manualSiteName: record.manualSiteName || '',
     workDate: record.workDate || '', answers, photoBlobs, photoDataUrls: [], photoMetadata, savedAt: recoveredAt,
     uploadRecovery: { sourceRecordId: String(record.id), clientSubmissionId, ownerWorkerId: worker.id,
       departmentId: worker.departmentId, formId: record.formId, recoveredAt, omittedPhotos }

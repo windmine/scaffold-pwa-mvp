@@ -373,6 +373,7 @@ function toBackendFormSubmissionPayload(record) {
     form_id: Number(record.formId),
     expected_definition_version: record.definitionVersion ?? null,
     site_id: getBackendSiteId(record.siteId),
+    ...(record.manualSiteName ? { manual_site_name: record.manualSiteName.trim() } : {}),
     work_date: record.workDate || null,
     answers: record.answers || {},
     photo_urls: normaliseRecordPhotoUrls(record),

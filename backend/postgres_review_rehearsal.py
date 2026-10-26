@@ -247,7 +247,7 @@ def check_rejections_and_immutability(engine, fixture, report):
             else:
                 raise AssertionError("Unauthorized correction succeeded")
     report("PostgreSQL Supervisor correction permissions and retired review transitions remain enforced")
-    for field, value in {"site_id": None, "work_date": "2026-10-11", "answers_json": "{}",
+    for field, value in {"site_id": None, "manual_site_name": "Unversioned manual site", "work_date": "2026-10-11", "answers_json": "{}",
                          "photo_urls": "[]", "definition_snapshot_json": "{}", "submission_purpose": "daywork"}.items():
         try:
             with engine.begin() as connection:

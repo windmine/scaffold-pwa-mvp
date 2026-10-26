@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from app.migrations import MIGRATIONS_DIR, MigrationError, run_migrations, verify_migrations
 
 
-RELEASE_HEAD = "0026_staff_invitations"
+RELEASE_HEAD = "0027_report_manual_site"
 REPORT_FIELDS = [
     {"id": "issue", "label": "Issue", "type": "text"},
     {"id": "worker_signature", "label": "Signature", "type": "signature"},
@@ -84,7 +84,7 @@ def reject_statement(engine, label, statement, parameters=None, sqlstate="23514"
 
 def manifest_versions():
     versions = sorted(path.stem for path in MIGRATIONS_DIR.glob("*.py") if path.name != "__init__.py")
-    require(len(versions) == 26 and versions[-1] == RELEASE_HEAD, "Update rehearsal expectations for a changed migration manifest")
+    require(len(versions) == 27 and versions[-1] == RELEASE_HEAD, "Update rehearsal expectations for a changed migration manifest")
     return versions
 
 
@@ -374,7 +374,43 @@ def check_missing_snapshot_classification(database, report):
         report("PostgreSQL original ambiguous NULL/empty snapshot fixtures fail closed with complete migration-batch rollback")
 
 
+def check_manual_site_upgrade(database, report):
+    with database("manual_site_upgrade") as engine:
+        require_isolated_postgres(engine)
+        with tempfile.TemporaryDirectory(prefix="manual-site-pg-manifest-") as directory:
+            manifest = Path(directory)
+            for path in MIGRATIONS_DIR.glob("*.py"):
+                if path.name != "__init__.py" and path.stem < "0027":
+                    shutil.copy2(path, manifest / path.name)
+            run_migrations(engine, manifest)
+        with engine.begin() as connection:
+            connection.execute(text("""INSERT INTO workform (id,name,fields_json,template_purpose,created_at)
+                VALUES (91,'Synthetic site test','[]','report',CURRENT_TIMESTAMP)"""))
+            connection.execute(text("""INSERT INTO workformsubmission
+                (id,form_id,worker_id,answers_json,created_at) VALUES (91,91,1,'{}',CURRENT_TIMESTAMP)"""))
+        original = rows(engine, "SELECT * FROM workformsubmission")
+        prior_ledger = ledger(engine)
+        require(run_migrations(engine) == [RELEASE_HEAD], "Manual Site upgrade must be additive")
+        require(ledger(engine)[:-1] == prior_ledger, "Manual Site upgrade changed prior migration checksums")
+        after = rows(engine, "SELECT * FROM workformsubmission")
+        require(tuple(after[0][:-1]) == tuple(original[0]) and after[0][-1] is None,
+                "Manual Site upgrade changed an existing Report")
+        reject_statement(engine, "unversioned manual site correction",
+                         "UPDATE workformsubmission SET manual_site_name='Invalid' WHERE id=91")
+        reject_statement(engine, "manual and linked Site together", """UPDATE workformsubmission
+            SET site_id=5,manual_site_name='Both',revision=revision+1,
+                edited_at=CURRENT_TIMESTAMP,edited_by_supervisor_id=2 WHERE id=91""")
+        with engine.begin() as connection:
+            connection.execute(text("""UPDATE workformsubmission SET manual_site_name='Synthetic manual site',
+                revision=revision+1,edited_at=CURRENT_TIMESTAMP,edited_by_supervisor_id=2 WHERE id=91"""))
+        require(rows(engine, "SELECT manual_site_name,revision FROM workformsubmission WHERE id=91")[0]
+                == ("Synthetic manual site", 2), "Versioned manual site correction was not stored")
+        require(not run_migrations(engine), "Manual Site migration is not idempotent")
+        report("PostgreSQL manual Site upgrade preserves schema-26 rows/checksums and enforces exclusive, revision-guarded labels")
+
+
 def run_migration_checks(database, report):
+    check_manual_site_upgrade(database, report)
     check_fresh(database, report)
     check_backfill(database, report)
     check_transaction_rollback(database, report)

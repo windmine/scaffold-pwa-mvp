@@ -1,0 +1,78 @@
+{
+  "scope": "Local Site implementation verification, preceding the approved release",
+  "verified_at": "2026-10-26T21:11:17.444371+00:00",
+  "head": "2922a17af3c91bf2b4fae9fad7665108a195f065",
+  "backend_suites_passed": 29,
+  "new_backend_test_cases": 5,
+  "real_backend_browser_workflows_passed": 75,
+  "mobile_gate": "passed",
+  "build": "passed",
+  "lint": "passed",
+  "compileall": "passed",
+  "manual_site_recovery_browser_group": "passed separately after adding the focused case",
+  "postgresql_17": {
+    "migration_checkpoints": 30,
+    "correction_checkpoints": 14,
+    "owned_clusters_removed": true
+  },
+  "visual_review": [
+    "390px Worker and 1280px Supervisor form screenshots",
+    "Synthetic generated PDF first page"
+  ],
+  "historical_attempts": [
+    "Sandbox temporary-directory access failure and stalled retry; isolated process stopped and approved outside-sandbox tests passed",
+    "First offline replay test exposed omitted payload property; fixed and final review/full browser gates passed",
+    "Migration fixture expectations updated for schema 27; prior failed transcripts retained"
+  ],
+  "limitations": [
+    "Physical phones not tested",
+    "No production execution or real email",
+    "Existing frontend bundle-size advisory"
+  ],
+  "evidence_files": [
+    "output/manual-site-backend-final.log",
+    "output/manual-site-backend-remaining.log",
+    "output/manual-site-mobile.log",
+    "output/manual-site-postgres17-final.json",
+    "output/manual-site-postgres-review.json"
+  ],
+  "source_sha256": {
+    ".github/scripts/run_local_checks.py": "307f6e9ffd876cf38e2ba67512a2fa010d9578220c243cb951bb4596cbb6cf40",
+    "CONTEXT.md": "88cf31184d236b3224c6bdcd03375dc03e37fd397d3a659717b01773dccced91",
+    "assets/css/styles.css": "c15a839a25f61c08cbbf2f411ce22647f6a736c1956d4b40e44499dd54147e6b",
+    "assets/js/api-client.js": "19a873cea9432ff59404a10fe664f03a031acb3492213e0d5f61e95608b575d8",
+    "assets/js/app-shell-state.js": "8eafee952502c5fd069ecd4a13a6dae5f0d51f18d665be04fd399962f0232d7f",
+    "assets/js/app.js": "60a101230cde25629742a4a33ed0dacc9caba3452b371f5b3cc4529c5f0c19c6",
+    "assets/js/history.js": "0330200a9f89c647d7f70de9a3979c373a02fc44be99e7e4c56c7334a34a95dc",
+    "assets/js/i18n.js": "54d0f8058fc7a749b5257eacf2631b0d0a107d9765bc1e96e5a4fbd09d6eb8c4",
+    "assets/js/offline-submissions.js": "2c58cc22eaadd46fb10ffdd00ee3917e33d089294c84c4f116c2e759f37c5663",
+    "assets/js/report-editor.js": "28b7a61e67bb0f59ea47109d76adf4ff26d10e7a8ffa975313999e2c4684177a",
+    "assets/js/report-site.js": "3b4eb3c1298ea9dabf75bc0fd28d8490ede29ecebe45d4f61de6ccc31d2122e2",
+    "assets/js/report-upload-recovery.js": "629b9b498fd6881f231e2b07d3db0fd0738ccfc4664931754cb0960946164302",
+    "assets/js/worker-form.js": "abc5b92cd9e3b207c11a26575d252633c15e7441c51b732c059942ece913830e",
+    "backend/app/models.py": "ed7289ff293298e34ba1e743608c677a0c2f3501373adf065e25fbfc4f481d33",
+    "backend/app/schemas.py": "7ff2325282c20d875034386f0f2060a52613e39610757cea8f0d06c8ce7f516c",
+    "backend/app/use_cases/common.py": "91aac98cbb17253ceac0b37c6acafcbd8a64d3a35879c7849935a9467c76debc",
+    "backend/app/use_cases/report_corrections.py": "325940408e57e1e393d5548e5f8892ba142cf9b1bf4009e1258abfd23c573c08",
+    "backend/app/use_cases/review_record_adapters.py": "d48b5d80c9a5f9795ca305915c5e15737fe181e2d406e3239d47ad9534a7296b",
+    "backend/app/use_cases/supervisor_review.py": "5637a199dc5ece69b0157a32523f11bebf710d742a783ebad8a0ee93b68022bb",
+    "backend/app/use_cases/work_forms.py": "4fb76bbf88d6deb909d2de7f45d069d200ba7b082110e5740a05fb350d9fae27",
+    "backend/migration_test.py": "64f775a8ba015a77a3ba90c2c56a561b9197b5a3f99b58e352f472073edaceef",
+    "backend/migrations/versions/0027_report_manual_site.py": "f789745edfff0ba896ed9ab90b313670c4491faf5405b75bcf3c5dd23c184914",
+    "backend/postgres_migration_rehearsal.py": "d9c3073e9b10287ae9477c2fec2f83aa9294129dc7070974b0128010f65d93e7",
+    "backend/postgres_review_rehearsal.py": "0e2792057ec58318596f34aee6bbe4b6c0003da257916a7a178965f7ce5932a0",
+    "backend/report_corrections_test.py": "964aef9ab5c466ecb81db0b3263bf23bb4e5571d1f670cad23e0e69882442dce",
+    "backend/report_manual_site_test.py": "b157908147259a756802642a7d7bb1ecf8584d8eb72eda500fbd380dba25efd2",
+    "backend/report_pdf_email_migration_checks.py": "9dc186b2916290e386d9cf863c6fe8bc5aa17db40a231668525317b9539064b7",
+    "backend/report_purpose_correction_test.py": "26e6d7d1e624545109902c949de0a65eefa2302e758ebe9aa82b15a7c59f08e1",
+    "docs/report-manual-sites.md": "62996098e7d9a843a1441f6edbdf8ceb4bc3557a9f54c62abeb56bcb178948a7",
+    "index.html": "0f655dd0bbae6bc2e3c456ae6c7d0ca660a90d4570164470a2e6c70607ed43b0",
+    "scripts/check-browser-workflows.mjs": "d7e6ed5ebbc5dc7324e45b959bb964e46335e183a327fa9f543b4dd2fd67b664",
+    "scripts/pwa-shell-assets.mjs": "069b58d9feab19b15f030f413b69a36ce232b5777532d3ebe4aca216221a18c5",
+    "scripts/report-editor-test.mjs": "ff4cf30b80a908ee71f509822207908a8a11e583d88122a1ba1015da29af321e",
+    "scripts/report-submit-review-test.mjs": "28c93ddcd606c41795d66ad8a41055b394de4420c19e165b679175ed6fe41363",
+    "scripts/report-upload-recovery-test.mjs": "1ea4dc567650931b9da8553c4f35a9f4f17e813387fe5df75d2856d97ad5b05f",
+    "sw.js": "3135ead2a4519a90dac89421fd5cb07660041575d3281066a742a3c821678e5a"
+  },
+  "status": "passed"
+}

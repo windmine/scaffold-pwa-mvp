@@ -298,6 +298,17 @@ def work_form_response(form: WorkForm, session: Session | None = None, *, includ
     }
 
 
+def normalize_report_site_name(value, site_id, purpose="report"):
+    if value is None:
+        return None
+    if any(ord(char) < 32 or ord(char) == 127 for char in value) or len(value) > 200:
+        raise HTTPException(status_code=400, detail="Site name must be a single line of up to 200 characters")
+    value = value.strip() or None
+    if value and (site_id is not None or purpose != "report"):
+        raise HTTPException(status_code=400, detail="Choose a Site or enter a manual name for a Report, not both")
+    return value
+
+
 def work_form_submission_response(submission: WorkFormSubmission, session: Session):
     definition = work_form_submission_definition(submission, session)
     worker = session.get(User, submission.worker_id)
@@ -334,7 +345,8 @@ def work_form_submission_response(submission: WorkFormSubmission, session: Sessi
         "worker_name": worker.name if worker else f"Worker {submission.worker_id}",
         "worker_email": worker.email if worker else None,
         "site_id": submission.site_id,
-        "site_name": site.name if site else None,
+        "site_name": site.name if site else submission.manual_site_name,
+        "manual_site_name": submission.manual_site_name,
         "work_date": submission.work_date,
         "answers": parse_json_object(submission.answers_json),
         "photo_urls": parse_json_list(submission.photo_urls),
