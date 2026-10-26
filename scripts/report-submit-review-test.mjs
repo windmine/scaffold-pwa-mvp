@@ -237,7 +237,11 @@ try {
       await review(f.page);
       await f.page.locator('#confirmWorkFormSubmitButton').click();
       await f.page.waitForFunction(async () => (await window.fixture.db.getAll('queue')).length === 1);
+      // A queue checkpoint precedes draft cleanup/editor reset. Observe the
+      // completed user action before reading its durable record or reconnecting.
+      await f.page.waitForFunction(() => !window.fixture.state.submittingWorkForm);
       const saved = await storage(f.page);
+      assert.equal(saved.records.length, 1, 'Completed offline submission retains its durable Report');
       assert.equal(saved.records[0].manualSiteName, 'Synthetic manual site <West>');
       assert.equal(saved.records[0].siteId, null);
       assert.equal(saved.records[0].siteName, 'Synthetic manual site <West>');

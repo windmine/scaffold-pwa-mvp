@@ -1,0 +1,12 @@
+{
+  "status": "failed",
+  "runId": 40406065699,
+  "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/40406065699",
+  "sourceCommit": "d8d6b4834a30e7d050eb7c85180787fa77fa3f65",
+  "backend": "passed",
+  "frontend": "failed",
+  "failure": "New manual Site browser check observed an empty records snapshot after queue checkpoint; submission completion had not been awaited.",
+  "change": "Wait for submittingWorkForm=false and explicitly assert one record before reading its Site. Product/runtime unchanged.",
+  "focusedRerun": "passed all 14 isolated browser groups",
+  "rootCauseLimit": "Exact reason for the transient empty storage snapshot was not reproduced locally; complete final-source CI is required."
+}
