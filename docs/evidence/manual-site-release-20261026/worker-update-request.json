@@ -1,0 +1,7 @@
+{
+  "atUtc": "2026-10-26T22:18:38.445795+00:00",
+  "job": "reportflow-pdf-email",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:e9008bf99a791f6274de946c6884ae8a80d0af2f733261fc2d32ce2c4d5a50af",
+  "enabled": false,
+  "preserveExistingRuntimeAndIam": true
+}

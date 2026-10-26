@@ -1,6 +1,6 @@
 # Report Site selection and manual names
 
-Prepared for the user-approved release; live verification is still pending. The shared optional Site control
+Released and verified on 2026-10-26 UTC. [Release evidence](evidence/manual-site-release-20261026/release.json). The shared optional Site control
 offers an authorized existing Site, **Type a site name**, or **No site** for both
 Workers and Supervisors. A manual name belongs only to the Report. It does not
 create, match by name, rename, or grant access to any shared Site.
@@ -37,8 +37,8 @@ Submission/update request feature version 3 is sent when a manual name is presen
 older APIs reject it instead of silently discarding an unknown field. Linked and
 empty Site requests keep version 2. Existing drafts/queues need no storage reset.
 
-The approved release must run final source CI, verify recovery and a
-schema-27-compatible fallback, apply the additive migration, then release compatible
+The completed release ran final source CI, verified recovery and a
+schema-27-compatible fallback, applied the additive migration, then released compatible
 backend and PDF worker before Hosting. Use the existing release procedure for
 backup, write pause and draining the scheduled worker; restore its normal schedule
 after verification. Old schema-26 images reject the new ledger;

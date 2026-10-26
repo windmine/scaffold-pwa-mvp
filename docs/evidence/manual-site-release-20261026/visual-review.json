@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-26T22:23:14.875634+00:00",
+  "images": {
+    "live-installer-chinese.png": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+    "live-installer-english.png": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d",
+    "live-installer-offline.png": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+    "live-waiting-update-offline.png": "288aedc8f66fffcf5a6f0e7168f50d1d7f15c59656106619660a214d2f503982",
+    "live-waiting-update-updated.png": "94b6489db27cde259cc4933459afcc2931a05215a6477113375606355cd3952e",
+    "live-waiting-update-waiting.png": "b0a6ddc449af3dab310fdf98a96326354f65c418c68ed9bf1058afa1870ff569",
+    "preview-installer-chinese.png": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+    "preview-installer-english.png": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d",
+    "preview-installer-offline.png": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+  },
+  "directReview": [
+    "preview-installer-chinese.png",
+    "preview-installer-english.png",
+    "preview-installer-offline.png",
+    "live-waiting-update-waiting.png",
+    "live-waiting-update-updated.png",
+    "live-waiting-update-offline.png"
+  ],
+  "byteIdenticalPreviewAndLiveInstaller": [
+    "english",
+    "chinese",
+    "offline"
+  ],
+  "observations": [
+    "Readable English/Chinese installer, branding and QR at phone width; offline rendering matches Chinese view.",
+    "Waiting client shows Update App and draft-preservation notice; updated shell removes notice; cold-offline shell retains header and offline status."
+  ],
+  "limits": [
+    "Anonymous Chromium, not physical phones or authenticated production forms"
+  ]
+}

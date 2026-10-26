@@ -1,0 +1,134 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-26T22:28:48.008205+00:00",
+  "sourceCommit": "5210501fb119b85e97f72fc1d57e7686e0c96274",
+  "sourceCiUrl": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/40407049985",
+  "revision": "geo-backend-manual-site-20261026",
+  "hostingVersion": "e88e8f53d5b33ce6",
+  "cacheVersion": "leader-field-8179666137ae",
+  "buildId": "c5fcd1f3-ff18-4a0a-9664-6c07e32735d7",
+  "images": {
+    "candidate": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:e9008bf99a791f6274de946c6884ae8a80d0af2f733261fc2d32ce2c4d5a50af",
+    "fallback": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:e8f7fc7df07042420b48a4b5e836c90f5cc6673bb4d63192c4454171c07ebf89"
+  },
+  "imageSourceCommit": "d8d6b4834a30e7d050eb7c85180787fa77fa3f65",
+  "imageSourceEquivalence": {
+    "status": "passed",
+    "releaseCommit": "5210501fb119b85e97f72fc1d57e7686e0c96274",
+    "imageSourceCommit": "d8d6b4834a30e7d050eb7c85180787fa77fa3f65",
+    "allPackagedFilesByteIdentical": true,
+    "verifiedFileCount": 128,
+    "followupChanges": [
+      "docs/evidence/manual-site-release-20261026/initial-ci-failure.json",
+      "docs/evidence/manual-site-release-20261026/initial-source-ci-id.json",
+      "scripts/report-submit-review-test.mjs"
+    ],
+    "fallbackOverlayUnchanged": true
+  },
+  "traffic": [
+    {
+      "percent": 100,
+      "revisionName": "geo-backend-manual-site-20261026"
+    }
+  ],
+  "scope": {
+    "chooseOrTypeReportSite": true,
+    "departmentBoundariesPreserved": true,
+    "sharedSitesCreated": false,
+    "migration": "0027_report_manual_site",
+    "existingBusinessRowsPreserved": true,
+    "priorMigrationChecksumsPreserved": true,
+    "productionAccountsCreatedOrChanged": false,
+    "productionInvitationsCreated": false,
+    "productionReportsCreated": false,
+    "realEmailsSentByRelease": false,
+    "iamChanged": false,
+    "secretReferencesChanged": false,
+    "templateEmailRoutingChanged": false
+  },
+  "maintenance": {
+    "started": "2026-10-26T22:06:28.524835+00:00",
+    "normalServiceRestored": "2026-10-26T22:17:44.005041+00:00"
+  },
+  "validation": {
+    "localBackendSuites": 29,
+    "browserWorkflows": 75,
+    "sourceCiBothJobsPassed": true,
+    "imageSuites": 22,
+    "providerHttpChecks": 266,
+    "frozenFiles": 89,
+    "strictHardeningChecks": 40,
+    "scheduledCounts": [
+      {
+        "accepted": 0,
+        "failed": 0,
+        "skipped": 0,
+        "uncertain": 0
+      }
+    ]
+  },
+  "rollback": {
+    "compatibleRevision": "geo-backend-manual-site-fallback-20261026",
+    "previousHosting": "35a126d8e9de6e5b",
+    "hostingChannel": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/rollback-manual-site-20261026",
+    "hostingExpiresAt": "2026-11-02T21:40:35.911360610Z",
+    "backupBranch": "br-nameless-boat-a71zgl0w",
+    "backupExpiresAt": "2026-11-02T22:11:57Z",
+    "rules": "Pause Scheduler, disable and drain worker before fallback. Retain schema27 and manual Site reads/exports/frozen snapshots. New manual writes pause; committed replay is retained. Never downgrade ledger, reset credentials/outbox attempts or clear device storage. Prefer forward fix."
+  },
+  "cleanup": {
+    "status": "passed",
+    "atUtc": "2026-10-26T22:27:19.461349+00:00",
+    "jobs": [
+      "rf-manual-site-backup-verified-20261026",
+      "rf-manual-site-baseline-verified-20261026",
+      "rf-manual-site-post-release-20261026",
+      "rf-manual-site-pre-worker-verified-20261026",
+      "rf-manual-site-production-20261026",
+      "rf-manual-site-stage-fallback-20261026",
+      "rf-manual-site-stage-migrated-20261026",
+      "rf-manual-site-stage-provider-verified-20261026"
+    ],
+    "stageBranch": "br-rapid-sound-a7sxg7tp",
+    "retainedBackup": "br-nameless-boat-a71zgl0w",
+    "deleted": [
+      "rf-manual-site-backup-verified-20261026",
+      "rf-manual-site-baseline-verified-20261026",
+      "rf-manual-site-post-release-20261026",
+      "rf-manual-site-pre-worker-verified-20261026",
+      "rf-manual-site-production-20261026",
+      "rf-manual-site-stage-fallback-20261026",
+      "rf-manual-site-stage-migrated-20261026",
+      "rf-manual-site-stage-provider-verified-20261026",
+      "br-rapid-sound-a7sxg7tp"
+    ],
+    "verifiedAtUtc": "2026-10-26T22:28:16.928753+00:00",
+    "absenceVerified": true,
+    "productionAndBackupPreserved": true
+  },
+  "warnings": [
+    "warn - Neon history retention is only 6 hours; choose a longer paid window or external logical backups before relying on it for production recovery"
+  ],
+  "limits": [
+    "Physical phones not tested",
+    "No authenticated production fixture or real SMTP test; production verification used read-only aggregate checks",
+    "Existing frontend bundle-size advisory"
+  ],
+  "preservedFailures": [
+    "Sandbox temporary-directory access failure and stalled retry; isolated process stopped and approved outside-sandbox tests passed",
+    "First offline replay test exposed omitted payload property; fixed and final review/full browser gates passed",
+    "Migration fixture expectations updated for schema 27; prior failed transcripts retained",
+    {
+      "status": "failed",
+      "runId": 40406065699,
+      "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/40406065699",
+      "sourceCommit": "d8d6b4834a30e7d050eb7c85180787fa77fa3f65",
+      "backend": "passed",
+      "frontend": "failed",
+      "failure": "New manual Site browser check observed an empty records snapshot after queue checkpoint; submission completion had not been awaited.",
+      "change": "Wait for submittingWorkForm=false and explicitly assert one record before reading its Site. Product/runtime unchanged.",
+      "focusedRerun": "passed all 14 isolated browser groups",
+      "rootCauseLimit": "Exact reason for the transient empty storage snapshot was not reproduced locally; complete final-source CI is required."
+    }
+  ]
+}

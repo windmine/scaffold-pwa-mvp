@@ -1,0 +1,117 @@
+{
+  "apiVersion": "run.googleapis.com/v1",
+  "kind": "Execution",
+  "metadata": {
+    "annotations": {
+      "run.googleapis.com/client-name": "gcloud",
+      "run.googleapis.com/client-version": "571.0.0",
+      "run.googleapis.com/creator": "hty2003ah@gmail.com",
+      "run.googleapis.com/execution-environment": "gen2",
+      "run.googleapis.com/lastModifier": "hty2003ah@gmail.com",
+      "run.googleapis.com/operation-id": "067189a0-00aa-41a9-8cc2-5635baf12fd0"
+    },
+    "creationTimestamp": "2026-10-26T21:59:53.418446Z",
+    "generation": 1,
+    "labels": {
+      "cloud.googleapis.com/location": "australia-southeast1",
+      "run.googleapis.com/job": "rf-manual-site-stage-fallback-20261026",
+      "run.googleapis.com/jobGeneration": "1",
+      "run.googleapis.com/jobResourceVersion": "1793051988885418",
+      "run.googleapis.com/jobUid": "2992106e-898b-43e7-8bfb-46a50fe3e4eb",
+      "run.googleapis.com/satisfiesPzs": "true"
+    },
+    "name": "rf-manual-site-stage-fallback-20261026-p442g",
+    "namespace": "794826041820",
+    "ownerReferences": [
+      {
+        "apiVersion": "serving.knative.dev/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "Job",
+        "name": "rf-manual-site-stage-fallback-20261026",
+        "uid": "2992106e-898b-43e7-8bfb-46a50fe3e4eb"
+      }
+    ],
+    "resourceVersion": "AAZexXMhqs4",
+    "selfLink": "/apis/run.googleapis.com/v1/namespaces/794826041820/executions/rf-manual-site-stage-fallback-20261026-p442g",
+    "uid": "07d7a3a3-d531-4072-89a0-a77ae06c6871"
+  },
+  "spec": {
+    "parallelism": 1,
+    "taskCount": 1,
+    "template": {
+      "spec": {
+        "containers": [
+          {
+            "args": [
+              "-c",
+              "\"\"\"Run inside an exact release image. Emit only aggregate, credential-free proof.\"\"\"\nimport hashlib\nimport json\nimport os\nfrom pathlib import Path\nimport subprocess\nimport sys\nimport tempfile\nimport time\nfrom urllib.parse import urlsplit, urlunsplit\nfrom urllib.request import urlopen\nfrom datetime import datetime, timezone\nimport psycopg\nfrom psycopg import sql\nimport secrets\n\nADDED = {\"manual_site_name\"}\nSMOKE_READER_URL = 'https://files.pythonhosted.org/packages/18/42/a945f65cc61c739ec80f4112c4b78ed1791f25d33f45f19389c9c9e247e2/pypdf-6.20.0-py3-none-any.whl'\nSMOKE_READER_SHA256 = 'f003fc2014814d264fe7dd3f9d435c158e23e1a85a2233f87a0a2d6d21c914ad'\nSMOKE_READER_SIZE = 401710\n\n\ndef digest(value):\n    return hashlib.sha256(json.dumps(value, sort_keys=True, default=str, separators=(\",\", \":\")).encode()).hexdigest()\n\n\ndef snapshot(url):\n    with psycopg.connect(url.replace(\"postgresql+psycopg://\", \"postgresql://\", 1), connect_timeout=20) as connection:\n        connection.read_only = True\n        with connection.cursor() as cursor:\n            cursor.execute(\"SET LOCAL statement_timeout = '30s'\")\n            cursor.execute(\"SET LOCAL lock_timeout = '5s'\")\n            cursor.execute(\"SHOW transaction_read_only\")\n            assert cursor.fetchone()[0] == \"on\"\n            cursor.execute(\"SELECT version, checksum FROM schema_migrations ORDER BY version\")\n            ledger = dict(cursor.fetchall())\n            bundled = {p.stem: hashlib.sha256(p.read_bytes()).hexdigest() for p in Path('/app/backend/migrations/versions').glob('[0-9]*.py')}\n            assert list(ledger) == sorted(bundled)[:len(ledger)] and all(bundled[k] == v for k, v in ledger.items())\n            cursor.execute(\"SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name\")\n            tables = [r[0] for r in cursor.fetchall()]\n            business = {}\n            for table in tables:\n                if table == \"schema_migrations\":\n                    continue\n                cursor.execute(\"SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=%s ORDER BY ordinal_position\", (table,))\n                columns = [r[0] for r in cursor.fetchall() if not (table == 'workformsubmission' and r[0] in ADDED)]\n                cursor.execute(sql.SQL('SELECT {} FROM {}').format(sql.SQL(',').join(map(sql.Identifier, columns)), sql.Identifier(table)))\n                rows = sorted(digest(row) for row in cursor.fetchall())\n                business[table] = {\"columns\": columns, \"rows\": len(rows), \"rowsSha256\": digest(rows)}\n            cursor.execute(\"SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='workformsubmission'\")\n            added = sorted(ADDED & {r[0] for r in cursor.fetchall()})\n            result = {\"migrationCount\": len(ledger), \"migrationHead\": list(ledger)[-1], \"migrationChecksums\": ledger,\n                      \"businessTables\": business, \"manualSiteColumns\": added, \"transactionReadOnly\": True}\n            if len(added) == 1:\n                cursor.execute(\"SELECT count(*) FROM workformsubmission WHERE manual_site_name IS NOT NULL\")\n                result[\"manualSiteRows\"] = cursor.fetchone()[0]\n            cursor.execute(\"SELECT count(*) FROM workform WHERE pdf_email_enabled OR pdf_email_recipient IS NOT NULL OR pdf_email_version <> 1\")\n            result[\"configuredTemplateRows\"] = cursor.fetchone()[0]\n            cursor.execute(\"SELECT count(*) FROM reportpdfemail\")\n            result[\"outboxRows\"] = cursor.fetchone()[0]\n            cursor.execute(\"SELECT status, count(*) FROM reportpdfemail GROUP BY status ORDER BY status\")\n            result[\"outboxStatuses\"] = dict(cursor.fetchall())\n            cursor.execute(\"SELECT count(*) FROM reportpdfemail WHERE status='pending'\")\n            result[\"pendingOutboxRows\"] = cursor.fetchone()[0]\n            return result\n\n\ndef migrate(environment):\n    for args in [[], [\"--check\"]]:\n        result = subprocess.run([sys.executable, \"-m\", \"app.migrations\", *args], env=environment,\n                                capture_output=True, timeout=150)\n        assert result.returncode == 0, \"Migration CLI failed; detailed output deliberately withheld\"\n\n\ndef smoke_reader(environment, directory):\n    \"\"\"Supply a verified test reader only to the smoke client subprocess.\"\"\"\n    source = Path('/app/backend/smoke_test.py')\n    diagnosis_code = '''import json,runpy,sys\ntry:\n    runpy.run_path('/app/backend/smoke_test.py',run_name='smoke_import_diagnosis')\nexcept ModuleNotFoundError as error:\n    print(json.dumps({'exception':'ModuleNotFoundError','missingModule':error.name}))\n    sys.exit(42)\nsys.exit(0)\n'''\n    diagnosed = subprocess.run([sys.executable, '-c', diagnosis_code], env=environment,\n                               capture_output=True, timeout=20)\n    assert diagnosed.returncode == 42, 'Exact runtime did not reproduce the missing smoke reader'\n    diagnosis = json.loads(diagnosed.stdout)\n    assert diagnosis == {'exception': 'ModuleNotFoundError', 'missingModule': 'pypdf'}\n    diagnosis.update(status='confirmed', smokeSourceSha256=hashlib.sha256(source.read_bytes()).hexdigest(),\n                     originalImageUnchanged=True, importOnlyNoApiRequests=True)\n    print('REPORTFLOW_SMOKE_DEPENDENCY_DIAGNOSIS ' + json.dumps(diagnosis, sort_keys=True))\n    with urlopen(SMOKE_READER_URL, timeout=30) as response:\n        assert response.geturl() == SMOKE_READER_URL, 'Unexpected test wheel redirect'\n        wheel = response.read(SMOKE_READER_SIZE + 1)\n    assert len(wheel) == SMOKE_READER_SIZE and hashlib.sha256(wheel).hexdigest() == SMOKE_READER_SHA256, 'Test reader wheel checksum mismatch'\n    target = Path(directory) / 'pypdf-6.20.0-py3-none-any.whl'\n    target.write_bytes(wheel)\n    # Python can import a pure-Python wheel directly as a zip path. No install,\n    # extraction, runtime dependency change or server PYTHONPATH change occurs.\n    smoke_env = {**environment, 'PYTHONPATH': str(target) + (os.pathsep + environment['PYTHONPATH'] if environment.get('PYTHONPATH') else '')}\n    checked = subprocess.run([sys.executable, '-c', \"import pypdf; assert pypdf.__version__ == '6.20.0'\"],\n                             env=smoke_env, capture_output=True, timeout=20)\n    assert checked.returncode == 0, 'Verified test reader cannot be imported'\n    return smoke_env, {'version': '6.20.0', 'wheelSha256': SMOKE_READER_SHA256,\n                       'wheelBytes': SMOKE_READER_SIZE, 'smokeSubprocessOnly': True,\n                       'originalMissingModuleReproduced': True, 'productionImageUnchanged': True}\n\n\ndef local_api(environment, *, smoke):\n    with tempfile.TemporaryDirectory(prefix=\"release-stage-\") as directory:\n        env = {**environment, \"APP_ENV\": \"development\", \"ENVIRONMENT\": \"development\", \"K_SERVICE\": \"\",\n               \"UPLOAD_STORAGE_BACKEND\": \"local\", \"UPLOAD_DIR\": directory, \"UPLOAD_BUCKET\": \"\",\n               \"AUTH_COOKIE_SECURE\": \"false\", \"RATE_LIMIT_ENABLED\": \"false\", \"ENABLE_DEV_SEED\": \"true\" if smoke else \"false\",\n               \"GEO_SECRET_KEY\": \"synthetic-release-stage-key-not-a-production-credential\",\n               \"SMTP_HOST\": \"\", \"SMTP_FROM_EMAIL\": \"\", \"SMTP_PASSWORD\": \"\", \"SMTP_USERNAME\": \"\",\n               \"REGISTRATION_EMAIL_ENABLED\": \"false\", \"REPORT_PDF_EMAIL_WORKER_ENABLED\": \"false\",\n               \"API_BASE_URL\": \"http://127.0.0.1:8087\"}\n        process = subprocess.Popen([sys.executable, \"-m\", \"uvicorn\", \"app.main:app\", \"--host\", \"127.0.0.1\", \"--port\", \"8087\"],\n                                   env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n        try:\n            ready = None\n            for _ in range(150):\n                assert process.poll() is None, \"Stage API exited\"\n                try:\n                    with urlopen('http://127.0.0.1:8087/health/ready', timeout=3) as response:\n                        ready = json.load(response)\n                    if ready['status'] == 'ok':\n                        break\n                except Exception:\n                    pass\n                time.sleep(0.2)\n            assert ready and ready['status'] == 'ok'\n            result = {\"readiness\": ready, \"smtpDisabled\": True, \"uploads\": \"disposable-local-only\"}\n            if smoke:\n                with tempfile.TemporaryDirectory(prefix='release-smoke-reader-') as reader_directory:\n                    smoke_env, reader = smoke_reader(env, reader_directory)\n                    checked = subprocess.run([sys.executable, \"/app/backend/smoke_test.py\"], env=smoke_env, capture_output=True, timeout=360)\n                assert not Path(reader_directory).exists(), 'Test reader fixture cleanup failed'\n                result.update(testReader=reader, testReaderCleanupComplete=True)\n                # Failure output can contain fixture identities; retain only counts.\n                lines = checked.stdout.decode('utf-8', errors='replace').splitlines()\n                result.update(smokeExitCode=checked.returncode, passingChecks=sum(line.startswith('ok - ') for line in lines))\n                if checked.returncode:\n                    # Only source-defined check labels; never emit response bodies/tokens.\n                    labels = [line[5:] for line in lines if line.startswith('ok - ')]\n                    failure_label = checked.stderr.decode('utf-8', errors='replace').split(':', 1)[0][:120]\n                    import re\n                    status = re.search(r'expected (\\d+), got (\\d+)', checked.stderr.decode('utf-8', errors='replace'))\n                    print('REPORTFLOW_SMOKE_DIAGNOSIS ' + json.dumps({'passingChecks': len(labels), 'lastChecks': labels[-5:], 'failureLabel': failure_label, 'statuses': status.groups() if status else None}))\n                    raise AssertionError('Provider smoke failed; response details withheld')\n            return result\n        finally:\n            process.terminate()\n            try:\n                process.wait(timeout=15)\n            except subprocess.TimeoutExpired:\n                process.kill()\n                process.wait(timeout=10)\n\n\ndef disposable_smoke(environment):\n    url = environment['DATABASE_URL']\n    assert os.environ['STAGE_BRANCH_ID'] == 'br-rapid-sound-a7sxg7tp'\n    parsed = urlsplit(url)\n    assert parsed.hostname == os.environ['STAGE_DB_HOST']\n    name = 'rf_pdf_smoke_' + secrets.token_hex(8)\n    marker = 'owned-manual-site-release:' + name\n    # The normal provider harness runs with repository assets. The runtime image\n    # packages the identical logo under report-logos, but legacy HTML looks in\n    # /app/assets/icons. Supply that existing test fixture in this ephemeral job\n    # only; retain the unchanged production-image packaging limitation explicitly.\n    logo = Path('/app/backend/app/assets/report-logos/leader.png').read_bytes()\n    assert hashlib.sha256(logo).hexdigest() == 'cd6ef60ecc607ee1f1730f63e74241ff93c67d29d2c1fceab53491a9fa7fdecc'\n    fixture = Path('/app/assets/icons/leader-logo-export.png')\n    assert not fixture.exists()\n    fixture.parent.mkdir(parents=True, exist_ok=True)\n    fixture.write_bytes(logo)\n    with psycopg.connect(url.replace('postgresql+psycopg://', 'postgresql://', 1), autocommit=True, connect_timeout=20) as control:\n        owner = control.execute('SELECT current_user').fetchone()[0]\n        assert not control.execute('SELECT 1 FROM pg_database WHERE datname=%s', (name,)).fetchall()\n        control.execute(sql.SQL('CREATE DATABASE {} OWNER {}').format(sql.Identifier(name), sql.Identifier(owner)))\n        control.execute(sql.SQL('COMMENT ON DATABASE {} IS {}').format(sql.Identifier(name), sql.Literal(marker)))\n        try:\n            isolated = {**environment, 'DATABASE_URL': urlunsplit(parsed._replace(path='/'+name))}\n            migrate(isolated)\n            result = local_api(isolated, smoke=True)\n        finally:\n            actual = control.execute('SELECT pg_get_userbyid(datdba), shobj_description(oid,\\'pg_database\\') FROM pg_database WHERE datname=%s', (name,)).fetchone()\n            assert actual == (owner, marker), 'Owned staging smoke database identity changed'\n            control.execute('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname=%s AND pid<>pg_backend_pid()', (name,))\n            control.execute(sql.SQL('DROP DATABASE {}').format(sql.Identifier(name)))\n            assert not control.execute('SELECT 1 FROM pg_database WHERE datname=%s', (name,)).fetchall()\n            fixture.unlink()\n            print('REPORTFLOW_SMOKE_FIXTURE_CLEANUP ' + json.dumps({'status': 'passed', 'databaseDropped': True,\n                'databaseAbsenceVerified': True, 'supplementalLogoRemoved': not fixture.exists()}))\n        return {**result, 'freshDisposableDatabase': True, 'cleanupComplete': True,\n                'supplementalRepositoryLogoFixture': True, 'productionImageUnchanged': True}\n\n\ndef main():\n    mode = os.environ['PROBE_MODE']\n    assert mode in {'inventory', 'stage-inspect', 'stage-migrate', 'stage-check', 'stage-fallback', 'stage-smoke', 'backup-verify', 'production-migrate'}\n    original = os.environ['DATABASE_URL']\n    parsed = urlsplit(original)\n    original_host = parsed.hostname.replace('-pooler.', '.')\n    assert digest(original_host) == os.environ['PRODUCTION_DB_HOST_SHA256'], 'Production host identity mismatch'\n    assert parsed.username and parsed.password and parsed.path == '/neondb', 'Unexpected database URI shape'\n    if mode.startswith('stage-'):\n        target = os.environ['STAGE_DB_HOST']\n        assert target.endswith('.ap-southeast-2.aws.neon.tech') and target != original_host\n        assert os.environ['STAGE_BRANCH_ID'] == 'br-rapid-sound-a7sxg7tp'\n        # Branches inherit the existing database role. Credentials stay inside\n        # the existing runtime binding; only the verified endpoint is changed.\n        userinfo = parsed.netloc.rsplit('@', 1)[0]\n        original = urlunsplit(parsed._replace(netloc=userinfo + '@' + target))\n    env = {**os.environ, 'DATABASE_URL': original, 'AUTO_MIGRATE': 'false', 'SQL_ECHO': 'false'}\n    before = snapshot(original)\n    if mode == 'production-migrate':\n        assert digest(before) == os.environ['EXPECTED_BEFORE_SHA256'], 'Paused production differs from verified backup'\n    proof = {'status': 'passed', 'mode': mode, 'atUtc': datetime.now(timezone.utc).isoformat(), 'before': before}\n    if mode == 'backup-verify':\n        target = os.environ['BACKUP_DB_HOST']\n        assert target.endswith('.ap-southeast-2.aws.neon.tech') and target != original_host\n        assert os.environ['BACKUP_BRANCH_ID'] not in ['br-snowy-tree-a7hfuph6', 'br-rapid-sound-a7sxg7tp']\n        backup_url = urlunsplit(parsed._replace(netloc=parsed.netloc.rsplit('@', 1)[0] + '@' + target))\n        saved = snapshot(backup_url)\n        assert before == saved and before['migrationCount'] == 26, 'Backup does not match paused production inventory'\n        proof.update(backup=saved, backupMatchesProduction=True, backupBranchId=os.environ['BACKUP_BRANCH_ID'])\n    if mode in {'stage-migrate', 'production-migrate'}:\n        assert before['migrationCount'] == 26 and before['migrationHead'] == '0026_staff_invitations'\n        assert before['manualSiteColumns'] == []\n        migrate(env)\n        after = snapshot(original)\n        assert after['migrationCount'] == 27 and after['migrationHead'] == '0027_report_manual_site'\n        assert set(after['manualSiteColumns']) == ADDED and after['manualSiteRows'] == 0\n        assert before['businessTables'] == after['businessTables']\n        assert all(before[key] == after[key] for key in ('configuredTemplateRows', 'outboxRows', 'pendingOutboxRows', 'outboxStatuses'))\n        assert all(after['migrationChecksums'][k] == v for k, v in before['migrationChecksums'].items())\n        proof.update(after=after, businessDataPreserved=True, applied=['0027_report_manual_site'])\n        print('REPORTFLOW_RELEASE_MIGRATION ' + json.dumps(proof, sort_keys=True))\n    if mode == 'stage-smoke':\n        assert before['migrationCount'] == 27\n        proof['api'] = disposable_smoke(env)\n    if mode in {'stage-migrate', 'stage-check', 'stage-fallback'}:\n        if mode in {'stage-fallback', 'stage-check'}:\n            assert before['migrationCount'] == 27\n        proof['api'] = local_api(env, smoke=False)\n    print('REPORTFLOW_RELEASE_PROOF ' + json.dumps(proof, sort_keys=True))\n\n\nif __name__ == '__main__':\n    try:\n        main()\n    except BaseException as error:\n        import traceback\n        print('REPORTFLOW_RELEASE_FAILURE ' + json.dumps({'status': 'failed', 'type': type(error).__name__,\n            'code': str(error) if isinstance(error, AssertionError) else 'detail-withheld',\n            'lines': [frame.lineno for frame in traceback.extract_tb(error.__traceback__) if frame.filename == '<string>'],\n            'mode': os.environ.get('PROBE_MODE')}))\n        sys.exit(1)\n"
+            ],
+            "command": [
+              "python"
+            ],
+            "env": [
+              {
+                "name": "DATABASE_URL",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "2",
+                    "name": "geo-backend-database-url"
+                  }
+                }
+              },
+              {
+                "name": "PROBE_MODE",
+                "value": "stage-fallback"
+              },
+              {
+                "name": "PRODUCTION_DB_HOST_SHA256",
+                "value": "4ce9a0a1fae9ec9fa74a999640172fc06116b9fcf9ea1ff1236a3286b33624a0"
+              },
+              {
+                "name": "AUTO_MIGRATE",
+                "value": "false"
+              },
+              {
+                "name": "REGISTRATION_EMAIL_ENABLED",
+                "value": "false"
+              },
+              {
+                "name": "SMTP_HOST"
+              },
+              {
+                "name": "SMTP_FROM_EMAIL"
+              },
+              {
+                "name": "REPORT_PDF_EMAIL_WORKER_ENABLED",
+                "value": "false"
+              },
+              {
+                "name": "STAGE_DB_HOST",
+                "value": "ep-small-resonance-a73bx8ht.ap-southeast-2.aws.neon.tech"
+              },
+              {
+                "name": "STAGE_BRANCH_ID",
+                "value": "br-rapid-sound-a7sxg7tp"
+              }
+            ],
+            "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:e8f7fc7df07042420b48a4b5e836c90f5cc6673bb4d63192c4454171c07ebf89",
+            "name": "geo-backend-1",
+            "resources": {
+              "limits": {
+                "cpu": "1",
+                "memory": "512Mi"
+              }
+            }
+          }
+        ],
+        "maxRetries": 0,
+        "serviceAccountName": "geo-backend-runtime@geo-attendance-system-db9ca.iam.gserviceaccount.com",
+        "timeoutSeconds": "600"
+      }
+    }
+  },
+  "status": {
+    "logUri": "https://console.cloud.google.com/logs/viewer?project=geo-attendance-system-db9ca&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22rf-manual-site-stage-fallback-20261026%22%0Aresource.labels.location%3D%22australia-southeast1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22rf-manual-site-stage-fallback-20261026-p442g%22"
+  }
+}

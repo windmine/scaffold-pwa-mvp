@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "releaseCommit": "5210501fb119b85e97f72fc1d57e7686e0c96274",
+  "imageSourceCommit": "d8d6b4834a30e7d050eb7c85180787fa77fa3f65",
+  "allPackagedFilesByteIdentical": true,
+  "verifiedFileCount": 128,
+  "followupChanges": [
+    "docs/evidence/manual-site-release-20261026/initial-ci-failure.json",
+    "docs/evidence/manual-site-release-20261026/initial-source-ci-id.json",
+    "scripts/report-submit-review-test.mjs"
+  ],
+  "fallbackOverlayUnchanged": true
+}

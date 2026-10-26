@@ -1,0 +1,10 @@
+{
+  "requestedAtUtc": "2026-10-26T21:42:38.784547+00:00",
+  "sourceCommit": "d8d6b4834a30e7d050eb7c85180787fa77fa3f65",
+  "directory": "C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\output\\browser-checks\\manual-site-release\\build-arlzurz5",
+  "images": {
+    "candidate": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:manual-site-candidate-20261026-d8d6b48",
+    "fallback": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:manual-site-fallback-20261026-d8d6b48"
+  },
+  "status": "requested"
+}

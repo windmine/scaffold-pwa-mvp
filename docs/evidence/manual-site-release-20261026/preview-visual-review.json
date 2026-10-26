@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-26T22:00:47.848747+00:00",
+  "directReview": [
+    "preview-installer-chinese.png",
+    "preview-installer-english.png",
+    "preview-installer-offline.png"
+  ],
+  "images": {
+    "preview-installer-chinese.png": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+    "preview-installer-english.png": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d",
+    "preview-installer-offline.png": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+  },
+  "observations": [
+    "Readable English/Chinese installer, branding and QR at phone width; offline rendering matches Chinese view."
+  ],
+  "limits": [
+    "Anonymous Chromium, not physical phones or authenticated production forms"
+  ]
+}

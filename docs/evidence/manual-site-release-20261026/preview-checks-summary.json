@@ -1,0 +1,36 @@
+{
+  "status": "passed",
+  "commands": [
+    {
+      "command": [
+        "C:\\Python314\\python.exe",
+        "C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\docs\\evidence\\manual-site-release-20261026\\frontend.py",
+        "parity",
+        "preview"
+      ],
+      "exitCode": 0,
+      "output": "{\"operation\": \"parity\", \"phase\": \"preview\", \"status\": \"passed\", \"files\": 89}\n"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/check-hosted-release.mjs",
+        "https://geo-attendance-system-db9ca--release-manual-site-20261-hjme6jvy.web.app",
+        "C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\docs\\evidence\\manual-site-release-20261026\\preview-shell.json"
+      ],
+      "exitCode": 0,
+      "output": "ok - 79 exact generated shell assets and cache headers\nok - five database/migration/GCS probes and anonymous isolation\nok - anonymous phone-width report shell and cold-offline service-worker launch\n"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/check-hosted-installer.mjs",
+        "https://geo-attendance-system-db9ca--release-manual-site-20261-hjme6jvy.web.app",
+        "C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\docs\\evidence\\manual-site-release-20261026\\preview-installer.json",
+        "--screenshots"
+      ],
+      "exitCode": 0,
+      "output": "ok - seven installer artifacts match frozen local SHA-256 and MIME, including PDF and no-cache HTML\nok - anonymous English and Chinese installer, shared manifest identity, images, and phone layout verified\nok - shared service worker serves the exact installer and cached logo/QR after every prior page closes\n\nHosted installer checks passed; evidence: C:\\Users\\12273\\.codex\\worktrees\\70b6\\scaffold-pwa-mvp\\docs\\evidence\\manual-site-release-20261026\\preview-installer.json\n"
+    }
+  ]
+}

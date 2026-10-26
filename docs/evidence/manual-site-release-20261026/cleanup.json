@@ -1,0 +1,30 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-26T22:27:19.461349+00:00",
+  "jobs": [
+    "rf-manual-site-backup-verified-20261026",
+    "rf-manual-site-baseline-verified-20261026",
+    "rf-manual-site-post-release-20261026",
+    "rf-manual-site-pre-worker-verified-20261026",
+    "rf-manual-site-production-20261026",
+    "rf-manual-site-stage-fallback-20261026",
+    "rf-manual-site-stage-migrated-20261026",
+    "rf-manual-site-stage-provider-verified-20261026"
+  ],
+  "stageBranch": "br-rapid-sound-a7sxg7tp",
+  "retainedBackup": "br-nameless-boat-a71zgl0w",
+  "deleted": [
+    "rf-manual-site-backup-verified-20261026",
+    "rf-manual-site-baseline-verified-20261026",
+    "rf-manual-site-post-release-20261026",
+    "rf-manual-site-pre-worker-verified-20261026",
+    "rf-manual-site-production-20261026",
+    "rf-manual-site-stage-fallback-20261026",
+    "rf-manual-site-stage-migrated-20261026",
+    "rf-manual-site-stage-provider-verified-20261026",
+    "br-rapid-sound-a7sxg7tp"
+  ],
+  "verifiedAtUtc": "2026-10-26T22:28:16.928753+00:00",
+  "absenceVerified": true,
+  "productionAndBackupPreserved": true
+}

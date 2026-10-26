@@ -73,6 +73,12 @@ def assert_baseline():
 
 
 def record_build():
+    packages = read('source-packages.json')
+    if packages['sourceCommit'] != SOURCE:
+        equivalence = read('image-source-equivalence.json')
+        assert equivalence['status'] == 'passed' and equivalence['releaseCommit'] == SOURCE
+        assert equivalence['imageSourceCommit'] == packages['sourceCommit']
+        assert equivalence['allPackagedFilesByteIdentical'] is True
     build_id = read('build-submission.json')['id']
     build = cloud('builds', 'describe', build_id, '--region', REGION)
     write('build-final.json', build)
@@ -83,7 +89,7 @@ def record_build():
     for kind, package in read('source-packages.json')['packages'].items():
         row = next(r for r in build['results']['images'] if r['name'] == package['imageTag'])
         images[kind] = row['name'].rsplit(':', 1)[0] + '@' + row['digest']
-    write('images.json', {'sourceCommit': SOURCE, 'buildId': build_id, 'images': images, 'mockedTestsPassed': True})
+    write('images.json', {'sourceCommit': SOURCE, 'imageSourceCommit': packages['sourceCommit'], 'buildId': build_id, 'images': images, 'mockedTestsPassed': True})
     print(json.dumps({'status': 'passed', 'build': build_id, 'images': images}))
 
 

@@ -1,0 +1,10 @@
+{
+  "atUtc": "2026-10-26T22:02:42.185105+00:00",
+  "job": "reportflow-pdf-email",
+  "actions": [
+    "pause existing Scheduler",
+    "disable existing worker"
+  ],
+  "iamChanges": false,
+  "cancelExecutions": false
+}
