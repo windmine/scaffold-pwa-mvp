@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-27T03:10:49.356827+00:00",
+  "origin": "https://geo-attendance-system-db9ca--release-ui-optimization-2-omiz1wq9.web.app",
+  "sourceCommit": "16d7ba40bc1bba438425aa14bda4d3341487db71",
+  "filesVerified": 91,
+  "buildManifestSha256": "cd229e2ba51b441160d65c1e37fc5504231282bdaacc1423a78307ca8320d8e6"
+}

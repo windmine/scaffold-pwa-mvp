@@ -1,0 +1,272 @@
+Running npm run check:mobile
+
+> scaffold-pwa-mvp@0.0.0 check:mobile
+> npm run build && npm run check:departments && npm run check:report-drafts && npm run check:report-photos && npm run check:report-submit-review && npm run check:offline-report-templates && npm run check:startup-sync && npm run check:report-upload-recovery && npm run check:presentation && npm run check:onboarding && node scripts/report-pdf-email-test.mjs && npm run check:password-recovery && npm run check:report-simplicity && npm run check:report-template-drafts && npm run check:report-review-filters && npm run check:report-corrections && node scripts/check-mobile-browser-workflows.mjs && node scripts/check-install-page.mjs && node scripts/browser-queue-wait-test.mjs && node scripts/check-browser-workflows.mjs
+
+
+> scaffold-pwa-mvp@0.0.0 build
+> npm run generate:pwa && vite build
+
+
+> scaffold-pwa-mvp@0.0.0 generate:pwa
+> node scripts/generate-pwa-service-worker.mjs
+
+generated sw.js (leader-field-af777aab9c9f)
+vite v8.1.6 building client environment for production...
+[2K
+transforming...鉁?56 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/assets/manifest-7iJLFcKU.webmanifest              0.69 kB
+dist/assets/reportflow-icon-JUMdDTPL.svg               0.78 kB 鈹?gzip:   0.40 kB
+dist/assets/reportflow-apple-touch-180-4XY2rcXm.png    2.56 kB
+dist/assets/reportflow-192-O9QSIbGD.png                4.39 kB
+dist/premium-preview.html                             29.92 kB 鈹?gzip:   6.15 kB
+dist/index.html                                       96.74 kB 鈹?gzip:  17.41 kB
+dist/assets/main-q2Q5uNDl.css                        135.93 kB 鈹?gzip:  28.26 kB
+dist/assets/main-6Omp05Fl.js                         753.42 kB 鈹?gzip: 215.49 kB
+
+鉁?built in 264ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+> scaffold-pwa-mvp@0.0.0 check:departments
+> node scripts/department-defaults-test.mjs
+
+ok - default branding is ReportFlow while explicit company logos remain separate
+ok - Mutual resolves by available name, with no seeded-ID or registration fallback
+ok - new Staff defaults respect explicit focus, Mutual, then available fallback without changing All
+ok - non-global staff creation stays in the existing user department
+
+> scaffold-pwa-mvp@0.0.0 check:report-drafts
+> node scripts/report-drafts-test.mjs && node scripts/compact-report-cards-test.mjs && npm run check:report-detail-ux && npm run check:report-gallery
+
+ok - current Worker sees only draft metadata, not answers or evidence
+ok - ordinary drafts remain isolated by exact key, Worker and Department
+ok - malformed rows, unknown schemas, Daywork, recovery and tombstones stay out
+ok - unclassified legacy drafts require the current active scoped Report Template
+ok - explicitly scoped drafts remain visible but unavailable without an active Template
+ok - explicit purpose and Department aliases cannot contradict a draft鈥檚 scope
+ok - draft metadata is scalar, newest-first, timestamp-safe and non-mutating
+ok - incomplete legacy evidence survives, while invalid versions never claim editability
+ok - legacy classification requires Template purpose, not a submission-shaped substitute
+ok - separate recovered and ordinary drafts remain independently continuable
+ok - recovered attempts reject malformed ownership, metadata and slot aliases without reinterpreting version drift
+ok - unknown recovered Definitions stay read-only while ordinary legacy version-one drafts remain editable
+ok - Supervisor drafts use separate ordinary/recovery keys and cannot cross role or home Department
+ok - compact 50-photo Report has summary/submitted/date/site without review metadata, eager evidence or unsafe HTML
+ok - accessible disclosure opens on first click after search blur, builds detail on demand and releases DOM on collapse
+ok - collapsed Reports retain full-answer search and do not search historical review metadata
+ok - queued partial-upload Blob photos allocate only on expand, preserve captured evidence and revoke/close on collapse
+ok - re-render/reset releases every owned Blob URL and detached controls cannot restore private evidence
+ok - exact Worker/Department ownership, switched sessions and empty history do not reveal private detail
+ok - zero-photo recovery cards keep recovery cue/discard, omit optional Site and do not retry drafts
+ok - Supervisor Report detail uses six photo previews while retained Daywork stays unchanged
+ok - Report downloads default to PDF, keep HTML/CSV and translation, and leave Daywork defaults unchanged
+ok - mobile review arrows move selection without opening detail; Enter still activates
+ok - compact system-error cues translate independently while historical review notes stay hidden
+ok - preview cleanup closes only its own viewer sources and releases the displayed image
+
+> scaffold-pwa-mvp@0.0.0 check:report-detail-ux
+> node scripts/report-detail-ux-test.mjs
+
+ok - failed collapsed Report places Retry/Recover after warning and before evidence, without allocating photos or exposing Discard
+ok - promoted actions delegate original key, captured answers and untouched Blob evidence to existing callbacks
+ok - deferred Retry/Recover lock both actions and restore them after completion or handled failure without a redraw
+ok - expansion keeps one recovery-action set, captured answers, signatures and complete gallery; secondary Discard delegates its existing confirmation handler
+ok - only failed/retried queued Reports promote actions; healthy queued detail preserves Retry/Discard while syncing, saved copies and durable Reports cannot recover
+ok - detached/reset/switched identity, Department and role invalidate promoted private actions
+ok - Worker/Supervisor details retain keyboard-accessible submission metadata without historical review details
+ok - historical final notes remain hidden through expansion and collapse
+ok - retained Daywork detail, complete photo list and export default remain unchanged
+ok - PDF email status and captured recipient stay Supervisor-only, including after language changes
+ok - six 320px EN/light and 390px ZH/dark warning/resolved layouts have accessible controls, translated chrome and no horizontal overflow
+Report detail UX screenshots: C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\output\report-detail-ux.local
+
+> scaffold-pwa-mvp@0.0.0 check:report-gallery
+> node scripts/report-photo-gallery-test.mjs && node scripts/photo-viewer-gallery-test.mjs
+
+ok - collapsed Worker allocates no evidence; six numbered previews preserve full ordered 50-photo viewer and capture times
+ok - zero/one/six/seven/fifty Supervisor photos use correct counts, capped thumbnails, numbered names and unchanged signatures
+ok - unavailable thumbnail keeps a numbered translated fallback and access to the unchanged full original list
+ok - retained Daywork and non-form evidence remain unchanged with all photo buttons
+ok - queued original Blobs retain identity and all ordered viewer sources; collapse/reset release 100 URLs and disable detached controls
+ok - old Worker and Supervisor gallery controls do not open private evidence after an identity/scope change
+ok - changing focused Department also invalidates existing gallery controls
+ok - 32 real-CSS Worker/Supervisor layouts at 320/390/768/1440px, EN/ZH and light/dark stay compact with reachable actions
+Gallery screenshots: C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\output\report-photo-gallery.local
+ok - Report-only one-original loading, arrows, fit swipe, native gesture isolation and modal focus
+ok - accessible 2脳 zoom/fit, scroll pan, per-photo reset, Escape and exact background/focus restoration
+ok - source-owner cleanup, accessible failed-image feedback, recovery and unmutated wraparound
+ok - responsive controls, non-Report gesture isolation and backwards-compatible optional markup
+ok - real six-preview gallery, separate signature, hosted evidence verifier and all 50 ordered originals
+ok - 16 fit/zoom phone screenshots saved for EN/ZH and light/dark visual review
+
+> scaffold-pwa-mvp@0.0.0 check:report-photos
+> python backend/report_photo_limit_test.py && node scripts/report-photo-upload-test.mjs && node scripts/report-storage-compatibility-test.mjs && node scripts/report-photo-thumbnails-test.mjs && node scripts/report-photo-selection-test.mjs && npm run check:report-storage
+
+test_daywork_submit_and_supervisor_edit_remain_eight_photos (__main__.ReportPhotoLimitTests.test_daywork_submit_and_supervisor_edit_remain_eight_photos) ... ok
+test_fiftieth_photo_ownership_is_checked (__main__.ReportPhotoLimitTests.test_fiftieth_photo_ownership_is_checked) ... ok
+test_fifty_first_photo_rejected_without_insert (__main__.ReportPhotoLimitTests.test_fifty_first_photo_rejected_without_insert) ... ok
+test_fifty_photos_preserve_order_metadata_signature_snapshot_and_replay (__main__.ReportPhotoLimitTests.test_fifty_photos_preserve_order_metadata_signature_snapshot_and_replay) ... ok
+test_signature_ownership_still_checked_after_fifty_photos (__main__.ReportPhotoLimitTests.test_signature_ownership_still_checked_after_fifty_photos) ... ok
+test_task_logs_remain_eight_photos (__main__.ReportPhotoLimitTests.test_task_logs_remain_eight_photos) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 2.151s
+
+OK
+ok - Blob originals persist byte-exactly and cold replay resumes only missing photos without base64 copies
+ok - legacy draft Blob restore preserves identity/evidence, persists only on save, and preview URLs clean up safely
+ok - 50 photos plus repeated signatures checkpoint sequentially, retry 429, and ignore broken progress callbacks
+ok - cold reload preserves fifty offline originals and resumes fifteen remaining photos after partial failure
+ok - bounded retry count/wait budget, malformed or long cooldowns, network uncertainty, logout and account changes safely retain the queue
+ok - clock-advanced >2-minute uploads cannot be replayed by queue sweeps or duplicate submits, including after account switch/logout
+ok - durable evidence checkpoints and bounded rate-limit waits renew the cross-reload syncing lease
+ok - upload-only Retry-After parsing accepts bounded seconds/date and rejects invalid values
+ok - deployed old tab cannot see new photo/zero-photo drafts or replay Blob Reports; new replay retains ownership and partial evidence
+ok - exact legacy draft migration preserves bytes and concurrent old edits, without stale draft resurrection
+ok - explicit discard after get removes a later legacy draft behind an isolated tombstone
+ok - explicit discard after getAll removes a later legacy draft behind an isolated tombstone
+ok - failed legacy cleanup retains old evidence but tombstone prevents stale-copy resurrection
+ok - existing deployed base64 queues remain readable and replay in their original database without duplicate migration
+ok - isolated storage failure preserves existing draft and never falls back to old-client-visible Blob writes
+ok - bounded lightweight previews, byte-exact originals, original viewer and retained-preview caching
+ok - a failed preview does not block later thumbnails or remove original evidence
+ok - editor reset cancels stale callbacks and releases stale decoded images
+ok - browser decoder fallback and unchanged legacy/signature previews
+ok - fifty 2400脳1600 synthetic originals use one decoded raster at a time
+ok - mixed selection keeps valid originals and lists unsupported/oversized filenames safely
+ok - all-rejected/cancel selections preserve evidence, controls and translated rejection details
+ok - full-size viewing, removal, cold draft restoration and later additions preserve original bytes and metadata
+ok - validation precedes capacity, exactly 5 MB is accepted, and every over-limit selection is explained
+ok - concurrent picker events serialize valid selections and share the 50-photo limit
+ok - session reset invalidates queued photo work, previews, feedback and draft writes
+
+> scaffold-pwa-mvp@0.0.0 check:report-storage
+> node scripts/report-storage-budget-test.mjs && node scripts/report-storage-warning-test.mjs
+
+PASS Blob originals and legacy data URLs are measured without reading bytes
+PASS Malformed legacy strings count storage; remote and temporary URLs do not
+PASS Small known batches return exact advisory copy and write headroom
+PASS Large batch and total thresholds are inclusive and independent
+PASS Low-space threshold, usage ratio and required headroom warn independently
+PASS Absent and malformed estimates never claim known available storage
+PASS Invalid byte values are not coerced and oversized arithmetic stays finite
+PASS Estimator binds the browser method and never requests persistence or cleanup
+PASS Unsupported, denied, throwing and rejected estimators degrade to unknown
+PASS A hung estimate times out and late rejections are handled
+PASS Quota recognition uses exact names, cautious legacy codes and bounded causes
+Report storage budget: 11 groups passed.
+ok - local-only guidance is always visible and never promises a backup, including Review
+ok - ample storage saves a small batch without interrupting and keeps exact originals/metadata
+ok - little available storage warns before adding any originals or previews
+ok - high origin usage despite ample absolute bytes warns before adding any originals or previews
+ok - insufficient conservative transaction headroom warns before adding any originals or previews
+ok - large batches warn even with ample estimates; explicit approval saves original bytes not thumbnails
+ok - missing estimates degrade safely and a large batch still needs confirmation
+ok - throw estimates degrade safely and a large batch still needs confirmation
+ok - reject estimates degrade safely and a large batch still needs confirmation
+ok - hold estimates degrade safely and a large batch still needs confirmation
+ok - malformed estimates degrade safely and a large batch still needs confirmation
+ok - unknown estimates do not block small batches or claim storage is safe
+ok - cancellation and Escape preserve existing photo, answers, saved draft and safe keyboard focus
+ok - invalid and over-capacity files do not consume storage estimates or trigger false large-batch warnings
+ok - accumulated Report size warns before crossing 50 MiB even when each batch is small
+ok - queued picker changes serialize confirmations and freshly check each batch
+ok - template invalidates unaccepted photos during a pending estimate
+ok - clear invalidates unaccepted photos during a pending estimate
+ok - logout invalidates unaccepted photos during a pending estimate
+ok - update invalidates unaccepted photos during a pending estimate
+ok - expiry invalidates unaccepted photos during a pending estimate
+ok - template invalidates unaccepted photos during a pending dialog
+ok - clear invalidates unaccepted photos during a pending dialog
+ok - logout invalidates unaccepted photos during a pending dialog
+ok - update invalidates unaccepted photos during a pending dialog
+ok - expiry invalidates unaccepted photos during a pending dialog
+ok - a changed authenticated worker rejects a late estimate
+ok - a changed authenticated department rejects a late estimate
+ok - a changed authenticated worker rejects a late dialog
+ok - a changed authenticated department rejects a late dialog
+ok - Review requested during an estimate can still use the outside-editor photo confirmation
+ok - an expired pending autosave cannot overwrite a newer same-account draft after sign-in
+ok - a records quota failure during final submission keeps the clean draft and gives truthful recovery guidance
+ok - a queue quota failure during final submission keeps the clean draft and gives truthful recovery guidance
+ok - an optimistic estimate cannot hide a real quota error; retry preserves saved and in-memory originals
+ok - retained Daywork quota failures preserve legacy autosave guidance without Report storage notices
+ok - retained Daywork keeps its legacy selection behavior without Report storage prompts
+ok - EN 320px light and ZH 390px dark warning dialogs/notices are accessible and unclipped
+Passed 38 isolated real-app Report storage warning browser groups.
+
+> scaffold-pwa-mvp@0.0.0 check:report-submit-review
+> node scripts/report-submit-review-summary-test.mjs && node scripts/report-submit-review-test.mjs
+
+Report submission summary checks passed: scalar/hostile text, conditional/time/formula, repeated answers/signatures, unsafe signature rejection, and empty/photo-only Reports.
+ok - worker manual Site keyboard entry, draft reload, safe review and offline replay without duplicate submission
+ok - supervisor manual Site keyboard entry, draft reload, safe review and offline replay without duplicate submission
+ok - Report Date, required answers and required signatures are validated before entering review
+ok - compact review shows safe answers/context/evidence, Back preserves originals, and one confirmation submits the corrected snapshot once
+ok - review waits for selected photos and the protected draft before rendering its snapshot
+ok - offline review stays a draft and only explicit confirmation creates one intact queued Report
+ok - Site changes during photo preparation are reflected consistently in review and submitted context
+ok - a failed durable save retains answers/photos/signature and the user can retry successfully
+ok - silent editor changes require a fresh review and app-update preparation protects the current draft
+ok - context changed during final confirmation awaits requires a fresh review, without an upload or queued record
+ok - resetting a session cancels an in-flight review preparation and its unfinished photos
+ok - session changes invalidate stale confirmation without submitting or queuing
+ok - template changes invalidate stale confirmation without submitting or queuing
+ok - reconnect changes invalidate stale confirmation without submitting or queuing
+
+> scaffold-pwa-mvp@0.0.0 check:offline-report-templates
+> node scripts/offline-report-template-snapshot-test.mjs && node scripts/offline-report-template-worker-test.mjs && node scripts/worker-form-submit-render-test.mjs
+
+ok - a returning Worker can load the exact saved Report Template Definition
+ok - saved Templates never cross Worker, Department, active-status or role boundaries
+ok - only active explicit Department Report Templates are saved; an empty live list replaces old Templates
+ok - corrupt or mismatched saved envelopes fail closed and every loaded Template is revalidated
+ok - logout clearing wins an in-flight save and obsolete sessions cannot repopulate Templates
+ok - editing live objects cannot rewrite stored Definitions; clearing an invalidated scope leaves other Workers untouched
+ok - a failed clear cannot restore revoked Templates in this session; a new authenticated save may replace them
+ok - explicit module reset ignores previous Worker upload 200 completion without changing replacement draft while both native draft reads are held
+ok - explicit module reset ignores previous Worker upload 200 completion without changing replacement draft
+ok - explicit module reset ignores previous Worker upload 401 completion without changing replacement draft
+ok - a new Worker page restores previously authenticated Templates when the API is unavailable
+ok - reconnect saves and restores current edits before replacing the downloaded Template
+ok - an already-open page marks its authenticated Templates downloaded for reconnect revalidation
+ok - a failed draft save pauses reconnect refresh without replacing the original fields or answers
+ok - a newer online Definition preserves the original draft in the existing read-only recovery path
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
++ actual - expected
+
+  [
+    'Select a Report Template',
++   'Site inspection'
+  ]
+
+    at file:///C:/Users/12273/.codex/worktrees/70b6/scaffold-pwa-mvp/scripts/offline-report-template-worker-test.mjs:352:10 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: [ 'Select a Report Template', 'Site inspection' ],
+  expected: [ 'Select a Report Template' ],
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.15.0
+Traceback (most recent call last):
+  File "C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\.github\scripts\run_local_checks.py", line 100, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\.github\scripts\run_local_checks.py", line 95, in main
+    subprocess.run(command, cwd=ROOT, env=environment, check=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\subprocess.py", line 578, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['cmd.exe', '/d', '/c', 'C:\\Program Files\\nodejs\\npm.cmd', 'run', 'check:mobile']' returned non-zero exit status 1.

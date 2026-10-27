@@ -1,6 +1,12 @@
 # ReportFlow
 
-## Current safe Refresh release (2026-10-27 UTC)
+## Current UI optimization release (2026-10-27 UTC)
+
+Source `16d7ba40bc1bba438425aa14bda4d3341487db71` is live as exact Hosting `a443650ecd58e0f2`, cache `leader-field-6d518cf57f89`. The manual Site input appears only for typed names; long forms have section jumps and a pre-submit review shortcut; Templates can be filtered by name with full selected titles; desktop Reports use compact filters/cards; Refresh data and Refresh reports are distinct. Drafts, photos, signatures, corrections and offline queues retain their protections. Backend `geo-backend-manual-site-20261026` remains at 100% without tags. Schema 27, PDF worker, enabled Scheduler, IAM and secret metadata are unchanged. No write pause, migration, production record creation, email send or routing change occurred; no new database inventory comparison is claimed.
+
+Validation passed: six focused UI groups, ten safe Refresh groups, the final local 75/75 aggregate, build/lint, both exact-source CI jobs including the complete mobile gate, 32 desktop/mobile Clear layouts, preview/live 91-file parity, 81 shell assets per origin, installer/offline checks, four live waiting-update checks and 40 strict hardening checks. Earlier failures and their corrections remain recorded. Physical phones and authenticated production fixtures are untested; existing recovery-history and bundle-size warnings remain. [Release evidence](docs/evidence/ui-optimization-release-20261027/release.json).
+
+## Earlier safe Refresh release (2026-10-27 UTC)
 
 Source `88c4635044e2bb283688990bfc26fdda7368a7ec` is live as exact Hosting `d06166d2b8bd70d4`, cache `leader-field-5398700baf59`. Workers and Supervisors have a compact Refresh action for authorized Sites, Templates and Reports plus an app-version check. It preserves open forms, photos/signatures, Site choices, drafts, corrections and queued Reports. Update App and Retry sync remain separate. Backend `geo-backend-manual-site-20261026` remains at 100% without tags; schema 27, worker, enabled Scheduler, IAM and secret metadata are unchanged. There was no write pause, migration, account/invitation/Report creation, email send or routing change by this release; no new database inventory comparison is claimed.
 

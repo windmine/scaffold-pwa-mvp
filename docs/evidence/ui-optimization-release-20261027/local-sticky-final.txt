@@ -1,0 +1,44 @@
+
+> scaffold-pwa-mvp@0.0.0 check:report-ui
+> node scripts/report-ui-optimization-test.mjs
+
+ok 1 - Site modes hide stale input, restore drafts and review only the selected Site
+ok 2 - template search preserves editor, handles no matches, draft continuation and unavailable selected templates
+ok 3 - keyboard section jumps and review shortcut preserve fields/photos/signature and validation; review does not submit
+ok 4 - actual 117-entry audit: 14 section targets, unobstructed sticky navigation across phone/tablet/desktop transitions, readable title and no overflow
+ok 5 - compact desktop filters/cards, full detail, clearing and Supervisor self-submit remain available
+ok 6 - Refresh scopes, concise success, prominent errors, offline filtering and session reset
+Passed 6 Report UI optimization groups; no backend writes or real email.
+
+> scaffold-pwa-mvp@0.0.0 lint
+> eslint .
+
+
+> scaffold-pwa-mvp@0.0.0 build
+> npm run generate:pwa && vite build
+
+
+> scaffold-pwa-mvp@0.0.0 generate:pwa
+> node scripts/generate-pwa-service-worker.mjs
+
+generated sw.js (leader-field-5980758032ae)
+vite v8.1.6 building client environment for production...
+[2K
+transforming...鉁?56 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/assets/manifest-7iJLFcKU.webmanifest              0.69 kB
+dist/assets/reportflow-icon-JUMdDTPL.svg               0.78 kB 鈹?gzip:   0.40 kB
+dist/assets/reportflow-apple-touch-180-4XY2rcXm.png    2.56 kB
+dist/assets/reportflow-192-O9QSIbGD.png                4.39 kB
+dist/premium-preview.html                             29.92 kB 鈹?gzip:   6.15 kB
+dist/index.html                                       96.74 kB 鈹?gzip:  17.41 kB
+dist/assets/main-DG74Vp4i.css                        136.00 kB 鈹?gzip:  28.28 kB
+dist/assets/main-BXerhuZg.js                         754.09 kB 鈹?gzip: 215.76 kB
+
+鉁?built in 248ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.

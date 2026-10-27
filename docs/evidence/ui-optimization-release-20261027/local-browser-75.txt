@@ -1,0 +1,79 @@
+Running complete 75-workflow aggregate against final code; no filter.
+ok - Supervisor Submit form keeps global review focus separate and rejects legacy queue types
+ok - Supervisor Submit form preserves own identity, drafts, photos, signature and offline replay
+ok - action feedback is local, busy, announced, and separate from sync state
+ok - Chinese translation covers validation, forms, signatures, and photos
+ok - required signatures are fully keyboard accessible
+ok - photo viewer traps and restores focus
+ok - primary action gradients meet WCAG AA contrast
+ok - anonymous login startup does not request or expose sites
+ok - restored session loads sites only after auth refresh
+ok - authenticated Site failure does not expose demo Sites
+ok - browser login uses cookie session without localStorage bearer token
+ok - browser geolocation grant enables attendance capture
+ok - attendance presents one contextual action with a secondary correction path
+ok - normal Worker guide compacts and Site priority follows attendance context
+ok - normal Workers submit Reports and see authorized Supervisor corrections
+ok - Report photo selection appends without replacing earlier photos
+ok - Report photo selection rejects invalid files without clearing earlier photos
+ok - Report photo removal keeps other photos and persists in the draft
+ok - My Reports shows ordinary device drafts and continues their saved answers and photos
+ok - Report photo drafts append new selections and submit both original images
+ok - Report photo overlapping selections retain both images in selection order
+ok - My Reports ordinary drafts stay private across shared-device account switches
+ok - My Reports blocks Continue for submitted drafts when local cleanup fails
+ok - Report photo capacity and empty picker preserve existing selections without blank drafts
+ok - Report photo 50-file batch restores and uploads once across rate limiting
+ok - shared-device Worker Reports clear on logout, pending login, and late responses
+ok - shared-device late authorization errors cannot sign out the replacement Worker
+ok - shared-device same-account relogin ignores the previous session authorization failure
+ok - shared-device active session expiry clears open Report photos and history
+ok - shared-device Supervisor Reports clear across Departments and failed queue loads
+ok - browser geolocation denial shows recoverable error
+ok - Daywork team rows use searchable member picker
+ok - Daywork history and review hide helper fields
+ok - report-only New Report, My Reports, queue, and exports exclude Daywork
+ok - offline My Reports fallback shows only queued Report submissions
+ok - explicit Report purpose overrides Daywork words in a template name
+ok - report-only automatic and manual replay skip hidden record queues
+ok - reconnect preserves in-progress Daywork and Work Form answers
+ok - ReportFlow branding and Mutual defaults preserve explicit Departments and global focus
+ok - report-only responsive layout keeps controls and final actions usable in light and dark themes
+ok - unfinished Report Template creation survives reload with pending raw syntax
+ok - unfinished Report Template close pauses on storage failure and keeps the draft
+ok - unfinished Report Template edits survive workspace navigation and reload
+ok - unfinished Report Template lifecycle protects logout, update, and account privacy
+ok - unfinished Report Template publication retires drafts and isolates uncertain saves
+ok - unfinished Report Template actions wait for post-publication refresh before editing
+ok - unfinished Report Template stale versions stay read-only without overwriting newer work
+ok - unfinished Report Template cross-tab protection preserves newer edits and removed-draft recovery
+ok - Staff creation focus preserves newer editing and closed panel choices
+ok - Worker invitation replaces Supervisor-chosen passwords with a private setup link
+ok - Worker invitation password setup confirms ownership without changing another signed-in session
+ok - Worker invitation clean browser continues directly into Reports
+ok - Worker invitation replacement and revocation clear invalid setup secrets
+ok - Worker invitation late responses never expose a prior Supervisor private link
+ok - Private Worker password recovery replaces and revokes links, preserves shared accounts and drafts, and invalidates old sessions
+ok - Report Find exports download CSV and PDF matching the searched inbox
+ok - Supervisor Report filters remember structured selections per account and Department without saving Find
+ok - staff users scope global admin controls by role
+ok - Template library searches names and descriptions, filters lifecycle states, and protects unfinished edits
+ok - supervisors create and edit conditional Work Forms with field cards
+ok - Offline Submission ownership, occurrence time, and idempotent replay
+ok - Report Dates reject impossible calendar values and preserve invalid queued evidence
+ok - offline Report template changes preserve queued answers, photos, and signatures
+ok - stale Report drafts preserve original answers until explicit new-report recovery
+ok - stale Report drafts without captured fields or version preserve original evidence
+ok - Report photos and repeat signatures resume once after partial upload failure
+ok - supervisor review shows pending outside-site worker record
+ok - department switching replaces map points and clears stale selection
+ok - supervisor workspaces remain navigable on desktop and mobile
+ok - supervisor Review Desk is responsive
+ok - offline Review Queue is explicit and read-only
+ok - Report offline return resumes a downloaded Template draft after every page closes
+ok - retained attendance app cold-launches offline and queues attendance
+ok - retained Work Form drafts protect production-mode app updates
+ok - report-only service worker update prompt posts SKIP_WAITING
+
+browser workflow checks passed
+Complete aggregate passed; isolated temporary storage removed.

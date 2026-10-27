@@ -1,0 +1,40 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-27T03:14:10.241052+00:00",
+  "reviewed": [
+    "local-audit-768-final.png",
+    "local-audit-1440-final.png",
+    "preview-installer-english.png",
+    "preview-installer-chinese.png",
+    "live-waiting-update-waiting.png",
+    "live-waiting-update-updated.png",
+    "live-waiting-update-offline.png"
+  ],
+  "findings": [
+    "Phone installer English/Chinese controls, QR and text remain readable without horizontal overflow.",
+    "Offline installer is byte-identical to the reviewed Chinese installer.",
+    "Three live installer images match their reviewed previews byte-for-byte.",
+    "Waiting Update App banner is visible; activated app and cold-offline shell preserve the same sign-in content. Offline status changes without layout damage.",
+    "Final synthetic tablet/desktop Audit targets and toolbar controls remain visible below sticky Report tabs."
+  ],
+  "limits": [
+    "Authenticated form screens are synthetic local fixtures; no authenticated production fixtures or physical phones."
+  ],
+  "images": {
+    "audit-navigation-320.png": "5e03d6e8b94cb23fd3f90ff932dc17a461a58c7b93a0605ad67fd6b88048012c",
+    "audit-navigation-390.png": "20c5ebfe7325cde33ff5320572096fb81b8f8cf431f06c51f9743f3a9918d7bf",
+    "live-installer-chinese.png": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+    "live-installer-english.png": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d",
+    "live-installer-offline.png": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+    "live-waiting-update-offline.png": "288aedc8f66fffcf5a6f0e7168f50d1d7f15c59656106619660a214d2f503982",
+    "live-waiting-update-updated.png": "2be93fb73e2392956083470b62300d505b0e2b664d230336a1230610bc65cd15",
+    "live-waiting-update-waiting.png": "b0a6ddc449af3dab310fdf98a96326354f65c418c68ed9bf1058afa1870ff569",
+    "local-audit-1440-final.png": "7c76f5f5f9e6068d800d18a6a4394a5f13445c53d9a438add9204a76b19ea0d3",
+    "local-audit-768-final.png": "48db7cc843c4d1e7e13709d8f1e707029bce0d2e1cb4a6888ff936fb96813c97",
+    "preview-installer-chinese.png": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+    "preview-installer-english.png": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d",
+    "preview-installer-offline.png": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec",
+    "supervisor-1280.png": "91617b81643db635f7f2ad7461b44a5f4de078e10092ca7a8d4056abe2d75aaf",
+    "worker-320-chinese.png": "904943fe6a7882b438beef9fda75c1ef4db5a864c72e01d32a45ee6dc6df9c66"
+  }
+}

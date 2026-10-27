@@ -1,0 +1,275 @@
+{
+  "schemaVersion": 1,
+  "status": "deployed-and-verified",
+  "recordedAtUtc": "2026-10-27T03:14:10.484491+00:00",
+  "sourceCommit": "16d7ba40bc1bba438425aa14bda4d3341487db71",
+  "url": "https://geo-attendance-system-db9ca.web.app",
+  "hostingVersion": "a443650ecd58e0f2",
+  "previousHostingVersion": "d06166d2b8bd70d4",
+  "promotionsPerformed": 1,
+  "requestedAtUtc": "2026-10-27T03:12:41.264683+00:00",
+  "releasedAtUtc": "2026-10-27T03:12:40.716Z",
+  "verifiedAtUtc": "2026-10-27T03:13:17.232349+00:00",
+  "cacheVersion": "leader-field-6d518cf57f89",
+  "changes": [
+    "Manual Site visibility",
+    "Long-form section jumps and pre-submit review shortcut",
+    "Template-name filtering and full selected title",
+    "Compact desktop Report filters/cards",
+    "Distinct Refresh labels and concise success"
+  ],
+  "validation": {
+    "sourceCiUrl": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/40440902313",
+    "sourceCiBothJobsPassed": true,
+    "focusedUiGroups": 6,
+    "safeRefreshGroups": 10,
+    "localFinalAggregateWorkflows": 75,
+    "sourceCiCompleteMobileGate": "passed",
+    "buildLint": "passed",
+    "desktopClearLayouts": 32,
+    "previewLiveFullFileParityEach": 91,
+    "previewLiveShellAssetsEach": 81,
+    "liveWaitingUpdateChecks": 4,
+    "strictHardeningChecks": 40
+  },
+  "backend": {
+    "revision": "geo-backend-manual-site-20261026",
+    "trafficPercent": 100,
+    "serviceWorkerSchedulerIamSecretMetadataUnchanged": true,
+    "schedulerState": "ENABLED",
+    "deploymentOrMigrationPerformed": false,
+    "productionWritePause": false,
+    "databaseInventoryRepeated": false,
+    "secretPayloadsRead": false
+  },
+  "scope": {
+    "productionRecordMutations": false,
+    "accountsInvitationsReportsSitesCreated": false,
+    "realEmailsSentByRelease": false,
+    "emailRoutingChanged": false,
+    "firebaseAuthDomainSync": false
+  },
+  "rollback": {
+    "version": "d06166d2b8bd70d4",
+    "channel": "release-safe-refresh-20261027",
+    "expiresAtUtc": "2026-11-03T00:53:10.013893912Z",
+    "constraints": "Frontend-only rollback. Reverify retained exact version; preserve schema-27 backend, worker, Scheduler, device/auth state."
+  },
+  "cleanup": {
+    "readOnlyBrowserContextsClosed": true,
+    "preexistingHostingCacheRestoredExactly": true,
+    "preexistingTemplateDocumentUnchanged": true,
+    "previewIntentionallyRetained": "release-ui-optimization-20261027",
+    "previewExpiresAtUtc": "2026-11-03T03:10:09.069500239Z"
+  },
+  "limits": [
+    "No physical phones, assistive-technology certification, authenticated production fixtures or real SMTP test.",
+    "Existing six-hour Neon recovery-history and bundle-size warnings remain.",
+    "Earlier local failures are retained; final local aggregate passed 75/75.",
+    "Initial source CI exposed sticky Report tabs covering the section control; measured offsets and ordinary-click regressions fix it.",
+    "Initial hardening used outdated default proof paths; explicit existing current proofs passed without infrastructure changes."
+  ],
+  "followUpCi": "Final release-record CI is reported in the task outcome without another metadata-only commit.",
+  "evidence": [
+    {
+      "path": ".gitattributes",
+      "sha256": "612c24a88962a8cf2bc71bd715bdafe16c3b504e4e3ca7aebc9af248a7d82ee7"
+    },
+    {
+      "path": "audit-navigation-320.png",
+      "sha256": "5e03d6e8b94cb23fd3f90ff932dc17a461a58c7b93a0605ad67fd6b88048012c"
+    },
+    {
+      "path": "audit-navigation-390.png",
+      "sha256": "20c5ebfe7325cde33ff5320572096fb81b8f8cf431f06c51f9743f3a9918d7bf"
+    },
+    {
+      "path": "build-manifest.json",
+      "sha256": "cd229e2ba51b441160d65c1e37fc5504231282bdaacc1423a78307ca8320d8e6"
+    },
+    {
+      "path": "ci-initial-source-failure.json",
+      "sha256": "c7d633da116e4f5785aa56e7df87d300fbf27bc48f4a2452ab1a831d47ab85ae"
+    },
+    {
+      "path": "ci-source.json",
+      "sha256": "3c7ff0d148cbe81ce26efe4498ad6ad89cf16f47e13ca60978f210c5ee31523a"
+    },
+    {
+      "path": "hardening-default-path-failure.txt",
+      "sha256": "57a0d0f2db3a2fbe74711e227af35edf28457ad2c6f3fa11f55a22f09d9ebee7"
+    },
+    {
+      "path": "hardening-log.txt",
+      "sha256": "672a02cce4ebe7d3e8263a37fcce02492a5887d61f86ea1ee836552b43ff6dfb"
+    },
+    {
+      "path": "hardening.json",
+      "sha256": "3dfcd040ed0a91cda7730fe6efaeef34275a8a5ee259901e2b644e077cd8b4ae"
+    },
+    {
+      "path": "infrastructure-after.json",
+      "sha256": "bc96ca550657f8260f084f340a377ff47b3dfe233edd4318e0159e7e65181d4b"
+    },
+    {
+      "path": "infrastructure-before.json",
+      "sha256": "82229549481d77f40552b4348ba4db5b52963d043559d08efccf482d4af5a3d0"
+    },
+    {
+      "path": "initial-build-manifest.json",
+      "sha256": "be5ecb3772fcc2b9cbcd52a0a1da38f123aedb144562fa499a6d567a1a47bb73"
+    },
+    {
+      "path": "initial-date-layout-failure.txt",
+      "sha256": "e309d434d066ed35e33210da0cca3a06e2baf2e54acacc5c08cf42e21038cc61"
+    },
+    {
+      "path": "initial-source-ci-failure.txt",
+      "sha256": "bc97122bafd796cbec5acc3337b4d5bbd44d9f4b0e39728fc262c748cd763ce7"
+    },
+    {
+      "path": "initial-source-validation.json",
+      "sha256": "5e71213bb22f7ca4c5d3b21d86d56ded3b301656d7885e303a2916d2033f47f7"
+    },
+    {
+      "path": "initial-template-retention-failure.txt",
+      "sha256": "afefd36f08b38bf7f0d2d910201c4a240b85ff33a57953d96de46477eacddfc0"
+    },
+    {
+      "path": "live-channel.json",
+      "sha256": "7d5a030b3869b8d275f038d61d5e663fceb17d46084ef0e40a5650dc1aea02cb"
+    },
+    {
+      "path": "live-full-parity.json",
+      "sha256": "2c4ef8a2a45fdd68a46380e60163b0f2a64028b96177c9a7700983387b42656b"
+    },
+    {
+      "path": "live-installer-chinese.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "live-installer-english.png",
+      "sha256": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d"
+    },
+    {
+      "path": "live-installer-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "live-installer.json",
+      "sha256": "bf1e44b273df7abe85fd37d12edc183eb923897c39830b010baa49634292c00b"
+    },
+    {
+      "path": "live-shell.json",
+      "sha256": "9b5f1c01509650b782e52653109ed49e8b27baa4f019775a13afa30a27d2b3c8"
+    },
+    {
+      "path": "live-waiting-update-offline.png",
+      "sha256": "288aedc8f66fffcf5a6f0e7168f50d1d7f15c59656106619660a214d2f503982"
+    },
+    {
+      "path": "live-waiting-update-updated.png",
+      "sha256": "2be93fb73e2392956083470b62300d505b0e2b664d230336a1230610bc65cd15"
+    },
+    {
+      "path": "live-waiting-update-waiting.png",
+      "sha256": "b0a6ddc449af3dab310fdf98a96326354f65c418c68ed9bf1058afa1870ff569"
+    },
+    {
+      "path": "live-waiting-update.json",
+      "sha256": "a4a990dc4e8798d3acf9523bb6ff2bc97eabf9460127f8e7d2be9547e8e56c9a"
+    },
+    {
+      "path": "local-audit-1440-final.png",
+      "sha256": "7c76f5f5f9e6068d800d18a6a4394a5f13445c53d9a438add9204a76b19ea0d3"
+    },
+    {
+      "path": "local-audit-768-final.png",
+      "sha256": "48db7cc843c4d1e7e13709d8f1e707029bce0d2e1cb4a6888ff936fb96813c97"
+    },
+    {
+      "path": "local-browser-75.txt",
+      "sha256": "840418edef0803b8745c9e8aaa38b7ecfe85b380086ac2d65a6bdcf8bb4724da"
+    },
+    {
+      "path": "local-final-checks.txt",
+      "sha256": "ceef08bf4cc4b408d6247ac6f80b5676455f6bb0a578725d39b8fb2c700ed6d2"
+    },
+    {
+      "path": "local-final-source-browser-75.txt",
+      "sha256": "33f4f321dfcb9ecab77cad4e1ab49c5846cede6553157d5720536c6d7a227dd4"
+    },
+    {
+      "path": "local-sticky-final.txt",
+      "sha256": "bd46a6e8f3cbfc5d04852d6a3542eb98b71d172c5dd03851f2d43839bd4f7c8f"
+    },
+    {
+      "path": "local-sticky-fixture-failure.txt",
+      "sha256": "8ac7e5b9d53fb990a48f4f265fac8afc63f3fb5bf35e31523db37b07dbdcaf3d"
+    },
+    {
+      "path": "local-verification.json",
+      "sha256": "90250f1cda25ca46e886142b408e83a290bbef0b65a4c9043457fc88a830d56b"
+    },
+    {
+      "path": "preview-channel.json",
+      "sha256": "0d0d0009ca754e0ccb031bdd59d1559bdc09824b1f360ab9835f33e77a80b884"
+    },
+    {
+      "path": "preview-full-parity.json",
+      "sha256": "a3f8bc5be0767701ea89285ce379590ea8c4e0d1fab95a8d2a12bd4f91093d47"
+    },
+    {
+      "path": "preview-installer-chinese.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "preview-installer-english.png",
+      "sha256": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d"
+    },
+    {
+      "path": "preview-installer-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "preview-installer.json",
+      "sha256": "ce06a78ecda27e0b508102c553e32d9f73e8008db5b3a5b8bcb70862aa81d59d"
+    },
+    {
+      "path": "preview-request.json",
+      "sha256": "1b45f01c23e1f27a948abdf8b0de3858b1ecea2025f3495d9fafba22ab29e400"
+    },
+    {
+      "path": "preview-result.json",
+      "sha256": "df3f9dac42624334977ca2caf0b3d4851071ec70e079b7010932b89c7435776d"
+    },
+    {
+      "path": "preview-shell.json",
+      "sha256": "f4e4001ab6a0e8e0d3ef9eb5516b176590c0f369b679c2a59449febdfd64df62"
+    },
+    {
+      "path": "promotion-request.json",
+      "sha256": "7ee7f152d20a4ef1655eba39261ca100a356c11d5a29883fed6a10f4c888ed63"
+    },
+    {
+      "path": "promotion-result.json",
+      "sha256": "a08d178b742a325cc9ef3cad20f0fba0a56192aebedf638c7672aeb8f8b43462"
+    },
+    {
+      "path": "source-validation.json",
+      "sha256": "7df58b079d3ac3862bd4c831fea1c63f5f19f1410d228363211de05ac4db2893"
+    },
+    {
+      "path": "supervisor-1280.png",
+      "sha256": "91617b81643db635f7f2ad7461b44a5f4de078e10092ca7a8d4056abe2d75aaf"
+    },
+    {
+      "path": "visual-review.json",
+      "sha256": "79343bdafc48bb21acace7ce76003d13ee1d278651e9bd32c336e58612766ce5"
+    },
+    {
+      "path": "worker-320-chinese.png",
+      "sha256": "904943fe6a7882b438beef9fda75c1ef4db5a864c72e01d32a45ee6dc6df9c66"
+    }
+  ]
+}

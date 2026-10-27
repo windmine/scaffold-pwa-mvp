@@ -1,0 +1,262 @@
+Running npm run lint
+
+> scaffold-pwa-mvp@0.0.0 lint
+> eslint .
+
+Running npm run check:report-ui
+
+> scaffold-pwa-mvp@0.0.0 check:report-ui
+> node scripts/report-ui-optimization-test.mjs
+
+ok 1 - Site modes hide stale input, restore drafts and review only the selected Site
+ok 2 - template search preserves editor, handles no matches, draft continuation and unavailable selected templates
+ok 3 - keyboard section jumps and review shortcut preserve fields/photos/signature and validation; review does not submit
+ok 4 - actual 117-entry audit: 14 section targets, sticky navigation, readable title and no overflow at 320/390/768
+ok 5 - compact desktop filters/cards, full detail, clearing and Supervisor self-submit remain available
+ok 6 - Refresh scopes, concise success, prominent errors, offline filtering and session reset
+Passed 6 Report UI optimization groups; no backend writes or real email.
+Running node scripts/check-mobile-browser-workflows.mjs
+ok - Chinese catalogue is valid Unicode without mojibake or replacement artifacts
+ok - Chinese catalogue fully translates high-value UI labels instead of mixed English
+ok - Chinese catalogue fully translates Report correction controls and dynamic feedback
+ok - Chinese catalogue covers report-only shell, history, and retained terminology
+ok - Chinese catalogue translates Analytics exception navigation
+ok - Chinese catalogue fully translates app confirmation dialog copy
+ok - Chinese catalogue translates keyboard signature instructions and live status
+ok - work form field ids survive label edits
+ok - advanced work form syntax round-trips visual field data
+ok - production build exists
+ok - dist/assets/js/date-inputs.js exists
+ok - dist/assets/js/confirmation-dialog.js exists
+ok - dist/assets/js/site-map-picker.js exists
+ok - dist/assets/js/team-member-picker.js exists
+ok - dist/assets/js/team-work-log.js exists
+ok - dist/assets/js/ui-feedback.js exists
+ok - dist/assets/js/worker-sites.js exists
+ok - dist/assets/js/work-form-builder.js exists
+ok - dist/assets/js/offline-report-template-snapshot.js exists
+ok - dist/assets/js/report-template-drafts.js exists
+ok - dist/assets/js/report-note-drafts.js exists
+ok - dist/assets/js/report-note-editor.js exists
+ok - dist/assets/icons/leader-logo-export.png exists
+ok - dist/assets/icons/mutual-logo.svg exists
+ok - dist/assets/icons/mc-logo.svg exists
+ok - dist/assets/icons/stech-logo.svg exists
+ok - dist/assets/icons/bop-logo.svg exists
+ok - dist/assets/icons/reportflow-icon.svg exists
+ok - dist/assets/icons/reportflow-apple-touch-180.png exists
+ok - dist/assets/icons/reportflow-192.png exists
+ok - dist/assets/icons/reportflow-512.png exists
+ok - dist/assets/icons/reportflow-maskable-512.png exists
+ok - production HTML keeps stable PWA links
+ok - public registration is hidden for invited accounts
+ok - login form precedes the install promotion
+ok - Staff and Work Form creation stay behind accessible Add actions
+ok - #statusBanner exists in the app shell
+ok - #syncIndicator exists in the app shell
+ok - #syncIndicatorText exists in the app shell
+ok - #toastViewport exists in the app shell
+ok - #themeToggleButton exists in the app shell
+ok - #brandLogo exists in the app shell
+ok - #installButton exists in the app shell
+ok - #downloadAppButton exists in the app shell
+ok - #updateButton exists in the app shell
+ok - #loginForm exists in the app shell
+ok - #loginSubmitButton exists in the app shell
+ok - #loginFeedback exists in the app shell
+ok - #registerForm exists in the app shell
+ok - #sendRegistrationCodeButton exists in the app shell
+ok - #registrationCodeFields exists in the app shell
+ok - #registrationCodeInput exists in the app shell
+ok - #verifyRegistrationCodeButton exists in the app shell
+ok - #registrationCompletionFields exists in the app shell
+ok - #registerDepartmentSelect exists in the app shell
+ok - #workerView exists in the app shell
+ok - #workerSiteMap exists in the app shell
+ok - #workerSiteMapStatus exists in the app shell
+ok - #teamLogTab exists in the app shell
+ok - #teamWorkLogForm exists in the app shell
+ok - #teamWorkLogWeekStart exists in the app shell
+ok - #teamWorkLogEntries exists in the app shell
+ok - #addTeamWorkLogEntryButton exists in the app shell
+ok - #submitTeamWorkLogButton exists in the app shell
+ok - #teamWorkLogAutosaveStatus exists in the app shell
+ok - #teamWorkLogFeedback exists in the app shell
+ok - #teamWorkLogHistory exists in the app shell
+ok - #supervisorView exists in the app shell
+ok - #adminMobileWorkspaceLabel exists in the app shell
+ok - #adminMobileMenuButton exists in the app shell
+ok - #adminWorkspaceDrawer exists in the app shell
+ok - #adminWorkspaceDrawerCloseButton exists in the app shell
+ok - #adminOverview exists in the app shell
+ok - #adminReviewWorkspace exists in the app shell
+ok - #adminReportsWorkspace exists in the app shell
+ok - #adminPeopleWorkspace exists in the app shell
+ok - #adminFormsWorkspace exists in the app shell
+ok - #adminAuditWorkspace exists in the app shell
+ok - #adminOverview exists in the app shell
+ok - #reviewQueueDetails exists in the app shell
+ok - #reviewQueueNotice exists in the app shell
+ok - #reviewQueueFeedback exists in the app shell
+ok - #reviewQueuePagination exists in the app shell
+ok - #reviewQueueDetail exists in the app shell
+ok - #reviewQueueDetailTitle exists in the app shell
+ok - #reviewQueueModeBadge exists in the app shell
+ok - #reviewQueueSelectionPosition exists in the app shell
+ok - #previousReviewRecordButton exists in the app shell
+ok - #nextReviewRecordButton exists in the app shell
+ok - #auditHistoryDetails exists in the app shell
+ok - #workFormsDetails exists in the app shell
+ok - #addWorkFormButton exists in the app shell
+ok - #workFormCreatePanel exists in the app shell
+ok - #cancelWorkFormCreateButton exists in the app shell
+ok - #sitesDetails exists in the app shell
+ok - #siteUseLocationButton exists in the app shell
+ok - #siteMap exists in the app shell
+ok - #siteMapStatus exists in the app shell
+ok - #staffUsersDetails exists in the app shell
+ok - #addStaffUserButton exists in the app shell
+ok - #staffUserCreatePanel exists in the app shell
+ok - #staffUserSubmitButton exists in the app shell
+ok - #cancelStaffUserCreateButton exists in the app shell
+ok - #staffWorkerClassSelect exists in the app shell
+ok - #attendanceSite exists in the app shell
+ok - #captureLocationButton exists in the app shell
+ok - #attendancePrimaryButton exists in the app shell
+ok - #attendanceCorrectionDetails exists in the app shell
+ok - #attendanceCorrectionSummary exists in the app shell
+ok - #attendanceCorrectionButton exists in the app shell
+ok - #attendanceFeedback exists in the app shell
+ok - #taskForm exists in the app shell
+ok - #taskFeedback exists in the app shell
+ok - #workFormSubmissionForm exists in the app shell
+ok - #workFormFeedback exists in the app shell
+ok - #reviewQueueList exists in the app shell
+ok - #manualAttendanceDetails exists in the app shell
+ok - #manualAttendanceForm exists in the app shell
+ok - #manualAttendanceWorker exists in the app shell
+ok - #manualAttendanceSite exists in the app shell
+ok - #manualAttendanceType exists in the app shell
+ok - #manualAttendanceTime exists in the app shell
+ok - #manualAttendanceNote exists in the app shell
+ok - #manualAttendanceSubmitButton exists in the app shell
+ok - #manualAttendanceFeedback exists in the app shell
+ok - #adminTaskLogDetails exists in the app shell
+ok - #adminTaskLogForm exists in the app shell
+ok - #adminTaskLogUser exists in the app shell
+ok - #adminTaskLogSite exists in the app shell
+ok - #adminTaskLogDate exists in the app shell
+ok - #adminTaskLogDescription exists in the app shell
+ok - #adminTaskLogSubmitButton exists in the app shell
+ok - #adminTaskLogFeedback exists in the app shell
+ok - #rubbishBinDetails exists in the app shell
+ok - #rubbishBinCount exists in the app shell
+ok - #rubbishBinList exists in the app shell
+ok - #refreshRubbishBinButton exists in the app shell
+ok - #supervisorDepartmentFilter exists in the app shell
+ok - #saveDefaultDepartmentButton exists in the app shell
+ok - #auditEventsList exists in the app shell
+ok - #refreshAuditButton exists in the app shell
+ok - #managementAnalyticsDetails exists in the app shell
+ok - #analyticsTrendChart exists in the app shell
+ok - #analyticsExceptionSummary exists in the app shell
+ok - #analyticsExceptionList exists in the app shell
+ok - #analyticsSiteSummary exists in the app shell
+ok - #analyticsFormCharts exists in the app shell
+ok - #locationMapDetails exists in the app shell
+ok - #locationReviewMap exists in the app shell
+ok - #locationMapHistory exists in the app shell
+ok - mobile viewport and camera/photo controls exist
+ok - Worker photo preflight matches the backend raster limits
+ok - attendance GPS is Worker-owned, fresh, and invalidated between sessions
+ok - action feedback separates sync, system, toast, local, field, and busy states
+ok - authenticated Site loading never falls back to seeded demo Sites
+ok - reconnect preserves active Daywork and Work Form DOM state
+ok - Work Form drafts autosave per Worker and form before app updates
+ok - consequential actions use one accessible app confirmation dialog
+ok - queued upload failures are visible and recoverable by the owning Worker
+ok - the retained full interface keeps six responsive supervisor workspaces
+ok - Reports allow a visible 50-photo batch without expanding retained limits
+ok - report-only mode exposes only report, template, and staff navigation
+ok - report-only data requests and exports exclude Daywork
+ok - report product language replaces Work Form copy without renaming internals
+ok - worker Reports retain the submission engine and submitted history
+ok - Supervisor Reports use direct corrections, durable filters, and Report exports
+ok - Report details and downloads use correction and Report language
+ok - supervisor Review Desk uses an accessible master-detail layout
+ok - localized date inputs stay inside mobile form boundaries
+ok - verified registration gates department selection
+ok - theme toggle is persistent and available before paint
+ok - same-origin phone proxy is configured
+ok - service worker update prompt is wired
+ok - PWA assets and cache name are generated from one manifest
+ok - installed, browser, and offline product copy is report-only
+ok - initial signed-out brand is company-neutral ReportFlow
+ok - ReportFlow install icons use fresh URLs and preserve the installed app identity
+ok - ReportFlow source and production PNGs have their declared pixel dimensions
+ok - ReportFlow brand and install icons are copied and precached for offline launches
+ok - visible app download button is wired
+ok - production service worker uses the current app shell rules
+ok - cold offline launch restores only Worker-scoped cached Site and attendance context
+ok - service worker does not auto-activate updates on install
+ok - offline queue covers worker forms, signatures, and photos
+ok - offline retry is single-flight and auth-aware
+ok - browser auth uses HttpOnly cookie session with CSRF header
+ok - offline sync uses client submission idempotency
+ok - partial uploads persist progress before retry
+ok - required handwritten signatures are enforced and keyboard operable
+ok - photo viewer traps focus and restores its opener
+ok - primary action gradient stops use the AA palette
+ok - advanced work form fields and photo timestamps are wired
+ok - worker Log tab uses the Daywork work form path
+ok - workers can add missing sites
+ok - normal workers can submit Reports while Daywork and weekly team logs remain leader-only
+ok - normal worker UI is focused and step based
+ok - attendance defaults checkout to the open Site and prioritises recent or nearest Sites
+ok - attendance exposes one contextual primary action and a correction path
+ok - worker and supervisor workflow modules are active
+ok - supervisors can preview work forms
+ok - PDF exports are available for Daywork and submitted forms
+ok - supervisors build work forms with accessible draggable field cards
+ok - New Form field checkboxes use the accessible app control
+ok - Review Queue durability and policy seams are explicit
+ok - supervisor audit history is wired
+ok - supervisor location map review is wired
+ok - site coordinates are rounded and map points stay compact
+ok - dark-mode location toggles are clear and consistently sized
+ok - static checkboxes use the Daywork checkbox treatment
+ok - management analytics and reports are wired
+ok - supervisors can add audit-logged manual attendance without GPS
+ok - supervisors can submit approved logs for themselves or others
+ok - rapid duplicate submissions and the 30-day rubbish bin are wired
+ok - missing check-outs use a 12-hour grace and pair overnight shifts
+ok - department focus and persisted default department are wired
+ok - department supervisors cannot view or edit global admins
+ok - global admin access requires the Supervisor role
+ok - private password recovery shell is copied without caching credentials or protected responses
+ok - private password recovery has translated entry points and safety copy
+ok - private Supervisor notes have offline shell modules and translated recovery controls
+ok - failed Report recovery has offline shell coverage and translated safety controls
+ok - Report corrections have offline shell coverage without retired review controls
+ok - Report storage warnings have offline shell coverage and translated recovery guidance
+
+mobile/browser workflow checks passed
+Running node scripts/check-install-page.mjs
+ok - manual, Safari/iPad, embedded, standalone, and unavailable-SW fallbacks remain usable
+ok - native prompt is click-only, single-flight, and consumed after dismissal
+ok - accepted prompt waits for appinstalled confirmation
+ok - failed prompt is recoverable without reusing the event
+ok - rejected prompt is recoverable without reusing the event
+ok - rejected install choice is recoverable without reusing the event
+ok - waiting updates are informational and never forced
+ok - language preference and clipboard fallback preserve account and Report data
+ok - installer shares ReportFlow identity and exposes real permanent-link downloads
+ok - installer controls fit 320, 390, and 1280px in both languages
+ok - real service worker cold-launches the exact offline installer after all pages close
+
+11 installer checks passed; no backend, cloud, or account mutations.
+Running isolated responsive-layout workflow after date-column correction
+ok - report-only responsive layout keeps controls and final actions usable in light and dark themes
+
+browser workflow checks passed
+Final layout verification passed; isolated temporary storage removed.

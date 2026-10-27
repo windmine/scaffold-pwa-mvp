@@ -1,0 +1,56 @@
+{
+  "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/live",
+  "url": "https://geo-attendance-system-db9ca.web.app",
+  "expireTime": null,
+  "release": {
+    "releaseTime": "2026-10-27T03:12:40.716Z",
+    "version": {
+      "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/versions/a443650ecd58e0f2",
+      "status": "FINALIZED",
+      "config": {
+        "headers": [
+          {
+            "headers": {
+              "Cache-Control": "no-cache"
+            },
+            "glob": "/sw.js"
+          },
+          {
+            "headers": {
+              "Cache-Control": "no-cache"
+            },
+            "glob": "/offline.html"
+          },
+          {
+            "headers": {
+              "Cache-Control": "no-cache"
+            },
+            "glob": "/install.html"
+          },
+          {
+            "headers": {
+              "Cache-Control": "public,max-age=3600"
+            },
+            "glob": "/manifest.webmanifest"
+          }
+        ],
+        "rewrites": [
+          {
+            "glob": "/api/**",
+            "run": {
+              "serviceId": "geo-backend",
+              "region": "australia-southeast1"
+            }
+          },
+          {
+            "glob": "/uploads/**",
+            "run": {
+              "serviceId": "geo-backend",
+              "region": "australia-southeast1"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

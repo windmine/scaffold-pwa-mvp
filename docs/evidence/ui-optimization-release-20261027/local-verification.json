@@ -1,0 +1,67 @@
+{
+  "prepared_at_utc": "2026-10-27T02:18:23.844133+00:00",
+  "status": "local tested changes; no commit, push or deployment",
+  "base_commit": "660c9876321e7b87bb16e93ed3ef10df52f644f8",
+  "backend_changes": false,
+  "migration_required": false,
+  "production_mutations": false,
+  "real_email": false,
+  "validation": {
+    "build": "passed after final CSS correction",
+    "lint": "passed",
+    "new_ui_groups": 6,
+    "safe_refresh_groups": 10,
+    "presentation_clear_layouts": 32,
+    "full_browser_run": {
+      "passed": 74,
+      "failed": 1,
+      "failure": "desktop selected date clipped at 1280px"
+    },
+    "corrected_responsive_workflow": "passed in isolated rerun",
+    "all_other_mobile_gate_stages": "passed across recorded staged runs",
+    "installer_checks": 11,
+    "single_clean_full_gate_claimed": false,
+    "final_browser_aggregate": {
+      "passed": 75,
+      "failed": 0,
+      "exit_code": 0,
+      "unfiltered": true,
+      "completed_at_utc": "2026-10-27T02:25:21.171512+00:00",
+      "code_changed_since_final_build_lint": false
+    }
+  },
+  "logs": [
+    "mobile-gate.log",
+    "mobile-final.log",
+    "mobile-remainder.log",
+    "layout-final.log",
+    "layout-recheck.log",
+    "browser-final-aggregate.log"
+  ],
+  "screenshots": [
+    "audit-navigation-320.png",
+    "audit-navigation-390.png",
+    "supervisor-1280.png",
+    "worker-320-chinese.png"
+  ],
+  "limitations": [
+    "No physical-phone or assistive-technology pass",
+    "No hosted/authenticated production checks",
+    "Existing bundle-size advisory"
+  ],
+  "files": {
+    "assets/css/styles.css": "e10fe57a80426490d5ec205e78b3759fcc8314c63a82a2513553d7e0ed200a36",
+    "assets/js/history.js": "b21374ff8ffa3ba7933d2eba9a801d87182017cd09f7c3fb600079768f4ab6b2",
+    "assets/js/i18n.js": "b7942c8870bb65fa0f52ca413bbd0a8eeb0c4ac8a32dccad78f6852fd7265b2b",
+    "assets/js/safe-refresh.js": "59ce4162992f70bd26d67348e53bf317dd4a3fcefc825e1b4e4f6f9a3546fbb3",
+    "assets/js/worker-form.js": "0ebe52f35f6567af2a35f2a922252fdeb82b01f9d7be25643c79b34d7c242e39",
+    "assets/js/report-form-navigation.js": "b0c6b17be690fed2cb86889a1e8518559e9c1a4e073449e3486a58087e0152b3",
+    "index.html": "ffe24eac23bf7f7ff3466746d12587aa53ef231919ab02d5c211cd442d31ce82",
+    "package.json": "64cf947be37e63ccb127b95e8cac36adc6a47defff0e8a07bb8520e099a5f408",
+    "scripts/pwa-shell-assets.mjs": "26778444cc2dd5ba6fa262e91d3234dddccbfcef40216f49ce1b8562420bfc43",
+    "scripts/presentation-density-test.mjs": "8d1c5cd41e5142174dca5fcb3230ac2ff9a83bd9fcfd885d19bd8468f03e7c67",
+    "scripts/report-ui-optimization-test.mjs": "32cf7b794c6fd7d2eead1c9e4e39c02f51f9faa8164af918b7fc593d560cea37",
+    "sw.js": "8798030fce08b3b04918f77eba6d86445cca50107b8f48ed1aa29f87647ff376",
+    "docs/report-ui-optimization.md": "65fa274d660dc3e46a1b5003436763491ab4bca207d5278016d44b890e66ff35"
+  }
+}

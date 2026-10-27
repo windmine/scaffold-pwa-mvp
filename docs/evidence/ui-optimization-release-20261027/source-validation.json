@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "sourceCommit": "16d7ba40bc1bba438425aa14bda4d3341487db71",
+  "verifiedAtUtc": "2026-10-27T02:56:03.553069+00:00",
+  "finalLocalBrowserAggregate": 75,
+  "unfiltered": true,
+  "focusedUiGroups": 6,
+  "presentationClearLayouts": 32,
+  "buildLint": "passed",
+  "frozenPublicFiles": 91,
+  "runtimeChangesSinceVerification": false,
+  "noBackendChanges": true,
+  "noMigration": true,
+  "initialSourceCi": "failed: sticky tab intercepts Go; preserved in ci-initial-source-failure.json",
+  "correction": "Measured sticky tab offset and field scroll margin; normal clicks and unobstructed targets tested for both roles across phone/tablet/desktop transitions",
+  "sourceFiles": {
+    "assets/css/styles.css": "999f909d0cc134f4a3992423835995bfedc7afcf54007c7a8c4a4352ffa56f05",
+    "assets/js/report-form-navigation.js": "bef9f86d82ba4cb169f09142154924772e3471f38b7a1e72a1e7b1c523cf5b9d",
+    "scripts/report-ui-optimization-test.mjs": "25b37e4d72e26a9ecdd338b493775811cf0c36c63738d35ee803d5026a449b7b",
+    "sw.js": "820df8e42b1e1866e5eed48747053f7c1cf164b4cd84f927eedd8d08e4ecaf19"
+  }
+}

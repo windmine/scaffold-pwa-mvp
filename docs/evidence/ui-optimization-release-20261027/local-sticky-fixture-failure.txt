@@ -1,0 +1,53 @@
+
+> scaffold-pwa-mvp@0.0.0 check:report-ui
+> node scripts/report-ui-optimization-test.mjs
+
+ok 1 - Site modes hide stale input, restore drafts and review only the selected Site
+ok 2 - template search preserves editor, handles no matches, draft continuation and unavailable selected templates
+ok 3 - keyboard section jumps and review shortcut preserve fields/photos/signature and validation; review does not submit
+ok 4 - actual 117-entry audit: 14 section targets, unobstructed sticky navigation across phone/tablet/desktop transitions, readable title and no overflow
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.selectOption: Timeout 8000ms exceeded.
+Call log:
+  - waiting for locator('#workFormSelect')
+    - locator resolved to <select required="" id="workFormSelect">鈥?/select>
+  - attempting select option action
+    2 脳 waiting for element to be visible and enabled
+      - did not find some options
+    - retrying select option action
+    - waiting 20ms
+    2 脳 waiting for element to be visible and enabled
+      - did not find some options
+    - retrying select option action
+      - waiting 100ms
+    16 脳 waiting for element to be visible and enabled
+       - did not find some options
+     - retrying select option action
+       - waiting 500ms
+
+    at choose (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\report-ui-optimization-test.mjs:136:43)
+    at C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\report-ui-optimization-test.mjs:297:30 {
+  log: [
+    "  - waiting for locator('#workFormSelect')",
+    '    - locator resolved to <select required="" id="workFormSelect">鈥?/select>',
+    '  - attempting select option action',
+    '    2 脳 waiting for element to be visible and enabled',
+    '      - did not find some options',
+    '    - retrying select option action',
+    '    - waiting 20ms',
+    '    2 脳 waiting for element to be visible and enabled',
+    '      - did not find some options',
+    '    - retrying select option action',
+    '      - waiting 100ms',
+    '    16 脳 waiting for element to be visible and enabled',
+    '       - did not find some options',
+    '     - retrying select option action',
+    '       - waiting 500ms'
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v24.15.0

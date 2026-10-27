@@ -1,8 +1,8 @@
-# Report UI improvements — local preparation
+# Report UI improvements
 
-Prepared on 2026-10-27. This work is local and is not committed, pushed or
-deployed. It builds on the safe Refresh release, with no backend, migration,
-dependency, access-policy or production-data change.
+Released on 2026-10-27 from `16d7ba40bc1bba438425aa14bda4d3341487db71` as Hosting `a443650ecd58e0f2`.
+All five changes below are live. No backend, migration, dependency, access-policy
+or production-data change was needed. The preparation and test history follows.
 
 ## Behavior
 
@@ -97,10 +97,24 @@ physical-phone or assistive-technology certification.
 
 ## Release prerequisites
 
-Separate commit/push/deployment approval is required. This is a frontend-only
-release: run exact-commit source CI, freeze/verify the Hosting build, validate
+The user approved this frontend-only release. Future releases still require their
+own approval and checks: run exact-commit source CI, freeze/verify the Hosting build, validate
 preview/live asset parity and existing waiting-update/offline behavior, and
 record the retained prior Hosting version. No database migration, backend or
 PDF-worker deployment, Scheduler change, IAM/secret update or real-data test
 is required by these UI changes. Preserve unrelated checkout edits and local
 device/auth state.
+
+
+## Release verification
+
+The first source CI run failed because sticky Report tabs covered the section Go
+control at tablet width. The toolbar now measures the top tabs and scroll clearance;
+ordinary clicks and unobstructed controls pass across phone/tablet/desktop transitions
+for Workers and Supervisors. A synthetic Supervisor fixture also needed its prior
+search cleared before selecting another Template; that failed attempt is retained.
+The final corrected source passed all six UI groups, build/lint, a fresh unfiltered
+75/75 local browser aggregate and both source-CI jobs including the complete mobile
+gate. The retained release evidence records preview/live parity, offline/update
+checks, screenshots and unchanged backend/worker/Scheduler/IAM/secret metadata.
+No production records or emails were created.

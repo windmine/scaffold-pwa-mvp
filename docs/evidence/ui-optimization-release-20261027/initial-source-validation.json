@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "sourceCommit": "65cbe51f1dccdf6525e7b9b582b21410ff7d9e5e",
+  "finalLocalBrowserAggregate": 75,
+  "focusedUiGroups": 6,
+  "safeRefreshGroups": 10,
+  "buildLint": "passed",
+  "frozenPublicFiles": 91,
+  "runtimeChangesSinceVerification": false,
+  "noBackendChanges": true,
+  "noMigration": true
+}
