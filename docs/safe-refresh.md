@@ -1,6 +1,7 @@
 # Safe Refresh
 
-Local implementation; not committed or deployed.
+Released 2026-10-27 UTC from `88c4635044e2bb283688990bfc26fdda7368a7ec` as Hosting `d06166d2b8bd70d4`.
+See [release evidence](evidence/safe-refresh-release-20261027/release.json).
 
 The report-only top bar has a Refresh action for signed-in Workers and Supervisors.
 It reads authorized Sites, Report Templates and My Reports; Supervisors also refresh
@@ -42,5 +43,7 @@ in `output/safe-refresh-local/verification.json` and the adjacent logs/screensho
 Physical installed iOS/Android testing remains a separate release verification limit;
 the existing bundle-size advisory remains. No production fixtures were used.
 
-Release requires the normal frontend build/CI/preview/live gates and approval. There
-is no backend, migration, IAM, secret or Scheduler change.
+The approved frontend release passed source CI, preview/live file parity, anonymous
+installer/offline checks and the waiting-update probe. Backend, database, IAM, secret
+and Scheduler configuration remain unchanged. Future releases still require the
+normal frontend gates and approval.

@@ -1,0 +1,27 @@
+{
+  "atUtc": "2026-10-27T00:55:56.384436+00:00",
+  "status": "passed",
+  "phase": "after",
+  "stable": {
+    "serviceSpec": "cd9b7f1bdbd63230dd3ecc36b2570539fce5e9a9d0c5875471e393d6dbd37873",
+    "serviceGeneration": 95,
+    "traffic": [
+      {
+        "percent": 100,
+        "revisionName": "geo-backend-manual-site-20261026"
+      }
+    ],
+    "workerSpec": "b9b6b76de826f9412e2170958bfb2ee934edcec19003d76fc91b312246e8c900",
+    "workerGeneration": 14,
+    "scheduler": "71a512e742f48bffefff567456fc0fc5872c1e16443fc3073c2bac884374ce95",
+    "serviceIam": "4f098028995ae0d0f50572c4126053443316c4fb6f8ee3642eb5ad587a784522",
+    "workerIam": "9ef03a82112aac157b2c4564b16ba1ac711790ceb886462059f51f203c473b9d",
+    "smtpSecretIam": "db27ae89763034d9ce7dc612b2f4c1d40aae52ab245d916735a1a5e8c6323d09",
+    "smtpVersion": "f1bb6ee53012159769fd82d0025813734b4dca64cbd5e0eb8ea983878ffa353d",
+    "projectIam": "069f525094d86d8a22b07c1df78e218478cae42cffc2b1fac436692126004fb6"
+  },
+  "schedulerState": "ENABLED",
+  "secretPayloadsRead": false,
+  "serviceReady": true,
+  "unchangedFromBaseline": true
+}

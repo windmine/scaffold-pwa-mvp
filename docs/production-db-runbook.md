@@ -1,6 +1,16 @@
 # Production Database And Deployment Runbook
 
-## Current Site choice release
+## Current safe Refresh frontend release
+
+Source `88c4635044e2bb283688990bfc26fdda7368a7ec` is live as exact Hosting `d06166d2b8bd70d4`, cache `leader-field-5398700baf59`. Workers and Supervisors have a compact Refresh action for authorized Sites, Templates and Reports plus an app-version check. It preserves open forms, photos/signatures, Site choices, drafts, corrections and queued Reports. Update App and Retry sync remain separate. Backend `geo-backend-manual-site-20261026` remains at 100% without tags; schema 27, worker, enabled Scheduler, IAM and secret metadata are unchanged. There was no write pause, migration, account/invitation/Report creation, email send or routing change by this release; no new database inventory comparison is claimed.
+
+Validation passed: ten focused Refresh groups, all 75 real-backend browser workflows, the complete local mobile gate, build/lint, both exact-source CI jobs, preview/live 90-file parity, 80 shell assets and seven installer artifacts per origin, four live waiting-update checks and 40 strict read-only hardening checks. Six anonymous images were directly reviewed; three live installer images match reviewed previews exactly. Earlier local startup and mobile geometry failures remain recorded without claiming a confirmed original cause. The geometry test waits for the existing hover animation before measuring. Physical phones, authenticated production fixtures and real SMTP remain untested. Existing six-hour recovery-history and bundle-size warnings remain.
+
+Retain prior Hosting `e88e8f53d5b33ce6` in `release-manual-site-20261026` until `2026-11-02T21:58:56.557185084Z`; the current release preview expires `2026-11-03T00:53:10.013893912Z`. Reverify before rollback and preserve the current backend, Scheduler and device/auth state.
+
+[Evidence](evidence/safe-refresh-release-20261027/release.json).
+
+## Earlier Site choice release
 
 Source `5210501fb119b85e97f72fc1d57e7686e0c96274` is live as backend `geo-backend-manual-site-20261026` at 100% without tags and exact Hosting `e88e8f53d5b33ce6`, cache `leader-field-8179666137ae`. Workers and Supervisors can select an authorized Site, type a per-Report Site name, or leave Site blank. Manual names create no shared Site and remain scoped to the Report. Drafts, offline replay, correction conflicts, Find and exports preserve the choice; frozen original PDF-email snapshots remain unchanged. Additive `0027_report_manual_site` and compatible backend/worker preceded Hosting. Paused backup/migration and final inventory preserve existing business fingerprints and all 26 prior migration checksums. No production Reports, Sites, accounts, invitations or emails were created by the release. All 13 templates retain disabled routing and the outbox remains empty. Existing IAM, settings and secret references, including SMTP version 1, remain unchanged. Public-registration email and web-process PDF dispatch remain disabled. The existing five-minute worker is restored with one task, batch 10 and zero retries; its observed normal run returned zero accepted/failed/uncertain/skipped.
 

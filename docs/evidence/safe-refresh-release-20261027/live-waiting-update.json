@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "status": "passed",
+  "startedAtUtc": "2026-10-27T00:54:28.098Z",
+  "scope": "Anonymous read-only Chromium waiting-SW update; not a physical-phone test",
+  "expected": {
+    "swSha256": "f8b4bd61c8cfb8280a9f1ea36cb6341e3aa56a15a438a3a53916d7458733c033",
+    "indexSha256": "caef9fba4086ee641798dc7d56ade9bf838bcffd2883081b5b2a9917315c0ce1",
+    "cacheVersion": "leader-field-5398700baf59"
+  },
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "checks": [
+    "old_live_bytes_controller_and_cached_shell_verified",
+    "expected_new_worker_waits_while_old_client_controls_and_update_action_is_visible",
+    "update_action_activates_expected_worker_and_reloads_report_only_shell",
+    "new_report_only_shell_cold_launches_offline_after_last_client_closed"
+  ],
+  "scriptSha256": "4e4fe63cf4966ff55bb139340091afcee7928c42290a37ff1485400f0138fc46",
+  "original": {
+    "swSha256": "dc886ba97469fc79bbce4ab7a0f659f5175e378bd156e63aca9a3f9a7fa05fb7",
+    "indexSha256": "b3e1f10a17fb057651237a3410d4055c161ca18dc703cfe293a6aec47247a68d",
+    "cacheVersion": "leader-field-8179666137ae",
+    "registration": {
+      "scope": "https://geo-attendance-system-db9ca.web.app/",
+      "active": "activated",
+      "activeUrl": "https://geo-attendance-system-db9ca.web.app/sw.js",
+      "waiting": "",
+      "controller": "https://geo-attendance-system-db9ca.web.app/sw.js",
+      "oldControllerStillControls": true,
+      "cacheNames": [
+        "leader-field-8179666137ae"
+      ]
+    },
+    "cachedIndexSha256": "b3e1f10a17fb057651237a3410d4055c161ca18dc703cfe293a6aec47247a68d"
+  },
+  "armedAtUtc": "2026-10-27T00:54:37.594Z",
+  "waiting": {
+    "registration": {
+      "scope": "https://geo-attendance-system-db9ca.web.app/",
+      "active": "activated",
+      "activeUrl": "https://geo-attendance-system-db9ca.web.app/sw.js",
+      "waiting": "installed",
+      "controller": "https://geo-attendance-system-db9ca.web.app/sw.js",
+      "oldControllerStillControls": true,
+      "cacheNames": [
+        "leader-field-8179666137ae",
+        "leader-field-5398700baf59"
+      ]
+    },
+    "cachedIndexSha256": "caef9fba4086ee641798dc7d56ade9bf838bcffd2883081b5b2a9917315c0ce1",
+    "servedSwSha256": "f8b4bd61c8cfb8280a9f1ea36cb6341e3aa56a15a438a3a53916d7458733c033",
+    "observedAtUtc": "2026-10-27T00:55:30.594Z"
+  },
+  "updated": {
+    "registration": {
+      "scope": "https://geo-attendance-system-db9ca.web.app/",
+      "active": "activated",
+      "activeUrl": "https://geo-attendance-system-db9ca.web.app/sw.js",
+      "waiting": "",
+      "controller": "https://geo-attendance-system-db9ca.web.app/sw.js",
+      "oldControllerStillControls": false,
+      "cacheNames": [
+        "leader-field-5398700baf59"
+      ]
+    },
+    "cachedIndexSha256": "caef9fba4086ee641798dc7d56ade9bf838bcffd2883081b5b2a9917315c0ce1",
+    "reportOnly": true,
+    "sensitiveCacheEntries": 0
+  },
+  "coldOffline": {
+    "allPriorPagesClosed": true,
+    "responseFromServiceWorker": true,
+    "cachedIndexSha256": "caef9fba4086ee641798dc7d56ade9bf838bcffd2883081b5b2a9917315c0ce1",
+    "reportOnly": true,
+    "physicalPhoneTest": false
+  },
+  "completedAtUtc": "2026-10-27T00:55:32.686Z",
+  "pageErrors": 0,
+  "blockedWriteAttempts": []
+}

@@ -1,0 +1,11 @@
+{
+  "checkedAtUtc": "2026-10-27T00:43:45.1318757Z",
+  "exitCode": 0,
+  "failures": [],
+  "status": "passed",
+  "warnings": [
+    "warn - Neon history retention is only 6 hours; choose a longer paid window or external logical backups before relying on it for production recovery"
+  ],
+  "passingChecks": 40,
+  "databaseMutations": false
+}

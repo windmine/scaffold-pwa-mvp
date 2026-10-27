@@ -1,6 +1,14 @@
 # ReportFlow
 
-## Current staff invitation release
+## Current safe Refresh release (2026-10-27 UTC)
+
+Source `88c4635044e2bb283688990bfc26fdda7368a7ec` is live as exact Hosting `d06166d2b8bd70d4`, cache `leader-field-5398700baf59`. Workers and Supervisors have a compact Refresh action for authorized Sites, Templates and Reports plus an app-version check. It preserves open forms, photos/signatures, Site choices, drafts, corrections and queued Reports. Update App and Retry sync remain separate. Backend `geo-backend-manual-site-20261026` remains at 100% without tags; schema 27, worker, enabled Scheduler, IAM and secret metadata are unchanged. There was no write pause, migration, account/invitation/Report creation, email send or routing change by this release; no new database inventory comparison is claimed.
+
+Validation passed: ten focused Refresh groups, all 75 real-backend browser workflows, the complete local mobile gate, build/lint, both exact-source CI jobs, preview/live 90-file parity, 80 shell assets and seven installer artifacts per origin, four live waiting-update checks and 40 strict read-only hardening checks. Six anonymous images were directly reviewed; three live installer images match reviewed previews exactly. Earlier local startup and mobile geometry failures remain recorded without claiming a confirmed original cause. The geometry test waits for the existing hover animation before measuring. Physical phones, authenticated production fixtures and real SMTP remain untested. Existing six-hour recovery-history and bundle-size warnings remain.
+
+[Behavior](docs/safe-refresh.md). [Release evidence](docs/evidence/safe-refresh-release-20261027/release.json).
+
+## Earlier staff invitation release
 
 Source `fc9e17b4f0814587a4cf0f471d607f361f109adc` is live as backend `geo-backend-staff-invitations-20261023` at 100% without tags and exact Hosting `35a126d8e9de6e5b`, cache `leader-field-191c9f7044f0`. Additive `0026_staff_invitations` and its compatible backend/worker preceded Hosting. Worker, Supervisor and authorized global-admin invitations preserve existing role/Department grant authority. Pending accounts cannot sign in before single-use expiring password setup. Creating an invitation and sending its email are separate explicit actions; immediate account creation is clearly labelled. Every invitation email includes the public Getting Started PDF, whose QR contains only the canonical app URL. The private activation link remains separately in the email body. SMTP acceptance is not mailbox delivery.
 

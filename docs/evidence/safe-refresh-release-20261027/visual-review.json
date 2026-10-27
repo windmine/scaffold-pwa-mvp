@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "directlyReviewed": [
+    "preview-installer-english.png",
+    "preview-installer-chinese.png",
+    "preview-installer-offline.png",
+    "live-waiting-update-waiting.png",
+    "live-waiting-update-updated.png",
+    "live-waiting-update-offline.png"
+  ],
+  "liveInstallerByteIdenticalToReviewedPreview": true,
+  "physicalPhoneTest": false
+}

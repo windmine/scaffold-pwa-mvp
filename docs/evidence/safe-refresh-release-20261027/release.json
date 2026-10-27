@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "status": "deployed-and-verified",
+  "recordedAtUtc": "2026-10-27T00:58:29.799921+00:00",
+  "sourceCommit": "88c4635044e2bb283688990bfc26fdda7368a7ec",
+  "url": "https://geo-attendance-system-db9ca.web.app",
+  "hostingVersion": "d06166d2b8bd70d4",
+  "previousHostingVersion": "e88e8f53d5b33ce6",
+  "promotionsPerformed": 1,
+  "requestedAtUtc": "2026-10-27T00:55:14.1146111Z",
+  "releasedAtUtc": "2026-10-27T00:55:13.856Z",
+  "verifiedAtUtc": "2026-10-27T00:55:56.384436+00:00",
+  "cacheVersion": "leader-field-5398700baf59",
+  "change": "Safe data Refresh preserves unfinished work and queued Reports; app update and Retry sync remain separate.",
+  "validation": {
+    "sourceCiUrl": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/40428054541",
+    "sourceCiBothJobsPassed": true,
+    "focusedRefreshGroups": 10,
+    "localRealBackendBrowserWorkflows": 75,
+    "localCompleteMobileGate": "all stages passed",
+    "freshBuildLint": "passed",
+    "previewLiveFullFileParityEach": 90,
+    "previewLiveShellAssetsEach": 80,
+    "previewLiveInstallerArtifactsEach": 7,
+    "liveWaitingUpdateChecks": 4,
+    "strictHardeningChecks": 40,
+    "directVisualReviews": 6,
+    "liveInstallerPixelMatches": 3
+  },
+  "backend": {
+    "revision": "geo-backend-manual-site-20261026",
+    "trafficPercent": 100,
+    "serviceWorkerSchedulerIamSecretMetadataUnchanged": true,
+    "schedulerState": "ENABLED",
+    "deploymentOrMigrationPerformed": false,
+    "productionWritePause": false,
+    "databaseInventoryRepeated": false,
+    "secretPayloadsRead": false
+  },
+  "scope": {
+    "productionRecordMutations": false,
+    "accountsInvitationsReportsSitesCreated": false,
+    "realEmailsSentByRelease": false,
+    "emailRoutingChanged": false,
+    "firebaseAuthDomainSync": false
+  },
+  "rollback": {
+    "version": "e88e8f53d5b33ce6",
+    "channel": "release-manual-site-20261026",
+    "expiresAtUtc": "2026-11-02T21:58:56.557185084Z",
+    "constraints": "Frontend-only rollback. Reverify exact retained version. Preserve current schema-27 backend, worker, Scheduler, device storage and authentication generations."
+  },
+  "cleanup": {
+    "readOnlyBrowserContextsClosed": true,
+    "preexistingHostingCacheRestoredExactly": true,
+    "temporaryBackendJobsAccountsOrDataCreated": false,
+    "previewIntentionallyRetained": "release-safe-refresh-20261027",
+    "previewExpiresAtUtc": "2026-11-03T00:53:10.013893912Z",
+    "reason": "Retain the exact current release for subsequent verification or rollback; automatic seven-day expiry."
+  },
+  "limits": [
+    "No authenticated production fixture, physical iOS/Android or real SMTP test.",
+    "Existing six-hour Neon history and frontend bundle-size warnings remain.",
+    "Initial disposable local backend startup failure and one mobile geometry assertion failure remain recorded; original causes unconfirmed.",
+    "The geometry assertion now waits for the existing hover animation before measuring; unchanged diagnostic, final focused checks and source CI passed."
+  ],
+  "followUpCi": "Final documentation/evidence commit CI is reported in the task outcome; no further metadata commit is needed.",
+  "evidence": [
+    {
+      "path": "build-manifest.json",
+      "sha256": "4bbb2aff58e6a3fb3548d13c7cd91dff831bf6d4d93b671fc6602fc92a314c2e"
+    },
+    {
+      "path": "ci-source.json",
+      "sha256": "9078dd37e97515acbd321dc4dbf77f598abc37e29459700ba83ce6fb8f3b1d50"
+    },
+    {
+      "path": "hardening-log.txt",
+      "sha256": "4b27c4e662499d151610bd97c78887e69eea7a5790b32af0f780ba13508be67b"
+    },
+    {
+      "path": "hardening.json",
+      "sha256": "5289ae48079945f8563eee1f040bc73f2b3f7b256db1cb84bace1acde323270b"
+    },
+    {
+      "path": "infrastructure-after.json",
+      "sha256": "874d103d2da71602084c0d7804b96127ae77594b35f77906bec6e7cb25666650"
+    },
+    {
+      "path": "infrastructure-before.json",
+      "sha256": "fa9ecb0bbb7e10dd293d257aab931b69b0fcfa98264cb3acf23e4b036e883ccf"
+    },
+    {
+      "path": "initial-release-focused-failure.txt",
+      "sha256": "21381c68e2578b1d1d9079d95c57b4472c195bf24831496c6e29eb676894b01e"
+    },
+    {
+      "path": "live-channel.json",
+      "sha256": "b143551b8c89f0712fa546f6ccc4dcc52629675d22252f47d670e2441bd083bd"
+    },
+    {
+      "path": "live-full-parity.json",
+      "sha256": "378f925de1556f1577d4a2a91c1617f428cac193dee5e48198f7e11f20792d5b"
+    },
+    {
+      "path": "live-installer-chinese.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "live-installer-english.png",
+      "sha256": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d"
+    },
+    {
+      "path": "live-installer-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "live-installer.json",
+      "sha256": "6033982a7ec7d72dd2630792232839b072f39c04661b060a6f4c1aa2555d60b0"
+    },
+    {
+      "path": "live-shell.json",
+      "sha256": "2bc25863df32d5b7a11ddbb5ab71b09b7123bb1d3c65d5c283b165de55af33bf"
+    },
+    {
+      "path": "live-waiting-update-offline.png",
+      "sha256": "288aedc8f66fffcf5a6f0e7168f50d1d7f15c59656106619660a214d2f503982"
+    },
+    {
+      "path": "live-waiting-update-updated.png",
+      "sha256": "66de2deda12444bc7aa180a4c9ef7b362e12a6257ef43b13e0d59a9ba7b0b29a"
+    },
+    {
+      "path": "live-waiting-update-waiting.png",
+      "sha256": "b0a6ddc449af3dab310fdf98a96326354f65c418c68ed9bf1058afa1870ff569"
+    },
+    {
+      "path": "live-waiting-update.json",
+      "sha256": "7ef6655235721d18772e365e09ad76c1f638e21980e3e96e2603a6b66fad752f"
+    },
+    {
+      "path": "local-focused-final.txt",
+      "sha256": "c1efb721ac04a6463a33d96c9c33b18eb639b8d014d68876db67b53c07fd2e90"
+    },
+    {
+      "path": "local-lint-final.txt",
+      "sha256": "b871853392637b6055cb1bb29c9caa0697b0c4e1afb69dbcfc9a944323f2c9fa"
+    },
+    {
+      "path": "local-verification.json",
+      "sha256": "13eab6d0bd89a9a0d7f40f6b77fcaabed87029406bdedf63b9549ef27b5ed1e2"
+    },
+    {
+      "path": "preview-channel.json",
+      "sha256": "5d02c3926ce6b23893c9818c6f42860faa8dfed698b6f8a7b4da20457d952e7a"
+    },
+    {
+      "path": "preview-full-parity.json",
+      "sha256": "dc845a06619b0e7bdebb2a26e52d749011d01f98dff951acc45538e56e0428fd"
+    },
+    {
+      "path": "preview-installer-chinese.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "preview-installer-english.png",
+      "sha256": "966b0a297b7986492c06107d91fb4b6e6dc8dcd2d1a619be33f465af9456ea0d"
+    },
+    {
+      "path": "preview-installer-offline.png",
+      "sha256": "90a2c20071ed03b0c206fb76175cd0207a6e1b7360bd87efbead439cb1c9cbec"
+    },
+    {
+      "path": "preview-installer.json",
+      "sha256": "91d76d0f2378b86237d95971e639096d433ac33c87b753a6acd7e2f7b8b01764"
+    },
+    {
+      "path": "preview-request.json",
+      "sha256": "f57a5cc4c8ac629f49864f21ab5dc793b1b4af1572a7a7023d3a274b152e2362"
+    },
+    {
+      "path": "preview-result.json",
+      "sha256": "96920a264adc38808cebddae2208a7b013e252d3eca5c3ee4865a66e0aef9129"
+    },
+    {
+      "path": "preview-shell.json",
+      "sha256": "9642dbfb293d873e80ce2e028d71e319fcd63d370628c74b4939aba5f190b0c5"
+    },
+    {
+      "path": "promotion-request.json",
+      "sha256": "673be4d59c94b5fe4a9dc8de2405cbf1e166d22b7b61a2ccb39d8c16e7624f84"
+    },
+    {
+      "path": "promotion-result.json",
+      "sha256": "a08d178b742a325cc9ef3cad20f0fba0a56192aebedf638c7672aeb8f8b43462"
+    },
+    {
+      "path": "source-validation.json",
+      "sha256": "b52334e062284a6e37aa81d7e3e9a41d8245492bd216af0b830110277c23b986"
+    },
+    {
+      "path": "visual-review.json",
+      "sha256": "a082a508f2e1e820673d3a09c98517ad7b3be724e69ec92292d25aa739b974e5"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "atUtc": "2026-10-27T00:55:49.485579+00:00",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "sourceCommit": "88c4635044e2bb283688990bfc26fdda7368a7ec",
+  "filesVerified": 90,
+  "buildManifestSha256": "4bbb2aff58e6a3fb3548d13c7cd91dff831bf6d4d93b671fc6602fc92a314c2e"
+}
