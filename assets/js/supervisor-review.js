@@ -1122,7 +1122,7 @@ export function createSupervisorReviewModule({
     }
   }
 
-  async function refreshReviewQueue() {
+  async function refreshReviewQueue({ isCurrent = () => true, preserveOnError = false } = {}) {
     const session = captureSession();
     if (!isCurrentSession(session)) return false;
     const query = reviewQueueQuery();
@@ -1138,7 +1138,7 @@ export function createSupervisorReviewModule({
         ...query,
         pageSize: REVIEW_QUEUE_PAGE_SIZE
       });
-      if (!isCurrentSession(session) || requestId !== reviewQueueRequestId) return false;
+      if (!isCurrent() || !isCurrentSession(session) || requestId !== reviewQueueRequestId) return false;
       validateReportSort(page, query);
       state.supervisorRecords = {
         ...state.supervisorRecords,
@@ -1157,11 +1157,12 @@ export function createSupervisorReviewModule({
       };
       reportOrderChanged = false;
     } catch (error) {
-      if (!isCurrentSession(session) || requestId !== reviewQueueRequestId) return false;
+      if (!isCurrent() || !isCurrentSession(session) || requestId !== reviewQueueRequestId) return false;
       if (error.status === 401 || error.status === 403) {
         handleSessionExpired();
         return false;
       }
+      if (preserveOnError) return false;
       setOfflineReadOnlyQueue(error, query);
       renderStatusBanner(reportOrderChanged ? REPORT_ORDER_CHANGED_MESSAGE : error.code === 'report_sort_unavailable' ? error.message
         : 'Backend Review Queue is unreachable. Only the last durable results are available read-only.', true);
@@ -2260,6 +2261,7 @@ export function createSupervisorReviewModule({
     renderAdminTaskLogForm,
     renderFilteredLists,
     renderPanel,
+    refreshData: ({ isCurrent }) => refreshReviewQueue({ isCurrent, preserveOnError: true }),
     resetSession,
     renderTrash
   };

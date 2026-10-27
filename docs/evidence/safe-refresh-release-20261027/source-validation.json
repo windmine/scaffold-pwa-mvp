@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "localFullMobileGate": "all stages passed",
+  "realBackendBrowserWorkflows": 75,
+  "freshBuild": "passed",
+  "freshLint": "passed",
+  "freshFocusedRefreshGroups": 10,
+  "testChange": "Touch-target assertion waits for the existing hover animation to settle and prints geometry on failure; no assertion threshold weakened.",
+  "initialFailure": "One mobile geometry assertion failed; unchanged diagnostic run passed. Original cause remains unconfirmed.",
+  "productionChanges": false
+}

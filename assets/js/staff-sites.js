@@ -1313,7 +1313,11 @@ export function createStaffSitesModule({
     }
   }
 
-  function renderWorkFormsList({ refreshDrafts = true } = {}) {
+  function renderWorkFormsList({ refreshDrafts = true, preserveEditors = false } = {}) {
+    // Keep live settings controls and their version guard; refresh only the other cards.
+    const retained = preserveEditors ? new Map([...els.workFormsList.querySelectorAll('[data-template-id]')]
+      .filter((node) => node === templateEmailOperation || node.querySelector('.pdf-email-settings[open], [data-refresh-keep="true"]'))
+      .map((node) => [node.dataset.templateId, node])) : new Map();
     if (templateLibraryScope !== staffScopeKey()) resetTemplateLibraryFilters();
     if (refreshDrafts) void renderTemplateDrafts();
     els.workFormsList.innerHTML = '';
@@ -1327,7 +1331,7 @@ export function createStaffSitesModule({
     els.workFormsCount.textContent = String(available.length);
     setTranslatableText(els.workFormsResults, `${forms.length} of ${available.length} Templates shown`);
 
-    if (!forms.length) {
+    if (!forms.length && !retained.size) {
       const empty = document.createElement('div');
       empty.className = 'empty-state';
       setTranslatableText(empty, !available.length ? 'No Report Templates found yet.'
@@ -1338,6 +1342,8 @@ export function createStaffSitesModule({
     }
 
     forms.forEach((form) => {
+      const previous = retained.get(String(form.id));
+      if (previous) { els.workFormsList.append(previous); retained.delete(String(form.id)); return; }
       const node = document.createElement('article');
       node.className = 'record-card record-form template-library-card';
       node.dataset.templateId = String(form.id);
@@ -1426,6 +1432,7 @@ export function createStaffSitesModule({
       });
       els.workFormsList.appendChild(node);
     });
+    retained.forEach((node) => els.workFormsList.append(node));
     syncTemplateStatusControls({ beforeEditorLock: true });
     // A refresh may replace the list before the current Template operation finishes.
     if (templateEditorsLocked) lockTemplateEditors(true);

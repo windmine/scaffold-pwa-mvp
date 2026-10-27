@@ -905,7 +905,31 @@ export function createWorkerFormModule({
     });
   }
 
-  async function applyRefreshedWorkForms(workForms, isCurrentSession) {
+  async function applyRefreshedWorkForms(workForms, isCurrentSession, { preserveEditor = false } = {}) {
+    if (preserveEditor) {
+      if (!isCurrentSession() || reloadLocked || state.submittingWorkForm) return false;
+      const selected = els.workFormSelect.value;
+      const label = els.workFormSelect.selectedOptions[0]?.textContent || '';
+      state.workForms = workForms;
+      renderWorkFormOptions();
+      if (selected && String(renderedWorkForm?.id) === selected) {
+        if (![...els.workFormSelect.options].some((option) => option.value === selected)) {
+          const retained = new Option(label, selected);
+          retained.disabled = true;
+          els.workFormSelect.add(retained);
+        }
+        els.workFormSelect.value = selected;
+        if (definitionVersion(selectedWorkForm()) !== definitionVersion(renderedWorkForm)
+          || selectedWorkForm()?.status !== 'active') {
+          renderStatusBanner('This Template changed or is unavailable. Your open Report is kept. Choose a Template again before submitting.', true,
+            { local: els.workFormFeedback, tone: 'warning' });
+        }
+      }
+      // Do not rebuild fields, reset photos, change draft/review state or cancel a picker.
+      onWorkFormsChanged();
+      if (state.user.role === 'supervisor') onSupervisorWorkFormsChanged({ preserveEditors: true });
+      return true;
+    }
     // A refresh may replace the Definition used by the visible Report. Save the
     // original fields/answers/evidence before the existing version guard runs.
     if (canAuthor()) {
@@ -931,14 +955,14 @@ export function createWorkerFormModule({
     return true;
   }
 
-  async function refreshWorkForms() {
+  async function refreshWorkForms({ preserveEditor = false, isCurrent = () => true } = {}) {
     if (!state.user) return false;
     const requestUser = { ...state.user };
     const requestGeneration = sessionGeneration;
     const request = ++templateRequest;
     const isReportWorker = reportOnly && requestUser.role === 'worker';
     const isCurrentSession = () => (
-      requestGeneration === sessionGeneration
+      isCurrent() && requestGeneration === sessionGeneration
       && request === templateRequest
       && state.user?.role === requestUser.role
       && String(state.user?.id || '') === String(requestUser.id)
@@ -950,6 +974,10 @@ export function createWorkerFormModule({
       workForms = await getBackendWorkForms(reportOnly ? 'report' : '');
     } catch (error) {
       if (!isCurrentSession()) return false;
+      if (preserveEditor) {
+        if (isBackendSessionError(error)) handleSessionExpired();
+        return false;
+      }
       if (isBackendSessionError(error)) {
         if (isReportWorker) void clearWorkerReportTemplateSnapshot(requestUser).catch(() => {});
         state.workForms = [];
@@ -990,7 +1018,7 @@ export function createWorkerFormModule({
       return false;
     }
     if (!isCurrentSession()) return false;
-    if (!await applyRefreshedWorkForms(workForms, isCurrentSession)) return false;
+    if (!await applyRefreshedWorkForms(workForms, isCurrentSession, { preserveEditor })) return false;
     let savedAt = '';
     if (isReportWorker) {
       try {
@@ -1413,6 +1441,12 @@ export function createWorkerFormModule({
     }
 
     const form = renderedWorkForm?.id === selectedWorkForm()?.id ? renderedWorkForm : null;
+    if (renderedWorkForm && (!form || selectedWorkForm()?.status !== 'active'
+      || definitionVersion(form) !== definitionVersion(selectedWorkForm()))) {
+      renderStatusBanner('This Template changed or is unavailable. Your open Report is kept. Choose a Template again before submitting.', true,
+        { local: els.workFormFeedback, tone: 'warning' });
+      return;
+    }
     if (!form) {
       renderStatusBanner('Choose a Report Template first.', true, {
         local: els.workFormFeedback,

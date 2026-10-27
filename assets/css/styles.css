@@ -7047,7 +7047,7 @@ body:not(.report-only-mode) .report-only-storage-guidance { display: none; }
 }
 
 /* Keep daily actions prominent; preferences remain direct, quiet touch targets. */
-body.report-only-mode .topbar-actions :is(#languageToggleButton, #themeToggleButton, #logoutButton, #installButton) {
+body.report-only-mode .topbar-actions :is(#languageToggleButton, #themeToggleButton, #logoutButton, #installButton, #refreshDataButton) {
   width: auto;
   min-width: 44px;
   min-height: 44px;
@@ -7060,7 +7060,7 @@ body.report-only-mode .topbar-actions :is(#languageToggleButton, #themeToggleBut
   font-weight: 600;
 }
 
-body.report-only-mode .topbar-actions :is(#languageToggleButton, #themeToggleButton, #logoutButton, #installButton):hover {
+body.report-only-mode .topbar-actions :is(#languageToggleButton, #themeToggleButton, #logoutButton, #installButton, #refreshDataButton):hover {
   background: var(--surface-quiet);
   border-color: var(--line-strong);
 }
@@ -7149,6 +7149,9 @@ body:not(.report-only-mode) #historyFilters { display: contents; }
   body.report-only-mode .topbar-actions :is(#languageToggleButton, #themeToggleButton, #logoutButton, #installButton, #updateButton) { width: auto; min-width: 44px; min-height: 44px; padding: 8px; font-size: .8rem; }
   body.report-only-mode .admin-mobile-toolbar { margin-bottom: 8px; padding-block: 8px; }
 }
+
+.data-refresh-status { margin: 0 0 12px; font-size: .875rem; color: var(--muted); }
+.data-refresh-status[data-tone="warning"] { color: var(--text); border-left: 3px solid var(--line-strong); padding-left: 10px; }
 
 /* Shared Report editor stays readable in the Supervisor desktop workspace. */
 .supervisor-self-submit { max-width: 1100px; }

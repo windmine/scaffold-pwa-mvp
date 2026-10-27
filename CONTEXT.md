@@ -72,6 +72,9 @@ The standalone recovery page keeps its URL-fragment token only in memory, makes 
 A Supervisor who may focus the dashboard on any Department or all Departments. The saved dashboard focus does not change the account's home Department.
 _Avoid_: Supervisor when cross-department authority is important
 
+**Safe Refresh (local preparation, not deployed)**:
+The Report-only top bar offers Workers and Supervisors a read-only Refresh for authorized Sites, Templates and Reports, plus an app-version check. It preserves mounted forms, evidence, Site choices, drafts, corrections and queued submissions. Update App and Retry sync remain separate explicit actions; Refresh neither reloads nor submits. Partial failures retain previous lists, and obsolete responses cannot restore another session's data. See [behavior and verification](docs/safe-refresh.md).
+
 **Remembered Report filters**:
 Device-local, structured Supervisor Report preferences: Template ID, Worker ID and Report Date. The Worker picker lists Workers only; use Find to locate Supervisor-authored Reports. Keys bind Supervisor identity, home Department, global-admin capability and effective focused Department; All departments is its own global scope. Find text, names, Report content and authentication data are excluded. These preferences do not grant access, cache protected Reports, or change the backend saved default Department. Current authorized catalogs validate stored IDs before querying. Clear resets only the current scope. Old saved workflow and waiting-order choices are ignored while the other valid choices survive; Reports use newest submission first.
 

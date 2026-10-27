@@ -42,6 +42,7 @@ import { createTeamWorkLogModule } from './team-work-log.js';
 import { initDateInputs, setDateInputValue } from './date-inputs.js';
 import { applyLanguage, initLanguageToggle } from './i18n.js';
 import { createUiFeedback } from './ui-feedback.js';
+import { createSafeRefresh } from './safe-refresh.js';
 import { formatDateTime, todayDateInput, escapeHtml } from './utils.js';
 import {
   DEFAULT_BRAND_LOGO,
@@ -94,6 +95,7 @@ let appUpdatePausedWorkspace = 'forms';
 let sessionExpiryInProgress = false;
 let queueSyncRun = null;
 let syncFeedbackRevision = 0;
+let safeRefresh;
 // Keep the broader field-operations interface available for a reversible rollback.
 // Production defaults to the report-only shell; browser regression tests may set
 // this boolean before the module loads to exercise the retained legacy screens.
@@ -200,8 +202,8 @@ const workerForm = createWorkerFormModule({
   reportOnly: REPORT_ONLY_MODE,
   onContinueDraft: () => activateTab('formTab'),
   onReportTemplateSourceChanged: renderReportTemplateAvailability,
-  onSupervisorWorkFormsChanged: () => {
-    staffSitesModule?.renderWorkFormsList();
+  onSupervisorWorkFormsChanged: (options = {}) => {
+    staffSitesModule?.renderWorkFormsList(options);
     supervisorReviewModule?.renderAdminTaskLogForm();
   },
   onWorkFormsChanged: () => workerLog.renderDayworkForm()
@@ -353,6 +355,57 @@ supervisorAnalyticsModule = createSupervisorAnalyticsModule({
     return opened;
   }
 });
+
+safeRefresh = createSafeRefresh({
+  button: els.refreshDataButton,
+  status: els.dataRefreshStatus,
+  captureScope: () => REPORT_ONLY_MODE && state.user && !appUpdateAttemptInFlight
+    ? { user: state.user, department: state.departmentFocusId } : null,
+  scopeIsCurrent: (scope) => state.user === scope.user && state.departmentFocusId === scope.department,
+  tasks: (scope, isCurrent) => [
+    { label: 'Sites', run: () => refreshSitesSafely(isCurrent) },
+    { label: 'Templates', run: () => workerForm.refreshWorkForms({ preserveEditor: true, isCurrent }) },
+    { label: 'My Reports', run: () => historyModule.renderHistory({ preserveOnError: true, isCurrent }) },
+    ...(scope.user.role === 'supervisor'
+      ? [{ label: 'Reports', run: () => supervisorReviewModule.refreshData({ isCurrent }) }] : []),
+    { label: 'App update', run: () => checkForAppUpdate(isCurrent) }
+  ]
+});
+
+async function refreshSitesSafely(isCurrent) {
+  const user = state.user;
+  const sites = await getBackendSites();
+  if (!isCurrent() || state.submittingWorkForm) return false;
+  // Capture at completion, so edits made during the request are preserved too.
+  const selects = [els.attendanceSite, els.taskSite, els.workFormSite];
+  const choices = selects.map((select) => ({ select, value: select.value,
+    label: select.selectedOptions[0]?.textContent || select.value }));
+  state.sites = sites;
+  state.sitesLoadError = '';
+  fillSiteSelects();
+  for (const { select, value, label } of choices) {
+    if (value && ![...select.options].some((option) => option.value === value)) {
+      const retained = new Option(label, value);
+      retained.disabled = true; // Retain the choice without granting access to a removed Site.
+      select.add(retained);
+    }
+    select.value = value;
+  }
+  if (user.role === 'worker') {
+    try { await saveWorkerSiteSnapshot(user, sites); } catch { /* Keep current data if storage is full. */ }
+  }
+  return true;
+}
+
+async function checkForAppUpdate(isCurrent) {
+  if (!('serviceWorker' in navigator)) return false;
+  const registration = await navigator.serviceWorker.getRegistration('/');
+  if (!registration || !isCurrent()) return false;
+  await registration.update();
+  if (!isCurrent()) return false;
+  if (registration.waiting && navigator.serviceWorker.controller) showServiceWorkerUpdate(registration.waiting);
+  return true;
+}
 
 async function init() {
   applyReportOnlyInterface();
@@ -686,6 +739,7 @@ function activateAdminWorkspace(workspaceId, options = {}) {
     ? workspaceId
     : DEFAULT_ADMIN_WORKSPACE;
   const config = ADMIN_WORKSPACES[workspace];
+  if (state.adminWorkspace !== workspace) safeRefresh?.cancel();
   const panels = [...document.querySelectorAll('[data-admin-workspace-panel]')];
   const nextPanel = document.getElementById(config.panelId);
   if (!nextPanel) return;
@@ -946,6 +1000,7 @@ function clearWorkerSessionState() {
 }
 
 function clearSessionViewState() {
+  safeRefresh?.cancel();
   // Clear private content before revealing another account or waiting on storage/network.
   hideQueueSyncFeedback();
   syncFeedbackRevision += 1;
@@ -1082,6 +1137,7 @@ function updateBrandLogo() {
 }
 
 function updateTopbar() {
+  els.refreshDataButton.classList.toggle('hidden', !REPORT_ONLY_MODE || !state.user);
   els.updateButton.classList.toggle('hidden', !hasPendingAppUpdate());
   updateBrandLogo();
   document.body.classList.toggle('session-worker', state.user?.role === 'worker');
@@ -1754,6 +1810,7 @@ async function handleSupervisorExportRecord(record, exportType) {
 }
 
 function activateTab(targetId) {
+  safeRefresh?.cancel();
   if (REPORT_ONLY_MODE && state.user?.role === 'supervisor' && REPORT_ONLY_WORKER_TABS.has(targetId)) {
     activateAdminWorkspace('submit');
   }
@@ -2047,6 +2104,7 @@ async function prepareSupervisorNavigation() {
 async function handleAppUpdate() {
   let worker = state.waitingServiceWorker;
   if (!worker || appUpdateAttemptInFlight) return;
+  safeRefresh?.cancel();
 
   appUpdateAttemptInFlight = true;
   const updatingUser = state.user;

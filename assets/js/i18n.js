@@ -37,6 +37,14 @@ const LANGUAGE_META = {
 };
 
 const ZH_TEXT = {
+  'Refreshing...': '正在刷新…',
+  'Refreshing data and checking for app updates...': '正在刷新数据并检查应用更新…',
+  'You are offline. Reconnect to refresh. Your work is kept.': '当前离线。重新连接后可刷新。您的工作已保留。',
+  'Data refreshed. App update check complete.': '数据已刷新，应用更新检查已完成。',
+  'Some data or the app update check could not be refreshed. Try again.': '部分数据或应用更新检查未能完成，请重试。',
+  'Connection lost. Some data could not be refreshed. Reconnect and try again.': '连接已断开，部分数据未能刷新。重新连接后请重试。',
+  'Your open form and queued Reports are kept. Refresh does not submit Reports.': '当前表单及排队中的报告已保留。刷新不会提交报告。',
+  'This Template changed or is unavailable. Your open Report is kept. Choose a Template again before submitting.': '此模板已更改或不可用。当前报告已保留，请在提交前重新选择模板。',
   'Account setup': '账户设置',
   'Invitation — recipient sets password': '邀请 — 由收件人设置密码',
   'Create immediately — no invitation email': '立即创建 — 不发送邀请邮件',

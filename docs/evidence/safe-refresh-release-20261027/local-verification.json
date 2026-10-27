@@ -1,0 +1,48 @@
+{
+  "task": "Safe Refresh local implementation",
+  "verified_at_utc": "2026-10-27T00:10:18.4829836Z",
+  "base_commit": "b2a0d7ca1838cea3db15b534810cd29f8a54210f",
+  "committed": false,
+  "deployed": false,
+  "checks": {
+    "build": "passed as initial mobile-gate stage",
+    "lint": "passed",
+    "focused_refresh_groups": 10,
+    "full_browser_workflows": 75,
+    "mobile_gate": "all stages passed, resumed from the failed disposable-server startup stage",
+    "upload_recovery_browser_groups": 39,
+    "exact_live_recovery_compatibility_groups": 15,
+    "installer_checks": 11,
+    "native_async_queue_wait_groups": 10
+  },
+  "preserved_failure": {
+    "log": "mobile.log",
+    "description": "Initial disposable backend readiness failed and its cleanup returned an error. No product cause established. The same upload-recovery stage passed outside the sandbox, then every remaining gate stage passed."
+  },
+  "evidence": [
+    "mobile.log",
+    "upload-recovery.log",
+    "mobile-remaining.log",
+    "lint-final.log",
+    "worker-refresh.png",
+    "supervisor-refresh.png",
+    "supervisor-mobile-refresh.png"
+  ],
+  "limitations": [
+    "No physical iOS or Android device test",
+    "No production fixtures or deployment",
+    "Service-worker update check mocked in focused tests; existing local real service-worker update regression passed",
+    "Existing frontend bundle-size advisory remains"
+  ],
+  "release": {
+    "frontend_only": true,
+    "migration": false,
+    "new_iam": false,
+    "new_secrets": false,
+    "scheduler_change": false,
+    "approval_required": true
+  },
+  "production_mutations": false,
+  "real_emails": false,
+  "unrelated_changes_preserved": true
+}

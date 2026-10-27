@@ -596,7 +596,7 @@ export function createHistoryModule({
     } : null;
   }
 
-  async function getWorkerHistoryRecords() {
+  async function getWorkerHistoryRecords({ preserveOnError = false } = {}) {
     const worker = { ...state.user };
     if (!canReadOwnReports(worker)) return [];
     const requestSession = sessionGeneration;
@@ -667,6 +667,7 @@ export function createHistoryModule({
         handleSessionExpired();
         return [];
       }
+      if (preserveOnError) throw error;
 
       renderStatusBanner('Backend history is unreachable. Showing records saved on this device only.', true);
       const localRecords = await getLocalWorkerRecords(worker.id);
@@ -753,21 +754,24 @@ export function createHistoryModule({
     };
   }
 
-  async function renderHistory() {
+  async function renderHistory({ preserveOnError = false, isCurrent = () => true } = {}) {
     if (!canReadOwnReports()) return;
     const renderId = ++workerHistoryRenderId;
     const workerId = state.user.id;
     const workerDepartmentId = state.user.departmentId;
     const authorRole = state.user.role;
-    const records = await getWorkerHistoryRecords();
+    let records;
+    try { records = await getWorkerHistoryRecords({ preserveOnError }); }
+    catch (error) { if (preserveOnError) return false; throw error; }
     if (
-      renderId !== workerHistoryRenderId
+      !isCurrent() || renderId !== workerHistoryRenderId
       || !canReadOwnReports() || state.user.role !== authorRole
       || String(state.user?.id || '') !== String(workerId)
       || String(state.user?.departmentId || '') !== String(workerDepartmentId || '')
     ) return;
     state.historyRecords = records;
     renderFilteredHistory();
+    return true;
   }
 
   function renderFilteredHistory() {

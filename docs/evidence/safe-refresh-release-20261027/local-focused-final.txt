@@ -1,0 +1,15 @@
+
+> scaffold-pwa-mvp@0.0.0 check:safe-refresh
+> node scripts/safe-refresh-test.mjs
+
+ok 1 - keyboard refresh preserves live form, original photo, manual Site and queue; only checks app version
+ok 2 - removed selected Site and changed Template do not replace unfinished content or bypass version protection
+ok 3 - partial read failures retain prior lists; offline refresh makes no requests
+ok 4 - Template and update-check failures preserve editor; explicit retry recovers
+ok 5 - edits during requests survive; double clicks coalesce; navigation cancels late results
+ok 6 - logout prevents late responses from restoring another session's data
+ok 7 - supervisor refresh retains unsaved correction and its original concurrency revision
+ok 8 - mobile supervisor editor, 44px keyboard target, no overflow and translated feedback
+ok 9 - Template refresh retains unsaved email settings without sending or saving them
+ok 10 - stalled refresh times out and ignores late completion without reloading
+PASS 10 safe Refresh browser groups

@@ -99,6 +99,8 @@ export const state = {
 
 export const els = {
   statusBanner: document.getElementById('statusBanner'),
+  refreshDataButton: document.getElementById('refreshDataButton'),
+  dataRefreshStatus: document.getElementById('dataRefreshStatus'),
   syncIndicator: document.getElementById('syncIndicator'),
   syncIndicatorText: document.getElementById('syncIndicatorText'),
   queueSyncStatus: document.getElementById('queueSyncStatus'),

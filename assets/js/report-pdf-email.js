@@ -39,6 +39,7 @@ export function mountTemplateEmailSettings(node, template, { isCurrent, canSave,
   enabled.checked = saved.enabled;
   recipient.value = saved.recipient || '';
   recipient.required = enabled.checked;
+  form.addEventListener('input', () => { form.dataset.refreshKeep = 'true'; });
   enabled.addEventListener('change', () => { recipient.required = enabled.checked; });
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -57,6 +58,7 @@ export function mountTemplateEmailSettings(node, template, { isCurrent, canSave,
       if (!isCurrent()) return;
       if (!updated?.pdf_email || updated.id !== template.id) throw new Error('Invalid settings response');
       saved = { ...updated.pdf_email };
+      delete form.dataset.refreshKeep;
       enabled.checked = saved.enabled;
       recipient.value = saved.recipient || '';
       recipient.required = enabled.checked;
