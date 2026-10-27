@@ -234,7 +234,7 @@ try {
   }
   {
     const f = await fixture(browser); await catalogs(f); await choose(f, 82);
-    for (const width of [320, 390, 768]) {
+    for (const width of [320, 390, 760, 761, 768, 1440, 390]) {
       await f.page.setViewportSize({ width, height: 844 });
       assert.equal(await f.page.locator('#reportFormSection option').count(), 14);
       await f.page.locator('#reportFormSection').selectOption({ index: 12 });
@@ -251,6 +251,10 @@ try {
         await f.page.locator(`#${id}`).evaluate(async el => { await Promise.allSettled(el.getAnimations().map(a => a.finished)); });
         const box = await f.page.locator(`#${id}`).boundingBox();
         assert.ok(box.height >= 44 && box.width >= 44, `${id} ${JSON.stringify(box)}`);
+        assert.equal(await f.page.locator(`#${id}`).evaluate(el => {
+          const rect = el.getBoundingClientRect();
+          return el.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+        }), true, `${width}px: ${id} must not be covered by Report tabs`);
       }
       await f.page.screenshot({ path: path.join(output, `audit-navigation-${width}.png`) });
     }
@@ -258,7 +262,7 @@ try {
     await f.page.locator('#workFormSelectedTitle').scrollIntoViewIfNeeded();
     assert.equal(await f.page.locator('#workFormSelectedTitle').innerText(), audit.name);
     await f.page.screenshot({ path: path.join(output, 'audit-selected-title.png') });
-    await f.close(); console.log(`ok ${++count} - actual 117-entry audit: 14 section targets, sticky navigation, readable title and no overflow at 320/390/768`);
+    await f.close(); console.log(`ok ${++count} - actual 117-entry audit: 14 section targets, unobstructed sticky navigation across phone/tablet/desktop transitions, readable title and no overflow`);
   }
   {
     const f = await fixture(browser, 'supervisor');
@@ -290,6 +294,17 @@ try {
     assert.equal(await f.page.locator('#workFormField_notes').inputValue(), 'Keep this unfinished answer');
     await f.page.locator('#workFormSite').selectOption('9');
     assert.equal(await f.page.locator('#workFormManualSite').isVisible(), false);
+    await f.page.locator('#workFormTemplateSearch').fill('');
+    await catalogs(f); await choose(f, 82);
+    for (const width of [1440, 768, 390]) {
+      await f.page.setViewportSize({ width, height: 900 });
+      await f.page.locator('#reportFormSection').selectOption({ index: 12 });
+      await f.page.locator('#reportFormSectionGo').click();
+      assert.equal(await f.page.locator('#reportFormSectionGo').evaluate(el => {
+        const rect = el.getBoundingClientRect();
+        return el.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+      }), true, `Supervisor ${width}px section control must remain unobstructed`);
+    }
     await f.close(); console.log(`ok ${++count} - compact desktop filters/cards, full detail, clearing and Supervisor self-submit remain available`);
   }
   {

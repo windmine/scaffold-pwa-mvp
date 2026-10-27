@@ -7178,7 +7178,7 @@ body.report-only-mode .app-shell { overflow-x: clip; }
 #workFormTemplateSearchStatus { margin: 0; font-size: .875rem; }
 .report-form-navigation {
   position: sticky;
-  top: max(4px, env(safe-area-inset-top));
+  top: max(4px, env(safe-area-inset-top), var(--report-tabs-offset, 0px));
   z-index: 3;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -7191,7 +7191,7 @@ body.report-only-mode .app-shell { overflow-x: clip; }
 }
 .report-form-navigation :is(button, select) { min-height: 44px; min-width: 44px; }
 .report-form-navigation button { width: auto; padding: 10px; }
-#workFormFields :is(h3, input, select, textarea, canvas) { scroll-margin-top: 170px; }
+#workFormFields :is(h3, input, select, textarea, canvas) { scroll-margin-top: var(--report-section-scroll-margin, 170px); }
 #workFormFields h3:focus-visible { outline: 2px solid var(--brand-blue); outline-offset: 4px; }
 .report-queue-meta { display: none; }
 
