@@ -284,7 +284,7 @@
           <button id="themeToggleButton" class="ghost theme-toggle" type="button" aria-pressed="true">Light mode</button>
           <button id="installButton" class="ghost hidden" type="button">Install App</button>
           <button id="updateButton" class="ghost hidden" type="button">Update App</button>
-          <button id="refreshDataButton" class="ghost hidden" type="button">Refresh</button>
+          <button id="refreshDataButton" class="ghost hidden" type="button">Refresh data</button>
           <button id="logoutButton" class="ghost hidden" type="button">Log out</button>
         </div>
       </header>
@@ -622,12 +622,18 @@
               <h2 data-full-text="New Report" data-report-only-text="New Report">New Report</h2>
               <form id="workFormSubmissionForm" class="form-grid">
                 <div id="workFormEditor" class="form-grid">
+                  <label data-report-only-visible>
+                    Find a template
+                    <input id="workFormTemplateSearch" type="search" maxlength="160" autocomplete="off" placeholder="Template name" aria-controls="workFormSelect" />
+                  </label>
                   <label>
                     <span data-full-text="Report Template" data-report-only-text="Report Template">Report Template</span>
                     <select id="workFormSelect" required>
                       <option value="">Select a Report Template</option>
                     </select>
                   </label>
+                  <p id="workFormTemplateSearchStatus" class="muted" role="status" aria-live="polite" hidden></p>
+                  <p id="workFormSelectedTitle" class="report-selected-template" data-no-i18n hidden></p>
                   <p id="reportTemplateAvailability" class="muted" role="status" aria-live="polite" aria-atomic="true" hidden></p>
                   <div class="report-context-fields form-grid">
                     <label>
@@ -640,6 +646,11 @@
                     </label>
                     <label class="report-manual-site" hidden>Site name<input id="workFormManualSite" type="text" maxlength="200" autocomplete="off" aria-describedby="workFormManualSiteHelp" /><small id="workFormManualSiteHelp">Saved on this Report only; does not add a shared site.</small></label>
                   </div>
+                  <nav id="reportFormNavigation" class="report-form-navigation" aria-label="Report sections" hidden>
+                    <label>Section<select id="reportFormSection" aria-controls="workFormFields"></select></label>
+                    <button id="reportFormSectionGo" type="button" class="ghost">Go</button>
+                    <button id="reportFormReviewShortcut" type="button" class="ghost">Review &amp; submit</button>
+                  </nav>
                   <div id="workFormFields" class="dynamic-fields"></div>
                   <label class="report-photo-field">
                     Photos
@@ -691,7 +702,7 @@
             <article class="card">
               <div class="section-heading">
                 <h2 data-full-text="My history" data-report-only-text="My Reports">My Reports</h2>
-                <button id="refreshHistoryButton" type="button" class="ghost">Refresh</button>
+                <button id="refreshHistoryButton" type="button" class="ghost" data-full-text="Refresh" data-report-only-text="Refresh reports">Refresh reports</button>
               </div>
               <details class="compact-help report-only-storage-guidance"><summary>Drafts and queued Reports are not backups</summary><p>Local drafts and queued Reports are not backups. Browser storage can be cleared or evicted under pressure. Keep original photos until submission is confirmed in My Reports.</p></details>
               <section id="reportDraftsPanel" class="report-drafts-panel" aria-labelledby="reportDraftsHeading" hidden>
@@ -960,7 +971,7 @@
                   <p class="muted" data-full-text="Choose a record from the inbox, review its evidence, then decide or adjust it without losing your place." data-report-only-text="Choose a Report to see its answers and evidence, or edit details that need correcting.">Choose a Report to see its answers and evidence, or edit details that need correcting.</p>
                 </div>
                 <div class="review-heading-actions">
-                  <button id="refreshSupervisorButton" type="button" class="ghost">Refresh</button>
+                  <button id="refreshSupervisorButton" type="button" class="ghost" data-full-text="Refresh" data-report-only-text="Refresh reports">Refresh reports</button>
                 </div>
               </div>
               <details id="reportExportOptions" class="compact-help report-export-options" data-report-only-visible>

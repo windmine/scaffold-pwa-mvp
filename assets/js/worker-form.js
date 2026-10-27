@@ -1,4 +1,5 @@
 import { MANUAL_SITE, readReportSite, restoreReportSite, syncReportSiteInput, validateReportSite } from './report-site.js';
+import { createReportFormNavigation } from './report-form-navigation.js';
 import { getWorkForms as getBackendWorkForms, getSession } from './api-client.js';
 import { getDraft, getDraftEntries, saveDraft } from './mock-api.js';
 import { isReportDraftForWorker, reportDraftKeyForWorker, summarizeReportDrafts } from './report-drafts.js';
@@ -128,6 +129,22 @@ export function createWorkerFormModule({
   // draft again in this session; a newly saved draft may reuse its Template key.
   const submittedDraftsPendingCleanup = new Set();
   const emptyTemplateOption = 'Select a Report Template';
+  const templateSearch = els.workFormSubmissionForm.querySelector('#workFormTemplateSearch');
+  const templateSearchStatus = els.workFormSubmissionForm.querySelector('#workFormTemplateSearchStatus');
+  const selectedTemplateTitle = els.workFormSubmissionForm.querySelector('#workFormSelectedTitle');
+  const formNavigation = createReportFormNavigation({
+    toolbar: els.workFormSubmissionForm.querySelector('#reportFormNavigation'),
+    fields: els.workFormFields, submit: els.submitWorkFormButton, enabled: reportOnly,
+    canNavigate: () => canAuthor() && Boolean(renderedWorkForm) && !conflictingDraft
+      && !reloadLocked && !state.submittingWorkForm && !submissionReview
+      && !els.workFormSubmissionForm.inert && !els.workFormFields.inert
+  });
+
+  function showSelectedTemplateTitle() {
+    if (!selectedTemplateTitle) return;
+    selectedTemplateTitle.hidden = !reportOnly || !renderedWorkForm;
+    selectedTemplateTitle.textContent = renderedWorkForm?.name || '';
+  }
 
   function setAutosaveStatus(message, stateClass = '', savedAt = '') {
     if (!els.workFormAutosaveStatus) return;
@@ -201,12 +218,15 @@ export function createWorkerFormModule({
     }
   }
 
-  function renderWorkFormOptions() {
+  function renderWorkFormOptions({ preserveEditorSelection = false } = {}) {
     const selectedValue = els.workFormSelect.value;
+    const query = reportOnly ? (templateSearch?.value || '').trim().normalize('NFKC').toLocaleLowerCase() : '';
+    const allowed = state.workForms.filter(allowedTemplate);
+    const matches = (form) => form.name.normalize('NFKC').toLocaleLowerCase().includes(query);
     const options = [`<option value="">${emptyTemplateOption}</option>`]
       .concat(
-        state.workForms
-          .filter(allowedTemplate)
+        allowed
+          .filter((form) => matches(form) || String(form.id) === selectedValue)
           .map((form) => `<option value="${form.id}">${escapeHtml(form.name)}</option>`)
       )
       .join('');
@@ -218,6 +238,21 @@ export function createWorkerFormModule({
     ))
       ? selectedValue
       : '';
+    // Filtering never changes selection or remounts the active editor, including
+    // a removed Template retained by safe Refresh for an unfinished Report.
+    if (preserveEditorSelection && selectedValue && !els.workFormSelect.value
+      && String(renderedWorkForm?.id) === selectedValue) {
+      const retained = new Option(renderedWorkForm.name, selectedValue);
+      retained.disabled = true;
+      els.workFormSelect.add(retained);
+      els.workFormSelect.value = selectedValue;
+    }
+    if (templateSearchStatus) {
+      templateSearchStatus.hidden = !query;
+      setTranslatableText(templateSearchStatus, allowed.some(matches)
+        ? 'Matching templates shown. Current selection is kept.'
+        : 'No matching templates. Clear the search to see all templates.');
+    }
   }
 
   function selectedWorkForm(formId = els.workFormSelect.value) {
@@ -490,6 +525,7 @@ export function createWorkerFormModule({
       : conflictingDraft ? 'Keep draft and start new report'
       : needsSubmissionReview() ? 'Review & submit' : 'Submit Report');
     els.submitWorkFormButton.disabled = Boolean(state.submittingWorkForm || conflictingDraft?.uploadRecovery);
+    formNavigation.sync();
   }
 
   function clearSubmissionReview({ focus = false } = {}) {
@@ -505,6 +541,7 @@ export function createWorkerFormModule({
       els.workFormEditor.hidden = false;
       els.workFormEditor.inert = false;
     }
+    formNavigation.sync();
     if (focus) {
       updatePhotoRemovalControls();
       els.submitWorkFormButton.focus({ preventScroll: true });
@@ -566,6 +603,7 @@ export function createWorkerFormModule({
 
   function showConflictingDraft(draft, draftState) {
     setDraftConflict(draft);
+    formNavigation.render(null);
     draftState.snapshot = draft;
     draftState.savedAt = draft.savedAt || '';
     restoreReportSite(els.workFormSite, els.workFormManualSite, draft);
@@ -885,6 +923,8 @@ export function createWorkerFormModule({
     renderedWorkForm = form || null;
     renderedAuthorRole = state.user?.role;
     renderedDraftKey = form ? requestedDraftKey : '';
+    showSelectedTemplateTitle();
+    formNavigation.render(form);
     setSubmitActionLabel();
     updatePhotoRemovalControls();
     showDefaultAutosaveStatus();
@@ -1131,6 +1171,8 @@ export function createWorkerFormModule({
       // copies. An active editor can receive input while getDraft is pending:
       // retain its cache so renderSelectedWorkForm flushes those latest edits.
       if (activeDraftState()?.key !== key) draftStates.delete(key);
+      if (templateSearch) templateSearch.value = '';
+      renderWorkFormOptions();
       els.workFormSelect.value = String(form.id);
       await renderSelectedWorkForm({ draftKey: key });
       if (!draftScopeStillActive(worker, generation) || String(renderedWorkForm?.id) !== String(formId)
@@ -1692,7 +1734,8 @@ export function createWorkerFormModule({
   }
 
   function handleDraftMutation(event) {
-    if (event.target === els.workFormSelect || event.target === els.workFormPhotos) return;
+    if (event.target === els.workFormSelect || event.target === els.workFormPhotos
+      || event.target === templateSearch || event.target.closest('#reportFormNavigation')) return;
     markActiveDraftDirty();
   }
 
@@ -1747,6 +1790,11 @@ export function createWorkerFormModule({
   }
 
   function bindEvents() {
+    templateSearch?.addEventListener('input', () => renderWorkFormOptions({ preserveEditorSelection: true }));
+    templateSearch?.addEventListener('keydown', (event) => {
+      // Enter searches; it must not implicitly submit a Report.
+      if (event.key === 'Enter') event.preventDefault();
+    });
     els.workFormSite.addEventListener('change', () => {
       syncReportSiteInput(els.workFormSite, els.workFormManualSite);
       if (els.workFormSite.value === MANUAL_SITE) els.workFormManualSite?.focus();
@@ -1773,6 +1821,7 @@ export function createWorkerFormModule({
       if (conflictingDraft) void keepConflictingDraft();
     });
     els.workFormSelect.addEventListener('change', () => {
+      renderWorkFormOptions();
       void renderSelectedWorkForm({ normalDraft: true });
     });
     els.workFormPhotos.addEventListener('change', handlePhotoChange);
@@ -1826,6 +1875,10 @@ export function createWorkerFormModule({
     els.workFormFields.inert = false;
     submissionControlStates = [];
     els.workFormSubmissionForm.reset();
+    if (templateSearch) templateSearch.value = '';
+    if (templateSearchStatus) templateSearchStatus.hidden = true;
+    showSelectedTemplateTitle();
+    formNavigation.render(null);
     state.workForms = [];
     setReportTemplateSource('unavailable');
     els.workFormSelect.innerHTML = `<option value="">${emptyTemplateOption}</option>`;

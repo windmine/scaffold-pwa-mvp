@@ -7165,3 +7165,74 @@ body:not(.report-only-mode) #historyFilters { display: contents; }
 .report-edit-signature { display: block; width: 100%; max-height: 180px; object-fit: contain; background: #fff; border-radius: 8px; }
 [data-report-edit-feedback] { overflow-wrap: anywhere; }
 [data-report-edit-feedback].is-error { color: var(--danger, #b42318); }
+
+/* Preserve the hidden contract despite the shared grid-label styling. */
+.report-manual-site[hidden],
+#workFormSelectedTitle[hidden],
+#reportFormNavigation[hidden],
+#reportFormNavigation [hidden] { display: none; }
+
+.report-selected-template { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+/* Clip horizontal spill without turning the shell into a sticky scroll ancestor. */
+body.report-only-mode .app-shell { overflow-x: clip; }
+#workFormTemplateSearchStatus { margin: 0; font-size: .875rem; }
+.report-form-navigation {
+  position: sticky;
+  top: max(4px, env(safe-area-inset-top));
+  z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
+  gap: 6px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+}
+.report-form-navigation :is(button, select) { min-height: 44px; min-width: 44px; }
+.report-form-navigation button { width: auto; padding: 10px; }
+#workFormFields :is(h3, input, select, textarea, canvas) { scroll-margin-top: 170px; }
+#workFormFields h3:focus-visible { outline: 2px solid var(--brand-blue); outline-offset: 4px; }
+.report-queue-meta { display: none; }
+
+@media (max-width: 600px) {
+  .report-form-navigation { grid-template-columns: minmax(0, 1fr) auto; }
+  #reportFormReviewShortcut { grid-column: 1 / -1; }
+}
+
+/* Desktop scanning stays in the existing list/detail workspace. */
+@media (min-width: 1100px) {
+  .report-only-mode #adminReviewWorkspace > .admin-workspace-header {
+    padding: 4px 0 8px;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .report-only-mode #adminReviewWorkspace > .admin-workspace-header h2 { font-size: 1.15rem; }
+  .report-only-mode #reviewQueueDetails { position: relative; }
+  .report-only-mode #reviewQueueDetails > summary { min-height: 64px; padding-block: 8px; }
+  .report-only-mode #reviewQueueDetails > summary > span:first-child {
+    position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%);
+  }
+  .report-only-mode #supervisorResultCount { margin-left: 0; margin-right: 165px; }
+  .report-only-mode #reviewQueueDetails .review-desk-heading {
+    position: absolute; top: 0; right: 48px; height: 64px; margin: 0; align-items: center;
+  }
+  .report-only-mode #reviewQueueDetails .review-heading-actions { width: auto; }
+  .report-only-mode #supervisorFilterForm {
+    grid-template-columns: minmax(150px, 1.35fr) minmax(150px, 1.2fr) minmax(120px, 1fr) minmax(180px, .85fr) auto;
+    align-items: end;
+    gap: 8px;
+  }
+  .report-only-mode #supervisorFilterForm > label,
+  .report-only-mode #clearSupervisorFiltersButton { grid-column: auto; }
+  .report-only-mode #clearSupervisorFiltersButton { align-self: end; min-height: 48px; }
+  .report-only-mode .report-filter-memory-hint { margin-block: 6px 0; font-size: .8rem; }
+  .report-only-mode #reviewQueueList .report-queue-compact { padding: 10px 12px; }
+  .report-only-mode #reviewQueueList .report-queue-compact .record-header { gap: 4px; }
+  .report-only-mode #reviewQueueList .report-queue-compact :is(.record-meta, .badge.submitted) { display: none; }
+  .report-only-mode #reviewQueueList .report-queue-compact .report-queue-meta {
+    display: block; font-size: .8rem; color: var(--muted); margin: 4px 0;
+  }
+  .report-only-mode #reviewQueueList .report-queue-compact .record-detail { margin-top: 4px; -webkit-line-clamp: 1; }
+}

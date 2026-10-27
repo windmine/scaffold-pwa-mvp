@@ -359,13 +359,21 @@ try {
           const controls = [...form.querySelectorAll('input, select')].filter((node) => node.getClientRects().length);
           return {
             right: button.right, formRight: form.getBoundingClientRect().right,
-            width: button.width, height: button.height, top: button.top,
+            width: button.width, height: button.height, top: button.top, left: button.left, bottom: button.bottom,
             lastControlBottom: Math.max(...controls.map((node) => node.getBoundingClientRect().bottom)),
+            firstControlBottom: Math.min(...controls.map((node) => node.getBoundingClientRect().bottom)),
+            lastControlRight: Math.max(...controls.map((node) => node.getBoundingClientRect().right)),
             overflow: document.documentElement.scrollWidth > window.innerWidth
           };
         });
         assert.ok(Math.abs(layout.right - layout.formRight) <= 1, `${label}: Clear aligns with the full filter group, not the first grid column (${layout.right}/${layout.formRight})`);
-        assert.ok(layout.top >= layout.lastControlBottom, `${label}: Clear follows the filter controls without overlap`);
+        if (width >= 1100) {
+          assert.ok(layout.left >= layout.lastControlRight, `${label}: Clear follows controls on the compact row without overlap`);
+          assert.ok(Math.abs(layout.bottom - layout.lastControlBottom) <= 1
+            && Math.abs(layout.bottom - layout.firstControlBottom) <= 1, `${label}: the compact row shares a bottom alignment`);
+        } else {
+          assert.ok(layout.top >= layout.lastControlBottom, `${label}: Clear follows the stacked filter controls without overlap`);
+        }
         assert.ok(layout.width >= 44 && layout.height >= 44, `${label}: Clear retains a 44px target`);
         assert.equal(layout.overflow, false, `${label}: no horizontal overflow`);
         assert.equal(await clear.getAttribute('type'), 'button');

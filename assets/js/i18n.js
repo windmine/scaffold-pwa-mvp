@@ -37,6 +37,15 @@ const LANGUAGE_META = {
 };
 
 const ZH_TEXT = {
+  'Refresh data': '刷新数据',
+  'Refresh reports': '刷新报告',
+  'Data refreshed. Updates checked.': '数据已刷新，已检查更新。',
+  'Find a template': '查找模板',
+  'Matching templates shown. Current selection is kept.': '已显示匹配模板，保留当前选择。',
+  'No matching templates. Clear the search to see all templates.': '没有匹配的模板。清除搜索以查看全部模板。',
+  'Report sections': '报告章节',
+  'Section': '章节',
+  'Go': '前往',
   'Refreshing...': '正在刷新…',
   'Refreshing data and checking for app updates...': '正在刷新数据并检查应用更新…',
   'You are offline. Reconnect to refresh. Your work is kept.': '当前离线。重新连接后可刷新。您的工作已保留。',

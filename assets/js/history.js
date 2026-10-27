@@ -1086,6 +1086,13 @@ export function createHistoryModule({
         const recordKey = String(getRecordKey(record));
         const isSelected = Boolean(recordKey && recordKey === selectedRecordKey);
         node.classList.add('review-queue-item');
+        if (reportOnly && record.type === 'form' && recordSubmissionPurpose(record) === 'report') {
+          node.classList.add('report-queue-compact');
+          const compactMeta = document.createElement('p');
+          compactMeta.className = 'report-queue-meta';
+          compactMeta.textContent = `${record.userName || 'Worker'} | ${record.workDate || '-'}`;
+          node.querySelector('.record-meta').after(compactMeta);
+        }
         node.classList.toggle('is-selected', isSelected);
         node.dataset.recordKey = recordKey;
         node.setAttribute('role', 'option');
@@ -1101,7 +1108,7 @@ export function createHistoryModule({
           signal.textContent = label;
           signals.appendChild(signal);
         };
-        addSignal(
+        if (!(reportOnly && record.type === 'form' && recordSubmissionPurpose(record) === 'report')) addSignal(
           record.type === 'attendance'
             ? record.action === 'check_out' ? 'Check out' : 'Check in'
             : record.type === 'form'
@@ -1116,7 +1123,7 @@ export function createHistoryModule({
         if (record.entrySource === 'supervisor_manual') {
           addSignal('Manual entry', 'is-manual');
         }
-        node.querySelector('.record-header')?.insertAdjacentElement('afterend', signals);
+        if (signals.childElementCount) node.querySelector('.record-header')?.insertAdjacentElement('afterend', signals);
         node.querySelector('.record-extra')?.remove();
         node.querySelector('.record-actions')?.remove();
         if (onRecordSelect) {

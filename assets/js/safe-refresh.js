@@ -31,10 +31,11 @@ export function createSafeRefresh({ button, status, captureScope, scopeIsCurrent
       ]);
       if (!current()) return;
       const complete = results?.every((result) => result.status === 'fulfilled' && result.value);
-      feedback([complete ? 'Data refreshed. App update check complete.'
-        : online() ? 'Some data or the app update check could not be refreshed. Try again.'
+      feedback(complete ? ['Data refreshed. Updates checked.'] : [
+        online() ? 'Some data or the app update check could not be refreshed. Try again.'
           : 'Connection lost. Some data could not be refreshed. Reconnect and try again.',
-      'Your open form and queued Reports are kept. Refresh does not submit Reports.'], complete ? 'success' : 'warning');
+        'Your open form and queued Reports are kept. Refresh does not submit Reports.'
+      ], complete ? 'success' : 'warning');
     } finally {
       clearTimeout(timer);
       if (active === run) {
