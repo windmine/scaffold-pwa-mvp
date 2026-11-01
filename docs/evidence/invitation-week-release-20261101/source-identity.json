@@ -1,0 +1,24 @@
+{
+  "atUtc": "2026-11-01T20:55:33.992032+00:00",
+  "ciSourceCommit": "63cd4fffe10d6d6132464f641e6f76eaae1183d3",
+  "imageSourceCommit": "d47a56c3dc2a4a2050738ee985473978c7040f36",
+  "backendBuildInputsByteIdentical": true,
+  "packagedFileCount": 126,
+  "auditPrerequisite": {
+    "advisory": "GHSA-g3hv-75wg-m249",
+    "source": "https://github.com/isaacs/minimatch/security/advisories/GHSA-g3hv-75wg-m249",
+    "scope": "ESLint-only development override; no backend or hosted application dependency change",
+    "changedPackages": {
+      "node_modules/@isaacs/nonrecursive-glob-match": {
+        "before": null,
+        "after": "1.0.3"
+      },
+      "node_modules/minimatch": {
+        "before": "10.2.5",
+        "after": "11.0.3"
+      }
+    },
+    "lintFileCount": 227,
+    "lintFileScopeAndResultsUnchanged": true
+  }
+}

@@ -1,0 +1,1223 @@
+{
+  "started_at": "2026-11-01T20:46:32.082709+00:00",
+  "isolation": "new local cluster, loopback only, synthetic data, non-superuser database owner",
+  "checks": [
+    {
+      "label": "PostgreSQL manual Site upgrade preserves schema-26 rows/checksums and enforces exclusive, revision-guarded labels"
+    },
+    {
+      "label": "PostgreSQL empty-schema verification fails without creating migration tables"
+    },
+    {
+      "label": "PostgreSQL fresh 27-migration chain, read-only exact verification, native constraints/triggers, and idempotence",
+      "details": {
+        "migration_count": 27,
+        "head": "0027_report_manual_site"
+      }
+    },
+    {
+      "label": "PostgreSQL read-only verifier rejects checksum and future-history mismatches without repairs"
+    },
+    {
+      "label": "PostgreSQL 0017\u21920027_report_manual_site preserves eight snapshotted historical Reports/Daywork records and exact evidence",
+      "details": {
+        "records": 8,
+        "legacy_outcomes": [
+          "pending",
+          "approved",
+          "rejected",
+          "legacy"
+        ]
+      }
+    },
+    {
+      "label": "PostgreSQL audit backfill preserves real reviewer timestamps without inventing notes; snapshots outrank parent templates"
+    },
+    {
+      "label": "PostgreSQL native triggers reject legacy Report edits/approval/rejection, purpose changes, and invalid workflow values",
+      "details": {
+        "immutable_columns_checked": 14
+      }
+    },
+    {
+      "label": "PostgreSQL manual Report insert bypasses fail; durable purpose derivation and retained Daywork remain compatible"
+    },
+    {
+      "label": "PostgreSQL Report immutability survives parent changes and Worker replay uniqueness is enforced"
+    },
+    {
+      "label": "PostgreSQL failure before 0027_report_manual_site ledger insertion rolls back all 10 upgrades, backfill, DDL, indexes, and functions; retry succeeds"
+    },
+    {
+      "label": "PostgreSQL original ambiguous NULL/empty snapshot fixtures fail closed with complete migration-batch rollback"
+    },
+    {
+      "label": "0017 upgrade corrects proven historical Daywork without changing submitted evidence"
+    },
+    {
+      "label": "0019 upgrade corrects proven historical Daywork without changing submitted evidence"
+    },
+    {
+      "label": "Correction refuses unknown_answers with full migration-batch rollback"
+    },
+    {
+      "label": "Correction refuses changed_parent with full migration-batch rollback"
+    },
+    {
+      "label": "Correction refuses changed_version with full migration-batch rollback"
+    },
+    {
+      "label": "Correction refuses orphan with full migration-batch rollback"
+    },
+    {
+      "label": "Correction refuses bad_date with full migration-batch rollback"
+    },
+    {
+      "label": "Correction refuses report_transition and preserves existing-0019 guards/evidence"
+    },
+    {
+      "label": "Correction refuses resolution_note and preserves existing-0019 guards/evidence"
+    },
+    {
+      "label": "Correction refuses review_state and preserves existing-0019 guards/evidence"
+    },
+    {
+      "label": "Correction refuses parent_edit and preserves existing-0019 guards/evidence"
+    },
+    {
+      "label": "Correction refuses historical_parent_report and preserves existing-0019 guards/evidence"
+    },
+    {
+      "label": "Correction refuses conflicting_definition and preserves existing-0019 guards/evidence"
+    },
+    {
+      "label": "Legacy approvals/rejections/reviewer timestamps remain intact; explicit empty and positively evidenced Reports remain immutable Reports"
+    },
+    {
+      "label": "0017 correction provenance failure rolls back data, provenance and guards; retry succeeds"
+    },
+    {
+      "label": "0017 correction ledger failure rolls back data, provenance and guards; retry succeeds"
+    },
+    {
+      "label": "0019 correction provenance failure rolls back data, provenance and guards; retry succeeds"
+    },
+    {
+      "label": "0019 correction ledger failure rolls back data, provenance and guards; retry succeeds"
+    },
+    {
+      "label": "Fresh schema receives0020 and remains exact-ledger/idempotence compatible"
+    },
+    {
+      "label": "PostgreSQL Report correction fixture bootstrapped through actual migrations as a non-superuser owner"
+    },
+    {
+      "label": "PostgreSQL concurrent correction: one success, one conflict, one audit (round 1, revision 1)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 35564,
+            "transaction_id": 908
+          },
+          {
+            "pid": 53884,
+            "transaction_id": 909
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 35564,
+          "blocked_pid": 53884,
+          "observer_pid": 56704
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent correction: one success, one conflict, one audit (round 1, revision 2)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 53884,
+            "transaction_id": 910
+          },
+          {
+            "pid": 56704,
+            "transaction_id": 911
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 56704,
+          "blocked_pid": 53884,
+          "observer_pid": 35564
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent correction: one success, one conflict, one audit (round 2, revision 1)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 53884,
+            "transaction_id": 913
+          },
+          {
+            "pid": 35564,
+            "transaction_id": 914
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 35564,
+          "blocked_pid": 53884,
+          "observer_pid": 56704
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent correction: one success, one conflict, one audit (round 2, revision 2)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 53884,
+            "transaction_id": 915
+          },
+          {
+            "pid": 56704,
+            "transaction_id": 916
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 53884,
+          "blocked_pid": 56704,
+          "observer_pid": 35564
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent correction: one success, one conflict, one audit (round 3, revision 1)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 56704,
+            "transaction_id": 918
+          },
+          {
+            "pid": 35564,
+            "transaction_id": 919
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 56704,
+          "blocked_pid": 35564,
+          "observer_pid": 53884
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent correction: one success, one conflict, one audit (round 3, revision 2)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 35564,
+            "transaction_id": 920
+          },
+          {
+            "pid": 53884,
+            "transaction_id": 921
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 53884,
+          "blocked_pid": 35564,
+          "observer_pid": 56704
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent correction: one success, one conflict, one audit (round 4, revision 1)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 35564,
+            "transaction_id": 923
+          },
+          {
+            "pid": 56704,
+            "transaction_id": 924
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 56704,
+          "blocked_pid": 35564,
+          "observer_pid": 53884
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent correction: one success, one conflict, one audit (round 4, revision 2)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 35564,
+            "transaction_id": 925
+          },
+          {
+            "pid": 53884,
+            "transaction_id": 926
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 35564,
+          "blocked_pid": 53884,
+          "observer_pid": 56704
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent correction: one success, one conflict, one audit (round 5, revision 1)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 53884,
+            "transaction_id": 928
+          },
+          {
+            "pid": 56704,
+            "transaction_id": 929
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 53884,
+          "blocked_pid": 56704,
+          "observer_pid": 35564
+        },
+        "winning_supervisor_id": 1,
+        "conflicting_supervisor_id": 2
+      }
+    },
+    {
+      "label": "PostgreSQL concurrent correction: one success, one conflict, one audit (round 5, revision 2)",
+      "details": {
+        "backend_transactions": [
+          {
+            "pid": 56704,
+            "transaction_id": 930
+          },
+          {
+            "pid": 35564,
+            "transaction_id": 931
+          }
+        ],
+        "lock_contention": {
+          "winner_pid": 35564,
+          "blocked_pid": 56704,
+          "observer_pid": 53884
+        },
+        "winning_supervisor_id": 2,
+        "conflicting_supervisor_id": 1
+      }
+    },
+    {
+      "label": "PostgreSQL Supervisor correction permissions and retired review transitions remain enforced"
+    },
+    {
+      "label": "PostgreSQL database guards reject unversioned content edits and all identity/Definition/purpose changes"
+    },
+    {
+      "label": "PostgreSQL Report correction and revision roll back atomically when audit INSERT fails"
+    },
+    {
+      "label": "PostgreSQL simultaneous invitation acceptance: one claim, one consumption, one audit, winning password",
+      "details": {
+        "backend_transactions": {
+          "first": {
+            "pid": 23852,
+            "transaction_id": 946
+          },
+          "second": {
+            "pid": 29704,
+            "transaction_id": 947
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 23852,
+          "blocked_pid": 29704,
+          "observer_pid": 45124
+        },
+        "preferred_operation": "first",
+        "outcomes": {
+          "first": 200,
+          "second": 400
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL invitation accept/reissue, reissue first: serialized claim, audit and invalidation effects",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 29704,
+            "transaction_id": 949
+          },
+          "reissue": {
+            "pid": 45124,
+            "transaction_id": 950
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 45124,
+          "blocked_pid": 29704,
+          "observer_pid": 23852
+        },
+        "preferred_operation": "reissue",
+        "outcomes": {
+          "accept": 400,
+          "reissue": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL invitation accept/reissue, accept first: serialized claim, audit and invalidation effects",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 23852,
+            "transaction_id": 952
+          },
+          "reissue": {
+            "pid": 45124,
+            "transaction_id": 953
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 23852,
+          "blocked_pid": 45124,
+          "observer_pid": 29704
+        },
+        "preferred_operation": "accept",
+        "outcomes": {
+          "accept": 200,
+          "reissue": 409
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL invitation accept/revoke, revoke first: serialized claim, audit and invalidation effects",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 45124,
+            "transaction_id": 955
+          },
+          "revoke": {
+            "pid": 29704,
+            "transaction_id": 956
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 29704,
+          "blocked_pid": 45124,
+          "observer_pid": 23852
+        },
+        "preferred_operation": "revoke",
+        "outcomes": {
+          "accept": 400,
+          "revoke": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL invitation accept/revoke, accept first: serialized claim, audit and invalidation effects",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 23852,
+            "transaction_id": 959
+          },
+          "revoke": {
+            "pid": 29704,
+            "transaction_id": 960
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 23852,
+          "blocked_pid": 29704,
+          "observer_pid": 45124
+        },
+        "preferred_operation": "accept",
+        "outcomes": {
+          "accept": 200,
+          "revoke": 409
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL invitation accept/resign, resign first: serialized claim, audit and invalidation effects",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 29704,
+            "transaction_id": 962
+          },
+          "resign": {
+            "pid": 45124,
+            "transaction_id": 963
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 45124,
+          "blocked_pid": 29704,
+          "observer_pid": 23852
+        },
+        "preferred_operation": "resign",
+        "outcomes": {
+          "accept": 400,
+          "resign": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL invitation accept/resign, accept first: serialized claim, audit and invalidation effects",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 23852,
+            "transaction_id": 965
+          },
+          "resign": {
+            "pid": 45124,
+            "transaction_id": 966
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 23852,
+          "blocked_pid": 45124,
+          "observer_pid": 29704
+        },
+        "preferred_operation": "accept",
+        "outcomes": {
+          "accept": 200,
+          "resign": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL simultaneous invitation reissue: one replacement, one conflict, one new audit, old link invalid",
+      "details": {
+        "backend_transactions": {
+          "first": {
+            "pid": 45124,
+            "transaction_id": 968
+          },
+          "second": {
+            "pid": 29704,
+            "transaction_id": 969
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 29704,
+          "blocked_pid": 45124,
+          "observer_pid": 23852
+        },
+        "preferred_operation": "second",
+        "outcomes": {
+          "first": 409,
+          "second": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL staff invitation global_admin=False: revoke beats acceptance, then one replacement acceptance",
+      "details": {
+        "revocation": {
+          "backend_transactions": {
+            "revoke": {
+              "pid": 29704,
+              "transaction_id": 972
+            },
+            "accept": {
+              "pid": 23852,
+              "transaction_id": 973
+            }
+          },
+          "lock_contention": {
+            "winner_pid": 29704,
+            "blocked_pid": 23852,
+            "observer_pid": 45124
+          },
+          "preferred_operation": "revoke",
+          "outcomes": {
+            "accept": 400,
+            "revoke": 200
+          }
+        },
+        "acceptance": {
+          "backend_transactions": {
+            "first": {
+              "pid": 45124,
+              "transaction_id": 975
+            },
+            "second": {
+              "pid": 29704,
+              "transaction_id": 976
+            }
+          },
+          "lock_contention": {
+            "winner_pid": 45124,
+            "blocked_pid": 29704,
+            "observer_pid": 23852
+          },
+          "preferred_operation": "first",
+          "outcomes": {
+            "first": 200,
+            "second": 400
+          }
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL staff invitation global_admin=True: revoke beats acceptance, then one replacement acceptance",
+      "details": {
+        "revocation": {
+          "backend_transactions": {
+            "accept": {
+              "pid": 23852,
+              "transaction_id": 978
+            },
+            "revoke": {
+              "pid": 45124,
+              "transaction_id": 979
+            }
+          },
+          "lock_contention": {
+            "winner_pid": 45124,
+            "blocked_pid": 23852,
+            "observer_pid": 29704
+          },
+          "preferred_operation": "revoke",
+          "outcomes": {
+            "accept": 400,
+            "revoke": 200
+          }
+        },
+        "acceptance": {
+          "backend_transactions": {
+            "first": {
+              "pid": 29704,
+              "transaction_id": 981
+            },
+            "second": {
+              "pid": 45124,
+              "transaction_id": 982
+            }
+          },
+          "lock_contention": {
+            "winner_pid": 29704,
+            "blocked_pid": 45124,
+            "observer_pid": 23852
+          },
+          "preferred_operation": "first",
+          "outcomes": {
+            "first": 200,
+            "second": 400
+          }
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL checked/checked Template edits: one winner, current-version conflict, one audit, immutable Report",
+      "details": {
+        "backend_transactions": {
+          "first": {
+            "pid": 10076,
+            "transaction_id": 989
+          },
+          "second": {
+            "pid": 21600,
+            "transaction_id": 990
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 10076,
+          "blocked_pid": 21600,
+          "observer_pid": 53524
+        },
+        "preferred_operation": "first",
+        "outcomes": {
+          "first": 200,
+          "second": 409
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL checked/legacy Template edits, checked first: no lost content, ordered versions/audits, immutable Report",
+      "details": {
+        "backend_transactions": {
+          "checked": {
+            "pid": 21600,
+            "transaction_id": 996
+          },
+          "legacy": {
+            "pid": 10076,
+            "transaction_id": 997
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 21600,
+          "blocked_pid": 10076,
+          "observer_pid": 53524
+        },
+        "preferred_operation": "checked",
+        "outcomes": {
+          "checked": 200,
+          "legacy": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL checked/legacy Template edits, legacy first: no lost content, ordered versions/audits, immutable Report",
+      "details": {
+        "backend_transactions": {
+          "checked": {
+            "pid": 53524,
+            "transaction_id": 1003
+          },
+          "legacy": {
+            "pid": 10076,
+            "transaction_id": 1004
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 10076,
+          "blocked_pid": 53524,
+          "observer_pid": 21600
+        },
+        "preferred_operation": "legacy",
+        "outcomes": {
+          "checked": 409,
+          "legacy": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/accept_again, accept_again first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 42004,
+            "transaction_id": 1015
+          },
+          "accept_again": {
+            "pid": 24208,
+            "transaction_id": 1016
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 24208,
+          "blocked_pid": 42004,
+          "observer_pid": 50936
+        },
+        "preferred_operation": "accept_again",
+        "outcomes": {
+          "accept": 400,
+          "accept_again": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/accept_again, accept first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 42004,
+            "transaction_id": 1019
+          },
+          "accept_again": {
+            "pid": 50936,
+            "transaction_id": 1020
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 42004,
+          "blocked_pid": 50936,
+          "observer_pid": 24208
+        },
+        "preferred_operation": "accept",
+        "outcomes": {
+          "accept": 200,
+          "accept_again": 400
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/reissue, reissue first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 50936,
+            "transaction_id": 1023
+          },
+          "reissue": {
+            "pid": 24208,
+            "transaction_id": 1024
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 24208,
+          "blocked_pid": 50936,
+          "observer_pid": 42004
+        },
+        "preferred_operation": "reissue",
+        "outcomes": {
+          "accept": 400,
+          "reissue": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/reissue, accept first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 42004,
+            "transaction_id": 1031
+          },
+          "reissue": {
+            "pid": 24208,
+            "transaction_id": 1032
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 42004,
+          "blocked_pid": 24208,
+          "observer_pid": 50936
+        },
+        "preferred_operation": "accept",
+        "outcomes": {
+          "accept": 200,
+          "reissue": 409
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/revoke, revoke first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 24208,
+            "transaction_id": 1035
+          },
+          "revoke": {
+            "pid": 50936,
+            "transaction_id": 1036
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 50936,
+          "blocked_pid": 24208,
+          "observer_pid": 42004
+        },
+        "preferred_operation": "revoke",
+        "outcomes": {
+          "accept": 400,
+          "revoke": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/revoke, accept first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 42004,
+            "transaction_id": 1039
+          },
+          "revoke": {
+            "pid": 50936,
+            "transaction_id": 1040
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 42004,
+          "blocked_pid": 50936,
+          "observer_pid": 24208
+        },
+        "preferred_operation": "accept",
+        "outcomes": {
+          "accept": 200,
+          "revoke": 409
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/resign, resign first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 50936,
+            "transaction_id": 1047
+          },
+          "resign": {
+            "pid": 24208,
+            "transaction_id": 1048
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 24208,
+          "blocked_pid": 50936,
+          "observer_pid": 42004
+        },
+        "preferred_operation": "resign",
+        "outcomes": {
+          "accept": 400,
+          "resign": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/resign, accept first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 42004,
+            "transaction_id": 1051
+          },
+          "resign": {
+            "pid": 24208,
+            "transaction_id": 1052
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 42004,
+          "blocked_pid": 24208,
+          "observer_pid": 50936
+        },
+        "preferred_operation": "accept",
+        "outcomes": {
+          "accept": 200,
+          "resign": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/password, password first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 50936,
+            "transaction_id": 1059
+          },
+          "password": {
+            "pid": 42004,
+            "transaction_id": 1060
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 42004,
+          "blocked_pid": 50936,
+          "observer_pid": 24208
+        },
+        "preferred_operation": "password",
+        "outcomes": {
+          "accept": 400,
+          "password": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/password, accept first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 24208,
+            "transaction_id": 1063
+          },
+          "password": {
+            "pid": 42004,
+            "transaction_id": 1064
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 24208,
+          "blocked_pid": 42004,
+          "observer_pid": 50936
+        },
+        "preferred_operation": "accept",
+        "outcomes": {
+          "accept": 200,
+          "password": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/email, email first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 50936,
+            "transaction_id": 1067
+          },
+          "email": {
+            "pid": 24208,
+            "transaction_id": 1068
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 24208,
+          "blocked_pid": 50936,
+          "observer_pid": 42004
+        },
+        "preferred_operation": "email",
+        "outcomes": {
+          "accept": 400,
+          "email": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/email, accept first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "email": {
+            "pid": 24208,
+            "transaction_id": 1075
+          },
+          "accept": {
+            "pid": 42004,
+            "transaction_id": 1076
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 42004,
+          "blocked_pid": 24208,
+          "observer_pid": 50936
+        },
+        "preferred_operation": "accept",
+        "outcomes": {
+          "accept": 200,
+          "email": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/role, role first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 50936,
+            "transaction_id": 1079
+          },
+          "role": {
+            "pid": 42004,
+            "transaction_id": 1080
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 42004,
+          "blocked_pid": 50936,
+          "observer_pid": 24208
+        },
+        "preferred_operation": "role",
+        "outcomes": {
+          "accept": 400,
+          "role": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/role, accept first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 24208,
+            "transaction_id": 1087
+          },
+          "role": {
+            "pid": 42004,
+            "transaction_id": 1088
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 24208,
+          "blocked_pid": 42004,
+          "observer_pid": 50936
+        },
+        "preferred_operation": "accept",
+        "outcomes": {
+          "accept": 200,
+          "role": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/name, name first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 50936,
+            "transaction_id": 1091
+          },
+          "name": {
+            "pid": 24208,
+            "transaction_id": 1092
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 24208,
+          "blocked_pid": 50936,
+          "observer_pid": 42004
+        },
+        "preferred_operation": "name",
+        "outcomes": {
+          "accept": 400,
+          "name": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery accept/name, accept first: credential, generation, consumption and audit agree",
+      "details": {
+        "backend_transactions": {
+          "accept": {
+            "pid": 42004,
+            "transaction_id": 1095
+          },
+          "name": {
+            "pid": 24208,
+            "transaction_id": 1096
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 42004,
+          "blocked_pid": 24208,
+          "observer_pid": 50936
+        },
+        "preferred_operation": "accept",
+        "outcomes": {
+          "accept": 200,
+          "name": 200
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery reissue/reissue: one replacement, losing conflict, unchanged credential generation",
+      "details": {
+        "backend_transactions": {
+          "first": {
+            "pid": 50936,
+            "transaction_id": 1103
+          },
+          "second": {
+            "pid": 42004,
+            "transaction_id": 1104
+          }
+        },
+        "lock_contention": {
+          "winner_pid": 50936,
+          "blocked_pid": 42004,
+          "observer_pid": 24208
+        },
+        "preferred_operation": "first",
+        "outcomes": {
+          "first": 200,
+          "second": 409
+        }
+      }
+    },
+    {
+      "label": "PostgreSQL recovery expiry rechecked after claim: password, generations and consumption rollback atomically"
+    },
+    {
+      "label": "PostgreSQL 0023-to-current upgrade preserves existing Report data and all prior checksums; routing off, no outbox backfill"
+    },
+    {
+      "label": "PostgreSQL PDF email defaults off; migration and enabling never queue existing Reports"
+    },
+    {
+      "label": "PostgreSQL simultaneous offline POSTs commit one Report and exactly one outbox row"
+    },
+    {
+      "label": "PostgreSQL observed row-lock contention preserves submitted routing and captures new settings atomically"
+    },
+    {
+      "label": "PostgreSQL worker claim commits before SMTP; concurrent workers cannot repeat an in-flight send"
+    },
+    {
+      "label": "PostgreSQL uncertain SMTP acceptance never retries and committed Reports remain durable"
+    }
+  ],
+  "failures": [],
+  "scope": "full_release",
+  "passed": true,
+  "cleanup_complete": true,
+  "binary_version": "postgres (PostgreSQL) 17.6",
+  "server_version": "PostgreSQL 17.6 on x86_64-windows, compiled by msvc-19.44.35217, 64-bit",
+  "finished_at": "2026-11-01T20:48:37.514518+00:00",
+  "source_commit": "35b0ab60706e8a04819e37b85cefd3f3b5c4a7ea",
+  "source_dirty": true,
+  "source_sha256": {
+    "backend/app/auth.py": "06cbae01cde3fcafcd93f1f9b165edee54b70d4403aabfd13397424903747720",
+    "backend/app/email_transport.py": "3c770ea9005de25f19b33fded405f1adde49393b160f8d9db3fb40a51be1eacc",
+    "backend/app/main.py": "d87db2f6964cdd63da55a2c09106770a73ee20720a2d46ac2fa6673f9db91a49",
+    "backend/app/migrations.py": "b6e452f64a348079438e39a23699148875dffe1e88eabb3f006aa9e7da60c568",
+    "backend/app/models.py": "ed7289ff293298e34ba1e743608c677a0c2f3501373adf065e25fbfc4f481d33",
+    "backend/app/report_pdf_email_worker.py": "0cd9402f3ff7c222c1aaeff61e0dcd95ef1d2012ff9785c052de554f61b5f766",
+    "backend/app/schemas.py": "7ff2325282c20d875034386f0f2060a52613e39610757cea8f0d06c8ce7f516c",
+    "backend/app/use_cases/report_corrections.py": "325940408e57e1e393d5548e5f8892ba142cf9b1bf4009e1258abfd23c573c08",
+    "backend/app/use_cases/report_pdf_email.py": "501607372055d2ea18d15a4dee311519405316cd4b00ff43bb92a0cdcdbc094d",
+    "backend/app/use_cases/staff_site_admin.py": "6b83d53264b85e54f825c1ea8a07e2a209f704dfd339c71943e0bb3927741795",
+    "backend/app/use_cases/work_forms.py": "4fb76bbf88d6deb909d2de7f45d069d200ba7b082110e5740a05fb350d9fae27",
+    "backend/app/use_cases/worker_invitations.py": "125befd7f1f7a0729754a3a1522d6ea08ea1e446db0bea379485c57e3cda7399",
+    "backend/app/use_cases/worker_password_recovery.py": "ce008162acf9b1f1745ce726fd135b5dfa54cfe5d898e511acae6db09e3fee93",
+    "backend/migrations/versions/0001_initial_schema.py": "ca680312c20261896afd57ee8e3fa77fabd7e43547546e8b3234cd00d96a0598",
+    "backend/migrations/versions/0002_work_form_photo_metadata.py": "53beedb98b3f626671de343613d48f5c9692c952c21264b2141f3ef2b6e2acaf",
+    "backend/migrations/versions/0003_departments.py": "efaf3cbc645cf72c2b89439ee2f2936c70084bcc4b6d299cb17dca0030535aec",
+    "backend/migrations/versions/0004_registration_verification.py": "cc6b9a22bee6c96b319e00e38c0ca508b312e53bd6464f22d5663d451b5b9e5e",
+    "backend/migrations/versions/0005_dashboard_department_preference.py": "16a27e1990ec07b60b5c2b7dc31f56b1a32af5447e3e7d4f41e2cbf970d7f9ca",
+    "backend/migrations/versions/0006_manual_attendance_entries.py": "f843a3ead5678a779e0affed06b8695edcf0e2eb801518d5906c8fcdc33f9608",
+    "backend/migrations/versions/0007_record_rubbish_bin.py": "238a66040a3ce4873b2c51838b907de5f91bb6522e40d7ab4a277f36eeb79a50",
+    "backend/migrations/versions/0008_manual_task_logs.py": "760e26aab15969ac8e2784e40c348fa60410e6d8e2201be2f4ef12c56f2387e3",
+    "backend/migrations/versions/0009_worker_classes_and_team_logs.py": "ff685e351f255bb1c049d1ec8e1f6bdb1629c7a9c7de522c6bb6ddc078ba463e",
+    "backend/migrations/versions/0010_pdf_daywork_form_template.py": "d8c51b0a395a931bd03bebf8eec78ae035edb5d91d5d34e4d9592a81d82e106c",
+    "backend/migrations/versions/0011_multi_team_daywork_form.py": "408df2694d00aa0f71086bf42874d04d6e6c68bba3786f4f77500f681777ae7b",
+    "backend/migrations/versions/0012_form_and_team_log_rubbish_bin.py": "3ff6be84f747b9b65284333ce1014c24eaad1d1f984ae9f97460218a4f0a7d4a",
+    "backend/migrations/versions/0013_daywork_team_break_options.py": "a4be942d39791da59cc7ef6594a0f63fcfb097b4756db7c42cca88d5c4afcb35",
+    "backend/migrations/versions/0014_client_submission_unique_indexes.py": "8057dc963d8169d6efda2d6f7b16b4bd34d06f4026fbfa9f4bbcb4f520300fea",
+    "backend/migrations/versions/0015_work_form_definition_snapshots.py": "3f2c89faa22b8c8bc6b5b9269f56c2c010383b04c504d23e598b7ac95a472e20",
+    "backend/migrations/versions/0016_review_queue_indexes.py": "1f08daac75297fdcfe3871ba261834b14707a426cc1253920e5cc4c2bdf0f4a7",
+    "backend/migrations/versions/0017_global_admin_supervisor_invariant.py": "3f5cfdc6cf1fb0a652d302a2cc4257d449816a5266c58790777b279311855424",
+    "backend/migrations/versions/0018_report_review_workflow.py": "5ebdbf80b5a6e7fb5e984125eb888d3b5daf02b949051479458c98663f9e0785",
+    "backend/migrations/versions/0019_report_daywork_purpose.py": "51324596555f46d6b12cf3cb98ce6c6e5e3d33bcaf1c62ce8ef9220b1adf6487",
+    "backend/migrations/versions/0020_missing_snapshot_daywork_correction.py": "42039acf7600a876ef1ef5d1f65dd7bf7df47a8749158b453fb54ff3029e5112",
+    "backend/migrations/versions/0021_worker_invitations.py": "313800ca901d913e7ba1ec09c586e671607f5bdfc1643322a512c6eb4bb769ad",
+    "backend/migrations/versions/0022_worker_password_recovery.py": "178f7bcbdf92ab060d433d37b62d77dafc62590a675edb91fe50d6d02f11cfb8",
+    "backend/migrations/versions/0023_worker_invitation_email.py": "140c97cf7224a380b66c3a4edc588399d1fdfb461e0a206f04df66969ad857c8",
+    "backend/migrations/versions/0024_report_pdf_email.py": "6450a46e6dc735164d3994decb53d5b15bdeec42aae850420227d3d508711b8f",
+    "backend/migrations/versions/0025_report_corrections.py": "308858c2decae562f256723625bda32a5743d7acd8e5af81ddc4a3f0a7281d7b",
+    "backend/migrations/versions/0026_staff_invitations.py": "167c58cf7218a7ae166bcfab3d907f042febfe0bc1b9460a526063a407eb207b",
+    "backend/migrations/versions/0027_report_manual_site.py": "f789745edfff0ba896ed9ab90b313670c4491faf5405b75bcf3c5dd23c184914",
+    "backend/migrations/versions/__init__.py": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
+    "backend/postgres_invitation_rehearsal.py": "4690d51dac08f7983520b1505cdc02bef357ef16c7a605c0067fccf4c20f933d",
+    "backend/postgres_migration_rehearsal.py": "d9c3073e9b10287ae9477c2fec2f83aa9294129dc7070974b0128010f65d93e7",
+    "backend/postgres_password_recovery_rehearsal.py": "2f04063f7ae5fba9f9e748f89bdc82f743cbfeaa5bace297766b7313a571a80f",
+    "backend/postgres_rehearsal.py": "1afaa01635a5262dee6728af5e50a6fb3f5fac2b246f0d9303911627649608ff",
+    "backend/postgres_report_pdf_email_rehearsal.py": "dfd914343873015307f66fff9cad5096e34d61407c30e7f8c11e644aba138a47",
+    "backend/postgres_review_rehearsal.py": "0e2792057ec58318596f34aee6bbe4b6c0003da257916a7a178965f7ce5932a0",
+    "backend/postgres_template_edit_rehearsal.py": "767bd7cd26f6f686655936e85889e59987b16849f8acbe859f9918ddd676b0e7",
+    "backend/report_pdf_email_migration_checks.py": "9dc186b2916290e386d9cf863c6fe8bc5aa17db40a231668525317b9539064b7"
+  }
+}

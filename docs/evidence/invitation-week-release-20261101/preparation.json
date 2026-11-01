@@ -1,0 +1,21 @@
+{
+  "atUtc": "2026-11-01T20:46:19.830423+00:00",
+  "sourceFiles": {
+    ".env.example": "00551b612b19a630261ac3b63e2b64eb5f66b37bae6891dd7f7c58890c758c0e",
+    "backend/app/config.py": "55eb888aed357fea170760493607cca67beb554e827c00f333f88387956d5073",
+    "backend/invitation_test.py": "f358d54664fc4fc4326da8f813b5c209df5b1afe6426b65831c66f72437ad9c2",
+    "backend/staff_invitation_test.py": "c6d252b7ae6a00384de7e29daedbeb4bf212425b28fa1db47f3737b376f06718",
+    "backend/invitation_email_test.py": "4c725fa2eca2f04a3a3e1404a86b4cc186fad2dd71ec30f65c2f701ebca872a4",
+    "backend/security_test.py": "d047cdf411f11f4f4bf6f863e8f5df0e9383232c3fcb8714fa5a9d5475e4a1dd",
+    "backend/smoke_test.py": "adc7ecce2f38c303c42bd7e3d8f3cf12d513632d65a12cf5879c556c92fc4f71",
+    "scripts/worker-invitation-email-test.mjs": "6087f23560dc3dcf27ae923983a260939d81e5ceaaaf794027b9fb4ef8c2bc44",
+    "README.md": "7d000fa6c521ef7b13878cc977356e05af6b3c714a9d0ec784a6fa18822bd15c",
+    "docs/production-db-runbook.md": "7ffe907942d504ab46940fcae5568f7b015fa1a5965af065f5cef450a5b3ec04",
+    "docs/staff-invitations.md": "03e341172a13a60ad4a270aca9d2235a1408cd28f884e9b5da3f61a6a7934e98"
+  },
+  "preservedFiles": {
+    ".firebase/hosting.ZGlzdA.cache": "b2216ec8189a857a95001927c8288b5921ec483ee0823039817bea0e6fe842b9",
+    "docs/source-report-templates.md": "f0a4a2b59a6ee8288854e5805d709347c00d4c4f9c64b0bf8b1f839476773569"
+  },
+  "preparedSourceUnchanged": true
+}

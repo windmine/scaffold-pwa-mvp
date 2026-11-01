@@ -1,0 +1,97 @@
+{
+  "status": "deployed-and-verified",
+  "atUtc": "2026-11-01T21:11:07.118795+00:00",
+  "scope": "Seven-day invitation issuance/reissue for all already-authorized roles; backend only",
+  "sourceCommit": "63cd4fffe10d6d6132464f641e6f76eaae1183d3",
+  "imageSourceCommit": "d47a56c3dc2a4a2050738ee985473978c7040f36",
+  "packagedInputsIdentical": true,
+  "revision": "geo-backend-invite-week-20261101",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:fa03393f6b02db3cdaf922303708f11f7ecf42bf8945b0e00d1ac0ea9a970d46",
+  "buildId": "51ef8594-7101-401d-954b-b4fb8eefdbb5",
+  "traffic": [
+    {
+      "percent": 100,
+      "revisionName": "geo-backend-invite-week-20261101"
+    }
+  ],
+  "ttlHours": 168,
+  "previousDefaultHours": 24,
+  "existingStoredExpiryChangedByRelease": false,
+  "expiredLinksRevived": false,
+  "migration": false,
+  "hostingDeployment": false,
+  "writePause": false,
+  "realInvitationsAccountsReportsSitesOrEmailsCreated": false,
+  "workerSchedulerIamSecretReferencesAndUnrelatedSettingsUnchanged": true,
+  "publicHostingHashesUnchanged": true,
+  "validation": {
+    "localBackendSuites": 29,
+    "localMockedInvitationEmailAndExpiryTests": 21,
+    "nativePostgres17Checkpoints": 81,
+    "nativePostgresCleanup": true,
+    "exactImageNetworkDisabledSuites": 7,
+    "sourceCi": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/41349214539",
+    "sourceCiConclusion": "success",
+    "sourceCiIncludesFullMobileGate": true,
+    "lintFileScopeAndResultsUnchanged": true,
+    "lintFiles": 227,
+    "localBuildExit": 0,
+    "hardening": {
+      "before": {
+        "passedChecks": 40,
+        "warnings": [
+          "warn - Neon history retention is only 6 hours; choose a longer paid window or external logical backups before relying on it for production recovery"
+        ],
+        "exitCode": 0
+      },
+      "after": {
+        "passedChecks": 40,
+        "warnings": [
+          "warn - Neon history retention is only 6 hours; choose a longer paid window or external logical backups before relying on it for production recovery"
+        ],
+        "exitCode": 0
+      }
+    }
+  },
+  "auditPrerequisite": {
+    "advisory": "GHSA-g3hv-75wg-m249",
+    "source": "https://github.com/isaacs/minimatch/security/advisories/GHSA-g3hv-75wg-m249",
+    "scope": "ESLint-only development override; no backend or hosted application dependency change",
+    "changedPackages": {
+      "node_modules/@isaacs/nonrecursive-glob-match": {
+        "before": null,
+        "after": "1.0.3"
+      },
+      "node_modules/minimatch": {
+        "before": "10.2.5",
+        "after": "11.0.3"
+      }
+    },
+    "lintFileCount": 227,
+    "lintFileScopeAndResultsUnchanged": true
+  },
+  "rollback": {
+    "retainedRevision": "geo-backend-manual-site-20261026",
+    "schema": 27,
+    "instructions": "Prefer forward fix. Reverify retained revision before traffic rollback. No migration downgrade, credential/auth-generation reset, invitation rewrite or device-storage clear. Previous image accepts existing saved seven-day deadlines; its future issuance uses its earlier policy. Leave worker/Scheduler and Hosting unchanged."
+  },
+  "cleanup": {
+    "temporaryCandidateTagRemoved": true,
+    "localOwnedPostgresClusterRemoved": true,
+    "ownedBackendTestServersRemoved": true,
+    "newJobsOrDatabaseBranches": false,
+    "ownedLocalBuildContextRemoved": true,
+    "cloudBuildSourceAndImageRetainedAsReleaseArtifacts": true
+  },
+  "limitations": [
+    "No real invitation, SMTP authentication, mailbox delivery, existing-user login or physical-phone test.",
+    "No new production database inventory comparison; existing expiries are preserved by unchanged stored-deadline semantics and no migration/backfill.",
+    "Existing six-hour Neon recovery-history warning and frontend build-size advisory remain.",
+    "Final release-record CI is checked after this record commit; its terminal result is reported separately."
+  ],
+  "historicalFailures": [
+    "Initial source CI 41348857587 failed npm audit on newly published GHSA-g3hv-75wg-m249; backend job passed.",
+    "First byte comparison used git blobs against Windows git archive output; line-ending conversion caused a false Dockerfile mismatch. Exact archives and committed backend/build inputs compare equal.",
+    "A separate local npm audit request failed DNS in the restricted sandbox; permitted install audit and corrected source CI audit passed."
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "atUtc": "2026-11-01T20:49:58.325998+00:00",
+  "sourceCommit": "d47a56c3dc2a4a2050738ee985473978c7040f36",
+  "imageTag": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-week-20261101-d47a56c",
+  "exactImageTestSuites": [
+    "registration_email_test.py",
+    "invitation_email_test.py",
+    "security_test.py",
+    "migration_test.py",
+    "invitation_test.py",
+    "staff_invitation_test.py",
+    "password_recovery_test.py"
+  ],
+  "runtimeTestsNetwork": "none"
+}

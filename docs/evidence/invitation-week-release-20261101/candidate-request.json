@@ -1,0 +1,8 @@
+{
+  "atUtc": "2026-11-01T21:07:11.820194+00:00",
+  "revision": "geo-backend-invite-week-20261101",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:fa03393f6b02db3cdaf922303708f11f7ecf42bf8945b0e00d1ac0ea9a970d46",
+  "ttlHours": 168,
+  "noTraffic": true,
+  "previousRevision": "geo-backend-manual-site-20261026"
+}

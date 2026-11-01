@@ -1,5 +1,15 @@
 # Mobile and Browser Workflow Checks
 
+## Seven-day invitation release (2026-11-01 UTC)
+
+Seven-day invitations are live from source `63cd4fffe10d6d6132464f641e6f76eaae1183d3` as backend `geo-backend-invite-week-20261101` at 100% without tags, with `WORKER_INVITATION_TTL_HOURS=168`. New and explicitly reissued Worker, Supervisor and authorized global-admin links last seven days. Existing invitations retain their stored expiry; opening/sending never extends it and expired links are not revived. Single-use, role/Department, revocation and duplicate-send protections remain.
+
+The image was built from `d47a56c3dc2a4a2050738ee985473978c7040f36`; all 126 packaged backend/build files are byte-identical to the passing CI source. The only extra source repair is an ESLint-only minimatch security override for the newly published advisory; deployed application assets and Python dependencies are unchanged. No migration, Hosting deployment, write pause, account/invitation/report/site creation or real email occurred. Schema 27, the PDF worker, enabled Scheduler, IAM, SMTP secret version 1 and other settings are preserved. Public Hosting shell hashes are unchanged; the current UI remains Hosting `a443650ecd58e0f2`, cache `leader-field-6d518cf57f89`.
+
+Validation: 29 fresh local backend suites, 21 mocked invitation/expiry tests, 81 isolated PostgreSQL checkpoints with cleanup, seven network-disabled image suites, build/lint, both exact-source CI jobs including the complete mobile gate, candidate/live readiness and strict production hardening. Retain the original failed audit and its correction as evidence. No physical-phone, production-account, real SMTP or new database inventory pass is claimed. Existing six-hour recovery-history and bundle-size warnings remain. Retain `geo-backend-manual-site-20261026` for compatible traffic rollback; saved deadlines remain valid, while its future issuance returns to the earlier policy. Do not downgrade schema, reset auth/device state or rewrite invitations. Final record CI is reported after the record commit.
+
+[Release evidence](evidence/invitation-week-release-20261101/release.json).
+
 ## Safe Refresh release (2026-10-27 UTC)
 
 Validation passed: ten focused Refresh groups, all 75 real-backend browser workflows, the complete local mobile gate, build/lint, both exact-source CI jobs, preview/live 90-file parity, 80 shell assets and seven installer artifacts per origin, four live waiting-update checks and 40 strict read-only hardening checks. Six anonymous images were directly reviewed; three live installer images match reviewed previews exactly. Earlier local startup and mobile geometry failures remain recorded without claiming a confirmed original cause. The geometry test waits for the existing hover animation before measuring. Physical phones, authenticated production fixtures and real SMTP remain untested. Existing six-hour recovery-history and bundle-size warnings remain.

@@ -1,0 +1,69 @@
+{
+  "atUtc": "2026-11-01T21:09:19.423925+00:00",
+  "status": "passed",
+  "revision": "geo-backend-invite-week-20261101",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:fa03393f6b02db3cdaf922303708f11f7ecf42bf8945b0e00d1ac0ea9a970d46",
+  "ttlHours": 168,
+  "traffic": [
+    {
+      "percent": 100,
+      "revisionName": "geo-backend-invite-week-20261101"
+    }
+  ],
+  "health": [
+    {
+      "path": "/health",
+      "origin": "service",
+      "httpStatus": 200,
+      "response": {
+        "status": "ok",
+        "message": "Geo backend is running"
+      }
+    },
+    {
+      "path": "/health/ready",
+      "origin": "service",
+      "httpStatus": 200,
+      "response": {
+        "status": "ok",
+        "checks": {
+          "database": "ok",
+          "migrations": "ok",
+          "upload_storage": "ok"
+        },
+        "details": {
+          "upload_storage": {
+            "backend": "gcs"
+          }
+        }
+      }
+    },
+    {
+      "path": "/health",
+      "origin": "hosting",
+      "httpStatus": 200,
+      "response": {
+        "status": "ok",
+        "message": "Geo backend is running"
+      }
+    },
+    {
+      "path": "/health/ready",
+      "origin": "hosting",
+      "httpStatus": 200,
+      "response": {
+        "status": "ok",
+        "checks": {
+          "database": "ok",
+          "migrations": "ok",
+          "upload_storage": "ok"
+        },
+        "details": {
+          "upload_storage": {
+            "backend": "gcs"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,391 @@
+{
+  "id": "51ef8594-7101-401d-954b-b4fb8eefdbb5",
+  "status": "SUCCESS",
+  "logUrl": "https://console.cloud.google.com/cloud-build/builds;region=australia-southeast1/51ef8594-7101-401d-954b-b4fb8eefdbb5?project=794826041820",
+  "createTime": "2026-11-01T20:50:08.923034730Z",
+  "finishTime": "2026-11-01T20:53:14.130079Z",
+  "results": {
+    "buildStepImages": [
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f"
+    ],
+    "buildStepOutputs": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "buildStepResults": {
+      "build-candidate": {},
+      "invitation-email-test": {},
+      "invitation-test": {},
+      "migration-test": {},
+      "password-recovery-test": {},
+      "prepare-test-reader": {},
+      "registration-email-test": {},
+      "security-test": {},
+      "staff-invitation-test": {}
+    },
+    "images": [
+      {
+        "artifactRegistryPackage": "projects/geo-attendance-system-db9ca/locations/australia-southeast1/repositories/cloud-run-source-deploy/packages/geo-backend/versions/sha256:fa03393f6b02db3cdaf922303708f11f7ecf42bf8945b0e00d1ac0ea9a970d46",
+        "digest": "sha256:fa03393f6b02db3cdaf922303708f11f7ecf42bf8945b0e00d1ac0ea9a970d46",
+        "name": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-week-20261101-d47a56c",
+        "pushTiming": {
+          "endTime": "2026-11-01T20:53:13.819206573Z",
+          "startTime": "2026-11-01T20:52:57.808034Z"
+        }
+      }
+    ]
+  },
+  "steps": [
+    {
+      "args": [
+        "build",
+        "-t",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-week-20261101-d47a56c",
+        "candidate"
+      ],
+      "id": "build-candidate",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-11-01T20:50:23.298580170Z",
+        "startTime": "2026-11-01T20:50:23.271512723Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-01T20:51:09.195009599Z",
+        "startTime": "2026-11-01T20:50:23.271512723Z"
+      }
+    },
+    {
+      "args": [
+        "build",
+        "-f",
+        "Dockerfile.tests",
+        "--build-arg",
+        "RUNTIME_IMAGE=australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-week-20261101-d47a56c",
+        "-t",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-week-20261101-d47a56c-tests",
+        "."
+      ],
+      "id": "prepare-test-reader",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-11-01T20:51:09.196547193Z",
+        "startTime": "2026-11-01T20:51:09.195250095Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-01T20:51:14.164621491Z",
+        "startTime": "2026-11-01T20:51:09.195250095Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=512m",
+        "--tmpfs",
+        "/app/output:rw,noexec,nosuid,size=32m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "-e",
+        "REPORT_PDF_EMAIL_WORKER_ENABLED=false",
+        "-e",
+        "WORKER_INVITATION_TTL_HOURS=168",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-week-20261101-d47a56c-tests",
+        "/app/backend/registration_email_test.py"
+      ],
+      "id": "registration-email-test",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-11-01T20:51:14.166811289Z",
+        "startTime": "2026-11-01T20:51:14.164863323Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-01T20:51:18.120849590Z",
+        "startTime": "2026-11-01T20:51:14.164863323Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=512m",
+        "--tmpfs",
+        "/app/output:rw,noexec,nosuid,size=32m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "-e",
+        "REPORT_PDF_EMAIL_WORKER_ENABLED=false",
+        "-e",
+        "WORKER_INVITATION_TTL_HOURS=168",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-week-20261101-d47a56c-tests",
+        "/app/backend/invitation_email_test.py"
+      ],
+      "id": "invitation-email-test",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-11-01T20:51:18.122816174Z",
+        "startTime": "2026-11-01T20:51:18.121219643Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-01T20:51:30.714453435Z",
+        "startTime": "2026-11-01T20:51:18.121219643Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=512m",
+        "--tmpfs",
+        "/app/output:rw,noexec,nosuid,size=32m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "-e",
+        "REPORT_PDF_EMAIL_WORKER_ENABLED=false",
+        "-e",
+        "WORKER_INVITATION_TTL_HOURS=168",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-week-20261101-d47a56c-tests",
+        "/app/backend/security_test.py"
+      ],
+      "id": "security-test",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-11-01T20:51:30.716264585Z",
+        "startTime": "2026-11-01T20:51:30.714675226Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-01T20:51:42.557661712Z",
+        "startTime": "2026-11-01T20:51:30.714675226Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=512m",
+        "--tmpfs",
+        "/app/output:rw,noexec,nosuid,size=32m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "-e",
+        "REPORT_PDF_EMAIL_WORKER_ENABLED=false",
+        "-e",
+        "WORKER_INVITATION_TTL_HOURS=168",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-week-20261101-d47a56c-tests",
+        "/app/backend/migration_test.py"
+      ],
+      "id": "migration-test",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-11-01T20:51:42.559463204Z",
+        "startTime": "2026-11-01T20:51:42.557932564Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-01T20:51:59.635619678Z",
+        "startTime": "2026-11-01T20:51:42.557932564Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=512m",
+        "--tmpfs",
+        "/app/output:rw,noexec,nosuid,size=32m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "-e",
+        "REPORT_PDF_EMAIL_WORKER_ENABLED=false",
+        "-e",
+        "WORKER_INVITATION_TTL_HOURS=168",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-week-20261101-d47a56c-tests",
+        "/app/backend/invitation_test.py"
+      ],
+      "id": "invitation-test",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-11-01T20:51:59.637727663Z",
+        "startTime": "2026-11-01T20:51:59.635942933Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-01T20:52:17.836662962Z",
+        "startTime": "2026-11-01T20:51:59.635942933Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=512m",
+        "--tmpfs",
+        "/app/output:rw,noexec,nosuid,size=32m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "-e",
+        "REPORT_PDF_EMAIL_WORKER_ENABLED=false",
+        "-e",
+        "WORKER_INVITATION_TTL_HOURS=168",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-week-20261101-d47a56c-tests",
+        "/app/backend/staff_invitation_test.py"
+      ],
+      "id": "staff-invitation-test",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-11-01T20:52:17.838810513Z",
+        "startTime": "2026-11-01T20:52:17.836949647Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-01T20:52:32.848272281Z",
+        "startTime": "2026-11-01T20:52:17.836949647Z"
+      }
+    },
+    {
+      "args": [
+        "run",
+        "--rm",
+        "--network",
+        "none",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:rw,noexec,nosuid,size=512m",
+        "--tmpfs",
+        "/app/output:rw,noexec,nosuid,size=32m",
+        "-e",
+        "APP_ENV=test",
+        "-e",
+        "AUTO_MIGRATE=false",
+        "-e",
+        "DATABASE_URL=sqlite://",
+        "-e",
+        "UPLOAD_DIR=/tmp/uploads",
+        "-e",
+        "REGISTRATION_EMAIL_ENABLED=false",
+        "-e",
+        "REPORT_PDF_EMAIL_WORKER_ENABLED=false",
+        "-e",
+        "WORKER_INVITATION_TTL_HOURS=168",
+        "--entrypoint",
+        "python",
+        "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:invitation-week-20261101-d47a56c-tests",
+        "/app/backend/password_recovery_test.py"
+      ],
+      "id": "password-recovery-test",
+      "name": "gcr.io/cloud-builders/docker",
+      "pullTiming": {
+        "endTime": "2026-11-01T20:52:32.849961329Z",
+        "startTime": "2026-11-01T20:52:32.848482959Z"
+      },
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-01T20:52:57.781836924Z",
+        "startTime": "2026-11-01T20:52:32.848482959Z"
+      }
+    }
+  ]
+}

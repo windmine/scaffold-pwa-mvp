@@ -1,0 +1,34 @@
+{
+  "atUtc": "2026-11-01T20:47:16.744497+00:00",
+  "status": "passed",
+  "phase": "before",
+  "stable": {
+    "serviceRuntimeExceptImageAndTtl": "8e4d239fe5c1d843805f6957cd2ee5862a2774cfba944bfa9f5a6acba4e1161a",
+    "workerSpec": "b9b6b76de826f9412e2170958bfb2ee934edcec19003d76fc91b312246e8c900",
+    "scheduler": "71a512e742f48bffefff567456fc0fc5872c1e16443fc3073c2bac884374ce95",
+    "serviceIam": "4f098028995ae0d0f50572c4126053443316c4fb6f8ee3642eb5ad587a784522",
+    "workerIam": "9ef03a82112aac157b2c4564b16ba1ac711790ceb886462059f51f203c473b9d",
+    "smtpSecretIam": "db27ae89763034d9ce7dc612b2f4c1d40aae52ab245d916735a1a5e8c6323d09",
+    "smtpVersion": "f1bb6ee53012159769fd82d0025813734b4dca64cbd5e0eb8ea983878ffa353d",
+    "projectIam": "069f525094d86d8a22b07c1df78e218478cae42cffc2b1fac436692126004fb6",
+    "hosting": {
+      "/": "df34bf39e5fdb96f005a62feabcd3480f3cc98a42bf724e6067c5fca82acde77",
+      "/sw.js": "a0dbd540555cd3a9ba3fe23ea888734031e2be6825b0a7d477c92e216a6e0684",
+      "/offline.html": "5fafba297754c73156b6c05d37fbeb15c632fbd08bf20a603893346fecbe66f0",
+      "/manifest.webmanifest": "47085fc4c3ff8188bc78851c8ffb46a0195fe57cd65d0f6a322dc9265a04061a"
+    }
+  },
+  "traffic": [
+    {
+      "percent": 100,
+      "revisionName": "geo-backend-manual-site-20261026"
+    }
+  ],
+  "serviceUrl": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:e9008bf99a791f6274de946c6884ae8a80d0af2f733261fc2d32ce2c4d5a50af",
+  "ttlOverrideHours": null,
+  "schedulerState": "ENABLED",
+  "secretPayloadsRead": false,
+  "serviceReady": true,
+  "unchangedOutsideImageAndTtl": false
+}

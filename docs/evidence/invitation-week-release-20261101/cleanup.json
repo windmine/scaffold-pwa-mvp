@@ -1,0 +1,8 @@
+{
+  "atUtc": "2026-11-01T21:11:41.1040603Z",
+  "ownedLocalBuildContextRemoved": true,
+  "candidateTagRemoved": true,
+  "postgresClusterRemoved": true,
+  "cloudBuildSourceAndImageRetainedAsReleaseArtifacts": true,
+  "otherUserFilesRemoved": false
+}

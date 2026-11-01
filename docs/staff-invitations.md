@@ -1,6 +1,6 @@
 # Staff invitations
 
-## Prepared seven-day policy (not deployed)
+## Seven-day policy (deployed 2026-11-01 UTC)
 
 New and explicitly reissued Worker, Supervisor and authorized global-admin links
 use 168 hours from issuance instead of the previous 24-hour default. The legacy
@@ -16,8 +16,7 @@ Normal explicit reissue creates a new seven-day link and revokes the old one.
 Nothing retroactively revives expired/revoked/consumed links. The UI, setup page,
 email and shared PDF guide continue to refer to the exact saved expiry rather than
 promising another seven days from email delivery. No migration, frontend runtime
-change, new IAM or secret is required. No release, production account/link change
-or real send is authorized by this local preparation.
+change, new IAM or secret is required. The approved backend release sets the runtime to 168. It created no production account/link and sent no email. See [release evidence](evidence/invitation-week-release-20261101/release.json).
 
 The Report-only Staff form now invites Workers and Supervisors, including global admins when the actor already has permission to grant that access. A Department Supervisor may invite a Supervisor only in their own Department, matching existing direct creation. Only global admins may grant global-admin access or select another Department. Existing active accounts cannot be invited or converted by this flow.
 
