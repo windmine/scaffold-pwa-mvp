@@ -53,6 +53,11 @@
   "dependencies": {
     "leaflet": "^1.9.4"
   },
+  "overrides": {
+    "eslint": {
+      "minimatch": "11.0.3"
+    }
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
