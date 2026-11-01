@@ -32,6 +32,7 @@ def run_checks(server):
         email = f"pending-{index}@example.invalid"
         invitation, headers = server.expect("POST", route, {**payload, "email": email, "role": role,
             "is_global_admin": global_admin, "department_id": department}, 200, actor)
+        server.assert_seven_day_expiry(invitation)
         user = invitation["user"]
         assert user["role"] == role and user["is_global_admin"] == global_admin and user["password_setup_required"]
         assert headers.get("Cache-Control") == "private, no-store" and headers.get("Referrer-Policy") == "no-referrer"
@@ -60,6 +61,7 @@ def run_checks(server):
             database.commit()
         server.expect("POST", "/auth/login", {"email": email, "password": "Passw0rd!"}, 403)
         replacement, _ = server.expect("POST", path + "/invitation", {}, 200, actor)
+        server.assert_seven_day_expiry(replacement)
         server.expect("POST", auth_route + "/accept", {"token": token, "password": "SelfChosenPassword!"}, 400)
         token = replacement["token"]
         _, headers = server.expect("POST", auth_route + "/accept", {"token": token, "password": "SelfChosenPassword!"}, 200)

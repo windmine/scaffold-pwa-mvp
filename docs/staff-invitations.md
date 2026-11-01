@@ -1,5 +1,24 @@
 # Staff invitations
 
+## Prepared seven-day policy (not deployed)
+
+New and explicitly reissued Worker, Supervisor and authorized global-admin links
+use 168 hours from issuance instead of the previous 24-hour default. The legacy
+`WORKER_INVITATION_TTL_HOURS` setting is retained, with default/cap 168 and a
+minimum of 1 hour. Existing explicit shorter overrides are respected; set the
+backend runtime value to 168 when deploying this update. The older backend caps
+the setting at 72, so changing an environment variable alone is insufficient.
+
+Existing rows keep their stored expiry. Opening or sending a link does not renew
+it. At the exact expiry instant, inspection, acceptance and email sending reject
+the link; an acceptance that reaches expiry while acquiring its claim rolls back.
+Normal explicit reissue creates a new seven-day link and revokes the old one.
+Nothing retroactively revives expired/revoked/consumed links. The UI, setup page,
+email and shared PDF guide continue to refer to the exact saved expiry rather than
+promising another seven days from email delivery. No migration, frontend runtime
+change, new IAM or secret is required. No release, production account/link change
+or real send is authorized by this local preparation.
+
 The Report-only Staff form now invites Workers and Supervisors, including global admins when the actor already has permission to grant that access. A Department Supervisor may invite a Supervisor only in their own Department, matching existing direct creation. Only global admins may grant global-admin access or select another Department. Existing active accounts cannot be invited or converted by this flow.
 
 For Supervisors, **Account setup** defaults to **Invitation — recipient sets password**. **Create immediately — no invitation email** retains direct creation with an entered password. Workers retain their existing invitation flow; the retained full-interface direct-creation behavior is unchanged. Creating an invitation never sends email automatically: the private dialog has an explicit **Send invitation email** action and Copy/Share fallback. The recipient and intended role are visible. SMTP acceptance is displayed separately from unverified mailbox delivery.

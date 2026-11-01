@@ -74,6 +74,24 @@ async function fixture({ outcome = 'accepted', pending = false, mode = 'invitati
 
 try {
   {
+    const f = await fixture();
+    for (const expiresAt of ['2026-10-28T12:00:00+00:00', '2026-11-03T12:00:00+00:00']) {
+      for (const [role, globalAdmin] of [['worker', false], ['supervisor', false], ['supervisor', true]]) {
+        const expected = await f.page.evaluate(async ({ expiresAt, role, globalAdmin }) => {
+          Object.assign(window.fixture.invitation.user, { role, is_global_admin: globalAdmin });
+          window.fixture.invitation.expires_at = expiresAt;
+          window.fixture.show();
+          return (await import('/assets/js/utils.js')).formatDateTime(expiresAt);
+        }, { expiresAt, role, globalAdmin });
+        assert.equal(await f.page.locator('#workerInvitationExpiry').textContent(), expected,
+          'Show the saved deadline for both older and seven-day links, never a fresh duration from opening');
+        assert.doesNotMatch(await f.page.locator('#workerInvitationDialog').innerText(), /24 hours|72 hours|7 days from now/i);
+      }
+    }
+    assert.equal(f.requests.length, 0);
+    await f.close(); checks += 1;
+  }
+  {
     const f = await fixture({ pending: true });
     assert.equal(f.requests.length, 0, 'Opening never sends');
     assert.equal(await f.send.isEnabled(), true);

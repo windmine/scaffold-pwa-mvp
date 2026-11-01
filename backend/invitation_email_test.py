@@ -1,10 +1,11 @@
 """Disposable invitation email tests. All SMTP is mocked; sockets are forbidden."""
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 import json
 import os
+import runpy
 from pathlib import Path
 import smtplib
 import ssl
@@ -21,6 +22,7 @@ os.environ.update({
     "GEO_SECRET_KEY": "synthetic-invitation-email-local-test-key-only",
     "SMTP_HOST": "", "SMTP_PASSWORD": "", "SMTP_USERNAME": "", "SMTP_FROM_EMAIL": "",
     "REGISTRATION_EMAIL_ENABLED": "false", "SQL_ECHO": "false", "RATE_LIMIT_ENABLED": "false",
+    "WORKER_INVITATION_TTL_HOURS": "168",
     "UPLOAD_STORAGE_BACKEND": "local", "UPLOAD_DIR": str(Path(_environment.name) / "uploads"),
 })
 
@@ -30,9 +32,10 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from app import email_transport, main as application
 from app.auth import create_access_token
 from app.models import AuditEvent, Department, User, WorkerInvitation
-from app.schemas import WorkerInvitationEmailRequest, WorkerInvitationAcceptRequest
+from app.schemas import (WorkerInvitationEmailRequest, WorkerInvitationAcceptRequest,
+                         WorkerInvitationTokenRequest, StaffInvitationCreateRequest)
 from app.use_cases import worker_invitation_email as delivery, worker_invitations as invitations
-from app.use_cases.registration import secret_hash
+from app.use_cases.registration import normalized_datetime, secret_hash
 from app.use_cases import invitation_guide
 
 
@@ -74,6 +77,134 @@ class InvitationEmailTests(unittest.TestCase):
     def send(self, session=None, supervisor=None, token=None):
         return delivery.send_worker_invitation_email(2, WorkerInvitationEmailRequest(token=token or self.token),
             supervisor or self.supervisor, session or self.session)
+
+    def issue_at(self, now, role="worker", global_admin=False):
+        self.supervisor.is_global_admin = True
+        self.session.add(self.supervisor)
+        self.session.commit()
+        number = len(self.session.exec(select(User)).all())
+        data = StaffInvitationCreateRequest(name="Synthetic invited user", email=f"expiry-{number}@example.invalid",
+                                            role=role, is_global_admin=global_admin)
+        with patch.object(invitations, "utc_now", return_value=now):
+            return invitations.create_staff_invitation(data, self.supervisor, self.session)
+
+    def test_invitation_policy_default_bounds_and_explicit_override(self):
+        for configured, expected in ((None, 168), ("168", 168), ("999", 168), ("0", 1),
+                                     ("24", 24), ("72", 72), ("invalid", 168)):
+            with self.subTest(configured=configured), patch.dict(os.environ):
+                os.environ.pop("WORKER_INVITATION_TTL_HOURS", None)
+                if configured is not None:
+                    os.environ["WORKER_INVITATION_TTL_HOURS"] = configured
+                # Evaluate only code defaults/environment, never local credential files.
+                with patch.object(Path, "exists", return_value=False):
+                    config = runpy.run_path(str(Path(__file__).parent / "app/config.py"))
+                self.assertEqual(config["WORKER_INVITATION_TTL_HOURS"], expected)
+
+    def test_new_and_reissued_links_last_seven_days_for_every_role(self):
+        issued_at = datetime(2026, 10, 27, 12, tzinfo=timezone.utc)
+        for role, grant in (("worker", False), ("supervisor", False), ("supervisor", True)):
+            with self.subTest(role=role, global_admin=grant):
+                issued = self.issue_at(issued_at, role, grant)
+                deadline = issued_at + timedelta(days=7)
+                self.assertEqual(datetime.fromisoformat(issued["expires_at"]), deadline)
+                original = self.session.get(WorkerInvitation, issued["user"]["invitation_id"])
+                with patch.object(invitations, "utc_now", return_value=issued_at + timedelta(days=1)):
+                    replacement = invitations.reissue_worker_invitation(issued["user"]["id"], self.supervisor, self.session)
+                    self.assertEqual(datetime.fromisoformat(replacement["expires_at"]), deadline + timedelta(days=1))
+                    with self.assertRaises(HTTPException):
+                        invitations._valid_invitation(issued["token"], self.session)
+                    invitations._valid_invitation(replacement["token"], self.session)
+                self.session.refresh(original)
+                self.assertEqual(normalized_datetime(original.expires_at), deadline)
+                self.assertIsNotNone(original.revoked_at)
+        self.smtp.assert_not_called()
+
+    def test_exact_seven_day_acceptance_boundary_for_every_role(self):
+        issued_at = datetime(2026, 10, 27, 12, tzinfo=timezone.utc)
+        for role, grant in (("worker", False), ("supervisor", False), ("supervisor", True)):
+            for microseconds in (-1, 0, 1):
+                with self.subTest(role=role, global_admin=grant, microseconds=microseconds):
+                    issued = self.issue_at(issued_at, role, grant)
+                    token = WorkerInvitationTokenRequest(token=issued["token"])
+                    accept = WorkerInvitationAcceptRequest(token=issued["token"], password="SyntheticPasswordOnly!")
+                    user = self.session.get(User, issued["user"]["id"])
+                    before = user.password_hash
+                    with patch.object(invitations, "utc_now", return_value=issued_at + timedelta(days=7, microseconds=microseconds)):
+                        if microseconds < 0:
+                            self.assertEqual(invitations.inspect_worker_invitation(token, self.session)["expires_at"], issued["expires_at"])
+                            invitations.accept_worker_invitation(accept, self.session)
+                            with self.assertRaises(HTTPException):
+                                invitations.accept_worker_invitation(accept, self.session)
+                        else:
+                            for action in (lambda: invitations.inspect_worker_invitation(token, self.session),
+                                           lambda: invitations.accept_worker_invitation(accept, self.session)):
+                                with self.assertRaises(HTTPException) as caught:
+                                    action()
+                                self.assertEqual(caught.exception.status_code, 400)
+                            self.session.refresh(user)
+                            self.assertTrue(user.password_setup_required)
+                            self.assertEqual(user.password_hash, before)
+                    self.assertEqual((user.role, user.is_global_admin), (role, grant))
+
+    def test_seven_day_expiry_during_atomic_claim_rolls_back_password(self):
+        issued_at = datetime(2026, 10, 27, 12, tzinfo=timezone.utc)
+        issued = self.issue_at(issued_at, "supervisor", True)
+        user = self.session.get(User, issued["user"]["id"])
+        before = (user.password_hash, user.invitation_generation)
+        deadline = issued_at + timedelta(days=7)
+        with patch.object(invitations, "utc_now", side_effect=[deadline - timedelta(microseconds=1), deadline]):
+            with self.assertRaises(HTTPException) as caught:
+                invitations.accept_worker_invitation(WorkerInvitationAcceptRequest(
+                    token=issued["token"], password="MustNotReplacePassword!"), self.session)
+        self.assertEqual(caught.exception.status_code, 400)
+        self.session.refresh(user)
+        self.assertEqual((user.password_hash, user.invitation_generation), before)
+        self.assertTrue(user.password_setup_required)
+        self.assertIsNone(self.session.get(WorkerInvitation, issued["user"]["invitation_id"]).consumed_at)
+
+    def test_older_issued_link_keeps_stored_expiry_and_is_not_revived(self):
+        deadline = datetime(2026, 10, 28, 12, tzinfo=timezone.utc)
+        self.invitation.created_at = deadline - timedelta(hours=24)
+        self.invitation.expires_at = deadline
+        self.session.add(self.invitation)
+        self.session.commit()
+        for now, valid in ((deadline - timedelta(microseconds=1), True), (deadline, False), (deadline + timedelta(days=1), False)):
+            with patch.object(invitations, "utc_now", return_value=now):
+                metadata = invitations.invitation_metadata(self.worker, self.session)
+                self.assertEqual(metadata["invitation_expires_at"], deadline.isoformat())
+                self.assertEqual(metadata["invitation_status"], "pending" if valid else "expired")
+                if valid:
+                    invitations._valid_invitation(self.token, self.session)
+                else:
+                    with self.assertRaises(HTTPException):
+                        invitations._valid_invitation(self.token, self.session)
+        self.session.refresh(self.invitation)
+        self.assertEqual(normalized_datetime(self.invitation.expires_at), deadline)
+        self.assertIsNone(self.invitation.email_attempted_at)
+
+    def test_delayed_email_reports_original_deadline_without_extending_it(self):
+        issued_at = datetime(2026, 10, 27, 12, tzinfo=timezone.utc)
+        with patch.object(invitations, "utc_now", return_value=issued_at):
+            issued = invitations.reissue_worker_invitation(2, self.supervisor, self.session)
+        deadline = issued_at + timedelta(days=7)
+        with patch.object(invitations, "utc_now", return_value=deadline - timedelta(days=1)), \
+                patch.object(delivery, "utc_now", return_value=deadline - timedelta(days=1)):
+            self.send(token=issued["token"])
+        plain = self.client.send_message.call_args.args[0].get_body(preferencelist=('plain',)).get_content()
+        self.assertIn(deadline.isoformat(), plain)
+        self.assertNotIn((deadline + timedelta(days=6)).isoformat(), plain)
+        self.assertIn("can be used once", plain)
+        self.assertEqual(normalized_datetime(self.session.get(WorkerInvitation, issued["user"]["invitation_id"]).expires_at), deadline)
+
+    def test_seven_day_link_cannot_be_emailed_at_expiry(self):
+        issued_at = datetime(2026, 10, 27, 12, tzinfo=timezone.utc)
+        with patch.object(invitations, "utc_now", return_value=issued_at):
+            issued = invitations.reissue_worker_invitation(2, self.supervisor, self.session)
+        with patch.object(invitations, "utc_now", return_value=issued_at + timedelta(days=7)):
+            with self.assertRaises(HTTPException) as caught:
+                self.send(token=issued["token"])
+        self.assertEqual(caught.exception.status_code, 400)
+        self.smtp.assert_not_called()
 
     def test_explicit_send_uses_saved_recipient_verified_tls_and_private_canonical_link(self):
         self.smtp.assert_not_called()

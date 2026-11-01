@@ -207,18 +207,30 @@ def upload_test_image(label, token, filename):
     return upload["url"]
 
 
+def assert_seven_day_invitation_deadline(invitation, started_at):
+    deadline = datetime.fromisoformat(invitation["expires_at"])
+    # Allow small inter-host clock differences; exact boundaries have frozen-clock tests.
+    if not started_at + timedelta(days=7, seconds=-30) <= deadline <= datetime.now(timezone.utc) + timedelta(days=7, seconds=30):
+        raise AssertionError("Fresh invitation must use the seven-day deployment policy")
+    print("ok - fresh invitation exposes its stored seven-day deadline")
+
+
 def check_worker_invitation_onboarding(supervisor_token):
+    issued_at = datetime.now(timezone.utc)
     invitation = assert_status("Supervisor creates Worker password-setup invitation", request(
         "POST", "/supervisor/worker-invitations",
         {"name": "Smoke Invited Worker", "email": "smoke-invitation@example.com", "worker_class": "normal"},
         supervisor_token,
     ), 200)
+    assert_seven_day_invitation_deadline(invitation, issued_at)
     if not invitation["user"].get("password_setup_required") or invitation.get("delivery_method") != "manual":
         raise AssertionError("Worker invitation must require private handoff and Worker password setup")
     user_id = invitation["user"]["id"]
+    reissued_at = datetime.now(timezone.utc)
     replacement = assert_status("Supervisor replaces an invitation", request(
         "POST", f"/supervisor/users/{user_id}/invitation", {}, supervisor_token,
     ), 200)
+    assert_seven_day_invitation_deadline(replacement, reissued_at)
     assert_status("Replaced invitation is unusable", request(
         "POST", "/auth/worker-invitations/inspect", {"token": invitation["token"]},
     ), 400)
@@ -227,6 +239,8 @@ def check_worker_invitation_onboarding(supervisor_token):
     ), 200)
     if inspected.get("email") != "smoke-invitation@example.com":
         raise AssertionError("Worker invitation returned the wrong account")
+    if inspected.get("expires_at") != replacement["expires_at"]:
+        raise AssertionError("Inspecting an invitation must not renew its deadline")
     assert_status("Worker chooses their own password", request(
         "POST", "/auth/worker-invitations/accept", {"token": replacement["token"], "password": "WorkerChosenSmokePass!"},
     ), 200)
@@ -253,7 +267,9 @@ def check_staff_invitation_onboarding(supervisor_token, admin_token, worker_toke
         assert_status("Worker cannot invite privileged staff", request("POST", "/supervisor/staff-invitations", payload, worker_token), 403)
         if role_admin:
             assert_status("Department Supervisor cannot grant global admin", request("POST", "/supervisor/staff-invitations", payload, supervisor_token), 403)
+        issued_at = datetime.now(timezone.utc)
         invitation = assert_status("Authorized actor creates pending staff invitation", request("POST", "/supervisor/staff-invitations", payload, actor), 200)
+        assert_seven_day_invitation_deadline(invitation, issued_at)
         user = invitation["user"]
         if not user["password_setup_required"] or user["role"] != "supervisor" or user["is_global_admin"] != role_admin or user["invitation_email_status"] != "not_sent":
             raise AssertionError("Pending staff invitation did not preserve its authorized role or explicit-send boundary")

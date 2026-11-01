@@ -444,6 +444,22 @@ def test_invitation_rate_limits_and_private_error_responses():
             if response.headers.get("Cache-Control") != "private, no-store" or response.headers.get("Referrer-Policy") != "no-referrer":
                 raise AssertionError("Invitation success and error responses must stay private and uncacheable")
     assert_ok("invitation success, validation, authorization and rate-limit errors remain private", True)
+    from pydantic import ValidationError
+    from app.schemas import (WorkerInvitationCreateRequest, StaffInvitationCreateRequest,
+                             WorkerInvitationAcceptRequest, WorkerInvitationEmailRequest)
+    for schema, payload in (
+        (WorkerInvitationCreateRequest, {"name": "Synthetic", "email": "expiry@example.invalid"}),
+        (StaffInvitationCreateRequest, {"name": "Synthetic", "email": "expiry@example.invalid", "role": "supervisor"}),
+        (WorkerInvitationAcceptRequest, {"token": "synthetic-token-long-enough", "password": "SyntheticPassword!"}),
+        (WorkerInvitationEmailRequest, {"token": "synthetic-token-long-enough"}),
+    ):
+        for extra in ({"expires_at": "2099-01-01T00:00:00Z"}, {"ttl_hours": 8760}):
+            try:
+                schema(**payload, **extra)
+            except ValidationError:
+                continue
+            raise AssertionError("Clients must not choose or extend invitation deadlines")
+    assert_ok("seven-day invitation policy remains server-owned at creation, send and acceptance", True)
 
 
 def test_cookie_confirmation_distinguishes_csrf_from_invalid_authentication():

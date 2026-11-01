@@ -150,7 +150,9 @@ REGISTRATION_EXPOSE_CODE = bool_env("REGISTRATION_EXPOSE_CODE", not PRODUCTION_L
 REGISTRATION_EMAIL_ENABLED = bool_env("REGISTRATION_EMAIL_ENABLED", False)
 PUBLIC_APP_URL = os.environ.get("PUBLIC_APP_URL", "").strip()
 
-WORKER_INVITATION_TTL_HOURS = max(1, min(72, int_env("WORKER_INVITATION_TTL_HOURS", 24)))
+# Shared by Worker, Supervisor and authorized global-admin invitations.
+# Only issuance/reissue uses this policy; existing rows retain their expiry.
+WORKER_INVITATION_TTL_HOURS = max(1, min(168, int_env("WORKER_INVITATION_TTL_HOURS", 168)))
 WORKER_PASSWORD_RECOVERY_TTL_MINUTES = max(1, min(60, int_env("WORKER_PASSWORD_RECOVERY_TTL_MINUTES", 60)))
 
 SMTP_HOST = os.environ.get("SMTP_HOST", "").strip()

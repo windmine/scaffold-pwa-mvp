@@ -35,6 +35,7 @@ class InvitationServer:
             "APP_ENV": "development", "K_SERVICE": "", "AUTO_MIGRATE": "true",
             "ENABLE_DEV_SEED": "true", "RATE_LIMIT_ENABLED": "false", "SQL_ECHO": "false",
             "AUTH_COOKIE_SECURE": "false", "SMTP_HOST": "", "SMTP_FROM_EMAIL": "",
+            "WORKER_INVITATION_TTL_HOURS": "168",
             "GEO_SECRET_KEY": "owned-worker-invitation-fixture-secret-not-a-production-credential",
         }
         self.process = subprocess.Popen(
@@ -90,9 +91,21 @@ class InvitationServer:
         return body, headers
 
     def invite(self, email="invited-worker@example.com"):
-        return self.expect("POST", "/supervisor/worker-invitations", {
+        result = self.expect("POST", "/supervisor/worker-invitations", {
             "name": "Invited Worker", "email": email, "worker_class": "normal",
         }, 200, self.supervisor)[0]
+        self.assert_seven_day_expiry(result)
+        return result
+
+    def assert_seven_day_expiry(self, result):
+        with closing(sqlite3.connect(self.database_path)) as database:
+            created, expires = database.execute(
+                "SELECT created_at, expires_at FROM workerinvitation WHERE id = ?",
+                (result["user"]["invitation_id"],),
+            ).fetchone()
+        created, expires = datetime.fromisoformat(created), datetime.fromisoformat(expires)
+        assert expires - created == timedelta(days=7), "New links must last exactly 168 hours"
+        assert datetime.fromisoformat(result["expires_at"]) == expires.replace(tzinfo=timezone.utc)
 
 
 def test_worker_sets_their_own_password(server):
