@@ -37,13 +37,14 @@
         <p class="eyebrow" data-install-text="eyebrow">ON YOUR PHONE</p>
         <h1 id="installHeading" data-install-text="heading">Install ReportFlow</h1>
         <p class="intro" data-install-text="intro">Add it to your home screen, or use it in your browser.</p>
-        <p id="installDeviceHint" class="device-hint" data-install-text="genericHint">Choose your phone below for installation steps.</p>
+        <p id="installDeviceHint" class="device-hint" data-install-text="genericHint">Tap Install ReportFlow for the prompt or steps for your device.</p>
 
         <div class="install-actions">
-          <button id="installAppButton" class="button primary" type="button" hidden>Install ReportFlow</button>
-          <a id="openReportFlow" class="button secondary" href="/index.html" data-install-text="openBrowser">Open in browser</a>
+          <button id="installAppButton" class="button primary" type="button" aria-describedby="installConfirmation" hidden>Install ReportFlow</button>
+          <a id="openReportFlow" class="button secondary" href="/index.html" data-install-text="openBrowser">Continue in browser</a>
         </div>
-        <p id="installStatus" class="notice" role="status" aria-live="polite" aria-atomic="true" hidden></p>
+        <p id="installConfirmation" class="device-hint" data-install-text="confirmation">Your browser will ask you to confirm. If no prompt is available, this button shows the steps.</p>
+        <p id="installStatus" class="notice" role="status" aria-live="polite" aria-atomic="true" tabindex="-1" hidden></p>
         <p id="installUpdateNotice" class="notice" hidden data-install-text="waitingUpdate">An app update is waiting. Open ReportFlow, finish your current Report, then use Update App. This page will not update an app you are using.</p>
         <p id="embeddedBrowserHelp" class="notice" hidden data-install-text="embeddedHelp">This may be an in-app browser. Use its menu to open this page in Safari or Chrome. You can also copy the installation link below.</p>
 
@@ -61,9 +62,16 @@
             <summary>Android</summary>
             <ol>
               <li data-install-text="androidOne">Open this page in Chrome.</li>
-              <li data-install-text="androidTwo">Tap Install ReportFlow above if it appears.</li>
+              <li data-install-text="androidTwo">Tap Install ReportFlow above.</li>
               <li data-install-text="androidThree">Otherwise, open Chrome's menu and choose Install or Add to Home screen. Some versions list it under Install and create shortcut.</li>
               <li data-install-text="androidFour">Confirm installation, then open ReportFlow from its icon.</li>
+            </ol>
+          </details>
+          <details id="desktopInstructions">
+            <summary data-install-text="desktopHeading">Computer</summary>
+            <ol>
+              <li data-install-text="desktopOne">In Chrome or Edge, select the Install icon in the address bar if available.</li>
+              <li data-install-text="desktopTwo">In Chrome, you can also use More &gt; Cast, save, and share &gt; Install page as app, then confirm.</li>
             </ol>
           </details>
         </div>

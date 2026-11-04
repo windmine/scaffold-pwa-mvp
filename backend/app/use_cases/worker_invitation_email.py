@@ -75,13 +75,16 @@ def send_worker_invitation_email(user_id, data, supervisor, session):
             f"Set your password using this private link:\n{link}\n\n"
             f"The link expires at {normalized_datetime(invitation.expires_at).isoformat()} and can be used once.\n"
             "Do not forward it. If you were not expecting this invitation, contact the person who invited you.\n\n"
+            f"Install or open ReportFlow (public link):\n{invitation_guide.PUBLIC_INSTALL_URL}\n"
+            "Tap Install ReportFlow, then confirm in your browser or follow the shown steps. "
+            "You can also choose Continue in browser. Installation does not activate your account.\n\n"
             "Getting started:\n1. Accept the invitation above and set your password first.\n"
             f"2. Open {invitation_guide.PUBLIC_APP_URL} and sign in with this email address and your new password.\n"
             "3. ReportFlow is a web app: add it to your Home Screen in Safari on iPhone, or install it from Chrome on Android. "
             "You can also use it directly in your browser.\n"
             "4. Choose New Report (Supervisors: Submit form > New Report), select a template, complete it, and submit. "
             "Check My Reports for its submission status. First setup requires internet.\n\n"
-            "The attached Getting Started PDF includes installation steps and a public app QR code. "
+            "The attached Getting Started PDF includes installation steps and a public installation-page QR code. "
             "The QR does not contain your private invitation link.\n")
     # Acquire the same User lock/order as acceptance, reissue and revocation.
     # The no-op conditional update also works on SQLite, unlike SELECT FOR UPDATE.

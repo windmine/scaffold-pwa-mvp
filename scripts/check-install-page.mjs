@@ -271,10 +271,11 @@ async function openInstaller(fixture) {
 }
 
 async function offerInstall(page, behavior) {
+  const callsBefore = await page.evaluate(() => window.__installerBrowserProbe.promptCalls);
   await page.evaluate((mode) => window.__installerBrowserProbe.offerInstall(mode), behavior || 'pending');
   await page.waitForFunction(() => document.body.dataset.installState === 'ready');
   await page.locator('#installAppButton').waitFor({ state: 'visible' });
-  assert.equal(await page.evaluate(() => window.__installerBrowserProbe.promptCalls), 0, 'installation must require a user click');
+  assert.equal(await page.evaluate(() => window.__installerBrowserProbe.promptCalls), callsBefore, 'installation must require a user click');
   assert.equal(await page.evaluate(() => window.__installerBrowserProbe.promptDefaultPrevented), true);
 }
 
@@ -292,11 +293,13 @@ async function checkManualEnvironments() {
   const iphone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1';
   const android = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36';
   const cases = [
-    { name: 'desktop without native event' },
+    { name: 'desktop without native event', instructions: '#desktopInstructions', guidance: /Chrome or Edge/ },
     { name: 'iPhone Safari', userAgent: iphone, platform: 'iPhone', maxTouchPoints: 5, instructions: '#iosInstructions' },
     { name: 'desktop-mode iPad Safari', userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15', platform: 'MacIntel', maxTouchPoints: 5, instructions: '#iosInstructions' },
     { name: 'Android Chrome', userAgent: android, instructions: '#androidInstructions' },
-    { name: 'embedded browser', userAgent: `${android} MicroMessenger/8.0.0`, embedded: true },
+    { name: 'Android Firefox', userAgent: 'Mozilla/5.0 (Android 15; Mobile; rv:144.0) Gecko/144.0 Firefox/144.0', instructions: '#androidInstructions', guidance: /Firefox/ },
+    { name: 'Android Samsung browser', userAgent: `${android} SamsungBrowser/29.0`, instructions: '#androidInstructions', guidance: /Chrome/ },
+    { name: 'embedded browser', userAgent: `${android} MicroMessenger/8.0.0`, embedded: true, instructions: '#androidInstructions', guidance: /in-app browser/ },
     { name: 'unsupported service worker', serviceWorker: 'absent' },
     { name: 'failed service worker', serviceWorker: 'failure' },
     { name: 'standalone display', standalone: true, installed: true },
@@ -306,7 +309,7 @@ async function checkManualEnvironments() {
     const fixture = await createContext(options);
     try {
       const page = await openInstaller(fixture);
-      assert.equal(await page.locator('#installAppButton').isVisible(), false, options.name);
+      assert.equal(await page.locator('#installAppButton').isVisible(), !options.installed, options.name);
       assert.equal(await page.locator('#iosInstructions').isVisible(), true, options.name);
       assert.equal(await page.locator('#androidInstructions').isVisible(), true, options.name);
       if (options.instructions) {
@@ -319,6 +322,21 @@ async function checkManualEnvironments() {
         assert.equal(await page.locator('body').getAttribute('data-install-state'), 'installed', options.name);
         await page.evaluate(() => window.__installerBrowserProbe.offerInstall());
         assert.equal(await page.locator('#installAppButton').isVisible(), false, options.name);
+      } else {
+        await page.locator('#installAppButton').press('Enter');
+        assert.equal(await page.locator('#installStatus').isVisible(), true, options.name);
+        assert.equal(await page.locator('#installStatus').evaluate((el) => document.activeElement === el), true, 'keyboard fallback focuses its guidance');
+        assert.match(await page.locator('#installStatus').innerText(), options.guidance || /Safari|Chrome/);
+        if (options.embedded) {
+          assert.equal(await page.locator('#embeddedBrowserHelp').isVisible(), false, 'embedded guidance is shown once after the action');
+          assert.notEqual(await page.locator('#installDeviceHint').innerText(), await page.locator('#installStatus').innerText());
+        }
+        await page.locator('#installAppButton').click();
+        assert.equal(await page.evaluate(() => window.__installerBrowserProbe.promptCalls), 0, 'fallback never invents a native prompt');
+        assert.equal(await page.locator('#openReportFlow').innerText(), 'Continue in browser');
+        if (screenshotDirectory && (options.embedded || options.name === 'Android Chrome')) {
+          await page.screenshot({ path: join(screenshotDirectory, options.embedded ? 'embedded-fallback.png' : 'android-fallback.png'), fullPage: true });
+        }
       }
       await assertIsolated(page, fixture);
     } finally {
@@ -340,11 +358,20 @@ async function checkPromptLifecycle(outcome) {
     assert.equal(await page.evaluate(() => window.__installerBrowserProbe.promptCalls), 1);
     await page.evaluate((choice) => window.__installerBrowserProbe.finishInstallChoice(choice), outcome);
     await page.waitForFunction((state) => document.body.dataset.installState === state, outcome === 'accepted' ? 'accepted' : 'manual');
-    assert.equal(await page.locator('#installAppButton').isVisible(), false, 'a consumed install event cannot be reused');
+    assert.equal(await page.locator('#installAppButton').isVisible(), true, 'manual installation remains discoverable');
     assert.ok((await page.locator('#installStatus').innerText()).trim(), 'install outcome must be announced');
+    await page.locator('#installAppButton').click();
+    assert.equal(await page.evaluate(() => window.__installerBrowserProbe.promptCalls), 1, 'a consumed install event cannot be reused');
     if (outcome === 'accepted') {
+      assert.match(await page.locator('#installStatus').innerText(), /accepted/);
       await page.evaluate(() => window.dispatchEvent(new Event('appinstalled')));
       await page.waitForFunction(() => document.body.dataset.installState === 'installed');
+      assert.equal(await page.locator('#installAppButton').isVisible(), false);
+    } else {
+      await offerInstall(page);
+      await page.locator('#installAppButton').click();
+      await page.evaluate(() => window.__installerBrowserProbe.finishInstallChoice('dismissed'));
+      assert.equal(await page.evaluate(() => window.__installerBrowserProbe.promptCalls), 2, 'only a fresh event allows another native prompt');
     }
     await assertIsolated(page, fixture);
   } finally {
@@ -362,9 +389,11 @@ async function checkPromptFailure(behavior) {
       await page.evaluate(() => window.__installerBrowserProbe.rejectInstallChoice());
     }
     await page.waitForFunction(() => document.body.dataset.installState === 'manual');
-    assert.equal(await page.locator('#installAppButton').isVisible(), false);
+    assert.equal(await page.locator('#installAppButton').isVisible(), true);
     assert.ok((await page.locator('#installStatus').innerText()).trim(), 'install failure must leave useful feedback');
     assert.equal((await assertIsolated(page, fixture)).promptCalls, 1);
+    await page.locator('#installAppButton').click();
+    assert.equal((await assertIsolated(page, fixture)).promptCalls, 1, 'failed events are never reused');
     await page.evaluate(() => window.__installerBrowserProbe.offerInstall());
     await page.locator('#installAppButton').waitFor({ state: 'visible' });
     assert.equal(await page.locator('body').getAttribute('data-install-state'), 'ready', 'a fresh browser event must permit a retry');
@@ -405,6 +434,8 @@ async function checkLanguagesAndCopy() {
       assert.equal(await page.locator('#iosInstructions').evaluate((details) => details.open), false, 'language changes must preserve manually closed instructions');
       await page.locator('#iosInstructions > summary').click();
       assert.match(await page.locator('#iosInstructions').innerText(), /[\u3400-\u9fff]/);
+      await page.locator('#installAppButton').click();
+      assert.match(await page.locator('#installStatus').innerText(), /[\u3400-\u9fff]/);
       await page.locator('#copyInstallLink').click();
       await page.waitForFunction(() => document.querySelector('#copyStatus').textContent.trim().length > 0);
       const snapshot = await assertIsolated(page, fixture);

@@ -13,15 +13,16 @@ from reportlab.platypus import Paragraph
 
 
 PUBLIC_APP_URL = "https://geo-attendance-system-db9ca.web.app"
+PUBLIC_INSTALL_URL = PUBLIC_APP_URL + "/install.html"
 GUIDE_FILENAME = "ReportFlow-Getting-Started.pdf"
 MAX_GUIDE_BYTES = 512 * 1024
-GUIDE_VERSION = "2026-10-23"
+GUIDE_VERSION = "2026-11-04"
 
 
 def _draw_qr(pdf, x, y, size):
-    # The only payload is the fixed public app URL. Four white modules surround it.
+    # The only payload is the public installer URL, never a private activation link.
     qr = QRCode(None, QRErrorCorrectLevel.Q)
-    qr.addData(PUBLIC_APP_URL)
+    qr.addData(PUBLIC_INSTALL_URL)
     qr.make()
     modules = len(qr.modules)
     unit = size / (modules + 8)
@@ -70,14 +71,14 @@ def getting_started_pdf():
     _draw_qr(pdf, 148 * mm, 211 * mm, 45 * mm)
     top = paragraph("<b>Accept your invitation first</b><br/>Open the private link in your invitation email and set your own password. The link works once and expires at the exact date and time shown in that email. If it has expired, ask the person who invited you for a new invitation.",
                     18 * mm, 254 * mm, 120 * mm)
-    paragraph("Keep your invitation link private. This QR opens the public app only; scanning it does not accept an invitation or create an account.",
+    paragraph("Keep your invitation link private. This QR opens the public installation page only; scanning it does not accept an invitation or create an account.",
               18 * mm, top - 3 * mm, 120 * mm, small_style)
-    paragraph("<b>Scan to open the app</b>", 148 * mm, 207 * mm, 49 * mm, small_style)
-    top = paragraph(f'<link href="{PUBLIC_APP_URL}" color="#123b72">{PUBLIC_APP_URL}</link>',
+    paragraph("<b>Scan to install or open</b>", 148 * mm, 207 * mm, 49 * mm, small_style)
+    top = paragraph(f'<b>Install or open ReportFlow</b><br/><link href="{PUBLIC_INSTALL_URL}" color="#123b72">{PUBLIC_INSTALL_URL}</link>',
                     18 * mm, 196 * mm, 174 * mm)
 
     sections = [
-        ("1  Add ReportFlow to your device", "ReportFlow is a web app (PWA). Use it in your browser or install it from the website; no App Store download is needed.<br/><b>iPhone / Safari:</b> Open the app link in Safari. Tap Share (or Page Menu, then Share), choose Add to Home Screen, keep Open as Web App on if shown, then tap Add.<br/><b>Android / Chrome:</b> Open the app link in Chrome. Open More, then Install and create shortcut &gt; Install. Some versions show Install app or Add to Home screen. Confirm the prompt.<br/><b>Computer / Chrome:</b> Choose the address-bar Install icon if available, or More &gt; Cast, save, and share &gt; Install page as app. You can also keep using the browser."),
+        ("1  Install or continue in your browser", "Open the public link above and tap <b>Install ReportFlow</b>. Your browser will ask for confirmation or the page will show installation steps. You can always choose <b>Continue in browser</b>; no APK download is needed.<br/><b>Android:</b> Open the link in Chrome. If no prompt appears, use More &gt; Install and create shortcut &gt; Install (some versions show Install app or Add to Home screen). If opened inside an email or social app, use its menu to open in Chrome, or copy the public link into Chrome.<br/><b>iPhone / Safari:</b> Tap Share (or Page Menu, then Share), choose Add to Home Screen, keep Open as Web App on if shown, then tap Add.<br/><b>Computer:</b> The install page also provides browser instructions."),
         ("2  Sign in", "Open ReportFlow and sign in with the email address that received your invitation and the password you just set. Installing the app does not grant access. Connect to the internet for first setup and signing in."),
         ("3  Complete your first Report", "Choose New Report (Supervisors: Submit form &gt; New Report), then an available Department template. Enter the Report Date, optional Site, answers and any required photos or signatures. Review your entries and submit. Check My Reports to confirm it is submitted; a queued Report is still waiting to sync."),
         ("4  Keep your work safe", "Use a connection whenever possible. Offline availability depends on what has already been downloaded on that device; first-time offline form loading is not guaranteed. Do not uninstall or clear browser data while Reports are queued. For access, missing templates or an expired invitation, contact the person who invited you."),

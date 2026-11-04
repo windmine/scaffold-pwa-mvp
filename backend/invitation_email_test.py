@@ -276,13 +276,19 @@ class InvitationEmailTests(unittest.TestCase):
         reader = PdfReader(BytesIO(payload))
         self.assertEqual(len(reader.pages), 1)
         text = reader.pages[0].extract_text()
-        for expected in (invitation_guide.PUBLIC_APP_URL, "Safari", "Chrome", "expires", "My Reports", "queued", "password"):
+        for expected in (invitation_guide.PUBLIC_INSTALL_URL, "Install ReportFlow", "Continue in browser",
+                         "Safari", "Chrome", "confirmation", "expires", "My Reports", "queued", "password"):
             self.assertIn(expected, text)
         for private in (self.token, self.worker.email, self.worker.name, "setup-password.html#token=", "synthetic-password"):
             self.assertNotIn(private, text)
         plain = message.get_body(preferencelist=('plain',)).get_content()
         self.assertIn("Getting started:", plain)
         self.assertIn(invitation_guide.PUBLIC_APP_URL, plain)
+        self.assertIn("Install or open ReportFlow (public link):\n" + invitation_guide.PUBLIC_INSTALL_URL, plain)
+        self.assertIn("Installation does not activate your account", plain)
+        links = [str(annotation.get_object().get('/A', {}).get('/URI', ''))
+                 for annotation in reader.pages[0].get('/Annots', [])]
+        self.assertIn(invitation_guide.PUBLIC_INSTALL_URL, links)
         latest = self.session.exec(select(WorkerInvitation).where(WorkerInvitation.worker_id == self.worker.id)
                                    .order_by(WorkerInvitation.id.desc())).first()
         self.assertIn(latest.expires_at.isoformat(), plain)
