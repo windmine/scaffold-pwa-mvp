@@ -1,0 +1,237 @@
+{
+  "status": "success",
+  "result": {
+    "channels": [
+      {
+        "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/live",
+        "url": "https://geo-attendance-system-db9ca.web.app",
+        "release": {
+          "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/live/releases/1793763102428000",
+          "version": {
+            "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/versions/597565dc788f617e",
+            "status": "FINALIZED",
+            "config": {
+              "headers": [
+                {
+                  "headers": {
+                    "Cache-Control": "no-cache"
+                  },
+                  "glob": "/sw.js"
+                },
+                {
+                  "headers": {
+                    "Cache-Control": "no-cache"
+                  },
+                  "glob": "/offline.html"
+                },
+                {
+                  "headers": {
+                    "Cache-Control": "no-cache"
+                  },
+                  "glob": "/install.html"
+                },
+                {
+                  "headers": {
+                    "Cache-Control": "public,max-age=3600"
+                  },
+                  "glob": "/manifest.webmanifest"
+                }
+              ],
+              "rewrites": [
+                {
+                  "glob": "/api/**",
+                  "run": {
+                    "serviceId": "geo-backend",
+                    "region": "australia-southeast1"
+                  }
+                },
+                {
+                  "glob": "/uploads/**",
+                  "run": {
+                    "serviceId": "geo-backend",
+                    "region": "australia-southeast1"
+                  }
+                }
+              ]
+            },
+            "labels": {
+              "deployment-tool": "cli-firebase"
+            },
+            "createTime": "2026-11-04T03:28:25.371661Z",
+            "createUser": {
+              "email": "hty2003ah@gmail.com"
+            },
+            "finalizeTime": "2026-11-04T03:28:30.394626Z",
+            "finalizeUser": {
+              "email": "hty2003ah@gmail.com"
+            },
+            "fileCount": "93",
+            "versionBytes": "754376"
+          },
+          "type": "DEPLOY",
+          "releaseTime": "2026-11-04T03:31:42.428Z",
+          "releaseUser": {
+            "email": "hty2003ah@gmail.com"
+          }
+        },
+        "createTime": "2026-04-13T02:04:28.070291273Z",
+        "updateTime": "2026-11-04T03:31:42.428Z",
+        "retainedReleaseCount": 2147483647
+      },
+      {
+        "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/rollback-install-guide-20261104",
+        "url": "https://geo-attendance-system-db9ca--rollback-install-guide-20-kqq94vgc.web.app",
+        "release": {
+          "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/rollback-install-guide-20261104/releases/1793763003688000",
+          "version": {
+            "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/versions/a443650ecd58e0f2",
+            "status": "FINALIZED",
+            "config": {
+              "headers": [
+                {
+                  "headers": {
+                    "Cache-Control": "no-cache"
+                  },
+                  "glob": "/sw.js"
+                },
+                {
+                  "headers": {
+                    "Cache-Control": "no-cache"
+                  },
+                  "glob": "/offline.html"
+                },
+                {
+                  "headers": {
+                    "Cache-Control": "no-cache"
+                  },
+                  "glob": "/install.html"
+                },
+                {
+                  "headers": {
+                    "Cache-Control": "public,max-age=3600"
+                  },
+                  "glob": "/manifest.webmanifest"
+                }
+              ],
+              "rewrites": [
+                {
+                  "glob": "/api/**",
+                  "run": {
+                    "serviceId": "geo-backend",
+                    "region": "australia-southeast1"
+                  }
+                },
+                {
+                  "glob": "/uploads/**",
+                  "run": {
+                    "serviceId": "geo-backend",
+                    "region": "australia-southeast1"
+                  }
+                }
+              ]
+            },
+            "labels": {
+              "deployment-tool": "cli-firebase"
+            },
+            "createTime": "2026-10-27T03:10:10.588760Z",
+            "createUser": {
+              "email": "hty2003ah@gmail.com"
+            },
+            "finalizeTime": "2026-10-27T03:10:15.994794Z",
+            "finalizeUser": {
+              "email": "hty2003ah@gmail.com"
+            },
+            "fileCount": "93",
+            "versionBytes": "753282"
+          },
+          "type": "DEPLOY",
+          "releaseTime": "2026-11-04T03:30:03.688Z",
+          "releaseUser": {
+            "email": "hty2003ah@gmail.com"
+          }
+        },
+        "createTime": "2026-11-04T03:29:50.069441917Z",
+        "updateTime": "2026-11-04T03:30:03.688Z",
+        "retainedReleaseCount": 10,
+        "expireTime": "2026-11-11T03:29:50.069441917Z"
+      },
+      {
+        "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/release-install-guide-20261104",
+        "url": "https://geo-attendance-system-db9ca--release-install-guide-202-a88sieou.web.app",
+        "release": {
+          "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/release-install-guide-20261104/releases/1793762910556000",
+          "version": {
+            "name": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/versions/597565dc788f617e",
+            "status": "FINALIZED",
+            "config": {
+              "headers": [
+                {
+                  "headers": {
+                    "Cache-Control": "no-cache"
+                  },
+                  "glob": "/sw.js"
+                },
+                {
+                  "headers": {
+                    "Cache-Control": "no-cache"
+                  },
+                  "glob": "/offline.html"
+                },
+                {
+                  "headers": {
+                    "Cache-Control": "no-cache"
+                  },
+                  "glob": "/install.html"
+                },
+                {
+                  "headers": {
+                    "Cache-Control": "public,max-age=3600"
+                  },
+                  "glob": "/manifest.webmanifest"
+                }
+              ],
+              "rewrites": [
+                {
+                  "glob": "/api/**",
+                  "run": {
+                    "serviceId": "geo-backend",
+                    "region": "australia-southeast1"
+                  }
+                },
+                {
+                  "glob": "/uploads/**",
+                  "run": {
+                    "serviceId": "geo-backend",
+                    "region": "australia-southeast1"
+                  }
+                }
+              ]
+            },
+            "labels": {
+              "deployment-tool": "cli-firebase"
+            },
+            "createTime": "2026-11-04T03:28:25.371661Z",
+            "createUser": {
+              "email": "hty2003ah@gmail.com"
+            },
+            "finalizeTime": "2026-11-04T03:28:30.394626Z",
+            "finalizeUser": {
+              "email": "hty2003ah@gmail.com"
+            },
+            "fileCount": "93",
+            "versionBytes": "754376"
+          },
+          "type": "DEPLOY",
+          "releaseTime": "2026-11-04T03:28:30.556Z",
+          "releaseUser": {
+            "email": "hty2003ah@gmail.com"
+          }
+        },
+        "createTime": "2026-11-04T03:28:23.747169438Z",
+        "updateTime": "2026-11-04T03:28:30.556Z",
+        "retainedReleaseCount": 10,
+        "expireTime": "2026-11-11T03:28:23.747169438Z"
+      }
+    ]
+  }
+}

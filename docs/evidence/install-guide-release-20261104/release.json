@@ -1,0 +1,83 @@
+{
+  "status": "live-verified-record-ci-pending",
+  "recordedAtUtc": "2026-11-04T03:35:19.398042+00:00",
+  "sourceCommit": "6312d80ae6bd25c4e77dd44016dfd2a9543ab3ff",
+  "sourceCiUrl": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/41762678018",
+  "sourceCiBothJobs": "passed",
+  "backendRevision": "geo-backend-install-guide-20261104",
+  "backendTrafficPercent": 100,
+  "backendTags": [],
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:7b4470d3ce362325366fb2a7dffc5747b0c8c95de31a034af24a6283883de725",
+  "cloudBuildId": "a5291a06-278e-4e33-837c-e12d911e333e",
+  "hostingVersion": "597565dc788f617e",
+  "hostingCache": "leader-field-db14bb60cfe9",
+  "hostingPromotedAtUtc": "2026-11-04T03:31:42.428Z",
+  "installUrl": "https://geo-attendance-system-db9ca.web.app/install.html",
+  "changes": [
+    "Always visible Install action with native prompt when available and device/browser guidance otherwise; Continue in browser retained.",
+    "Invitation email and attached public Getting Started PDF link/QR point to install.html; private activation link stays separate."
+  ],
+  "validation": {
+    "backendLocalSuites": 29,
+    "mockedInvitationEmailTests": 21,
+    "finalInstallerGroups": 11,
+    "sourceCiFullBrowserWorkflows": 75,
+    "networkDisabledImageSuites": 7,
+    "previewAndLiveFrozenFilesEach": 91,
+    "previewAndLiveShellAssetsEach": 81,
+    "previewAndLiveInstallerArtifactsEach": 7,
+    "waitingUpdateChecks": 4,
+    "strictHardeningChecks": 40,
+    "guidePdfRendered": true,
+    "guideQrDecodedUrl": "https://geo-attendance-system-db9ca.web.app/install.html",
+    "liveScreenshotsMatchReviewedPreview": true
+  },
+  "preserved": {
+    "runtimeAndIamFingerprints": true,
+    "schema": 27,
+    "ttlHours": 168,
+    "smtpSecretVersion": 1,
+    "publicRegistrationEmailEnabled": false,
+    "webProcessPdfDispatchEnabled": false,
+    "pdfWorkerUnchanged": true,
+    "schedulerUnchangedEnabled": true,
+    "manifestIdentityBytesUnchanged": true,
+    "unrelatedTrackedFilesOriginalBytes": true
+  },
+  "noActions": {
+    "migration": true,
+    "writePause": true,
+    "productionAccountInvitationReportSiteCreation": true,
+    "realEmailOrSmtpAuthentication": true,
+    "iamSecretSettingChanges": true,
+    "deviceAuthStorageReset": true
+  },
+  "rollback": {
+    "backendRevision": "geo-backend-invite-week-20261101",
+    "hostingVersion": "a443650ecd58e0f2",
+    "hostingChannel": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/rollback-install-guide-20261104",
+    "expiresAtUtc": "2026-11-11T03:29:50.069441917Z",
+    "instructions": "Reverify resources before use. Retain schema 27, runtime settings, device/auth data and queues. No database downgrade or credential reset. Backend and frontend remain compatible with the prior release."
+  },
+  "cleanup": {
+    "candidateTagRemoved": true,
+    "ownedBuildContextAndTempRemoved": true,
+    "testScriptsCompletedWithBrowserTeardown": true,
+    "preexistingHostingCacheRestored": true,
+    "rollbackAndReleaseChannelsRetainedForSevenDays": true,
+    "processInventory": "Windows CIM resource unavailable; no independent process inventory claim."
+  },
+  "limits": [
+    "Physical Android/iOS installation not tested; browser confirmation remains required.",
+    "Hosted verification is anonymous; no authenticated production fixtures or real invitation send performed.",
+    "Existing six-hour Neon recovery-history and bundle-size warnings remain.",
+    "No new production database inventory or record fingerprint comparison claimed."
+  ],
+  "priorAttempts": [
+    "Initial local test-ordering failure and duplicate fallback text corrected; final installer suite and exact-source CI pass.",
+    "Generic gcloud-token Hosting metadata read returned HTTP 403; no permission change or retry through that route.",
+    "Firebase CLI initially lacked authentication. User signed in; restored CLI session succeeded. Two connection interruptions occurred before verification; existing candidate/build reused without duplication.",
+    "Record helper initially assumed UTF-16; it was corrected to detect actual UTF-8 output before any record writes. Windows CIM process inventory was unavailable and not retried."
+  ],
+  "recordCi": "Final record commit CI will be reported by exact commit/run after this artifact is committed; no recursive record-only commit required."
+}

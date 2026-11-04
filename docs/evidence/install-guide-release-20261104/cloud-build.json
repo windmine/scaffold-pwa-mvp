@@ -1,0 +1,139 @@
+{
+  "id": "a5291a06-278e-4e33-837c-e12d911e333e",
+  "status": "SUCCESS",
+  "createTime": "2026-11-04T02:48:51.040141630Z",
+  "startTime": "2026-11-04T02:48:53.483047874Z",
+  "finishTime": "2026-11-04T02:51:32.514422Z",
+  "logUrl": "https://console.cloud.google.com/cloud-build/builds;region=australia-southeast1/a5291a06-278e-4e33-837c-e12d911e333e?project=794826041820",
+  "serviceAccount": "projects/geo-attendance-system-db9ca/serviceAccounts/794826041820-compute@developer.gserviceaccount.com",
+  "results": {
+    "buildStepImages": [
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f",
+      "sha256:0aca0f95e1ba8f9107263d3e9782d5ce99a5b60d35b3f8985e4534b65552636f"
+    ],
+    "buildStepOutputs": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "buildStepResults": {
+      "build-candidate": {},
+      "invitation-email-test": {},
+      "invitation-test": {},
+      "migration-test": {},
+      "password-recovery-test": {},
+      "prepare-test-reader": {},
+      "registration-email-test": {},
+      "security-test": {},
+      "staff-invitation-test": {}
+    },
+    "images": [
+      {
+        "artifactRegistryPackage": "projects/geo-attendance-system-db9ca/locations/australia-southeast1/repositories/cloud-run-source-deploy/packages/geo-backend/versions/sha256:7b4470d3ce362325366fb2a7dffc5747b0c8c95de31a034af24a6283883de725",
+        "digest": "sha256:7b4470d3ce362325366fb2a7dffc5747b0c8c95de31a034af24a6283883de725",
+        "name": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:install-guide-20261104-6312d80",
+        "pushTiming": {
+          "endTime": "2026-11-04T02:51:31.949378930Z",
+          "startTime": "2026-11-04T02:51:17.667897268Z"
+        }
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "build-candidate",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-04T02:49:31.355312109Z",
+        "startTime": "2026-11-04T02:49:00.087254561Z"
+      },
+      "exitCode": null
+    },
+    {
+      "id": "prepare-test-reader",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-04T02:49:36.870659792Z",
+        "startTime": "2026-11-04T02:49:31.355546316Z"
+      },
+      "exitCode": null
+    },
+    {
+      "id": "registration-email-test",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-04T02:49:40.620497495Z",
+        "startTime": "2026-11-04T02:49:36.871001703Z"
+      },
+      "exitCode": null
+    },
+    {
+      "id": "invitation-email-test",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-04T02:49:52.799385189Z",
+        "startTime": "2026-11-04T02:49:40.620765361Z"
+      },
+      "exitCode": null
+    },
+    {
+      "id": "security-test",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-04T02:50:04.580412044Z",
+        "startTime": "2026-11-04T02:49:52.799575274Z"
+      },
+      "exitCode": null
+    },
+    {
+      "id": "migration-test",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-04T02:50:20.662950707Z",
+        "startTime": "2026-11-04T02:50:04.580598401Z"
+      },
+      "exitCode": null
+    },
+    {
+      "id": "invitation-test",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-04T02:50:38.301577105Z",
+        "startTime": "2026-11-04T02:50:20.663185186Z"
+      },
+      "exitCode": null
+    },
+    {
+      "id": "staff-invitation-test",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-04T02:50:52.902383674Z",
+        "startTime": "2026-11-04T02:50:38.301859727Z"
+      },
+      "exitCode": null
+    },
+    {
+      "id": "password-recovery-test",
+      "status": "SUCCESS",
+      "timing": {
+        "endTime": "2026-11-04T02:51:17.629744239Z",
+        "startTime": "2026-11-04T02:50:52.902621717Z"
+      },
+      "exitCode": null
+    }
+  ],
+  "testScope": "Seven suites in a network-disabled read-only derived test image; runtime image unchanged by test dependencies."
+}

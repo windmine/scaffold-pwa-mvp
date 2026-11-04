@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "atUtc": "2026-11-04T03:31:18.292152+00:00",
+  "checks": {
+    "https://geo-backend-eitdijn7cq-ts.a.run.app/health/ready": {
+      "status": "ok",
+      "checks": {
+        "database": "ok",
+        "migrations": "ok",
+        "upload_storage": "ok"
+      },
+      "details": {
+        "upload_storage": {
+          "backend": "gcs"
+        }
+      }
+    },
+    "https://geo-attendance-system-db9ca.web.app/api/health/ready": {
+      "status": "ok",
+      "checks": {
+        "database": "ok",
+        "migrations": "ok",
+        "upload_storage": "ok"
+      },
+      "details": {
+        "upload_storage": {
+          "backend": "gcs"
+        }
+      }
+    }
+  }
+}

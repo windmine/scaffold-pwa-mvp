@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "startUtc": "2026-11-04T03:30:47.358772+00:00",
+  "observedAtUtc": "2026-11-04T03:33:33.937674+00:00",
+  "errorOr5xxCount": 0,
+  "metadata": [],
+  "scope": "Only error severity, timestamp and HTTP status; no request bodies or credentials read."
+}

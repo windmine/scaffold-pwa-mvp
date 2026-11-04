@@ -1,0 +1,4 @@
+{
+  "status": "error",
+  "error": "Failed to authenticate, have you run firebase login?"
+}

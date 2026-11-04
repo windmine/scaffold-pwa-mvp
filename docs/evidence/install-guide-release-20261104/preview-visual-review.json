@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "atUtc": "2026-11-04T03:29:39.487298+00:00",
+  "reviewed": [
+    "preview-installer-english.png",
+    "preview-installer-chinese.png",
+    "preview-installer-offline.png"
+  ],
+  "sha256": {
+    "preview-installer-english.png": "4c06c384fa04fcf8ed257465008707fd7a6b766409a55795e467ca3410bd30df",
+    "preview-installer-chinese.png": "b6fecee93d265291812a7b105dd7af54f7c9a2372750fa9655c0a47be9a9242e",
+    "preview-installer-offline.png": "b6fecee93d265291812a7b105dd7af54f7c9a2372750fa9655c0a47be9a9242e"
+  },
+  "findings": "Prominent Install and Continue actions; confirmation explanation; readable EN/ZH phone-width instructions; no overlap; offline layout preserved. Desktop user agent at phone viewport is correctly labelled Computer; Android/embedded branches were separately verified in isolated local tests.",
+  "physicalDeviceInstallTested": false
+}

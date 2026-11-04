@@ -1,0 +1,42 @@
+{
+  "status": "awaiting-user-firebase-cli-sign-in",
+  "recordedAtUtc": "2026-11-04T03:02:30.239127+00:00",
+  "sourceCommit": "6312d80ae6bd25c4e77dd44016dfd2a9543ab3ff",
+  "sourceCiUrl": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/41762678018",
+  "sourceCiBothJobs": "passed",
+  "cloudBuildId": "a5291a06-278e-4e33-837c-e12d911e333e",
+  "imageTestsPassed": 7,
+  "candidateRevision": "geo-backend-install-guide-20261104",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:7b4470d3ce362325366fb2a7dffc5747b0c8c95de31a034af24a6283883de725",
+  "candidateHealth": "passed",
+  "productionTraffic": [
+    {
+      "revisionName": "geo-backend-install-guide-20261104",
+      "tag": "install-guide-20261104",
+      "url": "https://install-guide-20261104---geo-backend-eitdijn7cq-ts.a.run.app"
+    },
+    {
+      "percent": 100,
+      "revisionName": "geo-backend-invite-week-20261101"
+    }
+  ],
+  "hostingPromoted": false,
+  "backendPromoted": false,
+  "hostingBlocker": "Existing Firebase CLI session reports Failed to authenticate; user asked to run firebase login with authorized account.",
+  "earlierMetadataFailure": "Generic gcloud token Hosting-channel GET returned HTTP 403; no access changes attempted.",
+  "localBackendSuitesPassed": 29,
+  "strictHardening": "passed, existing six-hour Neon recovery warning",
+  "sourceTests": "75 browser workflows, 11 final installer groups, 21 mocked invitation-email tests, build/lint and rendered PDF/decoded QR",
+  "realEmailsSent": false,
+  "productionRecordsCreated": false,
+  "runtimeSettingsChanged": false,
+  "migrationPerformed": false,
+  "remaining": [
+    "Restore Firebase CLI sign-in through user-controlled login",
+    "Read live Hosting version and retain compatible rollback",
+    "Preview/frozen-file and installer checks",
+    "Promote verified backend and exact Hosting version with waiting-update check",
+    "Verify live runtime/config/Hosting, remove candidate tag, preserve rollback",
+    "Write and commit release records, push and observe final CI"
+  ]
+}

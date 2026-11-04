@@ -1,0 +1,41 @@
+{
+  "status": "passed",
+  "atUtc": "2026-11-04T03:00:11.360114+00:00",
+  "revision": "geo-backend-install-guide-20261104",
+  "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:7b4470d3ce362325366fb2a7dffc5747b0c8c95de31a034af24a6283883de725",
+  "candidateUrl": "https://install-guide-20261104---geo-backend-eitdijn7cq-ts.a.run.app",
+  "checks": {
+    "/health": {
+      "status": "ok",
+      "message": "Geo backend is running"
+    },
+    "/health/ready": {
+      "status": "ok",
+      "checks": {
+        "database": "ok",
+        "migrations": "ok",
+        "upload_storage": "ok"
+      },
+      "details": {
+        "upload_storage": {
+          "backend": "gcs"
+        }
+      }
+    }
+  },
+  "runtimeAndPolicyUnchanged": true,
+  "productionTrafficUnchanged": true,
+  "observedErrorCount": 0,
+  "traffic": [
+    {
+      "revisionName": "geo-backend-install-guide-20261104",
+      "tag": "install-guide-20261104",
+      "url": "https://install-guide-20261104---geo-backend-eitdijn7cq-ts.a.run.app"
+    },
+    {
+      "percent": 100,
+      "revisionName": "geo-backend-invite-week-20261101"
+    }
+  ],
+  "realEmailsOrProductionFixtures": false
+}

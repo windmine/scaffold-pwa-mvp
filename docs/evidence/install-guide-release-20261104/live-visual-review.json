@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "atUtc": "2026-11-04T03:32:39.298471+00:00",
+  "method": "Each live screenshot is byte-identical to its directly visually reviewed preview counterpart.",
+  "files": {
+    "live-installer-english.png": "4c06c384fa04fcf8ed257465008707fd7a6b766409a55795e467ca3410bd30df",
+    "live-installer-chinese.png": "b6fecee93d265291812a7b105dd7af54f7c9a2372750fa9655c0a47be9a9242e",
+    "live-installer-offline.png": "b6fecee93d265291812a7b105dd7af54f7c9a2372750fa9655c0a47be9a9242e"
+  }
+}

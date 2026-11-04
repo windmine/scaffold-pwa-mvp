@@ -1,0 +1,66 @@
+{
+  "task": "Android-friendly install page and invitation guide",
+  "status": "ready_locally",
+  "base_commit": "6f9eb35e246feb312c1cbc7b783a2311e4e2d60d",
+  "changed_files": [
+    "install.html",
+    "assets/js/install.js",
+    "backend/app/use_cases/invitation_guide.py",
+    "backend/app/use_cases/worker_invitation_email.py",
+    "backend/invitation_email_test.py",
+    "scripts/check-install-page.mjs",
+    "sw.js"
+  ],
+  "tests": {
+    "build": "passed on final files",
+    "lint": "passed on final files",
+    "diff_check": "passed",
+    "invitation_email": "21 passed, mocked SMTP and isolated data",
+    "installer": "11 groups passed on final files",
+    "mobile_gate": "passed including all 75 aggregate browser workflows",
+    "test_order_note": "The full mobile gate passed before the final installer-only duplicate-message cleanup; the final build/lint and all installer groups were rerun. Main JS/CSS bundle filenames remained byte-content hashes main-BXerhuZg.js and main-DG74Vp4i.css."
+  },
+  "pdf": {
+    "path": "output/pdf/reportflow-getting-started-install-review.pdf",
+    "pages": 1,
+    "bytes": 39941,
+    "qr_url": "https://geo-attendance-system-db9ca.web.app/install.html",
+    "rendered_and_reviewed": true,
+    "qr_decoded": true
+  },
+  "visual_review": [
+    "390px English installer",
+    "320px Chinese installer",
+    "1280px English desktop",
+    "final 390px Android and embedded-browser fallback screens"
+  ],
+  "safety": {
+    "real_email_sent": false,
+    "production_mutations": false,
+    "committed": false,
+    "pushed": false,
+    "deployed": false,
+    "pwa_identity_changed": false,
+    "auth_and_report_storage_unchanged": true
+  },
+  "cleanup": "Owned temporary decoder and fixture folders removed; no processes matched task scratch paths after test completion.",
+  "preserved_unrelated": [
+    ".firebase/hosting.ZGlzdA.cache",
+    "docs/source-report-templates.md",
+    "pre-existing untracked work"
+  ],
+  "prior_attempts": [
+    "Sandbox temp/database and loopback constraints: successful isolated reruns used workspace temp paths outside the sandbox.",
+    "Initial installer test ordering assertion fixed; final 11 groups pass.",
+    "Repeated embedded-browser guidance found visually and removed; final installer checks pass."
+  ],
+  "limitations": [
+    "Physical Android/iOS installation not tested; browser states are isolated simulations.",
+    "Browser confirmation remains required; prompt availability is controlled by the browser.",
+    "Existing build bundle-size warning remains."
+  ],
+  "release_requirements": [
+    "Separate approval to commit/push and deploy backend plus Hosting.",
+    "No database migration, IAM, credentials, secrets or email-setting changes needed."
+  ]
+}

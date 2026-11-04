@@ -1,0 +1,15 @@
+{
+  "sourceCommit": "6312d80ae6bd25c4e77dd44016dfd2a9543ab3ff",
+  "imageTag": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:install-guide-20261104-6312d80",
+  "packagedFileCount": 128,
+  "exactImageTestSuites": [
+    "registration_email_test.py",
+    "invitation_email_test.py",
+    "security_test.py",
+    "migration_test.py",
+    "invitation_test.py",
+    "staff_invitation_test.py",
+    "password_recovery_test.py"
+  ],
+  "testNetwork": "none"
+}

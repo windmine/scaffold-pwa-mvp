@@ -1,6 +1,17 @@
 # ReportFlow
 
-## Seven-day invitation release (2026-11-01 UTC)
+## Install page and invitation guide release (2026-11-04 UTC)
+
+Source `6312d80ae6bd25c4e77dd44016dfd2a9543ab3ff` is live as backend `geo-backend-install-guide-20261104` at 100% without tags and exact Hosting `597565dc788f617e`, cache `leader-field-db14bb60cfe9`. The public Install ReportFlow action stays visible, offers the native prompt when available, and otherwise shows browser/device instructions. Continue in browser and iOS support remain. Invitation emails and their public Getting Started PDF now link/QR to `https://geo-attendance-system-db9ca.web.app/install.html`; private activation links remain separate. Browser confirmation is still required.
+
+Validation passed: 29 local backend suites, 21 mocked invitation-email tests, 11 final installer groups, build/lint, both exact-source CI jobs including all 75 browser workflows, seven network-disabled image suites, candidate/live readiness, preview/live 91-file parity, 81 shell assets and seven installer artifacts per origin, four waiting-update checks and 40 strict hardening checks. The guide was rendered and its public QR decoded. Three live installer screenshots are byte-identical to the directly reviewed preview. No physical-phone install, authenticated production fixture, real SMTP send or new database inventory comparison is claimed. Existing six-hour recovery-history and bundle-size warnings remain.
+
+There was no migration or write pause, production account/invitation/report/site creation, email send, IAM or secret change. Schema 27, invitation TTL 168 hours, SMTP version 1, disabled public-registration email, disabled web-process PDF dispatch, the PDF worker and enabled Scheduler are preserved. Runtime/policy/IAM fingerprints and manifest bytes match the baseline. Retain backend `geo-backend-invite-week-20261101` and previous Hosting `a443650ecd58e0f2` in `rollback-install-guide-20261104` until `2026-11-11T03:29:50.069441917Z`; reverify before rollback. Never downgrade schema or reset device/auth data. The final record-only CI is reported separately after its commit.
+
+[Release evidence](docs/evidence/install-guide-release-20261104/release.json).
+
+
+## Earlier seven-day invitation release (2026-11-01 UTC)
 
 Seven-day invitations are live from source `63cd4fffe10d6d6132464f641e6f76eaae1183d3` as backend `geo-backend-invite-week-20261101` at 100% without tags, with `WORKER_INVITATION_TTL_HOURS=168`. New and explicitly reissued Worker, Supervisor and authorized global-admin links last seven days. Existing invitations retain their stored expiry; opening/sending never extends it and expired links are not revived. Single-use, role/Department, revocation and duplicate-send protections remain.
 

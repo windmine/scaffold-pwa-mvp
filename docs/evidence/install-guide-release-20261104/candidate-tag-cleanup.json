@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "requestedAtUtc": "2026-11-04T03:32:37.787713+00:00",
+  "sourceCommit": "6312d80ae6bd25c4e77dd44016dfd2a9543ab3ff",
+  "verifiedAtUtc": "2026-11-04T03:32:45.582129+00:00",
+  "result": {
+    "traffic": [
+      {
+        "percent": 100,
+        "revisionName": "geo-backend-install-guide-20261104"
+      }
+    ]
+  }
+}

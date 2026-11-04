@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "requestedAtUtc": "2026-11-04T03:30:47.358772+00:00",
+  "sourceCommit": "6312d80ae6bd25c4e77dd44016dfd2a9543ab3ff",
+  "verifiedAtUtc": "2026-11-04T03:30:55.848944+00:00",
+  "result": {
+    "traffic": [
+      {
+        "percent": 100,
+        "revisionName": "geo-backend-install-guide-20261104",
+        "tag": "install-guide-20261104",
+        "url": "https://install-guide-20261104---geo-backend-eitdijn7cq-ts.a.run.app"
+      }
+    ],
+    "serviceUrl": "https://geo-backend-eitdijn7cq-ts.a.run.app"
+  }
+}

@@ -15,3 +15,8 @@ docs/evidence/report-corrections-release-20261023/** -text whitespace=blank-at-e
 
 # Preserve exact safe Refresh release proof bytes.
 docs/evidence/safe-refresh-release-20261027/** -text whitespace=blank-at-eol,-blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve captured bytes in the installer/guide release proof and its hashes.
+docs/evidence/install-guide-release-20261104/** -text whitespace=blank-at-eol,-blank-at-eof,space-before-tab,cr-at-eol
+# Captured tool logs include their original trailing spaces and blank lines.
+docs/evidence/install-guide-release-20261104/*.txt -text whitespace=-blank-at-eol,-blank-at-eof,space-before-tab,cr-at-eol

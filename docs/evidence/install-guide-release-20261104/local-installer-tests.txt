@@ -1,0 +1,101 @@
+not ok - manual, Safari/iPad, embedded, standalone, and unavailable-SW fallbacks remain usable
+page.goto: net::ERR_NETWORK_ACCESS_DENIED at http://127.0.0.1:60239/install.html
+Call log:
+  - navigating to "http://127.0.0.1:60239/install.html", waiting until "load"
+
+    at openInstaller (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:264:31)
+    at async checkManualEnvironments (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:311:20)
+    at async check (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:284:5)
+    at async file:///C:/Users/12273/.codex/worktrees/70b6/scaffold-pwa-mvp/scripts/check-install-page.mjs:591:3
+not ok - native prompt is click-only, single-flight, and consumed after dismissal
+page.goto: net::ERR_NETWORK_ACCESS_DENIED at http://127.0.0.1:60239/install.html
+Call log:
+  - navigating to "http://127.0.0.1:60239/install.html", waiting until "load"
+
+    at openInstaller (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:264:31)
+    at async checkPromptLifecycle (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:344:18)
+    at async check (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:284:5)
+    at async file:///C:/Users/12273/.codex/worktrees/70b6/scaffold-pwa-mvp/scripts/check-install-page.mjs:592:3
+not ok - accepted prompt waits for appinstalled confirmation
+page.goto: net::ERR_NETWORK_ACCESS_DENIED at http://127.0.0.1:60239/install.html
+Call log:
+  - navigating to "http://127.0.0.1:60239/install.html", waiting until "load"
+
+    at openInstaller (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:264:31)
+    at async checkPromptLifecycle (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:344:18)
+    at async check (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:284:5)
+    at async file:///C:/Users/12273/.codex/worktrees/70b6/scaffold-pwa-mvp/scripts/check-install-page.mjs:593:3
+not ok - failed prompt is recoverable without reusing the event
+page.goto: net::ERR_NETWORK_ACCESS_DENIED at http://127.0.0.1:60239/install.html
+Call log:
+  - navigating to "http://127.0.0.1:60239/install.html", waiting until "load"
+
+    at openInstaller (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:264:31)
+    at async checkPromptFailure (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:378:18)
+    at async check (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:284:5)
+    at async file:///C:/Users/12273/.codex/worktrees/70b6/scaffold-pwa-mvp/scripts/check-install-page.mjs:594:3
+not ok - rejected prompt is recoverable without reusing the event
+page.goto: net::ERR_NETWORK_ACCESS_DENIED at http://127.0.0.1:60239/install.html
+Call log:
+  - navigating to "http://127.0.0.1:60239/install.html", waiting until "load"
+
+    at openInstaller (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:264:31)
+    at async checkPromptFailure (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:378:18)
+    at async check (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:284:5)
+    at async file:///C:/Users/12273/.codex/worktrees/70b6/scaffold-pwa-mvp/scripts/check-install-page.mjs:595:3
+not ok - rejected install choice is recoverable without reusing the event
+page.goto: net::ERR_NETWORK_ACCESS_DENIED at http://127.0.0.1:60239/install.html
+Call log:
+  - navigating to "http://127.0.0.1:60239/install.html", waiting until "load"
+
+    at openInstaller (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:264:31)
+    at async checkPromptFailure (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:378:18)
+    at async check (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:284:5)
+    at async file:///C:/Users/12273/.codex/worktrees/70b6/scaffold-pwa-mvp/scripts/check-install-page.mjs:596:3
+not ok - waiting updates are informational and never forced
+page.goto: net::ERR_NETWORK_ACCESS_DENIED at http://127.0.0.1:60239/install.html
+Call log:
+  - navigating to "http://127.0.0.1:60239/install.html", waiting until "load"
+
+    at openInstaller (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:264:31)
+    at async checkWaitingWorker (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:402:20)
+    at async check (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:284:5)
+    at async file:///C:/Users/12273/.codex/worktrees/70b6/scaffold-pwa-mvp/scripts/check-install-page.mjs:597:3
+not ok - language preference and clipboard fallback preserve account and Report data
+page.goto: net::ERR_NETWORK_ACCESS_DENIED at http://127.0.0.1:60239/install.html
+Call log:
+  - navigating to "http://127.0.0.1:60239/install.html", waiting until "load"
+
+    at openInstaller (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:264:31)
+    at async checkLanguagesAndCopy (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:417:20)
+    at async check (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:284:5)
+    at async file:///C:/Users/12273/.codex/worktrees/70b6/scaffold-pwa-mvp/scripts/check-install-page.mjs:598:3
+not ok - installer shares ReportFlow identity and exposes real permanent-link downloads
+page.goto: net::ERR_NETWORK_ACCESS_DENIED at http://127.0.0.1:60239/install.html
+Call log:
+  - navigating to "http://127.0.0.1:60239/install.html", waiting until "load"
+
+    at openInstaller (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:264:31)
+    at async checkManifestAndDownloads (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:463:18)
+    at async check (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:284:5)
+    at async file:///C:/Users/12273/.codex/worktrees/70b6/scaffold-pwa-mvp/scripts/check-install-page.mjs:599:3
+not ok - installer controls fit 320, 390, and 1280px in both languages
+page.goto: net::ERR_NETWORK_ACCESS_DENIED at http://127.0.0.1:60239/install.html
+Call log:
+  - navigating to "http://127.0.0.1:60239/install.html", waiting until "load"
+
+    at openInstaller (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:264:31)
+    at async checkResponsiveLayout (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:500:18)
+    at async check (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:284:5)
+    at async file:///C:/Users/12273/.codex/worktrees/70b6/scaffold-pwa-mvp/scripts/check-install-page.mjs:600:3
+not ok - real service worker cold-launches the exact offline installer after all pages close
+page.goto: net::ERR_NETWORK_ACCESS_DENIED at http://127.0.0.1:60239/install.html
+Call log:
+  - navigating to "http://127.0.0.1:60239/install.html", waiting until "load"
+
+    at openInstaller (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:264:31)
+    at async checkColdOfflineInstaller (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:540:18)
+    at async check (C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\scripts\check-install-page.mjs:284:5)
+    at async file:///C:/Users/12273/.codex/worktrees/70b6/scaffold-pwa-mvp/scripts/check-install-page.mjs:601:3
+Error: 11 installer check(s) failed.
+    at file:///C:/Users/12273/.codex/worktrees/70b6/scaffold-pwa-mvp/scripts/check-install-page.mjs:603:30

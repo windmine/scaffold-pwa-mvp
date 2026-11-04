@@ -1,0 +1,19 @@
+ok - manual, Safari/iPad, embedded, standalone, and unavailable-SW fallbacks remain usable
+ok - native prompt is click-only, single-flight, and consumed after dismissal
+ok - accepted prompt waits for appinstalled confirmation
+ok - failed prompt is recoverable without reusing the event
+ok - rejected prompt is recoverable without reusing the event
+ok - rejected install choice is recoverable without reusing the event
+ok - waiting updates are informational and never forced
+ok - language preference and clipboard fallback preserve account and Report data
+ok - installer shares ReportFlow identity and exposes real permanent-link downloads
+  screenshot: C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\output\install-guide-local\final-screenshots\install-eThjaV\install-320-en.png
+  screenshot: C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\output\install-guide-local\final-screenshots\install-eThjaV\install-320-zh.png
+  screenshot: C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\output\install-guide-local\final-screenshots\install-eThjaV\install-390-en.png
+  screenshot: C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\output\install-guide-local\final-screenshots\install-eThjaV\install-390-zh.png
+  screenshot: C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\output\install-guide-local\final-screenshots\install-eThjaV\install-1280-en.png
+  screenshot: C:\Users\12273\.codex\worktrees\70b6\scaffold-pwa-mvp\output\install-guide-local\final-screenshots\install-eThjaV\install-1280-zh.png
+ok - installer controls fit 320, 390, and 1280px in both languages
+ok - real service worker cold-launches the exact offline installer after all pages close
+
+11 installer checks passed; no backend, cloud, or account mutations.
