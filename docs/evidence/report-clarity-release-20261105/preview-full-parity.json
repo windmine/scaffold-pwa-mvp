@@ -1,0 +1,465 @@
+{
+  "status": "passed",
+  "origin": "https://geo-attendance-system-db9ca--release-report-clarity-20-acm5a5rh.web.app",
+  "sourceCommit": "2689f103743e66331c0c594b154f3cbae1be36bf",
+  "startedAtUtc": "2026-11-05T02:46:05.199724+00:00",
+  "files": [
+    {
+      "path": "404.html",
+      "sha256": "e031c43bef932c522a3b353dfc65507544fd589c5dd7bba978fa8a6310c044ff",
+      "bytes": 1841
+    },
+    {
+      "path": "assets/css/install.css",
+      "sha256": "3985c74efaf7673a979ae66ca99cbbb0711df0af8f02e97ccf3ff0f3f12311c4",
+      "bytes": 5727
+    },
+    {
+      "path": "assets/css/styles.css",
+      "sha256": "999f909d0cc134f4a3992423835995bfedc7afcf54007c7a8c4a4352ffa56f05",
+      "bytes": 156919
+    },
+    {
+      "path": "assets/icons/apple-touch-icon.png",
+      "sha256": "feb566a167b5ec4c6feb23b5ae6b7109e36cc5ac32c5c625d9d8a12627ea123d",
+      "bytes": 13993
+    },
+    {
+      "path": "assets/icons/bop-logo.svg",
+      "sha256": "5ed79a4842b4840194e7536a819ed4ff0f9d866ec940ae443f95e6f8bbfe12ac",
+      "bytes": 587
+    },
+    {
+      "path": "assets/icons/icon-192.png",
+      "sha256": "b20a8f9b1e530157673656ff1abb99a584ad155e848d7fa8450b3a2412bddf04",
+      "bytes": 15125
+    },
+    {
+      "path": "assets/icons/icon-512.png",
+      "sha256": "7fd38eb7ec00a447009273f157d5cb46858ac5edccf908a56750100469404bdf",
+      "bytes": 38017
+    },
+    {
+      "path": "assets/icons/leader-icon.svg",
+      "sha256": "f049144b250bda7be9ddd2d2502df5cc92ab86b4f75dbec01df2c35b005b94cc",
+      "bytes": 1533
+    },
+    {
+      "path": "assets/icons/leader-logo-export.png",
+      "sha256": "cd6ef60ecc607ee1f1730f63e74241ff93c67d29d2c1fceab53491a9fa7fdecc",
+      "bytes": 20598
+    },
+    {
+      "path": "assets/icons/maskable-512.png",
+      "sha256": "7fd38eb7ec00a447009273f157d5cb46858ac5edccf908a56750100469404bdf",
+      "bytes": 38017
+    },
+    {
+      "path": "assets/icons/mc-logo.svg",
+      "sha256": "c13567d8505cf175922a3afb494a095c02da25a630070dbbfd74fb8fc958b31a",
+      "bytes": 650
+    },
+    {
+      "path": "assets/icons/mutual-logo.svg",
+      "sha256": "a9e809079b6aa74913126c55cac23823a3b87471ae1732b089c71eb1209cd274",
+      "bytes": 574
+    },
+    {
+      "path": "assets/icons/reportflow-192.png",
+      "sha256": "961b7eb26034d8c71e4f50f89ec0cefce0268a5281c9a06c8891cb532c93c356",
+      "bytes": 4397
+    },
+    {
+      "path": "assets/icons/reportflow-512.png",
+      "sha256": "4090a88306e084a874a5d0c6fe74b8d7ee580a42ae9820bf84ec032ed02692c2",
+      "bytes": 11224
+    },
+    {
+      "path": "assets/icons/reportflow-apple-touch-180.png",
+      "sha256": "19490723922a88652f3635596a19b4e8c31de9781b699bdd65577d9210792449",
+      "bytes": 2569
+    },
+    {
+      "path": "assets/icons/reportflow-icon.svg",
+      "sha256": "701fa758282e87038af6769b36cf42e540dde60c2caa4e3a384d1f5b741a0ac5",
+      "bytes": 786
+    },
+    {
+      "path": "assets/icons/reportflow-install-qr.svg",
+      "sha256": "300188ad752dd1aa5fec734584f43f2b77b36627f4894d477556874370557397",
+      "bytes": 5678
+    },
+    {
+      "path": "assets/icons/reportflow-maskable-512.png",
+      "sha256": "2cc14eda704cd203040cd75c4bdea70c58a7557292c6759445a2373a68fdf357",
+      "bytes": 6354
+    },
+    {
+      "path": "assets/icons/stech-logo.svg",
+      "sha256": "be704e3c5be46feffd1a6ed1beb9e7fbef530da8c684bd3023172728c242d36f",
+      "bytes": 648
+    },
+    {
+      "path": "assets/js/api-client.js",
+      "sha256": "19a873cea9432ff59404a10fe664f03a031acb3492213e0d5f61e95608b575d8",
+      "bytes": 24255
+    },
+    {
+      "path": "assets/js/app-shell-state.js",
+      "sha256": "894b4c1484ffcc38bf528c52446d30bf5fad92057341288437e4a734b57ca3d7",
+      "bytes": 25420
+    },
+    {
+      "path": "assets/js/app.js",
+      "sha256": "63aa4fd4a3fab403b636c9c9c409455a97b38034c58198a0dc9c5e44d4d9df34",
+      "bytes": 84685
+    },
+    {
+      "path": "assets/js/confirmation-dialog.js",
+      "sha256": "1802ed4d977027b36fdc0a0576c54f38c870da826a649ea74d65c0457fae32fe",
+      "bytes": 3068
+    },
+    {
+      "path": "assets/js/date-inputs.js",
+      "sha256": "00eab23342a10df6092f2d33d626ee39ccfe61bc26bab5a1a5b6c5414c310aca",
+      "bytes": 2435
+    },
+    {
+      "path": "assets/js/db.js",
+      "sha256": "fea6c978904fcc751dca3b720a763fb2beb26f9f409c003d46d97602f376bbb2",
+      "bytes": 17581
+    },
+    {
+      "path": "assets/js/history.js",
+      "sha256": "b21374ff8ffa3ba7933d2eba9a801d87182017cd09f7c3fb600079768f4ab6b2",
+      "bytes": 66205
+    },
+    {
+      "path": "assets/js/i18n.js",
+      "sha256": "b7942c8870bb65fa0f52ca413bbd0a8eeb0c4ac8a32dccad78f6852fd7265b2b",
+      "bytes": 141528
+    },
+    {
+      "path": "assets/js/install.js",
+      "sha256": "1dc2785cf4af0af0f68f11a6be53235225ad90ad9450b5871c4e125f2af73496",
+      "bytes": 15656
+    },
+    {
+      "path": "assets/js/mock-api.js",
+      "sha256": "fbfccf242441f2e6dd94fe0eaadea298bca47a90cfe352f25d67a883b1892f09",
+      "bytes": 8178
+    },
+    {
+      "path": "assets/js/offline-attendance-snapshot.js",
+      "sha256": "e4d9f0726695f76d043cdbcd456be7e4a9e6bda7ff0d3a0307fa139ceae033ae",
+      "bytes": 2842
+    },
+    {
+      "path": "assets/js/offline-report-template-snapshot.js",
+      "sha256": "3d7a4d39c639ac1b9c642f8588024953b3f5b8f0011f1a46b924d2c3215ddb76",
+      "bytes": 5694
+    },
+    {
+      "path": "assets/js/offline-site-snapshot.js",
+      "sha256": "4918261b4560330460a7c7b19783ab38146f45809f23ec6e42e63a83bb2c5ace",
+      "bytes": 2920
+    },
+    {
+      "path": "assets/js/offline-submissions.js",
+      "sha256": "2c58cc22eaadd46fb10ffdd00ee3917e33d089294c84c4f116c2e759f37c5663",
+      "bytes": 42757
+    },
+    {
+      "path": "assets/js/photo-viewer.js",
+      "sha256": "181d5ce2627139ccd03d2a05949b22a7bd061a2dc569fa846f991268123c4cc2",
+      "bytes": 16108
+    },
+    {
+      "path": "assets/js/recover-password.js",
+      "sha256": "b2753e1f2e012cdba8daad45d80de6df4432d92330360c68d726eea4cd28e8c9",
+      "bytes": 8481
+    },
+    {
+      "path": "assets/js/report-drafts.js",
+      "sha256": "22b55f5140a85f68f2c6f4c73efeb4ffd3c94e70d661088903f539606334b87d",
+      "bytes": 6082
+    },
+    {
+      "path": "assets/js/report-editor.js",
+      "sha256": "28b7a61e67bb0f59ea47109d76adf4ff26d10e7a8ffa975313999e2c4684177a",
+      "bytes": 12546
+    },
+    {
+      "path": "assets/js/report-form-navigation.js",
+      "sha256": "bef9f86d82ba4cb169f09142154924772e3471f38b7a1e72a1e7b1c523cf5b9d",
+      "bytes": 2615
+    },
+    {
+      "path": "assets/js/report-note-drafts.js",
+      "sha256": "f80fd2b3dd134251ecb4cdd04df0079bb40f57285324244bc5e02d672ce34711",
+      "bytes": 8329
+    },
+    {
+      "path": "assets/js/report-note-editor.js",
+      "sha256": "02972187308c366f9fbfcd2461e39bb73a0e26cb25b12f7403d49a6ea7bda88d",
+      "bytes": 25561
+    },
+    {
+      "path": "assets/js/report-pdf-email.js",
+      "sha256": "9168363417e784bc3b6c6545a669f2a416d47aad77f83a13dfc41a723475cbf8",
+      "bytes": 4568
+    },
+    {
+      "path": "assets/js/report-photo-evidence.js",
+      "sha256": "cae3b42aa0efb3e965ca6ba8e2eef82653785bfc0c3964976690c0bf23cc8277",
+      "bytes": 1913
+    },
+    {
+      "path": "assets/js/report-photo-gallery.js",
+      "sha256": "5da3391f77bb3f4f36d09a2fcde058dd0ce75d85a040f2b55d4c1059d6ce22f5",
+      "bytes": 3184
+    },
+    {
+      "path": "assets/js/report-photo-thumbnails.js",
+      "sha256": "a1018043cb30f00bb3c22ec23b397027d96e765725b10dfaefd705baa966b15c",
+      "bytes": 4930
+    },
+    {
+      "path": "assets/js/report-review-age.js",
+      "sha256": "ad496e2270399e917c27f30a7cf96863b0808c4f1f33cd141f405973dac11539",
+      "bytes": 1646
+    },
+    {
+      "path": "assets/js/report-review-preferences.js",
+      "sha256": "1d29f3f6cd79fee6394829f2731247f825126b3c001fdd929b23992991d5424d",
+      "bytes": 3716
+    },
+    {
+      "path": "assets/js/report-site.js",
+      "sha256": "3b4eb3c1298ea9dabf75bc0fd28d8490ede29ecebe45d4f61de6ccc31d2122e2",
+      "bytes": 1286
+    },
+    {
+      "path": "assets/js/report-storage-budget.js",
+      "sha256": "b7ebf4e16a4ebeaa7364c9be41e5588b95e3d4fa1a3e1e3cdd7f1fac680124b7",
+      "bytes": 4754
+    },
+    {
+      "path": "assets/js/report-submit-review.js",
+      "sha256": "ae745658f071401a052629a85b35000efc1fd7f09b51b0d6fc0628da85c87733",
+      "bytes": 4476
+    },
+    {
+      "path": "assets/js/report-template-drafts.js",
+      "sha256": "71732a472c20da4e2211749a50b02b53c39903db377c64953729822d4407c3de",
+      "bytes": 7845
+    },
+    {
+      "path": "assets/js/report-upload-recovery.js",
+      "sha256": "629b9b498fd6881f231e2b07d3db0fd0738ccfc4664931754cb0960946164302",
+      "bytes": 16287
+    },
+    {
+      "path": "assets/js/review-export-adapters.js",
+      "sha256": "61ec72ab16557ab7a110cf58237da05d36ddb61c84eea79403cd7134c66a8c6b",
+      "bytes": 6134
+    },
+    {
+      "path": "assets/js/safe-refresh.js",
+      "sha256": "59ce4162992f70bd26d67348e53bf317dd4a3fcefc825e1b4e4f6f9a3546fbb3",
+      "bytes": 2168
+    },
+    {
+      "path": "assets/js/setup-password.js",
+      "sha256": "a6a1f6a13065e74bf4b77f337436d8bc750d2765340d6d7d7d17da773490f2ed",
+      "bytes": 10062
+    },
+    {
+      "path": "assets/js/site-map-picker.js",
+      "sha256": "6f98222d804ccdf345a31adf98aa165f9d5326af2b5254243c2dbb65d3d8bff2",
+      "bytes": 8512
+    },
+    {
+      "path": "assets/js/staff-sites.js",
+      "sha256": "6b53edf8c4f4665b98d3706be185aee874b0ea039768490435ed3c74883d19ee",
+      "bytes": 89924
+    },
+    {
+      "path": "assets/js/supervisor-analytics.js",
+      "sha256": "75976cffd8ff20dd18db246a26cd6b43e22cfd8d5b187d990bc201193f520357",
+      "bytes": 28340
+    },
+    {
+      "path": "assets/js/supervisor-map.js",
+      "sha256": "32b6973baf0dc64e2371f89624213a38c2d9bbca089d605b7d886441bc0cf6eb",
+      "bytes": 23355
+    },
+    {
+      "path": "assets/js/supervisor-review-utils.js",
+      "sha256": "020382ac99cd7a8c0b628acf2a40da9d08d43084474438ce2c807b9f00b19778",
+      "bytes": 7588
+    },
+    {
+      "path": "assets/js/supervisor-review.js",
+      "sha256": "8f56515ae31bbb4b70aa82bf00e54cd17038757898fd5c864858fd8e1261790e",
+      "bytes": 96189
+    },
+    {
+      "path": "assets/js/team-member-picker.js",
+      "sha256": "06dae167fe27dc49d8854ae62311705111074fac8890c750f8741a8d65368a52",
+      "bytes": 8304
+    },
+    {
+      "path": "assets/js/team-work-log.js",
+      "sha256": "0319af91959114ab4f29ee34c5cbdc30a01c03ef4002931e1858ce917c301b7b",
+      "bytes": 18577
+    },
+    {
+      "path": "assets/js/ui-feedback.js",
+      "sha256": "9c5164cf84380c2cf18368d1121d38578aa413a8b4c6bd7a78f6eb084b72aad9",
+      "bytes": 10838
+    },
+    {
+      "path": "assets/js/utils.js",
+      "sha256": "0d92bc670d8e4bc59af248f7b9b5f34f20041723d109a19ee4c04e89f07d1705",
+      "bytes": 4566
+    },
+    {
+      "path": "assets/js/work-form-builder.js",
+      "sha256": "01b7e956105b8ee35430fa1af488737082e26f715c33d1cd8b1e870519da007a",
+      "bytes": 44922
+    },
+    {
+      "path": "assets/js/work-form-evidence-fields.js",
+      "sha256": "b8c3aabf82b2c130ee26ec8ef741a706bce83e40e7979748ff362d621111e491",
+      "bytes": 5424
+    },
+    {
+      "path": "assets/js/work-form-fields.js",
+      "sha256": "f8c1664acf040429f3d52d1820875c90bea6551b118642e5b02ce0f07e6026eb",
+      "bytes": 51062
+    },
+    {
+      "path": "assets/js/worker-attendance.js",
+      "sha256": "69e464ad49de35679756e31a4378a8d2bdc07debcb3bff1f0423432c341c0757",
+      "bytes": 25039
+    },
+    {
+      "path": "assets/js/worker-form.js",
+      "sha256": "fc5474484618a78e75b2368c9b921b5591a6278a4682a5f49d8eefcaa771a4ba",
+      "bytes": 85980
+    },
+    {
+      "path": "assets/js/worker-invitation-dialog.js",
+      "sha256": "6b0ccf2a9dbba870e45a12c17fc7c5a1b9134091df4463176351bcad526b780b",
+      "bytes": 11438
+    },
+    {
+      "path": "assets/js/worker-log.js",
+      "sha256": "9221de0de4e0d37003eebff974acf975020d3e0c53df21bb8b416a2dc748130c",
+      "bytes": 11884
+    },
+    {
+      "path": "assets/js/worker-sites.js",
+      "sha256": "4125475a302f4ae50025590b876d4eb197f458983bcd56ec63d560a567989a93",
+      "bytes": 5142
+    },
+    {
+      "path": "assets/main-DG74Vp4i.css",
+      "sha256": "6a03e93b6e094aa7667c0dfde1e63f8356ed37a530ec2820efea8a4d7255a41e",
+      "bytes": 136005
+    },
+    {
+      "path": "assets/main-DzALabw5.js",
+      "sha256": "361873be8491af1f325635d71e18384968aa57226af27eb99edef51a7b3d7c76",
+      "bytes": 754283
+    },
+    {
+      "path": "assets/manifest-7iJLFcKU.webmanifest",
+      "sha256": "47085fc4c3ff8188bc78851c8ffb46a0195fe57cd65d0f6a322dc9265a04061a",
+      "bytes": 696
+    },
+    {
+      "path": "assets/reportflow-192-O9QSIbGD.png",
+      "sha256": "961b7eb26034d8c71e4f50f89ec0cefce0268a5281c9a06c8891cb532c93c356",
+      "bytes": 4397
+    },
+    {
+      "path": "assets/reportflow-apple-touch-180-4XY2rcXm.png",
+      "sha256": "19490723922a88652f3635596a19b4e8c31de9781b699bdd65577d9210792449",
+      "bytes": 2569
+    },
+    {
+      "path": "assets/reportflow-icon-JUMdDTPL.svg",
+      "sha256": "701fa758282e87038af6769b36cf42e540dde60c2caa4e3a384d1f5b741a0ac5",
+      "bytes": 786
+    },
+    {
+      "path": "downloads/reportflow-install-a4.pdf",
+      "sha256": "278d5679ecf0bbd988e91ac47290e742e886de7b4fcb5a3e02317eaf373064c8",
+      "bytes": 19368
+    },
+    {
+      "path": "downloads/reportflow-install-qr.png",
+      "sha256": "b7dbc5ed4a8b85656f6a86e130f47a5d2099387631d754fe31504c8253bbba08",
+      "bytes": 5742
+    },
+    {
+      "path": "downloads/reportflow-install-qr.svg",
+      "sha256": "300188ad752dd1aa5fec734584f43f2b77b36627f4894d477556874370557397",
+      "bytes": 5678
+    },
+    {
+      "path": "favicon.svg",
+      "sha256": "701fa758282e87038af6769b36cf42e540dde60c2caa4e3a384d1f5b741a0ac5",
+      "bytes": 786
+    },
+    {
+      "path": "icons.svg",
+      "sha256": "7ca2d67c9c3aebf50cdc8709ee8aacf8cdb8cc7ea6325ea94939caef5da1c53d",
+      "bytes": 5055
+    },
+    {
+      "path": "index.html",
+      "sha256": "9d4cbfa6e409b8ca11adcdbe5a9af00898d3866cd35a050cc237a2fb7b92bbf6",
+      "bytes": 95779
+    },
+    {
+      "path": "install.html",
+      "sha256": "82e3c5521751225a5e9037ac8773d740e7ae449b418625c344dfa17d4af7f71f",
+      "bytes": 7440
+    },
+    {
+      "path": "manifest.webmanifest",
+      "sha256": "47085fc4c3ff8188bc78851c8ffb46a0195fe57cd65d0f6a322dc9265a04061a",
+      "bytes": 696
+    },
+    {
+      "path": "offline.html",
+      "sha256": "5fafba297754c73156b6c05d37fbeb15c632fbd08bf20a603893346fecbe66f0",
+      "bytes": 3762
+    },
+    {
+      "path": "premium-preview.html",
+      "sha256": "85bb7e215a5e144d4d4935fafe336efcead6a1901e00bb1e29412a3d9eb1188b",
+      "bytes": 29920
+    },
+    {
+      "path": "recover-password.html",
+      "sha256": "43b75200e77f17bcdaea0756b7e7153e2523729087f0567cc48c43d08fcc3206",
+      "bytes": 2783
+    },
+    {
+      "path": "setup-password.html",
+      "sha256": "8cabf8a5232817cf014c110fab49355e742e0ea91f73493aa42833c4906adfd9",
+      "bytes": 2671
+    },
+    {
+      "path": "sw.js",
+      "sha256": "3cd70964f052ffde2c0d2ecee9c8608485022ff328f1cccabd4489f698829964",
+      "bytes": 8197
+    }
+  ],
+  "fileCount": 91,
+  "completedAtUtc": "2026-11-05T02:46:11.759218+00:00"
+}

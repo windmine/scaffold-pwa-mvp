@@ -1,0 +1,64 @@
+{
+  "status": "passed",
+  "sourceCommit": "2689f103743e66331c0c594b154f3cbae1be36bf",
+  "atUtc": "2026-11-05T02:40:08.488531+00:00",
+  "backendSuites": 29,
+  "mockedPdfEmailTests": 21,
+  "pdfLayoutGroups": 12,
+  "browserWorkflows": 75,
+  "fullMobileGate": true,
+  "lint": true,
+  "build": true,
+  "newZealandTime": {
+    "zone": "Pacific/Auckland",
+    "standardAndDaylightTime": true,
+    "bothDstBoundaries": true,
+    "deviceZones": [
+      "UTC",
+      "America/Los_Angeles",
+      "Pacific/Auckland"
+    ],
+    "storedInstantsAndCalendarDatesUnchanged": true
+  },
+  "pdfVisualReview": {
+    "syntheticPdfCount": 3,
+    "pagesDirectlyReviewed": 11,
+    "renderedPages": {
+      "nz-collection-1.png": "c3b216f0e0261ea91838f4d50e8540d21b7baf302d8dd9fa06e68e3cd11b4a58",
+      "nz-collection-2.png": "eb364ae843faf16b311e99f06061433d4940b9c6912de8e314df6709873303af",
+      "nz-collection-3.png": "6341f696d8ac6b8ced79ff648d9c8fdc43d532ac20e1bd90bcfd6f5d112331ca",
+      "nz-long-1.png": "df80a8fad95e69ae9f6a5a4156d726d61967db03837b4b2ab4559555fe181cf2",
+      "nz-long-2.png": "2a8777546f70f781e35179d1e36e090d15c606940b69d4905ba7eba58f989fc0",
+      "nz-long-3.png": "84342db7b36872cd5cc27fa71a38fc97b92881979b099a40635a4cffdc32445b",
+      "nz-long-4.png": "89bd52efd4506fd1be534579202807f6b26a77f4630c0b42fa5a03d98a2281f7",
+      "nz-long-5.png": "c436ceb46065a43c8e84b0131d60eb8ec8b222b0593a8975aa9baf1ebb4345f3",
+      "nz-long-6.png": "82a3adbcd876983f22a2ddd0dc2e28d29cfc9003cbe8775e9945b78691c07413",
+      "nz-qa-1.png": "69dcba6ca8eb2ff3e863aa0b9368abf74ce24f05637b1f7905856539e2ced4f3",
+      "nz-qa-2.png": "c055ab3d9f1b45778d60c5ae046268cc5fb856a544c206d56f2887b19ca9ebf0"
+    },
+    "minorPopplerWarning": "No display font for Symbol; reviewed output readable"
+  },
+  "logs": {
+    "backend-final.log": "43541f89e9539ed7d26bf08af77aa52a68f5562172aaa04d8468c5279575847e",
+    "mobile-final.log": "f8908a410ab731f84b598f10f085f841de0cbaf6c306074025c0cee909dd5a65",
+    "lint-final.log": "b871853392637b6055cb1bb29c9caa0697b0c4e1afb69dbcfc9a944323f2c9fa"
+  },
+  "limits": [
+    "No actual SMTP send or mailbox rendering verification",
+    "No physical-phone validation",
+    "No production fixture or new database inventory comparison",
+    "Original recipient mailbox attachment was not accessed"
+  ],
+  "preservedFiles": {
+    ".firebase/hosting.ZGlzdA.cache": "b2216ec8189a857a95001927c8288b5921ec483ee0823039817bea0e6fe842b9",
+    "docs/source-report-templates.md": "f0a4a2b59a6ee8288854e5805d709347c00d4c4f9c64b0bf8b1f839476773569"
+  },
+  "priorAttempt": {
+    "source": "ecba9107508db97a186c253eabd6e8fbcf0c151d",
+    "ciRun": 41954034060,
+    "ciResult": "success",
+    "build": "9fe4cb8e-a609-42f6-a9e3-28e100acd7bc",
+    "buildResult": "failed: test-only template catalog absent; included only in final test image",
+    "deployed": false
+  }
+}

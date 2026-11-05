@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "atUtc": "2026-11-05T02:51:52.928342+00:00",
+  "result": {
+    "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:a2def275c78d237a1203451bf3ca99fcd1f3129c47ea907700d17b286cec5343",
+    "workerEnabled": false,
+    "scheduler": "PAUSED",
+    "tasks": 1,
+    "retries": 0,
+    "batch": 10,
+    "enabledExecutionManuallyRequested": false
+  }
+}

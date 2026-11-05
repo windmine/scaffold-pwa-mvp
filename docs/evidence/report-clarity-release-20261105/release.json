@@ -1,0 +1,247 @@
+{
+  "status": "live-and-verified",
+  "atUtc": "2026-11-05T02:55:28.195761+00:00",
+  "sourceCommit": "2689f103743e66331c0c594b154f3cbae1be36bf",
+  "earlierSourceCommit": "ecba9107508db97a186c253eabd6e8fbcf0c151d",
+  "sourceCi": {
+    "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/41955812916",
+    "conclusion": "success"
+  },
+  "backend": {
+    "status": "passed",
+    "atUtc": "2026-11-05T02:52:31.678447+00:00",
+    "revision": "geo-backend-report-clarity-20261105",
+    "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:a2def275c78d237a1203451bf3ca99fcd1f3129c47ea907700d17b286cec5343",
+    "url": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+    "traffic": [
+      [
+        "geo-backend-report-clarity-20261105",
+        100
+      ]
+    ],
+    "checks": {
+      "/health": {
+        "status": "ok",
+        "message": "Geo backend is running"
+      },
+      "/health/ready": {
+        "status": "ok",
+        "checks": {
+          "database": "ok",
+          "migrations": "ok",
+          "upload_storage": "ok"
+        },
+        "details": {
+          "upload_storage": {
+            "backend": "gcs"
+          }
+        }
+      }
+    },
+    "runtimeAndPolicyUnchanged": true,
+    "errorCount": 0,
+    "realEmailsOrProductionFixtures": false
+  },
+  "hosting": {
+    "version": "dac374374c32e6ff",
+    "cache": "leader-field-7bdeab26d1c5",
+    "fileCount": 91
+  },
+  "build": {
+    "id": "cc120d86-ac17-4ef7-8f7d-6e42dfefb941",
+    "status": "SUCCESS",
+    "images": [
+      {
+        "artifactRegistryPackage": "projects/geo-attendance-system-db9ca/locations/australia-southeast1/repositories/cloud-run-source-deploy/packages/geo-backend/versions/sha256:a2def275c78d237a1203451bf3ca99fcd1f3129c47ea907700d17b286cec5343",
+        "digest": "sha256:a2def275c78d237a1203451bf3ca99fcd1f3129c47ea907700d17b286cec5343",
+        "name": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend:report-clarity-nz-20261105-2689f10",
+        "pushTiming": {
+          "endTime": "2026-11-05T02:35:43.708273203Z",
+          "startTime": "2026-11-05T02:35:17.778046761Z"
+        }
+      }
+    ],
+    "testSuites": [
+      "report_pdf_email_test.py",
+      "report_pdf_layout_test.py",
+      "report_pdf_unicode_test.py",
+      "report_pdf_volume_test.py",
+      "report_export_test.py",
+      "report_export_evidence_test.py",
+      "report_corrections_test.py",
+      "report_manual_site_test.py",
+      "template_source_support_test.py",
+      "registration_email_test.py",
+      "invitation_email_test.py",
+      "migration_test.py",
+      "security_test.py"
+    ]
+  },
+  "worker": {
+    "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:a2def275c78d237a1203451bf3ca99fcd1f3129c47ea907700d17b286cec5343",
+    "workerEnabled": false,
+    "scheduler": "PAUSED",
+    "tasks": 1,
+    "retries": 0,
+    "batch": 10,
+    "enabledExecutionManuallyRequested": false
+  },
+  "disabledWorkerProbe": {
+    "execution": "reportflow-pdf-email-twk9t",
+    "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:a2def275c78d237a1203451bf3ca99fcd1f3129c47ea907700d17b286cec5343",
+    "enabled": false,
+    "succeeded": 1,
+    "startedAt": "2026-11-05T02:48:52.399964Z",
+    "completedAt": "2026-11-05T02:49:02.369786Z",
+    "noDatabaseOrSmtpByDisabledEntrypoint": true
+  },
+  "localValidation": {
+    "status": "passed",
+    "sourceCommit": "2689f103743e66331c0c594b154f3cbae1be36bf",
+    "atUtc": "2026-11-05T02:40:08.488531+00:00",
+    "backendSuites": 29,
+    "mockedPdfEmailTests": 21,
+    "pdfLayoutGroups": 12,
+    "browserWorkflows": 75,
+    "fullMobileGate": true,
+    "lint": true,
+    "build": true,
+    "newZealandTime": {
+      "zone": "Pacific/Auckland",
+      "standardAndDaylightTime": true,
+      "bothDstBoundaries": true,
+      "deviceZones": [
+        "UTC",
+        "America/Los_Angeles",
+        "Pacific/Auckland"
+      ],
+      "storedInstantsAndCalendarDatesUnchanged": true
+    },
+    "pdfVisualReview": {
+      "syntheticPdfCount": 3,
+      "pagesDirectlyReviewed": 11,
+      "renderedPages": {
+        "nz-collection-1.png": "c3b216f0e0261ea91838f4d50e8540d21b7baf302d8dd9fa06e68e3cd11b4a58",
+        "nz-collection-2.png": "eb364ae843faf16b311e99f06061433d4940b9c6912de8e314df6709873303af",
+        "nz-collection-3.png": "6341f696d8ac6b8ced79ff648d9c8fdc43d532ac20e1bd90bcfd6f5d112331ca",
+        "nz-long-1.png": "df80a8fad95e69ae9f6a5a4156d726d61967db03837b4b2ab4559555fe181cf2",
+        "nz-long-2.png": "2a8777546f70f781e35179d1e36e090d15c606940b69d4905ba7eba58f989fc0",
+        "nz-long-3.png": "84342db7b36872cd5cc27fa71a38fc97b92881979b099a40635a4cffdc32445b",
+        "nz-long-4.png": "89bd52efd4506fd1be534579202807f6b26a77f4630c0b42fa5a03d98a2281f7",
+        "nz-long-5.png": "c436ceb46065a43c8e84b0131d60eb8ec8b222b0593a8975aa9baf1ebb4345f3",
+        "nz-long-6.png": "82a3adbcd876983f22a2ddd0dc2e28d29cfc9003cbe8775e9945b78691c07413",
+        "nz-qa-1.png": "69dcba6ca8eb2ff3e863aa0b9368abf74ce24f05637b1f7905856539e2ced4f3",
+        "nz-qa-2.png": "c055ab3d9f1b45778d60c5ae046268cc5fb856a544c206d56f2887b19ca9ebf0"
+      },
+      "minorPopplerWarning": "No display font for Symbol; reviewed output readable"
+    },
+    "logs": {
+      "backend-final.log": "43541f89e9539ed7d26bf08af77aa52a68f5562172aaa04d8468c5279575847e",
+      "mobile-final.log": "f8908a410ab731f84b598f10f085f841de0cbaf6c306074025c0cee909dd5a65",
+      "lint-final.log": "b871853392637b6055cb1bb29c9caa0697b0c4e1afb69dbcfc9a944323f2c9fa"
+    },
+    "limits": [
+      "No actual SMTP send or mailbox rendering verification",
+      "No physical-phone validation",
+      "No production fixture or new database inventory comparison",
+      "Original recipient mailbox attachment was not accessed"
+    ],
+    "preservedFiles": {
+      ".firebase/hosting.ZGlzdA.cache": "b2216ec8189a857a95001927c8288b5921ec483ee0823039817bea0e6fe842b9",
+      "docs/source-report-templates.md": "f0a4a2b59a6ee8288854e5805d709347c00d4c4f9c64b0bf8b1f839476773569"
+    },
+    "priorAttempt": {
+      "source": "ecba9107508db97a186c253eabd6e8fbcf0c151d",
+      "ciRun": 41954034060,
+      "ciResult": "success",
+      "build": "9fe4cb8e-a609-42f6-a9e3-28e100acd7bc",
+      "buildResult": "failed: test-only template catalog absent; included only in final test image",
+      "deployed": false
+    }
+  },
+  "configurationPreserved": {
+    "atUtc": "2026-11-05T02:54:35.393562+00:00",
+    "phase": "after",
+    "stable": {
+      "serviceExceptImageTraffic": "05b9049ac8862eee212911726692c1584aa9d13a38a928645d15cc66bb83f330",
+      "workerExceptImage": "c8a306e05f3c3b05326fbc942e567f1c613c83be1b786fac26dcf29d65a340d1",
+      "scheduler": "de933061f83c2c95062599e661755af0eea00620d8cf509d7a60ef16bae1bb9a",
+      "serviceIam": "4f098028995ae0d0f50572c4126053443316c4fb6f8ee3642eb5ad587a784522",
+      "workerIam": "9ef03a82112aac157b2c4564b16ba1ac711790ceb886462059f51f203c473b9d",
+      "projectIam": "069f525094d86d8a22b07c1df78e218478cae42cffc2b1fac436692126004fb6",
+      "smtpIam": "db27ae89763034d9ce7dc612b2f4c1d40aae52ab245d916735a1a5e8c6323d09",
+      "smtpVersion": "f1bb6ee53012159769fd82d0025813734b4dca64cbd5e0eb8ea983878ffa353d"
+    },
+    "serviceImage": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:a2def275c78d237a1203451bf3ca99fcd1f3129c47ea907700d17b286cec5343",
+    "workerImage": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:a2def275c78d237a1203451bf3ca99fcd1f3129c47ea907700d17b286cec5343",
+    "traffic": [
+      {
+        "percent": 100,
+        "revisionName": "geo-backend-report-clarity-20261105"
+      }
+    ],
+    "serviceUrl": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+    "settings": {
+      "WORKER_INVITATION_TTL_HOURS": "168",
+      "PUBLIC_APP_URL": "https://geo-attendance-system-db9ca.web.app",
+      "REGISTRATION_EMAIL_ENABLED": "false",
+      "REPORT_PDF_EMAIL_WORKER_ENABLED": "false",
+      "AUTO_MIGRATE": "false"
+    },
+    "workerSettings": {
+      "enabled": false,
+      "tasks": 1,
+      "retries": 0,
+      "batch": 10
+    },
+    "schedulerState": "PAUSED",
+    "hostingHashes": {
+      "/index.html": "9d4cbfa6e409b8ca11adcdbe5a9af00898d3866cd35a050cc237a2fb7b92bbf6",
+      "/sw.js": "3cd70964f052ffde2c0d2ecee9c8608485022ff328f1cccabd4489f698829964",
+      "/install.html": "82e3c5521751225a5e9037ac8773d740e7ae449b418625c344dfa17d4af7f71f",
+      "/manifest.webmanifest": "47085fc4c3ff8188bc78851c8ffb46a0195fe57cd65d0f6a322dc9265a04061a"
+    },
+    "secretPayloadsRead": false,
+    "changedStableKeys": [],
+    "hostingUnchanged": false,
+    "intentionalConfigurationChanges": [
+      "Worker dispatch disabled",
+      "Scheduler paused"
+    ]
+  },
+  "rollback": {
+    "backendRevision": "geo-backend-install-guide-20261104",
+    "backendImage": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:7b4470d3ce362325366fb2a7dffc5747b0c8c95de31a034af24a6283883de725",
+    "workerImage": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:e9008bf99a791f6274de946c6884ae8a80d0af2f733261fc2d32ce2c4d5a50af",
+    "hostingVersion": "597565dc788f617e",
+    "hostingChannel": "projects/geo-attendance-system-db9ca/sites/geo-attendance-system-db9ca/channels/rollback-report-clarity-20261105",
+    "hostingExpires": "2026-11-12T02:46:59.787339584Z",
+    "procedure": "Reverify retained resources. Keep worker disabled and Scheduler paused unless separately authorized to resume. Drain before restoring any prior worker image. Prior backend and Hosting remain schema-27-compatible. Never reset outbox claims, stored timestamps, dates, credentials or device state."
+  },
+  "scope": {
+    "migration": false,
+    "writePause": false,
+    "iamOrSecretChange": false,
+    "productionRecordsCreated": false,
+    "realEmailTest": false,
+    "mailboxAccess": false,
+    "newRecipientOrRoutingChange": false
+  },
+  "limitations": [
+    "Physical phones and authenticated production fixtures untested",
+    "No real SMTP or mailbox delivery check",
+    "Already delivered emails/PDFs are unchanged",
+    "No new production database inventory comparison"
+  ],
+  "warnings": [
+    "Existing six-hour Neon recovery history",
+    "Existing frontend bundle-size advisory"
+  ],
+  "emailPause": {
+    "reason": "User explicitly chose to keep PDF emailing paused after restoration was blocked by automatic approval review",
+    "restoreActionExecuted": false,
+    "pendingReports": "Preserved; no dispatch manually requested",
+    "resumeRequiresSeparateAuthorization": true
+  },
+  "finalRecordCi": "Reported separately after this record commit"
+}

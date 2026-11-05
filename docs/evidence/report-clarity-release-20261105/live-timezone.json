@@ -1,0 +1,41 @@
+{
+  "status": "passed",
+  "atUtc": "2026-11-05T02:54:15.554Z",
+  "origin": "https://geo-attendance-system-db9ca.web.app",
+  "checks": [
+    {
+      "timezoneId": "America/Los_Angeles",
+      "result": [
+        "5 Nov 2026, 12:35 pm NZDT",
+        "5 Jun 2026, 11:35 am NZST",
+        "27 Sept 2026, 1:59 am NZST",
+        "27 Sept 2026, 3:00 am NZDT",
+        "5 Apr 2026, 2:59 am NZDT",
+        "5 Apr 2026, 2:00 am NZST"
+      ]
+    },
+    {
+      "timezoneId": "UTC",
+      "result": [
+        "5 Nov 2026, 12:35 pm NZDT",
+        "5 Jun 2026, 11:35 am NZST",
+        "27 Sept 2026, 1:59 am NZST",
+        "27 Sept 2026, 3:00 am NZDT",
+        "5 Apr 2026, 2:59 am NZDT",
+        "5 Apr 2026, 2:00 am NZST"
+      ]
+    },
+    {
+      "timezoneId": "Pacific/Auckland",
+      "result": [
+        "5 Nov 2026, 12:35 pm NZDT",
+        "5 Jun 2026, 11:35 am NZST",
+        "27 Sept 2026, 1:59 am NZST",
+        "27 Sept 2026, 3:00 am NZDT",
+        "5 Apr 2026, 2:59 am NZDT",
+        "5 Apr 2026, 2:00 am NZST"
+      ]
+    }
+  ],
+  "scope": "Anonymous public shipped formatter with synthetic instants; no authenticated production report or write"
+}

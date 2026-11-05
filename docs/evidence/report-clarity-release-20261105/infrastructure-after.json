@@ -1,0 +1,50 @@
+{
+  "atUtc": "2026-11-05T02:54:35.393562+00:00",
+  "phase": "after",
+  "stable": {
+    "serviceExceptImageTraffic": "05b9049ac8862eee212911726692c1584aa9d13a38a928645d15cc66bb83f330",
+    "workerExceptImage": "c8a306e05f3c3b05326fbc942e567f1c613c83be1b786fac26dcf29d65a340d1",
+    "scheduler": "de933061f83c2c95062599e661755af0eea00620d8cf509d7a60ef16bae1bb9a",
+    "serviceIam": "4f098028995ae0d0f50572c4126053443316c4fb6f8ee3642eb5ad587a784522",
+    "workerIam": "9ef03a82112aac157b2c4564b16ba1ac711790ceb886462059f51f203c473b9d",
+    "projectIam": "069f525094d86d8a22b07c1df78e218478cae42cffc2b1fac436692126004fb6",
+    "smtpIam": "db27ae89763034d9ce7dc612b2f4c1d40aae52ab245d916735a1a5e8c6323d09",
+    "smtpVersion": "f1bb6ee53012159769fd82d0025813734b4dca64cbd5e0eb8ea983878ffa353d"
+  },
+  "serviceImage": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:a2def275c78d237a1203451bf3ca99fcd1f3129c47ea907700d17b286cec5343",
+  "workerImage": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:a2def275c78d237a1203451bf3ca99fcd1f3129c47ea907700d17b286cec5343",
+  "traffic": [
+    {
+      "percent": 100,
+      "revisionName": "geo-backend-report-clarity-20261105"
+    }
+  ],
+  "serviceUrl": "https://geo-backend-eitdijn7cq-ts.a.run.app",
+  "settings": {
+    "WORKER_INVITATION_TTL_HOURS": "168",
+    "PUBLIC_APP_URL": "https://geo-attendance-system-db9ca.web.app",
+    "REGISTRATION_EMAIL_ENABLED": "false",
+    "REPORT_PDF_EMAIL_WORKER_ENABLED": "false",
+    "AUTO_MIGRATE": "false"
+  },
+  "workerSettings": {
+    "enabled": false,
+    "tasks": 1,
+    "retries": 0,
+    "batch": 10
+  },
+  "schedulerState": "PAUSED",
+  "hostingHashes": {
+    "/index.html": "9d4cbfa6e409b8ca11adcdbe5a9af00898d3866cd35a050cc237a2fb7b92bbf6",
+    "/sw.js": "3cd70964f052ffde2c0d2ecee9c8608485022ff328f1cccabd4489f698829964",
+    "/install.html": "82e3c5521751225a5e9037ac8773d740e7ae449b418625c344dfa17d4af7f71f",
+    "/manifest.webmanifest": "47085fc4c3ff8188bc78851c8ffb46a0195fe57cd65d0f6a322dc9265a04061a"
+  },
+  "secretPayloadsRead": false,
+  "changedStableKeys": [],
+  "hostingUnchanged": false,
+  "intentionalConfigurationChanges": [
+    "Worker dispatch disabled",
+    "Scheduler paused"
+  ]
+}

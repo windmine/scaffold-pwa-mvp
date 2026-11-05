@@ -1,14 +1,14 @@
 # ReportFlow
 
-## Local Report email/PDF clarity update (not deployed)
+## Report email/PDF clarity and New Zealand time release (2026-11-05 UTC)
 
-Prepared changes give Report emails a Template/Site/date/number subject, a plain-text
-context summary and a descriptive PDF filename. PDF headers repeat the Report
-identity and show readable submission time in New Zealand time (`Pacific/Auckland`).
-App submission/draft/evidence displays and PDF evidence timestamps use NZST/NZDT
-regardless of device timezone; UTC storage and date-only answers stay unchanged.
-Original answers, selected Report Date, frozen email snapshots and recipient
-settings remain unchanged. See [behavior and release requirements](docs/report-pdf-email.md#report-identification-local-changes-not-yet-released).
+Source `2689f103743e66331c0c594b154f3cbae1be36bf` is live as backend `geo-backend-report-clarity-20261105` at 100% without tags, PDF worker on the same verified image, and Hosting `dac374374c32e6ff`, cache `leader-field-7bdeab26d1c5`. Emails identify Template, Site, saved Report Date and number, with author/context and a descriptive attachment filename. PDF pages repeat Report identity, including the QA task when present. Submission/draft/evidence displays and PDF/email timestamps use `Pacific/Auckland` with daylight-saving-aware NZST/NZDT. Stored UTC instants, selected Report Dates, answers, recipients and frozen snapshots are unchanged. Previously delivered emails are not resent or replaced.
+
+Validation passed: 29 local backend suites, 21 mocked PDF-email tests, 12 PDF layout groups, both DST transitions and three device zones, all 75 browser workflows/full mobile gate, build/lint, exact-source CI including isolated PostgreSQL, 13 network-disabled image suites, and direct review of 11 synthetic PDF pages. Candidate/live readiness, preview/live 91-file parity, shell/offline/installer and four waiting-update checks pass. The earlier build's missing test-only template catalog was corrected in the derivative test image; its failure is retained.
+
+No migration, app write pause, production fixture, real email test, template-routing change, IAM or secret change occurred. The existing worker was paused/drained and tested disabled without DB/SMTP. **Automatic PDF email remains disabled and its five-minute Scheduler paused at the user's explicit request.** Restoration was rejected before execution by automatic approval review because pending mail could send; the user chose to keep it paused. One task, batch 10, zero retries, queued records and all other runtime/policy/IAM/SMTP-version settings are preserved, including schema 27, invitation TTL 168 and disabled public-registration/web-process email. Existing six-hour recovery and bundle-size warnings remain; physical phones, authenticated production fixtures and mailbox delivery were not tested. Retain the prior backend/worker images and Hosting `597565dc788f617e` in `rollback-report-clarity-20261105`; reverify before compatible rollback, keep emailing paused unless separately authorized, and never reset claims, timestamps or device/auth data. Final record CI is reported after its commit.
+
+[Release evidence](docs/evidence/report-clarity-release-20261105/release.json).
 
 ## Install page and invitation guide release (2026-11-04 UTC)
 
