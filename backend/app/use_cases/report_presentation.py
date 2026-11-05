@@ -6,8 +6,9 @@ promoted; arbitrary answers (including incident details) never become a subject.
 from datetime import datetime, timezone
 import re
 import unicodedata
+from zoneinfo import ZoneInfo
 
-from app.config import BUSINESS_TIMEZONE
+REPORT_TIMEZONE = ZoneInfo("Pacific/Auckland")
 
 
 def one_line(value, limit=None):
@@ -19,15 +20,15 @@ def one_line(value, limit=None):
 
 
 def submitted_time(value):
-    """Display the business timezone without changing the chosen Report Date."""
+    """Display New Zealand time without changing stored instants or Report Dates."""
     if not value:
         return "Not recorded"
     try:
         instant = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
         if instant.tzinfo is None:
             instant = instant.replace(tzinfo=timezone.utc)
-        local = instant.astimezone(BUSINESS_TIMEZONE)
-        return f"{local:%d %b %Y, %H:%M} {local.tzname()} ({BUSINESS_TIMEZONE.key})"
+        local = instant.astimezone(REPORT_TIMEZONE)
+        return f"{local:%d %b %Y, %H:%M} {local.tzname()} ({REPORT_TIMEZONE.key})"
     except (ValueError, TypeError, OverflowError):
         return one_line(value)
 

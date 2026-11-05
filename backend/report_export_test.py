@@ -217,7 +217,7 @@ def test_current_exports_omit_historical_review_and_preserve_daywork():
     html_text = render_form_submission_page(item)
     pdf_text = " ".join(page.extract_text() or "" for page in PdfReader(BytesIO(build_report_pdf([item]))).pages)
     from app.use_cases.report_presentation import submitted_time
-    assert item["created_at"] in html_text
+    assert submitted_time(item["created_at"]) in html_text
     assert submitted_time(item["created_at"]) in pdf_text
     for content in (html_text, pdf_text):
         assert item["answers"]["discussion"] in content

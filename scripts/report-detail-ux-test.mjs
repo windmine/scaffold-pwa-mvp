@@ -29,7 +29,7 @@ const markup = `<!doctype html><html lang="en-NZ" data-theme="light"><head>
 
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block', timezoneId: 'America/Los_Angeles' });
 context.setDefaultTimeout(7000);
 const errors = [];
 let imageRequests = 0;
@@ -320,6 +320,8 @@ try {
     assert.equal(await summary.textContent(), 'More details');
     assert.doesNotMatch(await metadata.textContent(), /Reviewing supervisor:|Review supervisor|Review started:|Resolved:/);
     assert.match(await metadata.textContent(), /Submitted:/);
+    assert.match(await metadata.textContent(), /7 Oct 2026, 11:00\s*am NZDT/,
+      `${surface}: submission time stays in New Zealand even on a Los Angeles device`);
     assert.equal((await container.innerText()).includes('Submitted:'), false,
       'The former always-visible timestamp assertion must fail while More details is closed');
     assert.doesNotMatch(await container.innerText(), /Review supervisor|Review started:/);

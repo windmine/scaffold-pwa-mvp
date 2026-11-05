@@ -4,7 +4,9 @@
 
 Prepared changes give Report emails a Template/Site/date/number subject, a plain-text
 context summary and a descriptive PDF filename. PDF headers repeat the Report
-identity and show readable submission time in the configured business timezone.
+identity and show readable submission time in New Zealand time (`Pacific/Auckland`).
+App submission/draft/evidence displays and PDF evidence timestamps use NZST/NZDT
+regardless of device timezone; UTC storage and date-only answers stay unchanged.
 Original answers, selected Report Date, frozen email snapshots and recipient
 settings remain unchanged. See [behavior and release requirements](docs/report-pdf-email.md#report-identification-local-changes-not-yet-released).
 

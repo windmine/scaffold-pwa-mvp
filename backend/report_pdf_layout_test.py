@@ -6,6 +6,7 @@ These checks complement, rather than replace, rendered-page visual inspection.
 """
 
 import re
+from copy import deepcopy
 from io import BytesIO
 
 from PIL import Image, ImageDraw
@@ -275,7 +276,7 @@ def test_signatures_remain_inline_with_names_and_repeat_rows():
     assert ("image", (224, 140)) in events
     text = " ".join(page_texts(reader))
     assert "Optional signature" in text
-    assert "Synthetic evidence.png" in text and "2026-09-16T00:00:01Z" in text
+    assert "Synthetic evidence.png" in text and "16 Sep 2026, 12:00 NZST" in text
     assert sorted(loaded) == sorted(assets), loaded
     image_names = {
         (181, 61): "Synthetic lead name",
@@ -409,7 +410,30 @@ def test_markup_is_literal_text_not_pdf_links_or_images():
     print("ok - HTML-looking field content remains literal printable text")
 
 
+def test_new_zealand_times_preserve_source_dates_and_evidence():
+    for instant, expected in [
+        ("2026-09-26T13:59:59Z", "27 Sep 2026, 01:59 NZST"),
+        ("2026-09-26T14:00:00Z", "27 Sep 2026, 03:00 NZDT"),
+        ("2026-04-04T13:59:59Z", "05 Apr 2026, 02:59 NZDT"),
+        ("2026-04-04T14:00:00Z", "05 Apr 2026, 02:00 NZST"),
+    ]:
+        item = report_fixture(created_at=instant,
+            fields=[{"id": "where", "label": "Captured location", "type": "location"},
+                    {"id": "date", "label": "Chosen date", "type": "date"}],
+            answers={"where": {"latitude": -41, "longitude": 174, "accuracy": 10, "captured_at": instant},
+                     "date": "2026-09-16"},
+            photo_urls=["/uploads/synthetic.png"], photo_metadata=[{"taken_at": instant}])
+        original = deepcopy(item)
+        text = " ".join(page_texts(read_pdf([item], image_loader=lambda _: synthetic_image(224, 140, "blue"))))
+        assert text.count(expected) == 3, text
+        assert instant not in text
+        assert "2026-09-16" in text
+        assert item == original, "PDF formatting must not change stored evidence or Report Date"
+    print("ok - PDF submission/photo/location times cross both NZ daylight-saving transitions without altering originals")
+
+
 if __name__ == "__main__":
+    test_new_zealand_times_preserve_source_dates_and_evidence()
     test_empty_collection_and_a4()
     test_metadata_workflow_and_snapshot_footer()
     test_report_context_on_every_photo_page_and_original_answers_retained()

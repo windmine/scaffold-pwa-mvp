@@ -289,6 +289,25 @@ class ReportPdfEmailTests(unittest.TestCase):
         self.assertEqual(submitted_time("2026-06-04T23:35:00Z"), "05 Jun 2026, 11:35 NZST (Pacific/Auckland)")
         self.assertEqual(submitted_time("unparseable"), "unparseable")
 
+    def test_new_zealand_submission_time_at_dst_boundaries(self):
+        cases = [
+            ("2026-09-26T13:59:59Z", "27 Sep 2026, 01:59 NZST (Pacific/Auckland)"),
+            ("2026-09-26T14:00:00Z", "27 Sep 2026, 03:00 NZDT (Pacific/Auckland)"),
+            ("2026-04-04T13:59:59Z", "05 Apr 2026, 02:59 NZDT (Pacific/Auckland)"),
+            ("2026-04-04T14:00:00Z", "05 Apr 2026, 02:00 NZST (Pacific/Auckland)"),
+            ("2026-11-05T12:35:07+13:00", "05 Nov 2026, 12:35 NZDT (Pacific/Auckland)"),
+            ("2026-11-04T23:35:07", "05 Nov 2026, 12:35 NZDT (Pacific/Auckland)"),
+        ]
+        for instant, expected in cases:
+            with self.subTest(instant=instant):
+                item = {"id": 42, "created_at": instant, "work_date": "2026-11-04"}
+                self.assertEqual(submitted_time(instant), expected)
+                subject, body, filename = report_email_content(item)
+                self.assertIn(f"Submitted at: {expected}", body)
+                self.assertEqual(item["created_at"], instant)
+                self.assertIn("Report date: 2026-11-04", body)
+                self.assertIn("2026-11-04", subject + filename)
+
     def test_replay_and_concurrent_dispatch_never_duplicate(self):
         self.settings()
         self.submit()

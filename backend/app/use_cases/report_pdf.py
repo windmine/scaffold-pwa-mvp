@@ -223,7 +223,10 @@ def _answer_rows(fields, answers, styles, image_loader, *, strict=False, photos=
                 if not attached:
                     result.append(_row(label, "No photos attached.", styles))
             elif kind == "location" and isinstance(value, dict) and "latitude" in value and "longitude" in value:
-                result.append(_row(label, text_value(value), styles))
+                displayed = dict(value)
+                if displayed.get("captured_at"):
+                    displayed["captured_at"] = submitted_time(displayed["captured_at"])
+                result.append(_row(label, text_value(displayed), styles))
                 lat, lon = value["latitude"], value["longitude"]
                 if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
                     url = f"https://www.openstreetmap.org/?mlat={lat}&mlon={lon}#map=18/{lat}/{lon}"
@@ -240,7 +243,7 @@ def _answer_rows(fields, answers, styles, image_loader, *, strict=False, photos=
 def _photo_row(index, url, metadata, styles, image_loader, *, strict=False):
     evidence = _image(url, image_loader, 215, strict=strict)
     cell = [evidence] if evidence else [_paragraph("Photo unavailable.", styles["muted"])]
-    caption = photo_caption(1, [metadata]).replace("Photo 1", f"Photo {index}", 1)
+    caption = photo_caption(1, [metadata], format_time=submitted_time).replace("Photo 1", f"Photo {index}", 1)
     cell.extend([Spacer(1, 5), _paragraph(caption, styles["muted"])])
     return _row(f"Photo {index}", cell, styles)
 

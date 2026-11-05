@@ -1,6 +1,6 @@
 import { setTranslatableAttribute, setTranslatableText } from './i18n.js';
 import { createReportPhotoThumbnailCache } from './report-photo-thumbnails.js';
-import { escapeHtml, formatDateTime } from './utils.js';
+import { escapeHtml, formatDateTime, photoTakenLabel } from './utils.js';
 
 let nextPreviewDescriptionId = 0;
 
@@ -345,7 +345,7 @@ export function createPhotoViewer({
         <button class="photo-thumb" type="button" data-photo-index="${index}">
           <img ${index >= 8 ? 'loading="lazy" ' : ''}decoding="async" ${lightweight ? 'hidden' : `src="${escapeHtml(dataUrl)}"`} alt="${escapeHtml(`${alt} ${index + 1}`)}" />
           ${lightweight ? '<span class="photo-thumb-placeholder"></span>' : ''}
-          ${metadata[index]?.takenAtLabel ? `<span class="photo-time">${escapeHtml(metadata[index].takenAtLabel)}</span>` : ''}
+          ${photoTakenLabel(metadata[index]) ? `<span class="photo-time">${escapeHtml(photoTakenLabel(metadata[index]))}</span>` : ''}
           ${metadata[index]?.field_label ? `<span class="photo-field-label">${escapeHtml(metadata[index].field_label)}</span>` : ''}
         </button>
       `)

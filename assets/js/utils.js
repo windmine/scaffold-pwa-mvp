@@ -60,9 +60,11 @@ export function dateInputValue(value) {
 export function formatDateTime(value) {
   if (!value) return '-';
   const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
   return new Intl.DateTimeFormat('en-NZ', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
+    timeZone: 'Pacific/Auckland',
+    day: 'numeric', month: 'short', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
   }).format(date);
 }
 
@@ -78,10 +80,12 @@ export function formatPhotoTakenLabel(file) {
   const date = new Date(file.lastModified);
   if (Number.isNaN(date.getTime())) return '';
 
-  return new Intl.DateTimeFormat('en-NZ', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(date);
+  return formatDateTime(date);
+}
+
+export function photoTakenLabel(metadata) {
+  const instant = metadata?.taken_at || metadata?.last_modified_iso || metadata?.last_modified;
+  return instant ? formatDateTime(instant) : (metadata?.takenAtLabel || '');
 }
 
 export function photoMetadataFromFile(file) {

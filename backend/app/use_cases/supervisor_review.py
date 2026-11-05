@@ -65,6 +65,7 @@ from app.use_cases.supervisor_review_exports import (
 )
 from app.use_cases.review_queue import list_review_records, normalize_review_search
 from app.use_cases.report_pdf import build_report_pdf
+from app.use_cases.report_presentation import submitted_time
 from app.use_cases.review_record_adapters import REVIEW_RECORD_ADAPTERS
 from app.use_cases.review_record_policy import apply_review_decision, enforce_review_status_unchanged
 from app.use_cases.team_work_logs import prepare_team_work_log_entries
@@ -515,7 +516,7 @@ def render_form_submission_page(item):
             ("Site", item["site_name"] or "Unassigned site"),
             (date_label, item["work_date"] or "-"),
             ("Status", displayed_status),
-            ("Submitted", item["created_at"]),
+            ("Submitted", submitted_time(item["created_at"]) if is_report else item["created_at"]),
             (record_label, f"#{item['id']}"),
         ]),
         f"<section><h2>{answer_heading}</h2>",
@@ -1322,7 +1323,7 @@ def pdf_form_submission_flowables(item, styles, template):
             ("Site", item["site_name"] or "Unassigned site"),
             ("Work date" if is_daywork else "Report Date", item["work_date"] or "-"),
             ("Status", displayed_status),
-            ("Submitted", item["created_at"]),
+            ("Submitted", submitted_time(item["created_at"]) if is_report else item["created_at"]),
             ("Submission" if is_daywork else "Report", f"#{item['id']}"),
             ("Form" if is_daywork else "Report Template", item["form_name"] or f"Report {item['id']}"),
         ], styles),

@@ -1,4 +1,4 @@
-import { escapeHtml } from './utils.js';
+import { escapeHtml, formatDateTime } from './utils.js';
 
 export function photoFieldLabel(field, fields) {
   const index = fields.findIndex((item) => item.id === field.id);
@@ -8,7 +8,7 @@ export function photoFieldLabel(field, fields) {
 
 export function locationText(value) {
   if (!value || typeof value !== 'object') return '';
-  return `${value.latitude}, ${value.longitude} (accuracy ${value.accuracy} m; captured ${value.captured_at})`;
+  return `${value.latitude}, ${value.longitude} (accuracy ${value.accuracy} m; captured ${formatDateTime(value.captured_at)})`;
 }
 
 export function locationMapUrl(value) {

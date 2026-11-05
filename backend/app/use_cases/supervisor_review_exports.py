@@ -259,7 +259,7 @@ def render_meta_grid(items):
     return "<section class=\"meta-grid\">" + "".join(cells) + "</section>"
 
 
-def photo_caption(index, metadata):
+def photo_caption(index, metadata, *, format_time=str):
     item = metadata[index - 1] if index - 1 < len(metadata or []) else {}
     taken_at = item.get("taken_at") or item.get("last_modified_iso") if isinstance(item, dict) else ""
     name = item.get("name") if isinstance(item, dict) else ""
@@ -267,7 +267,7 @@ def photo_caption(index, metadata):
     if isinstance(item, dict) and item.get("field_label"):
         parts.append(item["field_label"])
     if taken_at:
-        parts.append(f"Taken {taken_at}")
+        parts.append(f"Taken {format_time(taken_at)}")
     if name:
         parts.append(name)
     return " | ".join(parts)

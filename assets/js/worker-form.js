@@ -58,6 +58,8 @@ function savedTimeLabel(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat(document.documentElement.lang || undefined, {
+    timeZone: 'Pacific/Auckland',
+    timeZoneName: 'short',
     hour: 'numeric',
     minute: '2-digit'
   }).format(date);
