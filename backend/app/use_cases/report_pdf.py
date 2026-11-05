@@ -19,6 +19,7 @@ from reportlab.platypus import (
 
 from app.use_cases.report_pdf_branding import report_department_branding
 from app.use_cases.report_pdf_fonts import chinese_pdf_font
+from app.use_cases.report_presentation import one_line, report_context, submitted_time
 from app.use_cases.supervisor_review_exports import (
     h, image_bytes_from_value, label_from_id, photo_caption, text_value,
 )
@@ -53,6 +54,9 @@ def _styles():
         "title": ParagraphStyle(
             "report-title", parent=body, fontName="Helvetica-Bold", fontSize=15,
             leading=18, textColor=BLUE,
+        ),
+        "context": ParagraphStyle(
+            "report-context", parent=body, fontSize=10, leading=13, textColor=BLUE,
         ),
         "muted": ParagraphStyle(
             "report-muted", parent=body, fontSize=8, leading=10,
@@ -241,16 +245,19 @@ def _photo_row(index, url, metadata, styles, image_loader, *, strict=False):
     return _row(f"Photo {index}", cell, styles)
 
 
-def _report_story(item, styles, image_loader, *, strict=False):
+def _report_story(item, styles, image_loader, *, strict=False, submitted_snapshot=False):
     story = []
+    if submitted_snapshot:
+        story.append(_paragraph("Submitted version - captured at submission; later corrections are not included.", styles["muted"]))
     if item.get("form_description"):
         story.append(_paragraph(item["form_description"], styles["muted"]))
     story.append(_paragraph("Report details", styles["section"]))
     for label, value in (
+        ("Report type", item.get("form_name") or "Report"),
         ("Report Date", item.get("work_date") or "-"),
         ("Site", item.get("site_name") or "Unassigned site"),
-        ("Worker", item.get("worker_name")),
-        ("Submitted", item.get("created_at")),
+        ("Submitted by", item.get("worker_name") or item.get("worker_email")),
+        ("Submitted at", submitted_time(item.get("created_at"))),
     ):
         story.append(_row(label, value, styles))
 
@@ -307,7 +314,8 @@ def _page_template(index, item, styles):
     brand = _paragraph(department, styles["muted"])
     _, brand_height = brand.wrap(210, PAGE_HEIGHT)
     submitter = _paragraph(
-        f"Submitted By: {item.get('worker_email') or item.get('worker_name') or '-'}\n"
+        f"Submitted By: {item.get('worker_name') or item.get('worker_email') or '-'}\n"
+        f"{item.get('worker_email') or ''}\n"
         f"Report #{item.get('id', '-')}", styles["submitter"],
     )
     _, submitter_height = submitter.wrap(CONTENT_WIDTH - 175, PAGE_HEIGHT)
@@ -316,7 +324,16 @@ def _page_template(index, item, styles):
     # A bounded repeated header leaves room even for unusually long Template names.
     header_title = title if title_height <= 72 else _paragraph("Report Template (see below)", styles["title"])
     _, header_height = header_title.wrap(CONTENT_WIDTH, PAGE_HEIGHT)
-    body_top = PAGE_HEIGHT - 106 - header_height - 8
+    context_lines = []
+    qa = dict(report_context(item)).get("QA")
+    if qa:
+        context_lines.append(f"QA: {one_line(qa, 150)}")
+    if item:
+        context_lines.append(f"Site: {one_line(item.get('site_name'), 130) or 'Unassigned site'}")
+        context_lines.append(f"Report date: {one_line(item.get('work_date'), 32) or '-'}  |  Report #{one_line(item.get('id'), 32) or '-'}")
+    context = _paragraph("\n".join(context_lines), styles["context"])
+    _, context_height = context.wrap(CONTENT_WIDTH, PAGE_HEIGHT) if context_lines else (0, 0)
+    body_top = PAGE_HEIGHT - 106 - header_height - context_height - 16
 
     def header(canvas, document):
         canvas.saveState()
@@ -338,6 +355,8 @@ def _page_template(index, item, styles):
             _, summary_height = summary.wrap(CONTENT_WIDTH - 175, PAGE_HEIGHT)
             summary.drawOn(canvas, MARGIN + 175, PAGE_HEIGHT - 27 - summary_height)
         header_title.drawOn(canvas, MARGIN, PAGE_HEIGHT - 106 - header_height)
+        if context_lines:
+            context.drawOn(canvas, MARGIN, PAGE_HEIGHT - 110 - header_height - context_height)
         if item:
             canvas.setFont("Helvetica", 8)
             canvas.setFillColor(INK)
@@ -354,11 +373,11 @@ def _page_template(index, item, styles):
     if brand_height > 20:
         overflow.append(_row("Department", department, styles))
     if submitter_height > 66:
-        overflow.append(_row("Submitted By", item.get("worker_email") or item.get("worker_name"), styles))
+        overflow.append(_row("Submitter email", item.get("worker_email"), styles))
     return template, overflow
 
 
-def build_report_pdf(items, image_loader=image_bytes_from_value, *, strict_evidence=False):
+def build_report_pdf(items, image_loader=image_bytes_from_value, *, strict_evidence=False, submitted_snapshot=False):
     """Return PDF bytes for authorized Reports, each starting on its own page."""
     buffer = BytesIO()
     styles = _styles()
@@ -375,7 +394,7 @@ def build_report_pdf(items, image_loader=image_bytes_from_value, *, strict_evide
             story.extend([NextPageTemplate(template.id), PageBreak()])
         story.extend(overflow)
         if item:
-            story.extend(_report_story(item, styles, image_loader, strict=strict_evidence))
+            story.extend(_report_story(item, styles, image_loader, strict=strict_evidence, submitted_snapshot=submitted_snapshot))
         else:
             story.append(_paragraph("No Reports found", styles["section"]))
     document.build(story, canvasmaker=_NumberedCanvas)

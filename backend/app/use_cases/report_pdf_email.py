@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 from app import email_transport
 from app.models import ReportPdfEmail, User, WorkForm, WorkFormSubmission
 from app.use_cases.audit import add_audit_event
+from app.use_cases.report_presentation import report_email_content
 from app.use_cases.common import (
     can_access_department, format_datetime, require_confirmed,
     work_form_response, work_form_submission_response, validate_owned_upload_references,
@@ -141,9 +142,9 @@ def dispatch_one(engine, outbox_id):
             if not row or row.message_id != claimed_message_id or row.status != "uncertain":
                 raise ValueError("Claim no longer exists")
             item = _snapshot_for_delivery(row, session)
-            recipient, message_id, submission_id = row.recipient, row.message_id, row.submission_id
+            recipient, message_id = row.recipient, row.message_id
         from app.use_cases.report_pdf import build_report_pdf
-        pdf = build_report_pdf([item], strict_evidence=True)
+        pdf = build_report_pdf([item], strict_evidence=True, submitted_snapshot=True)
         if len(pdf) > email_transport.MAX_PDF_ATTACHMENT_BYTES:
             code = "pdf_too_large"
         else:
@@ -153,10 +154,10 @@ def dispatch_one(engine, outbox_id):
                 if not row or row.message_id != claimed_message_id or row.status != "uncertain":
                     raise ValueError("Claim no longer exists")
                 _snapshot_for_delivery(row, session)
+            subject, body, filename = report_email_content(item)
             code = "smtp_failed"
-            email_transport.send_email(recipient, f"ReportFlow submitted Report #{submission_id}",
-                f"Report #{submission_id} was successfully submitted. Its submitted PDF, including attached photos and signatures, is attached.\n",
-                pdf_attachment=pdf, filename=f"report-{submission_id}.pdf", message_id=message_id)
+            email_transport.send_email(recipient, subject, body,
+                pdf_attachment=pdf, filename=filename, message_id=message_id)
             status, code = "accepted", None
     except email_transport.EmailSendError as error:
         status = "uncertain" if error.outcome == "unknown" else "failed"

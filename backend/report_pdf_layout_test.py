@@ -134,7 +134,7 @@ def test_metadata_workflow_and_snapshot_footer():
     text = " ".join(page_texts(reader))
     for value in (
         "Mutual", item["form_name"], item["worker_name"], item["worker_email"],
-        item["site_name"], str(item["id"]), item["created_at"], item["answers"]["discussion"],
+        item["site_name"], str(item["id"]), "16 Sep 2026, 12:01 NZST (Pacific/Auckland)", item["answers"]["discussion"],
     ):
         assert value.casefold() in text.casefold(), (value, text)
     for value in ("pending", "resolved", "Report review", "Review started", item["reviewing_supervisor_name"],
@@ -146,6 +146,30 @@ def test_metadata_workflow_and_snapshot_footer():
         assert "Issue Date Feb2022" not in page
     assert_page_numbers(reader)
     print("ok - Report metadata and actual Definition/date footer survive export without historical review details")
+
+
+def test_report_context_on_every_photo_page_and_original_answers_retained():
+    item = report_fixture(
+        form_name="QA Form", site_name="Example North Site", work_date="2026-11-04",
+        created_at="2026-11-04T23:35:07Z", worker_name="Example Author",
+        fields=[{"id": "qa", "label": "QA", "type": "text"},
+                {"id": "date", "label": "Inspection date", "type": "date"},
+                {"id": "notes", "label": "Details", "type": "textarea"}],
+        answers={"qa": "Ceiling framing", "date": "2026-11-03", "notes": "\n".join(f"DETAIL-{i}" for i in range(100))},
+        photo_urls=["synthetic-photo"] * 3,
+    )
+    reader = read_pdf([item], image_loader=lambda _: synthetic_image(200, 100, "navy"))
+    assert len(reader.pages) >= 3
+    for page in page_texts(reader):
+        for value in ("QA Form", "QA: Ceiling framing", "Site: Example North Site", "Example Author", "Report #4101"):
+            assert value in page, value
+    text = " ".join(page_texts(reader))
+    assert "05 Nov 2026, 12:35 NZDT (Pacific/Auckland)" in text
+    assert "2026-11-04" in text and "2026-11-03" in text
+    assert "DETAIL-99" in text
+    assert "Submitted version" not in text, "Current downloads must not claim to be frozen email snapshots"
+    assert_page_numbers(reader)
+    print("ok - report type, QA, site and author repeat on continuation/photo pages; dates and full answers remain distinct")
 
 
 def test_collection_headers_follow_each_report_on_continuations():
@@ -388,6 +412,7 @@ def test_markup_is_literal_text_not_pdf_links_or_images():
 if __name__ == "__main__":
     test_empty_collection_and_a4()
     test_metadata_workflow_and_snapshot_footer()
+    test_report_context_on_every_photo_page_and_original_answers_retained()
     test_collection_headers_follow_each_report_on_continuations()
     test_long_answers_labels_and_review_notes_split_without_loss()
     test_signatures_remain_inline_with_names_and_repeat_rows()

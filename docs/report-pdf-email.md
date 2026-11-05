@@ -1,5 +1,26 @@
 # Optional Report PDF email
 
+## Report identification (local changes, not yet released)
+
+Submission email subjects identify the Template, Site, saved Report Date and
+Report number. The plain-text body adds the submitter, Department and submission
+time in the configured `BUSINESS_TIMEZONE`, plus unambiguous top-level text fields
+labelled QA, Client, Location or Drawing Ref when present. Arbitrary answers,
+signatures and image URLs are not promoted into email metadata. Long summaries
+are shortened; complete answers remain in the PDF. Attachment names include the
+Template, Site, Report Date and Report number using bounded safe filename parts.
+
+PDF pages repeat the Template, Site, Report Date, Report number and submitter;
+forms with a QA text field also show that task below the title. Submission time
+is readable local time with an explicit timezone. The chosen Report Date and any
+separate form Date answer remain distinct and unchanged. Email attachments are
+labelled as the submitted version; ordinary downloads show current report content.
+
+All email context comes from the existing frozen outbox snapshot. No backfill,
+resend, routing changes, new recipient, schema or SMTP behavior change is included.
+A future approved release needs both the backend renderer and scheduled PDF
+worker updated. Hosting, IAM, secrets and database schema need no change.
+
 Deployed 2026-10-21 UTC. Supervisor Submit form and optional per-template PDF email are live from `80b4ea01a041a84bdcc0483f8e3d41a34d55f117`: backend `geo-backend-report-pdf-20261021` serves 100% without tags; Hosting `12a1d6dbf481ba3b` uses cache `leader-field-c878ffd1be3c`. Additive `0024_report_pdf_email` and the compatible backend preceded Hosting. Existing business rows and all prior migration checksums are preserved. Supervisors submit as themselves within their home Department. Every production Template remains off and the outbox is empty; no real Reports or emails were created by this release. The five-minute worker uses one task, batch 10, zero retries, the existing backend runtime and SMTP secret version 1. Only the standard Google Scheduler service-agent project role and the dedicated trigger's job-only invocation were added. Existing service/secret permissions and SMTP settings are preserved; public registration and web-process dispatch remain disabled. [Release evidence](evidence/report-submit-pdf-release-20261021/release.json).
 
 ## Historical local preparation

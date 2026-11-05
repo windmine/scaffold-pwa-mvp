@@ -1,5 +1,13 @@
 # ReportFlow
 
+## Local Report email/PDF clarity update (not deployed)
+
+Prepared changes give Report emails a Template/Site/date/number subject, a plain-text
+context summary and a descriptive PDF filename. PDF headers repeat the Report
+identity and show readable submission time in the configured business timezone.
+Original answers, selected Report Date, frozen email snapshots and recipient
+settings remain unchanged. See [behavior and release requirements](docs/report-pdf-email.md#report-identification-local-changes-not-yet-released).
+
 ## Install page and invitation guide release (2026-11-04 UTC)
 
 Source `6312d80ae6bd25c4e77dd44016dfd2a9543ab3ff` is live as backend `geo-backend-install-guide-20261104` at 100% without tags and exact Hosting `597565dc788f617e`, cache `leader-field-db14bb60cfe9`. The public Install ReportFlow action stays visible, offers the native prompt when available, and otherwise shows browser/device instructions. Continue in browser and iOS support remain. Invitation emails and their public Getting Started PDF now link/QR to `https://geo-attendance-system-db9ca.web.app/install.html`; private activation links remain separate. Browser confirmation is still required.

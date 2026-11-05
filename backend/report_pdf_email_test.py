@@ -31,6 +31,7 @@ from app import email_transport, upload_storage
 from app.models import Department, ReportPdfEmail, User, WorkForm, WorkFormSubmission
 from app.schemas import WorkFormEmailSettings, WorkFormSubmissionCreate
 from app.use_cases import report_pdf_email as delivery
+from app.use_cases.report_presentation import report_email_content, submitted_time
 from app.use_cases.common import review_record_response
 from app.use_cases.record_trash import purge_expired_deleted_records
 from app.use_cases.work_forms import create_work_form_submission, list_work_forms
@@ -183,13 +184,21 @@ class ReportPdfEmailTests(unittest.TestCase):
         self.assertEqual(message["To"], "reports@example.invalid")
         self.assertEqual(message["From"], "sender@example.invalid")
         self.assertEqual(message["Message-ID"], self.row().message_id)
+        self.assertIn("Submitted inspection", str(message["Subject"]))
+        self.assertIn("2026-10-21", str(message["Subject"]))
+        self.assertIn("Submitted by: Submitted Worker", message.get_body().get_content())
+        for changed in ("Later template name", "Later worker name", "Later review note"):
+            self.assertNotIn(changed, str(message["Subject"]) + message.get_body().get_content())
         attachments = list(message.iter_attachments())
         self.assertEqual(len(attachments), 1)
         self.assertEqual(attachments[0].get_content_type(), "application/pdf")
+        self.assertTrue(attachments[0].get_filename().startswith("ReportFlow-Submitted-inspection-"))
+        self.assertIn(f"-report-{submission['id']}.pdf", attachments[0].get_filename())
         pdf = attachments[0].get_payload(decode=True)
         document = PdfReader(BytesIO(pdf))
         content = "\n".join(page.extract_text() for page in document.pages)
         self.assertIn("Submitted Worker", content)
+        self.assertIn("Submitted version", content)
         self.assertIn("安全护栏", content)
         self.assertNotIn("Later", content)
         dimensions = []
@@ -209,6 +218,76 @@ class ReportPdfEmailTests(unittest.TestCase):
         target = Path(__file__).resolve().parents[1] / "output/report-pdf-email.local"
         target.mkdir(parents=True, exist_ok=True)
         (target / "submitted-report.pdf").write_bytes(pdf)
+
+    def test_qa_context_uses_frozen_metadata_and_preserves_mime_privacy(self):
+        from email import policy
+        from email.parser import BytesParser
+        self.form.name = "QA Form"
+        self.form.fields_json = json.dumps([
+            {"id": "qa", "type": "text", "label": "QA"},
+            {"id": "client", "type": "text", "label": "Client:"},
+            {"id": "place", "type": "text", "label": "Location"},
+            {"id": "ref", "type": "text", "label": "Drawing Ref"},
+        ])
+        self.session.add(self.form)
+        self.session.commit()
+        self.settings()
+        submitted = self.submit(manual_site_name="Example North Site", answers={
+            "qa": "Ceiling framing", "client": "Example Client", "place": "Training bay",
+            "ref": "TEST-A01",
+        })
+        snapshot = self.row().snapshot_json
+        self.form.name = "Renamed template"
+        self.worker.name = "Renamed worker"
+        record = self.session.get(WorkFormSubmission, submitted["id"])
+        record.manual_site_name = "Corrected site"
+        record.answers_json = json.dumps({"qa": "Corrected later"})
+        self.session.add_all([self.form, self.worker, record])
+        self.session.commit()
+        self.assertEqual(delivery.dispatch_pending(self.engine)["accepted"], 1)
+        message = BytesParser(policy=policy.default).parsebytes(self.client.send_message.call_args.args[0].as_bytes())
+        self.assertEqual(str(message["Subject"]), f"ReportFlow: QA Form | Example North Site | 2026-10-21 | #{submitted['id']}")
+        body = message.get_body(preferencelist=("plain",)).get_content()
+        for value in ("Report type: QA Form", "QA: Ceiling framing", "Client: Example Client", "Location: Training bay",
+                      "Drawing Ref: TEST-A01", "Submitted by: Submitted Worker", "Pacific/Auckland", "Later corrections"):
+            self.assertIn(value, body)
+        self.assertNotIn("Corrected", body)
+        self.assertNotIn("Renamed", body)
+        self.assertIsNone(message["Cc"])
+        self.assertIsNone(message["Bcc"])
+        self.assertEqual(self.client.send_message.call_args.kwargs["to_addrs"], ["reports@example.invalid"])
+        attachment = list(message.iter_attachments())[0]
+        self.assertEqual(attachment.get_filename(), f"ReportFlow-QA-Form-Example-North-Site-2026-10-21-report-{submitted['id']}.pdf")
+        self.assertEqual(self.row().snapshot_json, snapshot)
+        pdf = PdfReader(BytesIO(attachment.get_payload(decode=True)))
+        text = "\n".join(page.extract_text() for page in pdf.pages)
+        self.assertIn("QA: Ceiling framing", text)
+        self.assertNotIn("Corrected", text)
+        self.assertEqual(delivery.dispatch_pending(self.engine)["accepted"], 0)
+        self.client.send_message.assert_called_once()
+
+    def test_bounded_safe_subject_filename_and_only_explicit_context(self):
+        item = {"id": 42, "form_name": "检查/QA\r\nBcc: injected@example.invalid" * 10,
+                "site_name": "../../North\\Site\x00" * 20, "work_date": "2026-11-04", "created_at": None,
+                "fields": [{"id": "incident", "label": "Incident details", "type": "textarea"},
+                           {"id": "sig", "label": "QA", "type": "signature"},
+                           {"id": "a", "label": "Client", "type": "text"},
+                           {"id": "b", "label": "Client", "type": "text"},
+                           {"id": "r", "label": "Location", "type": "text", "repeat": "people"}],
+                "answers": {"incident": "PRIVATE INCIDENT DETAILS", "sig": "/uploads/private.png",
+                            "a": "AMBIGUOUS A", "b": "AMBIGUOUS B", "r": "REPEATED LOCATION"}}
+        subject, body, filename = report_email_content(item)
+        self.assertLess(len(subject), 210)
+        self.assertFalse(any(char in subject + filename for char in "\r\n\x00"))
+        self.assertRegex(filename, r"^[A-Za-z0-9-]+\.pdf$")
+        self.assertLess(len(filename), 170)
+        for value in ("PRIVATE INCIDENT", "/uploads/", "AMBIGUOUS", "REPEATED LOCATION"):
+            self.assertNotIn(value, subject + body)
+        self.assertIn("Submitted at: Not recorded", body)
+        self.assertIn("No site specified", report_email_content({})[0])
+        self.assertEqual(submitted_time("2026-11-04T23:35:07.766075Z"), "05 Nov 2026, 12:35 NZDT (Pacific/Auckland)")
+        self.assertEqual(submitted_time("2026-06-04T23:35:00Z"), "05 Jun 2026, 11:35 NZST (Pacific/Auckland)")
+        self.assertEqual(submitted_time("unparseable"), "unparseable")
 
     def test_replay_and_concurrent_dispatch_never_duplicate(self):
         self.settings()
