@@ -118,13 +118,24 @@ class SupervisorReportTests(unittest.TestCase):
         self.assertEqual(len(self.request(path="/my-form-submissions",method="GET",query="purpose=report")[1]),1)
         self.assertEqual(self.request(actor=1,path="/my-form-submissions",method="GET",query="purpose=report")[1],[])
 
+    def test_disabled_template_still_queues_supervisor_account_copy(self):
+        self.assertEqual(self.request()[0], 200)
+        with Session(self.engine) as session:
+            rows = session.exec(select(ReportPdfEmail)).all()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0].recipient, "supervisor@example.invalid")
+            self.assertEqual(rows[0].recipient_role, "submitter")
+        self.smtp.assert_not_called()
+
     def test_optional_pdf_outbox_once_without_sending(self):
         with Session(self.engine) as session:
             form=session.get(WorkForm,1);form.pdf_email_enabled=True;form.pdf_email_recipient="reports@example.invalid";session.add(form);session.commit()
         self.assertEqual(self.request()[0],200);self.assertEqual(self.request()[0],200)
         with Session(self.engine) as session:
-            rows=session.exec(select(ReportPdfEmail)).all();self.assertEqual(len(rows),1)
-            self.assertEqual(rows[0].status,"pending");self.assertEqual(json.loads(rows[0].snapshot_json)["worker_id"],2)
+            rows=session.exec(select(ReportPdfEmail)).all();self.assertEqual(len(rows),2)
+            self.assertEqual({row.recipient for row in rows}, {"supervisor@example.invalid", "reports@example.invalid"})
+            for row in rows:
+                self.assertEqual(row.status,"pending");self.assertEqual(json.loads(row.snapshot_json)["worker_id"],2)
         self.smtp.assert_not_called()
 
     def test_transfer_cannot_replay_or_read_prior_department_report(self):

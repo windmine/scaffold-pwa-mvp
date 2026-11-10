@@ -13,7 +13,8 @@ const clientId = 'failed-report-original-idempotency-key';
 const worker = { id: 73, department_id: 2, department_name: 'Mutual', role: 'worker',
   worker_class: 'normal', name: 'Recovery Worker', email: 'recovery@example.invalid', status: 'active' };
 const template = { id: 81, department_id: 2, name: 'Upload recovery inspection', status: 'active',
-  template_purpose: 'report', definition_version: 1, fields: [
+  template_purpose: 'report', definition_version: 1,
+  pdf_email_options: { source: 'department_users', max_selected_recipients: 20, default_recipient_unavailable: false, recipient_users: [{ user_id: 107, email: 'saved@example.invalid' }], version: 3, enabled: true, recipients: ['saved@example.invalid'], default_recipients: [] }, fields: [
     { id: 'notes', label: 'Notes', type: 'textarea', required: true },
     { id: 'checked', label: 'Area checked', type: 'checkbox' },
     { id: 'signature', label: 'Worker signature', type: 'signature', required: true },
@@ -43,7 +44,7 @@ function installBoundaries() {
   IDBObjectStore.prototype.get = function (key) {
     const request = nativeGet.call(this, key);
     if (window.holdRecoveryDraftRead && this.name === 'drafts' && String(key).startsWith('work-form-recovery:')
-      && this.transaction.mode === 'readonly' && this.transaction.db.name === 'scaffold-pwa-report-recovery-v1') {
+      && this.transaction.mode === 'readonly' && this.transaction.db.name === 'scaffold-pwa-report-recipients-v1') {
       window.recoveryDraftReadReached = true;
       const keepAlive = () => {
         const tick = nativeGet.call(this, key);
@@ -164,6 +165,7 @@ async function fixture(browser, { existingDraft = false, legacyPhotos = false, e
       ownerWorkerId: worker.id, userId: worker.id, userName: worker.name, departmentId: worker.department_id,
       formId: template.id, formName: template.name, definitionVersion: template.definition_version, fields: template.fields,
       workDate: '2026-09-30', siteId: 9, siteName: 'Harbour Site', answers: { ...answers, signature: '/uploads/checkpoint-signature.png' },
+      pdfEmailRecipients: ['saved@example.invalid'], pdfEmailRecipientUsers: [{ user_id: 107, email: 'saved@example.invalid' }], expectedPdfEmailVersion: 3,
       capturedAnswers: answers, photoBlobs: legacyPhotos ? [] : [good, broken, good, good],
       photoDataUrls: legacyPhotos ? [png, 'data:image/png;base64,bm90IGFuIGltYWdl', png, png] : [],
       photoUrls: ['/uploads/checkpoint-photo.png'], photoMetadata: ['First.png', 'Damaged.png', 'Third.png', 'Fourth.png'].map((name, index) => ({
@@ -331,6 +333,9 @@ try {
     assert.equal(saved.recovery.workDate, before.source.workDate);
     assert.equal(Number(saved.recovery.siteId), 9);
     assert.equal(saved.recovery.definitionVersion, 1);
+    assert.deepEqual(saved.recovery.pdfEmailRecipients, ['saved@example.invalid']);
+    assert.deepEqual(saved.recovery.pdfEmailRecipientUsers, [{ user_id: 107, email: 'saved@example.invalid' }]);
+    assert.equal(saved.recovery.expectedPdfEmailVersion, 3);
     assert.deepEqual(saved.recovery.fields, template.fields);
     assert.deepEqual(saved.recovery.photoBlobs, [before.source.photoBlobs[0], before.source.photoBlobs[2], before.source.photoBlobs[3]],
       'All valid original photos survive byte-exactly in original order');
@@ -899,7 +904,7 @@ try {
   });
 
   await check('pre-release recovery copies remain visibly read-only across reload without replay or native evidence changes', async () => {
-    const f = await fixture(browser);
+    const f = await fixture(browser, { extra: { pdfEmailRecipients: undefined, expectedPdfEmailVersion: undefined } });
     const readNativeCopies = async () => f.page.evaluate(async ({ sourceId, recoveryKey }) => {
       const db = await new Promise((resolve, reject) => {
         const request = indexedDB.open('scaffold-pwa-report-evidence-v1', 1);

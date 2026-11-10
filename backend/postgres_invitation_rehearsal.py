@@ -22,7 +22,7 @@ from app.use_cases.worker_invitations import (
 from postgres_review_rehearsal import is_statement, require
 
 
-def overlapping_operations(engine, table, operations, preferred):
+def overlapping_operations(engine, table, operations, preferred, *, claim_statement=None):
     """Prove two public operations contend on independent PostgreSQL sessions."""
     token = object()
     arrivals = threading.Barrier(2, timeout=10)
@@ -32,8 +32,8 @@ def overlapping_operations(engine, table, operations, preferred):
 
     def before_update(connection, _cursor, _statement, _parameters, context, _many):
         info = connection.info
-        if (info.get("owned_race_token") is not token or info.get("owned_race_seen")
-                or not is_statement(context, "update", table)):
+        is_claim = claim_statement(context) if claim_statement else is_statement(context, "update", table)
+        if (info.get("owned_race_token") is not token or info.get("owned_race_seen") or not is_claim):
             return
         info["owned_race_seen"] = True
         context.owned_race_claim = True
@@ -45,7 +45,8 @@ def overlapping_operations(engine, table, operations, preferred):
         if (connection.info.get("owned_race_token") is token
                 and connection.info["owned_race_label"] == preferred
                 and getattr(context, "owned_race_claim", False)):
-            require(cursor.rowcount == 1, "preferred operation did not update exactly one fixture row")
+            require(cursor.rowcount >= 1 if claim_statement else cursor.rowcount == 1,
+                    "preferred operation did not claim its fixture rows")
             winner_updated.set()
             require(release_winner.wait(12), "observer did not release the preferred operation")
 

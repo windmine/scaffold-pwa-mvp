@@ -2,7 +2,7 @@ import { setTranslatableAttribute, setTranslatableText } from './i18n.js';
 import { formatWorkFormAnswer, summarizeWorkFormAnswers } from './work-form-fields.js';
 
 // Display-only: never change the captured answers or create upload requests.
-export function renderReportSubmitReview(container, { form, answers, workDate, siteName, photoCount }) {
+export function renderReportSubmitReview(container, { form, answers, workDate, siteName, photoCount, pdfEmailRecipients, selfEmail }) {
   const document = container.ownerDocument;
   const fragment = document.createDocumentFragment();
   const summary = summarizeWorkFormAnswers(form, answers);
@@ -104,6 +104,10 @@ export function renderReportSubmitReview(container, { form, answers, workDate, s
   else translated(item(metadata, 'Site'), 'No site selected');
   const count = Number(photoCount);
   literal(item(metadata, 'Photos'), Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0);
+  if (Array.isArray(pdfEmailRecipients)) {
+    literal(item(metadata, 'Your PDF copy'), selfEmail || 'Your account email');
+    literal(item(metadata, 'Additional PDF copies'), pdfEmailRecipients.join(', ') || 'None');
+  }
   fragment.append(metadata, translated(element('h4'), 'Answers'));
   if (summary.entries.length) fragment.append(renderAnswers(summary.entries));
   else fragment.append(translated(element('p', 'report-review-empty'), 'No answers required'));

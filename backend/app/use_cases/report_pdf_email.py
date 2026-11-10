@@ -15,6 +15,9 @@ from app import email_transport
 from app.models import ReportPdfEmail, User, WorkForm, WorkFormSubmission
 from app.use_cases.audit import add_audit_event
 from app.use_cases.report_presentation import report_email_content
+from app.use_cases.report_pdf_recipients import (
+    department_recipients, mailbox, recipient_key, resolve_recipients,
+)
 from app.use_cases.common import (
     can_access_department, format_datetime, require_confirmed,
     work_form_response, work_form_submission_response, validate_owned_upload_references,
@@ -30,11 +33,10 @@ def update_email_settings(form_id, data, supervisor, session):
         raise HTTPException(status_code=404, detail="Report Template not found")
     recipient = (data.recipient or "").strip()
     try:
-        if recipient or data.enabled:
-            email_transport.validate_mailbox(recipient)
-            recipient.encode("ascii")
-    except (email_transport.EmailSendError, UnicodeError):
-        raise HTTPException(status_code=400, detail="Enter one valid recipient email address.") from None
+        if recipient:
+            recipient = mailbox(recipient)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Enter valid recipient email addresses.") from None
     # Separate concurrency version: email routing never changes the Definition
     # version used by offline Worker drafts or Supervisor question editors.
     claim = session.execute(update(WorkForm).where(
@@ -45,7 +47,16 @@ def update_email_settings(form_id, data, supervisor, session):
         session.rollback()
         raise HTTPException(status_code=409, detail="Email settings changed. Refresh the Template before saving again.")
     session.refresh(form)
-    before = {"enabled": form.pdf_email_enabled, "recipient": form.pdf_email_recipient, "version": form.pdf_email_version}
+    before = {"enabled": form.pdf_email_enabled, "recipient": form.pdf_email_recipient,
+              "version": form.pdf_email_version}
+    choices = {recipient_key(user["email"]) for user in department_recipients(form, session)}
+    # Retain an obsolete saved default only when deliberately disabling it.
+    # Never silently clear, retarget, or grandfather it into selectable choices.
+    preserved_disabled = not data.enabled and recipient == (form.pdf_email_recipient or "")
+    if ((data.enabled and not recipient)
+            or (recipient and recipient_key(recipient) not in choices and not preserved_disabled)):
+        session.rollback()
+        raise HTTPException(status_code=400, detail="Choose an active, activated user in this Template's Department for the default PDF recipient.")
     if form.pdf_email_enabled != data.enabled or form.pdf_email_recipient != (recipient or None):
         form.pdf_email_version += 1
     form.pdf_email_enabled = data.enabled
@@ -53,40 +64,50 @@ def update_email_settings(form_id, data, supervisor, session):
     session.add(form)
     add_audit_event(session=session, actor=supervisor, action="report_template_email_update",
         entity_type="work_form", entity_id=form.id, before=before,
-        after={"enabled": form.pdf_email_enabled, "recipient": form.pdf_email_recipient, "version": form.pdf_email_version},
+        after={"enabled": form.pdf_email_enabled, "recipient": form.pdf_email_recipient,
+               "version": form.pdf_email_version},
         summary=f"Updated PDF email settings for Report Template #{form.id}")
     session.commit()
     session.refresh(form)
     return work_form_response(form, session, include_email_settings=True)
 
 
-def enqueue_report_pdf(submission, form, session):
-    # Serialize with settings changes so the committed recipient is unambiguous.
+def enqueue_report_pdf(submission, form, session, *, author, selected=None, expected_version=None,
+                       selected_users=None):
+    # Serialize settings changes; account rows are locked during resolution too.
     session.execute(update(WorkForm).where(WorkForm.id == form.id).values(
         pdf_email_version=WorkForm.pdf_email_version,
     ).execution_options(synchronize_session=False))
     session.refresh(form)
-    if not form.pdf_email_enabled or form.template_purpose != "report":
+    if form.template_purpose != "report":
         return
+    recipients = resolve_recipients(form, author, session, selected, expected_version, selected_users)
     item = work_form_submission_response(submission, session)
-    session.add(ReportPdfEmail(
-        submission_id=submission.id, department_id=submission.department_id,
-        recipient=form.pdf_email_recipient or "", template_email_version=form.pdf_email_version,
-        snapshot_json=json.dumps(item, separators=(",", ":"), ensure_ascii=True),
-        message_id=f"<reportflow-{uuid4().hex}@reportflow.invalid>",
-    ))
+    snapshot = json.dumps(item, separators=(",", ":"), ensure_ascii=True)
+    for address, role, valid in recipients:
+        session.add(ReportPdfEmail(
+            submission_id=submission.id, department_id=submission.department_id,
+            recipient=address, recipient_key=recipient_key(address) or f"invalid-account-{author.id}", recipient_role=role,
+            template_email_version=form.pdf_email_version, snapshot_json=snapshot,
+            status="pending" if valid else "failed", failure_code=None if valid else "invalid_recipient",
+            message_id=f"<reportflow-{uuid4().hex}@reportflow.invalid>",
+        ))
 
 
 def email_status(submission_id, session):
-    row = session.exec(select(ReportPdfEmail).where(ReportPdfEmail.submission_id == submission_id)).first()
-    if not row:
+    rows = session.exec(select(ReportPdfEmail).where(ReportPdfEmail.submission_id == submission_id)
+                        .order_by(ReportPdfEmail.id)).all()
+    if not rows:
         return None
-    # Only the Department-scoped Supervisor review serializer uses this.
-    # The saved recipient lets a Supervisor check an uncertain attempt even if
-    # the Template's current recipient has since changed. Workers get neither.
-    return {"status": row.status, "recipient": row.recipient, "failure_code": row.failure_code,
-            "attempted_at": format_datetime(row.attempted_at) if row.attempted_at else None,
-            "accepted_at": format_datetime(row.accepted_at) if row.accepted_at else None}
+    # Only the Department-scoped Supervisor serializer includes destinations.
+    deliveries = [{"status": row.status, "recipient": row.recipient, "recipient_role": row.recipient_role,
+                   "failure_code": row.failure_code,
+                   "attempted_at": format_datetime(row.attempted_at) if row.attempted_at else None,
+                   "accepted_at": format_datetime(row.accepted_at) if row.accepted_at else None} for row in rows]
+    statuses = {row.status for row in rows}
+    status = ("uncertain" if "uncertain" in statuses else "pending" if "pending" in statuses
+              else "partial" if len(statuses) > 1 else rows[0].status)
+    return {**deliveries[0], "status": status, "count": len(rows), "deliveries": deliveries}
 
 
 def _snapshot_for_delivery(row, session):

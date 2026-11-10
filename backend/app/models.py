@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import CheckConstraint, Column, Text
+from sqlalchemy import CheckConstraint, Column, Index, Text
 from sqlmodel import SQLModel, Field
 
 
@@ -261,16 +261,26 @@ class WorkFormSubmission(SQLModel, table=True):
 
 
 class ReportPdfEmail(SQLModel, table=True):
-    """One durable attempt per newly submitted Report; never a retroactive queue."""
-    __table_args__ = (CheckConstraint(
-        "status IN ('pending', 'accepted', 'failed', 'uncertain')",
-        name="ck_reportpdfemail_status",
-    ),)
+    """One durable attempt per Report and normalized recipient; never a retroactive queue."""
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'failed', 'uncertain')",
+            name="ck_reportpdfemail_status",
+        ),
+        CheckConstraint(
+            "recipient_role IN ('template', 'submitter', 'selected')",
+            name="ck_reportpdfemail_recipient_role",
+        ),
+        CheckConstraint("LENGTH(TRIM(recipient_key)) > 0", name="ck_reportpdfemail_recipient_key"),
+        Index("ux_reportpdfemail_submission_recipient", "submission_id", "recipient_key", unique=True),
+    )
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    submission_id: int = Field(unique=True, index=True)
+    submission_id: int = Field(index=True)
     department_id: int = Field(index=True)
     recipient: str
+    recipient_key: str
+    recipient_role: str = Field(default="template")
     template_email_version: int
     snapshot_json: str = Field(sa_column=Column(Text, nullable=False))
     status: str = Field(default="pending", index=True)

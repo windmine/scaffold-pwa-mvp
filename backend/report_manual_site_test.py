@@ -114,12 +114,12 @@ class ManualSiteTests(unittest.TestCase):
                     connection.execute(text("INSERT INTO workformsubmission (id,form_id,worker_id,work_date,answers_json,created_at) VALUES (91,91,1,'2026-10-26','{}','2026-10-26')"))
                     before = tuple(connection.execute(text('SELECT * FROM workformsubmission')).one())
                     ledger = connection.execute(text('SELECT * FROM schema_migrations ORDER BY version')).all()
-                self.assertEqual(run_migrations(engine), ['0027_report_manual_site'])
+                self.assertEqual(run_migrations(engine), ['0027_report_manual_site', '0028_report_pdf_recipients'])
                 self.assertEqual(run_migrations(engine), [])
                 with engine.connect() as connection:
                     after = tuple(connection.execute(text('SELECT * FROM workformsubmission')).one())
                     self.assertEqual(after[:-1], before); self.assertIsNone(after[-1])
-                    self.assertEqual(connection.execute(text('SELECT * FROM schema_migrations ORDER BY version')).all()[:-1], ledger)
+                    self.assertEqual(connection.execute(text('SELECT * FROM schema_migrations ORDER BY version')).all()[:-2], ledger)
                 for query in ("UPDATE workformsubmission SET manual_site_name='Unversioned' WHERE id=91",
                     "INSERT INTO workformsubmission (form_id,worker_id,site_id,manual_site_name,answers_json,created_at) VALUES (91,1,3,'Both','{}','2026-10-26')"):
                     with self.assertRaises(IntegrityError), engine.begin() as connection: connection.execute(text(query))

@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from app.migrations import MIGRATIONS_DIR, MigrationError, run_migrations, verify_migrations
 
 
-RELEASE_HEAD = "0027_report_manual_site"
+RELEASE_HEAD = "0028_report_pdf_recipients"
 REPORT_FIELDS = [
     {"id": "issue", "label": "Issue", "type": "text"},
     {"id": "worker_signature", "label": "Signature", "type": "signature"},
@@ -84,7 +84,7 @@ def reject_statement(engine, label, statement, parameters=None, sqlstate="23514"
 
 def manifest_versions():
     versions = sorted(path.stem for path in MIGRATIONS_DIR.glob("*.py") if path.name != "__init__.py")
-    require(len(versions) == 27 and versions[-1] == RELEASE_HEAD, "Update rehearsal expectations for a changed migration manifest")
+    require(len(versions) == 28 and versions[-1] == RELEASE_HEAD, "Update rehearsal expectations for a changed migration manifest")
     return versions
 
 
@@ -390,8 +390,8 @@ def check_manual_site_upgrade(database, report):
                 (id,form_id,worker_id,answers_json,created_at) VALUES (91,91,1,'{}',CURRENT_TIMESTAMP)"""))
         original = rows(engine, "SELECT * FROM workformsubmission")
         prior_ledger = ledger(engine)
-        require(run_migrations(engine) == [RELEASE_HEAD], "Manual Site upgrade must be additive")
-        require(ledger(engine)[:-1] == prior_ledger, "Manual Site upgrade changed prior migration checksums")
+        require(run_migrations(engine) == ["0027_report_manual_site", RELEASE_HEAD], "Manual Site upgrade must be additive")
+        require(ledger(engine)[:-2] == prior_ledger, "Manual Site upgrade changed prior migration checksums")
         after = rows(engine, "SELECT * FROM workformsubmission")
         require(tuple(after[0][:-1]) == tuple(original[0]) and after[0][-1] is None,
                 "Manual Site upgrade changed an existing Report")
@@ -410,6 +410,12 @@ def check_manual_site_upgrade(database, report):
 
 
 def run_migration_checks(database, report):
+    from report_pdf_recipient_migration_checks import check_recipient_migration, check_unexpected_recipient_index
+    with database("pdf_recipient_upgrade") as engine:
+        check_recipient_migration(engine)
+    with database("pdf_recipient_index_guard") as engine:
+        check_unexpected_recipient_index(engine)
+    report("PostgreSQL recipient upgrade preserves all outbox rows/settings/ledger and enforces per-recipient uniqueness")
     check_manual_site_upgrade(database, report)
     check_fresh(database, report)
     check_backfill(database, report)

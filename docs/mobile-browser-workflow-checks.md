@@ -1,5 +1,17 @@
 # Mobile and Browser Workflow Checks
 
+## Pending local PDF recipient checks
+
+- Worker and Supervisor self-submit: show the account-email copy, choose active setup-complete users from the Template's own Department or none, and verify names/emails and the confirmation summary. Do not use production fixtures or real email without separate approval.
+- Change Template, save/restore a draft, refresh while editing, cold-start offline and replay: preserve exact explicit selections, including none, and the owning user/Department.
+- Resign a selected user, move them to another Department, change their email, or reassign their old email before queued sync: keep the Report recoverable, surface the recipient conflict and require explicit review. Add/reactivate a user and complete invitation setup to verify the directory updates. Never expose other-Department or setup-incomplete accounts. Do not choose new defaults automatically. Back/Cancel must preserve the original draft.
+- Keep an exact prior-version tab open while the current app saves recipient-aware drafts, ordinary queues and recovered retries. The old tab must not see or replay those new records, including self-only []. Current replay must preserve the explicit list, account-ID/email bindings and version; existing legacy records and original bytes must remain available. Verify new-store write failures do not fall back to old stores and recovery writes stay atomic.
+- Repeated submission/replay must not add recipient copies. Matching self/default addresses must deduplicate case-insensitively. A later account email or corrected Report must not redirect/resend existing emails.
+- Supervisor settings: permission and stale-save guards, eligible default dropdown, visible preservation of an ineligible old default, deliberate replacement/disable, and separate question/routing versions. The full directory must appear even above 20 users; enforce the visible max-20 selection limit. Turning the old automatic default off must not disable intentional Department recipient choices. Workers must not gain Supervisor settings or others' Report delivery details.
+- Supervisor Report detail: verify individual pending/accepted/failed/uncertain outcomes and partial delivery text. Each synthetic SMTP envelope must contain one recipient only.
+- Local automated results are separate from physical iPhone/Android, deployed/authenticated flows and mailbox delivery, which remain untested unless separately recorded.
+
+
 ## Seven-day invitation release (2026-11-01 UTC)
 
 Seven-day invitations are live from source `63cd4fffe10d6d6132464f641e6f76eaae1183d3` as backend `geo-backend-invite-week-20261101` at 100% without tags, with `WORKER_INVITATION_TTL_HOURS=168`. New and explicitly reissued Worker, Supervisor and authorized global-admin links last seven days. Existing invitations retain their stored expiry; opening/sending never extends it and expired links are not revived. Single-use, role/Department, revocation and duplicate-send protections remain.

@@ -1,3 +1,4 @@
+import { mountReportEmailRecipients } from './report-email-recipients.js';
 import { MANUAL_SITE, readReportSite, restoreReportSite, syncReportSiteInput, validateReportSite } from './report-site.js';
 import { createReportFormNavigation } from './report-form-navigation.js';
 import { getWorkForms as getBackendWorkForms, getSession } from './api-client.js';
@@ -92,6 +93,7 @@ export function createWorkerFormModule({
     && (state.user?.role !== 'supervisor' || (reportOnly && formPurpose(form) === 'report'
       && String(form.department_id ?? form.departmentId ?? '') === String(state.user.departmentId || '')));
   let renderedWorkForm = null;
+  let emailRecipients = null;
   let renderedAuthorRole = null;
   let renderedDraftKey = '';
   let autosaveTimer = null;
@@ -292,6 +294,7 @@ export function createWorkerFormModule({
     if (!form || !draftState || String(state.user?.id || '') !== String(draftState.ownerWorkerId)) return null;
     return {
       kind: 'work-form',
+      ...emailRecipients?.capture(),
       schemaVersion: WORK_FORM_DRAFT_SCHEMA_VERSION,
       ownerWorkerId: draftState.ownerWorkerId,
       departmentId: state.user.departmentId,
@@ -329,6 +332,10 @@ export function createWorkerFormModule({
       && String(left.manualSiteName || '') === String(right.manualSiteName || '')
       && String(left.siteMode || 'existing') === String(right.siteMode || 'existing')
       && String(left.workDate || '') === String(right.workDate || '')
+      && JSON.stringify(left.pdfEmailRecipients) === JSON.stringify(right.pdfEmailRecipients)
+      && JSON.stringify(left.pdfEmailRecipientUsers) === JSON.stringify(right.pdfEmailRecipientUsers)
+      && left.pdfEmailOptionsUnavailable === right.pdfEmailOptionsUnavailable
+      && left.expectedPdfEmailVersion === right.expectedPdfEmailVersion
       && JSON.stringify(left.answers || {}) === JSON.stringify(right.answers || {})
       && JSON.stringify(left.photoMetadata || []) === JSON.stringify(right.photoMetadata || [])
       && (left.photoBlobs || []).length === (right.photoBlobs || []).length
@@ -510,6 +517,8 @@ export function createWorkerFormModule({
   function setDraftConflict(draft) {
     clearSubmissionReview();
     conflictingDraft = draft;
+    const emailFieldset = els.workFormSubmissionForm.querySelector('[data-report-email-recipients]');
+    if (emailFieldset) emailFieldset.disabled = Boolean(draft);
     [els.workFormSite, els.workFormManualSite, els.workFormDate, els.workFormPhotos].filter(Boolean).forEach((control) => {
       control.disabled = Boolean(draft);
     });
@@ -557,7 +566,8 @@ export function createWorkerFormModule({
       answers: review.snapshot.answers,
       workDate: review.snapshot.workDate,
       siteName: review.site?.name || review.snapshot.manualSiteName?.trim() || '',
-      photoCount: review.snapshot.photoBlobs.length || review.snapshot.photoDataUrls.length
+      photoCount: review.snapshot.photoBlobs.length || review.snapshot.photoDataUrls.length,
+      pdfEmailRecipients: review.snapshot.pdfEmailRecipients, selfEmail: state.user?.email
     });
     submissionReview = review;
     const sources = createPhotoPreviewSources(reportPhotoSources(review.snapshot));
@@ -604,6 +614,7 @@ export function createWorkerFormModule({
   }
 
   function showConflictingDraft(draft, draftState) {
+    emailRecipients?.restore(draft);
     setDraftConflict(draft);
     formNavigation.render(null);
     draftState.snapshot = draft;
@@ -791,6 +802,7 @@ export function createWorkerFormModule({
   function applyDraftToSurface(form, draftState, draft) {
     restoringDraft = true;
     try {
+      emailRecipients?.restore(draft);
       restoreReportSite(els.workFormSite, els.workFormManualSite, draft);
       setDateInputValue(els.workFormDate, draft.workDate || todayDateInput());
       populateWorkFormAnswers(form, draft.answers || {}, { container: els.workFormFields });
@@ -922,6 +934,8 @@ export function createWorkerFormModule({
     const form = selectedWorkForm(requestedFormId);
     resetDraftSurface();
     renderWorkFormFields(els.workFormFields, form, { container: els.workFormFields, onPhotoChange: handlePhotoChange });
+    emailRecipients?.remove();
+    emailRecipients = formPurpose(form) === 'report' && form ? mountReportEmailRecipients(els.workFormFields.parentElement, form, state.user?.email, null, () => markActiveDraftDirty()) : null;
     renderedWorkForm = form || null;
     renderedAuthorRole = state.user?.role;
     renderedDraftKey = form ? requestedDraftKey : '';
@@ -934,6 +948,8 @@ export function createWorkerFormModule({
 
     const draftState = draftStateFor(form, state.user.id, renderedDraftKey);
     await restoreSelectedDraft(form, draftState, token);
+    if (token === selectionToken && emailRecipients?.capture().pdfEmailOptionsUnavailable
+      && !draftState.snapshot?.pdfEmailOptionsUnavailable) markActiveDraftDirty();
   }
 
   function setReportTemplateSource(source, savedAt = '') {
@@ -961,6 +977,7 @@ export function createWorkerFormModule({
           els.workFormSelect.add(retained);
         }
         els.workFormSelect.value = selected;
+        emailRecipients?.refresh(selectedWorkForm());
         if (definitionVersion(selectedWorkForm()) !== definitionVersion(renderedWorkForm)
           || selectedWorkForm()?.status !== 'active') {
           renderStatusBanner('This Template changed or is unavailable. Your open Report is kept. Choose a Template again before submitting.', true,
@@ -1500,6 +1517,12 @@ export function createWorkerFormModule({
       return;
     }
 
+    emailRecipients?.refresh(selectedWorkForm());
+    if (emailRecipients && !emailRecipients.valid()) {
+      clearSubmissionReview({ focus: true });
+      renderStatusBanner('Department recipients changed. Review updated recipients below before submitting.', true, { local: els.workFormFeedback, tone: 'warning' });
+      return;
+    }
     const reviewRequired = needsSubmissionReview(form);
     const reviewed = confirmed ? submissionReview : null;
     if (confirmed && (!reviewRequired || !reviewed)) return;
@@ -1635,6 +1658,7 @@ export function createWorkerFormModule({
       const evidence = reviewed?.snapshot;
 
       const localRecord = {
+        ...(evidence ? { pdfEmailRecipients: evidence.pdfEmailRecipients, pdfEmailRecipientUsers: evidence.pdfEmailRecipientUsers, pdfEmailOptionsUnavailable: evidence.pdfEmailOptionsUnavailable, expectedPdfEmailVersion: evidence.expectedPdfEmailVersion } : emailRecipients?.capture()),
         id: uuid(),
         type: 'form',
         formId: form.id,
@@ -1755,6 +1779,7 @@ export function createWorkerFormModule({
         type: 'form',
         ownerWorkerId: draftState.ownerWorkerId,
         formId: draft.formId,
+        pdfEmailRecipients: draft.pdfEmailRecipients, pdfEmailRecipientUsers: draft.pdfEmailRecipientUsers, pdfEmailOptionsUnavailable: draft.pdfEmailOptionsUnavailable || emailRecipients?.capture().pdfEmailOptionsUnavailable, expectedPdfEmailVersion: draft.expectedPdfEmailVersion,
         formName: draft.formName || renderedWorkForm.name,
         submissionPurpose: 'report',
         definitionVersion: draft.definitionVersion ?? null,
@@ -1867,6 +1892,8 @@ export function createWorkerFormModule({
     cancelAutosaveTimer();
     selectionToken += 1;
     photoSelectionToken += 1;
+    emailRecipients?.remove();
+    emailRecipients = null;
     renderedWorkForm = null;
     renderedDraftKey = '';
     restoringDraft = false;

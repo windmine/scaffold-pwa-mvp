@@ -51,7 +51,7 @@ async function fixture(browser, options = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   const errors = [];
   const unexpected = [];
-  const traffic = { posts: [], uploads: [], version: 2, fields, release: null, hold: false };
+  const traffic = { posts: [], uploads: [], version: 2, fields, emailOptions: options.emailOptions, emailConflict: false, release: null, hold: false };
   await context.route('**/*', async (route) => {
     const url = new URL(route.request().url());
     if (url.origin !== origin) {
@@ -63,7 +63,11 @@ async function fixture(browser, options = {}) {
     if (url.pathname === '/api/work-forms') {
       assert.equal(url.searchParams.get('purpose'), 'report');
       return route.fulfill({ json: [{ id: 51, department_id: 3, name: 'Site condition Report', status: 'active',
-        template_purpose: 'report', definition_version: traffic.version, fields: traffic.fields }] });
+        template_purpose: 'report', definition_version: traffic.version, fields: traffic.fields, ...(traffic.emailOptions ? { pdf_email_options: traffic.emailOptions } : {}) }] });
+    }
+    if (url.pathname === '/api/my-form-submissions/by-client-id') {
+      return route.fulfill({ json: { status: 'not_found', client_submission_id: url.searchParams.get('client_submission_id'),
+        worker_id: 12, department_id: 3, submission: null } });
     }
     if (url.pathname === '/api/photo-uploads') {
       assert.equal(route.request().method(), 'POST');
@@ -73,6 +77,7 @@ async function fixture(browser, options = {}) {
     if (['/api/form-submissions', '/api/supervisor/my-report-submissions'].includes(url.pathname)) {
       const body = route.request().postDataJSON();
       traffic.posts.push(body);
+      if (traffic.emailConflict) return route.fulfill({ status: 409, json: { detail: { code: 'report_email_recipients_conflict', message: 'Approved recipients changed' } } });
       traffic.lastPath = url.pathname;
       if (traffic.hold) await new Promise((resolve) => { traffic.release = resolve; });
       return route.fulfill({ json: { id: 701, worker_id: 12, form_id: 51, status: 'submitted', submission_purpose: 'report',
@@ -109,7 +114,7 @@ async function fixture(browser, options = {}) {
     const { createPhotoViewer } = await import('/assets/js/photo-viewer.js');
     const api = await import('/assets/js/api-client.js');
     const db = await import('/assets/js/db.js');
-    const user = { id: 12, departmentId: 3, role: role || 'worker', status: 'active', fullName: 'Test Author' };
+    const user = { id: 12, departmentId: 3, role: role || 'worker', status: 'active', fullName: 'Test Author', email: 'author@example.invalid' };
     api.saveSession(user);
     const els = Object.fromEntries([...document.querySelectorAll('[id]')].map((element) => [element.id, element]));
     const state = { user, workForms: [], workFormPhotoFiles: [], workFormPhotoBlobs: [], workFormPhotoDataUrls: [], workFormPhotoMetadata: [] };
@@ -212,6 +217,163 @@ async function assertUnsubmitted(fixtureToCheck) {
 const browser = await chromium.launch({ headless: true });
 try {
   await mkdir(output, { recursive: true });
+  {
+    const emailOptions = { source: 'department_users', max_selected_recipients: 20, default_recipient_unavailable: false, recipient_users: [{ user_id: 101, name: 'First', email: 'first@example.invalid' }, { user_id: 102, name: 'Second', email: 'second@example.invalid' }], version: 3, enabled: true, recipients: ['first@example.invalid', 'second@example.invalid'], default_recipients: ['first@example.invalid'] };
+    const f = await fixture(browser, { emailOptions });
+    const { page } = f;
+    await fill(page);
+    const choices = page.locator('[data-report-email-recipients] input');
+    assert.equal(await choices.nth(0).isChecked(), true);
+    await choices.nth(0).uncheck();
+    await choices.nth(1).check();
+    await page.screenshot({ path: path.join(output, 'recipient-selection-phone.png'), fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.screenshot({ path: path.join(output, 'recipient-selection-desktop.png'), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => window.fixture.form.flushPendingDrafts());
+    assert.deepEqual((await storage(page)).draft.pdfEmailRecipients, ['second@example.invalid']);
+    assert.deepEqual((await storage(page)).draft.pdfEmailRecipientUsers, [{ user_id: 102, email: 'second@example.invalid' }]);
+    await f.reload();
+    assert.equal(await choices.nth(0).isChecked(), false);
+    assert.equal(await choices.nth(1).isChecked(), true);
+    await page.evaluate(() => window.fixture.form.refreshWorkForms({ preserveEditor: true }));
+    assert.equal(await choices.nth(1).isChecked(), true, 'Refresh preserves choices');
+    f.traffic.emailOptions = null;
+    await page.evaluate(() => window.fixture.form.refreshWorkForms({ preserveEditor: true }));
+    assert.equal(await page.getByRole('button', { name: 'Review updated recipients' }).count(), 0);
+    assert.match(await page.locator('[data-report-email-recipients]').innerText(), /unavailable/);
+    await page.locator('#submitWorkFormButton').click();
+    assert.equal(await page.locator('#workFormReviewPanel').isVisible(), false);
+    assert.equal(f.traffic.posts.length, 0);
+    f.traffic.emailOptions = { ...emailOptions, version: 4, recipient_users: [{ user_id: 101, email: 'first@example.invalid' }, { user_id: 103, email: 'new@example.invalid' }], recipients: ['first@example.invalid', 'new@example.invalid'] };
+    await page.evaluate(() => window.fixture.form.refreshWorkForms({ preserveEditor: true }));
+    assert.match(await page.locator('[data-report-email-recipients]').innerText(), /second@example.invalid/);
+    await page.locator('#submitWorkFormButton').click();
+    assert.equal(f.traffic.posts.length, 0);
+    assert.equal(await page.locator('#workFormReviewPanel').isVisible(), false);
+    await page.getByRole('button', { name: 'Review updated recipients' }).click();
+    assert.equal(await choices.nth(0).isChecked(), false, 'No automatic new default');
+    assert.equal(await choices.nth(1).isChecked(), false);
+    const currentOptions = f.traffic.emailOptions;
+    f.traffic.emailOptions = null;
+    await page.evaluate(() => window.fixture.form.refreshWorkForms({ preserveEditor: true }));
+    assert.equal(await page.getByRole('button', { name: 'Review updated recipients' }).count(), 0);
+    await page.locator('#submitWorkFormButton').click();
+    assert.equal(await page.locator('#workFormReviewPanel').isVisible(), false, 'Old backend cannot silently route self-only to its default');
+    f.traffic.emailOptions = currentOptions;
+    f.traffic.emailOptions = { ...f.traffic.emailOptions, version: 5 };
+    await page.evaluate(() => window.fixture.form.refreshWorkForms({ preserveEditor: true }));
+    assert.equal(await page.getByRole('button', { name: 'Review updated recipients' }).count(), 0, 'Self-only remains valid across approval changes');
+    await review(page);
+    assert.match(await page.locator('#workFormReviewSummary').innerText(), /author@example.invalid/);
+    assert.match(await page.locator('#workFormReviewSummary').innerText(), /Additional PDF copies[\s\S]*None/);
+    f.traffic.emailConflict = true;
+    await page.locator('#confirmWorkFormSubmitButton').click();
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline && !(await storage(page)).records.some((record) => record.syncBlockedReason === 'email_recipients_changed')) await new Promise((resolve) => setTimeout(resolve, 25));
+    assert.equal((await storage(page)).records[0]?.syncBlockedReason, 'email_recipients_changed');
+    assert.deepEqual(f.traffic.posts[0].pdf_email_recipients, []);
+    assert.deepEqual(f.traffic.posts[0].pdf_email_recipient_users, []);
+    assert.equal(f.traffic.posts[0].expected_pdf_email_version, 4);
+    const saved = await storage(page);
+    assert.deepEqual(saved.records[0].pdfEmailRecipients, []);
+    assert.equal(saved.records[0].expectedPdfEmailVersion, 4);
+    await page.screenshot({ path: path.join(output, 'recipient-conflict-phone.png'), fullPage: true });
+    await f.close();
+  }
+
+  {
+    const f = await fixture(browser);
+    try {
+      await fill(f.page, 'Untouched legacy draft must not lose the directory failure');
+      await f.page.evaluate(() => window.fixture.form.flushPendingDrafts());
+      f.traffic.emailOptions = { source: 'department_users', version: 3, recipients: [], default_recipients: [] };
+      await f.reload();
+      await f.page.evaluate(() => window.fixture.form.flushPendingDrafts());
+      assert.equal((await storage(f.page)).draft.pdfEmailOptionsUnavailable, true);
+      f.traffic.emailOptions = null;
+      await f.reload();
+      await f.page.locator('#submitWorkFormButton').click();
+      assert.equal(await f.page.locator('#workFormReviewPanel').isVisible(), false);
+      assert.equal(f.traffic.posts.length, 0);
+      assert.match(await f.page.locator('[data-report-email-recipients]').innerText(), /unavailable/);
+      assert.match(await f.page.locator('#workFormField_notes').inputValue(), /Untouched legacy draft/);
+      console.log('ok - untouched legacy draft persists advertised-directory failure and cannot downgrade after reload');
+    } finally { await f.close(); }
+  }
+
+  {
+    const f = await fixture(browser);
+    try {
+      await fill(f.page, 'Conflicting legacy draft preserves original content');
+      await f.page.evaluate(() => window.fixture.form.flushPendingDrafts());
+      f.traffic.emailOptions = { source: 'department_users', version: 3, recipients: [], default_recipients: [] };
+      f.traffic.version = 4;
+      await f.reload();
+      await f.page.locator('#submitWorkFormButton').click();
+      await f.page.waitForFunction(() => !window.fixture.state.submittingWorkForm);
+      const kept = await storage(f.page);
+      assert.equal(kept.records.length, 1);
+      assert.equal(kept.records[0].pdfEmailOptionsUnavailable, true, 'Read-only conflict copy retains newly observed directory failure');
+      assert.equal(kept.records[0].definitionVersion, 2);
+      assert.equal(kept.records[0].answers.notes, 'Conflicting legacy draft preserves original content');
+      assert.equal(kept.queue.length, 0);
+      assert.equal(f.traffic.posts.length, 0);
+      console.log('ok - conflicting legacy draft keeps new directory failure without changing original content or queuing');
+    } finally { await f.close(); }
+  }
+
+  for (const membershipChange of ['inactive_or_moved', 'changed_email', 'reassigned_email']) {
+    const original = { source: 'department_users', version: 3, enabled: false, max_selected_recipients: 20,
+      recipient_users: [{ user_id: 101, email: 'chosen@example.invalid' }], recipients: ['chosen@example.invalid'], default_recipients: [] };
+    const f = await fixture(browser, { emailOptions: original });
+    try {
+      await fill(f.page);
+      await f.page.locator('[data-report-email-recipients] input').check();
+      await f.page.evaluate(() => Object.defineProperty(navigator, 'onLine', { configurable: true, value: false }));
+      await review(f.page);
+      assert.match(await f.page.locator('#workFormReviewSummary').innerText(), /chosen@example.invalid/);
+      await f.page.locator('#confirmWorkFormSubmitButton').click();
+      await f.page.waitForFunction(() => !window.fixture.state.submittingWorkForm);
+      const queued = await storage(f.page);
+      assert.equal(f.traffic.posts.length, 0);
+      assert.equal(queued.queue.length, 1);
+      assert.deepEqual(queued.records[0].pdfEmailRecipientUsers, [{ user_id: 101, email: 'chosen@example.invalid' }]);
+      f.traffic.emailOptions = { ...original,
+        recipient_users: membershipChange === 'inactive_or_moved' ? [] : [{ user_id: membershipChange === 'reassigned_email' ? 901 : 101,
+          email: membershipChange === 'changed_email' ? 'new@example.invalid' : 'chosen@example.invalid' }],
+        recipients: membershipChange === 'inactive_or_moved' ? [] : [membershipChange === 'changed_email' ? 'new@example.invalid' : 'chosen@example.invalid'] };
+      f.traffic.emailConflict = true;
+      await f.page.evaluate(async () => {
+        Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+        const offline = await import('/assets/js/offline-submissions.js');
+        await offline.syncQueuedSubmissions({ purpose: 'report' });
+        await offline.syncQueuedSubmissions({ purpose: 'report' });
+      });
+      assert.equal(f.traffic.posts.length, 1, 'A stale queue is blocked, not auto-retargeted or endlessly replayed');
+      assert.deepEqual(f.traffic.posts[0].pdf_email_recipient_users, [{ user_id: 101, email: 'chosen@example.invalid' }]);
+      assert.equal((await storage(f.page)).records[0].syncBlockedReason, 'email_recipients_changed');
+      await f.page.evaluate(async () => {
+        await window.fixture.form.refreshWorkForms({ preserveEditor: true });
+        const offline = await import('/assets/js/offline-submissions.js');
+        const record = (await window.fixture.db.getAll('records'))[0];
+        await window.fixture.form.recoverFailedReport(record, (options) => offline.recoverOfflineReportAsDraft(record.id, options));
+      });
+      assert.match(await f.page.locator('[data-report-email-recipients]').innerText(), /chosen@example.invalid/);
+      await f.page.getByRole('button', { name: 'Review updated recipients' }).click();
+      await review(f.page);
+      assert.match(await f.page.locator('#workFormReviewSummary').innerText(), /Additional PDF copies[\s\S]*None/);
+      f.traffic.emailConflict = false;
+      await f.page.locator('#confirmWorkFormSubmitButton').click();
+      await f.page.waitForFunction(() => !window.fixture.state.submittingWorkForm);
+      assert.equal(f.traffic.posts.length, 2);
+      assert.deepEqual(f.traffic.posts[1].pdf_email_recipients, []);
+      assert.deepEqual(f.traffic.posts[1].pdf_email_recipient_users, []);
+      assert.equal(f.traffic.posts[1].client_submission_id, f.traffic.posts[0].client_submission_id);
+      console.log(`ok - offline ${membershipChange} preserves recipient identity, blocks replay, and safely recovers for explicit review`);
+    } finally { await f.close(); }
+  }
+
   for (const role of ['worker', 'supervisor']) {
     const f = await fixture(browser, { role });
     try {

@@ -1,5 +1,12 @@
 # AGENTS.md
 
+## Local approved-recipient feature (2026-11-10, not released)
+
+Pending work adds automatic submitter PDF copies and a picker of all active, setup-complete users in the Template's own Department. The directory follows account changes without manual list maintenance and exposes no other-Department accounts. Optional eligible defaults are preserved; explicit self-only selections remain valid across directory changes. Nonempty selections bind account IDs/emails, require current eligibility/version and freeze with the submitted snapshot. Migration `0028_report_pdf_recipients` preserves old deliveries and attempts without backfill, and adds recipient-specific uniqueness. See the README feature section and production runbook before any authorized release. No commit, push, deployment, real email or production record was made by this implementation.
+
+The November 5 paused-state record below is historical: a read-only November 10 check found the existing `reportflow-pdf-email` Scheduler ENABLED on its five-minute cadence and the worker enabled with one task and zero retries. This feature work did not change the Scheduler, worker or production routing. Always reverify current state before release actions; do not infer permission to resume/stop sending from historical notes.
+
+
 ## Report email/PDF clarity and New Zealand time release (2026-11-05 UTC)
 
 Source `2689f103743e66331c0c594b154f3cbae1be36bf` is live as backend `geo-backend-report-clarity-20261105` at 100% without tags, PDF worker on the same verified image, and Hosting `dac374374c32e6ff`, cache `leader-field-7bdeab26d1c5`. Emails identify Template, Site, saved Report Date and number, with author/context and a descriptive attachment filename. PDF pages repeat Report identity, including the QA task when present. Submission/draft/evidence displays and PDF/email timestamps use `Pacific/Auckland` with daylight-saving-aware NZST/NZDT. Stored UTC instants, selected Report Dates, answers, recipients and frozen snapshots are unchanged. Previously delivered emails are not resent or replaced.

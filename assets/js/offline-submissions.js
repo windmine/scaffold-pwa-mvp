@@ -372,6 +372,7 @@ function toBackendFormSubmissionPayload(record) {
   return {
     form_id: Number(record.formId),
     expected_definition_version: record.definitionVersion ?? null,
+    ...(Array.isArray(record.pdfEmailRecipients) ? { pdf_email_recipients: record.pdfEmailRecipients, ...(Array.isArray(record.pdfEmailRecipientUsers) ? { pdf_email_recipient_users: record.pdfEmailRecipientUsers } : {}), expected_pdf_email_version: record.expectedPdfEmailVersion ?? null } : {}),
     site_id: getBackendSiteId(record.siteId),
     ...(record.manualSiteName ? { manual_site_name: record.manualSiteName.trim() } : {}),
     work_date: record.workDate || null,
@@ -467,7 +468,8 @@ function markQueued(record, error = null) {
   record.syncStatus = 'queued';
   record.syncStartedAt = '';
   record.syncBlockedByAuth = false;
-  record.syncBlockedReason = error?.code === 'report_template_version_conflict' ? 'template_changed' : '';
+  record.syncBlockedReason = error?.code === 'report_template_version_conflict' ? 'template_changed'
+    : error?.code === 'report_email_recipients_conflict' ? 'email_recipients_changed' : '';
 
   if (error) {
     record.syncError = error.message || 'Sync failed';
@@ -746,6 +748,7 @@ function syncedSubmissionMessage(record) {
 }
 
 function queuedSubmissionMessage(record, retry = false) {
+  if (record.syncBlockedReason === 'email_recipients_changed') return 'Department PDF recipients changed. Your Report is saved on this device. Open My Reports and use Recover as draft to review recipients before submitting.';
   if (record.syncBlockedReason === 'template_changed') {
     return 'Report Template changed. Your report is saved on this device. Open My Reports to review the original answers and evidence, then submit a new report with the current template.';
   }
@@ -902,7 +905,7 @@ async function flushQueuedSubmissions(worker, options = {}) {
           return;
         }
 
-        if (record.recoveryStorageReadOnly) {
+        if (record.recoveryStorageReadOnly || record.syncBlockedReason === 'email_recipients_changed') {
           skipped += 1;
           return;
         }

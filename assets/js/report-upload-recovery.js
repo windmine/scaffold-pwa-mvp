@@ -313,6 +313,7 @@ export async function prepareReportRecoveryDraft(record, worker, { assertCurrent
   return { key, value: {
     kind: 'work-form', schemaVersion: 1, ownerWorkerId: worker.id, departmentId: worker.departmentId,
     ...(worker.role === 'supervisor' ? { ownerRole: 'supervisor' } : {}),
+    pdfEmailRecipients: record.pdfEmailRecipients, pdfEmailRecipientUsers: record.pdfEmailRecipientUsers, pdfEmailOptionsUnavailable: record.pdfEmailOptionsUnavailable, expectedPdfEmailVersion: record.expectedPdfEmailVersion,
     templatePurpose: 'report', formId: record.formId, formName: record.formName || 'Report',
     definitionVersion: record.definitionVersion ?? null, fields, siteId: record.siteId == null ? '' : String(record.siteId),
     manualSiteName: record.manualSiteName || '',

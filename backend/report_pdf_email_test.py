@@ -46,7 +46,9 @@ class ReportPdfEmailTests(unittest.TestCase):
         SQLModel.metadata.create_all(self.engine)
         self.session = Session(self.engine)
         self.addCleanup(self.session.close)
-        self.worker = User(id=1, department_id=1, email="worker@example.invalid", name="Submitted Worker", password_hash="unused")
+        # Legacy one-envelope safety tests deliberately deduplicate self and default.
+        # Separate recipients are exercised in report_pdf_recipients_test.py.
+        self.worker = User(id=1, department_id=1, email="reports@example.invalid", name="Submitted Worker", password_hash="unused")
         self.supervisor = User(id=2, department_id=1, role="supervisor", email="supervisor@example.invalid", name="Supervisor", password_hash="unused")
         self.foreign = User(id=3, department_id=2, role="supervisor", email="other@example.invalid", name="Other", password_hash="unused")
         self.form = WorkForm(id=1, department_id=1, name="Submitted inspection 检查", fields_json=json.dumps([
@@ -104,17 +106,20 @@ class ReportPdfEmailTests(unittest.TestCase):
         self.assertEqual(review_record_response("form", record, self.session)["pdf_email"]["status"], "pending")
         self.client.send_message.assert_not_called()
 
-    def test_default_off_no_retroactive_enqueue_and_worker_privacy(self):
+    def test_default_off_self_copy_no_retroactive_extra_and_worker_privacy(self):
         first = self.submit()
-        self.assertEqual(self.session.exec(select(ReportPdfEmail)).all(), [])
+        self.assertEqual(self.row().recipient, self.worker.email)
+        original_id = self.row().id
         self.settings()
         replay = self.submit()
         self.assertTrue(replay["idempotent_replay"])
         self.assertEqual(replay["id"], first["id"])
-        self.assertEqual(self.session.exec(select(ReportPdfEmail)).all(), [])
-        self.assertNotIn("pdf_email", list_work_forms(self.worker, self.session)[0])
+        self.assertEqual(self.row().id, original_id)
+        template = list_work_forms(self.worker, self.session)[0]
+        self.assertNotIn("pdf_email", template)
+        self.assertIn("pdf_email_options", template)
         self.assertNotIn("pdf_email", self.submit("new-id"))
-        self.assertEqual(self.row().status, "pending")
+        self.assertEqual(len(self.session.exec(select(ReportPdfEmail)).all()), 2)
         self.smtp.assert_not_called()
 
     def test_settings_permissions_validation_and_independent_stale_guard(self):
@@ -170,7 +175,7 @@ class ReportPdfEmailTests(unittest.TestCase):
         photo = self.raster((91, 61), "orange")
         signature = self.raster((127, 43), "navy")
         submission = self.submit(answers={"issue": "Secure guardrail 安全护栏", "signed": signature}, photo_urls=[photo])
-        self.settings(recipient="later@example.invalid")
+        self.settings(recipient=self.supervisor.email)
         self.form.name = "Later template name"
         self.worker.name = "Later worker name"
         record = self.session.get(WorkFormSubmission, submission["id"])
@@ -435,6 +440,7 @@ class ReportPdfEmailTests(unittest.TestCase):
                 old = session.get(ReportPdfEmail, row_id)
                 replacement = ReportPdfEmail(id=old.id, submission_id=old.submission_id,
                     department_id=old.department_id, recipient=old.recipient,
+                    recipient_key=old.recipient_key, recipient_role=old.recipient_role,
                     template_email_version=old.template_email_version, snapshot_json=old.snapshot_json,
                     message_id="<new-row-identity@reportflow.invalid>")
                 session.execute(delete(ReportPdfEmail).where(ReportPdfEmail.id == old.id))
@@ -462,6 +468,10 @@ class ReportPdfEmailTests(unittest.TestCase):
         self.smtp.assert_not_called()
 
     def test_http_permission_csrf_and_worker_setting_privacy(self):
+        self.worker.email = "worker@example.invalid"
+        self.session.add(self.worker)
+        self.session.add(User(department_id=1, email="reports@example.invalid", name="Report recipient", password_hash="unused"))
+        self.session.commit()
         from app import main as application
         from app.auth import create_access_token
         def http(actor=None, cookie=False, csrf=False, method="PUT", path="/supervisor/work-forms/1/pdf-email"):
@@ -499,8 +509,12 @@ class ReportPdfEmailTests(unittest.TestCase):
         self.assertIn(b"no-store", headers[b"cache-control"])
         status, _, content = http(self.worker, method="GET", path="/work-forms")
         self.assertEqual(status, 200)
-        self.assertNotIn(b"reports@example.invalid", content)
-        self.assertNotIn(b"pdf_email", content)
+        templates = json.loads(content)
+        self.assertNotIn("pdf_email", templates[0])
+        self.assertEqual(set(templates[0]["pdf_email_options"]["recipients"]),
+                         {"reports@example.invalid", self.worker.email, self.supervisor.email})
+        self.assertEqual(templates[0]["pdf_email_options"]["source"], "department_users")
+        self.assertNotIn(self.foreign.email, str(templates))
         self.submit()
         status, _, content = http(self.worker, method="GET", path="/my-form-submissions")
         self.assertEqual(status, 200)

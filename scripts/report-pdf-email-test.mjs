@@ -18,7 +18,7 @@ const markup = `<!doctype html><html lang="en-NZ" data-theme="light"><head>
 const browser = await chromium.launch({ headless: true });
 await mkdir(output, { recursive: true });
 let checks = 0;
-async function fixture({ email = { enabled: false, recipient: null, version: 1 }, purpose = 'report' } = {}) {
+async function fixture({ email = { enabled: false, recipient: null, version: 1 }, purpose = 'report', options = null } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   context.setDefaultTimeout(5000);
   const requests = [];
@@ -39,7 +39,7 @@ async function fixture({ email = { enabled: false, recipient: null, version: 1 }
       if (hold) await new Promise((resolve) => { held = resolve; });
       return route.fulfill({ status: fail || 200, contentType: 'application/json', body: JSON.stringify(fail
         ? { detail: 'Settings conflict' }
-        : { id: 17, template_purpose: 'report', pdf_email: { enabled: data.enabled, recipient: data.recipient, version: data.expected_version + 1 } }) });
+        : { id: 17, template_purpose: 'report', pdf_email: { enabled: data.enabled, recipient: data.recipient, version: data.expected_version + 1 }, pdf_email_options: options }) });
     }
     if (url.pathname === '/favicon.ico') return route.fulfill({ status: 204 });
     assert.match(url.pathname, /^\/assets\/(?:js\/[a-z\d-]+\.js|css\/styles\.css)$/);
@@ -49,19 +49,19 @@ async function fixture({ email = { enabled: false, recipient: null, version: 1 }
   const page = await context.newPage();
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(origin);
-  await page.evaluate(async ({ email, purpose }) => {
+  await page.evaluate(async ({ email, purpose, options }) => {
     document.cookie = 'geo_csrf_token=SyntheticPdfCsrf; SameSite=Lax; path=/';
     const { mountTemplateEmailSettings, reportPdfEmailStatus } = await import('/assets/js/report-pdf-email.js');
     const i18n = await import('/assets/js/i18n.js');
     window.fixture = { current: true, canSave: true, busy: [], saved: [], reportPdfEmailStatus, i18n };
-    mountTemplateEmailSettings(document.querySelector('#template'), { id: 17, template_purpose: purpose, pdf_email: email }, {
+    mountTemplateEmailSettings(document.querySelector('#template'), { id: 17, template_purpose: purpose, pdf_email: email, pdf_email_options: options }, {
       isCurrent: () => window.fixture.current && document.querySelector('#template').isConnected,
       canSave: () => window.fixture.canSave,
       onBusy: (value) => window.fixture.busy.push(value),
       onSaved: (value) => window.fixture.saved.push(value)
     });
     i18n.initLanguageToggle({ button: document.querySelector('#language') });
-  }, { email, purpose });
+  }, { email, purpose, options });
   const form = page.locator('[data-pdf-email-settings]');
   if (await form.count()) await page.locator('summary').click();
   return { page, form, requests,
@@ -72,6 +72,49 @@ async function fixture({ email = { enabled: false, recipient: null, version: 1 }
   };
 }
 try {
+  {
+    const options = { source: 'department_users', max_selected_recipients: 20, version: 2, enabled: false,
+      recipients: ['approved@example.invalid'], default_recipients: [],
+      recipient_users: [{ user_id: 31, email: 'approved@example.invalid' }] };
+    const f = await fixture({ email: { enabled: false, recipient: null, version: 2 }, options });
+    assert.equal(await f.form.locator('textarea').count(), 0, 'No arbitrary manual list editor');
+    const select = f.form.locator('select');
+    assert.equal(await select.locator('option').count(), 2);
+    await f.form.locator('[data-pdf-email-enabled]').check();
+    await f.form.locator('button').click();
+    assert.equal(f.requests.length, 0, 'Enabling a default requires an eligible account');
+    await select.selectOption('approved@example.invalid');
+    await f.form.locator('button').click();
+    await f.page.waitForFunction(() => window.fixture.saved.length === 1);
+    assert.deepEqual(f.requests[0], { enabled: true, recipient: 'approved@example.invalid', expected_version: 2, confirmed: true });
+    assert.match(await f.page.evaluate(() => window.fixture.reportPdfEmailStatus({ deliveries: [
+      { recipient: 'author@example.invalid', recipient_role: 'submitter', status: 'accepted' },
+      { recipient: 'approved@example.invalid', recipient_role: 'selected', status: 'failed' }
+    ] })), /author@example.invalid[\s\S]*accepted[\s\S]*approved@example.invalid[\s\S]*not sent/);
+    await f.page.screenshot({ path: path.join(output, 'department-settings-phone.png'), fullPage: true });
+    await f.page.setViewportSize({ width: 1280, height: 900 });
+    await f.page.screenshot({ path: path.join(output, 'department-settings-desktop.png'), fullPage: true });
+    await f.page.locator('#language').click();
+    await f.page.waitForFunction(() => document.documentElement.lang === 'zh-Hans');
+    assert.match(await f.form.innerText(), /默认|部门/);
+    await f.close(); checks += 5;
+    const stale = await fixture({ email: { enabled: true, recipient: 'moved@example.invalid', version: 2 },
+      options: { ...options, default_recipient_unavailable: true } });
+    assert.equal(await stale.form.locator('select').inputValue(), '__unavailable__');
+    assert.equal(await stale.form.getByRole('option', { name: 'moved@example.invalid', exact: true }).count(), 0);
+    await stale.form.locator('button').click();
+    assert.equal(stale.requests.length, 0, 'Unavailable default cannot be silently cleared');
+    await stale.form.locator('[data-pdf-email-enabled]').uncheck();
+    await stale.form.locator('button').click();
+    await stale.page.waitForFunction(() => window.fixture.saved.length === 1);
+    assert.equal(stale.requests[0].recipient, null);
+    assert.equal(stale.requests[0].enabled, false);
+    await stale.close(); checks += 2;
+    const upper = await fixture({ email: { enabled: true, recipient: 'APPROVED@EXAMPLE.INVALID', version: 2 }, options });
+    assert.equal(await upper.form.locator('select').inputValue(), 'approved@example.invalid');
+    assert.equal(await upper.form.locator('[role="alert"]').isVisible(), false);
+    await upper.close(); checks += 2;
+  }
   let f = await fixture();
   const enabled = f.form.locator('[data-pdf-email-enabled]');
   const recipient = f.form.locator('[data-pdf-email-recipient]');

@@ -7,6 +7,10 @@ const REPORT_DB_NAME = 'scaffold-pwa-report-evidence-v1';
 // September 29 clients understand Blob Reports but not recovered retries. They
 // must never see edited recovery evidence or replay it without identity checks.
 const RECOVERY_DB_NAME = 'scaffold-pwa-report-recovery-v1';
+// Pre-recipient tabs ignore explicit email choices. They must never see these
+// drafts, queues or recovered edits, even when the selection is self-only [].
+const RECIPIENT_DB_NAME = 'scaffold-pwa-report-recipients-v1';
+const recipientDraftReads = new Map();
 const REPORT_STORES = new Set(['records', 'queue', 'drafts']);
 const legacyDraftReads = new Map();
 const RECOVERY_STORAGE_READ_ONLY = 'This pre-release recovery copy is read-only. Keep the original photos and contact your Supervisor.';
@@ -41,6 +45,7 @@ async function openEvidenceDb(name) {
 
 const openReportDb = () => openEvidenceDb(REPORT_DB_NAME);
 const openRecoveryDb = () => openEvidenceDb(RECOVERY_DB_NAME);
+const openRecipientDb = () => openEvidenceDb(RECIPIENT_DB_NAME);
 
 function isRecoveryEntry(storeName, entry) {
   if (!entry || typeof entry !== 'object') return false;
@@ -196,7 +201,7 @@ export async function runTransaction(storeNames, mode, callback) {
   });
 }
 
-export async function put(storeName, value) {
+async function legacyPut(storeName, value) {
   if (!REPORT_STORES.has(storeName)) return writeStore(openDb, storeName, (store) => store.put(value));
   const key = entryKey(storeName, value);
   if ((storeName === 'drafts' ? value.value : value)?.recoveryStorageReadOnly) {
@@ -234,7 +239,7 @@ export async function put(storeName, value) {
   }
 }
 
-export async function get(storeName, key) {
+async function legacyGet(storeName, key) {
   const legacy = await readStore(openDb, storeName, key);
   if (!REPORT_STORES.has(storeName)) return legacy;
   const isolated = await readStore(openReportDb, storeName, key);
@@ -248,7 +253,7 @@ export async function get(storeName, key) {
   return recovery ? (recovery.deleted ? undefined : recovery.value) : legacyRecoveryCopy(storeName, value);
 }
 
-export async function getAll(storeName) {
+async function legacyGetAll(storeName) {
   const legacy = await readStore(openDb, storeName, undefined, true);
   if (!REPORT_STORES.has(storeName)) return legacy;
   const entries = new Map(legacy.map((entry) => [entryKey(storeName, entry), entry]));
@@ -270,7 +275,7 @@ export async function getAll(storeName) {
   return [...entries.values()];
 }
 
-export async function remove(storeName, key) {
+async function legacyRemove(storeName, key) {
   if (REPORT_STORES.has(storeName)) {
     if (await recoveryStorageOwns(storeName, key) || await hasLegacyRecoveryEntry(storeName, key)) {
       return writeStore(openRecoveryDb, storeName, (store) => store.put({
@@ -297,6 +302,111 @@ export async function remove(storeName, key) {
   return writeStore(openDb, storeName, (store) => store.delete(key));
 }
 
+function isRecipientEntry(storeName, entry) {
+  const value = storeName === 'drafts' ? entry?.value : entry;
+  return Array.isArray(value?.pdfEmailRecipients);
+}
+
+async function recipientStorageOwns(storeName, key, value) {
+  return Boolean(isRecipientEntry(storeName, value) || (storeName === 'drafts' && isReportDraft(value)) || isRecoveryEntry(storeName, value)
+    || await readStore(openRecipientDb, storeName, key)
+    || (storeName === 'queue' && await readStore(openRecipientDb, 'records', key)));
+}
+
+async function recipientFingerprint(entry) {
+  if (!entry) return null;
+  // Prior Report stores contain native Blobs. JSON alone drops their bytes;
+  // hash originals outside IndexedDB transactions so photo-only edits survive.
+  async function content(value) {
+    if (value instanceof Blob) {
+      const digest = await crypto.subtle.digest('SHA-256', await value.arrayBuffer());
+      return { blobHash: Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(''),
+        type: value.type, size: value.size, name: value.name || '', lastModified: value.lastModified || 0 };
+    }
+    if (Array.isArray(value)) {
+      const result = [];
+      for (const item of value) result.push(await content(item));
+      return result;
+    }
+    if (value && typeof value === 'object') {
+      const result = {};
+      for (const [key, item] of Object.entries(value)) result[key] = await content(item);
+      return result;
+    }
+    return value;
+  }
+  return fingerprint(await content(entry));
+}
+
+async function visibleRecipient(storeName, envelope, legacy) {
+  if (!envelope) return legacy;
+  if (!envelope.deleted) return envelope.value;
+  // Source-scoped recovery slots and UUID records must never resurrect.
+  if (envelope.recoveryOwned || storeName !== 'drafts') return undefined;
+  return legacy && await recipientFingerprint(legacy) !== envelope.legacyFingerprint ? legacy : undefined;
+}
+
+export async function put(storeName, value) {
+  if (!REPORT_STORES.has(storeName)) return legacyPut(storeName, value);
+  const key = entryKey(storeName, value);
+  if (!await recipientStorageOwns(storeName, key, value)) return legacyPut(storeName, value);
+  if ((storeName === 'drafts' ? value.value : value)?.recoveryStorageReadOnly) throw new Error(RECOVERY_STORAGE_READ_ONLY);
+  const existing = await readStore(openRecipientDb, storeName, key);
+  if (!existing && !await readStore(openRecoveryDb, storeName, key) && await hasLegacyRecoveryEntry(storeName, key)) throw new Error(RECOVERY_STORAGE_READ_ONLY);
+  const prior = storeName === 'drafts' ? await legacyGet(storeName, key) : null;
+  const legacyFingerprint = existing?.deleted && recipientDraftReads.has(key)
+    ? recipientDraftReads.get(key) : existing && Object.hasOwn(existing, 'legacyFingerprint')
+      ? existing.legacyFingerprint : recipientDraftReads.has(key) ? recipientDraftReads.get(key) : await recipientFingerprint(prior);
+  await writeStore(openRecipientDb, storeName, (store) => store.put({
+    [storeName === 'drafts' ? 'key' : 'id']: key, reportStorageVersion: 1, value,
+    recoveryOwned: Boolean(existing?.recoveryOwned || isRecoveryEntry(storeName, value)),
+    ...(storeName === 'drafts' ? { legacyFingerprint } : {})
+  }));
+  // Earlier namespaces remain byte-for-byte intact. No incompatible tab can
+  // acquire these new recipient choices through a fallback or a partial write.
+  if (storeName === 'drafts') recipientDraftReads.delete(key);
+}
+
+export async function get(storeName, key) {
+  const legacy = await legacyGet(storeName, key);
+  if (!REPORT_STORES.has(storeName)) return legacy;
+  const envelope = await readStore(openRecipientDb, storeName, key);
+  const value = await visibleRecipient(storeName, envelope, legacy);
+  if (storeName === 'drafts' && (!envelope || envelope.deleted)) recipientDraftReads.set(key, await recipientFingerprint(value));
+  return value;
+}
+
+export async function getAll(storeName) {
+  const legacy = await legacyGetAll(storeName);
+  if (!REPORT_STORES.has(storeName)) return legacy;
+  const entries = new Map(legacy.map((entry) => [entryKey(storeName, entry), entry]));
+  if (storeName === 'drafts') for (const [key, entry] of entries) {
+    if (!recipientDraftReads.has(key)) recipientDraftReads.set(key, await recipientFingerprint(entry));
+  }
+  for (const envelope of await readStore(openRecipientDb, storeName, undefined, true)) {
+    const key = entryKey(storeName, envelope);
+    const value = await visibleRecipient(storeName, envelope, entries.get(key));
+    if (value) {
+      entries.set(key, value);
+      if (storeName === 'drafts' && envelope.deleted) recipientDraftReads.set(key, await recipientFingerprint(value));
+    } else entries.delete(key);
+  }
+  return [...entries.values()];
+}
+
+export async function remove(storeName, key) {
+  if (!REPORT_STORES.has(storeName) || !await recipientStorageOwns(storeName, key)) return legacyRemove(storeName, key);
+  const existing = await readStore(openRecipientDb, storeName, key);
+  const legacyFingerprint = existing?.deleted && recipientDraftReads.has(key)
+    ? recipientDraftReads.get(key) : existing?.legacyFingerprint ?? null;
+  await writeStore(openRecipientDb, storeName, (store) => store.put({
+    [storeName === 'drafts' ? 'key' : 'id']: key, reportStorageVersion: 1, deleted: true,
+    recoveryOwned: Boolean(existing?.recoveryOwned || String(key).startsWith('work-form-recovery:')),
+    ...(storeName === 'drafts' ? { legacyFingerprint } : {})
+  }));
+  if (storeName === 'drafts') recipientDraftReads.delete(key);
+}
+
 function recoveryRecordVersion(record) {
   // Queued originals are immutable. The comparison includes every replay
   // checkpoint/status field and Blob identity metadata; it never decodes or
@@ -321,11 +431,18 @@ export async function commitReportRecovery(expectedRecord, nextRecord, draftEntr
   }
   const legacy = await readStore(openDb, 'records', expectedRecord.id);
   const previous = await readStore(openReportDb, 'records', expectedRecord.id);
-  const source = await visibleIsolated('records', previous, legacy);
+  const baseSource = await visibleIsolated('records', previous, legacy);
+  const priorRecovery = await readStore(openRecoveryDb, 'records', expectedRecord.id);
+  // Every newly published recovery must stay invisible to earlier editors,
+  // even before an authenticated Template supplies explicit recipient choices.
+  const useRecipients = true;
+  const source = useRecipients && priorRecovery ? (priorRecovery.deleted ? undefined : priorRecovery.value) : baseSource;
+  const previousRecoveryDraft = useRecipients && draftEntry && await readStore(openRecoveryDb, 'drafts', draftEntry.key);
   const previousDraft = draftEntry && await readStore(openReportDb, 'drafts', draftEntry.key);
+  const previousLegacyDraft = draftEntry && await readStore(openDb, 'drafts', draftEntry.key);
   if (!isCurrent()) throw new Error('The Report recovery session changed. Your saved copy is unchanged.');
   const expectedVersion = recoveryRecordVersion(expectedRecord);
-  const db = await openRecoveryDb();
+  const db = await (useRecipients ? openRecipientDb() : openRecoveryDb());
   return new Promise((resolve, reject) => {
     let tx, caught;
     try { tx = db.transaction(['records', 'queue', 'drafts'], 'readwrite'); }
@@ -344,12 +461,12 @@ export async function commitReportRecovery(expectedRecord, nextRecord, draftEntr
         if (!current || recoveryRecordVersion(current) !== expectedVersion) {
           throw new Error('This saved Report changed in another tab. Refresh My Reports before recovering it.');
         }
-        if (draftEntry && (draftRequest.result || previousDraft)) {
+        if (draftEntry && (draftRequest.result || previousDraft || previousRecoveryDraft || previousLegacyDraft)) {
           // Even a tombstone is not permission to overwrite another operation.
           throw new Error('A recovered draft already exists. Open it in My Reports instead of recovering again.');
         }
-        if (draftEntry) drafts.put({ key: draftEntry.key, reportStorageVersion: 1, value: draftEntry, legacyFingerprint: null });
-        records.put({ id: current.id, reportStorageVersion: 1, value: nextRecord });
+        if (draftEntry) drafts.put({ key: draftEntry.key, reportStorageVersion: 1, value: draftEntry, legacyFingerprint: null, ...(useRecipients ? { recoveryOwned: true } : {}) });
+        records.put({ id: current.id, reportStorageVersion: 1, value: nextRecord, ...(useRecipients ? { recoveryOwned: true } : {}) });
         tx.objectStore('queue').put({ id: current.id, reportStorageVersion: 1, deleted: true });
       } catch (error) { caught = error; tx.abort(); }
     };

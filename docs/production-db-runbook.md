@@ -1,5 +1,16 @@
 # Production Database And Deployment Runbook
 
+## Pending local approved-recipient feature (schema 28, not released)
+
+`0028_report_pdf_recipients` allows separate durable PDF attempts per Report/normalized recipient. Approved choices are queried from active, setup-complete accounts in the Template's own Department; no copied-list column or production population step is required. The upgrade preserves all previous ledger checksums, business rows, configured defaults, old outbox recipients/snapshots/attempts/message IDs and send statuses. It queues no historical Reports. New submissions after a future authorized deployment will queue the submitter copy even if optional extra recipients are disabled, so this behavior must be included in release review.
+
+Before an authorized release, verify current production settings rather than inferring them from historical notes. A read-only check on 2026-11-10 found `reportflow-pdf-email` ENABLED on `*/5 * * * *`, with the worker enabled, one task and zero retries; this implementation did not change any setting or run the worker. Follow the existing backup/write-pause and worker-drain release controls. Migrate explicitly, deploy matching schema-28 API and worker images before the frontend, and verify exact-source readiness. Retain only a schema-28-compatible fallback. Never reset attempt claims or downgrade the ledger. Any future stop/restart of sending needs its own authorization because resumed pending work can send email.
+
+Recipient-aware device drafts and queues use a new isolated store so already-open older clients cannot discard selected destinations during replay. Keep all device databases through deployment and rollback; an older frontend cannot display new isolated pending Reports. Restore compatible frontend code to recover access, never delete local drafts/queues or reset them to legacy storage.
+
+Per-recipient outcomes may be mixed. Check individual Supervisor delivery rows; SMTP acceptance does not establish inbox delivery. Uncertain sends must not be retried automatically. The whole eligible directory is available, with an explicit 20-selected-recipient limit per Report. Account ID/email bindings and eligibility are checked under locks before durable submission; resignation, Department/email changes or email reassignment before sync require the submitter to review their choices. Ineligible legacy defaults are preserved in settings for deliberate repair, never silently sent or cleared. Already queued deliveries retain their frozen destinations.
+
+
 ## Install page and invitation guide release (2026-11-04 UTC)
 
 Source `6312d80ae6bd25c4e77dd44016dfd2a9543ab3ff` is live as backend `geo-backend-install-guide-20261104` at 100% without tags and exact Hosting `597565dc788f617e`, cache `leader-field-db14bb60cfe9`. The public Install ReportFlow action stays visible, offers the native prompt when available, and otherwise shows browser/device instructions. Continue in browser and iOS support remain. Invitation emails and their public Getting Started PDF now link/QR to `https://geo-attendance-system-db9ca.web.app/install.html`; private activation links remain separate. Browser confirmation is still required.

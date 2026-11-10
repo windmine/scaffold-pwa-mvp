@@ -236,11 +236,22 @@ class WorkFormUpdate(BaseModel):
 class WorkFormEmailSettings(BaseModel):
     enabled: bool
     recipient: Optional[str] = Field(default=None, max_length=254)
+    # Reject the obsolete free-form allowlist rather than silently treating a
+    # Supervisor's old-client edit as saved approval. Empty old lists are safe.
+    approved_recipients: Optional[list[str]] = Field(default=None, max_length=0)
     expected_version: int = Field(ge=1)
     confirmed: bool = False
 
 
+class ReportPdfRecipientUser(BaseModel):
+    user_id: int = Field(ge=1)
+    email: str = Field(min_length=1, max_length=254)
+
+
 class WorkFormSubmissionCreate(BaseModel):
+    pdf_email_recipients: Optional[list[str]] = Field(default=None, max_length=20)
+    pdf_email_recipient_users: Optional[list[ReportPdfRecipientUser]] = Field(default=None, max_length=20)
+    expected_pdf_email_version: Optional[int] = Field(default=None, ge=1)
     client_template_features: int = Field(default=1, ge=1, le=3)
     form_id: int = Field(ge=1)
     expected_definition_version: Optional[int] = Field(default=None, ge=1)

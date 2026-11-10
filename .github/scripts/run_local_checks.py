@@ -19,6 +19,7 @@ BACKEND_SUITES = (
     "registration_email_test.py",
     "invitation_email_test.py",
     "report_pdf_email_test.py",
+    "report_pdf_recipients_test.py",
     "report_corrections_test.py",
     "report_manual_site_test.py",
     "supervisor_report_submission_test.py",

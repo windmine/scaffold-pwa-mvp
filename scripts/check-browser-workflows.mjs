@@ -417,7 +417,7 @@ async function waitForQueueCount(page, expected, { atLeast = false, timeout = 20
       } finally { db.close(); }
     };
     const items = new Map((await readExisting('scaffold-pwa-local')).map((item) => [item.id, item]));
-    for (const name of ['scaffold-pwa-report-evidence-v1', 'scaffold-pwa-report-recovery-v1']) {
+    for (const name of ['scaffold-pwa-report-evidence-v1', 'scaffold-pwa-report-recovery-v1', 'scaffold-pwa-report-recipients-v1']) {
       for (const envelope of await readExisting(name)) {
         if (envelope.reportStorageVersion !== 1) continue;
         if (envelope.deleted) items.delete(envelope.id);

@@ -153,7 +153,7 @@ try {
       if (recovered.answers.note !== 'concurrent old editor') throw new Error('Concurrent old draft lost');
       await t.mock.saveDraft(key, restoreReportPhotoEvidence(recovered));
     }, key);
-    assert.equal(await f.old.evaluate((key) => window.test.mock.getDraft(key), key), null);
+    assert.ok(await f.old.evaluate((key) => window.test.mock.getDraft(key), key), 'Recipient isolation preserves prior-store bytes');
     await f.modern.evaluate(async (key) => {
       const t = window.test;
       const current = await t.mock.getDraft(key);
@@ -184,7 +184,7 @@ try {
       if (await t.db.get('drafts', key)) throw new Error('Discard did not remove recovered old draft');
       if ((await t.db.getAll('drafts')).some((entry) => entry.key === key)) throw new Error('Discarded draft remained listed');
     }, { key, readMode });
-    assert.equal(await f.old.evaluate((key) => window.test.mock.getDraft(key), key), null);
+    assert.ok(await f.old.evaluate((key) => window.test.mock.getDraft(key), key), 'Recipient isolation preserves prior-store bytes');
     await f.context.close();
     console.log(`ok - explicit discard after ${readMode} removes a later legacy draft behind an isolated tombstone`);
   }
@@ -247,7 +247,7 @@ try {
       await t.mock.saveDraft('work-form-draft:7:21', t.draft('safe original'));
       const nativePut = IDBObjectStore.prototype.put;
       IDBObjectStore.prototype.put = function (...args) {
-        if (this.transaction.db.name === isolatedName) throw new DOMException('Synthetic full storage', 'QuotaExceededError');
+        if ([isolatedName, 'scaffold-pwa-report-recipients-v1'].includes(this.transaction.db.name)) throw new DOMException('Synthetic full storage', 'QuotaExceededError');
         return nativePut.apply(this, args);
       };
       let failed = false;

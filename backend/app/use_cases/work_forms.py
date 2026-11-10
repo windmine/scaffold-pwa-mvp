@@ -47,9 +47,17 @@ def list_work_forms(user: User, session: Session, purpose: str | None = None):
             statement = statement.where(WorkForm.template_purpose != "daywork")
 
     forms = session.exec(statement).all()
+    # The authorized Template query defines scope before any directory read.
+    # Share a request-local Department read across Templates, never a stale cache.
+    from app.use_cases.report_pdf_recipients import department_recipients
+    directories = {}
+    for form in forms:
+        if form.template_purpose == "report" and form.department_id not in directories:
+            directories[form.department_id] = department_recipients(form, session)
 
     return [
-        work_form_response(form, session, include_email_settings=user.role == "supervisor")
+        work_form_response(form, session, include_email_settings=user.role == "supervisor",
+                           email_recipient_users=directories.get(form.department_id))
         for form in forms
     ]
 
@@ -358,8 +366,14 @@ def create_work_form_submission(data, user: User, session: Session, include_repl
         session.flush()
         if submission_purpose == "report":
             from app.use_cases.report_pdf_email import enqueue_report_pdf
-            enqueue_report_pdf(submission, form, session)
+            enqueue_report_pdf(submission, form, session, author=user,
+                               selected=data.pdf_email_recipients,
+                               expected_version=data.expected_pdf_email_version,
+                               selected_users=data.pdf_email_recipient_users)
         session.commit()
+    except HTTPException:
+        session.rollback()
+        raise
     except IntegrityError:
         session.rollback()
         if client_submission_id:

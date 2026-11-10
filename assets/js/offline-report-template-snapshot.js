@@ -1,3 +1,4 @@
+import { reportEmailOptions } from './report-email-recipients.js';
 import { get, put, remove } from './db.js';
 
 const SNAPSHOT_SCHEMA_VERSION = 1;
@@ -40,8 +41,11 @@ function snapshotTemplate(template, scope) {
       || typeof field.label !== 'string' || !field.label.trim()
       || !FIELD_TYPES.has(field.type))) return null;
   try {
+    const emailOptions = reportEmailOptions(template);
     return {
       id: template.id,
+      ...(emailOptions ? { pdf_email_options: emailOptions }
+        : template.pdf_email_options != null ? { pdf_email_options: { unavailable: true } } : {}),
       department_id: template.department_id,
       name: template.name,
       description: typeof template.description === 'string' ? template.description : '',

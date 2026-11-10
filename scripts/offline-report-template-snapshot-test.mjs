@@ -1,3 +1,4 @@
+import { reportEmailSelection, reportEmailSelectionStale } from '../assets/js/report-email-recipients.js';
 import assert from 'node:assert/strict';
 import { createWorkerReportTemplateSnapshotStore } from '../assets/js/offline-report-template-snapshot.js';
 
@@ -14,6 +15,7 @@ const worker = { id: 12, departmentId: 3, role: 'worker', status: 'active' };
 const template = {
   id: 51, department_id: 3, name: 'Site inspection', description: 'Inspect the work area.',
   status: 'active', template_purpose: 'report', definition_version: 2,
+  pdf_email_options: { version: 3, enabled: true, recipients: ['approved@example.invalid'], default_recipients: [] },
   fields: [{ id: 'issue', type: 'text', label: 'Issue', required: true }]
 };
 
@@ -106,3 +108,19 @@ assert.equal(await failClosed.load(worker), null);
 await failClosed.save(worker, [template]);
 assert.deepEqual((await failClosed.load(worker)).templates, [template]);
 console.log('ok - a failed clear cannot restore revoked Templates in this session; a new authenticated save may replace them');
+
+const options = template.pdf_email_options;
+assert.deepEqual(reportEmailSelection(options, { pdfEmailRecipients: [], expectedPdfEmailVersion: 1 }), { pdfEmailRecipients: [], expectedPdfEmailVersion: 1 });
+assert.equal(reportEmailSelectionStale(options, { pdfEmailRecipients: [], expectedPdfEmailVersion: 1 }), false);
+assert.equal(reportEmailSelectionStale(null, { pdfEmailRecipients: ['approved@example.invalid'], expectedPdfEmailVersion: 3 }), true);
+assert.equal(reportEmailSelectionStale(options, { pdfEmailRecipients: ['approved@example.invalid'], expectedPdfEmailVersion: 2 }), true);
+assert.equal(reportEmailSelectionStale(options, { pdfEmailRecipients: ['unapproved@example.invalid'], expectedPdfEmailVersion: 3 }), true);
+console.log('ok - explicit self-only survives version changes; stale/unavailable approvals never permit additional copies');
+
+assert.equal(reportEmailSelectionStale(null, { pdfEmailRecipients: [], expectedPdfEmailVersion: 3 }), true, 'Old backend cannot guarantee explicit self-only');
+assert.equal(reportEmailSelectionStale(null, {}), false, 'Legacy forms retain legacy flow');
+
+const malformedDirectory = { ...template, pdf_email_options: { source: 'department_users', version: 3, recipients: [], default_recipients: [] } };
+await snapshots.save(worker, [malformedDirectory]);
+assert.deepEqual((await snapshots.load(worker)).templates[0].pdf_email_options, { unavailable: true }, 'Malformed advertised directory survives offline snapshot without downgrading to legacy absence');
+console.log('ok - malformed Department directory remains explicitly unavailable offline');

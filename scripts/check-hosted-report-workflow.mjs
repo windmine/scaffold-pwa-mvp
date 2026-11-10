@@ -431,10 +431,12 @@ export async function readLocalRecordEvidence() {
     } finally { db.close(); }
   };
   const records = new Map((await readExisting('scaffold-pwa-local')).map((record) => [record.id, record]));
-  for (const envelope of await readExisting('scaffold-pwa-report-evidence-v1')) {
+  for (const name of ['scaffold-pwa-report-evidence-v1', 'scaffold-pwa-report-recovery-v1', 'scaffold-pwa-report-recipients-v1']) {
+    for (const envelope of await readExisting(name)) {
     if (envelope.reportStorageVersion !== 1) continue;
     if (envelope.deleted) records.delete(envelope.id);
     else if (envelope.value) records.set(envelope.id, envelope.value);
+    }
   }
   const summaries = [];
   for (const record of records.values()) {

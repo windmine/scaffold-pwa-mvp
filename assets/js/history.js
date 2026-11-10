@@ -834,6 +834,7 @@ export function createHistoryModule({
   }
 
   function reportQueueGuidance(record) {
+    if (record.syncBlockedReason === 'email_recipients_changed') return 'Approved PDF recipients changed. Use Recover as draft, then review the current recipient list before submitting. Your original choices are kept.';
     if (record.syncBlockedReason === 'template_changed') {
       return 'Your original answers and evidence are kept below. Open New Report and complete the current template. Keep this saved copy until the new report is submitted.';
     }
@@ -1175,7 +1176,7 @@ export function createHistoryModule({
         : '';
       extra.innerHTML = `
         ${state.user?.role === 'supervisor' && record.type === 'form' && recordSubmissionPurpose(record) === 'report' && record.pdfEmail
-          ? `<p class="report-pdf-email-status"><span>${escapeHtml(reportPdfEmailStatus(record.pdfEmail))}</span>${record.pdfEmail.recipient ? `<br><span>PDF recipient:</span> <span data-no-i18n>${escapeHtml(record.pdfEmail.recipient)}</span>` : ''}</p>` : ''}
+          ? `<p class="report-pdf-email-status"><span>${escapeHtml(reportPdfEmailStatus(record.pdfEmail))}</span>${!Array.isArray(record.pdfEmail.deliveries) && record.pdfEmail.recipient ? `<br><span>PDF recipient:</span> <span data-no-i18n>${escapeHtml(record.pdfEmail.recipient)}</span>` : ''}</p>` : ''}
         ${!simplifyReport ? `<p><strong>Type:</strong> ${record.type === 'attendance' ? escapeHtml(record.action === 'check_in' ? 'Check in' : 'Check out') : record.type === 'form' ? 'Report' : record.type === 'team_log' ? 'Weekly team log' : 'Task log'}</p>` : ''}
         ${record.entrySource === 'supervisor_manual' ? `<p><strong>Entry source:</strong> ${record.type === 'attendance' ? 'Manual supervisor attendance' : 'Admin-entered approved log'}${record.createdBySupervisorName ? ` by ${escapeHtml(record.createdBySupervisorName)}` : ''}${record.type === 'attendance' ? '; no GPS was captured.' : '; no approval is required.'}</p>` : ''}
         ${record.type === 'attendance' && record.location ? `<p><strong>Location:</strong> ${record.location.latitude}, ${record.location.longitude} (${record.location.accuracy}m)</p>` : ''}
@@ -1198,7 +1199,7 @@ export function createHistoryModule({
           <div class="edit-warning" role="alert">
             <strong>${record.isDraftRecovery ? 'Saved copy.' : 'Sync needs attention.'}</strong>
             ${escapeHtml(record.syncError)}
-            ${record.syncBlockedReason === 'template_changed'
+            ${record.syncBlockedReason === 'email_recipients_changed' ? '<p>Use Recover as draft to review approved PDF recipients before submitting. Your original choices are kept.</p>' : record.syncBlockedReason === 'template_changed'
               ? '<p>Your original answers and evidence are kept below. Open New Report and complete the current template. Keep this saved copy until the new report is submitted.</p>'
               : record.isDraftRecovery ? '' : reportOnly && record.type === 'form'
                 ? '<p>Retry when online, or use Recover as draft to keep your answers and replace invalid photos. We first check whether this Report was already submitted.</p>'

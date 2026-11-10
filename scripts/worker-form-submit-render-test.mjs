@@ -26,7 +26,7 @@ try {
       assert.match(url.pathname, /^\/assets\/js\/[a-z\d-]+\.js$/);
       let body = await readFile(path.resolve(url.pathname.slice(1)), 'utf8');
       if (url.pathname === '/assets/js/db.js') {
-        const boundary = 'await writeStore(openReportDb, storeName, (store) => store.put(envelope));';
+        const boundary = 'await writeStore(openRecipientDb, storeName, (store) => store.put({';
         assert.ok(body.includes(boundary), 'Controlled pre-commit boundary must remain exact');
         body = body.replace(boundary, `if (storeName === 'drafts' && window.pauseDraftWrite) {
           window.writePaused = true; await window.pauseDraftWrite;

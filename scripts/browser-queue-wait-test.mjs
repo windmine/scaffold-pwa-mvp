@@ -29,7 +29,7 @@ const assertAccessibleOnline = new Function('page', `return (async () => {
 const server = createServer((_request, response) => response.end('<!doctype html><title>Queue wait contract</title>'));
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 let browser;
-const names = ['scaffold-pwa-local', 'scaffold-pwa-report-evidence-v1', 'scaffold-pwa-report-recovery-v1'];
+const names = ['scaffold-pwa-local', 'scaffold-pwa-report-evidence-v1', 'scaffold-pwa-report-recovery-v1', 'scaffold-pwa-report-recipients-v1'];
 let failures = 0;
 function holdNativeStartupStatusRead() {
   let release;
