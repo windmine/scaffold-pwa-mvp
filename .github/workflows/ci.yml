@@ -75,6 +75,19 @@ jobs:
         run: python -m pip check
       - name: Run disposable backend regression suites
         run: python .github/scripts/run_local_checks.py backend
+      - name: Check canonical recovery verifier and runtime evidence offline
+        run: |
+          python scripts/check-neon-recovery-verifier-test.py
+          python scripts/check-runtime-recovery-inventory-test.py
+          python scripts/check-runtime-recovery-build-test.py
+          python scripts/check-runtime-recovery-test.py
+      - name: Check recovery contracts and parent gate provider wiring offline
+        shell: pwsh
+        run: |
+          ./scripts/check-recovery-migration-contract-test.ps1
+          ./scripts/check-recovery-evidence-safety-test.ps1
+          ./scripts/check-runtime-recovery-integration-test.ps1
+          ./scripts/check-prepare-runtime-recovery-test.ps1
       - name: Install PostgreSQL 17 from its official signed apt repository
         # Ubuntu 24.04 runners currently contain PostgreSQL 16; do not assume 17 exists.
         # https://www.postgresql.org/download/linux/ubuntu/
@@ -87,6 +100,8 @@ jobs:
           /usr/lib/postgresql/17/bin/postgres --version
       - name: Verify native PostgreSQL environment isolation
         run: python backend/postgres_rehearsal_environment_test.py --pg-bin /usr/lib/postgresql/17/bin --output output/ci/postgres-environment.json
+      - name: Verify runtime recovery inventories on native PostgreSQL
+        run: python scripts/check-runtime-recovery-test.py --pg-bin /usr/lib/postgresql/17/bin
       - name: Check small native PostgreSQL volume with a new owned local cluster
         run: python backend/report_volume_test.py --pg-bin /usr/lib/postgresql/17/bin --profile ci --output output/ci/backend-volume.json
       - name: Check PDF email migration and outbox concurrency with mocked SMTP

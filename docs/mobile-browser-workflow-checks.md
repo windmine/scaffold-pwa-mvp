@@ -847,6 +847,10 @@ Run this separately with the test-only full-interface override; it is not a visi
 
 For the retained full-interface regression only, geolocation denial, scoped Site/attendance cold launch, queued attendance occurrence time, Supervisor mixed-record Review Queue, Audit history, maps, analytics, and recovery flows must continue to pass under the explicit test override.
 
+## Runtime recovery prerequisite
+
+For a release using schema 4 runtime recovery, run the ordinary canonical production-hardening gate with the exact fresh evidence path. Require final-source/image/build binding, the real successful migration preservation execution for `Current`, and independently completed branch **and** endpoint absence within the original fifteen-minute proof window. `PreMigration`, pending expiry, older release-local helpers or a local completion marker do not approve the candidate. The existing alert, IAM, uploads and readiness checks still apply. Follow [the runtime recovery runbook](production-db-runbook.md#credential-bound-runtime-recovery-schema-4); this prerequisite neither replaces browser/physical-phone checks nor authorizes deployment.
+
 ## Manual Hosted Pass Record
 
 Copy this block into the release evidence or pull-request notes after the pass:

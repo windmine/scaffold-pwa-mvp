@@ -1917,6 +1917,10 @@ Useful later features:
 - Bulk staff import.
 - Production deployment scripts.
 
+## Runtime recovery release gate
+
+The canonical production-hardening command supports a separate schema 4 credential-bound recovery proof while retaining schema 3 unchanged. It binds the final source, complete packaged image/assets, immutable build source, exact existing runner execution and unique log. `Current` additionally requires the real successful 27-to-28 migration preservation record. A fresh short-lived proof is final only after both its branch and endpoint are independently absent; pending automatic expiry is not success. No new credential route, SMTP access or production deployment is authorized by this support. See [the runtime recovery procedure](docs/production-db-runbook.md#credential-bound-runtime-recovery-schema-4) for preparation, caller constraints, cleanup, source-byte requirements and offline test commands.
+
 ## License
 
 This project is currently an MVP/prototype. Add a license before public or production use.

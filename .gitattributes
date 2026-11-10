@@ -7,6 +7,20 @@
 # Migration checksums are durable: Windows and Linux must ship identical bytes.
 backend/migrations/versions/*.py text eol=lf
 
+# New runtime-proof code is embedded as exact bytes; keep checkout/archive equal.
+# Legacy verifier/contract scripts and all historical proof bytes are unchanged.
+scripts/runtime_recovery.py text eol=lf
+scripts/runtime-recovery-probe.py text eol=lf
+scripts/runtime_recovery_inventory.py text eol=lf
+scripts/runtime_recovery_build.py text eol=lf
+scripts/prepare-runtime-recovery.ps1 text eol=lf
+scripts/check-runtime-recovery.ps1 text eol=lf
+scripts/check-runtime-recovery-test.py text eol=lf
+scripts/check-runtime-recovery-inventory-test.py text eol=lf
+scripts/check-runtime-recovery-build-test.py text eol=lf
+scripts/check-runtime-recovery-integration-test.ps1 text eol=lf
+scripts/check-prepare-runtime-recovery-test.ps1 text eol=lf
+
 # Preserve this hash-bound recipient-confirmed release proof exactly.
 docs/evidence/alert-delivery-diagnosis-2026-10-12.json -text
 

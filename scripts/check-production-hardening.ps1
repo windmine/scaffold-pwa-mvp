@@ -27,7 +27,8 @@ param(
   [ValidateRange(1, 365)]
   [int]$MaximumAlertDeliveryEvidenceAgeDays = 30,
   [switch]$AllowIncidentOnlyMonitoring,
-  [string]$BillingAccount = ""
+  [string]$BillingAccount = "",
+  [string]$NeonContextFile = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -246,7 +247,8 @@ if ($DatabaseProvider -eq "neon") {
     if (-not (Get-Command npx -ErrorAction SilentlyContinue)) {
       throw "npx is unavailable for the pinned Neon read-only verification"
     }
-    $neonContext = Get-Content -LiteralPath (Join-Path $repoRoot ".neon") -Raw | ConvertFrom-Json
+    $neonContextPath = if ($NeonContextFile) { Resolve-RepoPath $NeonContextFile } else { Join-Path $repoRoot ".neon" }
+    $neonContext = Get-Content -LiteralPath $neonContextPath -Raw | ConvertFrom-Json
     $neonContextProjectId = [string]$neonContext.projectId
     if (-not $neonContextProjectId -or -not $recoveryMigrationContract) {
       throw "Neon context or migration head is unavailable"
@@ -745,6 +747,23 @@ try {
 
 if ($DatabaseProvider -eq "neon") {
   $neonEvidence = Read-RecoveryEvidence $NeonRecoveryEvidence "Neon"
+  if ($neonEvidence -and ($neonEvidence.schemaVersion -is [int] -or $neonEvidence.schemaVersion -is [long]) -and $neonEvidence.schemaVersion -eq 4) {
+    . (Join-Path $PSScriptRoot "check-runtime-recovery.ps1")
+    $runtimeRecoveryPassed = Test-RuntimeRecovery -Evidence $neonEvidence -Contract $recoveryMigrationContract `
+      -EvidencePath $NeonRecoveryEvidence -ProjectId $ProjectId -Region $Region `
+      -RuntimeServiceAccount $RuntimeServiceAccount -DatabaseSecret $DatabaseSecret -JwtSecret $JwtSecret `
+      -MinimumHistoryHours $MinimumNeonHistoryHours -MaximumAgeDays $MaximumRecoveryEvidenceAgeDays `
+      -ReleasePhase $ReleasePhase -PreMigrationHead $PreMigrationRecoveryHead -NeonProjectId $neonContextProjectId
+    if ($runtimeRecoveryPassed) {
+      Pass "runtime Neon recovery proof matches the canonical release and provider contract"
+      $historySeconds = [int64]$neonEvidence.productionBranch.historyRetentionSeconds
+      if ($historySeconds -lt (7 * 86400)) {
+        Warn "Neon history retention is only $([math]::Round($historySeconds / 3600, 2)) hours; choose a longer paid window or external logical backups before relying on it for production recovery"
+      }
+    } else {
+      Fail "runtime Neon recovery proof does not satisfy the canonical release and provider contract"
+    }
+  } else {
   if ($neonEvidence) {
     try {
       $startedAt = ConvertTo-RecoveryEvidenceUtc $neonEvidence.startedAtUtc
@@ -860,6 +879,8 @@ if ($DatabaseProvider -eq "neon") {
       Fail "Neon recovery evidence failed strict validation"
     }
   }
+}
+
 }
 
 $uploadEvidence = Read-RecoveryEvidence $UploadRecoveryEvidence "Upload"
