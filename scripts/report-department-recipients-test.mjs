@@ -80,6 +80,20 @@ try {
   assert.equal(await f.inputs.nth(26).isChecked(), true);
   assert.equal(await f.inputs.nth(0).isChecked(), false);
   assert.equal((await f.page.evaluate(() => window.test.picker.capture())).pdfEmailRecipientUsers.length, 20);
+  for (const width of [320, 390]) {
+    for (const theme of ['light', 'dark']) {
+      await f.page.setViewportSize({ width, height: 844 });
+      await f.page.evaluate((theme) => { document.documentElement.dataset.theme = theme; }, theme);
+      const layout = await f.inputs.evaluateAll((inputs) => ({ viewport: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+        targets: inputs.map((input) => { const { width, height, left, right } = input.getBoundingClientRect(); return { width, height, left, right }; }) }));
+      assert.equal(layout.targets.length, 27, 'The entire directory remains reachable on small screens');
+      assert.ok(layout.scrollWidth <= layout.viewport, `${width}/${theme}: no horizontal overflow`);
+      for (const target of layout.targets) assert.ok(target.width >= 44 && target.height >= 44 && target.left >= 0 && target.right <= width,
+        `${width}/${theme}: actual checkbox touch target must be at least 44px: ${JSON.stringify(target)}`);
+      await f.page.screenshot({ path: path.join(output, `full-directory-${width}-${theme}.png`), fullPage: true });
+      checks += 3;
+    }
+  }
   await f.page.screenshot({ path: path.join(output, 'full-directory-phone.png'), fullPage: true });
   assert.equal(await f.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await f.page.setViewportSize({ width: 1280, height: 900 });

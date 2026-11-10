@@ -91,6 +91,19 @@ try {
       { recipient: 'author@example.invalid', recipient_role: 'submitter', status: 'accepted' },
       { recipient: 'approved@example.invalid', recipient_role: 'selected', status: 'failed' }
     ] })), /author@example.invalid[\s\S]*accepted[\s\S]*approved@example.invalid[\s\S]*not sent/);
+    for (const width of [320, 390]) {
+      for (const theme of ['light', 'dark']) {
+        await f.page.setViewportSize({ width, height: 844 });
+        await f.page.evaluate((theme) => { document.documentElement.dataset.theme = theme; }, theme);
+        const target = await f.form.locator('[data-pdf-email-enabled]').evaluate((input) => {
+          const { width, height, left, right } = input.getBoundingClientRect(); return { width, height, left, right, scrollWidth: document.documentElement.scrollWidth };
+        });
+        assert.ok(target.width >= 44 && target.height >= 44 && target.left >= 0 && target.right <= width && target.scrollWidth <= width,
+          `${width}/${theme}: default checkbox must have a real 44px touch target without overflow: ${JSON.stringify(target)}`);
+        await f.page.screenshot({ path: path.join(output, `department-settings-${width}-${theme}.png`), fullPage: true });
+        checks += 1;
+      }
+    }
     await f.page.screenshot({ path: path.join(output, 'department-settings-phone.png'), fullPage: true });
     await f.page.setViewportSize({ width: 1280, height: 900 });
     await f.page.screenshot({ path: path.join(output, 'department-settings-desktop.png'), fullPage: true });

@@ -7651,6 +7651,27 @@ async function checkSupervisorWorkspaceNavigation(browser) {
       throw new Error(`workspace quick link did not reveal Review: ${JSON.stringify(deepLinkState)}`);
     }
 
+    // Closed details content can retain the previous resolved grid geometry
+    // across resize. Exercise the visible entry forms a user actually opens.
+    for (const id of ['manualAttendanceDetails', 'adminTaskLogDetails']) {
+      const details = page.locator(`#${id}`);
+      if (!await details.evaluate((element) => element.open)) await details.locator(':scope > summary').click();
+      await details.locator('form').waitFor({ state: 'visible' });
+    }
+    const entryFormsLayout = () => {
+      const result = {};
+      for (const [name, selector] of [['attendance', '.manual-attendance-form'], ['task', '.admin-task-log-form']]) {
+        const form = document.querySelector(selector);
+        const grid = getComputedStyle(form).gridTemplateColumns;
+        const [first, second] = [...form.querySelectorAll(':scope > label')].slice(0, 2).map((label) => label.getBoundingClientRect());
+        result[`${name}Columns`] = grid.split(/\s+/).length;
+        result[`${name}Grid`] = grid;
+        result[`${name}SideBySide`] = second.left >= first.right - 1 && Math.abs(first.bottom - second.bottom) <= 1;
+        result[`${name}Stacked`] = second.top >= first.bottom - 1;
+      }
+      result.overflow = document.documentElement.scrollWidth - innerWidth;
+      return result;
+    };
     const wideReviewState = await page.evaluate(() => {
       const attendance = document.querySelector('.admin-review-layout > .manual-attendance-card')?.getBoundingClientRect();
       const task = document.querySelector('.admin-review-layout > .admin-task-log-card')?.getBoundingClientRect();
@@ -7677,31 +7698,33 @@ async function checkSupervisorWorkspaceNavigation(browser) {
     }
 
     await page.setViewportSize({ width: 820, height: 900 });
-    const tabletState = await page.evaluate(() => ({
-      attendanceColumns: getComputedStyle(document.querySelector('.manual-attendance-form')).gridTemplateColumns.split(' ').length,
-      taskColumns: getComputedStyle(document.querySelector('.admin-task-log-form')).gridTemplateColumns.split(' ').length,
-      overflow: document.documentElement.scrollWidth - window.innerWidth
-    }));
-    if (tabletState.attendanceColumns !== 2 || tabletState.taskColumns !== 2 || tabletState.overflow > 1) {
+    const tabletState = await page.evaluate(entryFormsLayout);
+    if (tabletState.attendanceColumns !== 2 || tabletState.taskColumns !== 2
+      || !tabletState.attendanceSideBySide || !tabletState.taskSideBySide || tabletState.overflow > 1) {
       throw new Error(`tablet Review forms did not use the compact two-column layout: ${JSON.stringify(tabletState)}`);
     }
 
     await page.setViewportSize({ width: 700, height: 900 });
-    const responsiveState = await page.evaluate(() => ({
+    const responsiveState = { ...await page.evaluate(entryFormsLayout), ...await page.evaluate(() => ({
       desktopNavVisible: getComputedStyle(document.querySelector('.admin-desktop-nav')).display !== 'none',
-      mobileToolbarVisible: getComputedStyle(document.querySelector('.admin-mobile-toolbar')).display !== 'none',
-      attendanceColumns: getComputedStyle(document.querySelector('.manual-attendance-form')).gridTemplateColumns.split(' ').length,
-      taskColumns: getComputedStyle(document.querySelector('.admin-task-log-form')).gridTemplateColumns.split(' ').length,
-      overflow: document.documentElement.scrollWidth - window.innerWidth
-    }));
+      mobileToolbarVisible: getComputedStyle(document.querySelector('.admin-mobile-toolbar')).display !== 'none'
+    })) };
     if (
       responsiveState.desktopNavVisible
       || !responsiveState.mobileToolbarVisible
       || responsiveState.attendanceColumns !== 1
       || responsiveState.taskColumns !== 1
+      || !responsiveState.attendanceStacked || !responsiveState.taskStacked
       || responsiveState.overflow > 1
     ) {
       throw new Error(`mobile supervisor navigation did not replace the desktop rail: ${JSON.stringify(responsiveState)}`);
+    }
+
+    const screenshotRoot = String(process.env.BROWSER_WORKFLOW_SCREENSHOT_DIR || '').trim();
+    if (screenshotRoot) {
+      mkdirSync(resolve(screenshotRoot), { recursive: true });
+      await page.locator('#adminTaskLogDetails').screenshot({ path: join(resolve(screenshotRoot), 'workspace-task-entry-700.png') });
+      await page.locator('#manualAttendanceDetails').screenshot({ path: join(resolve(screenshotRoot), 'workspace-attendance-entry-700.png') });
     }
 
     await page.locator('#adminMobileMenuButton').click();
