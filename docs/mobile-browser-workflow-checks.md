@@ -1,7 +1,14 @@
 # Mobile and Browser Workflow Checks
 
-## Pending local PDF recipient checks
+## Department PDF recipients release checks (2026-11-11 NZDT)
 
+Both [exact-source CI jobs](https://github.com/windmine/scaffold-pwa-mvp/actions/runs/42906976830) passed for deployed application source `4c3604d72f14442fef7a77f821b316e84b6037e3`, including all 75 browser workflows, the full mobile gate and native PostgreSQL checks.
+
+Live Hosting `97b057880cd466f6`, cache `leader-field-09b505541760`, passed exact parity for 92 files, 82 shell assets, five readiness probes, seven installer artifacts, offline rendering and all four waiting-update checks. An initial header-only offline capture was followed by a passing settled render with visible login fields; no persistent rendering defect was reproduced. Test browsers were closed.
+
+Production browser checks were anonymous and read-only. No physical-phone certification, authenticated live Report submission, production fixture or actual mailbox-delivery test is claimed. Mocked SMTP and a successful natural scheduled run with no pending mail do not establish inbox delivery. Retain the checklist below for future regression work. [Release evidence and preserved failed observations](evidence/recipient-directory-release-20261111/release.json).
+
+### Repeatable recipient regression checklist
 - Worker and Supervisor self-submit: show the account-email copy, choose active setup-complete users from the Template's own Department or none, and verify names/emails and the confirmation summary. Do not use production fixtures or real email without separate approval.
 - Change Template, save/restore a draft, refresh while editing, cold-start offline and replay: preserve exact explicit selections, including none, and the owning user/Department.
 - Resign a selected user, move them to another Department, change their email, or reassign their old email before queued sync: keep the Report recoverable, surface the recipient conflict and require explicit review. Add/reactivate a user and complete invitation setup to verify the directory updates. Never expose other-Department or setup-incomplete accounts. Do not choose new defaults automatically. Back/Cancel must preserve the original draft.
@@ -10,7 +17,6 @@
 - Supervisor settings: permission and stale-save guards, eligible default dropdown, visible preservation of an ineligible old default, deliberate replacement/disable, and separate question/routing versions. The full directory must appear even above 20 users; enforce the visible max-20 selection limit. Turning the old automatic default off must not disable intentional Department recipient choices. Workers must not gain Supervisor settings or others' Report delivery details.
 - Supervisor Report detail: verify individual pending/accepted/failed/uncertain outcomes and partial delivery text. Each synthetic SMTP envelope must contain one recipient only.
 - Local automated results are separate from physical iPhone/Android, deployed/authenticated flows and mailbox delivery, which remain untested unless separately recorded.
-
 
 ## Seven-day invitation release (2026-11-01 UTC)
 

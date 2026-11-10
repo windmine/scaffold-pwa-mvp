@@ -1,0 +1,207 @@
+{
+  "record_version": 1,
+  "status": "released_verified",
+  "source_commit": "4c3604d72f14442fef7a77f821b316e84b6037e3",
+  "ci": {
+    "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/42906976830",
+    "both_jobs": "passed",
+    "browser_workflows": 75,
+    "audit_findings": 0
+  },
+  "image": {
+    "digest": "sha256:4e592b0f314882f69ad5877e53af4aea39f3fad546868f6387ff535b37ee7f14",
+    "build_source_prefix": "dc23312",
+    "equivalent_build_inputs": 133,
+    "equivalent_runtime_files": 130,
+    "equivalent_helpers": 9,
+    "build_source_commit": "dc233121ece0e3c2ff83061df339c29ea5b54cf8"
+  },
+  "schema": {
+    "version": 28,
+    "migration": "0028_report_pdf_recipients",
+    "completed_at": "2026-11-10T22:40:58.600430Z",
+    "original_tables_preserved": 18,
+    "original_ledger_entries_preserved": 27,
+    "old_outbox_rows_and_attempts_preserved": 3,
+    "historical_backfill": false,
+    "migration_sha256": "d70b115bf88ccd247442cb1074c64c1c66ff9414d20a86859d4c617e27ba714e"
+  },
+  "maintenance": {
+    "started_at": "2026-11-10T22:21:42.361837Z",
+    "api_restored_at": "2026-11-10T22:50:03.134369Z",
+    "duration_seconds": 1700.773,
+    "compatible_database_free_stop_revision": "geo-backend-recipdir-maint-20261110"
+  },
+  "backup": {
+    "id": "br-twilight-cloud-a72qob1z",
+    "expires_at": "2026-11-17T22:34:12Z",
+    "read_only": true
+  },
+  "hosting": {
+    "version": "97b057880cd466f6",
+    "file_count": 92,
+    "promoted_at": "2026-11-10T23:24:39.632Z",
+    "cache_name": "leader-field-09b505541760",
+    "config_unchanged": true
+  },
+  "not_tested": [
+    "physical phones",
+    "authenticated live Report submission",
+    "actual mailbox delivery"
+  ],
+  "caveats": [
+    "Historical six-hour Neon recovery-window warning remains.",
+    "Earlier Current attempt expired before runtime execution.",
+    "Provider receipt timestamp handling corrected in output-only operator; 163 tests and 23 independent focused cases passed; canonical source unchanged.",
+    "Scheduled execution and SMTP acceptance do not prove inbox delivery.",
+    "The final runtime check first used the wrong Hosting /health route; the corrected read-only /api health check passed, with no service defect established.",
+    "An initial cold-offline screenshot captured the header before the login fields settled. A subsequent settled render passed; no persistent rendering defect was reproduced."
+  ],
+  "fallback": {
+    "ledger_downgrade_allowed": false,
+    "reset_delivery_attempts_allowed": false,
+    "preserve_all_device_stores": true,
+    "required_schema": 28,
+    "verified_compatibility_required": true,
+    "old_hosting_is_historical_artifact_only": true
+  },
+  "final_verification": {
+    "backend_revision": "geo-backend-recipdir-20261110",
+    "cache_name": "leader-field-09b505541760",
+    "hosting_promoted_at": "2026-11-10T23:24:39.632Z",
+    "verified_at": "2026-11-10T23:35:15.491132Z",
+    "worker_state": "enabled - batch 10 - one task - parallelism 1 - zero retries",
+    "scheduler_state": "enabled - every five minutes UTC",
+    "natural_tick_id": "reportflow-pdf-email-7d9js",
+    "natural_tick_result": "passed - zero accepted - zero failed - zero uncertain - zero skipped - queue empty",
+    "natural_tick_at": "2026-11-10T23:35:15.491132Z",
+    "current_verified_at": "2026-11-10T23:20:37Z",
+    "cleanup_verified_at": "2026-11-10T23:20:00Z",
+    "live_checks_verified_at": "2026-11-10T23:35:01.903274Z",
+    "all_deployment_gates_confirmed": true,
+    "gates": {
+      "strict_current": true,
+      "actual_cleanup": true,
+      "runtime_source_equivalence": true,
+      "live_92_file_parity": true,
+      "live_readiness": true,
+      "live_shell": true,
+      "live_offline": true,
+      "live_installer": true,
+      "live_waiting_update": true,
+      "worker_natural_tick": true,
+      "final_runtime_settings": true
+    }
+  },
+  "current_recovery": {
+    "schema_version": 4,
+    "status": "passed",
+    "mode": "Current",
+    "expected_schema": 28,
+    "candidate_schema": 28,
+    "verified_at": "2026-11-10T23:20:37Z",
+    "automatic_cleanup": true,
+    "branch_and_endpoint_absence_verified_at": "2026-11-10T23:20:00.881051Z",
+    "proof_sha256": "d0999ebec231cd1964b542a8ff3efce4160746a868332af878ae59d06bd6e2f1",
+    "runtime_verified_at": "2026-11-10T23:15:27.948283Z",
+    "cleanup_method": "automatic-expiry"
+  },
+  "live_checks": {
+    "status": "passed",
+    "exact_files": 92,
+    "shell_assets": 82,
+    "readiness_probes": 5,
+    "installer_artifacts": 7,
+    "offline_rendering": "passed",
+    "waiting_update_checks": 4,
+    "test_browsers_closed": true,
+    "independent_health_ready_sw_http_status": 200,
+    "database_migrations_and_gcs": "healthy"
+  },
+  "pre_promotion_strict_hardening": {
+    "status": "passed",
+    "with_billing": true,
+    "passed": 38,
+    "failed": 0,
+    "exit_code": 0,
+    "completed_at": "2026-11-10T23:23:00Z"
+  },
+  "queue_inventory": {
+    "verified_at": "2026-11-10T23:29:27Z",
+    "original_accepted_rows": 3,
+    "all_original_fields_and_attempts_preserved": true,
+    "new_rows": 0,
+    "pending_rows": 0,
+    "eligible_configured_defaults": 2,
+    "retention_eligible_rows": 0
+  },
+  "sending_restoration": {
+    "verified_at": "2026-11-10T23:32:07Z",
+    "worker_enabled": true,
+    "scheduler_enabled": true,
+    "schedule": "*/5 * * * *",
+    "timezone": "UTC",
+    "batch_size": 10,
+    "task_count": 1,
+    "parallelism": 1,
+    "retries": 0,
+    "enabled_manual_dispatch": false
+  },
+  "natural_scheduled_execution": {
+    "id": "reportflow-pdf-email-7d9js",
+    "started_at": "2026-11-10T23:35:00.827555Z",
+    "completed_at": "2026-11-10T23:35:15.491132Z",
+    "scheduler_identity_verified": true,
+    "task_count": 1,
+    "retries": 0,
+    "accepted": 0,
+    "failed": 0,
+    "uncertain": 0,
+    "skipped": 0,
+    "pending_mail": 0
+  },
+  "final_strict_hardening": {
+    "status": "passed",
+    "with_billing": true,
+    "mode": "Current",
+    "passed": 38,
+    "failed": 0,
+    "exit_code": 0,
+    "completed_at": "2026-11-10T23:33:56.636790Z"
+  },
+  "final_runtime": {
+    "verified_at": "2026-11-10T23:35:01.903274Z",
+    "api_worker_hosting": "correct",
+    "readiness_http_status": 200,
+    "candidate_api_errors": 0,
+    "iam_and_bindings": "unchanged",
+    "auxiliary_runner": "inert and idle",
+    "retained_backup": "intact",
+    "recovery_branch_and_endpoint": "absent"
+  },
+  "evidence_sha256": {
+    "final_runtime": "1b25a76a069ab1e4407ae73bd735c4a3d55eef7291672b9fe3c24d1551e8f749",
+    "final_strict_hardening": "ecb8311a2b806d90b715ede075223d2c7f374af3b6ae8fa133bf9742cb2a95d9",
+    "live_frontend_summary": "1af3f29b8283d90a5763f25ff3872cb90b8a6ed6f3619ee50eb8cbe7a6dd1203",
+    "exactCi": "507d6cf8572a31e8ae48540934cd66a77f46fb41cca44e62cc429c081546cf8b",
+    "migration": "fcaf69852fe9f532a27ed08481de3c644c8e660a16b688107e6d99e02fa2dc58",
+    "currentRecovery": "d0999ebec231cd1964b542a8ff3efce4160746a868332af878ae59d06bd6e2f1",
+    "currentHardeningBeforeHosting": "472e06d2438a0119bcd50cb8a1f0f2621c381bb66f93e22c97ce438b7f616ae3",
+    "finalHardeningAfterRestoration": "ecb8311a2b806d90b715ede075223d2c7f374af3b6ae8fa133bf9742cb2a95d9",
+    "finalRuntime": "1b25a76a069ab1e4407ae73bd735c4a3d55eef7291672b9fe3c24d1551e8f749",
+    "liveBrowserSummary": "1af3f29b8283d90a5763f25ff3872cb90b8a6ed6f3619ee50eb8cbe7a6dd1203",
+    "preResumeQueue": "67c0d8eb0eaf04960a90a06233c2ebf238c27917438ea5cca84da4d3d35bdd1a",
+    "naturalSchedule": "63e20ae63378c8570b35ba2630521899be0a70f029d00998f8da44ca0a9c39ef",
+    "hostingPromotion": "7efed1de450455f408b95ca645de7be460cadfa9ce271b6b77cf5ae1453f8ee1"
+  },
+  "operations_ledger_sha256": "9e6a7f386ec317e09094a69d20a533696d0606ae8260884c26e634c5be2b875e",
+  "all_journaled_phases_passed": 23,
+  "retained_frontend_artifacts": {
+    "purpose": "Historical rollback artifact only; independently verify schema-28 compatibility before use.",
+    "preview_channel": "release-recipdir-20261110",
+    "preview_expires_at": "2026-11-17T03:09:46.313410300Z",
+    "rollback_channel": "rollback-recipdir-20261110",
+    "rollback_expires_at": "2026-11-17T03:08:49.998566342Z",
+    "previous_version": "dac374374c32e6ff"
+  }
+}

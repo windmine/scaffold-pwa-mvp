@@ -1,11 +1,14 @@
 # AGENTS.md
 
-## Local approved-recipient feature (2026-11-10, not released)
+## Department PDF recipients release (2026-11-11 NZDT; 2026-11-10 UTC)
 
-Pending work adds automatic submitter PDF copies and a picker of all active, setup-complete users in the Template's own Department. The directory follows account changes without manual list maintenance and exposes no other-Department accounts. Optional eligible defaults are preserved; explicit self-only selections remain valid across directory changes. Nonempty selections bind account IDs/emails, require current eligibility/version and freeze with the submitted snapshot. Migration `0028_report_pdf_recipients` preserves old deliveries and attempts without backfill, and adds recipient-specific uniqueness. See the README feature section and production runbook before any authorized release. No commit, push, deployment, real email or production record was made by this implementation.
+Deployed application source is `4c3604d72f14442fef7a77f821b316e84b6037e3`, not a later documentation-only commit. API `geo-backend-recipdir-20261110` serves 100% with its matching PDF worker. Hosting `97b057880cd466f6` uses cache `leader-field-09b505541760`. Schema 28, enabled worker and five-minute UTC Scheduler supersede the historical states below. The natural scheduled run completed at `2026-11-10T23:35:15.491132Z` with no pending mail and all outcome counts zero.
 
-The November 5 paused-state record below is historical: a read-only November 10 check found the existing `reportflow-pdf-email` Scheduler ENABLED on its five-minute cadence and the worker enabled with one task and zero retries. This feature work did not change the Scheduler, worker or production routing. Always reverify current state before release actions; do not infer permission to resume/stop sending from historical notes.
+New authenticated Reports queue a mandatory submitter PDF copy and up to 20 selected active, valid-email, setup-complete accounts from the Template's own Department, or self only. Eligible defaults remain available. Never allow arbitrary or cross-Department recipients. Account/email and routing-version validation rejects stale selections atomically; separate recipient envelopes and immutable snapshots prevent later changes from redirecting queued mail. No historical backfill or resend occurs.
 
+Keep schema 28. Use the database-free stop revision `geo-backend-recipdir-maint-20261110`, then a forward fix or explicitly verified compatible fallback. Old Hosting is a historical artifact, not automatic rollback approval. Never downgrade the ledger, reset attempts or clear device stores, including isolated recipient-aware drafts and queues.
+
+Exact-source CI and final release checks passed. Physical phones, authenticated live submissions and inbox delivery remain untested. [Release evidence, retained failures and recovery limits](docs/evidence/recipient-directory-release-20261111/release.json).
 
 ## Report email/PDF clarity and New Zealand time release (2026-11-05 UTC)
 

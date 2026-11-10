@@ -1,7 +1,14 @@
 # ReportFlow
 
-## Local feature: submitter PDF copies and Department recipient choices
+## Department PDF recipients release (2026-11-11 NZDT; 2026-11-10 UTC)
 
+New authenticated Reports receive a submitter PDF copy plus up to 20 selected eligible accounts from the Template's own Department, or self only. The directory follows account changes, retains eligible defaults and excludes arbitrary or cross-Department addresses. Each recipient receives a separate email with the original submitted snapshot; historical Reports are not resent.
+
+Application source `4c3604d72f14442fef7a77f821b316e84b6037e3` is live on API `geo-backend-recipdir-20261110` and Hosting `97b057880cd466f6`, cache `leader-field-09b505541760`, with schema 28 and matching PDF worker. Automatic sending and the five-minute Scheduler are enabled. The first natural run completed successfully with no pending mail.
+
+Both exact-source CI jobs passed, including 75 browser workflows, the full mobile gate and native PostgreSQL. Live asset/offline/update checks and final strict hardening passed. Physical phones, authenticated live submissions and actual inbox delivery were not tested. Preserve device drafts/queues when updating. [Release evidence, recovery safeguards and retained failures](docs/evidence/recipient-directory-release-20261111/release.json). Earlier release states below are historical.
+
+## Feature: submitter PDF copies and Department recipient choices
 New authenticated Report submissions queue a PDF copy to the submitter's saved account email, including Supervisor self-submissions. This happens independently of the optional extra-recipient setting. Legacy Daywork and already submitted Reports do not acquire new email. A bad legacy account address records a failed self-copy rather than losing the Report.
 
 Each Report Template offers all valid-email active users in its own Department who have completed account setup. The directory follows account additions, departures, Department moves and email changes; it is not a manually copied list and is not truncated. Submitters can select up to 20 recipients, or none for a self-copy only, independently of the legacy automatic-default setting. Supervisors choose an optional default from that same directory. Existing eligible defaults remain initially selected. Users cannot type an arbitrary address or select another Department's account. A recipient matching the submitter is sent just one copy. Each address gets a separate email, never a shared To/Cc/Bcc list.
@@ -12,10 +19,9 @@ Recipient-aware drafts and queued Reports (including explicit self-only choices)
 
 API: Template responses add `pdf_email_options` with a `department_users` source, the eligible recipient directory/account bindings, default selections, routing version and selection limit. Report submission accepts `pdf_email_recipients`, `pdf_email_recipient_users` and `expected_pdf_email_version`; nonempty selections must bind the exact account ID and email. An explicit empty list means self only and remains valid across eligibility changes, while omitted/null selection uses the eligible legacy default. A stale/unapproved nonempty selection returns 409 with `detail.code=report_email_recipients_conflict`. Supervisor delivery status includes per-recipient outcomes. Mail-server acceptance is not proof of inbox delivery; uncertain attempts remain non-retryable.
 
-Migration `0028_report_pdf_recipients` adds recipient-specific outbox metadata and uniqueness. The approved directory uses existing account records without a copied-list column. Existing outbox rows, statuses, snapshots, attempts and message IDs are preserved, without backfilling or resending. Apply only in an authorized release, with the compatible backend and dispatcher before the frontend. Do not run an old schema-27 worker against schema 28. No production change is included in this local feature work.
+Migration `0028_report_pdf_recipients` adds recipient-specific outbox metadata and uniqueness. The approved directory uses existing account records without a copied-list column. Existing outbox rows, statuses, snapshots, attempts and message IDs are preserved, without backfilling or resending. The compatible schema-28 backend and dispatcher precede the frontend. Do not run an old schema-27 worker against schema 28. See the release record above for production migration and verification.
 
 Validation: `python backend/report_pdf_recipients_test.py`, `python backend/report_pdf_email_test.py`, `python backend/migration_test.py`, the complete disposable backend gate (`python .github/scripts/run_local_checks.py backend`) and mobile gate (`python .github/scripts/run_local_checks.py mobile`). SMTP tests are mocked; no mailbox-delivery test is implied.
-
 
 ## Report email/PDF clarity and New Zealand time release (2026-11-05 UTC)
 
