@@ -85,5 +85,9 @@ exit $LASTEXITCODE
 } finally {
   $resolved = [IO.Path]::GetFullPath($directory)
   if (-not $resolved.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolved) -notlike 'prepare-runtime-tests-*') { throw 'Unsafe cleanup path' }
-  Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction Stop
+  if (Test-Path -LiteralPath $resolved -ErrorAction Stop) { throw 'Producer cleanup directory remains' }
 }
+# Expected nonzero child exits are assertions, not this suite's exit status.
+# Run only after every assertion and the guarded cleanup have succeeded.
+$global:LASTEXITCODE = 0
