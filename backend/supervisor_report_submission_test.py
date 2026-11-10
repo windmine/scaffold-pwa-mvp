@@ -129,11 +129,11 @@ class SupervisorReportTests(unittest.TestCase):
 
     def test_optional_pdf_outbox_once_without_sending(self):
         with Session(self.engine) as session:
-            form=session.get(WorkForm,1);form.pdf_email_enabled=True;form.pdf_email_recipient="reports@example.invalid";session.add(form);session.commit()
+            form=session.get(WorkForm,1);form.pdf_email_enabled=True;form.pdf_email_recipient="worker@example.invalid";session.add(form);session.commit()
         self.assertEqual(self.request()[0],200);self.assertEqual(self.request()[0],200)
         with Session(self.engine) as session:
             rows=session.exec(select(ReportPdfEmail)).all();self.assertEqual(len(rows),2)
-            self.assertEqual({row.recipient for row in rows}, {"supervisor@example.invalid", "reports@example.invalid"})
+            self.assertEqual({row.recipient for row in rows}, {"supervisor@example.invalid", "worker@example.invalid"})
             for row in rows:
                 self.assertEqual(row.status,"pending");self.assertEqual(json.loads(row.snapshot_json)["worker_id"],2)
         self.smtp.assert_not_called()
