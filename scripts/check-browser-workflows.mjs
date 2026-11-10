@@ -3128,8 +3128,20 @@ async function checkOfflineReportTemplateChange(browser) {
       throw new Error('changed-template replay discarded original Report content or evidence');
     }
     await page.locator('.tab[data-tab-target="historyTab"]').click();
-    await page.locator('#refreshHistoryButton').click();
     const report = page.locator('#historyList .record-form').filter({ hasText: formName }).first();
+    await report.waitFor({ state: 'visible', timeout: 20000 });
+    const onlineHistoryRefresh = await page.locator('#refreshHistoryButton').evaluateHandle((button) => {
+      const refresh = { priorCard: null };
+      button.addEventListener('click', () => {
+        refresh.priorCard = document.querySelector('#historyList').firstElementChild;
+      }, { capture: true, once: true });
+      return refresh;
+    });
+    await page.locator('#refreshHistoryButton').click();
+    // Capture at the native click so an earlier refresh cannot satisfy this
+    // wait. Open the replacement only after this refresh finishes rendering.
+    await page.waitForFunction((refresh) => refresh.priorCard && !refresh.priorCard.isConnected, onlineHistoryRefresh);
+    await onlineHistoryRefresh.dispose();
     await report.waitFor({ state: 'visible', timeout: 20000 });
     await report.getByRole('button', { name: 'Show details', exact: true }).click();
     const historyText = await report.innerText();
