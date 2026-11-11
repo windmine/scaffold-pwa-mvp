@@ -111,24 +111,35 @@ def email_status(submission_id, session):
 
 
 def self_email_status(submission, user, session):
+    return self_email_statuses([submission], user, session)[submission.id]
+
+
+def self_email_statuses(submissions, user, session):
     """Expose only the authenticated author's frozen self-copy outcome.
 
     Missing legacy rows cannot establish whether a self-copy was requested.
     Account email changes must not reclassify an old template/selected envelope.
+    Batch only authorized records, without loading destinations or snapshots.
     """
-    if (submission.worker_id != user.id or submission.department_id != user.department_id
-            or submission.submission_purpose != "report"):
-        return {"status": "unknown"}
-    rows = session.exec(select(ReportPdfEmail.status).where(
-        ReportPdfEmail.submission_id == submission.id,
-        ReportPdfEmail.department_id == submission.department_id,
-        ReportPdfEmail.recipient_role == "submitter",
-    )).all()
-    # Fail closed on missing or inconsistent data; never aggregate other copies.
-    status = rows[0] if len(rows) == 1 else "unknown"
-    if status not in {"pending", "accepted", "failed", "uncertain"}:
-        status = "unknown"
-    return {"status": status}
+    statuses = {submission.id: {"status": "unknown"} for submission in submissions}
+    authorized_ids = list({submission.id for submission in submissions
+        if submission.worker_id == user.id and submission.department_id == user.department_id
+        and submission.submission_purpose == "report"})
+    # Bound bind parameters for long histories on both SQLite and PostgreSQL.
+    for start in range(0, len(authorized_ids), 500):
+        rows = session.exec(select(ReportPdfEmail.submission_id, ReportPdfEmail.status).where(
+            ReportPdfEmail.submission_id.in_(authorized_ids[start:start + 500]),
+            ReportPdfEmail.department_id == user.department_id,
+            ReportPdfEmail.recipient_role == "submitter",
+        )).all()
+        seen = set()
+        for submission_id, status in rows:
+            # Fail closed on missing or inconsistent data; never aggregate other copies.
+            if submission_id in seen or status not in {"pending", "accepted", "failed", "uncertain"}:
+                status = "unknown"
+            statuses[submission_id] = {"status": status}
+            seen.add(submission_id)
+    return statuses
 
 
 def _snapshot_for_delivery(row, session):

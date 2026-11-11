@@ -247,11 +247,12 @@ def _report_recovery_key_conflict():
     })
 
 
-def _own_submission_response(submission, user, session):
+def _own_submission_response(submission, user, session, *, email_statuses=None):
     result = work_form_submission_response(submission, session)
     if user.role in {"worker", "supervisor"} and submission.submission_purpose == "report":
         from app.use_cases.report_pdf_email import self_email_status
-        result["pdf_email_self"] = self_email_status(submission, user, session)
+        result["pdf_email_self"] = (self_email_status(submission, user, session)
+            if email_statuses is None else email_statuses[submission.id])
     return result
 
 
@@ -501,8 +502,10 @@ def list_my_form_submissions(
         statement.order_by(WorkFormSubmission.created_at.desc())
     ).all()
 
+    from app.use_cases.report_pdf_email import self_email_statuses
+    email_statuses = self_email_statuses(records, user, session)
     return [
-        _own_submission_response(record, user, session)
+        _own_submission_response(record, user, session, email_statuses=email_statuses)
         for record in records
     ]
 
