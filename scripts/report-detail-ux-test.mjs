@@ -346,7 +346,7 @@ try {
       assert.equal((await container.textContent()).includes(fallback), false);
       if (surface === 'supervisor') assert.equal(await container.locator('.record-meta [data-no-i18n]').textContent(), 'Pass');
       await container.locator('.record-report-more-details summary').click();
-      assert.equal(await container.locator('.record-report-metadata [data-no-i18n]').count(), 0);
+      assert.match(await container.locator('.record-report-metadata [data-no-i18n]').innerText(), /^#\d+$/, 'Only the Report receipt number is added; no historical reviewer is exposed');
       await page.evaluate(async () => (await import('/assets/js/i18n.js')).setLanguage('en'));
       assert.equal((await container.textContent()).includes(fallback), false);
       await page.evaluate(async () => (await import('/assets/js/i18n.js')).setLanguage('zh'));

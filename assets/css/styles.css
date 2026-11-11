@@ -7286,3 +7286,34 @@ body.report-only-mode .app-shell { overflow-x: clip; }
 }
 
 .report-pdf-email-status { white-space: pre-line; overflow-wrap: anywhere; }
+
+/* Offline readiness and own Report receipts stay compact on phones. */
+.offline-readiness { margin-block: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-quiet); font-size: .875rem; }
+.offline-readiness-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.offline-readiness-heading button { width: auto; min-height: 44px; padding: 8px 12px; font-size: .875rem; }
+.offline-readiness summary { min-height: 44px; display: list-item; padding-block: 12px; cursor: pointer; }
+.offline-readiness p { margin-block: 8px; }
+.offline-readiness ul { padding-left: 20px; margin-block: 4px; }
+.offline-readiness li { margin-block: 8px; overflow-wrap: anywhere; }
+.offline-readiness[data-state="attention"] #offlineReadinessStatus { color: var(--warning-text); }
+.report-submission-receipt { color: var(--muted); font-size: .875rem; line-height: 1.5; margin-block: 8px; overflow-wrap: anywhere; }
+
+/* Own submitted Report PDFs: touch targets stay separate from evidence. */
+.report-own-pdf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.report-own-pdf-actions button {
+  flex: 1 1 140px;
+  min-height: 44px;
+  min-width: 0;
+  white-space: normal;
+}
+.report-own-pdf-status {
+  flex: 1 0 100%;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.report-own-pdf-status:empty { display: none; }

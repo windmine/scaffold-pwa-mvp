@@ -16,6 +16,8 @@ import { setTranslatableText } from './i18n.js';
 import { createPhotoPreviewSources, reportPhotoSources } from './report-photo-evidence.js';
 import { mountReportPhotoGallery } from './report-photo-gallery.js';
 import { reportPdfEmailStatus } from './report-pdf-email.js';
+import { reportSubmissionState, reportSubmissionReceipt } from './report-status.js';
+import { canDownloadOwnReport, mountOwnReportPdfActions } from './report-own-pdf.js';
 
 function getBackendSiteId(siteId) {
   if (!siteId) return null;
@@ -50,7 +52,7 @@ function recordDisplayStatus(record) {
   if (record.isDraftRecovery) return 'saved_draft';
   if (record.type === 'form') {
     if (['queued', 'syncing'].includes(record.syncStatus)) return record.syncStatus;
-    if (recordSubmissionPurpose(record) === 'report') return 'submitted';
+    if (recordSubmissionPurpose(record) === 'report') return reportSubmissionState(record).key;
     return reportWorkflowStatus(record);
   }
   return record.status || record.syncStatus || 'record';
@@ -292,7 +294,15 @@ function deduplicateAttendanceRecords(records = []) {
 
 function mergeWorkerHistoryRecords(...recordGroups) {
   const records = recordGroups.flat().filter(Boolean);
-  const nonAttendanceRecords = records.filter((record) => record.type !== 'attendance');
+  // A server commit followed by a lost response leaves a valid local retry. Show
+  // the authoritative receipt once without deleting or rewriting that retry.
+  const durableReports = new Set(records.filter((record) => record.type === 'form'
+    && recordSubmissionPurpose(record) === 'report' && record.source === 'backend'
+    && record.clientSubmissionId).map((record) => `${record.userId}:${record.clientSubmissionId}`));
+  const nonAttendanceRecords = records.filter((record) => record.type !== 'attendance'
+    && !(record.type === 'form' && recordSubmissionPurpose(record) === 'report'
+      && record.source !== 'backend' && !record.isDraftRecovery && record.clientSubmissionId
+      && durableReports.has(`${record.userId}:${record.clientSubmissionId}`)));
   return nonAttendanceRecords
     .concat(deduplicateAttendanceRecords(records))
     .sort(compareRecordsNewestFirst);
@@ -530,6 +540,8 @@ export function createHistoryModule({
       ),
       supervisorNote: record.supervisor_note || '',
       pdfEmail: record.pdf_email || null,
+      pdfEmailSelf: record.pdf_email_self || null,
+      clientSubmissionId: record.client_submission_id || '',
       revision: record.revision,
       editedAt: record.edited_at || '',
       editedBySupervisorId: record.edited_by_supervisor_id,
@@ -897,10 +909,11 @@ export function createHistoryModule({
   }
 
   function reportMoreDetailsMarkup(record) {
-    const submitted = !record.isDraftRecovery && !['queued', 'syncing'].includes(record.syncStatus);
+    const submitted = reportSubmissionState(record).key === 'submitted';
     return `<details class="record-report-more-details">
       <summary>More details</summary>
       <div class="record-report-metadata">
+        ${submitted ? `<p><strong>Report number:</strong> <span data-no-i18n>#${escapeHtml(record.backendRecordId)}</span></p>` : ''}
         <p><strong>${submitted ? 'Submitted:' : 'Saved on this device:'}</strong> ${escapeHtml(formatReportSubmissionTime(record.createdAt))}</p>
       </div>
     </details>`;
@@ -922,20 +935,15 @@ export function createHistoryModule({
     node.querySelector('.record-meta').textContent = `Report Date: ${record.workDate || 'Not set'}${record.siteId != null && record.siteId !== '' ? `  |  ${record.siteName || 'Site'}` : ''}`;
     const badgeStatus = recordDisplayStatus(record);
     const badge = node.querySelector('.badge');
-    badge.textContent = statusLabel(badgeStatus);
+    badge.textContent = reportSubmissionState(record).label;
     badge.className = `badge ${badgeStatus} ${record.syncStatus || ''}`.trim();
-    badge.title = `Report status: ${statusLabel(badgeStatus)}`;
+    badge.title = `Report status: ${reportSubmissionState(record).label}`;
     const summary = node.querySelector('.record-detail');
     summary.classList.add('record-report-summary');
     setTranslatableText(summary, `${recordPhotoCount(record)} photos`);
 
-    const cueText = record.isDraftRecovery
-        ? 'Saved copy. Open details to recover your answers and evidence.'
-        : record.syncStatus === 'queued'
-          ? 'Saved on this device. Waiting to sync.'
-          : record.syncStatus === 'syncing'
-            ? 'Uploading your report.'
-            : '';
+    const cueText = reportSubmissionState(record).key === 'submitted'
+      ? '' : reportSubmissionReceipt(record);
     if (record.syncError || cueText) {
       const cue = document.createElement('div');
       cue.className = `record-report-cue${record.syncError && !record.isDraftRecovery ? ' is-warning' : ''}`;
@@ -958,6 +966,18 @@ export function createHistoryModule({
         }
       }
       summary.insertAdjacentElement('afterend', cue);
+    }
+
+    if (reportSubmissionState(record).key === 'submitted') {
+      const receipt = document.createElement('p');
+      receipt.className = 'report-submission-receipt';
+      const number = document.createElement('span');
+      number.dataset.noI18n = '';
+      number.textContent = `#${record.backendRecordId}`;
+      const email = document.createElement('span');
+      setTranslatableText(email, reportSubmissionReceipt(record));
+      receipt.append(number, document.createTextNode(' · '), email);
+      summary.insertAdjacentElement('afterend', receipt);
     }
 
     const details = node.querySelector('.record-extra');
@@ -1175,6 +1195,9 @@ export function createHistoryModule({
         ? record.supervisorNote || 'No supervisor note was recorded.'
         : '';
       extra.innerHTML = `
+        ${state.user?.role === 'worker' && record.type === 'form' && recordSubmissionPurpose(record) === 'report'
+          && !options.reportSummaryVisible && reportSubmissionState(record).key === 'submitted'
+          ? `<p class="report-submission-receipt">${escapeHtml(reportSubmissionReceipt(record))}</p>` : ''}
         ${state.user?.role === 'supervisor' && record.type === 'form' && recordSubmissionPurpose(record) === 'report' && record.pdfEmail
           ? `<p class="report-pdf-email-status"><span>${escapeHtml(reportPdfEmailStatus(record.pdfEmail))}</span>${!Array.isArray(record.pdfEmail.deliveries) && record.pdfEmail.recipient ? `<br><span>PDF recipient:</span> <span data-no-i18n>${escapeHtml(record.pdfEmail.recipient)}</span>` : ''}</p>` : ''}
         ${!simplifyReport ? `<p><strong>Type:</strong> ${record.type === 'attendance' ? escapeHtml(record.action === 'check_in' ? 'Check in' : 'Check out') : record.type === 'form' ? 'Report' : record.type === 'team_log' ? 'Weekly team log' : 'Task log'}</p>` : ''}
@@ -1244,6 +1267,12 @@ export function createHistoryModule({
           photoViewer.open(signatureSources.map((signature) => signature.src), Number(button.dataset.signatureIndex || 0), `${title} signature`);
         });
       });
+
+      if (showWorkerActions && canDownloadOwnReport(record, state.user)) {
+        registerRecordCleanup(container, mountOwnReportPdfActions(extra, {
+          record, isCurrent: workerRecordScope(node, record), onSessionExpired: handleSessionExpired
+        }));
+      }
 
       const actions = node.querySelector('.record-actions');
       const canShowWorkerActions = showWorkerActions && canWorkerEditRecord(record);

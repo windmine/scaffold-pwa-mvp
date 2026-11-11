@@ -1,0 +1,76 @@
+{
+  "status": "local_validated_not_deployed",
+  "checked_at": "2026-11-11T02:23:22.923007+00:00",
+  "base_commit": "1cfbdaa4155ff150bbc6fa7788e3f8533f47be70",
+  "passed": {
+    "lint": true,
+    "build": true,
+    "backend_suites": 31,
+    "backend_cleanup_contract": true,
+    "complete_mobile_gate": true,
+    "real_backend_browser_workflows": 75,
+    "real_built_app_cold_offline_readiness_receipt": true,
+    "mobile_desktop_visual_review": true,
+    "diff_check": true
+  },
+  "logs": [
+    "output/offline-readiness-backend.local.log",
+    "output/offline-readiness-mobile-complete.local.log",
+    "output/offline-readiness-e2e.local.log"
+  ],
+  "screenshots": [
+    "output/offline-readiness.local",
+    "output/report-status.local"
+  ],
+  "retained_earlier_failures": [
+    {
+      "log": "output/offline-readiness-mobile.local.log",
+      "reason": "Old compact-card assertion expected Saved draft; updated to intended Saved on this device label."
+    },
+    {
+      "log": "output/offline-readiness-mobile-final.local.log",
+      "reason": "Legacy source inspection selected the newly added readiness online listener instead of the main async reconnect handler; matcher narrowed, then complete gate rerun passed."
+    }
+  ],
+  "limits": [
+    "Physical phones not tested.",
+    "Production sign-in, Reports, SMTP and inbox delivery not tested or invoked.",
+    "Offline restart closes every page in the browser context; OS/process-killed or browser-eviction recovery is not certified.",
+    "A small transactional storage probe and complete cache check do not reserve storage, prevent eviction or validate future server credentials.",
+    "Existing bundle-size warning remains."
+  ],
+  "no_actions": [
+    "commit",
+    "push",
+    "deploy",
+    "real email",
+    "production report",
+    "migration"
+  ],
+  "source_sha256": {
+    "assets/js/app.js": "cb18288485779a4a47b8c7146c6c3b880cf75b2208e70b93bc7b292cd328628c",
+    "assets/js/db.js": "ef203edd1840f5f2fa172bd0b320cd1ad8dfea0e93a28b3aed1e6fe3eeea5d5b",
+    "assets/js/offline-readiness.js": "16a31759f470bf2419ff7b7f6edd9624341e6d2026b06e8792e5b3b226f17888",
+    "assets/js/report-status.js": "691c6f4f44a8e11d2978ca43fe99990cf10258a09cf2bcbf5c0d0248851ea310",
+    "assets/js/history.js": "a47dd3520939209ea894146338d62225d54a2dd952ea1b0e32099e74fc2fe19c",
+    "assets/js/offline-submissions.js": "b0b21220bed512faba365daaa94e06d97bbf3e4749b35b34dfb0e3580924e691",
+    "assets/js/worker-form.js": "54903ce147404a6a7202233e6168e310654534f236dcf4260d98acf60bd35944",
+    "assets/js/i18n.js": "b0ae30d36dd47ac69bd15c796fb98b7a2119b37a551b91c52f0655281c94fe73",
+    "assets/css/styles.css": "429c63b21b3b80b699874a9b5180dc6a5524764b2f7b886459b82b864444bf0e",
+    "index.html": "419fd5443fddaa327764dd623fbf0b56903385692449d7081bd8f58e41943bb4",
+    "scripts/pwa-shell-assets.mjs": "cda313e6af7a112b8179dfe91afe2392efcf13f1b5640bf352da1fc54636930e",
+    "scripts/sw-runtime.js": "bde4a63a3bd7426a58e9259948249e057da06671b76040ef8ca670b031e2ce7c",
+    "sw.js": "741e2ed00aaf05941109ab16ffbd83a6c1911e8c4352171f6b95fcb0c2e09f9c",
+    "backend/app/use_cases/report_pdf_email.py": "27878d34ffe99e75b3384294e85bccec4546060985b10b29c3e1b1b6c159cc49",
+    "backend/app/use_cases/work_forms.py": "b1b5e2f31cb431db96dcbe35d2429b27cc46672b862bf1a843360eb9d0d1ab41",
+    "backend/report_self_email_status_test.py": "348a0954429de21c736183982a01df968fd1f27080a7c131cac88ca891f75dba",
+    "scripts/offline-readiness-test.mjs": "080d6b3dfdcc619ae6d8aa0fb3e963ae4a566847a165f01113daa6283b245e4c",
+    "scripts/offline-readiness-sw-test.mjs": "6d468ba48bc3e2db037ea3348d6a108014982bc8b27741945263f022c4566b81",
+    "scripts/report-status-test.mjs": "9810093bbbe37f076c339715aac90449038c7e0c3fc9d957cdc5de05f38c0f00",
+    "scripts/report-submit-review-test.mjs": "6b22c2961318e9517ab7583af2f35ac2b2d25077b0bd27eb49a166db42e34442",
+    "scripts/check-browser-workflows.mjs": "e2a5007112469112ce296f08faa3eefe5d3c69284b8ea5edb79dceb5d7108101",
+    "scripts/check-mobile-browser-workflows.mjs": "81166a88ab0daeb972d0e55f5c8f70421b9937b848882b524a5f869676796f35",
+    "package.json": "7c04d654b28cc89243424d1b33b2d0ea0f45e85f001e5df3080a0ab3ed7975a7",
+    ".github/scripts/run_local_checks.py": "0943267bbb1c483839ed478d2d225a3cfe3dfc701e12272f72e03d0bb4d97e17"
+  }
+}

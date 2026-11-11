@@ -531,6 +531,9 @@ function applySyncedResponse(record, syncedRecord) {
   if (!record.clientSubmissionId && syncedRecord?.client_submission_id) {
     record.clientSubmissionId = syncedRecord.client_submission_id;
   }
+  if (syncedRecord?.pdf_email_self) {
+    record.pdfEmailSelf = { status: syncedRecord.pdf_email_self.status };
+  }
   if (syncedRecord?.status) {
     record.status = syncedRecord.status;
   }

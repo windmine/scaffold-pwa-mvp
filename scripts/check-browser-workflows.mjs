@@ -7895,6 +7895,8 @@ async function checkColdOfflineReportReturn(browser) {
     await page.locator('#workFormField_inspection_result').selectOption('Pass');
     await waitForAsyncCondition(page, async () => Boolean(navigator.serviceWorker.controller) && Boolean(await caches.match('/index.html')));
     await page.locator('#workFormAutosaveStatus.saved').waitFor();
+    await page.locator('#checkOfflineReadiness').click();
+    await page.locator('#offlineReadiness[data-state="checked"]').waitFor({ timeout: 10000 });
     await page.close();
     await context.setOffline(true);
     page = await context.newPage();
@@ -7908,6 +7910,8 @@ async function checkColdOfflineReportReturn(browser) {
     // attached fields can still be blank while that tab remains hidden.
     await page.locator('#formTab').waitFor({ state: 'visible' });
     if (await page.locator('#workFormField_inspection_area').inputValue() !== answer) throw new Error('cold offline return lost Report answers');
+    await page.locator('#checkOfflineReadiness').click();
+    await page.locator('#offlineReadiness[data-state="checked"]').waitFor({ timeout: 10000 });
     await reviewAndSubmitReport(page);
     await page.locator('#workFormFeedback').getByText(/saved offline/i).waitFor();
     await context.setOffline(false);
@@ -7918,6 +7922,10 @@ async function checkColdOfflineReportReturn(browser) {
     await page.locator('#historySearchInput').fill(answer);
     const submitted = page.locator('#historyList > .record-report-compact').first();
     await submitted.getByText('Submitted', { exact: true }).waitFor({ timeout: 20000 });
+    const receiptText = await submitted.locator('.report-submission-receipt').innerText();
+    if (!/#\d+/.test(receiptText) || !receiptText.includes('Your PDF email') || receiptText.includes('@')) {
+      throw new Error('synced offline Report is missing its private server/email receipt');
+    }
     await submitted.getByRole('button', { name: 'Show details', exact: true }).click();
     if (!(await submitted.innerText()).includes(answer)) throw new Error('synced offline Report lost its original answers');
   } finally {

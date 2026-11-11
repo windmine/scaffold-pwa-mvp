@@ -1,5 +1,9 @@
 # ReportFlow
 
+## Offline readiness and Report receipts (local, not deployed)
+
+Workers can check saved identity, Department Report Templates, device storage and cached app files before going offline. My Reports distinguishes local saved copies, waiting to sync, and confirmed server submission, with private own-copy PDF email status. Mail-server acceptance is not inbox delivery. See [behavior, compatibility and verification](docs/offline-readiness-and-report-status.md).
+
 ## PDF email recipient-picker release (2026-11-11 UTC)
 
 The compact PDF email section now separates the automatic self-copy from optional people. Choose people opens a searchable Department directory with All people and Selected people filters, touch-friendly checkbox rows, a short removable selection summary, and Done/Escape collapse. English/Chinese, narrow phones, desktop, light/dark and keyboard focus are covered. Recipient eligibility, the 20-person limit, stale-selection review, account/email bindings and offline drafts/queues are unchanged.

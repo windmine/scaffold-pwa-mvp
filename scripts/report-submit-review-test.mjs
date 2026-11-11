@@ -79,8 +79,11 @@ async function fixture(browser, options = {}) {
       traffic.posts.push(body);
       if (traffic.emailConflict) return route.fulfill({ status: 409, json: { detail: { code: 'report_email_recipients_conflict', message: 'Approved recipients changed' } } });
       traffic.lastPath = url.pathname;
+      if (options.lostResponse && traffic.posts.length === 1) return route.abort('failed');
       if (traffic.hold) await new Promise((resolve) => { traffic.release = resolve; });
       return route.fulfill({ json: { id: 701, worker_id: 12, form_id: 51, status: 'submitted', submission_purpose: 'report',
+        ...(options.lostResponse ? { client_submission_id: body.client_submission_id, department_id: 3,
+          idempotent_replay: traffic.posts.length > 1, pdf_email_self: { status: 'accepted' } } : {}),
         photo_urls: body.photo_urls, answers: body.answers, work_date: body.work_date, site_id: body.site_id, manual_site_name: body.manual_site_name, site_name: body.manual_site_name } });
     }
     if (!/^\/assets\/js\/[a-z\d-]+\.js$/.test(url.pathname)) {
@@ -109,7 +112,7 @@ async function fixture(browser, options = {}) {
   const page = await context.newPage();
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(origin);
-  const boot = async ({ selectedFields, requireSignature, role, restored }) => {
+  const boot = async ({ selectedFields, requireSignature, role, restored, immediateSync }) => {
     const { createWorkerFormModule } = await import('/assets/js/worker-form.js');
     const { createPhotoViewer } = await import('/assets/js/photo-viewer.js');
     const api = await import('/assets/js/api-client.js');
@@ -119,6 +122,7 @@ async function fixture(browser, options = {}) {
     const els = Object.fromEntries([...document.querySelectorAll('[id]')].map((element) => [element.id, element]));
     const state = { user, workForms: [], workFormPhotoFiles: [], workFormPhotoBlobs: [], workFormPhotoDataUrls: [], workFormPhotoMetadata: [] };
     const messages = [];
+    const banners = [];
     const photoViewer = createPhotoViewer({ viewer: els.photoViewer, image: els.photoViewerImage, caption: els.photoViewerCaption,
       closeButton: els.photoViewerClose, previousButton: els.photoViewerPrevious, nextButton: els.photoViewerNext });
     photoViewer.bindEvents();
@@ -133,13 +137,16 @@ async function fixture(browser, options = {}) {
       findSiteByFormValue: (value) => String(value) === '9' ? { id: 9, name: 'Harbour Site' } : null,
       renderStatusBanner: (message, _warning, config = {}) => {
         messages.push(message);
+        banners.push({ message, warning: _warning, tone: config.tone });
         if (config.local) config.local.textContent = message;
         config.field?.focus();
       },
-      syncQueueIfPossible: async () => {}, renderWorkerSummary: async () => {}, renderHistory: async () => {},
+      syncQueueIfPossible: async () => {
+        if (immediateSync) return (await import('/assets/js/offline-submissions.js')).syncQueuedSubmissions({ purpose: 'report' });
+      }, renderWorkerSummary: async () => {}, renderHistory: async () => {},
       handleSessionExpired() {}, isBackendSessionError: () => false });
     form.bindEvents();
-    window.fixture = { form, state, els, messages, photoViewer, db, fields: selectedFields };
+    window.fixture = { form, state, els, messages, banners, photoViewer, db, fields: selectedFields };
     await form.refreshWorkForms();
     els.workFormSelect.value = '51';
     await form.renderSelectedWorkForm();
@@ -172,7 +179,7 @@ async function fixture(browser, options = {}) {
       window.sign();
     }
   };
-  const bootOptions = { selectedFields: fields, requireSignature: Boolean(options.blankSignature), role: options.role };
+  const bootOptions = { selectedFields: fields, requireSignature: Boolean(options.blankSignature), role: options.role, immediateSync: options.immediateSync };
   await page.evaluate(boot, bootOptions);
   return { context, page, traffic,
     async reload() { await page.reload(); await page.evaluate(boot, { ...bootOptions, restored: true }); },
@@ -217,6 +224,34 @@ async function assertUnsubmitted(fixtureToCheck) {
 const browser = await chromium.launch({ headless: true });
 try {
   await mkdir(output, { recursive: true });
+  {
+    const replay = await fixture(browser, { lostResponse: true, immediateSync: true });
+    try {
+      await fill(replay.page, 'Lost response must reconcile to the committed Report.');
+      await review(replay.page);
+      await replay.page.locator('#confirmWorkFormSubmitButton').click();
+      await replay.page.waitForFunction(() => !window.fixture.state.submittingWorkForm
+        && window.fixture.messages.some((message) => message.includes('accepted by the mail server')));
+      const saved = await storage(replay.page);
+      assert.equal(replay.traffic.posts.length, 2, 'Lost response is followed by one immediate idempotent replay');
+      assert.equal(replay.traffic.posts[0].client_submission_id, replay.traffic.posts[1].client_submission_id);
+      assert.deepEqual(replay.traffic.posts[0].answers, replay.traffic.posts[1].answers);
+      assert.equal(replay.traffic.uploads.length, 1, 'The completed signature upload is not repeated');
+      assert.equal(saved.records.length, 1);
+      assert.equal(saved.queue.length, 0);
+      assert.equal(saved.records[0].backendRecordId, 701);
+      assert.equal(saved.records[0].syncStatus, 'synced');
+      assert.equal(saved.records[0].pdfEmailSelf.status, 'accepted');
+      const banner = await replay.page.evaluate(() => window.fixture.banners.at(-1));
+      assert.equal(banner.warning, false);
+      assert.equal(banner.tone, 'success');
+      assert.match(banner.message, /submitted/);
+      assert.match(banner.message, /Inbox delivery is unconfirmed/);
+      assert.doesNotMatch(banner.message, /Waiting to sync|not yet confirmed|saved locally|queued/i);
+      console.log('ok - lost POST response immediately replays the same Report and refreshes receipt and success tone');
+    } finally { await replay.close(); }
+  }
+
   {
     const emailOptions = { source: 'department_users', max_selected_recipients: 20, default_recipient_unavailable: false, recipient_users: [{ user_id: 101, name: 'First', email: 'first@example.invalid' }, { user_id: 102, name: 'Second', email: 'second@example.invalid' }], version: 3, enabled: true, recipients: ['first@example.invalid', 'second@example.invalid'], default_recipients: ['first@example.invalid'] };
     const f = await fixture(browser, { emailOptions });

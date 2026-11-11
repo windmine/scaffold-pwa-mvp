@@ -526,6 +526,22 @@ export async function getMyFormSubmissions(purpose = "") {
   return await apiFetch(`/my-form-submissions${purposeQuery(purpose)}`);
 }
 
+export async function exportMyReportPdf(submissionId, { signal } = {}) {
+  if (!/^[1-9]\d*$/.test(String(submissionId)) || !Number.isSafeInteger(Number(submissionId))) {
+    throw new ApiError("A valid Report number is required.");
+  }
+  const response = await fetch(`${API_BASE}/my-form-submissions/${submissionId}/export.pdf`, {
+    credentials: "include", cache: "no-store", signal, headers: { Accept: "application/pdf" }
+  });
+  if (!response.ok) throw new ApiError("Report PDF is unavailable.", { status: response.status });
+  const blob = await response.blob();
+  if (blob.type.split(";")[0].trim().toLowerCase() !== "application/pdf" || !blob.size
+      || await blob.slice(0, 5).text() !== "%PDF-") {
+    throw new ApiError("The server did not return a Report PDF.");
+  }
+  return blob;
+}
+
 export async function getMyReportSubmissionByClientId(clientSubmissionId) {
   if (typeof clientSubmissionId !== "string" || !clientSubmissionId
     || clientSubmissionId.length > 120 || clientSubmissionId !== clientSubmissionId.trim()

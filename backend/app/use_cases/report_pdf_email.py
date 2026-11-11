@@ -110,6 +110,27 @@ def email_status(submission_id, session):
     return {**deliveries[0], "status": status, "count": len(rows), "deliveries": deliveries}
 
 
+def self_email_status(submission, user, session):
+    """Expose only the authenticated author's frozen self-copy outcome.
+
+    Missing legacy rows cannot establish whether a self-copy was requested.
+    Account email changes must not reclassify an old template/selected envelope.
+    """
+    if (submission.worker_id != user.id or submission.department_id != user.department_id
+            or submission.submission_purpose != "report"):
+        return {"status": "unknown"}
+    rows = session.exec(select(ReportPdfEmail.status).where(
+        ReportPdfEmail.submission_id == submission.id,
+        ReportPdfEmail.department_id == submission.department_id,
+        ReportPdfEmail.recipient_role == "submitter",
+    )).all()
+    # Fail closed on missing or inconsistent data; never aggregate other copies.
+    status = rows[0] if len(rows) == 1 else "unknown"
+    if status not in {"pending", "accepted", "failed", "uncertain"}:
+        status = "unknown"
+    return {"status": status}
+
+
 def _snapshot_for_delivery(row, session):
     from app.use_cases.supervisor_review import validate_form_record_evidence
     record = session.get(WorkFormSubmission, row.submission_id)

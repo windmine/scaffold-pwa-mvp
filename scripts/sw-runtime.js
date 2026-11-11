@@ -143,6 +143,22 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('message', (event) => {
+  if (event.data?.type === 'OFFLINE_READINESS_CHECK' && event.ports?.[0]) {
+    const port = event.ports[0];
+    event.waitUntil((async () => {
+      let ready = false;
+      try {
+        const cache = await caches.open(CACHE_VERSION);
+        const checks = await Promise.all(APP_SHELL.map(async (path) => {
+          const request = appShellRequest(path);
+          return isCacheableResponse(await cache.match(request), request);
+        }));
+        ready = checks.length > 0 && checks.every(Boolean);
+      } catch { /* Unreadable or incomplete cache is not offline-ready. */ }
+      port.postMessage({ type: 'OFFLINE_READINESS_RESULT', ready, cacheVersion: CACHE_VERSION });
+    })());
+    return;
+  }
   if (event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }

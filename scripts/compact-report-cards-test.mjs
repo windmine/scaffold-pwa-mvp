@@ -133,7 +133,7 @@ try {
     };
     fixture.render(fixture.queued);
   });
-  assert.equal(await page.locator('#historyList .badge').textContent(), 'Queued');
+  assert.equal(await page.locator('#historyList .badge').textContent(), 'Waiting to sync');
   assert.match(await page.locator('.record-report-cue').textContent(), /Sync needs attention.*Template changed <img/);
   assert.match(await page.locator('.record-report-cue').textContent(), /Your original answers and evidence are kept below/);
   assert.equal(await page.getByRole('button', { name: 'Retry sync', exact: true }).count(), 1);
@@ -199,7 +199,7 @@ try {
     fixture.render({ ...fixture.base, backendRecordId: null, isDraftRecovery: true, syncStatus: 'queued', photoUrls: [], siteId: null, siteName: 'Unassigned site' });
   });
   assert.equal(await page.locator('#historyList .record-report-summary').textContent(), '0 photos');
-  assert.equal(await page.locator('#historyList .badge').textContent(), 'Saved draft');
+  assert.equal(await page.locator('#historyList .badge').textContent(), 'Saved on this device');
   assert.doesNotMatch(await page.locator('#historyList .record-meta').textContent(), /Unassigned site/);
   assert.match(await page.locator('.record-report-cue').textContent(), /Saved copy/);
   await page.locator('.record-disclosure-button').click();

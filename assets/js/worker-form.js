@@ -1,3 +1,5 @@
+import { get as getLocalSubmission } from './db.js';
+import { reportSubmissionState, reportSubmissionReceipt } from './report-status.js';
 import { mountReportEmailRecipients } from './report-email-recipients.js';
 import { MANUAL_SITE, readReportSite, restoreReportSite, syncReportSiteInput, validateReportSite } from './report-site.js';
 import { createReportFormNavigation } from './report-form-navigation.js';
@@ -1714,8 +1716,27 @@ export function createWorkerFormModule({
       if (!isCurrentSubmission()) return;
       await syncQueueIfPossible(!result.offline);
       if (!isCurrentSubmission()) return;
+      // An immediate replay can reconcile a lost POST response. Read its scoped
+      // checkpoint so the receipt does not contradict the refreshed history.
+      if (reportOnly && result.offline && result.record?.id) {
+        try {
+          const latest = await getLocalSubmission('records', result.record.id);
+          if (!isCurrentSubmission()) return;
+          if (latest && latest.clientSubmissionId === result.record.clientSubmissionId
+              && String(latest.userId) === String(submittedWorker.id)
+              && String(latest.departmentId) === String(submittedWorker.departmentId)
+              && (latest.ownerRole || 'worker') === submittedWorker.role
+              && reportSubmissionState(latest).key === 'submitted') {
+            result.record = latest;
+            result.offline = false;
+            result.queued = false;
+            result.message = `${latest.formName || 'Report'} submitted.`;
+          }
+        } catch { /* Keep the last known result if local receipt refresh fails. */ }
+        if (!isCurrentSubmission()) return;
+      }
       const submissionMessage = reportOnly
-        ? result.message.replace(/ submitted for approval\.$/, ' submitted.')
+        ? `${result.message.replace(/ submitted for approval\.$/, ' submitted.')} ${reportSubmissionReceipt(result.record)}`
         : result.message;
       const resultMessage = result.draftCleanupFailed
         ? `${submissionMessage} The submitted draft could not be cleared from this device; do not submit it again after reloading.`

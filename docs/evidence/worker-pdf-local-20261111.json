@@ -1,0 +1,54 @@
+{
+  "date_utc": "2026-11-11T02:45:51.742271+00:00",
+  "status": "Implemented and validated locally; not committed or deployed",
+  "feature": "Worker own submitted Report Download PDF and Share PDF",
+  "endpoint": "GET /my-form-submissions/{submission_id}/export.pdf",
+  "authorization": "Authenticated active setup-complete Worker; exact owner and current Department; Report-only, nondeleted; generic 404 for inaccessible or invalid IDs",
+  "privacy": "Private no-store; PDF bytes stay in memory; no email/outbox mutations, public links or persistent PDF cache",
+  "tests": {
+    "backend": "32 isolated suites passed, including 7 new authenticated HTTP/PDF tests",
+    "mobile": "Full isolated mobile/browser gate passed, including focused worker PDF sharing and prior offline/status regressions",
+    "lint": "npm run lint passed",
+    "build": "npm run build passed; existing >500 kB bundle warning remains",
+    "diff": "git diff --check passed",
+    "review": "Cross-tab identity, suspended-tab expiry and pending-offline findings fixed and regressions passed",
+    "screenshots_reviewed": [
+      "320px English light",
+      "390px Chinese dark"
+    ]
+  },
+  "logs": [
+    "output/worker-pdf-local/backend-gate.log",
+    "output/worker-pdf-local/mobile-gate.log"
+  ],
+  "screenshots": [
+    "output/worker-pdf-local/worker-pdf-320-en-light.png",
+    "output/worker-pdf-local/worker-pdf-390-zh-dark.png",
+    "output/worker-pdf-local/worker-pdf-1200-en-light.png"
+  ],
+  "source_cache": "leader-field-f6adaf730b31",
+  "built_cache": "leader-field-7c512274cd48",
+  "files_sha256": {
+    "assets/js/report-own-pdf.js": "3b609a2d0b90e233bb9051de1100d8bacd0ebbf48a91fb91a302d5933bc8e459",
+    "assets/js/api-client.js": "d1f51216e9115ec5ad5c1777d1abefb74b9bbe69741060531f30ac74d51a5bb8",
+    "assets/js/history.js": "f2c27814ada841f1e6f87b79c1fc4871b5f7839a3ccc26bc40609d77020e2f5c",
+    "assets/js/i18n.js": "a95b4b0aba11fd671899c70f8f3894d059df71c26317c1348941db0ee27f5145",
+    "assets/css/styles.css": "45cafc40ac849109f55efe2562363f6833cee8b717800d930925e90a1f7d2145",
+    "backend/app/main.py": "54fe47f609afe8c66f246556618c77ee8cefdf5157f540780106d7702906dfb9",
+    "backend/app/use_cases/report_self_pdf.py": "002e3fd62f427bd564ebee88ce7078050d843562f7b031f21570b4e5d14b0517",
+    "backend/report_self_pdf_test.py": "514d84d3ab962b3646cccb0e89df8a701bea32646be6eedf55b94de462fe4708",
+    "scripts/report-own-pdf-test.mjs": "f0b4571390da9f9f4a77d7ebe46cbbe918ea722a30c17b56e0038b45598ca57f",
+    "scripts/pwa-shell-assets.mjs": "2e6c45392cb5983625ec823b706a440ac7c65a100afc00ce4c9787a39336356c",
+    ".github/scripts/run_local_checks.py": "6c428832f1d71655cf6763af82279ce63155b1f93b77f5ea5ec14f1e6324e203",
+    "package.json": "4d22aef9863b1d006eab2a3949d41dac10f045e717119a607207b80ab2786029",
+    "sw.js": "39033ae73ebbcda1ce867992633ea89de575de917cfea340644567430bf2f5d9",
+    "docs/worker-report-pdf.md": "4b020c72c8da0fe29448e5b1c989c11bed6c2b5885b2b6b64e418595eae4670f"
+  },
+  "preexisting_work": "Preserved and integrated with uncommitted offline-readiness/report-status changes. Feature-only baseline comparisons retained under output/worker-pdf-local/baseline. .firebase and unrelated source/template/output changes were not edited.",
+  "limits": [
+    "Native share chooser mocked, not a physical Android/iPhone test",
+    "No authenticated production report, real email, hosted deployment or exact-commit CI test",
+    "Backend must precede Hosting if later publication is approved",
+    "No migration or new dependency"
+  ]
+}

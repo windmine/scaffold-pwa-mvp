@@ -43,6 +43,7 @@ import { initDateInputs, setDateInputValue } from './date-inputs.js';
 import { applyLanguage, initLanguageToggle } from './i18n.js';
 import { createUiFeedback } from './ui-feedback.js';
 import { createSafeRefresh } from './safe-refresh.js';
+import { createOfflineReadiness } from './offline-readiness.js';
 import { formatDateTime, todayDateInput, escapeHtml } from './utils.js';
 import {
   DEFAULT_BRAND_LOGO,
@@ -102,6 +103,26 @@ let safeRefresh;
 const REPORT_ONLY_MODE = typeof window.__REPORT_ONLY_MODE_OVERRIDE__ === 'boolean'
   ? window.__REPORT_ONLY_MODE_OVERRIDE__
   : true;
+const offlineReadiness = createOfflineReadiness({
+  panel: document.getElementById('offlineReadiness'),
+  button: document.getElementById('checkOfflineReadiness'),
+  status: document.getElementById('offlineReadinessStatus'),
+  details: document.getElementById('offlineReadinessDetails'),
+  getUser: () => REPORT_ONLY_MODE ? state.user : null,
+  getSavedUser: getBackendSession,
+  translate: applyLanguage,
+  formatTime: formatDateTime
+});
+window.addEventListener('storage', (event) => {
+  if (event.key === 'geo_user' || event.key === null) {
+    offlineReadiness.clear();
+    void offlineReadiness.check();
+  }
+});
+window.addEventListener('pageshow', () => { void offlineReadiness.check(); });
+window.addEventListener('online', () => { void offlineReadiness.check(); });
+window.addEventListener('offline', () => { void offlineReadiness.check(); });
+navigator.serviceWorker?.addEventListener('controllerchange', () => { void offlineReadiness.check(); });
 const REPORT_ONLY_WORKER_TABS = new Set(['formTab', 'historyTab']);
 const REPORT_ONLY_ADMIN_WORKSPACES = new Set(['review', 'submit', 'forms', 'people']);
 
@@ -210,6 +231,7 @@ const workerForm = createWorkerFormModule({
 });
 
 function renderReportTemplateAvailability({ source, savedAt, templateCount }) {
+  void offlineReadiness.check();
   const availability = document.getElementById('reportTemplateAvailability');
   if (!availability) return;
   availability.hidden = !REPORT_ONLY_MODE || !canSubmitOwnReport();
@@ -1000,6 +1022,7 @@ function clearWorkerSessionState() {
 }
 
 function clearSessionViewState() {
+  offlineReadiness.clear();
   safeRefresh?.cancel();
   // Clear private content before revealing another account or waiting on storage/network.
   hideQueueSyncFeedback();
@@ -1137,6 +1160,7 @@ function updateBrandLogo() {
 }
 
 function updateTopbar() {
+  void offlineReadiness.check();
   els.refreshDataButton.classList.toggle('hidden', !REPORT_ONLY_MODE || !state.user);
   els.updateButton.classList.toggle('hidden', !hasPendingAppUpdate());
   updateBrandLogo();

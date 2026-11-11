@@ -476,3 +476,50 @@ export async function commitReportRecovery(expectedRecord, nextRecord, draftEntr
     tx.onerror = tx.onabort = () => { db.close(); reject(caught || tx.error || new Error('The recovered draft could not be saved.')); };
   });
 }
+
+// Probes never use business keys or publish a Report/draft/queue entry. Each
+// add/read/delete/check commits atomically; any failure rolls the probe back.
+let offlineStorageProbe = null;
+export function probeOfflineStorage() {
+  if (!offlineStorageProbe) {
+    offlineStorageProbe = runOfflineStorageProbe().finally(() => { offlineStorageProbe = null; });
+  }
+  return offlineStorageProbe;
+}
+
+async function runOfflineStorageProbe() {
+  const namespaces = [
+    [openDb, ['settings', 'records', 'queue', 'drafts']],
+    [openReportDb, [...REPORT_STORES]],
+    [openRecoveryDb, [...REPORT_STORES]],
+    [openRecipientDb, [...REPORT_STORES]]
+  ];
+  for (const [open, stores] of namespaces) {
+    const db = await open();
+    try {
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(stores, 'readwrite');
+        let failure;
+        const fail = () => { failure = new Error('Device storage probe failed'); tx.abort(); };
+        for (const name of stores) {
+          const store = tx.objectStore(name);
+          const key = `offline-readiness-probe:${crypto.randomUUID()}`;
+          const value = { [store.keyPath]: key, probe: key, blob: new Blob(['readiness']) };
+          // add, not put: even an extraordinary collision cannot overwrite data.
+          store.add(value);
+          const read = store.get(key);
+          read.onsuccess = () => {
+            if (read.result?.probe !== key || !(read.result.blob instanceof Blob)
+              || read.result.blob.size !== 9) { fail(); return; }
+            store.delete(key);
+            const removed = store.get(key);
+            removed.onsuccess = () => { if (removed.result !== undefined) fail(); };
+          };
+        }
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = tx.onabort = () => reject(failure || tx.error || new Error('Device storage probe failed'));
+      });
+    } finally { db.close(); }
+  }
+  return true;
+}

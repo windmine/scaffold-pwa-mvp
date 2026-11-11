@@ -89,6 +89,7 @@ from app.use_cases import registration as registration_use_cases
 from app.use_cases import record_trash as record_trash_use_cases
 from app.use_cases import review_queue as review_queue_use_cases
 from app.use_cases import staff_site_admin as staff_site_admin_use_cases
+from app.use_cases import report_self_pdf as report_self_pdf_use_cases
 from app.use_cases import supervisor_review as supervisor_review_use_cases
 from app.use_cases import task_logs as task_log_use_cases
 from app.use_cases import team_work_logs as team_work_log_use_cases
@@ -165,7 +166,9 @@ CSRF_EXEMPT_PATHS = {
 
 def apply_upload_cache_policy(request_path: str, response: Response):
     normalized_path = request_path[4:] if request_path.startswith("/api/") else request_path
-    if normalized_path == "/my-form-submissions/by-client-id" or normalized_path.startswith("/supervisor/my-report-submissions"):
+    if (normalized_path == "/my-form-submissions/by-client-id"
+            or normalized_path.startswith("/supervisor/my-report-submissions")
+            or (normalized_path.startswith("/my-form-submissions/") and normalized_path.endswith("/export.pdf"))):
         response.headers["Cache-Control"] = "private, no-store"
     if normalized_path in {"/work-forms", "/supervisor/review-queue"} or normalized_path.startswith("/supervisor/work-forms"):
         # Supervisor-only recipient settings must not enter shared caches.
@@ -1200,6 +1203,15 @@ def get_my_form_submissions(
         session,
         purpose=purpose,
     )
+
+
+@app.get("/my-form-submissions/{submission_id}/export.pdf")
+def export_my_report_submission_pdf(
+    submission_id: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    return report_self_pdf_use_cases.export_my_report_pdf(submission_id, user, session)
 
 
 @app.get("/my-form-submissions/by-client-id")

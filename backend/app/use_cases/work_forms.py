@@ -247,6 +247,14 @@ def _report_recovery_key_conflict():
     })
 
 
+def _own_submission_response(submission, user, session):
+    result = work_form_submission_response(submission, session)
+    if user.role in {"worker", "supervisor"} and submission.submission_purpose == "report":
+        from app.use_cases.report_pdf_email import self_email_status
+        result["pdf_email_self"] = self_email_status(submission, user, session)
+    return result
+
+
 def create_work_form_submission(data, user: User, session: Session, include_replay_marker: bool = False,
                                 supervisor_self: bool = False):
     if supervisor_self:
@@ -259,7 +267,7 @@ def create_work_form_submission(data, user: User, session: Session, include_repl
         if supervisor_self and (submission.submission_purpose != "report"
                                 or submission.department_id != user.department_id):
             raise HTTPException(status_code=409, detail="Submission belongs to a different scope")
-        result = work_form_submission_response(submission, session)
+        result = _own_submission_response(submission, user, session)
         if include_replay_marker and submission.submission_purpose == "report":
             # Transport metadata only: the immutable Report and read APIs are
             # unchanged. A recovered editor can retain its edits if an older
@@ -459,7 +467,7 @@ def find_my_report_submission_by_client_id(
             "client_submission_id": client_submission_id,
             "worker_id": user.id,
             "department_id": user.department_id,
-            "submission": None if deleted else work_form_submission_response(submission, session),
+            "submission": None if deleted else _own_submission_response(submission, user, session),
         }
     previous_purpose = _trashed_submission_purpose_for_client_id(client_submission_id, user.id, session)
     if previous_purpose is not None and previous_purpose != "report":
@@ -494,7 +502,7 @@ def list_my_form_submissions(
     ).all()
 
     return [
-        work_form_submission_response(record, session)
+        _own_submission_response(record, user, session)
         for record in records
     ]
 

@@ -653,7 +653,7 @@ check('authenticated Site loading never falls back to seeded demo Sites', () => 
 ));
 
 check('reconnect preserves active Daywork and Work Form DOM state', () => {
-  const onlineHandler = sourceApp.match(/window\.addEventListener\('online',[\s\S]*?\n  \}\);/)?.[0] || '';
+  const onlineHandler = sourceApp.match(/window\.addEventListener\('online', async \(\) => \{[\s\S]*?\n  \}\);/)?.[0] || '';
   return onlineHandler.includes('refreshSitesAfterReconnect')
     && !onlineHandler.includes('renderApp();')
     && sourceWorkerLog.includes('captureVisibleDayworkDraft')

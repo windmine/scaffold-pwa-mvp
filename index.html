@@ -635,6 +635,18 @@
                   <p id="workFormTemplateSearchStatus" class="muted" role="status" aria-live="polite" hidden></p>
                   <p id="workFormSelectedTitle" class="report-selected-template" data-no-i18n hidden></p>
                   <p id="reportTemplateAvailability" class="muted" role="status" aria-live="polite" aria-atomic="true" hidden></p>
+                  <section id="offlineReadiness" class="offline-readiness" aria-labelledby="offlineReadinessTitle" hidden>
+                    <div class="offline-readiness-heading">
+                      <strong id="offlineReadinessTitle">Before going offline</strong>
+                      <button id="checkOfflineReadiness" class="secondary" type="button">Check this device</button>
+                    </div>
+                    <p id="offlineReadinessStatus" role="status" aria-live="polite" aria-atomic="true"></p>
+                    <details>
+                      <summary>Offline check details</summary>
+                      <ul id="offlineReadinessDetails"></ul>
+                      <p class="muted">This check is for this browser now. It cannot guarantee available photo space, saved data after closing or browser cleanup, or future sign-in validity. Keep this page open and reconnect to sync. Email requires server submission.</p>
+                    </details>
+                  </section>
                   <div class="report-context-fields form-grid">
                     <label>
                       Report Date
