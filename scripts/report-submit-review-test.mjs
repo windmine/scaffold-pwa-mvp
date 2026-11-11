@@ -222,8 +222,9 @@ try {
     const f = await fixture(browser, { emailOptions });
     const { page } = f;
     await fill(page);
-    const choices = page.locator('[data-report-email-recipients] input');
+    const choices = page.locator('[data-report-email-recipients] input[type=checkbox]');
     assert.equal(await choices.nth(0).isChecked(), true);
+    await page.locator('[data-recipient-toggle]').click();
     await choices.nth(0).uncheck();
     await choices.nth(1).check();
     await page.screenshot({ path: path.join(output, 'recipient-selection-phone.png'), fullPage: true });
@@ -329,7 +330,8 @@ try {
     const f = await fixture(browser, { emailOptions: original });
     try {
       await fill(f.page);
-      await f.page.locator('[data-report-email-recipients] input').check();
+      await f.page.locator('[data-recipient-toggle]').click();
+      await f.page.locator('[data-report-email-recipients] input[type=checkbox]').check();
       await f.page.evaluate(() => Object.defineProperty(navigator, 'onLine', { configurable: true, value: false }));
       await review(f.page);
       assert.match(await f.page.locator('#workFormReviewSummary').innerText(), /chosen@example.invalid/);

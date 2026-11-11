@@ -39,7 +39,7 @@ async function fixture(initial = options, restored = null) {
   await context.route('**/*', async (route) => {
     const url = new URL(route.request().url());
     assert.equal(url.origin, origin, 'No external requests');
-    if (url.pathname === '/') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html lang="en"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/assets/css/styles.css"><body><main style="max-width:740px;margin:auto;padding:12px"><form id="report"><button id="submitWorkFormButton" type="button">Review Report</button></form><button id="language">Chinese</button></main>' });
+    if (url.pathname === '/') return route.fulfill({ contentType: 'text/html', body: '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/assets/css/styles.css"><body><main style="max-width:740px;margin:auto;padding:12px"><form id="report"><button id="submitWorkFormButton" type="button">Review Report</button></form><button id="language">Chinese</button></main>' });
     if (url.pathname === '/favicon.ico') return route.fulfill({ status: 204 });
     assert.match(url.pathname, /^\/assets\/(?:js\/[a-z\d-]+\.js|css\/styles\.css)$/);
     return route.fulfill({ contentType: url.pathname.endsWith('.css') ? 'text/css' : 'text/javascript', body: await readFile(path.join(root, url.pathname), 'utf8') });
@@ -55,14 +55,15 @@ async function fixture(initial = options, restored = null) {
     window.test = { picker: mountReportEmailRecipients(document.querySelector('#report'), { pdf_email_options: initial }, 'author@example.invalid', restored, () => { window.changed += 1; }), saveDraft, getDraft };
     initLanguageToggle({ button: document.querySelector('#language') });
   }, { initial, restored });
-  return { page, inputs: page.locator('[data-report-email-recipients] input'),
+  return { page, inputs: page.locator('[data-report-email-recipients] input[type=checkbox]'),
     async close() { assert.deepEqual(errors, []); await context.close(); } };
 }
 try {
   const f = await fixture();
   assert.equal(await f.inputs.count(), 27, 'Directory must not truncate to the selected-copy cap');
   assert.equal(await f.inputs.filter({ has: f.page.locator(':checked') }).count(), 0);
-  assert.match(await f.page.locator('fieldset').innerText(), /up to 20.*full Department list/);
+  assert.match(await f.page.locator('fieldset').innerText(), /Selected: 0 \/ 20/);
+  await f.page.locator('[data-recipient-toggle]').click();
   await f.inputs.nth(26).check();
   assert.deepEqual(await f.page.evaluate(() => window.test.picker.capture().pdfEmailRecipientUsers), [{ user_id: 126, email: users[26].email }]);
   await f.inputs.nth(26).uncheck();
@@ -80,29 +81,127 @@ try {
   assert.equal(await f.inputs.nth(26).isChecked(), true);
   assert.equal(await f.inputs.nth(0).isChecked(), false);
   assert.equal((await f.page.evaluate(() => window.test.picker.capture())).pdfEmailRecipientUsers.length, 20);
+  await f.page.getByRole('button', { name: 'Done', exact: true }).click();
+  assert.equal(await f.page.locator('.report-email-selected li').count(), 3, 'Large selections keep a bounded summary');
+  await f.page.getByRole('button', { name: 'View all selected people', exact: true }).click();
+  assert.equal(await f.page.locator('.report-email-choice:visible').count(), 20);
+  assert.equal(await f.page.getByRole('button', { name: 'Selected people', exact: true }).getAttribute('aria-pressed'), 'true');
+  await f.page.getByRole('button', { name: 'All people', exact: true }).click();
+  checks += 3;
   for (const width of [320, 390]) {
     for (const theme of ['light', 'dark']) {
       await f.page.setViewportSize({ width, height: 844 });
       await f.page.evaluate((theme) => { document.documentElement.dataset.theme = theme; }, theme);
       const layout = await f.inputs.evaluateAll((inputs) => ({ viewport: innerWidth, scrollWidth: document.documentElement.scrollWidth,
-        targets: inputs.map((input) => { const { width, height, left, right } = input.getBoundingClientRect(); return { width, height, left, right }; }) }));
+        targets: inputs.map((input) => { const { width, height, left, right } = input.closest('label').getBoundingClientRect(); return { width, height, left, right }; }) }));
       assert.equal(layout.targets.length, 27, 'The entire directory remains reachable on small screens');
       assert.ok(layout.scrollWidth <= layout.viewport, `${width}/${theme}: no horizontal overflow`);
       for (const target of layout.targets) assert.ok(target.width >= 44 && target.height >= 44 && target.left >= 0 && target.right <= width,
-        `${width}/${theme}: actual checkbox touch target must be at least 44px: ${JSON.stringify(target)}`);
-      await f.page.screenshot({ path: path.join(output, `full-directory-${width}-${theme}.png`), fullPage: true });
+        `${width}/${theme}: whole recipient row touch target must be at least 44px: ${JSON.stringify(target)}`);
+      await f.page.screenshot({ path: path.join(output, `full-directory-${width}-${theme}.png`), fullPage: true, animations: 'disabled' });
       checks += 3;
     }
   }
-  await f.page.screenshot({ path: path.join(output, 'full-directory-phone.png'), fullPage: true });
+  await f.page.screenshot({ path: path.join(output, 'full-directory-phone.png'), fullPage: true, animations: 'disabled' });
   assert.equal(await f.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await f.page.setViewportSize({ width: 1280, height: 900 });
-  await f.page.screenshot({ path: path.join(output, 'full-directory-desktop.png'), fullPage: true });
+  await f.page.screenshot({ path: path.join(output, 'full-directory-desktop.png'), fullPage: true, animations: 'disabled' });
   await f.page.locator('#language').click();
   await f.page.waitForFunction(() => document.documentElement.lang === 'zh-Hans');
-  assert.match(await f.page.locator('fieldset').innerText(), /20.*完整部门名单/);
-  await f.page.screenshot({ path: path.join(output, 'full-directory-chinese-desktop.png'), fullPage: true });
+  assert.match(await f.page.locator('fieldset').innerText(), /已选择： 20 \/ 20/);
+  await f.page.screenshot({ path: path.join(output, 'full-directory-chinese-desktop.png'), fullPage: true, animations: 'disabled' });
   await f.close(); checks += 14;
+
+  // Compact by default; keyboard and filtering never change recipient intent.
+  const compact = await fixture();
+  const picker = compact.page.locator('[data-report-email-recipients]');
+  const toggle = picker.locator('[data-recipient-toggle]');
+  assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+  assert.equal(await picker.locator('.report-email-panel').isVisible(), false);
+  assert.ok((await picker.boundingBox()).height < 340, 'Self-only summary remains compact');
+  await compact.page.screenshot({ path: path.join(output, 'picker-collapsed-phone.png'), fullPage: true, animations: 'disabled' });
+  await toggle.click();
+  const search = compact.page.getByRole('searchbox', { name: 'Find a person' });
+  await search.fill('COLLEAGUE26@');
+  assert.equal(await compact.page.locator('.report-email-choice:visible').count(), 1);
+  await compact.inputs.nth(26).check();
+  await search.fill('Department colleague 1');
+  assert.equal(await compact.page.locator('.report-email-choice:visible').count(), 11);
+  await compact.inputs.nth(1).check();
+  assert.deepEqual(await compact.page.evaluate(() => window.test.picker.capture().pdfEmailRecipients), [users[26].email, users[1].email]);
+  await search.fill('no matching person');
+  assert.equal(await compact.page.locator('.report-email-choice:visible').count(), 0);
+  assert.match(await picker.innerText(), /No matching people/);
+  await compact.page.evaluate(() => {
+    window.submits = 0;
+    document.querySelector('#report').addEventListener('submit', (event) => { event.preventDefault(); window.submits += 1; });
+  });
+  await search.press('Enter');
+  assert.equal(await compact.page.evaluate(() => window.submits), 0, 'Searching never submits the outer Report');
+  await search.fill('');
+  await compact.page.getByRole('button', { name: 'Selected people', exact: true }).click();
+  assert.equal(await compact.page.locator('.report-email-choice:visible').count(), 2);
+  await compact.inputs.nth(1).focus(); await compact.page.keyboard.press('Space');
+  assert.equal(await compact.inputs.nth(26).evaluate((input) => input === document.activeElement), true);
+  await compact.page.keyboard.press('Space');
+  assert.equal(await compact.page.getByRole('button', { name: 'Selected people', exact: true }).evaluate((button) => button === document.activeElement), true);
+  assert.equal(await compact.page.locator('.report-email-choice:visible').count(), 0);
+  await compact.page.getByRole('button', { name: 'All people', exact: true }).click();
+  await compact.inputs.nth(26).check(); await compact.inputs.nth(1).check();
+  await compact.page.getByRole('button', { name: 'Selected people', exact: true }).click();
+
+  await compact.page.getByRole('button', { name: 'Done', exact: true }).click();
+  assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+  assert.equal(await toggle.evaluate((button) => button === document.activeElement), true);
+  assert.equal(await compact.page.locator('.report-email-selected li').count(), 2);
+  await compact.page.screenshot({ path: path.join(output, 'picker-selected-phone.png'), fullPage: true, animations: 'disabled' });
+  await toggle.press('Enter');
+  assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
+  await compact.page.getByRole('button', { name: 'All people', exact: true }).click();
+  assert.equal(await compact.page.locator('.report-email-choice:visible').count(), 27);
+  await search.focus(); await search.press('Escape');
+  assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+  assert.deepEqual(await compact.page.evaluate(() => window.test.picker.capture().pdfEmailRecipients), [users[26].email, users[1].email]);
+  await compact.page.getByRole('button', { name: 'Remove Department colleague 26 colleague26@example.invalid', exact: true }).click();
+  assert.deepEqual(await compact.page.evaluate(() => window.test.picker.capture().pdfEmailRecipients), [users[1].email]);
+  await toggle.click();
+  await compact.page.getByRole('button', { name: 'Clear additional recipients', exact: true }).click();
+  assert.deepEqual(await compact.page.evaluate(() => window.test.picker.capture().pdfEmailRecipientUsers), []);
+  assert.equal(await compact.page.getByRole('button', { name: 'Done', exact: true }).evaluate((button) => button === document.activeElement), true);
+  // The row, not a gigantic checkbox, is the whole touch target.
+  const bounds = await compact.inputs.nth(0).evaluate((input) => ({ box: input.getBoundingClientRect().width, row: input.closest('label').getBoundingClientRect().height }));
+  assert.equal(bounds.box, 22); assert.ok(bounds.row >= 44);
+  await compact.page.locator('.report-email-choice').nth(0).locator('.report-email-person').click();
+  assert.equal(await compact.inputs.nth(0).isChecked(), true);
+  await compact.page.keyboard.press('Space');
+  assert.equal(await compact.inputs.nth(0).isChecked(), false, 'Native keyboard checkbox behavior is preserved');
+  await compact.close(); checks += 31;
+
+  // Names are literal, long addresses wrap, and an eligible default is visible while closed.
+  const longUser = { user_id: 900, name: '<img src=x onerror=alert(1)> A very long colleague name',
+    email: 'averylongemailaddress.with.many.parts.for.layout@example.invalid' };
+  const longOptions = { ...options, enabled: true, recipient_users: [longUser], recipients: [longUser.email], default_recipients: [longUser.email] };
+  const long = await fixture(longOptions);
+  assert.equal(await long.page.locator('.report-email-selected li').count(), 1);
+  assert.equal(await long.page.locator('.report-email-selected img').count(), 0);
+  assert.match(await long.page.locator('.report-email-selected').innerText(), /<img/);
+  for (const width of [320, 390, 768, 1280]) {
+    for (const theme of ['light', 'dark']) {
+      await long.page.setViewportSize({ width, height: 900 });
+      await long.page.evaluate((theme) => { document.documentElement.dataset.theme = theme; }, theme);
+      assert.equal(await long.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await long.page.locator('[data-recipient-toggle]').click();
+      assert.equal(await long.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await long.page.screenshot({ path: path.join(output, 'picker-long-' + width + '-' + theme + '.png'), fullPage: true, animations: 'disabled' });
+      await long.page.getByRole('button', { name: 'Done', exact: true }).click();
+    }
+  }
+  await long.close(); checks += 19;
+  const none = await fixture({ ...options, recipients: [], recipient_users: [] });
+  assert.match(await none.page.locator('fieldset').innerText(), /No eligible additional recipients/);
+  assert.equal(await none.page.locator('[data-recipient-toggle]').isVisible(), false);
+  assert.equal(await none.page.evaluate(() => window.test.picker.valid()), true);
+  await none.close(); checks += 3;
 
   for (const mutation of ['removed', 'email_changed', 'email_reassigned', 'version_changed']) {
     const f = await fixture(options, saved);
