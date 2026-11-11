@@ -1,6 +1,6 @@
 # Worker Report PDF download and sharing
 
-Local implementation, not deployed.
+Deployed 2026-11-11 UTC with offline readiness and Report receipts. [Release evidence and limits](evidence/offline-worker-pdf-release-20261111/release.json).
 
 In My Reports, open a submitted Report's details to use **Download PDF** or **Share PDF**. These actions are available only to the owning Worker in the current Department. Saved drafts, waiting/syncing device copies and retained Daywork do not expose them. Supervisor export behavior is unchanged.
 
@@ -23,4 +23,4 @@ The response is an attachment named `report-{id}.pdf`. Frozen-definition photo/s
 - `python backend/report_self_pdf_test.py`: authenticated HTTP/PDF fixtures for ownership and Department IDOR, invalid/deleted/Daywork records, account eligibility, API prefix/private caching, current corrected content, signatures/photos, unsafe evidence and unchanged email rows.
 - These suites are registered in the full isolated backend/mobile CI runners. `npm run check:worker-pdf` also runs the two focused suites; use the isolated runner for backend configuration safety.
 
-Native OS chooser outcomes are mocked in automated browser tests. Physical Android/iPhone sharing and authenticated live Reports are not claimed tested. Publication requires separate approval; deploy the compatible backend before Hosting. Integrate with the already-uncommitted offline-readiness/report-status work without dropping its changes, and retain all device drafts/queues.
+Native OS chooser outcomes are mocked in automated browser tests. Physical Android/iPhone sharing and authenticated live Reports are not claimed tested. The authorized release deployed the compatible backend before Hosting and integrated the offline-readiness/report-status work. Retain all device drafts/queues.

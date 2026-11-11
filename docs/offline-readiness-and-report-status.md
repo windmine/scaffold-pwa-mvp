@@ -1,6 +1,6 @@
 # Offline readiness and Report receipts
 
-Local implementation only. Nothing in this change commits, pushes, publishes, deploys, sends real email or creates a production Report. No migration or new package dependency is required.
+Deployed 2026-11-11 UTC together with Worker own-Report PDF download/sharing. No migration or new package dependency was required. [Release evidence and limits](evidence/offline-worker-pdf-release-20261111/release.json).
 
 ## Before going offline
 
@@ -30,7 +30,7 @@ After a lost POST response, history prefers the durable Report with the same aut
 
 ## Compatibility and verification
 
-Keep all existing database namespaces, definitions, original Blob evidence, retry ownership and authentication controls. Deploy a compatible backend before a future frontend promotion for the new status field; old backends safely show status unavailable. Regenerate the service worker after app-shell source changes. No deployment is authorized by this local implementation.
+Keep all existing database namespaces, definitions, original Blob evidence, retry ownership and authentication controls. The compatible backend preceded the frontend promotion for the new status field; old backends safely show status unavailable. Regenerate the service worker after app-shell source changes. History status reads use scoped 500-ID batches and project only IDs/statuses, never recipient addresses or snapshots.
 
 Focused checks:
 
@@ -41,6 +41,6 @@ Focused checks:
 
 The readiness/status UI includes English and Chinese and is checked at narrow phone and desktop widths. Headless browser checks are not physical-phone tests. Production sign-in, live Report submission, real mailbox delivery, full OS/process-killed recovery and browser-eviction behavior are not claimed. Cache readiness is validated from the active worker and existing offline/reconnect workflow checks, not inferred from `navigator.onLine`.
 
-## Local validation result (2026-11-11)
+## Historical local validation result (2026-11-11, before the combined release)
 
 Final lint/build, all 31 disposable backend suites, the backend cleanup contract, and the complete mobile gate pass. The gate includes 75 real-backend browser workflows and the strengthened built-app cold-offline/readiness/receipt flow. Readiness and receipt layouts were visually reviewed at 320/390px and desktop widths in English/Chinese and light/dark themes. The existing build chunk-size warning remains. [Local evidence and retained earlier test failures](evidence/offline-readiness-status-local-20261111.json). No commit, push, deployment, migration, production Report or real email was performed.

@@ -1,0 +1,158 @@
+{
+  "status": "deployed_verified",
+  "verifiedAtUtc": "2026-11-11T04:10:42.722080+00:00",
+  "applicationSource": "577e970a6f0ade83d5066bfe8225b1f48aa9ae39",
+  "sourceCi": {
+    "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/42954916905",
+    "status": "success",
+    "jobs": [
+      {
+        "name": "Frontend, audit and mobile workflows",
+        "conclusion": "success",
+        "completedAt": "2026-11-11T03:58:46Z"
+      },
+      {
+        "name": "Backend boundaries and native PostgreSQL volume",
+        "conclusion": "success",
+        "completedAt": "2026-11-11T03:50:33Z"
+      }
+    ]
+  },
+  "live": {
+    "url": "https://geo-attendance-system-db9ca.web.app",
+    "backendRevision": "geo-backend-workerpdf-20261111-577e970",
+    "trafficPercent": 100,
+    "temporaryTags": false,
+    "hostingVersion": "4cd80695baa020a6",
+    "hostingPromotedAtUtc": "2026-11-11T04:06:37.770Z",
+    "cacheVersion": "leader-field-3a498917169a",
+    "schemaVersion": 28
+  },
+  "build": {
+    "id": "c0b9f18a-6979-4c6d-b6f5-e9a723fe5e61",
+    "region": "australia-southeast1",
+    "image": "australia-southeast1-docker.pkg.dev/geo-attendance-system-db9ca/cloud-run-source-deploy/geo-backend@sha256:629e6e01ee27159b26ad39f3c1e32e622905ae97835079b9f5ac898c2932edb4",
+    "status": "SUCCESS",
+    "exactUploadedFiles": 301,
+    "runtimeSourceInputs": 134,
+    "networkDisabledImageBackendSuites": 32,
+    "testOnlyDependenciesAndLogoInDerivativeImage": true
+  },
+  "features": [
+    "Worker offline readiness checks for scoped identity/Templates, transactional storage and active service-worker shell",
+    "Distinct device, queued/syncing and durable server Report receipts with private own-copy email outcome",
+    "Worker-only own/current-Department submitted Report Download PDF and native file Share PDF with download fallback"
+  ],
+  "security": {
+    "workerOwnerDepartmentReportNondeletedRequired": true,
+    "generic404ForInaccessibleIds": true,
+    "privateNoStoreIncludingErrors": true,
+    "noPrivateUrlSharing": true,
+    "pdfMemoryTtlSeconds": 60,
+    "noEmailOutboxMutationByDownloadShare": true,
+    "currentCorrectionsAndEvidenceValidation": true,
+    "nativeCancellationDoesNotDownload": true
+  },
+  "verification": {
+    "isolatedBackendSuites": 32,
+    "newOwnPdfHttpTests": 7,
+    "selfEmailStatusTests": 9,
+    "nativePostgresVolumeProbes": 24,
+    "nativePostgresCleanup": true,
+    "fullMobileGate": true,
+    "realBackendBrowserWorkflows": 75,
+    "previewAndLiveFilesEach": 95,
+    "previewAndLiveShellAssetsEach": 85,
+    "previewAndLiveReadinessChecksEach": 5,
+    "previewAndLiveInstallerArtifactsEach": 7,
+    "previewAndLiveSyntheticFeatureSuitesEach": [
+      "offline readiness",
+      "Report status",
+      "own PDF download/share"
+    ],
+    "actualWaitingUpdateChecks": [
+      "old_live_bytes_controller_and_cached_shell_verified",
+      "expected_new_worker_waits_while_old_client_controls_and_update_action_is_visible",
+      "update_action_activates_expected_worker_and_reloads_report_only_shell",
+      "new_report_only_shell_cold_launches_offline_after_last_client_closed"
+    ],
+    "strictCurrentChecks": 40,
+    "strictFailures": 0,
+    "strictExceptions": false,
+    "runtimeAndIamFingerprintsUnchanged": 8,
+    "retentionEligibleNow": 0,
+    "retentionEligibleWithinOneHour": 0,
+    "linkedOutboxEligibleWithinOneHour": 0,
+    "apiErrorOr5xxObserved": 0,
+    "visualReview": "Preview phone PDF/readiness/receipt and installer screens, live PDF screens and actual waiting/updated/offline screens reviewed. Ten feature screenshots and all three installer screenshots are byte-identical preview/live; two differing PDF screenshots were reviewed directly."
+  },
+  "email": {
+    "workerImageUnchanged": true,
+    "workerDispatchSemanticsUnchanged": true,
+    "workerEnabled": true,
+    "schedulerEnabled": true,
+    "schedule": "*/5 * * * *",
+    "timeZone": "Etc/UTC",
+    "taskCount": 1,
+    "parallelism": 1,
+    "maxRetries": 0,
+    "batchSize": 10,
+    "webDispatchEnabled": false,
+    "postPromotionNaturalExecution": {
+      "startedAtUtc": "2026-11-11T04:05:03.373752Z",
+      "completedAtUtc": "2026-11-11T04:05:13.797873Z",
+      "triggerIdentityVerified": true,
+      "succeeded": true,
+      "accepted": 0,
+      "failed": 0,
+      "skipped": 0,
+      "uncertain": 0,
+      "queueEmptinessEstablished": false
+    },
+    "manualJobTrigger": false,
+    "testEmailSent": false
+  },
+  "recovery": {
+    "proof": "Fresh supported schema3 Current proof, schema28 ledger and verifier artifacts unchanged; readonly branch checked then owned branch deleted and absence verified",
+    "migrationRequired": false,
+    "previousApiRevision": "geo-backend-recipdir-20261110",
+    "previousHostingVersion": "d11cabd14ecd307b",
+    "retainedHostingChannel": "release-recipient-picker-20261111",
+    "retainedUntilUtc": "2026-11-18T00:13:27.305115762Z",
+    "instructions": "Reverify availability and compatibility before fallback. Restore compatible previous frontend before previous API if needed. Keep schema28, existing worker, auth state, original evidence, device drafts/queues and outbox claims. Never downgrade the ledger or clear device storage."
+  },
+  "retainedFailures": [
+    {
+      "stage": "First source CI",
+      "source": "4a355bf5d36901d1784a3a7bb481951461a9b5c7",
+      "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/42953277706",
+      "reason": "Per-Report self-email status query exceeded unchanged worker-history SQL budget. Fixed with scoped two-column batches of500; final exact-source CI and unchanged native volume gate passed."
+    },
+    {
+      "stage": "First isolated image test build",
+      "buildId": "c67701cb-26c4-408f-9971-10891ba56f15",
+      "reason": "Derivative test image lacked the existing repository logo fixture. Added only test fixture packaging; production Dockerfile unchanged. Final exact-image32-suite run passed."
+    },
+    {
+      "stage": "Local release-proof rendering",
+      "reason": "Traffic update returned a list rather than a service object; promotion was not retried and read-only state verified. Hosting preflight stopped before mutation for UTF8 decoding and then expected armed-state spelling; corrected local readers without altering gate criteria."
+    }
+  ],
+  "noActions": [
+    "No database migration or write pause",
+    "No production test Report/account or authenticated live fixture",
+    "No test email or manual mail-worker execution",
+    "No IAM, secret value/reference, Auth-domain or email-schedule change",
+    "No retention policy change or manual purge",
+    "No unrelated worktree changes included"
+  ],
+  "limits": [
+    "Native phone share chooser outcomes are mocked; physical Android/iPhone sharing is not certified.",
+    "No authenticated live Report download/submission or real mailbox-delivery test.",
+    "Offline browser checks close every page, not a full OS/process-killed or browser-eviction guarantee. Readiness cannot reserve capacity or guarantee future credentials.",
+    "No new full before/after production business-row inventory comparison.",
+    "Existing six-hour recovery-history warning and frontend bundle-size warning remain."
+  ],
+  "operationalEvidenceDirectory": "output/worker-pdf-release-20261111",
+  "documentationCi": "Record-only commit is checked separately; deployed application remains the exact source above."
+}

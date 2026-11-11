@@ -1,5 +1,15 @@
 # AGENTS.md
 
+## Offline readiness and Worker PDF release (2026-11-11 UTC)
+
+Source `577e970a6f0ade83d5066bfe8225b1f48aa9ae39` is live on API `geo-backend-workerpdf-20261111-577e970` at 100% without tags and Hosting `4cd80695baa020a6`, cache `leader-field-3a498917169a`. Workers can check this device before going offline, distinguish local/queued/submitted Reports and their own PDF email outcome, and Download PDF or Share PDF from their own submitted Report details. File sharing uses the native chooser where supported, otherwise downloads; cancellation never silently downloads. Online PDF access requires the current Worker, exact ownership and home Department, and includes current corrections with private no-store responses.
+
+Both exact-source CI jobs, all 32 network-disabled image backend suites, unchanged native PostgreSQL volume gates, 95-file preview/live parity, 85 shell assets, installer/cold-offline checks, deployed-code synthetic feature checks and all four actual waiting-update checks passed. The strict Current production gate passed 40 checks without exceptions. CI caught an N+1 status query; scoped batching fixed it without raising budgets. The initial missing test-only logo fixture and original failures are retained.
+
+Schema 28, runtime/security/IAM/SMTP settings, the existing enabled PDF worker and five-minute UTC Scheduler are unchanged. No migration, production test Reports, test emails or manual worker execution occurred. The normal 04:05 UTC scheduled execution succeeded with all outcome counts zero; this does not prove an empty queue. Fresh pre-start retention counts were zero now and through the next hour. Keep all device drafts, queues, original evidence and outbox claims when updating.
+
+Previous Hosting `d11cabd14ecd307b` remains in `release-recipient-picker-20261111` until `2026-11-18T00:13:27.305115762Z`; previous compatible API is `geo-backend-recipdir-20261110`. Reverify before fallback, restore the compatible frontend first if reverting API, and never downgrade schema or clear device/auth state. Physical phones, authenticated production Reports, real mailbox delivery and OS-killed/eviction recovery were not tested. Existing six-hour recovery-history and bundle-size warnings remain. [Release evidence, preserved state and limits](docs/evidence/offline-worker-pdf-release-20261111/release.json). Earlier release states below are historical.
+
 ## PDF email recipient-picker release (2026-11-11 UTC)
 
 The compact PDF email section now separates the automatic self-copy from optional people. Choose people opens a searchable Department directory with All people and Selected people filters, touch-friendly checkbox rows, a short removable selection summary, and Done/Escape collapse. English/Chinese, narrow phones, desktop, light/dark and keyboard focus are covered. Recipient eligibility, the 20-person limit, stale-selection review, account/email bindings and offline drafts/queues are unchanged.
