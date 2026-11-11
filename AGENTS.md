@@ -1,5 +1,15 @@
 # AGENTS.md
 
+## PDF email recipient-picker release (2026-11-11 UTC)
+
+The compact PDF email section now separates the automatic self-copy from optional people. Choose people opens a searchable Department directory with All people and Selected people filters, touch-friendly checkbox rows, a short removable selection summary, and Done/Escape collapse. English/Chinese, narrow phones, desktop, light/dark and keyboard focus are covered. Recipient eligibility, the 20-person limit, stale-selection review, account/email bindings and offline drafts/queues are unchanged.
+
+Frontend source `c1de73d01fc964f593eb545a59602ae2a099d581` is live as Hosting `d11cabd14ecd307b`, cache `leader-field-d5722169875f`. Backend source `4c3604d72f14442fef7a77f821b316e84b6037e3`, API `geo-backend-recipdir-20261110` at 100%, schema 28, the enabled PDF worker and five-minute UTC Scheduler are unchanged. These current states supersede historical release notes below.
+
+Both exact-source CI jobs, 130 deployed-picker checks, 92-file preview/live parity, shell/installer/cold-offline checks and all four actual waiting-update checks passed. The strict production gate passed without exceptions after fresh upload-recovery and recipient-confirmed Monitoring alert proofs. Exactly one authorized TEST ONLY Monitoring email was sent and confirmed; its temporary policy was deleted and real alert settings were unchanged. No production Report or PDF email was created by release testing, and no migration, backend deployment, write pause, IAM or secret change occurred.
+
+Keep device drafts and queues when updating. The previous Hosting version is preserved in `rollback-recipient-picker-20261111` until `2026-11-18T00:32:18.806621831Z`; verify compatibility before using it and keep schema 28. Physical phones and authenticated live Report submission/PDF inbox delivery were not tested. Existing six-hour recovery-history and bundle-size warnings remain. [Release evidence and retained failures](docs/evidence/recipient-picker-release-20261111/release.json).
+
 ## Department PDF recipients release (2026-11-11 NZDT; 2026-11-10 UTC)
 
 Deployed application source is `4c3604d72f14442fef7a77f821b316e84b6037e3`, not a later documentation-only commit. API `geo-backend-recipdir-20261110` serves 100% with its matching PDF worker. Hosting `97b057880cd466f6` uses cache `leader-field-09b505541760`. Schema 28, enabled worker and five-minute UTC Scheduler supersede the historical states below. The natural scheduled run completed at `2026-11-10T23:35:15.491132Z` with no pending mail and all outcome counts zero.

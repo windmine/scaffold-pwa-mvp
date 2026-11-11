@@ -1,0 +1,63 @@
+{
+  "record_version": 1,
+  "status": "released_verified",
+  "frontend_source_commit": "c1de73d01fc964f593eb545a59602ae2a099d581",
+  "ci": {
+    "url": "https://github.com/windmine/scaffold-pwa-mvp/actions/runs/42929209652",
+    "both_exact_source_jobs": "passed"
+  },
+  "hosting": {
+    "url": "https://geo-attendance-system-db9ca.web.app",
+    "version": "d11cabd14ecd307b",
+    "cache_name": "leader-field-d5722169875f",
+    "promoted_at": "2026-11-11T00:36:18.493Z",
+    "exact_app_files": 92
+  },
+  "changes": [
+    "Compact automatic PDF copy separated from optional people.",
+    "Searchable Department directory, All/Selected filters and touch-friendly native checkbox rows.",
+    "Removable selection summary, Clear additional recipients and Done/Escape collapse.",
+    "English/Chinese, narrow phone/desktop, light/dark and keyboard focus coverage."
+  ],
+  "preserved": [
+    "Mandatory submitter copy and eligible own-Department recipient rules.",
+    "20-person limit, account/email binding, explicit stale review and existing defaults.",
+    "Offline drafts, queues, user data and all unrelated local changes.",
+    "Existing backend, schema 28, enabled PDF worker, Scheduler and alert configuration."
+  ],
+  "verification": {
+    "local_lint_build_diff": "passed",
+    "local_picker": 130,
+    "local_full_mobile_gate": "passed",
+    "browser_workflows": 75,
+    "local_installer_groups": 11,
+    "local_backend_recipient_tests": 24,
+    "local_mocked_pdf_email_tests": 21,
+    "real_form_draft_review_offline": "passed",
+    "preview_and_live_picker_checks_each": 130,
+    "preview_and_live_exact_app_files_each": 92,
+    "preview_and_live_shell_assets_each": 82,
+    "preview_and_live_readiness_probes_each": 5,
+    "preview_and_live_installer_artifacts_each": 7,
+    "live_waiting_update_checks": 4,
+    "preview_and_live_cold_offline": "passed",
+    "strict_production_hardening_before_promotion": "passed",
+    "physical_phone_test": false,
+    "strict_production_hardening_after_promotion_and_durable_proof_copy": "passed"
+  },
+  "strict_gate_note": "Unchanged strict checks passed before promotion and again afterward. Expired upload/alert proof was refreshed normally; the single authorized TEST ONLY Monitoring email was received and its temporary policy removed. The existing unchanged backend recovery proof was validated against its exact source with PowerShell 7. No gate waiver was used.",
+  "rollback": {
+    "channel": "rollback-recipient-picker-20261111",
+    "version": "97b057880cd466f6",
+    "expires_at": "2026-11-18T00:32:18.806621831Z",
+    "verify_compatibility_and_keep_schema_28": true
+  },
+  "limits": [
+    "Headless Chromium emulation, not physical-phone testing.",
+    "Deployed picker checks used synthetic intercepted fixtures and exact public JS/CSS, not production submissions.",
+    "No production Report or PDF email was created by release testing. Monitoring test receipt is not Report PDF inbox verification.",
+    "Existing six-hour recovery-history and bundle-size warnings remain."
+  ],
+  "evidence_handling": "Detailed operational and recovery evidence is retained locally, not published to this public repository. This record contains public release identifiers and summarized check outcomes only.",
+  "record_commit_note": "Documentation-only record; the deployed app source remains frontend_source_commit."
+}
