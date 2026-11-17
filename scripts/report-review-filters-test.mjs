@@ -379,6 +379,46 @@ try {
     console.log('ok - blocked preference reads fall back to usable empty filters without blocking the Report inbox');
   } finally { await recovery.close(); }
 
+  const navigation = await fixture(browser);
+  try {
+    const { page } = navigation;
+    const reports = Array.from({ length: 51 }, (_, index) => ({
+      id: `form-${index + 1}`, backendRecordId: index + 1, formName: 'Shared template'
+    }));
+    navigation.orderedPages([reports.slice(0, 50), reports.slice(50)]);
+    await page.evaluate(() => window.fixture.module.renderPanel());
+    assert.equal(await page.locator('#supervisorResultCount').innerText(), '50 of 51');
+    assert.equal(await page.locator('#reportReviewFilters').evaluate((el) => el.open), false);
+    assert.ok(await page.locator('#supervisorSearchInput').isVisible(), 'Find is available with Filters closed');
+    const row50 = page.locator('#reviewQueueList [data-record-key="form:50"]');
+    const next = page.locator('#nextReviewRecordButton');
+    await row50.click();
+    assert.equal(await page.locator('#reviewQueueSelectionPosition').innerText(), '50 of 51');
+    assert.ok(await next.isEnabled());
+    await next.click();
+    await page.waitForFunction(() => document.querySelector('#reviewQueueDetailTitle').textContent.startsWith('#51 ·'));
+    assert.equal(await page.locator('#reviewQueueSelectionPosition').innerText(), '51 of 51');
+    assert.ok(await next.isDisabled());
+    assert.equal(await page.locator('#supervisorResultCount').innerText(), '51');
+    assert.deepEqual(navigation.queue.at(-1), { ...navigation.queue.at(-2), cursor: navigation.queue.at(-1).cursor });
+    assert.ok(navigation.queue.at(-1).cursor);
+    assert.ok(await page.locator('.review-detail-shell').evaluate((node) => node === document.activeElement));
+
+    await page.evaluate(() => window.fixture.module.renderPanel());
+    await row50.click();
+    navigation.hold('queue', (query) => Boolean(query.cursor));
+    await next.click();
+    await page.waitForFunction(() => window.fixture.state.supervisorRecords.loadingMore);
+    for (let count = 0; !navigation.held.length && count < 100; count++) await page.waitForTimeout(10);
+    assert.equal(navigation.held.length, 1);
+    await page.locator('#reviewQueueBackButton').click();
+    navigation.release();
+    await page.waitForFunction(() => !window.fixture.state.supervisorRecords.loadingMore);
+    assert.ok(await row50.isVisible(), 'A late cursor page must not reopen detail after Back');
+    assert.ok(await row50.evaluate((node) => node === document.activeElement), 'A late page preserves inbox focus');
+    console.log('ok - phone Next opens report 51 from 50 in one action and a late page respects Back');
+  } finally { await navigation.close(); }
+
   const races = await fixture(browser);
   try {
     const { page } = races;

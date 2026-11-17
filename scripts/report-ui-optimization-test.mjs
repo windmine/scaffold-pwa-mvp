@@ -142,6 +142,63 @@ const browser = await chromium.launch({ headless: true });
 let count = 0;
 try {
   {
+    const f = await fixture(browser, 'worker');
+    f.traffic.forms[0].fields.push({ id: 'shift', label: 'Shift', type: 'time_range' });
+    await refresh(f);
+    await openForm(f);
+    const surfaces = ['#workFormTemplateSearch', '#workFormSelect', '#workFormField_notes', '#workFormPhotos',
+      '.date-input-shell:has(#workFormDate)', '#workFormField_shift_start'];
+    const luminance = (rgb) => rgb.match(/\d+/g).slice(0, 3)
+      .map((value) => Number(value) / 255)
+      .map((v) => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
+      .reduce((sum, value, i) => sum + value * [0.2126, 0.7152, 0.0722][i], 0);
+    const contrast = (a, b) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
+    for (const width of [390, 1280]) {
+      await f.page.setViewportSize({ width, height: 844 });
+      for (const theme of ['light', 'dark']) {
+        if (await f.page.locator('html').getAttribute('data-theme') !== theme) await f.page.locator('#themeToggleButton').click();
+        for (const selector of surfaces) {
+          const control = f.page.locator(selector);
+          const palette = await control.evaluate((el) => {
+            const css = getComputedStyle(el);
+            return { ink: css.color, fill: css.backgroundColor, edge: css.borderTopColor,
+              placeholder: getComputedStyle(el, '::placeholder').color };
+          });
+          assert.ok(contrast(palette.ink, palette.fill) >= 4.5, selector + ' value contrast');
+          if (theme === 'light') { assert.equal(palette.fill, 'rgb(255, 255, 255)'); continue; }
+          assert.ok(luminance(palette.fill) < 0.12 && contrast(palette.edge, palette.fill) >= 3, selector + ' distinct dark field');
+          if (selector === '#workFormTemplateSearch') assert.ok(contrast(palette.placeholder, palette.fill) >= 4.5);
+          const native = selector.startsWith('.date-input-shell') ? f.page.locator('#workFormDate') : control;
+          await native.focus();
+          const ring = await control.evaluate((el) => {
+            const css = getComputedStyle(el);
+            return { color: css.outlineColor, width: parseFloat(css.outlineWidth), style: css.outlineStyle };
+          });
+          assert.ok(ring.style === 'solid' && ring.width >= 2 && contrast(ring.color, palette.fill) >= 3, selector + ' visible focus');
+          const [red,, blue] = ring.color.match(/\d+/g).map(Number);
+          assert.ok(blue > red + 35, selector + ' blue focus');
+          await native.evaluate((el) => el.blur());
+        }
+        const nativeMenus = f.page.locator('#workFormSelect, #workFormFields input[type="time"]');
+        assert.ok(await nativeMenus.evaluateAll((els, expected) => els.every((el) => getComputedStyle(el).colorScheme === expected), theme));
+        if (theme === 'dark') {
+          for (const [selector, pseudo] of [['#workFormPhotos', '::file-selector-button'], ['#workFormSelect option', null]]) {
+            const [ink, fill] = await f.page.locator(selector).first().evaluate((el, part) => {
+              const css = getComputedStyle(el, part);
+              return [css.color, css.backgroundColor];
+            }, pseudo);
+            assert.ok(luminance(fill) < 0.12 && contrast(ink, fill) >= 4.5, selector + ' native control contrast');
+          }
+        }
+      }
+    }
+    await f.page.locator('#logoutButton').click();
+    await f.page.locator('#loginView').waitFor({ state: 'visible' });
+    const signIn = f.page.locator('#loginForm input');
+    assert.ok(await signIn.evaluateAll((els) => els.every((el) => getComputedStyle(el).backgroundColor === 'rgb(38, 54, 74)')));
+    await f.close(); console.log(`ok ${++count} - dark and light inputs, native pickers, file upload and focus across phone/desktop and sign-in`);
+  }
+  {
     const f = await fixture(browser); await openForm(f);
     for (const width of [320, 390, 1440]) {
       await f.page.setViewportSize({ width, height: 844 });
@@ -266,13 +323,73 @@ try {
   }
   {
     const f = await fixture(browser, 'supervisor');
+    const queue = f.page.locator('#reviewQueueDetails');
+    const summary = queue.locator(':scope > summary');
+    const firstReport = queue.locator('#reviewQueueList [role="option"]').first();
+    await firstReport.waitFor({ state: 'visible' });
+    for (const width of [320, 390, 768, 1280]) {
+      await f.page.setViewportSize({ width, height: 844 });
+      assert.equal(await f.page.locator('#adminReviewWorkspace > header').isVisible(), false);
+      assert.equal(await queue.getByRole('heading', { name: 'Submitted reports', exact: true }).count(), 1);
+      assert.equal(await summary.locator('#adminReviewWorkspaceTitle').innerText(), 'Submitted reports');
+      assert.equal(await summary.locator('#supervisorResultCount').innerText(), '1');
+      assert.equal(await queue.locator('#reviewInboxTitle').isVisible(), false);
+      assert.equal(await firstReport.isVisible(), true);
+      assert.ok(await firstReport.evaluate(el => el.getBoundingClientRect().top < innerHeight),
+        `${width}px: the first result is available in the initial viewport`);
+      assert.equal(await queue.locator('.review-inbox').evaluate(el => getComputedStyle(el).borderTopWidth), '0px');
+    }
+    await summary.focus();
+    await summary.press('Space');
+    assert.equal(await queue.evaluate(el => el.open), false);
+    assert.equal(await firstReport.isVisible(), false);
+    await summary.press('Enter');
+    await firstReport.waitFor({ state: 'visible' });
+    assert.equal(await f.page.locator('.review-detail-shell').isVisible(), true);
+    assert.equal(await queue.locator('.review-detail-record-card').evaluate(el => getComputedStyle(el).boxShadow), 'none');
     await f.page.locator('#reportReviewFilters').evaluate(el => { el.open = true; });
     await f.page.locator('#supervisorDateFilter').fill('2026-10-26');
     await f.page.locator('#reviewQueueList [role="option"]').first().waitFor({ state: 'visible' });
+    const reportColors = await f.page.evaluate(() => {
+      const original = document.documentElement.dataset.theme;
+      try {
+        return ['light', 'dark'].map(theme => {
+          document.documentElement.dataset.theme = theme;
+          const row = document.querySelector('#reviewQueueList [aria-selected="true"]');
+          const detailBadge = document.querySelector('#reviewQueueDetail .badge.submitted');
+          const inputs = ['supervisorSearchInput', 'supervisorDateFilter', 'workFormTemplateSearch', 'workFormDate'];
+          const indicator = document.getElementById('syncIndicator');
+          const previous = indicator.dataset.state;
+          const syncDots = ['queued', 'syncing', 'attention'].map(state => {
+            indicator.dataset.state = state;
+            return getComputedStyle(indicator, '::before').backgroundColor;
+          });
+          indicator.dataset.state = previous;
+          return {
+            labelText: getComputedStyle(document.body).color,
+            labels: inputs.map(id => getComputedStyle(document.getElementById(id).closest('label')).color),
+            selection: getComputedStyle(row).borderLeftColor,
+            status: getComputedStyle(detailBadge).color,
+            syncDots,
+            statusLabel: detailBadge.textContent
+          };
+        });
+      } finally { document.documentElement.dataset.theme = original; }
+    });
+    for (const { labels, labelText, selection, status, statusLabel, syncDots } of reportColors) {
+      assert.ok(labels.every(color => color === labelText), 'Report fields, Find and nested filter labels use ordinary text');
+      assert.equal(statusLabel, 'Submitted');
+      const [sr, sg] = status.match(/\d+/g).map(Number);
+      assert.ok(sg > sr, 'Confirmed report has a green badge in the supervisor detail');
+      const [r, g, b] = selection.match(/\d+/g).map(Number);
+      assert.ok(b > g && g > r, 'Selected inbox row keeps its blue edge');
+      assert.equal(new Set(syncDots).size, 1, 'Header uses the same waiting color for queued, syncing and attention');
+    }
     for (const width of [1100, 1280, 1440]) {
       await f.page.setViewportSize({ width, height: 900 });
       const geometry = await f.page.evaluate(() => ({
-        fields: ['supervisorSearchInput','supervisorTemplateFilter','supervisorWorkerFilter','supervisorDateFilter','clearSupervisorFiltersButton']
+        find: document.getElementById('supervisorSearchInput').getBoundingClientRect().toJSON(),
+        fields: ['supervisorTemplateFilter','supervisorWorkerFilter','supervisorDateFilter','clearSupervisorFiltersButton']
           .map(id => document.getElementById(id).getBoundingClientRect().toJSON()),
         row: document.querySelector('#reviewQueueList [role="option"]').getBoundingClientRect().toJSON(),
         dateClipped: document.querySelector('#supervisorDateFilter').scrollWidth > document.querySelector('#supervisorDateFilter').clientWidth,
@@ -280,6 +397,8 @@ try {
       }));
       assert.equal(geometry.overflow, false);
       assert.equal(geometry.dateClipped, false, 'The selected Report Date must remain fully visible');
+      assert.ok(geometry.find.height >= 44 && geometry.find.bottom <= geometry.fields[0].top,
+        'Find is a separate touch-friendly control above the structured filters');
       assert.ok(Math.max(...geometry.fields.map(r=>r.bottom))-Math.min(...geometry.fields.map(r=>r.bottom)) < 2, JSON.stringify(geometry));
       assert.ok(geometry.row.height < 175, JSON.stringify(geometry));
       await f.page.screenshot({ path: path.join(output, `supervisor-${width}.png`) });

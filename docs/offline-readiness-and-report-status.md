@@ -28,6 +28,10 @@ The additive `pdf_email_self: {status}` field is attached only to authorized own
 
 After a lost POST response, history prefers the durable Report with the same author/Client Submission ID without deleting or modifying the pending local retry. Existing idempotent replay reconciles that retry. An immediate successful replay is re-read through the original identity scope before displaying the post-submit receipt, avoiding a stale Waiting to sync banner.
 
+An ordinary Report draft keeps its Client Submission ID across restarts. Confirmation records the draft revision and saves the Report and its queue entry together before uploading. If the app closes before the receipt arrives, reopen My Reports with the same account. The saved revision resumes under its original ID. Changes made in another tab can be kept as a separate draft for explicit review.
+
+Startup and **Retry sync** also check for Reports saved by earlier versions without a queue entry. They restore the missing entry for the current account and reuse the original answers, photos and submission ID. A recent upload can still be finishing in another tab. Leave the app open and it will check again after the existing upload lease expires.
+
 ## Compatibility and verification
 
 Keep all existing database namespaces, definitions, original Blob evidence, retry ownership and authentication controls. The compatible backend preceded the frontend promotion for the new status field; old backends safely show status unavailable. Regenerate the service worker after app-shell source changes. History status reads use scoped 500-ID batches and project only IDs/statuses, never recipient addresses or snapshots.

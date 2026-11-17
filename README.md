@@ -1184,13 +1184,14 @@ photos
 ### Worker Reports
 
 1. Open **New Report**.
-2. Choose a **Report Template**.
+2. Choose a **Report Template** to open the date, site, answers, and photo picker.
 3. Choose the required **Report Date** and, when relevant, an optional Site.
 4. Fill in the Report fields.
 5. Select optional photos from the phone photo picker.
 6. Wait for the inline `Saved at...` receipt when you need confirmation that the current draft is protected on this device.
-7. Choose **Submit Report**. A successful online or queued submission clears only this Worker/Report Template draft.
-8. The Report is **Submitted** and appears in **My Reports** and Supervisor **Reports**. Supervisors may correct it directly without review steps.
+7. Choose **Review & submit**. To correct an answer, select its **Edit** action and then **Return to review**. Select **Submit Report** when the details are ready.
+8. The confirmation shows the submitted Report number. Select **View report** to open it. A supervisor can enter the number with or without the leading # in **Find reports**. For an offline submission, **View sync status** opens the device copy. Reopen ReportFlow online with the same account and use **Retry sync** if needed.
+9. From the submitted Report, use **Download PDF** or **Share PDF**. If a saved photo or signature is unavailable, retry the PDF action when storage is available again. The submitted Report keeps its number.
 
 For an offline return/replay check, sign in online and wait for the Template availability message to confirm device storage. Save a Report draft, close every app page, switch offline, and reopen the cached PWA. Continue the draft from **My Reports**, or start a new Report with a downloaded Template; submit and confirm **Queued**. Reconnect as the same Worker and choose **Retry sync** if needed. Current Templates are revalidated only after protecting current input, and replay must reuse completed evidence uploads and the original client submission id. Missing/cleared snapshots cannot start or continue offline; durable backend Report history still requires connectivity.
 

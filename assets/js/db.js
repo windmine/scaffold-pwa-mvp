@@ -179,7 +179,11 @@ export async function openDb() {
 }
 
 export async function runTransaction(storeNames, mode, callback) {
-  const db = await openDb();
+  return runStoreTransaction(openDb, storeNames, mode, callback);
+}
+
+async function runStoreTransaction(open, storeNames, mode, callback) {
+  const db = await open();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeNames, mode);
     const stores = Array.isArray(storeNames)
@@ -191,12 +195,14 @@ export async function runTransaction(storeNames, mode, callback) {
       result = callback(stores, tx);
     } catch (error) {
       tx.abort();
+      db.close();
       reject(error);
       return;
     }
 
     tx.oncomplete = () => { db.close(); resolve(result); };
-    tx.onerror = () => { db.close(); reject(tx.error); };
+    // A request error bubbles before the transaction has aborted; tx.error
+    // may still be null then. Report the actual failure once rollback finishes.
     tx.onabort = () => { db.close(); reject(tx.error || new Error('Transaction aborted')); };
   });
 }
@@ -218,12 +224,6 @@ async function legacyPut(storeName, value) {
   const existing = await readStore(openReportDb, storeName, key);
   let isolated = Boolean(existing);
   if (storeName === 'drafts') isolated ||= isReportDraft(value) || Boolean(value.value?.photoBlobs?.length);
-  if (storeName === 'records') isolated ||= Boolean(value.photoBlobs?.length);
-  if (storeName === 'records' && isReport(value)) {
-    // Legacy base64 queues keep their existing replay location; they are safe
-    // for old clients. New Reports, including zero-photo Reports, are isolated.
-    isolated ||= Boolean(value.photoBlobs?.length) || !await readStore(openDb, storeName, key);
-  }
   if (storeName === 'queue') isolated ||= Boolean(await readStore(openReportDb, 'records', key));
   if (!isolated) return writeStore(openDb, storeName, (store) => store.put(value));
   const legacyFingerprint = existing?.deleted && legacyDraftReads.has(key)
@@ -347,6 +347,7 @@ async function visibleRecipient(storeName, envelope, legacy) {
 }
 
 export async function put(storeName, value) {
+  if (storeName === 'records') return saveSubmissionCheckpoint(value);
   if (!REPORT_STORES.has(storeName)) return legacyPut(storeName, value);
   const key = entryKey(storeName, value);
   if (!await recipientStorageOwns(storeName, key, value)) return legacyPut(storeName, value);
@@ -365,6 +366,73 @@ export async function put(storeName, value) {
   // Earlier namespaces remain byte-for-byte intact. No incompatible tab can
   // acquire these new recipient choices through a fallback or a partial write.
   if (storeName === 'drafts') recipientDraftReads.delete(key);
+}
+
+// Select the same record namespace for every part of a checkpoint. Older apps
+// can keep using legacy base64 submissions, but cannot see newer evidence,
+// recovery edits or recipient selections.
+export async function saveSubmissionCheckpoint(record, marker, { addOnly = false, discard = false } = {}) {
+  const { id } = record;
+  const [base, evidence, recovery, recipient] = await Promise.all(
+    [openDb, openReportDb, openRecoveryDb, openRecipientDb].map((open) => readStore(open, 'records', id))
+  );
+  const legacy = evidence ? evidence.value : base;
+  const unsafeRecovery = !recovery && !recipient && isRecoveryEntry('records', legacy);
+  let open;
+  if (discard) {
+    open = recipient ? openRecipientDb : (recovery || unsafeRecovery) ? openRecoveryDb : evidence ? openReportDb : openDb;
+  } else {
+    if (record.recoveryStorageReadOnly || unsafeRecovery) throw new Error(RECOVERY_STORAGE_READ_ONLY);
+    if (addOnly && (recipient || recovery || evidence || base)) {
+      throw new DOMException('This submission ID already exists.', 'ConstraintError');
+    }
+    if (recipient || record.sourceDraftRevisionId || isRecipientEntry('records', record) || isRecoveryEntry('records', record)) open = openRecipientDb;
+    else if (recovery) open = openRecoveryDb;
+    else if (evidence || record.photoBlobs?.length || (isReport(record) && !base)) open = openReportDb;
+    else open = openDb;
+  }
+  const raw = open === openDb;
+  const envelope = (value) => raw ? value : { id, reportStorageVersion: 1, value,
+    ...(open === openRecipientDb ? { recoveryOwned: Boolean(recipient?.recoveryOwned || isRecoveryEntry('records', record)) } : {}) };
+  const erase = (store) => raw ? store.delete(id) : store.put({ id, reportStorageVersion: 1, deleted: true });
+  const includeQueue = discard || marker !== undefined;
+  await runStoreTransaction(open, includeQueue ? ['records', 'queue'] : ['records'], 'readwrite', ({ records, queue }) => {
+    if (discard) erase(records);
+    else if (addOnly) records.add(envelope(record));
+    else records.put(envelope(record));
+    if (!includeQueue) return;
+    if (discard || !marker) erase(queue);
+    else queue.put(envelope(marker));
+  });
+}
+
+// Old clients could commit the Report and close before committing its marker.
+// Walk from newest storage to oldest so shadowed rows and explicit tombstones
+// stay hidden. Only the marker is repaired; original evidence is never rewritten.
+export async function repairMissingSubmissionMarkers(markerForRecord) {
+  const covered = new Set();
+  for (const open of [openRecipientDb, openRecoveryDb, openReportDb, openDb]) {
+    await runStoreTransaction(open, ['records', 'queue'], 'readwrite', ({ records, queue }) => {
+      const keys = queue.getAllKeys();
+      keys.onsuccess = () => {
+        for (const key of keys.result) covered.add(key);
+        const rows = records.openCursor();
+        rows.onsuccess = () => {
+          const cursor = rows.result;
+          if (!cursor) return;
+          const id = cursor.primaryKey;
+          if (!covered.has(id)) {
+            const record = open === openDb ? cursor.value : cursor.value.value;
+            const incompatible = (open === openDb || open === openReportDb) && isRecoveryEntry('records', record);
+            const marker = record && !incompatible && markerForRecord(record);
+            if (marker) queue.add(open === openDb ? marker : { id, reportStorageVersion: 1, value: marker });
+          }
+          covered.add(id);
+          cursor.continue();
+        };
+      };
+    });
+  }
 }
 
 export async function get(storeName, key) {
@@ -522,4 +590,20 @@ async function runOfflineStorageProbe() {
     } finally { db.close(); }
   }
   return true;
+}
+
+// Ordinary Report draft slots are reused for every new Report on a Template.
+// Late submission cleanup may retire only the revision actually handed off.
+export async function retireSubmittedReportDraft(key, clientSubmissionId, draftRevisionId) {
+  await writeStore(openRecipientDb, 'drafts', (store) => {
+    const request = store.get(key);
+    request.onsuccess = () => {
+      const envelope = request.result;
+      const draft = envelope?.value?.value;
+      if (draft?.clientSubmissionId !== clientSubmissionId || draft.draftRevisionId !== draftRevisionId) return;
+      try {
+        store.put({ key, reportStorageVersion: 1, deleted: true, legacyFingerprint: envelope.legacyFingerprint ?? null });
+      } catch { store.transaction.abort(); }
+    };
+  });
 }

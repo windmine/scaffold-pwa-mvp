@@ -5,7 +5,7 @@ from sqlmodel import Session
 
 from app.models import User, WorkFormSubmission
 from app.use_cases.common import require_worker, review_record_response
-from app.use_cases.report_pdf import build_report_pdf
+from app.use_cases.report_pdf import ReportEvidenceUnavailable, build_report_pdf
 from app.use_cases.supervisor_review import validate_form_record_evidence
 
 
@@ -37,7 +37,16 @@ def export_my_report_pdf(submission_id: str, user: User, session: Session):
             detail="Export unavailable: saved image evidence could not be verified from this record's frozen Definition. Original answers and files are unchanged.",
             headers=PRIVATE_HEADERS,
         ) from None
+    try:
+        pdf = build_report_pdf([item], strict_evidence=True)
+    except ReportEvidenceUnavailable:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "report_pdf_evidence_unavailable",
+                    "message": "A saved photo or signature could not be loaded. Try again or contact your Supervisor."},
+            headers=PRIVATE_HEADERS,
+        ) from None
     return Response(
-        content=build_report_pdf([item]), media_type="application/pdf",
+        content=pdf, media_type="application/pdf",
         headers={**PRIVATE_HEADERS, "Content-Disposition": f'attachment; filename="report-{record.id}.pdf"'},
     )

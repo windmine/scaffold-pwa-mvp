@@ -386,6 +386,7 @@ export function createHistoryModule({
   let lastAttendanceSnapshotRequestId = 0;
   let attendanceSnapshotWriteChain = Promise.resolve();
   let reportDisclosureId = 0;
+  let receiptSelection = null;
   let lastHistoryFilterKey = '';
   const recordListCleanups = new Map();
 
@@ -404,6 +405,7 @@ export function createHistoryModule({
 
   function resetSession() {
     sessionGeneration += 1;
+    receiptSelection = null;
     workerSummaryRenderId += 1;
     workerHistoryRenderId += 1;
     [...recordListCleanups.keys()].forEach(clearRecordsList);
@@ -788,6 +790,7 @@ export function createHistoryModule({
 
   function renderFilteredHistory() {
     if (!canReadOwnReports()) state.historyRecords = [];
+    if (receiptSelection && els.historyList.closest('[aria-hidden="true"], [hidden]')) receiptSelection = null;
     const filters = getHistoryFilters();
     const filterSummary = document.getElementById('historyFilterSummary');
     if (reportOnly && filterSummary) {
@@ -800,6 +803,22 @@ export function createHistoryModule({
       showWorkerActions: true,
       compactReports: reportOnly
     });
+  }
+
+  async function openReceiptReport(identity) {
+    if (!reportOnly || !canReadOwnReports() || (!identity.clientSubmissionId && !identity.backendRecordId)) return;
+    const selection = { ...identity, focusPending: true };
+    receiptSelection = selection;
+    // A receipt can point to a report excluded by earlier search criteria.
+    clearHistoryFilters();
+    if (!selection.focusPending) return;
+    let rendered;
+    try { rendered = await renderHistory(); }
+    catch { rendered = true; } // Still offer a recovery action if local storage also failed.
+    if (rendered && receiptSelection === selection && selection.focusPending) {
+      receiptSelection = null;
+      renderStatusBanner('This report is unavailable. Refresh My Reports and try again.', true);
+    }
   }
 
   function clearHistoryFilters() {
@@ -1025,8 +1044,24 @@ export function createHistoryModule({
       disclosure.setAttribute('aria-expanded', String(!expanded));
       setTranslatableText(disclosure, expanded ? 'Show details' : 'Hide details');
     });
+    const selection = receiptSelection;
+    const matchesReceipt = selection && (
+      (selection.backendRecordId && String(selection.backendRecordId) === String(record.backendRecordId))
+      || (selection.clientSubmissionId && selection.clientSubmissionId === record.clientSubmissionId)
+    );
     registerRecordCleanup(container, () => clearRecordsList(details));
     container.append(node);
+    if (matchesReceipt && container === els.historyList) {
+      disclosure.click();
+      disclosure.addEventListener('click', () => {
+        if (receiptSelection === selection) receiptSelection = null;
+      }, { once: true });
+      if (selection.focusPending && !container.closest('[aria-hidden="true"], [hidden]')) {
+        selection.focusPending = false;
+        disclosure.focus({ preventScroll: true });
+        node.scrollIntoView({ block: 'start' });
+      }
+    }
   }
 
   function renderRecordsList(container, records, options = {}) {
@@ -1107,8 +1142,10 @@ export function createHistoryModule({
         const recordKey = String(getRecordKey(record));
         const isSelected = Boolean(recordKey && recordKey === selectedRecordKey);
         node.classList.add('review-queue-item');
-        if (reportOnly && record.type === 'form' && recordSubmissionPurpose(record) === 'report') {
+        const reportRow = reportOnly && record.type === 'form' && recordSubmissionPurpose(record) === 'report';
+        if (reportRow) {
           node.classList.add('report-queue-compact');
+          if (record.backendRecordId) node.querySelector('.record-title').prepend(`#${record.backendRecordId} · `);
           const compactMeta = document.createElement('p');
           compactMeta.className = 'report-queue-meta';
           compactMeta.textContent = `${record.userName || 'Worker'} | ${record.workDate || '-'}`;
@@ -1118,7 +1155,10 @@ export function createHistoryModule({
         node.dataset.recordKey = recordKey;
         node.setAttribute('role', 'option');
         node.setAttribute('aria-selected', String(isSelected));
-        node.setAttribute('aria-label', `${record.type === 'form' && recordSubmissionPurpose(record) === 'report' ? 'View' : 'Review'} ${title}`);
+        const optionLabel = reportRow
+          ? [node.querySelector('.record-title').textContent, record.userName, record.workDate].filter(Boolean).join(' · ')
+          : title;
+        node.setAttribute('aria-label', `${record.type === 'form' && recordSubmissionPurpose(record) === 'report' ? 'View' : 'Review'} ${optionLabel}`);
         node.tabIndex = isSelected ? 0 : -1;
 
         const signals = document.createElement('div');
@@ -1435,7 +1475,10 @@ export function createHistoryModule({
       // Search/date controls emit both input and a later blur-time change.
       // Replacing the list for that identical change would swallow the click
       // that just moved focus from the filter to a Report disclosure/action.
-      if (JSON.stringify(getHistoryFilters()) !== lastHistoryFilterKey) renderFilteredHistory();
+      if (JSON.stringify(getHistoryFilters()) !== lastHistoryFilterKey) {
+        receiptSelection = null;
+        renderFilteredHistory();
+      }
     };
     [
       els.historySearchInput,
@@ -1456,6 +1499,7 @@ export function createHistoryModule({
     fromBackendReviewRecord,
     getRecordDate,
     renderHistory,
+    openReceiptReport,
     clearRecordsList,
     renderFilteredHistory,
     renderRecordsList,

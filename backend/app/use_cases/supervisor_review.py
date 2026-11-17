@@ -1621,7 +1621,9 @@ def form_submission_export_items(
         purpose=purpose,
     )
     if normalized_search:
-        statement = statement.where(REVIEW_RECORD_ADAPTERS["form"].search_predicate(normalized_search))
+        statement = statement.where(REVIEW_RECORD_ADAPTERS["form"].search_predicate(
+            normalized_search, purpose=normalize_work_form_purpose(purpose),
+        ))
     records = session.exec(statement).all()
     records = filter_records_by_department(records, session, supervisor, department_id)
     records = filter_form_records(records, session, supervisor, form_id)

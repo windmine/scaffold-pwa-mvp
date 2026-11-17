@@ -23,16 +23,26 @@ function localHttpsOptions() {
   return { ALPNProtocols: ['http/1.1'] }
 }
 
-function productionAppShell(indexHtml) {
-  const builtEntrypoints = [...indexHtml.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)="(\/[^"#?]+(?:[?#][^"]*)?)"/gi)]
-    .map((match) => match[1].split(/[?#]/, 1)[0])
-    .filter((publicPath) => /\.(?:css|js)$/i.test(publicPath))
-
-  return [...new Set([...appShell, ...builtEntrypoints])]
+// Source modules remain publishable for older clients and diagnostics. Installed
+// builds use the compiled dependency graph, so they never need a second raw copy.
+function chunkAssets(bundle, entryName, excludedName) {
+  const paths = new Set()
+  function visit(name) {
+    if (name === excludedName || paths.has('/' + name)) return
+    const chunk = bundle[name]
+    if (!chunk) throw new Error('Missing PWA build asset: ' + name)
+    paths.add('/' + name)
+    if (chunk.type !== 'chunk') return
+    for (const asset of [...chunk.viteMetadata.importedCss, ...chunk.viteMetadata.importedAssets]) paths.add('/' + asset)
+    for (const dependency of [...chunk.imports, ...chunk.dynamicImports]) visit(dependency)
+  }
+  visit(entryName)
+  return [...paths].sort()
 }
 
 function copyPwaAssets() {
   let outDir = 'dist'
+  let productionShell, fieldShell
 
   return {
     name: 'copy-pwa-assets',
@@ -40,6 +50,18 @@ function copyPwaAssets() {
     configResolved(config) {
       outDir = config.build.outDir
       writeServiceWorker(rootDir)
+    },
+    writeBundle(_, bundle) {
+      const chunks = Object.values(bundle).filter((chunk) => chunk.type === 'chunk')
+      const main = chunks.find((chunk) => chunk.isEntry && chunk.name === 'main')
+      const field = chunks.find((chunk) => chunk.facadeModuleId?.replaceAll('\\', '/').endsWith('/assets/js/field-tools.js'))
+      if (!main || !field) throw new Error('Missing ReportFlow or field tools entry')
+      const core = chunkAssets(bundle, main.fileName, field.fileName)
+      const publicPages = appShell.filter((path) => !path.startsWith('/assets/js/') && !path.startsWith('/assets/css/'))
+      // Install is a standalone offline page. Setup and password recovery require
+      // a live connection and still use their published source modules on demand.
+      productionShell = [...new Set([...publicPages, '/assets/css/install.css', '/assets/js/install.js', ...core])]
+      fieldShell = chunkAssets(bundle, field.fileName).filter((path) => !productionShell.includes(path))
     },
     closeBundle() {
       const buildDir = join(rootDir, outDir)
@@ -60,11 +82,10 @@ function copyPwaAssets() {
         .replace(/(<img\b(?=[^>]*\bid="brandLogo")[^>]*\bsrc=")[^"]*"/, '$1/assets/icons/reportflow-icon.svg"')
       writeFileSync(indexPath, indexHtml)
 
-      const productionShell = productionAppShell(indexHtml)
       const cacheVersion = computePwaCacheVersion(buildDir, productionShell)
       writeFileSync(
         join(buildDir, 'sw.js'),
-        renderServiceWorker(rootDir, { shell: productionShell, cacheVersion }),
+        renderServiceWorker(rootDir, { shell: productionShell, fieldShell, cacheVersion }),
         'utf8'
       )
     }

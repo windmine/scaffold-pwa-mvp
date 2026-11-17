@@ -533,7 +533,10 @@ export async function exportMyReportPdf(submissionId, { signal } = {}) {
   const response = await fetch(`${API_BASE}/my-form-submissions/${submissionId}/export.pdf`, {
     credentials: "include", cache: "no-store", signal, headers: { Accept: "application/pdf" }
   });
-  if (!response.ok) throw new ApiError("Report PDF is unavailable.", { status: response.status });
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new ApiError("Report PDF is unavailable.", { status: response.status, code: error?.detail?.code });
+  }
   const blob = await response.blob();
   if (blob.type.split(";")[0].trim().toLowerCase() !== "application/pdf" || !blob.size
       || await blob.slice(0, 5).text() !== "%PDF-") {

@@ -1985,7 +1985,7 @@ async function checkReportRestoredPhotosAppendAndSubmit(browser) {
     if (JSON.stringify(photoColors) !== JSON.stringify([[220, 38, 38], [37, 99, 235]])) {
       throw new Error(`restored and appended Report photo uploads changed content or order: ${JSON.stringify(photoColors)}`);
     }
-    await page.locator('#workFormFeedback').getByText('Inspection form submitted.').waitFor({ state: 'visible' });
+    await page.locator('#workFormFeedback').getByText(/Report #\d+ submitted\./).waitFor({ state: 'visible' });
     await openMyReportsAfterDraftRead(page);
     if ((await page.locator('#reportDraftsList').textContent()).trim()
       || await page.locator('#reportDraftsPanel').isVisible()) {
@@ -2218,6 +2218,190 @@ async function checkSubmittedReportDraftCleanupFailure(browser) {
   } finally {
     await context.close();
   }
+}
+
+async function checkMobileReportNumberHandoff(browser) {
+  const phone = { viewport: { width: 390, height: 844 }, reportOnly: true, baseURL: productionAppBase };
+  const fieldContext = await newContext(browser, phone);
+  const deskContext = await newContext(browser, phone);
+  const worker = await fieldContext.newPage();
+  const supervisor = await deskContext.newPage();
+  const marker = `Mobile photo handoff ${Date.now()}`;
+  try {
+    await loginAs(worker, 'worker@example.com', 'worker');
+    await worker.locator('.tab[data-tab-target="historyTab"]').click();
+    await openReportTools(worker, '#historyFilters');
+    await worker.locator('#historySearchInput').fill('unrelated previous search');
+    await worker.locator('.tab[data-tab-target="formTab"]').click();
+    await selectWorkFormWhenReady(worker, { label: 'Inspection form' });
+    await worker.locator('#workFormField_inspection_area').fill(marker + ' draft');
+    await worker.locator('#workFormField_inspection_result').selectOption('Pass');
+    await selectReportPhoto(worker, 'handoff.png', '#2e72aa');
+    await worker.locator('#workFormPhotoPreview img').waitFor({ state: 'visible' });
+    const post = worker.waitForResponse((r) => r.request().method() === 'POST'
+      && new URL(r.url()).pathname === '/api/form-submissions');
+    await worker.locator('#submitWorkFormButton').click();
+    await worker.getByRole('button', { name: 'Edit Inspection area', exact: true }).click();
+    await worker.locator('#workFormField_inspection_area').fill(marker);
+    await worker.getByRole('button', { name: 'Return to review', exact: true }).click();
+    await worker.locator('#confirmWorkFormSubmitButton').click();
+    const committed = await (await post).json();
+    const receipt = worker.locator('#workFormFeedback');
+    await receipt.getByText(/Report #\d+ submitted\./).waitFor();
+    const number = (await receipt.innerText()).match(/Report #(\d+) submitted\./)[1];
+    if (number !== String(committed.id) || committed.photo_urls?.length !== 1) {
+      throw new Error('The worker receipt did not identify the server report with its uploaded photo.');
+    }
+    await receipt.getByRole('button', { name: 'View report', exact: true }).click();
+    await worker.locator('#historyList .record-report-expanded').filter({ hasText: marker }).waitFor();
+
+    await loginAs(supervisor, 'supervisor@example.com', 'supervisor');
+    const search = supervisor.locator('#supervisorSearchInput');
+    await search.waitFor({ state: 'visible' });
+    for (const query of [number, `#${number}`]) {
+      const fetched = supervisor.waitForResponse((r) => {
+        const url = new URL(r.url());
+        return url.pathname.endsWith('/review-queue') && [...url.searchParams.values()].includes(query);
+      });
+      await search.fill(query);
+      if (!(await fetched).ok()) throw new Error('Supervisor lookup failed.');
+      await supervisor.waitForFunction((number) => {
+        const rows = document.querySelectorAll('#reviewQueueList .record-form');
+        return rows.length === 1 && rows[0].dataset.recordKey === `form:${number}`;
+      }, number);
+    }
+    await supervisor.locator('#reviewQueueList .record-form').click();
+    const detail = supervisor.locator('#reviewQueueDetail');
+    await detail.locator('.record-card').filter({ hasText: marker }).waitFor();
+    await detail.getByRole('button', { name: 'Open photo 1 of 1' }).click();
+    const pixel = await supervisor.locator('#photoViewerImage').evaluate(async (image) => {
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(image, 0, 0);
+      return [image.naturalWidth, image.naturalHeight, ...ctx.getImageData(0, 0, 1, 1).data];
+    });
+    if (pixel.join() !== '20,20,46,114,170,255') throw new Error('The supervisor opened a different photo.');
+
+    await worker.locator('.tab[data-tab-target="formTab"]').click();
+    await selectWorkFormWhenReady(worker, { label: 'Inspection form' });
+    const pendingMarker = `${marker} pending`;
+    await worker.locator('#workFormField_inspection_area').fill(pendingMarker);
+    await worker.locator('#workFormField_inspection_result').selectOption('Pass');
+    await fieldContext.setOffline(true);
+    await reviewAndSubmitReport(worker);
+    await receipt.getByRole('button', { name: 'View sync status' }).click();
+    const queued = worker.locator('#historyList > .record-report-compact.is-expanded');
+    await queued.locator('.record-report-expanded').filter({ hasText: pendingMarker }).waitFor();
+    await queued.getByText('Waiting to sync', { exact: true }).waitFor();
+    if (/Report #\d+ submitted/.test(await receipt.innerText())) throw new Error('An offline receipt claimed a server number.');
+  } finally {
+    await fieldContext.close();
+    await deskContext.close();
+  }
+}
+
+async function checkInterruptedReportConfirmation(browser) {
+  const context = await newContext(browser, { reportOnly: true });
+  const area = '#workFormField_inspection_area';
+  const answer = `Interrupted confirmation ${Date.now()}`;
+  const edited = `${answer} - separate draft`;
+  const matchingReports = (page) => page.evaluate(async (prefix) => {
+    const response = await fetch('/api/my-form-submissions?purpose=report');
+    if (!response.ok) throw new Error('Could not read submitted Reports');
+    return (await response.json()).filter((item) => item.answers?.inspection_area?.startsWith(prefix));
+  }, answer);
+  try {
+    const first = await context.newPage();
+    // The server really commits. Hold the successful response at the browser
+    // boundary until the page closes (before app cleanup or receipt persistence).
+    await first.addInitScript(() => {
+      const request = window.fetch.bind(window);
+      window.fetch = async (url, options) => {
+        const response = await request(url, options);
+        if (String(url).endsWith('/form-submissions') && options?.method === 'POST' && response.ok) {
+          window.__committedReport = true;
+          return new Promise(() => {});
+        }
+        return response;
+      };
+    });
+    await loginAs(first, 'worker@example.com', 'worker');
+    await selectWorkFormWhenReady(first, { label: 'Inspection form' });
+    await first.locator(area).fill(answer);
+    await first.locator('#workFormField_inspection_result').selectOption('Pass');
+    await first.locator('#workFormAutosaveStatus.saved').waitFor({ state: 'visible' });
+
+    const staleEditor = await context.newPage();
+    const unchangedEditor = await context.newPage();
+    for (const editor of [staleEditor, unchangedEditor]) {
+      await editor.goto('/');
+      await selectWorkFormWhenReady(editor, { label: 'Inspection form' });
+      await editor.waitForFunction(({ area, answer }) => document.querySelector(area)?.value === answer, { area, answer });
+    }
+    await reviewAndSubmitReport(first);
+    await first.waitForFunction(() => window.__committedReport === true);
+    await first.close();
+
+    const restarted = await context.newPage();
+    // Model returning after the interrupted upload's two-minute replay lease.
+    await restarted.clock.setFixedTime(new Date(Date.now() + 180_000));
+    await restarted.goto('/');
+    await waitForAsyncCondition(restarted, async () => {
+      const { getAll } = await import('/assets/js/db.js');
+      return (await getAll('records')).some((record) => record.sourceDraftRevisionId && record.backendRecordId);
+    });
+    await restarted.evaluate(() => {
+      const list = document.querySelector('#reportDraftsList');
+      const replace = list.replaceChildren.bind(list);
+      list.replaceChildren = (...children) => {
+        replace(...children);
+        window.__draftListRendered = true;
+      };
+    });
+    await restarted.locator('.tab[data-tab-target="historyTab"]').click();
+    await restarted.waitForFunction(() => window.__draftListRendered);
+    await restarted.locator('#historyList > .record-report-compact').first().waitFor({ state: 'visible' });
+    if (await restarted.locator('#reportDraftsList').getByRole('button', { name: 'Continue draft' }).count())
+      throw new Error('The handed-off draft was offered for submission again after restart');
+    const [original, duplicate] = await matchingReports(restarted);
+    if (!original || duplicate) throw new Error('Interrupted submission must reconcile to exactly one Report');
+    await restarted.locator('.tab[data-tab-target="formTab"]').click();
+    await selectWorkFormWhenReady(restarted, { label: 'Inspection form' });
+    await restarted.waitForFunction(() => !document.querySelector('#workFormSubmissionForm').inert);
+    if (await restarted.locator(area).inputValue()) throw new Error('New Report reopened a consumed draft');
+
+    // Edits in an older tab are a distinct revision of the same draft. Its
+    // first confirmation must preserve the edits without sending another POST.
+    await staleEditor.locator(area).fill(edited);
+    await waitForAsyncCondition(staleEditor, async (edited) => {
+      const { getAll } = await import('/assets/js/db.js');
+      return (await getAll('drafts')).some((entry) => entry.value?.answers?.inspection_area === edited);
+    }, edited);
+    // An unchanged stale tab recognizes the accepted revision, and its late
+    // cleanup leaves the newer revision in the same Template slot untouched.
+    let extraPosts = 0;
+    unchangedEditor.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/form-submissions') extraPosts++;
+    });
+    await reviewAndSubmitReport(unchangedEditor);
+    await unchangedEditor.waitForFunction(() => /submitted/i.test(document.querySelector('#workFormFeedback')?.textContent || ''));
+    const keptDraft = await unchangedEditor.evaluate(async (edited) => {
+      const { getAll } = await import('/assets/js/db.js');
+      return (await getAll('drafts')).some((entry) => entry.value?.answers?.inspection_area === edited);
+    }, edited);
+    if (extraPosts || !keptDraft) throw new Error('Unchanged confirmation resent a Report or cleared a newer draft');
+    await reviewAndSubmitReport(staleEditor);
+    await staleEditor.getByText(/edits are saved as a separate draft/).waitFor({ state: 'visible' });
+    if ((await matchingReports(staleEditor)).length !== 1 || await staleEditor.locator(area).inputValue() !== edited)
+      throw new Error('The stale editor duplicated the Report or discarded its changed answers');
+    await reviewAndSubmitReport(staleEditor);
+    await staleEditor.waitForFunction(() => /submitted/i.test(document.querySelector('#workFormFeedback')?.textContent || ''));
+    const reports = await matchingReports(staleEditor);
+    if (reports.length !== 2 || new Set(reports.map((item) => item.client_submission_id)).size !== 2
+      || !reports.some((item) => item.answers.inspection_area === edited))
+      throw new Error('Explicitly submitting the independent draft must create one new Report');
+  } finally { await context.close(); }
 }
 
 async function checkReportPhotoLimitAndEmptyPicker(browser) {
@@ -2476,7 +2660,7 @@ async function checkNormalWorkerWorkFormSubmission(browser) {
       throw new Error(`Report Date or optional Site payload was incorrect: ${JSON.stringify(submissionPayload)}`);
     }
     if (submissionPayload.manual_site_name !== 'Synthetic Worker manual site' || submittedReport.site_name !== 'Synthetic Worker manual site' || submittedReport.site_id !== null) throw new Error('Worker manual site was not retained by the real backend');
-    await page.locator('#workFormFeedback').getByText('Inspection form submitted.').waitFor({ timeout: 20000 });
+    await page.locator('#workFormFeedback').getByText(/Report #\d+ submitted\./).waitFor({ timeout: 20000 });
 
     await page.locator('.tab[data-tab-target="historyTab"]').click();
     await page.locator('#historyTab').waitFor({ state: 'visible', timeout: 10000 });
@@ -3225,7 +3409,7 @@ async function checkOfflineReportTemplateChange(browser) {
         recoveredAnswers: recoveredReport.answers, expectedAnswer: `Reviewed replacement ${stamp}`
       })}`);
     }
-    await page.locator('#workFormFeedback').getByText(`${formName} submitted.`).waitFor({ timeout: 20000 });
+    await page.locator('#workFormFeedback').getByText(/Report #\d+ submitted\./).waitFor({ timeout: 20000 });
     await waitForQueueCount(page, 1);
     const preservedOriginal = await page.evaluate(async (recordId) => {
       const { get } = await import('/assets/js/db.js');
@@ -3912,7 +4096,7 @@ async function checkReportOnlyExcludesDaywork(browser) {
     await page.locator('#workFormField_inspection_area').fill(reportMarker);
     await page.locator('#workFormField_inspection_result').selectOption('Pass');
     await reviewAndSubmitReport(page);
-    await page.locator('#workFormFeedback').getByText('Inspection form submitted.').waitFor({ timeout: 20000 });
+    await page.locator('#workFormFeedback').getByText(/Report #\d+ submitted\./).waitFor({ timeout: 20000 });
 
     await page.locator('.tab[data-tab-target="historyTab"]').click();
     await openReportTools(page, '#historyFilters');
@@ -4126,7 +4310,7 @@ async function checkExplicitReportPurposeOverridesDayworkName(browser) {
     await page.locator('#workFormDate').fill('2026-09-01');
     await page.locator('#workFormField_issue').fill(answerMarker);
     await reviewAndSubmitReport(page);
-    await page.locator('#workFormFeedback').getByText(`${templateName} submitted.`).waitFor({ timeout: 20000 });
+    await page.locator('#workFormFeedback').getByText(/Report #\d+ submitted\./).waitFor({ timeout: 20000 });
 
     await page.locator('.tab[data-tab-target="historyTab"]').click();
     const compactReport = page.locator('#historyList > .record-report-compact').filter({ hasText: templateName }).first();
@@ -8389,7 +8573,7 @@ async function checkWorkFormAutosaveAndUpdateProtection(browser) {
     ), dayworkFormId);
     const immediateMessages = await page.evaluate(() => {
       document.querySelector('#updateButton').click();
-      return window.__serviceWorkerMessages.slice();
+      return window.__serviceWorkerMessages.filter((message) => message.type === 'SKIP_WAITING');
     });
     if (immediateMessages.length) {
       throw new Error(`app update bypassed the pending Work Form save: ${JSON.stringify(immediateMessages)}`);
@@ -8397,7 +8581,7 @@ async function checkWorkFormAutosaveAndUpdateProtection(browser) {
 
     await page.locator('#appUpdatePausedDialog[open]').waitFor({ state: 'visible', timeout: 10000 });
     const blockedState = await page.evaluate(() => ({
-      messages: window.__serviceWorkerMessages,
+      messages: window.__serviceWorkerMessages.filter((message) => message.type === 'SKIP_WAITING'),
       busy: document.querySelector('#updateButton')?.getAttribute('aria-busy'),
       status: document.querySelector('#workFormAutosaveStatus')?.textContent?.trim() || ''
     }));
@@ -9144,6 +9328,7 @@ async function main() {
   }
 
   try {
+    await runCheck('mobile worker photo receipt opens the exact report by number for its supervisor', () => checkMobileReportNumberHandoff(browser));
     await runCheck('Supervisor Submit form keeps global review focus separate and rejects legacy queue types', () => checkSupervisorOwnScope(browser));
     await runCheck('Supervisor Submit form preserves own identity, drafts, photos, signature and offline replay', () => checkSupervisorSelfSubmission(browser));
     await runCheck('action feedback is local, busy, announced, and separate from sync state', () => checkAccessibleActionFeedback(browser));
@@ -9176,6 +9361,7 @@ async function main() {
     await runCheck('Report photo overlapping selections retain both images in selection order', () => checkReportOverlappingPhotoSelections(browser));
     await runCheck('My Reports ordinary drafts stay private across shared-device account switches', () => checkReportDraftSharedDeviceIsolation(browser));
     await runCheck('My Reports blocks Continue for submitted drafts when local cleanup fails', () => checkSubmittedReportDraftCleanupFailure(browser));
+    await runCheck('interrupted Report confirmation resumes one submission and preserves later edits', () => checkInterruptedReportConfirmation(browser));
     await runCheck('Report photo capacity and empty picker preserve existing selections without blank drafts', () => checkReportPhotoLimitAndEmptyPicker(browser));
     await runCheck('Report photo 50-file batch restores and uploads once across rate limiting', () => checkReportFiftyPhotoUpload(browser));
     await runCheck('shared-device Worker Reports clear on logout, pending login, and late responses', () => checkSharedDeviceWorkerReportPrivacy(browser));

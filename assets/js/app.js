@@ -31,14 +31,8 @@ import { createHistoryModule } from './history.js';
 import { createPhotoViewer } from './photo-viewer.js';
 import { createConfirmationDialog } from './confirmation-dialog.js';
 import { createStaffSitesModule } from './staff-sites.js';
-import { createSupervisorAnalyticsModule } from './supervisor-analytics.js';
-import { createSupervisorMapModule } from './supervisor-map.js';
 import { createSupervisorReviewModule } from './supervisor-review.js';
-import { createWorkerAttendanceModule } from './worker-attendance.js';
 import { createWorkerFormModule } from './worker-form.js';
-import { createWorkerLogModule } from './worker-log.js';
-import { createWorkerSitesModule } from './worker-sites.js';
-import { createTeamWorkLogModule } from './team-work-log.js';
 import { initDateInputs, setDateInputValue } from './date-inputs.js';
 import { applyLanguage, initLanguageToggle } from './i18n.js';
 import { createUiFeedback } from './ui-feedback.js';
@@ -103,6 +97,7 @@ let safeRefresh;
 const REPORT_ONLY_MODE = typeof window.__REPORT_ONLY_MODE_OVERRIDE__ === 'boolean'
   ? window.__REPORT_ONLY_MODE_OVERRIDE__
   : true;
+const fieldTools = REPORT_ONLY_MODE ? null : await import('./field-tools.js');
 const offlineReadiness = createOfflineReadiness({
   panel: document.getElementById('offlineReadiness'),
   button: document.getElementById('checkOfflineReadiness'),
@@ -165,7 +160,7 @@ const historyModule = createHistoryModule({
   onAttendanceContextChanged: (context) => workerAttendance?.setAttendanceContext(context)
 });
 
-workerAttendance = createWorkerAttendanceModule({
+workerAttendance = fieldTools?.createWorkerAttendanceModule({
   els,
   state,
   feedback: uiFeedback,
@@ -179,7 +174,7 @@ workerAttendance = createWorkerAttendanceModule({
   isBackendSessionError
 });
 
-const workerLog = createWorkerLogModule({
+const workerLog = fieldTools?.createWorkerLogModule({
   els,
   state,
   feedback: uiFeedback,
@@ -222,12 +217,16 @@ const workerForm = createWorkerFormModule({
   },
   reportOnly: REPORT_ONLY_MODE,
   onContinueDraft: () => activateTab('formTab'),
+  onViewOwnReport: (identity) => {
+    activateTab('historyTab');
+    void historyModule.openReceiptReport(identity);
+  },
   onReportTemplateSourceChanged: renderReportTemplateAvailability,
   onSupervisorWorkFormsChanged: (options = {}) => {
     staffSitesModule?.renderWorkFormsList(options);
     supervisorReviewModule?.renderAdminTaskLogForm();
   },
-  onWorkFormsChanged: () => workerLog.renderDayworkForm()
+  onWorkFormsChanged: () => workerLog?.renderDayworkForm()
 });
 
 function renderReportTemplateAvailability({ source, savedAt, templateCount }) {
@@ -271,7 +270,7 @@ function renderReportTemplateAvailability({ source, savedAt, templateCount }) {
   applyLanguage(availability);
 }
 
-const workerSites = createWorkerSitesModule({
+const workerSites = fieldTools?.createWorkerSitesModule({
   els,
   state,
   feedback: uiFeedback,
@@ -282,7 +281,7 @@ const workerSites = createWorkerSitesModule({
   isBackendSessionError
 });
 
-const teamWorkLogModule = createTeamWorkLogModule({
+const teamWorkLogModule = fieldTools?.createTeamWorkLogModule({
   els,
   state,
   feedback: uiFeedback,
@@ -294,6 +293,7 @@ const teamWorkLogModule = createTeamWorkLogModule({
 });
 
 staffSitesModule = createStaffSitesModule({
+  fieldTools,
   els,
   state,
   reportOnly: REPORT_ONLY_MODE,
@@ -341,7 +341,7 @@ supervisorReviewModule = createSupervisorReviewModule({
   confirmAction
 });
 
-supervisorMapModule = createSupervisorMapModule({
+supervisorMapModule = fieldTools?.createSupervisorMapModule({
   els,
   state,
   loadAttendanceRecords: () => getSupervisorRecords(),
@@ -352,7 +352,7 @@ supervisorMapModule = createSupervisorMapModule({
   renderStatusBanner
 });
 
-supervisorAnalyticsModule = createSupervisorAnalyticsModule({
+supervisorAnalyticsModule = fieldTools?.createSupervisorAnalyticsModule({
   els,
   state,
   renderStatusBanner,
@@ -432,21 +432,21 @@ async function checkForAppUpdate(isCurrent) {
 async function init() {
   applyReportOnlyInterface();
   initDateInputs();
-  await initializeMockData();
+  applyLanguage(document.getElementById('openingView'));
+  if (!REPORT_ONLY_MODE) await initializeMockData();
   const authRestoreMessage = await restoreBackendSession();
-  if (state.user) {
-    state.departments = await loadDepartments();
-    initialiseDepartmentFocus();
-    state.sites = await loadSitesForSession();
-  } else {
-    state.sites = [];
-  }
-  fillSiteSelects();
+  const user = state.user;
+  initialiseDepartmentFocus();
   setDateInputValue(els.taskDate, todayDateInput());
   setDateInputValue(els.workFormDate, todayDateInput());
+  if (user && !(REPORT_ONLY_MODE && user.role === 'worker')) {
+    [state.departments, state.sites] = await Promise.all([loadDepartments(), loadSitesForSession()]);
+  }
+  fillSiteSelects();
   await restoreDrafts();
   bindEvents();
   renderInstallHelp();
+  if (REPORT_ONLY_MODE && user?.role === 'worker') void loadWorkerReportSites(user);
   renderApp();
   if (authRestoreMessage) {
     renderStatusBanner(authRestoreMessage, !navigator.onLine);
@@ -470,6 +470,26 @@ async function loadSites() {
     }
   }
   return state.user === requestUser ? sites : [];
+}
+
+// A returning Worker can draft or open My Reports while optional Sites load.
+// Preserve a manual selection or an existing draft's Site across the refresh.
+async function loadWorkerReportSites(user) {
+  els.workFormSite.dataset.loading = 'true';
+  const sites = await loadSitesForSession();
+  if (state.user !== user) return;
+  delete els.workFormSite.dataset.loading;
+  const selected = els.workFormSite.selectedOptions[0];
+  state.sites = sites;
+  fillSiteSelects();
+  if (selected?.value) {
+    if (![...els.workFormSite.options].some((option) => option.value === selected.value)) {
+      selected.disabled = true;
+      els.workFormSite.add(selected);
+    }
+    els.workFormSite.value = selected.value;
+  }
+  applyLanguage(els.workFormSite);
 }
 
 async function loadSitesForSession(options = {}) {
@@ -603,16 +623,16 @@ function bindEvents() {
   els.verifyRegistrationCodeButton.addEventListener('click', handleRegistrationVerify);
   els.restartRegistrationButton.addEventListener('click', resetRegistrationFlow);
   els.logoutButton.addEventListener('click', handleLogout);
-  workerAttendance.bindEvents();
-  workerLog.bindEvents();
+  workerAttendance?.bindEvents();
+  workerLog?.bindEvents();
   workerForm.bindEvents();
-  workerSites.bindEvents();
-  teamWorkLogModule.bindEvents();
+  workerSites?.bindEvents();
+  teamWorkLogModule?.bindEvents();
   els.cancelWorkerEditButton.addEventListener('click', () => closeEditPanel('worker', { reason: 'cancel' }));
   historyModule.bindEvents();
   supervisorReviewModule.bindEvents();
-  supervisorMapModule.bindEvents();
-  supervisorAnalyticsModule.bindEvents();
+  supervisorMapModule?.bindEvents();
+  supervisorAnalyticsModule?.bindEvents();
   staffSitesModule.bindEvents();
   els.cancelEditButton.addEventListener('click', closeEditPanel);
   photoViewer.bindEvents();
@@ -954,7 +974,7 @@ function fillSiteSelects() {
     )
     .join('');
 
-  workerAttendance.renderSiteOptions();
+  if (!REPORT_ONLY_MODE) workerAttendance.renderSiteOptions();
   els.taskSite.innerHTML = options;
   els.workFormSite.innerHTML = state.user?.role === 'supervisor'
     ? '<option value="">Select a site</option>' + state.sites.filter((site) =>
@@ -985,7 +1005,7 @@ async function refreshSitesAfterReconnect() {
       select.value = siteId;
     }
   });
-  workerAttendance.renderLocationPreview();
+  if (!REPORT_ONLY_MODE) workerAttendance.renderLocationPreview();
 }
 
 function findSiteByFormValue(siteId) {
@@ -993,6 +1013,7 @@ function findSiteByFormValue(siteId) {
 }
 
 async function restoreDrafts() {
+  if (REPORT_ONLY_MODE) return;
   await restoreWorkerSubmissionDrafts();
 
   const teamWorkLogDraft = await getDraft('team-work-log');
@@ -1000,6 +1021,7 @@ async function restoreDrafts() {
 }
 
 async function restoreWorkerSubmissionDrafts() {
+  if (REPORT_ONLY_MODE) return;
   const requestUser = state.user;
   const attendanceDraft = await getDraft('attendance-form');
   if (state.user !== requestUser) return;
@@ -1011,8 +1033,8 @@ async function restoreWorkerSubmissionDrafts() {
 }
 
 function clearWorkerSessionState() {
-  workerAttendance.clearSessionState();
-  workerLog.clearSessionState();
+  workerAttendance?.clearSessionState();
+  workerLog?.clearSessionState();
   workerForm.clearSessionState();
   state.workForms = [];
   state.teamWorkLogMembers = [];
@@ -1022,12 +1044,14 @@ function clearWorkerSessionState() {
 }
 
 function clearSessionViewState() {
+  clearTimeout(queueSyncRun?.retryTimer);
   offlineReadiness.clear();
   safeRefresh?.cancel();
   // Clear private content before revealing another account or waiting on storage/network.
   hideQueueSyncFeedback();
   syncFeedbackRevision += 1;
   state.sites = [];
+  delete els.workFormSite.dataset.loading;
   state.sitesLoadError = '';
   state.departmentFocusId = '';
   photoViewer.close({ restoreFocus: false });
@@ -1037,8 +1061,8 @@ function clearSessionViewState() {
   historyModule.resetSession();
   supervisorReviewModule.resetSession();
   staffSitesModule.resetSession();
-  supervisorMapModule.resetSession();
-  supervisorAnalyticsModule.resetSession();
+  supervisorMapModule?.resetSession();
+  supervisorAnalyticsModule?.resetSession();
 }
 
 function renderApp() {
@@ -1120,6 +1144,7 @@ function showView(view) {
   if (leavingSupervisor) closeAdminWorkspaceDrawer();
 
   const map = {
+    opening: document.getElementById('openingView'),
     login: els.loginView,
     worker: els.workerView,
     supervisor: els.supervisorView
@@ -1239,15 +1264,18 @@ async function handleLogin(event) {
     clearSessionViewState();
     state.user = signedInUser;
     resetRegistrationFlow();
-    const departments = await loadDepartments();
-    if (state.user !== signedInUser) return;
-    state.departments = departments;
     initialiseDepartmentFocus();
-    const sites = await loadSitesForSession();
-    if (state.user !== signedInUser) return;
-    state.sites = sites;
-    fillSiteSelects();
-    await restoreWorkerSubmissionDrafts();
+    if (REPORT_ONLY_MODE && signedInUser.role === 'worker') {
+      fillSiteSelects();
+      void loadWorkerReportSites(signedInUser);
+    } else {
+      const [departments, sites] = await Promise.all([loadDepartments(), loadSitesForSession()]);
+      if (state.user !== signedInUser) return;
+      state.departments = departments;
+      state.sites = sites;
+      fillSiteSelects();
+      await restoreWorkerSubmissionDrafts();
+    }
     if (state.user !== signedInUser) return;
     uiFeedback.clearLocal(els.loginFeedback);
     renderApp();
@@ -1906,6 +1934,7 @@ function syncQueueIfPossible(showMessage) {
     return queueSyncRun.promise;
   }
   const previousRun = queueSyncRun;
+  clearTimeout(previousRun?.retryTimer);
   const run = { user: requestUser, showMessage, pending: true, promise: null };
   queueSyncRun = run;
   run.promise = (async () => {
@@ -1935,6 +1964,7 @@ async function performQueueSync(run) {
   }
   const result = await syncQueuedSubmissions({
     ...(REPORT_ONLY_MODE ? { purpose: 'report' } : {}),
+    recheckMissingMarkers: run.showMessage,
     onUploadProgress: ({ phase, completed, total, retryAfterSeconds }) => {
       if (!isCurrentRun() || !navigator.onLine) return;
       setSyncState('syncing', 'Online - syncing');
@@ -1955,6 +1985,14 @@ async function performQueueSync(run) {
     hideQueueSyncFeedback();
     handleSessionExpired('Sign in again to sync queued submissions.');
     return result;
+  }
+
+  // The previous page may have closed mid-upload. Check again when its lease
+  // expires, even if this page stays open and no reconnect event follows.
+  if (navigator.onLine && result.retryAfterMs > 0) {
+    run.retryTimer = window.setTimeout(() => {
+      if (isCurrentRun() && navigator.onLine) startBackgroundQueueSync();
+    }, result.retryAfterMs);
   }
 
   if (!navigator.onLine) {
@@ -2195,6 +2233,7 @@ async function handleAppUpdate() {
 function watchServiceWorkerInstall(registration) {
   const worker = registration.installing;
   if (!worker) return;
+  if (!REPORT_ONLY_MODE) worker.postMessage({ type: 'CACHE_FIELD_TOOLS' });
 
   worker.addEventListener('statechange', () => {
     if (worker.state === 'installed' && navigator.serviceWorker.controller) {
@@ -2215,6 +2254,11 @@ function registerServiceWorker() {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');
 
+      watchServiceWorkerInstall(registration);
+      if (!REPORT_ONLY_MODE) {
+        registration.active?.postMessage({ type: 'CACHE_FIELD_TOOLS' });
+        registration.waiting?.postMessage({ type: 'CACHE_FIELD_TOOLS' });
+      }
       if (registration.waiting && navigator.serviceWorker.controller) {
         showServiceWorkerUpdate(registration.waiting);
       }
@@ -2236,7 +2280,8 @@ function registerServiceWorker() {
 
 init().catch((error) => {
   console.error(error);
-  renderSystemBanner('The app could not start correctly. Check the browser console for details.', {
+  document.getElementById('openingView').classList.add('hidden');
+  renderSystemBanner('ReportFlow could not open. Reload this page to try again.', {
     tone: 'error'
   });
 });

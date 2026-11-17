@@ -99,10 +99,15 @@ class ReviewRecordAdapter:
                     model.created_at < end,
                 )
         if search:
-            statement = statement.where(self.search_predicate(search))
+            statement = statement.where(self.search_predicate(search, purpose=purpose))
         return statement
 
-    def search_predicate(self, search: str):
+    def search_predicate(self, search: str, *, purpose: str | None = None):
+        number = search.removeprefix("#")
+        if purpose == "report" and number.isascii() and number.isdecimal():
+            report_id = int(number)
+            # A pasted number may exceed what the database integer can hold.
+            return self.model.id == report_id if report_id <= 2**63 - 1 else false()
         pattern = _like_pattern(search)
         model = self.model
         predicates = [

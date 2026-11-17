@@ -805,7 +805,7 @@ check('report product language replaces Work Form copy without renaming internal
   ])
   && sourceWorkerForm.includes("'Could not load Report Templates.'")
   && sourceWorkerForm.includes("'Could not submit Report.'")
-  && sourceWorkerForm.includes("result.message.replace(/ submitted for approval\\.$/, ' submitted.')")
+  && includesAll(sourceWorkerForm, ['Report #${result.record.backendRecordId} submitted.', "'View report'", "'View sync status'"])
   && sourceStaffSites.includes("'Report Template created.'")
   && sourceSupervisorReview.includes("label: 'Report Date'")
   && !/\bWork Forms?\b/i.test([
@@ -949,7 +949,12 @@ check('PWA assets and cache name are generated from one manifest', () => {
     && sourceWorker.includes(expectedCacheLine)
     && JSON.stringify(parseGeneratedAppShell(sourceWorker)) === JSON.stringify(appShell)
     && (!distWorker || (
-      appShell.every((publicPath) => distShell.includes(publicPath))
+      distShell.includes('/assets/js/install.js')
+      && distShell.includes('/assets/css/install.css')
+      && !distShell.includes('/assets/js/app.js')
+      && !distShell.includes('/assets/css/styles.css')
+      && /const FIELD_SHELL = \[[\s\S]*?\/assets\/field-tools-[^"]+\.js/.test(distWorker)
+      && !distShell.some((publicPath) => publicPath.includes('/field-tools-'))
       && productionEntrypoints.every((publicPath) => distShell.includes(publicPath))
       && distWorker.includes(expectedDistCacheLine)
     ))
@@ -1096,7 +1101,8 @@ check('offline retry is single-flight and auth-aware', () => (
   sourceOfflineQueue.includes('syncQueuePromise')
   && sourceOfflineQueue.includes('markSyncing')
   && sourceOfflineQueue.includes('markAuthBlocked')
-  && sourceOfflineQueue.includes('isStaleSyncingRecord')
+  && sourceOfflineQueue.includes('remainingSyncLeaseMs(record)')
+  && sourceApp.includes('run.retryTimer = window.setTimeout')
   && sourceOfflineQueue.includes('authBlocked')
   && sourceApp.includes('Sign in again to sync queued submissions.')
 ));

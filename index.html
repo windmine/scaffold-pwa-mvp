@@ -261,7 +261,7 @@
     </style>
     <link rel="stylesheet" href="/assets/css/styles.css" />
   </head>
-  <body class="report-only-mode">
+  <body class="report-only-mode" data-active-view="opening">
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-lockup">
@@ -298,7 +298,8 @@
           <p id="queueSyncHint" class="muted"></p>
         </section>
 
-        <section id="loginView" class="card view active">
+        <section id="openingView" class="card view active" role="status" aria-live="polite">Opening ReportFlow…</section>
+        <section id="loginView" class="card view hidden">
           <h2>Sign in</h2>
           <p id="invitedAccountNotice" class="muted login-account-note" role="note"><strong>Invited accounts only.</strong></p>
 
@@ -647,35 +648,37 @@
                       <p class="muted">This check is for this browser now. It cannot guarantee available photo space, saved data after closing or browser cleanup, or future sign-in validity. Keep this page open and reconnect to sync. Email requires server submission.</p>
                     </details>
                   </section>
-                  <div class="report-context-fields form-grid">
-                    <label>
-                      Report Date
-                      <input id="workFormDate" type="date" required />
+                  <fieldset id="workFormDetails" class="form-grid" aria-label="Report fields" hidden disabled>
+                    <div class="report-context-fields form-grid">
+                      <label>
+                        Report Date
+                        <input id="workFormDate" type="date" required />
+                      </label>
+                      <label>
+                        Site (optional)
+                        <select id="workFormSite"></select>
+                      </label>
+                      <label class="report-manual-site" hidden>Site name<input id="workFormManualSite" type="text" maxlength="200" autocomplete="off" aria-describedby="workFormManualSiteHelp" /><small id="workFormManualSiteHelp">Saved on this Report only; does not add a shared site.</small></label>
+                    </div>
+                    <nav id="reportFormNavigation" class="report-form-navigation" aria-label="Report sections" hidden>
+                      <label>Section<select id="reportFormSection" aria-controls="workFormFields"></select></label>
+                      <button id="reportFormSectionGo" type="button" class="ghost">Go</button>
+                      <button id="reportFormReviewShortcut" type="button" class="ghost">Review &amp; submit</button>
+                    </nav>
+                    <div id="workFormFields" class="dynamic-fields"></div>
+                    <label class="report-photo-field">
+                      Photos
+                      <input id="workFormPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+                      <small>JPEG, PNG, or WebP; maximum 5 MB each.</small>
+                      <small id="workFormPhotoLimit">Up to 50 photos. You can select them together.</small>
+                      <small>Select again to add more photos.</small>
                     </label>
-                    <label>
-                      Site (optional)
-                      <select id="workFormSite"></select>
-                    </label>
-                    <label class="report-manual-site" hidden>Site name<input id="workFormManualSite" type="text" maxlength="200" autocomplete="off" aria-describedby="workFormManualSiteHelp" /><small id="workFormManualSiteHelp">Saved on this Report only; does not add a shared site.</small></label>
-                  </div>
-                  <nav id="reportFormNavigation" class="report-form-navigation" aria-label="Report sections" hidden>
-                    <label>Section<select id="reportFormSection" aria-controls="workFormFields"></select></label>
-                    <button id="reportFormSectionGo" type="button" class="ghost">Go</button>
-                    <button id="reportFormReviewShortcut" type="button" class="ghost">Review &amp; submit</button>
-                  </nav>
-                  <div id="workFormFields" class="dynamic-fields"></div>
-                  <label class="report-photo-field">
-                    Photos
-                    <input id="workFormPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple />
-                    <small>JPEG, PNG, or WebP; maximum 5 MB each.</small>
-                    <small id="workFormPhotoLimit">Up to 50 photos. You can select them together.</small>
-                    <small>Select again to add more photos.</small>
-                  </label>
-                  <div id="workFormPhotoSelectionFeedback" class="report-photo-selection-feedback" role="status" aria-live="polite" aria-atomic="true" hidden></div>
-                  <div id="workFormPhotoPreview" class="photo-preview hidden"></div>
-                  <div class="work-form-submit-row">
-                    <button id="submitWorkFormButton" type="submit" data-full-text="Review &amp; submit" data-report-only-text="Review &amp; submit">Review &amp; submit</button>
-                  </div>
+                    <div id="workFormPhotoSelectionFeedback" class="report-photo-selection-feedback" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+                    <div id="workFormPhotoPreview" class="photo-preview hidden"></div>
+                    <div class="work-form-submit-row">
+                      <button id="submitWorkFormButton" type="submit" data-full-text="Review &amp; submit" data-report-only-text="Review &amp; submit">Review &amp; submit</button>
+                    </div>
+                  </fieldset>
                 </div>
                 <section id="workFormReviewPanel" class="report-submit-review" aria-labelledby="workFormReviewHeading" hidden>
                   <h3 id="workFormReviewHeading" tabindex="-1">Review &amp; submit</h3>
@@ -687,7 +690,7 @@
                     <button id="confirmWorkFormSubmitButton" type="button">Submit Report</button>
                   </div>
                 </section>
-                <p id="workFormPhotoStatus" class="muted" role="status" aria-live="polite" aria-atomic="true"></p>
+                <p id="workFormPhotoStatus" class="muted" role="status" aria-live="polite" aria-atomic="true" hidden></p>
                 <div id="workFormStorageWarning" class="report-storage-warning" role="status" aria-live="polite" aria-atomic="true" hidden>
                   <p data-storage-message></p>
                   <p data-storage-guidance></p>
@@ -696,12 +699,13 @@
                 </div>
                 <p
                   id="workFormAutosaveStatus"
+                  hidden
                   class="autosave-status"
                   role="status"
                   aria-live="polite"
                   aria-atomic="true"
                 >Changes save automatically on this device.</p>
-                <div id="reportLocalStorageGuidance" class="muted report-storage-guidance">
+                <div id="reportLocalStorageGuidance" class="muted report-storage-guidance" hidden>
                   <p>Local drafts and queued Reports are not backups. Keep original photos until Submitted in My Reports.</p>
                   <details class="compact-help"><summary>About device storage</summary><p>Browser storage can be cleared or evicted under pressure. Do not clear this app's site data while work is unfinished.</p></details>
                 </div>
@@ -962,7 +966,7 @@
             </section>
 
             <section id="adminReviewWorkspace" class="admin-workspace-panel" data-admin-workspace-panel="review" aria-labelledby="adminReviewWorkspaceTitle" hidden>
-              <header class="card admin-workspace-header">
+              <header class="card admin-workspace-header" data-report-only-hidden>
                 <div>
                   <p class="eyebrow" data-full-text="Review" data-report-only-text="Reports">Reports</p>
                   <h2 id="adminReviewWorkspaceTitle" tabindex="-1" data-full-text="Review records and corrections" data-report-only-text="Submitted reports">Submitted reports</h2>
@@ -1000,9 +1004,9 @@
                   <span id="reportReviewFilterSummary" class="report-review-filter-summary">All Reports</span>
                 </summary>
               <form id="supervisorFilterForm" class="filter-bar">
-                <label>
-                  Find
-                  <input id="supervisorSearchInput" type="search" maxlength="160" placeholder="Worker, template, answer" data-full-placeholder="Worker, site, note, task" data-report-only-placeholder="Worker, template, answer" />
+                <label class="supervisor-report-find">
+                  <span data-full-text="Find" data-report-only-text="Find reports">Find reports</span>
+                  <input id="supervisorSearchInput" type="search" maxlength="160" aria-controls="reviewQueueList" placeholder="Report number, worker, template, or answer" data-full-placeholder="Worker, site, note, task" data-report-only-placeholder="Report number, worker, template, or answer" />
                 </label>
                 <label data-report-only-hidden>
                   Type
@@ -1048,7 +1052,7 @@
               <div id="reviewQueueFeedback" class="local-feedback hidden" data-local-feedback role="status" aria-live="polite" aria-atomic="true"></div>
               <div class="review-desk">
                 <section class="review-inbox" aria-labelledby="reviewInboxTitle">
-                  <div class="review-pane-heading">
+                  <div class="review-pane-heading" data-report-only-hidden>
                     <div>
                       <p class="eyebrow">Inbox</p>
                       <h2 id="reviewInboxTitle">Matching records</h2>

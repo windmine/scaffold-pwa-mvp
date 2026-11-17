@@ -14,6 +14,7 @@ const markup = `<!doctype html><html lang="en" data-theme="light"><head>
   <h2>New Report</h2><form id="workFormSubmissionForm" class="form-grid">
   <div id="workFormEditor" class="form-grid">
     <label>Report Template<select id="workFormSelect"></select></label>
+    <fieldset id="workFormDetails" class="form-grid" hidden disabled>
     <div class="report-context-fields form-grid"><label>Report Date<input id="workFormDate" type="date"></label>
     <label>Site (optional)<select id="workFormSite"><option value="">Unassigned site</option><option value="9">Harbour Site</option><option value="__manual__">Type a site name</option></select></label><label class="report-manual-site" hidden>Site name<input id="workFormManualSite" type="text" maxlength="200"><small>Saved on this Report only; does not add a shared site.</small></label></div>
     <div id="workFormFields" class="dynamic-fields"></div>
@@ -22,6 +23,7 @@ const markup = `<!doctype html><html lang="en" data-theme="light"><head>
     <div id="workFormPhotoSelectionFeedback" role="status" hidden></div>
     <div id="workFormPhotoPreview" class="photo-preview hidden"></div>
     <button id="submitWorkFormButton">Review &amp; submit</button>
+    </fieldset>
   </div>
   <section id="workFormReviewPanel" class="report-submit-review" hidden aria-labelledby="workFormReviewHeading">
     <h3 id="workFormReviewHeading" tabindex="-1">Review &amp; submit</h3>
@@ -51,7 +53,7 @@ async function fixture(browser, options = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   const errors = [];
   const unexpected = [];
-  const traffic = { posts: [], uploads: [], version: 2, fields, emailOptions: options.emailOptions, emailConflict: false, release: null, hold: false };
+  const traffic = { posts: [], uploads: [], version: 2, fields: options.fields || fields, emailOptions: options.emailOptions, emailConflict: false, release: null, hold: false };
   await context.route('**/*', async (route) => {
     const url = new URL(route.request().url());
     if (url.origin !== origin) {
@@ -102,17 +104,17 @@ async function fixture(browser, options = {}) {
         if (window.confirmationGate) { window.confirmationGateEntered = true; await window.confirmationGate; }`);
     }
     if (url.pathname === '/assets/js/db.js') {
-      const boundary = 'export async function put(storeName, value) {';
+      const boundary = 'export async function saveSubmissionCheckpoint(record, marker, { addOnly = false, discard = false } = {}) {';
       assert.ok(body.includes(boundary), 'Controlled durable-write boundary must remain exact');
       body = body.replace(boundary, `${boundary}
-        if (window.failRecordWrites && storeName === 'records') throw new Error('Device storage is temporarily unavailable.');`);
+        if (window.failRecordWrites) throw new Error('Device storage is temporarily unavailable.');`);
     }
     return route.fulfill({ contentType: 'text/javascript', body });
   });
   const page = await context.newPage();
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(origin);
-  const boot = async ({ selectedFields, requireSignature, role, restored, immediateSync }) => {
+  const boot = async ({ selectedFields, requireSignature, role, restored, immediateSync, chooseTemplate }) => {
     const { createWorkerFormModule } = await import('/assets/js/worker-form.js');
     const { createPhotoViewer } = await import('/assets/js/photo-viewer.js');
     const api = await import('/assets/js/api-client.js');
@@ -148,9 +150,11 @@ async function fixture(browser, options = {}) {
     form.bindEvents();
     window.fixture = { form, state, els, messages, banners, photoViewer, db, fields: selectedFields };
     await form.refreshWorkForms();
-    els.workFormSelect.value = '51';
-    await form.renderSelectedWorkForm();
-    if (!restored) {
+    if (chooseTemplate) {
+      els.workFormSelect.value = '51';
+      await form.renderSelectedWorkForm();
+    }
+    if (chooseTemplate && !restored) {
       els.workFormDate.value = '2026-09-29';
       els.workFormSite.value = '9';
     }
@@ -179,7 +183,8 @@ async function fixture(browser, options = {}) {
       window.sign();
     }
   };
-  const bootOptions = { selectedFields: fields, requireSignature: Boolean(options.blankSignature), role: options.role, immediateSync: options.immediateSync };
+  const bootOptions = { selectedFields: traffic.fields, requireSignature: Boolean(options.blankSignature), role: options.role,
+    immediateSync: options.immediateSync, chooseTemplate: !options.startEmpty };
   await page.evaluate(boot, bootOptions);
   return { context, page, traffic,
     async reload() { await page.reload(); await page.evaluate(boot, { ...bootOptions, restored: true }); },
@@ -224,6 +229,51 @@ async function assertUnsubmitted(fixtureToCheck) {
 const browser = await chromium.launch({ headless: true });
 try {
   await mkdir(output, { recursive: true });
+  const first = await fixture(browser, { startEmpty: true, fields: [
+    { id: 'items', type: 'repeat', label: 'Inspection items' },
+    { id: 'item', type: 'text', label: 'Item name', repeat: 'items' }
+  ] });
+  try {
+    const { page } = first;
+    const details = ['#workFormDate', '#workFormSite', '#workFormPhotos', '#submitWorkFormButton'];
+    for (const selector of details) {
+      assert.equal(await page.locator(selector).isVisible(), false, selector);
+      assert.equal(await page.locator(selector).isEnabled(), false, selector);
+    }
+    await page.locator('#workFormSelect').selectOption('51');
+    await page.waitForFunction(() => !document.querySelector('#workFormSubmissionForm').inert
+      && !document.querySelector('#workFormDetails').disabled);
+    for (const selector of details) {
+      assert.equal(await page.locator(selector).isVisible(), true, selector);
+      assert.equal(await page.locator(selector).isEnabled(), true, selector);
+    }
+    await page.locator('#workFormDate').fill('2026-09-08');
+    await page.evaluate(() => window.addPhoto());
+    await page.locator('[data-repeat-add]').click();
+    const rows = page.locator('[data-repeat-row] input');
+    await rows.nth(1).fill('Platform');
+    await review(page);
+    await page.getByRole('button', { name: 'Edit Item name', exact: true }).click();
+    assert.equal(await rows.nth(1).evaluate((item) => document.activeElement === item), true,
+      'The blank first editor row is omitted from review and must never receive the edit action for the second row');
+    await rows.nth(1).fill('Upper platform');
+    await page.getByRole('button', { name: 'Return to review', exact: true }).click();
+    await page.locator('#workFormReviewSummary').getByText('Upper platform', { exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Edit Report Date', exact: true }).click();
+    assert.equal(await page.locator('#workFormDate').evaluate((item) => document.activeElement === item), true);
+    await page.locator('#workFormDate').fill('2026-09-09');
+    await page.getByRole('button', { name: 'Return to review' }).click();
+    await page.locator('#workFormReviewSummary').getByText('2026-09-09').waitFor();
+    await page.getByRole('button', { name: 'Edit Photos', exact: true }).click();
+    assert.equal(await page.locator('#workFormPhotos').evaluate((item) => document.activeElement === item), true);
+    const saved = await assertUnsubmitted(first);
+    assert.equal(saved.draft.photoBlobs.length, 1);
+    assert.equal(saved.draft.answers.items[0].item, 'Upper platform');
+    await page.locator('#workFormSelect').selectOption('');
+    await page.locator('#workFormDetails').waitFor({ state: 'hidden' });
+    assert.equal(await page.locator('#workFormPhotos').isEnabled(), false);
+    console.log('ok - choosing a template gates all entry, and targeted review edits preserve photos, exact repeat rows and dates');
+  } finally { await first.close(); }
   {
     const replay = await fixture(browser, { lostResponse: true, immediateSync: true });
     try {

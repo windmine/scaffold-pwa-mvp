@@ -19,7 +19,13 @@ export function readReportSite(select, input) {
 
 export function restoreReportSite(select, input, value = {}) {
   const manual = value.siteMode === 'manual' || Boolean(value.manualSiteName);
-  select.value = manual ? MANUAL_SITE : String(value.siteId || '');
+  const savedSite = String(value.siteId || '');
+  if (!manual && savedSite && select.dataset.loading && ![...select.options].some((option) => option.value === savedSite)) {
+    const pending = new Option(value.siteName || '#' + savedSite, savedSite);
+    pending.disabled = true;
+    select.add(pending);
+  }
+  select.value = manual ? MANUAL_SITE : savedSite;
   if (input) input.value = value.manualSiteName || '';
   syncReportSiteInput(select, input);
 }

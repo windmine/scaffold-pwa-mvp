@@ -86,6 +86,7 @@ export function createWorkerFormModule({
   cancelPhotoConfirmation = () => {},
   reportOnly = false,
   onContinueDraft = () => {},
+  onViewOwnReport,
   onReportTemplateSourceChanged = () => {},
   onSupervisorWorkFormsChanged = () => {},
   onWorkFormsChanged = () => {}
@@ -120,6 +121,7 @@ export function createWorkerFormModule({
   let reviewPhotoSources = createPhotoPreviewSources([]);
   let disposeReviewGallery = () => {};
   let submissionReview = null;
+  let returnToReview = null;
   state.workFormPhotoBlobs ||= [];
   let draftListRequest = 0;
   let draftContinueInFlight = false;
@@ -138,6 +140,7 @@ export function createWorkerFormModule({
   const templateSearch = els.workFormSubmissionForm.querySelector('#workFormTemplateSearch');
   const templateSearchStatus = els.workFormSubmissionForm.querySelector('#workFormTemplateSearchStatus');
   const selectedTemplateTitle = els.workFormSubmissionForm.querySelector('#workFormSelectedTitle');
+  const formDetails = els.workFormSubmissionForm.querySelector('#workFormDetails');
   const formNavigation = createReportFormNavigation({
     toolbar: els.workFormSubmissionForm.querySelector('#reportFormNavigation'),
     fields: els.workFormFields, submit: els.submitWorkFormButton, enabled: reportOnly,
@@ -146,7 +149,16 @@ export function createWorkerFormModule({
       && !els.workFormSubmissionForm.inert && !els.workFormFields.inert
   });
 
-  function showSelectedTemplateTitle() {
+  function syncTemplateSurface() {
+    const awaitingTemplate = !renderedWorkForm;
+    if (formDetails) {
+      formDetails.hidden = awaitingTemplate;
+      formDetails.disabled = awaitingTemplate;
+    }
+    for (const status of [els.workFormAutosaveStatus, els.workFormPhotoStatus]) {
+      if (status) status.hidden = awaitingTemplate;
+    }
+    if (localStorageGuidance) localStorageGuidance.hidden = awaitingTemplate || formPurpose(renderedWorkForm) !== 'report';
     if (!selectedTemplateTitle) return;
     selectedTemplateTitle.hidden = !reportOnly || !renderedWorkForm;
     selectedTemplateTitle.textContent = renderedWorkForm?.name || '';
@@ -274,12 +286,14 @@ export function createWorkerFormModule({
     if (!draftStates.has(key)) {
       draftStates.set(key, {
         key,
+        clientSubmissionId: formPurpose(form) === 'report' && !key.startsWith('work-form-recovery:') ? uuid() : null,
         ownerWorkerId: workerId,
         formId: form.id,
         revision: 0,
         savedRevision: 0,
         savedAt: '',
         snapshot: null,
+        savedSnapshot: null,
         error: null,
         flushPromise: null
       });
@@ -296,6 +310,10 @@ export function createWorkerFormModule({
     if (!form || !draftState || String(state.user?.id || '') !== String(draftState.ownerWorkerId)) return null;
     return {
       kind: 'work-form',
+      ...(draftState.clientSubmissionId ? {
+        clientSubmissionId: draftState.clientSubmissionId,
+        draftRevisionId: draftState.snapshot?.draftRevisionId
+      } : {}),
       ...emailRecipients?.capture(),
       schemaVersion: WORK_FORM_DRAFT_SCHEMA_VERSION,
       ownerWorkerId: draftState.ownerWorkerId,
@@ -344,6 +362,16 @@ export function createWorkerFormModule({
       && (left.photoBlobs || []).every((value, index) => value === right.photoBlobs[index])
       && (left.photoDataUrls || []).length === (right.photoDataUrls || []).length
       && (left.photoDataUrls || []).every((value, index) => value === right.photoDataUrls[index]);
+  }
+
+  function checkpointDraft(snapshot, saved) {
+    const checkpoint = { ...snapshot, savedAt: new Date().toISOString() };
+    if (snapshot.clientSubmissionId) {
+      const unchanged = saved?.draftRevisionId && saved.clientSubmissionId === snapshot.clientSubmissionId
+        && saved.definitionVersion === snapshot.definitionVersion && sameDraftContent(snapshot, saved);
+      checkpoint.draftRevisionId = unchanged ? saved.draftRevisionId : uuid();
+    }
+    return checkpoint;
   }
 
   function cancelAutosaveTimer() {
@@ -411,15 +439,12 @@ export function createWorkerFormModule({
         if (!draftState.snapshot) throw new Error('Could not capture this Report draft.');
 
         const revisionToSave = draftState.revision;
-        const savedAt = new Date().toISOString();
-        const snapshot = {
-          ...draftState.snapshot,
-          savedAt
-        };
+        const snapshot = checkpointDraft(draftState.snapshot, draftState.savedSnapshot);
         await saveDraft(draftState.key, snapshot);
         submittedDraftsPendingCleanup.delete(draftState.key);
         draftState.snapshot = snapshot;
-        draftState.savedAt = savedAt;
+        draftState.savedSnapshot = snapshot;
+        draftState.savedAt = snapshot.savedAt;
         draftState.savedRevision = revisionToSave;
         draftState.error = null;
       }
@@ -542,6 +567,8 @@ export function createWorkerFormModule({
   }
 
   function clearSubmissionReview({ focus = false } = {}) {
+    returnToReview?.remove();
+    returnToReview = null;
     submissionReview = null;
     photoViewer.closeForSources?.(reviewPhotoSources.urls, { restoreFocus: false });
     disposeReviewGallery();
@@ -562,14 +589,48 @@ export function createWorkerFormModule({
     }
   }
 
+  function reviewEditAction(review, { control, fieldId, row }) {
+    let surface;
+    let target;
+    if (fieldId) {
+      const scope = row ? review.rows.get(row.parentId)?.[row.rowIndex] : els.workFormFields;
+      surface = scope?.querySelector(`[data-work-form-field="${CSS.escape(fieldId)}"]${row ? '' : ':not([data-repeat-child])'}`);
+      target = surface?.querySelector('[data-signature-canvas], [data-location-capture], [data-repeat-add]')
+        || surface?.querySelector('input:not([type="hidden"]):not([readonly]), textarea, select');
+    } else if (control === 'recipients') {
+      surface = els.workFormSubmissionForm.querySelector('[data-report-email-recipients]');
+      target = surface?.querySelector('[data-recipient-toggle]:not([hidden])');
+    } else {
+      target = els[control];
+      surface = target?.closest('.report-context-fields') || target?.closest('label');
+    }
+    if (!target || !surface) return null;
+    return () => {
+      if (submissionReview !== review || state.submittingWorkForm || reloadLocked || !target.isConnected) return;
+      clearSubmissionReview();
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'ghost report-return-to-review';
+      setTranslatableText(button, 'Return to review');
+      button.addEventListener('click', () => els.submitWorkFormButton.click());
+      surface.after(button);
+      returnToReview = button;
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ block: 'center' });
+    };
+  }
+
   function showSubmissionReview(review) {
+    returnToReview?.remove();
+    returnToReview = null;
     renderReportSubmitReview(els.workFormReviewSummary, {
       form: review.form,
       answers: review.snapshot.answers,
       workDate: review.snapshot.workDate,
       siteName: review.site?.name || review.snapshot.manualSiteName?.trim() || '',
       photoCount: review.snapshot.photoBlobs.length || review.snapshot.photoDataUrls.length,
-      pdfEmailRecipients: review.snapshot.pdfEmailRecipients, selfEmail: state.user?.email
+      pdfEmailRecipients: review.snapshot.pdfEmailRecipients, selfEmail: state.user?.email,
+      editAction: (target) => reviewEditAction(review, target)
     });
     submissionReview = review;
     const sources = createPhotoPreviewSources(reportPhotoSources(review.snapshot));
@@ -730,7 +791,6 @@ export function createWorkerFormModule({
       button.disabled = disabled;
     });
     if (storageRetry) storageRetry.disabled = disabled;
-    if (localStorageGuidance) localStorageGuidance.hidden = formPurpose(renderedWorkForm) !== 'report';
     if (els.workFormPhotoLimit) {
       setTranslatableText(els.workFormPhotoLimit, `Up to ${photoLimit()} photos. You can select them together.`);
     }
@@ -801,9 +861,27 @@ export function createWorkerFormModule({
       && String(value.formId || '') === String(form.id);
   }
 
+  // The editable draft and the replayable record may briefly coexist if the
+  // phone stops before cleanup. Only suppress the exact submitted revision.
+  async function wasHandedOff(draft) {
+    if (!draft?.clientSubmissionId || !draft.draftRevisionId || draft.uploadRecovery) return false;
+    const record = await getLocalSubmission('records', draft.clientSubmissionId);
+    return record?.sourceDraftRevisionId === draft.draftRevisionId
+      && String(record.ownerWorkerId) === String(draft.ownerWorkerId)
+      && String(record.departmentId) === String(draft.departmentId)
+      && (record.ownerRole || 'worker') === (draft.ownerRole || 'worker');
+  }
+
   function applyDraftToSurface(form, draftState, draft) {
     restoringDraft = true;
     try {
+      if (draftState.clientSubmissionId) {
+        // Two tabs opening the same older draft must also adopt the same ID.
+        // All released ordinary drafts carry their last saved time.
+        const savedTime = Date.parse(draft.savedAt);
+        draftState.clientSubmissionId = draft.clientSubmissionId
+          || (Number.isFinite(savedTime) ? `draft-${draftState.key}-${savedTime}` : draftState.clientSubmissionId);
+      }
       emailRecipients?.restore(draft);
       restoreReportSite(els.workFormSite, els.workFormManualSite, draft);
       setDateInputValue(els.workFormDate, draft.workDate || todayDateInput());
@@ -835,12 +913,13 @@ export function createWorkerFormModule({
   async function restoreSelectedDraft(form, draftState, token) {
     const restoreStartedRevision = draftState.revision;
     let draft = draftState.snapshot;
+    const readingStoredDraft = !draft;
     if (!draft) {
       els.workFormSubmissionForm.inert = true;
       try {
         const storedDraft = await getDraft(draftState.key);
         draftState.error = null;
-        if (validStoredDraft(storedDraft, form, draftState)) draft = storedDraft;
+        if (validStoredDraft(storedDraft, form, draftState) && !await wasHandedOff(storedDraft)) draft = storedDraft;
       } catch (error) {
         draftState.error = error;
         if (token === selectionToken) showDraftSaveError();
@@ -889,6 +968,7 @@ export function createWorkerFormModule({
     }
 
     applyDraftToSurface(form, draftState, draft);
+    if (readingStoredDraft) draftState.savedSnapshot = draftState.snapshot;
     if (draftState.error) {
       showDraftSaveError();
     } else if (draftState.revision > draftState.savedRevision) {
@@ -941,7 +1021,7 @@ export function createWorkerFormModule({
     renderedWorkForm = form || null;
     renderedAuthorRole = state.user?.role;
     renderedDraftKey = form ? requestedDraftKey : '';
-    showSelectedTemplateTitle();
+    syncTemplateSurface();
     formNavigation.render(form);
     setSubmitActionLabel();
     updatePhotoRemovalControls();
@@ -1124,10 +1204,13 @@ export function createWorkerFormModule({
     try {
       if (flush) await flushPendingDrafts();
       if (!isCurrent()) return;
-      const entries = await getDraftEntries();
+      const entries = (await getDraftEntries()).filter((entry) =>
+        entry?.key && entry.key === reportDraftKeyForWorker(entry.value, worker));
+      const available = await Promise.all(entries.map(async (entry) =>
+        await wasHandedOff(entry.value) ? null : entry));
       if (!isCurrent()) return;
       const drafts = summarizeReportDrafts(
-        entries.filter((entry) => !submittedDraftsPendingCleanup.has(entry?.key)),
+        available.filter((entry) => entry && !submittedDraftsPendingCleanup.has(entry.key)),
         worker,
         state.workForms
       );
@@ -1181,8 +1264,9 @@ export function createWorkerFormModule({
       const form = selectedWorkForm(formId);
       const key = requestedKey || workFormDraftKey(worker.id, formId, worker.role);
       const draft = await getDraft(key);
+      const handedOff = await wasHandedOff(draft);
       if (!draftScopeStillActive(worker, generation) || reloadLocked || state.submittingWorkForm) return false;
-      if (submittedDraftsPendingCleanup.has(key) || !isReportDraftForWorker(draft, worker, form)
+      if (handedOff || submittedDraftsPendingCleanup.has(key) || !isReportDraftForWorker(draft, worker, form)
         || reportDraftKeyForWorker(draft, worker) !== key) {
         void renderDraftList();
         renderStatusBanner('This draft cannot be opened with the available Report Templates. Your saved work is unchanged.', true);
@@ -1270,8 +1354,12 @@ export function createWorkerFormModule({
     for (const draftState of draftStates.values()) {
       if (!draftState.snapshot || (draftState.revision <= draftState.savedRevision && !draftState.flushPromise)) continue;
       try {
+        const snapshot = structuredClone(draftState.snapshot);
+        // Blobs are immutable. Keep the original references for comparing this
+        // detached capture with a save that may still be committing.
+        snapshot.photoBlobs = [...(draftState.snapshot.photoBlobs || [])];
         pending.push({ draftState, key: draftState.key, revision: draftState.revision,
-          snapshot: structuredClone(draftState.snapshot), previousWrite: draftState.flushPromise });
+          snapshot, previousWrite: draftState.flushPromise });
       } catch { /* Best effort only; never postpone clearing private UI. */ }
     }
     for (const captured of pending) {
@@ -1281,7 +1369,7 @@ export function createWorkerFormModule({
         // same slot has already been opened by a new session, do not overwrite
         // that editor with an expired session's delayed best-effort save.
         if (sessionGeneration !== expiredGeneration && draftStates.has(captured.key)) return;
-        await saveDraft(captured.key, { ...captured.snapshot, savedAt: new Date().toISOString() });
+        await saveDraft(captured.key, checkpointDraft(captured.snapshot, captured.draftState.savedSnapshot));
       }).catch(() => {});
     }
     return true;
@@ -1591,7 +1679,8 @@ export function createWorkerFormModule({
         // A successful submission is also a durable way to protect the current work.
       }
       if (!isCurrentCapture()) return;
-      const answers = await collectWorkFormAnswers(form, { container: els.workFormFields });
+      const reviewRows = reviewRequired && !confirmed ? new Map() : null;
+      const answers = await collectWorkFormAnswers(form, { container: els.workFormFields, reviewRows });
       if (!isCurrentCapture()) return;
 
       // Site options can be refreshed by an already-running reconnect while
@@ -1645,6 +1734,7 @@ export function createWorkerFormModule({
         }
         showSubmissionReview({
           form: JSON.parse(JSON.stringify(form)),
+          rows: reviewRows,
           snapshot,
           site: reviewSite ? { id: reviewSite.id, name: reviewSite.name } : null,
           workerId: String(state.user.id),
@@ -1658,10 +1748,25 @@ export function createWorkerFormModule({
       // The confirmation sends the exact content the Worker reviewed. The
       // editor stays mounted for Back, draft saving, and safe failure recovery.
       const evidence = reviewed?.snapshot;
+      if (submittedDraft.clientSubmissionId) {
+        // A legacy draft may lack its stable ID, even when no fields changed.
+        // Persist it and the exact revision before any upload can reach the server.
+        if (submittedDraft.snapshot?.clientSubmissionId !== submittedDraft.clientSubmissionId
+          || !submittedDraft.snapshot?.draftRevisionId) {
+          submittedDraft.revision += 1;
+        }
+        await persistDraftState(submittedDraft);
+        if (!isCurrentCapture()) return;
+        if (reviewed && !reviewStillMatches(reviewed, form)) {
+          clearSubmissionReview({ focus: true });
+          throw new Error('Report details changed. Review them again before submitting.');
+        }
+      }
 
       const localRecord = {
         ...(evidence ? { pdfEmailRecipients: evidence.pdfEmailRecipients, pdfEmailRecipientUsers: evidence.pdfEmailRecipientUsers, pdfEmailOptionsUnavailable: evidence.pdfEmailOptionsUnavailable, expectedPdfEmailVersion: evidence.expectedPdfEmailVersion } : emailRecipients?.capture()),
-        id: uuid(),
+        id: submittedDraft.clientSubmissionId || uuid(),
+        ...(submittedDraft.clientSubmissionId ? { sourceDraftRevisionId: submittedDraft.snapshot.draftRevisionId } : {}),
         type: 'form',
         formId: form.id,
         formName: form.name,
@@ -1735,9 +1840,9 @@ export function createWorkerFormModule({
         } catch { /* Keep the last known result if local receipt refresh fails. */ }
         if (!isCurrentSubmission()) return;
       }
-      const submissionMessage = reportOnly
-        ? `${result.message.replace(/ submitted for approval\.$/, ' submitted.')} ${reportSubmissionReceipt(result.record)}`
-        : result.message;
+      const submitted = reportOnly && reportSubmissionState(result.record).key === 'submitted';
+      const headline = submitted ? `Report #${result.record.backendRecordId} submitted.` : result.message;
+      const submissionMessage = reportOnly ? `${headline} ${reportSubmissionReceipt(result.record)}` : headline;
       const resultMessage = result.draftCleanupFailed
         ? `${submissionMessage} The submitted draft could not be cleared from this device; do not submit it again after reloading.`
         : submissionMessage;
@@ -1745,6 +1850,20 @@ export function createWorkerFormModule({
         local: els.workFormFeedback,
         tone: result.offline || result.draftCleanupFailed ? 'warning' : 'success'
       });
+      if (reportOnly && onViewOwnReport) {
+        const identity = { clientSubmissionId: result.record.clientSubmissionId, backendRecordId: result.record.backendRecordId };
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'secondary receipt-action';
+        setTranslatableText(button, submitted ? 'View report' : 'View sync status');
+        button.addEventListener('click', () => {
+          if (isCurrentSubmission()) onViewOwnReport(identity);
+        });
+        els.workFormFeedback.append(button);
+        els.workFormFeedback.tabIndex = -1;
+        els.workFormFeedback.focus({ preventScroll: true });
+        els.workFormFeedback.scrollIntoView({ block: 'nearest' });
+      }
       await renderWorkerSummary();
       if (!isCurrentSubmission()) return;
       await renderHistory();
@@ -1758,6 +1877,19 @@ export function createWorkerFormModule({
         return;
       }
       if (submissionReview) clearSubmissionReview({ focus: true });
+      if (error?.code === 'REPORT_DRAFT_HANDED_OFF') {
+        // Another tab already submitted an earlier revision. Keep these edits
+        // as a distinct draft and require an explicit second review to send it.
+        submittedDraft.clientSubmissionId = uuid();
+        submittedDraft.revision += 1;
+        try {
+          await persistDraftState(submittedDraft);
+          if (isCurrentSubmission()) renderStatusBanner('An earlier version is already in My Reports. Your edits are saved as a separate draft. Review them before submitting another Report.', true, {
+            local: els.workFormFeedback, tone: 'warning'
+          });
+        } catch { if (isCurrentSubmission()) showDraftSaveError(); }
+        return;
+      }
       const storageSubmissionError = isStorageQuotaError(error);
       if (storageSubmissionError) {
         const unsaved = submittedDraft.savedRevision < submittedDraft.revision;
@@ -1927,7 +2059,7 @@ export function createWorkerFormModule({
     els.workFormSubmissionForm.reset();
     if (templateSearch) templateSearch.value = '';
     if (templateSearchStatus) templateSearchStatus.hidden = true;
-    showSelectedTemplateTitle();
+    syncTemplateSurface();
     formNavigation.render(null);
     state.workForms = [];
     setReportTemplateSource('unavailable');

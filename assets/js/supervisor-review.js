@@ -251,7 +251,7 @@ export function createSupervisorReviewModule({
       'adminTaskLogFormSelect', 'adminTaskLogFormFields'
     ].forEach((key) => { els[key].replaceChildren(); });
     els.supervisorDepartmentHelp.textContent = '';
-    els.supervisorResultCount.textContent = '0/0 matching records loaded';
+    updateResultCount(0, 0);
     els.reviewQueueDetailTitle.textContent = 'Select a record';
     els.reviewQueueSelectionPosition.textContent = '0 of 0';
     els.reviewQueueModeBadge.textContent = 'Read only';
@@ -547,11 +547,12 @@ export function createSupervisorReviewModule({
 
     els.reviewQueueModeBadge.textContent = readOnly ? 'Read only' : 'Live';
     els.reviewQueueModeBadge.className = `badge ${readOnly ? 'rejected' : 'approved'}`;
-    els.reviewQueueSelectionPosition.textContent = record
-      ? `${selectedIndex + 1} of ${visibleReviewRecords.length}`
-      : `0 of ${visibleReviewRecords.length}`;
+    const queue = state.supervisorRecords;
+    const total = (reportOnly && queue.queueCounts?.total != null) ? queue.queueCounts.total : visibleReviewRecords.length;
+    els.reviewQueueSelectionPosition.textContent = `${selectedIndex + 1} of ${total}`;
     els.previousReviewRecordButton.disabled = selectedIndex <= 0;
-    els.nextReviewRecordButton.disabled = selectedIndex < 0 || selectedIndex >= visibleReviewRecords.length - 1;
+    const canLoadNext = reportOnly && !readOnly && queue.hasMore && !queue.loadingMore;
+    els.nextReviewRecordButton.disabled = selectedIndex < 0 || (selectedIndex === visibleReviewRecords.length - 1 && !canLoadNext);
 
     if (!record) {
       clearReviewDetail();
@@ -566,7 +567,8 @@ export function createSupervisorReviewModule({
       return;
     }
 
-    els.reviewQueueDetailTitle.textContent = recordTitleLabel(record);
+    els.reviewQueueDetailTitle.textContent = reportOnly && record.backendRecordId
+      ? `#${record.backendRecordId} · ${recordTitleLabel(record)}` : recordTitleLabel(record);
     if (isNarrowReportReview() && !mobileDetailOpen) {
       clearReviewDetail();
       return;
@@ -612,10 +614,16 @@ export function createSupervisorReviewModule({
     }
   }
 
-  function selectAdjacentReviewRecord(offset) {
+  async function selectAdjacentReviewRecord(offset) {
     const currentIndex = visibleReviewRecords.findIndex(
       (record) => reviewRecordKey(record) === selectedReviewRecordKey
     );
+    if (currentIndex < 0) return;
+    if (reportOnly && offset === 1 && currentIndex === visibleReviewRecords.length - 1) {
+      const from = selectedReviewRecordKey;
+      if (!await loadMoreReviewRecords() || state.adminWorkspace !== 'review' || selectedReviewRecordKey !== from
+        || (isNarrowReportReview() && !mobileDetailOpen)) return;
+    }
     const nextRecord = visibleReviewRecords[currentIndex + offset];
     if (!nextRecord) return;
     selectReviewRecord(nextRecord);
@@ -1265,14 +1273,26 @@ export function createSupervisorReviewModule({
     await renderTrash();
   }
 
+  function updateResultCount(loaded, total) {
+    if (reportOnly) {
+      els.supervisorResultCount.textContent = loaded === total ? String(total) : `${loaded} of ${total}`;
+    } else {
+      els.supervisorResultCount.textContent = `${loaded}/${total} matching records loaded`;
+    }
+  }
+
   function renderFilteredLists() {
-    const { reviewRecords } = state.supervisorRecords;
+    const { reviewRecords, queueQuery } = state.supervisorRecords;
     const focusedRecords = departmentFocusedRecords(reviewRecords);
-    const filteredRecords = historyModule.filterRecords(reviewRecords, getFilters());
+    const filters = getFilters();
+    // The backend also searches values unavailable in a list row (e.g. staff
+    // email). Trust its scoped Find matches, then apply the local filter scope.
+    if (reportOnly && queueQuery?.search === filters.query.trim()) filters.query = '';
+    const filteredRecords = historyModule.filterRecords(reviewRecords, filters);
 
     const readOnly = reviewQueueIsReadOnly();
     const matchingTotal = state.supervisorRecords.queueCounts?.total ?? focusedRecords.length;
-    els.supervisorResultCount.textContent = `${filteredRecords.length}/${matchingTotal} matching records loaded`;
+    updateResultCount(filteredRecords.length, matchingTotal);
     if (reportOnly && !filteredRecords.some((record) => reviewRecordKey(record) === selectedReviewRecordKey)) {
       setMobileDetailOpen(false);
     }
@@ -1283,6 +1303,8 @@ export function createSupervisorReviewModule({
     selectedReviewRecordKey = selectedRecord ? reviewRecordKey(selectedRecord) : '';
     els.reviewQueueNotice.innerHTML = '';
     els.reviewQueuePagination.innerHTML = '';
+    const focusedOptionKey = els.reviewQueueList.contains(document.activeElement)
+      ? document.activeElement.closest('[role="option"]')?.dataset.recordKey : '';
     historyModule.renderRecordsList(els.reviewQueueList, filteredRecords, {
       summaryOnly: true,
       getRecordKey: reviewRecordKey,
@@ -1290,6 +1312,9 @@ export function createSupervisorReviewModule({
       onRecordFocus: reportOnly ? (record) => selectReviewRecord(record) : null,
       onRecordSelect: (record) => selectReviewRecord(record, { scrollOnSmallScreen: true })
     });
+    if (focusedOptionKey) {
+      els.reviewQueueList.querySelector(`[data-record-key="${CSS.escape(focusedOptionKey)}"]`)?.focus({ preventScroll: true });
+    }
     renderReviewDetail(selectedRecord);
     renderReportFilterSummary();
     els.exportAttendanceButton.disabled = readOnly;
@@ -1353,8 +1378,10 @@ export function createSupervisorReviewModule({
       recordsState.reviewRecords = (reportOnly ? mergeReviewRecordsInPageOrder : mergeReviewRecords)(
         recordsState.reviewRecords, additionalRecords
       );
+      recordsState.queueCounts = normaliseBackendCounts(page.counts) || recordsState.queueCounts;
       recordsState.nextCursor = page.next_cursor || null;
       recordsState.hasMore = Boolean(page.has_more && recordsState.nextCursor);
+      return true;
     } catch (error) {
       if (!isCurrentSession(session) || requestId !== reviewQueueRequestId) return;
       if (error.status === 401 || error.status === 403) {
@@ -2185,6 +2212,11 @@ export function createSupervisorReviewModule({
     els.reviewQueueDetails.classList.toggle('report-review-layout', reportOnly);
     if (reportReviewFilters) reportReviewFilters.open = !reportOnly;
     if (reportOnly) {
+      const workspaceHeading = document.getElementById('adminReviewWorkspaceTitle');
+      if (workspaceHeading) {
+        els.reviewQueueDetails.querySelector(':scope > summary > span:first-child')?.replaceWith(workspaceHeading);
+      }
+      reportReviewFilters?.before(els.supervisorSearchInput.closest('label'));
       const shortcuts = els.reviewQueueDetails.querySelector('.report-workflow-shortcuts');
       shortcuts?.append(els.refreshSupervisorButton);
       const exports = document.getElementById('reportExportOptions');

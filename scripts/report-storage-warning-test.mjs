@@ -71,23 +71,26 @@ function installBrowserBoundaries({ reportOnly, estimate, holdDraftRead }) {
     navigator.storage.estimate = mode === 'missing' ? undefined : estimateStorage;
   };
   test.releaseEstimates = (value = test.value) => test.releases.splice(0).forEach((release) => release(value));
-  const nativePut = IDBObjectStore.prototype.put;
-  IDBObjectStore.prototype.put = function (value, ...args) {
-    const key = String(value?.key || value?.id || '');
-    if (test.failStore === this.name && ['records', 'queue'].includes(this.name)) {
-      test.failedStores.push(this.name);
-      throw new DOMException('Device storage quota exhausted during Report queue/checkpoint write', 'QuotaExceededError');
-    }
-    if (this.name === 'drafts' && key.startsWith('work-form-draft:')) {
-      test.puts.push({ key, deleted: Boolean(value?.deleted) });
-      if (test.failDraft) {
-        test.failures += 1;
-        throw new DOMException('Device storage quota exhausted while saving Report draft', 'QuotaExceededError');
+  // The initial Report reservation uses add; later checkpoints use put.
+  for (const operation of ['add', 'put']) {
+    const nativeWrite = IDBObjectStore.prototype[operation];
+    IDBObjectStore.prototype[operation] = function (value, ...args) {
+      const key = String(value?.key || value?.id || '');
+      if (test.failStore === this.name && ['records', 'queue'].includes(this.name)) {
+        test.failedStores.push(this.name);
+        throw new DOMException('Device storage quota exhausted during Report queue/checkpoint write', 'QuotaExceededError');
       }
-    }
-    if (value?.deleted) test.deletes.push({ operation: 'tombstone', store: this.name, key });
-    return nativePut.call(this, value, ...args);
-  };
+      if (this.name === 'drafts' && key.startsWith('work-form-draft:')) {
+        test.puts.push({ key, deleted: Boolean(value?.deleted) });
+        if (test.failDraft) {
+          test.failures += 1;
+          throw new DOMException('Device storage quota exhausted while saving Report draft', 'QuotaExceededError');
+        }
+      }
+      if (value?.deleted) test.deletes.push({ operation: 'tombstone', store: this.name, key });
+      return nativeWrite.call(this, value, ...args);
+    };
+  }
   for (const operation of ['delete', 'clear']) {
     const native = IDBObjectStore.prototype[operation];
     IDBObjectStore.prototype[operation] = function (...args) {

@@ -234,6 +234,61 @@ async function captureProgressScreens(page) {
 
 const browser = await chromium.launch({ headless: true });
 try {
+  for (const status of [200, 401]) {
+    const delayed = await fixture(browser);
+    const auth = deferred(), sites = deferred();
+    const started = deferred();
+    const scripts = [];
+    delayed.page.on('request', (request) => scripts.push(new URL(request.url()).pathname));
+    try {
+      await delayed.page.evaluate(async ({ worker, template }) => {
+        const { saveDraft } = await import('/assets/js/mock-api.js');
+        await saveDraft(`work-form-draft:${worker.id}:${template.id}`, {
+          kind: 'work-form', schemaVersion: 1, ownerWorkerId: worker.id,
+          departmentId: worker.department_id, templatePurpose: 'report', definitionVersion: 1,
+          formId: template.id, fields: template.fields, siteId: '5',
+          answers: { notes: 'Original draft' }, workDate: '2026-11-18', savedAt: new Date().toISOString()
+        });
+      }, { worker, template });
+      await delayed.context.route('**/api/auth/refresh', async (route) => {
+        started.resolve();
+        await auth.promise;
+        await route.fulfill({ status, json: status === 200 ? worker : { detail: 'Expired' } });
+      });
+      await delayed.context.route('**/api/sites', async (route) => {
+        await sites.promise;
+        await route.fulfill({ json: [{ id: 5, name: 'North yard', address: 'Yard' }] });
+      });
+      await delayed.page.goto(origin, { waitUntil: 'domcontentloaded' });
+      await started.promise;
+      assert.equal(await delayed.page.locator('#openingView').isVisible(), true);
+      assert.equal(await delayed.page.locator('#passwordInput').isVisible(), false);
+      assert.equal(await delayed.page.locator('#workerView').isVisible(), false);
+      auth.resolve();
+      if (status === 401) {
+        await delayed.page.locator('#passwordInput').waitFor();
+        assert.equal(await delayed.page.locator('#workerView').isVisible(), false);
+      } else {
+        await delayed.page.locator('#workerView').waitFor();
+        await delayed.page.locator('#workFormSelect').selectOption(String(template.id));
+        await delayed.page.waitForFunction(() => document.querySelector('#workFormField_notes')?.value === 'Original draft');
+        assert.equal(await delayed.page.locator('#workFormSite').inputValue(), '5',
+          'A saved Site stays attached while the Site directory is loading');
+        await fillReadyReport(delayed.page, 'Inspect yard');
+        await delayed.page.locator('#workFormSite').selectOption('__manual__');
+        await delayed.page.locator('#workFormManualSite').fill('New location');
+        sites.resolve();
+        await delayed.page.locator('#workFormSite option[value="5"]').waitFor({ state: 'attached' });
+        assert.equal(await delayed.page.locator('#workFormSite').inputValue(), '__manual__');
+        assert.equal(await delayed.page.locator('#workFormManualSite').inputValue(), 'New location');
+        assert.equal(await delayed.page.locator('#workFormField_notes').inputValue(), 'Inspect yard');
+      }
+      assert.equal(await delayed.page.locator('#openingView').isVisible(), false);
+      assert.ok(!scripts.some((url) => /field-tools|supervisor-map|leaflet/.test(url)));
+    } finally { auth.resolve(); sites.resolve(); await delayed.close(); }
+  }
+  console.log('ok - delayed session opens without a sign-in flash, expiry requires login and optional Sites preserve active report edits');
+
   const f = await fixture(browser);
   try {
     await openWhileUploading(f);
@@ -449,6 +504,30 @@ try {
     console.log('ok - no-photo Report also opens immediately and shows final-submission progress until saved');
   } finally {
     await noPhotos.close();
+  }
+
+  const interrupted = await fixture(browser, { photoCount: 0 });
+  try {
+    await interrupted.page.clock.install();
+    await interrupted.page.evaluate(async () => {
+      const { get, put } = await import('/assets/js/db.js');
+      const record = await get('records', 'startup-queued-report');
+      await put('records', { ...record, syncStatus: 'syncing', syncStartedAt: new Date().toISOString() });
+    });
+    await interrupted.page.goto(origin);
+    await interrupted.page.waitForFunction(() => document.querySelector('#syncIndicator')?.dataset.state === 'queued');
+    assert.equal(interrupted.requests.posts.length, 0, 'A recent upload may still be active in another tab');
+    interrupted.finalSubmission.resolve();
+    await interrupted.page.clock.fastForward(121_000);
+    await waitForAsyncCondition(interrupted.page, async () => {
+      const { get } = await import('/assets/js/db.js');
+      return (await get('records', 'startup-queued-report'))?.backendRecordId === 901;
+    }, null, { timeout: 5000 });
+    assert.equal(interrupted.requests.posts.length, 1);
+    assert.equal((await queuedRecord(interrupted.page)).queue.length, 0);
+    console.log('ok - reopening during the previous upload lease retries once automatically after it expires');
+  } finally {
+    await interrupted.close();
   }
 
   const storageFailure = await fixture(browser, { queueReadFailure: true });

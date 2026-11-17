@@ -33,6 +33,20 @@ await context.route('**/*', async (route) => {
       await f.hook('remove', store, id);
       f.stores[store].delete(id);
     }
+    // This fixture injects holds into existing queued entries; the real
+    // IndexedDB repair/rollback boundary is exercised in offline-checkpoint-test.
+    export async function repairMissingSubmissionMarkers() {}
+    export async function saveSubmissionCheckpoint(record, marker, { discard } = {}) {
+      if (discard) {
+        await f.hook('remove', 'queue', record.id);
+        f.stores.queue.delete(record.id);
+        f.stores.records.delete(record.id);
+        return;
+      }
+      await put('records', record);
+      if (marker) await put('queue', marker);
+      else await remove('queue', record.id);
+    }
   ` : await readFile(path.join(root, url.pathname), 'utf8');
   return route.fulfill({ contentType: 'text/javascript', body });
 });

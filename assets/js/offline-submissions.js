@@ -26,7 +26,8 @@ const MAX_UPLOAD_RETRY_WAIT_MS = 60 * 1000;
 const MAX_SUBMISSION_UPLOAD_WAIT_MS = 2 * 60 * 1000;
 
 let syncQueuePromise = null;
-let syncQueueWorkerId = null;
+let syncQueueScope = null;
+let lastReconciledScope = null;
 // The durable lease handles reload recovery; this set additionally prevents a
 // same-page queue sweep from replaying an individual upload that takes >2 min.
 // Replay and discard reserve the ID before reading so neither can act on a
@@ -57,6 +58,11 @@ function matchesReplayScope(record, options = {}) {
   const requestedPurpose = String(options.purpose || '').trim().toLowerCase();
   if (!requestedPurpose) return true;
   return record?.type === 'form' && submissionPurpose(record) === requestedPurpose;
+}
+
+function matchesReportDepartment(record, worker) {
+  return submissionPurpose(record) !== 'report' || record.departmentId == null
+    || String(record.departmentId) === String(worker.departmentId);
 }
 
 function isAuthError(error) {
@@ -122,8 +128,9 @@ function assertOwnedByWorker(record, expectedWorker = null) {
     && String(record.departmentId || '') === String(worker.departmentId || '')
     && Boolean(worker.departmentId)
   );
-  if (!roleMatches || !supervisorScope
-    || (expectedWorker && (worker.id !== expectedWorker.id || worker.role !== expectedWorker.role))
+  if (!roleMatches || !supervisorScope || !matchesReportDepartment(record, worker)
+    || (expectedWorker && (worker.id !== expectedWorker.id || worker.role !== expectedWorker.role
+      || String(worker.departmentId) !== String(expectedWorker.departmentId)))
     || ownerWorkerId !== worker.id) {
     const error = new Error(`This offline submission belongs to ${record.ownerWorkerName || record.userName || `Worker ${ownerWorkerId}`}.`);
     error.code = 'OFFLINE_OWNER_MISMATCH';
@@ -509,12 +516,11 @@ function markOwnershipBlocked(record, worker = null) {
   record.lastSyncWorkerId = worker?.id || null;
 }
 
-function isStaleSyncingRecord(record) {
-  if (record.syncStatus !== 'syncing') return true;
-  if (!record.syncStartedAt) return true;
-
-  const startedAt = new Date(record.syncStartedAt).getTime();
-  return Number.isNaN(startedAt) || Date.now() - startedAt > STALE_SYNCING_AFTER_MS;
+function remainingSyncLeaseMs(record) {
+  if (record.syncStatus !== 'syncing') return 0;
+  const startedAt = Date.parse(record.syncStartedAt);
+  if (!Number.isFinite(startedAt)) return 0;
+  return Math.max(0, Math.min(STALE_SYNCING_AFTER_MS, startedAt + STALE_SYNCING_AFTER_MS - Date.now()));
 }
 
 function applySyncedResponse(record, syncedRecord) {
@@ -563,34 +569,37 @@ function applySyncedResponse(record, syncedRecord) {
   return record;
 }
 
-async function persistLocalSubmission(record) {
-  await put('records', record);
+function queueMarker(record) {
+  if (!QUEUED_SYNC_STATUSES.has(record.syncStatus) || record.backendRecordId || record.isDraftRecovery) return null;
+  return {
+    id: record.id,
+    kind: record.type,
+    ownerWorkerId: record.ownerWorkerId ?? record.userId,
+    capturedAt: record.capturedAt,
+    createdAt: record.createdAt,
+    syncStartedAt: record.syncStartedAt || ''
+  };
+}
 
-  if (QUEUED_SYNC_STATUSES.has(record.syncStatus) && !record.backendRecordId && !record.isDraftRecovery) {
-    await put('queue', {
-      id: record.id,
-      kind: record.type,
-      ownerWorkerId: record.ownerWorkerId,
-      capturedAt: record.capturedAt,
-      createdAt: record.createdAt,
-      syncStartedAt: record.syncStartedAt || ''
-    });
-  } else {
-    await remove('queue', record.id);
-  }
-
+async function persistLocalSubmission(record, options) {
+  await submissionStorage.saveSubmissionCheckpoint(record, queueMarker(record), options);
   return record;
 }
 
-async function clearSubmissionDraft(draftKey) {
+async function clearSubmissionDraft(draftKey, record) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      await remove('drafts', draftKey);
+      if (record?.sourceDraftRevisionId) {
+        await submissionStorage.retireSubmittedReportDraft(draftKey, record.clientSubmissionId, record.sourceDraftRevisionId);
+      } else {
+        await remove('drafts', draftKey);
+      }
       return true;
     } catch {
       await new Promise((resolve) => window.setTimeout(resolve, 50 * (attempt + 1)));
     }
   }
+  if (record?.sourceDraftRevisionId) return false;
   try {
     const submittedAt = new Date().toISOString();
     await put('drafts', {
@@ -825,12 +834,41 @@ async function submitOwnedOfflineSubmission(ownedSubmission, options) {
     message: queuedSubmissionMessage(localRecord)
   };
 
-  if (navigator.onLine) {
+  const online = navigator.onLine;
+  if (online) markSyncing(localRecord);
+  else markQueued(localRecord);
+  if (localRecord.sourceDraftRevisionId) {
+    // Reserve this draft identity before the first upload. A stale tab must
+    // never replace another tab's replay checkpoints or its confirmed receipt.
+    try {
+      await persistLocalSubmission(localRecord, { addOnly: true });
+    } catch (error) {
+      if (error?.name !== 'ConstraintError') throw error;
+      const original = await get('records', localRecord.id);
+      if (!original || String(original.departmentId) !== String(localRecord.departmentId)
+        || String(original.formId) !== String(localRecord.formId) || original.isDraftRecovery) {
+        throw new Error('This Report cannot be recovered now. Refresh My Reports and check its current status.', { cause: error });
+      }
+      assertOwnedByWorker(original, ownedSubmission.worker);
+      if (original.sourceDraftRevisionId !== localRecord.sourceDraftRevisionId) {
+        const conflict = new Error('An earlier version of this draft is already in My Reports.', { cause: error });
+        conflict.code = 'REPORT_DRAFT_HANDED_OFF';
+        throw conflict;
+      }
+      const submitted = Boolean(original.backendRecordId);
+      return {
+        record: original, queued: !submitted, offline: !submitted,
+        message: submitted ? syncedSubmissionMessage(original) : queuedSubmissionMessage(original),
+        draftCleanupFailed: draftKey && !(await clearSubmissionDraft(draftKey, original))
+      };
+    }
+  }
+
+  if (online) {
     let authError = null;
 
     try {
-      markSyncing(localRecord);
-      await persistLocalSubmission(localRecord);
+      if (!localRecord.sourceDraftRevisionId) await persistLocalSubmission(localRecord);
       const syncedRecord = await syncSubmission(localRecord, {
         ...options,
         worker: ownedSubmission.worker,
@@ -869,21 +907,29 @@ async function submitOwnedOfflineSubmission(ownedSubmission, options) {
     }
 
     await persistLocalSubmission(localRecord);
-    if (draftKey) result.draftCleanupFailed = !(await clearSubmissionDraft(draftKey));
+    if (draftKey) result.draftCleanupFailed = !(await clearSubmissionDraft(draftKey, localRecord));
     if (authError) throw authError;
     return result;
-  } else {
-    markQueued(localRecord);
   }
 
-  await persistLocalSubmission(localRecord);
-  if (draftKey) result.draftCleanupFailed = !(await clearSubmissionDraft(draftKey));
+  if (!localRecord.sourceDraftRevisionId) await persistLocalSubmission(localRecord);
+  if (draftKey) result.draftCleanupFailed = !(await clearSubmissionDraft(draftKey, localRecord));
   return result;
 }
 
 async function flushQueuedSubmissions(worker, options = {}) {
   if (!navigator.onLine) return { flushed: 0, failed: 0, scopeSkipped: 0 };
 
+  const scope = JSON.stringify([worker.role, worker.id, worker.departmentId]);
+  if (lastReconciledScope !== scope || options.recheckMissingMarkers) {
+    await submissionStorage.repairMissingSubmissionMarkers((record) => {
+      if (submissionPurpose(record) !== 'report' || record.type !== 'form' || record.recoveryStorageReadOnly
+        || Number(record.ownerWorkerId ?? record.userId) !== worker.id || (record.ownerRole || 'worker') !== worker.role
+        || !matchesReportDepartment(record, worker)) return null;
+      return queueMarker(record);
+    });
+    lastReconciledScope = scope;
+  }
   const queueItems = await getAll('queue');
   let flushed = 0;
   let failed = 0;
@@ -892,6 +938,7 @@ async function flushQueuedSubmissions(worker, options = {}) {
   let invalidBlocked = 0;
   let scopeSkipped = 0;
   let authBlocked = false;
+  let retryAfterMs;
 
   for (const item of queueItems) {
     const submissionId = String(item.id);
@@ -918,12 +965,18 @@ async function flushQueuedSubmissions(worker, options = {}) {
           return;
         }
 
-        if (!matchesReplayScope(record, options) || (record.ownerRole || 'worker') !== worker.role) {
+        if (!matchesReplayScope(record, options) || (record.ownerRole || 'worker') !== worker.role
+          || !matchesReportDepartment(record, worker)) {
           scopeSkipped += 1;
           return;
         }
 
-        if (record.syncStatus === 'syncing' && !isStaleSyncingRecord(record)) {
+        const remainingMs = remainingSyncLeaseMs(record);
+        if (remainingMs) {
+          if (Number(record.ownerWorkerId ?? record.userId) === worker.id
+            && (!record.departmentId || String(record.departmentId) === String(worker.departmentId))) {
+            retryAfterMs = Math.min(retryAfterMs ?? remainingMs, remainingMs);
+          }
           skipped += 1;
           return;
         }
@@ -982,7 +1035,14 @@ async function flushQueuedSubmissions(worker, options = {}) {
           await persistLocalSubmission(localRecord);
           if (authBlocked) failed += 1;
         }
-      }, () => { skipped += 1; });
+      }, () => {
+        skipped += 1;
+        // The other tab may close before completing the upload. Recheck after
+        // its lease window, through the same lock and identity checks.
+        if (Number(item.ownerWorkerId) === worker.id) {
+          retryAfterMs = Math.min(retryAfterMs ?? STALE_SYNCING_AFTER_MS, STALE_SYNCING_AFTER_MS);
+        }
+      });
       if (authBlocked) break;
     } finally {
       activeSubmissionIds.delete(submissionId);
@@ -990,7 +1050,8 @@ async function flushQueuedSubmissions(worker, options = {}) {
   }
 
   await put('settings', { key: 'lastSyncAt', value: new Date().toISOString() });
-  return { flushed, failed, skipped, ownershipBlocked, invalidBlocked, scopeSkipped, authBlocked };
+  return { flushed, failed, skipped, ownershipBlocked, invalidBlocked, scopeSkipped, authBlocked,
+    ...(retryAfterMs ? { retryAfterMs } : {}) };
 }
 
 export async function syncQueuedSubmissions(options = {}) {
@@ -1008,16 +1069,17 @@ export async function syncQueuedSubmissions(options = {}) {
     };
   }
 
+  const scope = JSON.stringify([worker.role, worker.id, worker.departmentId]);
   if (syncQueuePromise) {
-    if (syncQueueWorkerId === `${worker.role}:${worker.id}`) return syncQueuePromise;
+    if (syncQueueScope === scope) return syncQueuePromise;
     await syncQueuePromise;
     return syncQueuedSubmissions(options);
   }
 
-  syncQueueWorkerId = `${worker.role}:${worker.id}`;
+  syncQueueScope = scope;
   syncQueuePromise = flushQueuedSubmissions(worker, options).finally(() => {
     syncQueuePromise = null;
-    syncQueueWorkerId = null;
+    syncQueueScope = null;
   });
 
   return syncQueuePromise;
@@ -1035,15 +1097,14 @@ export async function discardOfflineSubmission(recordId) {
       if (!record) throw new Error('Offline submission was not found on this device.');
 
       assertOwnedByWorker(record);
-      if (record.syncStatus === 'syncing' && !isStaleSyncingRecord(record)) {
+      if (remainingSyncLeaseMs(record)) {
         throw new Error('This submission is still syncing. Wait for it to finish before discarding it.');
       }
       if (record.backendRecordId || record.syncStatus === 'synced') {
         throw new Error('A synced submission cannot be discarded from the offline queue.');
       }
 
-      await remove('queue', record.id);
-      await remove('records', record.id);
+      await submissionStorage.saveSubmissionCheckpoint(record, null, { discard: true });
     }, submissionBusy);
   } finally {
     activeSubmissionIds.delete(submissionId);

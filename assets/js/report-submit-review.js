@@ -2,7 +2,7 @@ import { setTranslatableAttribute, setTranslatableText } from './i18n.js';
 import { formatWorkFormAnswer, summarizeWorkFormAnswers } from './work-form-fields.js';
 
 // Display-only: never change the captured answers or create upload requests.
-export function renderReportSubmitReview(container, { form, answers, workDate, siteName, photoCount, pdfEmailRecipients, selfEmail }) {
+export function renderReportSubmitReview(container, { form, answers, workDate, siteName, photoCount, pdfEmailRecipients, selfEmail, editAction }) {
   const document = container.ownerDocument;
   const fragment = document.createDocumentFragment();
   const summary = summarizeWorkFormAnswers(form, answers);
@@ -24,12 +24,25 @@ export function renderReportSubmitReview(container, { form, answers, workDate, s
     return node;
   }
 
-  function item(list, label, literalLabel = false) {
+  let nextEditId = 0;
+  function item(list, label, literalLabel = false, target = null) {
     const group = element('div', 'report-review-item');
     const term = element('dt');
     (literalLabel ? literal : translated)(term, label);
     const description = element('dd');
     group.append(term, description);
+    const edit = target && editAction?.(target);
+    if (edit) {
+      const action = element('dd', 'report-review-edit-action');
+      const button = translated(element('button', 'ghost'), 'Edit');
+      button.type = 'button';
+      term.id = `${container.id}-term-${++nextEditId}`;
+      button.id = `${term.id}-edit`;
+      button.setAttribute('aria-labelledby', `${button.id} ${term.id}`);
+      button.addEventListener('click', edit);
+      action.append(button);
+      group.append(action);
+    }
     list.append(group);
     return description;
   }
@@ -46,7 +59,7 @@ export function renderReportSubmitReview(container, { form, answers, workDate, s
       entry.rows.forEach((row, index) => {
         const rowNode = element('li', 'report-review-row');
         rowNode.append(translated(element('p', 'report-review-row-label'), `Row ${index + 1}`));
-        rowNode.append(renderAnswers(row));
+        rowNode.append(renderAnswers(row, { parentId: entry.id, rowIndex: index }));
         rows.append(rowNode);
       });
       node.append(rows);
@@ -90,23 +103,28 @@ export function renderReportSubmitReview(container, { form, answers, workDate, s
     literal(node, value);
   }
 
-  function renderAnswers(entries) {
+  function renderAnswers(entries, row) {
     const list = element('dl', 'report-review-answers');
-    for (const entry of entries) renderValue(item(list, entry.label, true), entry);
+    for (const entry of entries) {
+      const target = entry.type === 'formula' ? null : { fieldId: entry.id, row };
+      renderValue(item(list, entry.label, true, target), entry);
+    }
     return list;
   }
 
   const metadata = element('dl', 'report-review-meta');
   literal(item(metadata, 'Report Template'), form?.name || '');
-  if (workDate) literal(item(metadata, 'Report Date'), workDate);
-  else missing(item(metadata, 'Report Date'));
-  if (siteName) literal(item(metadata, 'Site'), siteName);
-  else translated(item(metadata, 'Site'), 'No site selected');
+  const date = item(metadata, 'Report Date', false, { control: 'workFormDate' });
+  if (workDate) literal(date, workDate);
+  else missing(date);
+  const site = item(metadata, 'Site', false, { control: 'workFormSite' });
+  if (siteName) literal(site, siteName);
+  else translated(site, 'No site selected');
   const count = Number(photoCount);
-  literal(item(metadata, 'Photos'), Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0);
+  literal(item(metadata, 'Photos', false, { control: 'workFormPhotos' }), Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0);
   if (Array.isArray(pdfEmailRecipients)) {
     literal(item(metadata, 'Your PDF copy'), selfEmail || 'Your account email');
-    literal(item(metadata, 'Additional PDF copies'), pdfEmailRecipients.join(', ') || 'None');
+    literal(item(metadata, 'Additional PDF copies', false, { control: 'recipients' }), pdfEmailRecipients.join(', ') || 'None');
   }
   fragment.append(metadata, translated(element('h4'), 'Answers'));
   if (summary.entries.length) fragment.append(renderAnswers(summary.entries));

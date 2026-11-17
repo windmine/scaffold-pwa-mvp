@@ -9,6 +9,7 @@ from unittest.mock import patch
 import report_pdf_email_test as fixture
 from pypdf import PdfReader
 from sqlmodel import select
+from app import upload_storage
 from app.auth import create_access_token
 from app.main import app, get_session
 from app.models import ReportPdfEmail, User, WorkFormSubmission
@@ -142,9 +143,41 @@ class ReportSelfPdfTests(unittest.TestCase):
         self.assertIn((41, 29), dimensions)
         self.assertIn((53, 17), dimensions)
 
+    def test_unavailable_evidence_blocks_export_until_restored(self):
+        photo = self.raster((41, 29), "blue")
+        signature = self.raster((53, 17), "black")
+        self.record.photo_urls = json.dumps([photo])
+        self.record.answers_json = json.dumps({"signed": signature})
+        self.session.add(self.record)
+        self.session.commit()
+
+        for label, url in (("photo", photo), ("signature", signature)):
+            path = upload_storage.UPLOAD_DIR / upload_storage.upload_filename_from_url(url)
+            original = path.read_bytes()
+            for failure in ("missing", "truncated"):
+                with self.subTest(attachment=label, failure=failure):
+                    if failure == "missing":
+                        path.unlink()
+                    else:
+                        # Keep the PNG header/size but remove the image data.
+                        path.write_bytes(original[:45])
+                    try:
+                        status, headers, body = self.request(prefix="/api")
+                        self.assertEqual(status, 503)
+                        self.assertEqual(headers[b"content-type"], b"application/json")
+                        self.assertNotIn(b"content-disposition", headers)
+                        self.assertEqual(json.loads(body)["detail"]["code"], "report_pdf_evidence_unavailable")
+                    finally:
+                        path.write_bytes(original)
+
+            status, _, body = self.request()
+            self.assertEqual(status, 200)
+            dimensions = {(image.image.width, image.image.height)
+                          for page in PdfReader(BytesIO(body)).pages for image in page.images}
+            self.assertTrue({(41, 29), (53, 17)}.issubset(dimensions))
+
     def test_foreign_upload_in_ordinary_answer_stays_text_after_template_edit(self):
         from PIL import Image
-        from app import upload_storage
         buffer = BytesIO()
         Image.new("RGB", (37, 23), "orange").save(buffer, format="PNG")
         stored = upload_storage.store_verified_raster(buffer.getvalue(), self.other.id)

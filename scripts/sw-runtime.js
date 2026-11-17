@@ -1,4 +1,4 @@
-/* global APP_SHELL, CACHE_VERSION */
+/* global APP_SHELL, CACHE_VERSION, FIELD_SHELL */
 
 const NETWORK_ONLY_PREFIXES = [
   '/api',
@@ -94,11 +94,12 @@ function appShellRequest(path) {
   return new Request(path, { cache: 'reload', headers });
 }
 
-async function cacheAppShell() {
+async function cacheAppShell(paths = APP_SHELL, missingOnly = false) {
   const cache = await caches.open(CACHE_VERSION);
 
-  await Promise.all(APP_SHELL.map(async (path) => {
+  await Promise.all(paths.map(async (path) => {
     const request = appShellRequest(path);
+    if (missingOnly && isCacheableResponse(await cache.match(request, { ignoreVary: true }), request)) return;
     const response = await fetch(request);
 
     if (!isCacheableResponse(response, request)) {
@@ -115,7 +116,7 @@ async function cacheFirst(request) {
   // Install-time fetches and built page requests can differ on response Vary headers such as Origin.
   // Versioned, same-origin app-shell entries are safe to match by their exact URL across that difference.
   const cached = await cache.match(request, {
-    ignoreVary: APP_SHELL.includes(requestPath)
+    ignoreVary: APP_SHELL.includes(requestPath) || FIELD_SHELL.includes(requestPath)
   });
 
   if (cached) return cached;
@@ -143,6 +144,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('message', (event) => {
+  if (event.data?.type === 'CACHE_FIELD_TOOLS') {
+    // Only the retained field interface requests these immutable build assets.
+    event.waitUntil(cacheAppShell(FIELD_SHELL, true));
+    return;
+  }
   if (event.data?.type === 'OFFLINE_READINESS_CHECK' && event.ports?.[0]) {
     const port = event.ports[0];
     event.waitUntil((async () => {

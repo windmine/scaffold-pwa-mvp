@@ -39,6 +39,10 @@ LABEL_FILL = colors.HexColor("#eeeeee")
 EVIDENCE_DPI = 200
 
 
+class ReportEvidenceUnavailable(ValueError):
+    """A saved attachment could not be read or decoded for the PDF."""
+
+
 def _styles():
     body = ParagraphStyle(
         "report-body", fontName="Helvetica", fontSize=9, leading=12,
@@ -101,7 +105,7 @@ def _row(label, value, styles, *, minimum_height=None):
     return table
 
 
-def _printable_raster(content, max_width, max_height, *, lossless=False):
+def _printable_raster(content, max_width, max_height, *, lossless=False, strict=False):
     """Bound decoded PDF assets to their A4 cell, not the camera resolution.
 
     Signatures and transparency stay lossless. Opaque photographs use a compact
@@ -119,6 +123,9 @@ def _printable_raster(content, max_width, max_height, *, lossless=False):
         if needs_orientation and orientation in (5, 6, 7, 8):
             width, height = height, width
         if not needs_orientation and width <= bounds[0] and height <= bounds[1]:
+            if strict:
+                # Reading dimensions alone can succeed on a truncated image.
+                source.load()
             return content, width, height
         raster = ImageOps.exif_transpose(source) if needs_orientation else source
         try:
@@ -145,11 +152,9 @@ def _image(value, image_loader, max_height, *, lossless=False, strict=False):
     try:
         content = image_loader(value)
         if not content:
-            if strict:
-                raise ValueError("Report evidence unavailable")
-            return None
+            raise ValueError("Empty image")
         content, width, height = _printable_raster(
-            content, VALUE_WIDTH - 16, max_height, lossless=lossless,
+            content, VALUE_WIDTH - 16, max_height, lossless=lossless, strict=strict,
         )
         scale = min((VALUE_WIDTH - 16) / width, max_height / height)
         result = Image(BytesIO(content), width=width * scale, height=height * scale)
@@ -157,7 +162,7 @@ def _image(value, image_loader, max_height, *, lossless=False, strict=False):
         return result
     except Exception:
         if strict:
-            raise ValueError("Report evidence unavailable") from None
+            raise ReportEvidenceUnavailable("Report evidence unavailable") from None
         # Missing or damaged evidence must be visible, not silently dropped.
         return None
 

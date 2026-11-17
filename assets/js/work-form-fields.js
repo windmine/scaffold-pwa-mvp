@@ -929,6 +929,7 @@ function collectRepeatAnswers(parent, children, parentAnswers, options = {}) {
   const scope = options.container || document;
   const rows = Array.from(scope.querySelectorAll(`[data-repeat-row="${CSS.escape(parent.id)}"]`));
   const values = [];
+  const reviewRows = options.reviewRows && [];
 
   for (const row of rows) {
     const rowContext = { parentId: parent.id, rowKey: row.dataset.repeatRowKey };
@@ -953,6 +954,7 @@ function collectRepeatAnswers(parent, children, parentAnswers, options = {}) {
 
     if (isEmptyRepeatRow(submittedRow) && minRows(parent) === 0) continue;
     values.push(submittedRow);
+    reviewRows?.push(row);
   }
 
   if (validate && values.length < minRows(parent)) {
@@ -962,6 +964,8 @@ function collectRepeatAnswers(parent, children, parentAnswers, options = {}) {
     throw new Error(`${parent.label} can include up to ${maxRows(parent)} row(s).`);
   }
 
+  // The editor can contain blank rows which do not appear in the review.
+  if (reviewRows) options.reviewRows.set(parent.id, reviewRows);
   return values;
 }
 

@@ -79,25 +79,26 @@ def submit(session, worker, form, answer, **options):
 def test_csv_find_matches_inbox():
     with report_fixture() as (session, _, worker, form):
         wanted = submit(session, worker, form, "Cracked access ladder")
-        submit(session, worker, form, "Paint finish only")
-        params = {"purpose": "report", "search": "ladder"}
-        status, body = asyncio.run(request("/supervisor/review-queue", {**params, "kind": "form"}))
-        assert status == 200, body
-        assert [item["id"] for item in json.loads(body)["items"]] == [wanted["id"]]
-        status, body = asyncio.run(request("/supervisor/form-submissions/export.csv", params))
-        assert status == 200, body
-        rows = list(csv.DictReader(StringIO(body.decode())))
-        assert len(rows) == 1 and rows[0]["answer_issue"] == "Cracked access ladder", rows
-    print("ok - Report CSV Find matches the inbox")
+        submit(session, worker, form, f"Paint finish only, see #{wanted['id']}")
+        for search in ("ladder", str(wanted["id"]), f"#{wanted['id']}"):
+            params = {"purpose": "report", "search": search}
+            status, body = asyncio.run(request("/supervisor/review-queue", {**params, "kind": "form"}))
+            assert status == 200, body
+            assert [item["id"] for item in json.loads(body)["items"]] == [wanted["id"]]
+            status, body = asyncio.run(request("/supervisor/form-submissions/export.csv", params))
+            assert status == 200, body
+            rows = list(csv.DictReader(StringIO(body.decode())))
+            assert len(rows) == 1 and rows[0]["answer_issue"] == "Cracked access ladder", rows
+    print("ok - Report number (with or without #) selects the exact record in both the inbox and CSV")
 
 
 def test_document_find_matches_inbox():
     with report_fixture() as (session, _, worker, form):
-        submit(session, worker, form, "Cracked access ladder")
-        submit(session, worker, form, "Paint finish only")
+        wanted = submit(session, worker, form, "Cracked access ladder")
+        submit(session, worker, form, f"Paint finish only, see #{wanted['id']}")
         for extension in ("html", "pdf"):
             status, body = asyncio.run(request(f"/supervisor/form-submissions/export.{extension}", {
-                "purpose": "report", "search": "ladder",
+                "purpose": "report", "search": f"#{wanted['id']}",
             }))
             assert status == 200, body
             content = (
@@ -163,6 +164,9 @@ def test_export_filter_and_department_boundaries():
         expected_all = {item["id"] for item in (wanted, other_date, other_worker, other_template, other_status)}
         cases = [
             ({}, expected_all),
+            ({"search": f"#{foreign['id']}"}, set()),
+            ({"search": str(wanted["id"]), "form_id": other_form.id}, set()),
+            ({"search": "9" * 160}, set()),
             ({"form_id": form.id}, expected_all - {other_template["id"]}),
             ({"worker_id": worker.id}, expected_all - {other_worker["id"]}),
             ({"record_date": "2026-09-15"}, expected_all - {other_date["id"]}),

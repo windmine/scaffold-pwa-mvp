@@ -61,6 +61,41 @@ async function setup() {
 try {
   await setup();
   assert.equal(await page.evaluate(() => window.fixture.i18n.translateText('Syncing', 'zh')), '正在同步');
+  for (const theme of ['light', 'dark']) {
+    const styles = await page.evaluate((theme) => {
+      document.documentElement.dataset.theme = theme;
+      return [{}, { syncStatus: 'queued' }, { syncStatus: 'syncing' }, { syncStatus: 'queued', isDraftRecovery: true }].map((change) => {
+        window.fixture.render(change.syncStatus ? { source: 'local', backendRecordId: null, ...change } : change);
+        const badge = document.querySelector('#historyList .badge');
+        const props = getComputedStyle(badge);
+        return {
+          label: badge.textContent,
+          ink: props.color,
+          fill: props.backgroundColor,
+          rail: getComputedStyle(badge.closest('.record-card')).borderLeftColor
+        };
+      });
+    }, theme);
+    const [submitted, queued, syncing, recovered] = styles;
+    const rgb = color => color.match(/\d+/g).map(Number);
+    const luminance = color => rgb(color).reduce((total, channel, index) => {
+      const value = channel / 255;
+      return total + [0.2126, 0.7152, 0.0722][index] * (value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    }, 0);
+    for (const { ink, fill } of styles) {
+      const [dark, light] = [luminance(ink), luminance(fill)].sort((a, b) => a - b);
+      assert.ok((light + 0.05) / (dark + 0.05) >= 4.5, `${theme} status text must be legible on its fill`);
+    }
+    assert.deepEqual(styles.map(item => item.label), ['Submitted', 'Waiting to sync', 'Syncing', 'Saved on this device']);
+    assert.ok(rgb(submitted.ink)[1] > rgb(submitted.ink)[0], 'Server receipt uses green');
+    const [r, g, b] = rgb(queued.ink);
+    assert.ok(r > g && g > b, 'Waiting for a receipt uses amber');
+    assert.equal(syncing.fill, queued.fill);
+    assert.equal(syncing.rail, queued.rail);
+    assert.equal(new Set([submitted.rail, queued.rail, recovered.rail]).size, 3);
+    assert.notEqual(recovered.fill, queued.fill, 'An old queue class cannot turn a recovery draft amber');
+  }
+  console.log('ok - light and dark Report badges distinguish server submission, pending sync and recovery drafts at 4.5:1 or higher');
   for(const state of ['pending','accepted','failed','uncertain','unknown']) {
     await page.evaluate(status=>window.fixture.render({pdfEmailSelf:{status},pdfEmail:{status:'accepted',recipient:'private@example.invalid',deliveries:[{recipient:'secret@example.invalid',status:'failed'}]}}),state);
     const card=page.locator('#historyList');

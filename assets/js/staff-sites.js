@@ -15,7 +15,6 @@ import {
   updateUserStatus as updateBackendUserStatus,
   updateWorkForm as updateBackendWorkForm
 } from './api-client.js';
-import { createSiteMapPicker, currentPosition } from './site-map-picker.js';
 import { setButtonBusy } from './ui-feedback.js';
 import { createWorkFormBuilder, workFormBuilderMarkup } from './work-form-builder.js';
 import { renderWorkFormFields } from './work-form-fields.js';
@@ -27,6 +26,7 @@ import { mountTemplateEmailSettings } from './report-pdf-email.js';
 import { listTemplateDrafts, removeTemplateDraft, saveTemplateDraft, templateDraftScope } from './report-template-drafts.js';
 
 export function createStaffSitesModule({
+  fieldTools,
   els,
   state,
   reportOnly = false,
@@ -609,7 +609,7 @@ export function createStaffSitesModule({
     els.siteForm.reset();
     els.siteLatitudeInput.value = '';
     els.siteLongitudeInput.value = '';
-    siteMapPicker.reset({ clearExisting: true });
+    siteMapPicker?.reset({ clearExisting: true });
     setButtonBusy(els.staffUserSubmitButton, false);
     setButtonBusy(els.workFormSubmitButton, false);
     els.cancelStaffUserCreateButton.disabled = false;
@@ -636,7 +636,7 @@ export function createStaffSitesModule({
     return String(item.department_id ?? item.departmentId) === String(state.departmentFocusId);
   }
 
-  const siteMapPicker = createSiteMapPicker({
+  const siteMapPicker = fieldTools?.createSiteMapPicker({
     mapElement: els.siteMap,
     latitudeInput: els.siteLatitudeInput,
     longitudeInput: els.siteLongitudeInput,
@@ -647,7 +647,7 @@ export function createStaffSitesModule({
 
   function refreshSiteMapIfVisible() {
     if (els.siteMap?.closest('details')?.open && els.siteMap.getClientRects().length) {
-      siteMapPicker.refresh();
+      siteMapPicker?.refresh();
     }
   }
 
@@ -1460,12 +1460,12 @@ export function createStaffSitesModule({
       });
       els.siteForm.reset();
       els.siteRadiusInput.value = '100';
-      siteMapPicker.reset();
+      siteMapPicker?.reset();
       state.sites = await loadSites();
       fillSiteSelects();
       renderSupervisorSites();
       refreshSupervisorMap?.();
-      siteMapPicker.refresh();
+      siteMapPicker?.refresh();
       renderStatusBanner('Site created and added to worker Report options.');
       await refreshSupervisorAuditHistory?.();
     } catch (error) {
@@ -1483,8 +1483,8 @@ export function createStaffSitesModule({
     renderStatusBanner('Capturing current location for the site...');
 
     try {
-      const position = await currentPosition();
-      siteMapPicker.setCoordinates(position.coords.latitude, position.coords.longitude);
+      const position = await fieldTools.currentPosition();
+      siteMapPicker?.setCoordinates(position.coords.latitude, position.coords.longitude);
       renderStatusBanner('Current location added to the site form.');
     } catch {
       renderStatusBanner('Location permission was denied or timed out. Enter the site coordinates manually.', true);
@@ -1883,7 +1883,7 @@ export function createStaffSitesModule({
     els.staffUserForm.addEventListener('submit', handleStaffUserCreate);
     els.siteForm.addEventListener('submit', handleSiteCreate);
     els.siteUseLocationButton.addEventListener('click', useCurrentLocationForSite);
-    siteMapPicker.bindEvents();
+    siteMapPicker?.bindEvents();
     els.siteLatitudeInput.addEventListener('blur', () => roundCoordinateInput(els.siteLatitudeInput));
     els.siteLongitudeInput.addEventListener('blur', () => roundCoordinateInput(els.siteLongitudeInput));
     els.addWorkFormButton.addEventListener('click', openWorkFormCreate);

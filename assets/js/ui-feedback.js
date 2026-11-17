@@ -257,7 +257,8 @@ export function createUiFeedback({
     form.addEventListener('invalid', (event) => {
       const control = event.target;
       event.preventDefault();
-      if (!(control instanceof HTMLElement) || form.querySelector(':invalid') !== control) return;
+      // A fieldset also matches :invalid when a descendant fails validation.
+      if (!(control instanceof HTMLElement) || form.querySelector(':invalid:not(fieldset)') !== control) return;
       const message = validationFeedbackMessage(control);
       show(message, {
         local: localTarget,

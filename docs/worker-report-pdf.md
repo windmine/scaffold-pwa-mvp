@@ -5,6 +5,7 @@ Deployed 2026-11-11 UTC with offline readiness and Report receipts. [Release evi
 In My Reports, open a submitted Report's details to use **Download PDF** or **Share PDF**. These actions are available only to the owning Worker in the current Department. Saved drafts, waiting/syncing device copies and retained Daywork do not expose them. Supervisor export behavior is unchanged.
 
 - Download fetches a fresh PDF of the saved Report, including current Supervisor corrections, using the existing branded renderer and evidence checks.
+- The current source requires every saved photo and signature to load before offering the PDF. If an attachment is missing or unreadable, retry Download PDF or Share PDF. Contact the Supervisor if the message persists.
 - Share prepares the same PDF file and invokes the device share menu when file sharing is supported. The user chooses the app and recipient. It never shares a private URL or sends a Report automatically.
 - If preparation outlasts the browser's user gesture, the status asks the user to tap Share PDF again. Prepared files expire after one minute, including after suspended-phone time.
 - Browsers without native file sharing download the PDF instead. Cancelling or failing an opened share menu never triggers an automatic download. Sharing completion is not proof of recipient delivery.
@@ -16,6 +17,8 @@ In My Reports, open a submitted Report's details to use **Download PDF** or **Sh
 `GET /my-form-submissions/{submission_id}/export.pdf` uses the normal authenticated active/setup-complete Worker dependency. It additionally requires exact Worker ownership, the Worker's current Department, Report purpose and a nondeleted row. Unknown, malformed and inaccessible IDs all return generic 404 responses. Authentication retains 401/403 behavior. The application and API-prefixed endpoint return private, no-store responses, including errors.
 
 The response is an attachment named `report-{id}.pdf`. Frozen-definition photo/signature validation runs before PDF rendering. Neither this endpoint nor either button changes Reports, corrections, email queues, delivery status or recipient selections. The frontend validates MIME and PDF header before saving/sharing a response. There is no database migration, new dependency or change to Supervisor permissions.
+
+An unverified attachment reference returns HTTP 409. An authorized attachment that fails to load or decode returns HTTP 503 with `detail.code = report_pdf_evidence_unavailable`. Retry fetches the PDF again.
 
 ## Validation
 

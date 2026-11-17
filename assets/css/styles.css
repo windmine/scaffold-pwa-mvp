@@ -104,6 +104,16 @@ html[data-theme="light"] {
     drop-shadow(1px 0 0 rgba(3, 7, 13, 0.52));
 }
 
+html[data-theme="dark"] .report-only-mode {
+  --input-background: #26364a;
+  --input-text: #edf3fb;
+  --input-placeholder: #b7c5d6;
+  --input-border: #798da6;
+  --input-focus: var(--brand-blue-mid);
+  --input-color-scheme: dark;
+  --checkbox-border: var(--input-border);
+}
+
 * { box-sizing: border-box; }
 
 html {
@@ -412,6 +422,10 @@ body[data-active-view="login"] .brand-heading {
   background: var(--danger);
 }
 
+.report-only-mode .sync-indicator:is([data-state="syncing"], [data-state="attention"])::before {
+  background: var(--attention);
+}
+
 .topbar .ghost {
   color: var(--topbar-text);
   background: rgba(217, 233, 248, 0.08);
@@ -453,7 +467,8 @@ body[data-active-view="login"] .brand-heading {
 }
 
 .queue-sync-status[data-state="attention"],
-.queue-sync-status[data-state="offline"] {
+.queue-sync-status[data-state="offline"],
+.report-only-mode .queue-sync-status:is([data-state="queued"], [data-state="syncing"]) {
   border-left-color: var(--attention);
 }
 
@@ -1457,7 +1472,7 @@ select {
 
 select {
   padding-right: 3rem;
-  color-scheme: light;
+  color-scheme: var(--input-color-scheme, light);
   background-color: var(--input-background);
   background-image:
     linear-gradient(45deg, transparent 50%, var(--input-text) 50%),
@@ -1472,8 +1487,21 @@ select {
 }
 
 select option {
-  background: #ffffff;
-  color: #0d1726;
+  background: var(--input-background);
+  color: var(--input-text);
+}
+
+html[data-theme="dark"] .report-only-mode select option:disabled {
+  color: var(--input-placeholder);
+}
+
+html[data-theme="dark"] .report-only-mode input[type="file"]::file-selector-button {
+  margin-inline-end: .5rem;
+  padding: .25rem .6rem;
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  background: var(--surface-quiet);
+  color: var(--input-text);
 }
 
 select:disabled {
@@ -1481,7 +1509,7 @@ select:disabled {
 }
 
 input[type="time"] {
-  color-scheme: light;
+  color-scheme: var(--input-color-scheme, light);
   font-variant-numeric: tabular-nums;
   font-weight: 900;
   letter-spacing: 0;
@@ -1553,7 +1581,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   z-index: 1;
   width: 16px;
   height: 15px;
-  border: 2px solid var(--brand-blue);
+  border: 2px solid var(--input-focus, var(--brand-blue));
   border-top-width: 5px;
   border-radius: 3px;
   opacity: 0.78;
@@ -1566,9 +1594,9 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .date-input-shell:focus-within {
-  outline: 3px solid rgba(127, 181, 255, 0.72);
+  outline: 3px solid var(--input-focus, rgba(127, 181, 255, 0.72));
   outline-offset: 2px;
-  border-color: var(--brand-blue);
+  border-color: var(--input-focus, var(--brand-blue));
   box-shadow: 0 0 0 3px rgba(9, 108, 245, 0.12);
 }
 
@@ -1615,14 +1643,14 @@ input:focus,
 textarea:focus,
 select:focus,
 button:focus-visible {
-  outline: 3px solid rgba(127, 181, 255, 0.72);
+  outline: 3px solid var(--input-focus, rgba(127, 181, 255, 0.72));
   outline-offset: 2px;
 }
 
 input:focus,
 textarea:focus,
 select:focus {
-  border-color: var(--brand-blue);
+  border-color: var(--input-focus, var(--brand-blue));
   box-shadow: 0 0 0 3px rgba(9, 108, 245, 0.12);
 }
 
@@ -1689,7 +1717,7 @@ textarea {
 }
 
 .form-checkbox-field:focus-within {
-  outline: 3px solid rgba(127, 181, 255, 0.72);
+  outline: 3px solid var(--input-focus, rgba(127, 181, 255, 0.72));
   outline-offset: 2px;
 }
 
@@ -1726,9 +1754,9 @@ textarea {
   height: 34px;
   position: relative;
   flex: 0 0 auto;
-  border: 3px solid var(--brand-blue-mid);
+  border: 3px solid var(--checkbox-border, var(--brand-blue-mid));
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--input-background);
   box-shadow: inset 0 0 0 2px rgba(6, 17, 31, 0.08), 0 2px 8px rgba(3, 7, 13, 0.18);
 }
 
@@ -2549,9 +2577,35 @@ textarea {
 }
 
 #workFormEditor[hidden],
+#workFormDetails[hidden],
+#workFormAutosaveStatus[hidden],
 .report-submit-review[hidden],
 .report-review-warning[hidden] {
   display: none;
+}
+
+#workFormDetails {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.report-review-item:has(> .report-review-edit-action) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start;
+  column-gap: 6px;
+}
+
+.report-review-item > dd { grid-column: 1; }
+.report-review-item > .report-review-edit-action { grid-area: 1 / 2 / span 2; }
+.report-review-edit-action button,
+.report-return-to-review { min-height: 44px; min-width: 44px; width: auto; padding: 6px 10px; }
+.report-return-to-review { justify-self: start; }
+
+@media (max-width: 600px) {
+  .report-review-meta:has(.report-review-edit-action) { grid-template-columns: minmax(0, 1fr); }
 }
 
 .report-submit-review,
@@ -3611,6 +3665,46 @@ body.viewer-open {
 .badge.submitted { background: rgba(200, 169, 106, 0.14); color: var(--badge-pending-text); }
 .badge.in_review { background: rgba(80, 145, 220, 0.16); color: var(--badge-text); }
 .badge.resolved { background: rgba(62, 201, 143, 0.12); color: var(--badge-approved-text); }
+
+/* Report labels are ordinary text. Buttons, selections and focus keep the action blue. */
+.report-only-mode label,
+.report-only-mode .time-range-field legend {
+  color: var(--text);
+}
+
+.report-only-mode .record-form {
+  --report-submitted-fill: #193b30;
+  --report-waiting-fill: #3e311e;
+}
+
+html[data-theme="light"] .report-only-mode .record-form {
+  --report-submitted-fill: #e1f4ea;
+  --report-waiting-fill: #fff0d2;
+}
+
+.report-only-mode .record-form > .record-header > .badge.submitted {
+  color: var(--badge-approved-text);
+  background: var(--report-submitted-fill);
+}
+
+.report-only-mode .record-form > .record-header > .badge:is(.queued, .syncing) {
+  color: var(--badge-pending-text);
+  background: var(--report-waiting-fill);
+}
+
+.report-only-mode .record-form:has(> .record-header > .badge:is(.queued, .syncing)) {
+  border-left-color: var(--attention);
+}
+
+/* Recovered device copies can still carry a raw sync class alongside saved_draft. */
+.report-only-mode .record-form > .record-header > .badge.saved_draft {
+  color: var(--text);
+  background: var(--surface-quiet);
+}
+
+.report-only-mode .record-form:has(> .record-header > .badge.saved_draft) {
+  border-left-color: var(--muted);
+}
 
 .report-supervisor-note {
   padding: 0.8rem;
@@ -6382,18 +6476,46 @@ body.report-only-mode .topbar-actions button,
   flex: 0 0 auto;
 }
 
-.report-only-mode #adminReviewWorkspace .admin-workspace-header {
-  padding: 14px 18px;
-}
-
-.report-only-mode #adminReviewWorkspace .admin-workspace-header .eyebrow,
 .report-only-mode .review-desk-heading > div:first-child {
   display: none;
 }
 
 .report-only-mode #adminReviewWorkspaceTitle {
-  margin-top: 0;
-  font-size: 1.35rem;
+  margin: 0;
+  font-size: clamp(1.05rem, 2.5vw, 1.25rem);
+}
+
+.report-only-mode #reviewQueueDetails > summary {
+  justify-content: flex-start;
+}
+
+.report-only-mode #reviewQueueDetails > summary::after {
+  margin-inline-start: auto;
+}
+
+.report-only-mode #reviewQueueDetails > summary:focus-visible {
+  outline: 2px solid var(--brand-blue);
+  outline-offset: -3px;
+}
+
+.report-only-mode #supervisorResultCount {
+  margin-inline: 0;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.report-only-mode .review-inbox {
+  grid-template-rows: minmax(0, 1fr) auto;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.report-only-mode #reviewQueueDetail > .review-detail-record-card {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
 }
 
 .report-only-mode .review-desk-heading {
@@ -6688,14 +6810,6 @@ body:not(.report-only-mode) .report-only-storage-guidance { display: none; }
     margin-bottom: 10px;
   }
 
-  .report-only-mode #adminReviewWorkspace .admin-workspace-header {
-    padding: 12px 14px;
-  }
-
-  .report-only-mode #adminReviewWorkspace .admin-workspace-header p {
-    font-size: 0.88rem;
-  }
-
   .report-only-mode .report-export-actions {
     flex: 1 1 200px;
   }
@@ -6881,6 +6995,12 @@ body:not(.report-only-mode) .report-only-storage-guidance { display: none; }
   padding: 0 12px;
 }
 
+.report-only-mode .supervisor-report-find {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
 .report-only-mode .report-workflow-shortcuts {
   display: flex;
   flex-wrap: wrap;
@@ -6965,6 +7085,7 @@ body:not(.report-only-mode) .report-only-storage-guidance { display: none; }
   .report-only-mode .report-review-layout.is-detail-open > .fold-content > .report-export-scope,
   .report-only-mode .report-review-layout.is-detail-open > .fold-content > .report-workflow-shortcuts,
   .report-only-mode .report-review-layout.is-detail-open > .fold-content > .report-filter-preference-notice,
+  .report-only-mode .report-review-layout.is-detail-open > .fold-content > .supervisor-report-find,
   .report-only-mode .report-review-layout.is-detail-open > .fold-content > .report-review-filters {
     display: none;
   }
@@ -7113,9 +7234,6 @@ body:not(.report-only-mode) #historyFilters { display: contents; }
 .report-only-mode .review-desk-heading { display: flex; margin-bottom: 8px; }
 .report-only-mode .review-desk-heading > div:first-child { display: none; }
 .report-only-mode .review-heading-actions { width: 100%; justify-content: flex-end; }
-.report-only-mode .review-inbox > .review-pane-heading .eyebrow,
-.report-only-mode .review-inbox > .review-pane-heading .review-pane-hint { display: none; }
-.report-only-mode .review-inbox > .review-pane-heading h2 { font-size: 1rem; margin: 0; }
 .report-only-mode .report-workflow-shortcuts button { min-width: 44px; padding-inline: 10px; }
 .report-only-mode .report-export-options { margin: 0 0 8px; }
 .report-only-mode .report-export-options summary { min-height: 44px; font-size: .875rem; color: var(--muted); }
@@ -7202,25 +7320,15 @@ body.report-only-mode .app-shell { overflow-x: clip; }
 
 /* Desktop scanning stays in the existing list/detail workspace. */
 @media (min-width: 1100px) {
-  .report-only-mode #adminReviewWorkspace > .admin-workspace-header {
-    padding: 4px 0 8px;
-    border: 0;
-    background: none;
-    box-shadow: none;
-  }
-  .report-only-mode #adminReviewWorkspace > .admin-workspace-header h2 { font-size: 1.15rem; }
   .report-only-mode #reviewQueueDetails { position: relative; }
   .report-only-mode #reviewQueueDetails > summary { min-height: 64px; padding-block: 8px; }
-  .report-only-mode #reviewQueueDetails > summary > span:first-child {
-    position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%);
-  }
-  .report-only-mode #supervisorResultCount { margin-left: 0; margin-right: 165px; }
+  .report-only-mode #supervisorResultCount { margin-inline-end: 165px; }
   .report-only-mode #reviewQueueDetails .review-desk-heading {
     position: absolute; top: 0; right: 48px; height: 64px; margin: 0; align-items: center;
   }
   .report-only-mode #reviewQueueDetails .review-heading-actions { width: auto; }
   .report-only-mode #supervisorFilterForm {
-    grid-template-columns: minmax(150px, 1.35fr) minmax(150px, 1.2fr) minmax(120px, 1fr) minmax(180px, .85fr) auto;
+    grid-template-columns: minmax(150px, 1.2fr) minmax(120px, 1fr) minmax(180px, .85fr) auto;
     align-items: end;
     gap: 8px;
   }
@@ -7296,6 +7404,8 @@ body.report-only-mode .app-shell { overflow-x: clip; }
 .offline-readiness ul { padding-left: 20px; margin-block: 4px; }
 .offline-readiness li { margin-block: 8px; overflow-wrap: anywhere; }
 .offline-readiness[data-state="attention"] #offlineReadinessStatus { color: var(--warning-text); }
+#workFormFeedback .receipt-action { display: block; margin-top: .6rem; min-height: 44px; }
+
 .report-submission-receipt { color: var(--muted); font-size: .875rem; line-height: 1.5; margin-block: 8px; overflow-wrap: anywhere; }
 
 /* Own submitted Report PDFs: touch targets stay separate from evidence. */

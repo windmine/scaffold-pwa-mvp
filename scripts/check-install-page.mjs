@@ -552,6 +552,9 @@ async function checkColdOfflineInstaller() {
       return { scope: result.scope, script: result.active.scriptURL };
     });
     assert.deepEqual(registration, { scope: `${origin}/`, script: `${origin}/sw.js` });
+    const optionalRequests = requests.filter(({ pathname }) =>
+      pathname.startsWith('/assets/field-tools-') || pathname === '/assets/js/app.js');
+    assert.deepEqual(optionalRequests, [], 'Default installation must not download retained field tools or duplicate source code');
     const beforeReload = requests.filter((request) => request.pathname === '/install.html').length;
     await page.reload({ waitUntil: 'load' });
     assert.ok(requests.filter((request) => request.pathname === '/install.html').length > beforeReload, 'online installer navigation must prefer the network');

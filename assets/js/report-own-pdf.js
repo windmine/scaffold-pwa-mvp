@@ -134,6 +134,8 @@ export function mountOwnReportPdfActions(container, { record, isCurrent, onSessi
         tell('This Report PDF is unavailable. Refresh My Reports and try again.');
       } else if (error?.status === 409) {
         tell('This Report PDF cannot be prepared safely. Contact your Supervisor.');
+      } else if (error?.code === 'report_pdf_evidence_unavailable') {
+        tell('A saved photo or signature could not be loaded. Try again or contact your Supervisor.');
       } else if (navigator.onLine === false) {
         tell('You are offline. Connect to download or share this Report PDF.');
       } else {
