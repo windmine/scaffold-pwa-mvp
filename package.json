@@ -59,7 +59,8 @@
   "overrides": {
     "eslint": {
       "minimatch": "11.0.3"
-    }
+    },
+    "picomatch": "npm:@ryotsu/picomatch@4.0.7-a"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

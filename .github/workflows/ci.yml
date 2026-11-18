@@ -37,6 +37,21 @@ jobs:
         run: npm ci
       - name: Audit all dependency severities
         run: npm audit --audit-level=low
+      - name: Check upstream advisories for the patched picomatch dependency
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # npm audits the fork by its published name. Its 4.0.7-a release patches
+          # GHSA-fc5q-39xc-vjpf. Remove this check with the override after an upstream fix.
+          advisories=$(gh api --method GET --paginate /advisories \
+            -f ecosystem=npm -f 'affects=picomatch@4.0.7' \
+            --jq '.[] | select(.ghsa_id != "GHSA-fc5q-39xc-vjpf") | .html_url')
+          if [[ -n "$advisories" ]]; then
+            echo "::error::Review additional upstream picomatch advisories for the pinned fork."
+            printf '%s\n' "$advisories"
+            exit 1
+          fi
       - name: Install Python runtime and test dependencies
         run: python -m pip install -r requirements.txt -r .github/requirements-test.txt
       - name: Check Python dependency compatibility
