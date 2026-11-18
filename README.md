@@ -624,6 +624,7 @@ Do not store uploaded photos or signatures in Cloud SQL. Store files in Cloud St
 - The local report-only app uses the company-neutral **ReportFlow** name/icon for every session. Department identity remains visible as account information, not product branding. Department-specific logos remain only in the retained full-interface override; the current live branding is recorded above.
 - New Staff defaults to Mutual when a global admin is viewing all Departments; an explicit Department focus takes precedence. Department supervisors remain locked to their own Department. Existing accounts, Report ownership, and saved dashboard defaults (including **All departments**) are not changed. The dormant verified-registration form also preselects Mutual when available; public registration remains hidden.
 - The signed-in header shows the user's group and highlights super-admin access.
+- The supervisor's **Staff** workspace shows current staff by default. Select **Show resigned accounts** to find or reactivate a former staff member.
 - Department supervisors see and manage only their own department data; global admins can manage all departments.
 - Global admins can focus the supervisor dashboard on one department or all departments and save either view as their dashboard default. This preference is separate from the account's home department, which continues to control ownership of newly created department records.
 

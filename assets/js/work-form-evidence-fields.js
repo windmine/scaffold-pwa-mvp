@@ -1,4 +1,5 @@
-import { escapeHtml, formatDateTime } from './utils.js';
+import { setTranslatableText } from './i18n.js';
+import { escapeHtml, formatDateTime, formatPhotoCount } from './utils.js';
 
 export function photoFieldLabel(field, fields) {
   const index = fields.findIndex((item) => item.id === field.id);
@@ -51,7 +52,7 @@ export function refreshPhotoFieldCounts(container, metadata = []) {
   container?.querySelectorAll('[data-field-photo-count]').forEach((element) => {
     const count = metadata.filter((item) => item?.field_id === element.dataset.fieldPhotoCount).length;
     element.dataset.photoCount = String(count);
-    element.textContent = `${count} photos attached here.`;
+    setTranslatableText(element, `${formatPhotoCount(count)} attached here.`);
   });
 }
 

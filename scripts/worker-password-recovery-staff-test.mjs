@@ -140,6 +140,11 @@ async function settleAction() {
 
 try {
   await prepare();
+  await page.evaluate(() => {
+    window.fixture.els.staffShowResigned.checked = true;
+    window.fixture.staff.renderFilteredStaffUsers();
+  });
+  assert.equal(await page.locator('#staffUsersList article').filter({ hasText: 'Resigned Worker' }).isVisible(), true);
   assert.equal(await page.locator('[data-password-recovery-user-id="3"]').count(), 1);
   assert.equal(await page.locator('[data-password-recovery-user-id="4"]').count(), 2);
   for (const id of [5, 6, 7, 8]) assert.equal(await page.locator(`[data-password-recovery-user-id="${id}"]`).count(), 0);

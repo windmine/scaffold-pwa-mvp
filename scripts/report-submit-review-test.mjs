@@ -158,13 +158,13 @@ async function fixture(browser, options = {}) {
       els.workFormDate.value = '2026-09-29';
       els.workFormSite.value = '9';
     }
-    window.addPhoto = async () => {
+    window.addPhoto = async (name = 'site-evidence.png') => {
       const canvas = document.createElement('canvas');
       canvas.width = 1024; canvas.height = 768;
       const drawing = canvas.getContext('2d');
       drawing.fillStyle = '#28aab6'; drawing.fillRect(0, 0, canvas.width, canvas.height);
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-      const file = new File([blob], 'site-evidence.png', { type: 'image/png', lastModified: 1790640000000 });
+      const file = new File([blob], name, { type: 'image/png', lastModified: 1790640000000 });
       window.originalPhoto = file;
       const transfer = new DataTransfer(); transfer.items.add(file);
       els.workFormPhotos.files = transfer.files;
@@ -549,8 +549,8 @@ try {
     assert.ok(summary.includes(unsafeAnswer), 'Answer text is visibly reviewable');
     assert.match(summary, /What happened\?/);
     assert.match(summary, /Area checked/);
-    assert.match(summary, /photo/i);
-    assert.match(summary, /1/);
+    const reviewPhotoCount = editing.page.locator('#workFormReviewSummary .report-photo-gallery-count');
+    assert.equal(await reviewPhotoCount.innerText(), '1 photo');
     assert.match(summary, /Worker signature/);
     assert.match(summary, /Witness signature/);
     assert.equal(await editing.page.evaluate(() => Boolean(window.answerInjected)), false, 'User answers never become executable markup');
@@ -577,6 +577,7 @@ try {
       assert.ok(layout.scroll <= layout.width, `${width}px/${language}/${theme}: review must not overflow horizontally (${layout.scroll}/${layout.width})`);
       assert.equal(await editing.page.locator('#confirmWorkFormSubmitButton').isVisible(), true);
       if (language === 'zh') assert.match(await editing.page.locator('#confirmWorkFormSubmitButton').innerText(), /[\u3400-\u9fff]/);
+      assert.equal(await reviewPhotoCount.innerText(), language === 'zh' ? '1 张照片' : '1 photo');
       await editing.page.screenshot({ path: path.join(output, `review-${width}-${language}-${theme}.png`), fullPage: true, animations: 'disabled' });
     }
     await editing.page.evaluate(async () => (await import('/assets/js/i18n.js')).setLanguage('en'));
@@ -594,7 +595,9 @@ try {
     await fill(editing.page, 'Corrected: fitting secured and walkway clear.');
     await editing.page.locator('#workFormDate').fill('2026-09-28');
     await editing.page.locator('#workFormSite').selectOption('');
+    await editing.page.evaluate(() => window.addPhoto('follow-up.png'));
     await review(editing.page);
+    assert.equal(await reviewPhotoCount.innerText(), '2 photos');
     const corrected = await editing.page.locator('#workFormReviewSummary').innerText();
     assert.match(corrected, /Corrected: fitting secured/);
     assert.ok(!corrected.includes(unsafeAnswer), 'Returning to review builds the updated snapshot');
@@ -610,7 +613,7 @@ try {
     const submissionDeadline = Date.now() + 15000;
     while (!editing.traffic.posts.length && Date.now() < submissionDeadline) await new Promise((resolve) => setTimeout(resolve, 20));
     assert.equal(editing.traffic.posts.length, 1, 'Repeated confirmation cannot create duplicate Reports');
-    assert.equal(editing.traffic.uploads.length, 2, 'Only the original photo and provided signature are uploaded');
+    assert.equal(editing.traffic.uploads.length, 3, 'Both reviewed photos and the provided signature are uploaded');
     assert.equal(editing.traffic.posts[0].answers.notes, 'Corrected: fitting secured and walkway clear.');
     assert.equal(editing.traffic.posts[0].work_date, '2026-09-28');
     assert.equal(editing.traffic.posts[0].site_id, null);

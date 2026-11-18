@@ -9,7 +9,7 @@ import {
   loadWorkerAttendanceSnapshot,
   saveWorkerAttendanceSnapshot
 } from './offline-attendance-snapshot.js';
-import { dateInputValue, formatDateTime, todayDateInput, escapeHtml } from './utils.js';
+import { dateInputValue, formatDateTime, formatPhotoCount, todayDateInput, escapeHtml } from './utils.js';
 import { formatWorkFormAnswer, localAnswerImageSources } from './work-form-fields.js';
 import { setDateInputValue } from './date-inputs.js';
 import { setTranslatableText } from './i18n.js';
@@ -959,7 +959,7 @@ export function createHistoryModule({
     badge.title = `Report status: ${reportSubmissionState(record).label}`;
     const summary = node.querySelector('.record-detail');
     summary.classList.add('record-report-summary');
-    setTranslatableText(summary, `${recordPhotoCount(record)} photos`);
+    setTranslatableText(summary, formatPhotoCount(recordPhotoCount(record)));
 
     const cueText = reportSubmissionState(record).key === 'submitted'
       ? '' : reportSubmissionReceipt(record);

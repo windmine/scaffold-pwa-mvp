@@ -15,12 +15,14 @@ const supervisor = { ...baseUser, id: 303, name: 'Review fixture', email: 'revie
 const admin = { ...supervisor, id: 304, name: 'Admin fixture', email: 'admin@example.invalid', is_global_admin: true };
 const invited = { ...normal, id: 305, name: 'Invited fixture', email: 'invited@example.invalid', password_setup_required: true,
   invitation_status: 'pending', invitation_expires_at: '2026-12-01T12:00:00Z' };
+const resigned = { ...normal, id: 306, name: 'Former worker', email: 'former-worker@example.invalid', status: 'resigned' };
+const resignedSupervisor = { ...supervisor, id: 307, name: 'Former supervisor', email: 'former-supervisor@example.invalid', status: 'resigned' };
 const template = { id: 401, department_id: 2, name: 'Inspection', status: 'active', template_purpose: 'report',
   definition_version: 1, fields: [{ id: 'notes', label: 'Notes', type: 'textarea', required: true }] };
 
 async function fixture(browser, { user = admin, reportOnly = true } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 960 }, serviceWorkers: 'block' });
-  const users = structuredClone([normal, leader, supervisor, admin, invited]);
+  const users = structuredClone([normal, leader, supervisor, admin, invited, resigned, resignedSupervisor]);
   const mutations = [], errors = [], unexpected = [];
   await context.addInitScript((mode) => {
     window.__REPORT_ONLY_MODE_OVERRIDE__ = mode;
@@ -332,6 +334,9 @@ try {
     for (const width of [320, 390]) for (const [language, theme] of [['en', 'light'], ['zh', 'dark']]) {
       await page.setViewportSize({ width, height: 844 });
       await presentation(page, language, theme);
+      assert.equal(await page.getByRole('checkbox', {
+        name: language === 'zh' ? '显示已离职账号' : 'Show resigned accounts'
+      }).isVisible(), true);
       await page.locator('#addStaffUserButton').click();
       await assertSimpleCreation(page);
       assert.equal(await page.locator('#staffDepartmentSelect').isVisible(), true);
@@ -350,6 +355,41 @@ try {
 
   const department = await fixture(browser, { user: supervisor });
   try {
+    const { page } = department;
+    await page.setViewportSize({ width: 390, height: 844 });
+    const showResigned = page.getByRole('checkbox', { name: 'Show resigned accounts' });
+    const findUser = page.locator('#staffSearchInput');
+    const staffCount = page.locator('#staffUsersCount');
+    assert.equal(await card(page, resigned).count(), 0, 'Resigned Worker is hidden on first open');
+    assert.equal(await card(page, resignedSupervisor).count(), 0, 'Resigned Supervisor is hidden on first open');
+    assert.equal(await showResigned.isChecked(), false);
+    assert.equal(await card(page, invited).isVisible(), true, 'Active invitations remain visible');
+    assert.equal(await staffCount.innerText(), '4');
+    await findUser.fill(resigned.email);
+    assert.equal(await card(page, resigned).count(), 0, 'Search respects the default filter');
+    assert.equal(await staffCount.innerText(), '0/4');
+    await showResigned.check();
+    await findUser.press('Enter');
+    assert.equal(await card(page, resigned).getByRole('button', { name: 'Reactivate' }).isVisible(), true);
+    assert.equal(await staffCount.innerText(), '1/6');
+    await findUser.fill('');
+    assert.equal(await card(page, resignedSupervisor).isVisible(), true);
+    assert.equal(await card(page, admin).count(), 0, 'Including resigned accounts preserves authorized scope');
+    assert.equal(await staffCount.innerText(), '6');
+    await showResigned.uncheck();
+    assert.equal(await card(page, resigned).count(), 0);
+    assert.equal(await card(page, resignedSupervisor).count(), 0);
+    assert.equal(await staffCount.innerText(), '4');
+    await showResigned.check();
+    await page.reload();
+    await page.waitForFunction(() => document.body.dataset.activeView === 'supervisor');
+    await openStaff(page);
+    await card(page, normal).waitFor();
+    assert.equal(await showResigned.isChecked(), false, 'A fresh Staff view starts with resigned accounts hidden');
+    assert.equal(await card(page, resigned).count(), 0);
+    assert.equal(department.mutations.length, 0);
+    pass('Staff hides resigned accounts by default and supports explicit inclusion, search and reactivation on mobile');
+
     await department.page.locator('#addStaffUserButton').click();
     await assertSimpleCreation(department.page);
     assert.equal(await department.page.locator('#staffGlobalAdminInput').isVisible(), false);

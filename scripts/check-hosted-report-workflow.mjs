@@ -382,7 +382,8 @@ export async function assertRenderedEvidence(container, expectedCount = 2) {
       'rendered_evidence_images_missing');
   }
   if (compact) {
-    requireCondition(await gallery.locator('.report-photo-gallery-count').textContent() === `${photoCount} photos`,
+    const expectedLabel = photoCount === 1 ? '1 photo' : `${photoCount} photos`;
+    requireCondition(await gallery.locator('.report-photo-gallery-count').textContent() === expectedLabel,
       'compact_gallery_total_mismatch');
     requireCondition(await gallery.locator('.report-photo-gallery-open').count() === (photoCount > 6 ? 1 : 0),
       'compact_gallery_disclosure_mismatch');

@@ -180,19 +180,25 @@ try {
   await history.locator('.record-signatures .photo-thumb').click();
   assert.equal((await lastOpen()).sources.length, 1);
   assert.notEqual((await lastOpen()).options?.reportGallery, true, 'Signatures must retain the normal viewer mode');
-  for (const count of [0, 1, 6, 7, 50]) {
+  for (const count of [0, 1, 2, 6, 7, 50]) {
     const surface = await render({ count, surface: 'supervisor' });
     assert.equal(await surface.locator('.report-photo-gallery').count(), count ? 1 : 0);
     assert.equal(await surface.locator('.record-photos .photo-thumb').count(), Math.min(count, 6));
     assert.equal(await surface.locator('.report-photo-gallery-open').count(), count > 6 ? 1 : 0);
     assert.equal(await surface.locator('.record-signatures img').count(), 1);
     if (count) {
-      assert.match(await surface.locator('.report-photo-gallery').textContent(), new RegExp(`\\b${count} photo`));
+      const caption = surface.locator('.report-photo-gallery-count');
+      assert.equal(await caption.innerText(), count === 1 ? '1 photo' : `${count} photos`);
+      if (count <= 2) {
+        await page.evaluate(async () => (await import('/assets/js/i18n.js')).setLanguage('zh'));
+        assert.equal(await caption.innerText(), `${count} 张照片`);
+        await page.evaluate(async () => (await import('/assets/js/i18n.js')).setLanguage('en'));
+      }
       const labels = await surface.locator('.record-photos .photo-thumb').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label')));
       assert.equal(labels.every((label, index) => label?.includes(String(index + 1))), true);
     }
   }
-  console.log('ok - zero/one/six/seven/fifty Supervisor photos use correct counts, capped thumbnails, numbered names and unchanged signatures');
+  console.log('ok - Supervisor photo counts use exact singular and plural captions, capped thumbnails and numbered names');
 
   await page.evaluate(async () => {
     const { fixture } = window;

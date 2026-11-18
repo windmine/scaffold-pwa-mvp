@@ -372,6 +372,7 @@ export const els = {
   siteSearchInput: document.getElementById('siteSearchInput'),
   supervisorSitesList: document.getElementById('supervisorSitesList'),
   staffSearchInput: document.getElementById('staffSearchInput'),
+  staffShowResigned: document.getElementById('staffShowResigned'),
   addWorkFormButton: document.getElementById('addWorkFormButton'),
   workFormSearchInput: document.getElementById('workFormSearchInput'),
   workFormStatusFilter: document.getElementById('workFormStatusFilter'),

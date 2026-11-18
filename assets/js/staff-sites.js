@@ -594,6 +594,7 @@ export function createStaffSitesModule({
     resetWorkFormCreate();
     if (els.workFormDraftPreview) els.workFormDraftPreview.innerHTML = '';
     els.staffSearchInput.value = '';
+    els.staffShowResigned.checked = false;
     els.siteSearchInput.value = '';
     state.staffUsers = [];
     state.workForms = [];
@@ -745,10 +746,12 @@ export function createStaffSitesModule({
   function renderFilteredStaffUsers() {
     syncPrivateLinkScope();
     const query = els.staffSearchInput.value.trim().toLowerCase();
-    const departmentUsers = state.staffUsers
+    const showResigned = els.staffShowResigned.checked;
+    const listedStaff = state.staffUsers
       .filter((user) => state.user?.isGlobalAdmin || !(user.is_global_admin || user.isGlobalAdmin))
-      .filter(matchesDepartmentFocus);
-    const users = departmentUsers.filter((user) => {
+      .filter(matchesDepartmentFocus)
+      .filter((user) => showResigned || user.status !== 'resigned');
+    const users = listedStaff.filter((user) => {
       const text = [
         user.id,
         user.name,
@@ -766,10 +769,10 @@ export function createStaffSitesModule({
       return !query || text.includes(query);
     });
     els.staffUsersList.innerHTML = '';
-    els.staffUsersCount.textContent = query ? `${users.length}/${departmentUsers.length}` : String(departmentUsers.length);
+    els.staffUsersCount.textContent = query ? `${users.length}/${listedStaff.length}` : String(listedStaff.length);
 
     if (!users.length) {
-      els.staffUsersList.innerHTML = '<div class="empty-state">No users found yet.</div>';
+      els.staffUsersList.innerHTML = '<div class="empty-state">No matching staff.</div>';
       return;
     }
 
@@ -1918,6 +1921,7 @@ export function createStaffSitesModule({
     });
     els.siteSearchInput.addEventListener('input', renderSupervisorSites);
     els.staffSearchInput.addEventListener('input', renderFilteredStaffUsers);
+    els.staffShowResigned.addEventListener('change', renderFilteredStaffUsers);
     els.staffRoleSelect.addEventListener('change', syncStaffCreateRoleControls);
   }
 

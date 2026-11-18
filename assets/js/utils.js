@@ -74,6 +74,10 @@ export function roundCoordinate(value, decimalPlaces = 6) {
   return Number(coordinate.toFixed(decimalPlaces));
 }
 
+export function formatPhotoCount(count) {
+  return count === 1 ? '1 photo' : `${count} photos`;
+}
+
 export function formatPhotoTakenLabel(file) {
   if (!file?.lastModified) return '';
 

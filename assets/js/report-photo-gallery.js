@@ -1,5 +1,5 @@
 import { setTranslatableAttribute, setTranslatableText } from './i18n.js';
-import { formatDateTime } from './utils.js';
+import { formatDateTime, formatPhotoCount } from './utils.js';
 
 const PREVIEW_LIMIT = 6;
 
@@ -16,7 +16,7 @@ export function mountReportPhotoGallery(container, { sources, metadata = [], tit
   header.className = 'report-photo-gallery-header';
   const count = document.createElement('p');
   count.className = 'report-photo-gallery-count';
-  setTranslatableText(count, `${originals.length} photos`);
+  setTranslatableText(count, formatPhotoCount(originals.length));
   header.append(count);
   if (originals.length > PREVIEW_LIMIT) {
     const viewAll = document.createElement('button');

@@ -6149,6 +6149,7 @@ html[data-theme="dark"] .site-map-picker.leaflet-container {
   }
 
   .filter-bar label:first-child,
+  .staff-users-card .filter-bar .checkbox-field,
   .filter-bar button {
     grid-column: 1 / -1;
   }

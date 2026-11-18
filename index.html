@@ -1521,12 +1521,16 @@
             </summary>
             <div class="fold-content">
               <div class="admin-list-toolbar">
-                <form class="filter-bar compact-filter">
+                <div class="filter-bar compact-filter" role="search">
                   <label>
                     Find user
                     <input id="staffSearchInput" type="search" placeholder="Name, email, role, status" />
                   </label>
-                </form>
+                  <label class="checkbox-field">
+                    <input id="staffShowResigned" type="checkbox" aria-controls="staffUsersList" autocomplete="off" />
+                    <span>Show resigned accounts</span>
+                  </label>
+                </div>
                 <button
                   id="addStaffUserButton"
                   type="button"
