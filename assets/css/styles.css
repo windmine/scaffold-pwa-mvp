@@ -1698,6 +1698,14 @@ textarea {
   cursor: pointer;
 }
 
+#staffShowResigned {
+  -webkit-appearance: auto;
+  appearance: auto;
+  margin: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
 .form-checkbox-field {
   min-height: 58px;
   position: relative;

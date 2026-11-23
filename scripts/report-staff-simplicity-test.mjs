@@ -20,8 +20,8 @@ const resignedSupervisor = { ...supervisor, id: 307, name: 'Former supervisor', 
 const template = { id: 401, department_id: 2, name: 'Inspection', status: 'active', template_purpose: 'report',
   definition_version: 1, fields: [{ id: 'notes', label: 'Notes', type: 'textarea', required: true }] };
 
-async function fixture(browser, { user = admin, reportOnly = true } = {}) {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 960 }, serviceWorkers: 'block' });
+async function fixture(browser, { user = admin, reportOnly = true, hasTouch = false } = {}) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 960 }, serviceWorkers: 'block', hasTouch });
   const users = structuredClone([normal, leader, supervisor, admin, invited, resigned, resignedSupervisor]);
   const mutations = [], errors = [], unexpected = [];
   await context.addInitScript((mode) => {
@@ -353,9 +353,34 @@ try {
     pass('320/390px English-light and Chinese-dark create/edit layouts remain usable and translated');
   } finally { await f.close(); }
 
-  const department = await fixture(browser, { user: supervisor });
+  const department = await fixture(browser, { user: supervisor, hasTouch: true });
   try {
     const { page } = department;
+    for (const [width, language, theme] of [[1280, 'en', 'light'], [390, 'en', 'dark'], [320, 'zh', 'light']]) {
+      await page.setViewportSize({ width, height: 844 });
+      await presentation(page, language, theme);
+      const name = language === 'zh' ? '显示已离职账号' : 'Show resigned accounts';
+      const checkbox = page.getByRole('checkbox', { name, exact: true });
+      const label = page.getByText(name, { exact: true });
+      const search = page.locator('#staffSearchInput');
+      await search.focus();
+      const empty = await checkbox.screenshot({ animations: 'disabled' });
+      await label.tap();
+      assert.equal(await checkbox.isChecked(), true, 'Tapping the label checks the box');
+      assert.equal(await card(page, resigned).isVisible(), true);
+      await search.focus();
+      const ticked = await checkbox.screenshot({ animations: 'disabled' });
+      assert.ok(!empty.equals(ticked), `${width}px/${theme}: checked and unchecked boxes must look different`);
+      const box = await checkbox.boundingBox();
+      assert.ok(box.width >= 16 && box.width <= 32 && Math.abs(box.width - box.height) <= 1,
+        `${width}px/${theme}: the checkbox must be a compact square (${box.width} × ${box.height})`);
+      await search.press('Tab');
+      assert.equal(await checkbox.evaluate((node) => node === document.activeElement), true);
+      await page.keyboard.press('Space');
+      assert.equal(await checkbox.isChecked(), false, 'Space unchecks the focused box');
+      assert.equal(await card(page, resigned).count(), 0);
+    }
+    await presentation(page, 'en', 'light');
     await page.setViewportSize({ width: 390, height: 844 });
     const showResigned = page.getByRole('checkbox', { name: 'Show resigned accounts' });
     const findUser = page.locator('#staffSearchInput');
