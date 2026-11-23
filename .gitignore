@@ -15,7 +15,9 @@ node_modules
 dist
 dist-ssr
 *.local
-/output/browser-checks/
+# Local test output, release artifacts and Firebase Hosting caches
+/output/
+/.firebase/hosting.*.cache
 
 # Backend runtime data
 __pycache__/
